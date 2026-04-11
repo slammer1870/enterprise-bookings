@@ -4,12 +4,10 @@ import { getPayload } from '@/lib/payload'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
+import { getPayloadTenantIdFromRequest, getTenantSlugFromRequest } from '@/utilities/tenantRequest'
 
 function parsePayloadTenantId(request: NextRequest): number | null {
-  const raw = request.cookies.get('payload-tenant')?.value
-  if (!raw || !/^\d+$/.test(raw)) return null
-  const id = parseInt(raw, 10)
-  return Number.isFinite(id) ? id : null
+  return getPayloadTenantIdFromRequest({ cookies: request.cookies })
 }
 
 async function resolveRequestedTenantId(args: {
@@ -18,12 +16,9 @@ async function resolveRequestedTenantId(args: {
 }): Promise<number | null> {
   const { payload, request } = args
 
-  const fromPayloadCookie = parsePayloadTenantId(request)
-  if (fromPayloadCookie) return fromPayloadCookie
-
   // Fallback: first-load of `/admin/login` on a tenant host may not yet have `payload-tenant`.
   // Use the host-scoped `tenant-slug` cookie (set by middleware) to resolve the tenant id.
-  const tenantSlug = request.cookies.get('tenant-slug')?.value?.trim().toLowerCase()
+  const tenantSlug = getTenantSlugFromRequest({ cookies: request.cookies, headers: request.headers })?.toLowerCase()
   if (!tenantSlug || !/^[a-z0-9-]+$/.test(tenantSlug)) return null
 
   const result = await payload
@@ -42,7 +37,8 @@ async function resolveRequestedTenantId(args: {
   const id = tenant?.id
   if (typeof id === 'number' && Number.isFinite(id)) return id
   if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
-  return null
+
+  return parsePayloadTenantId(request)
 }
 
 async function resolveTenantIdsForUser(args: {
@@ -66,8 +62,8 @@ async function resolveTenantIdsForUser(args: {
       id,
       depth: 2,
       overrideAccess: true,
-      // Keep this tight; we only need tenant relationships + roles.
-      select: { id: true, roles: true, tenants: true },
+      // Keep this tight; we only need tenant relationships + role.
+      select: { id: true, role: true, tenants: true },
     })
     .catch(() => null)
 
@@ -95,13 +91,12 @@ export async function GET(request: NextRequest) {
   }
 
   const sharedUser = user as unknown as SharedUser
-  const isAdmin = checkRole(['admin'], sharedUser)
-  if (isAdmin) {
+  if (checkRole(['super-admin'], sharedUser)) {
     return new NextResponse(null, { status: 204 })
   }
 
-  const isTenantAdmin = checkRole(['tenant-admin'], sharedUser)
-  if (!isTenantAdmin) {
+  const isTenantPortalUser = checkRole(['admin', 'staff'], sharedUser)
+  if (!isTenantPortalUser) {
     // Non-admin users should not be in the Payload admin UI at all.
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }

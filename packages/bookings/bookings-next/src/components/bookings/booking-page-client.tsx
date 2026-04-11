@@ -1,46 +1,46 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 import { BookingSummary } from './booking-summary'
 import { QuantitySelector } from './quantity-selector'
 import { BookingForm } from './booking-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 
 interface BookingPageClientProps {
-  lesson: Lesson
+  timeslot: Timeslot
   onSuccessRedirect?: string
 }
 
 export const BookingPageClient: React.FC<BookingPageClientProps> = ({
-  lesson,
+  timeslot,
   onSuccessRedirect,
 }) => {
   const [quantity, setQuantity] = useState<number>(1)
 
-  const maxQuantity = Math.max(1, lesson.remainingCapacity || 1)
+  const maxQuantity = Math.max(1, timeslot.remainingCapacity || 1)
 
   return (
     <div className="space-y-6">
-      <BookingSummary lesson={lesson} />
+      <BookingSummary timeslot={timeslot} />
 
       <Card>
         <CardHeader>
           <CardTitle>Select Quantity</CardTitle>
           <CardDescription>
-            Choose how many slots you would like to book for this lesson
+            Choose how many slots you would like to book for this timeslot
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <QuantitySelector
-            lesson={lesson}
+            timeslot={timeslot}
             quantity={quantity}
             onQuantityChange={setQuantity}
           />
 
           {quantity >= 1 && quantity <= maxQuantity && (
             <BookingForm
-              lesson={lesson}
+              timeslot={timeslot}
               quantity={quantity}
               onSuccessRedirect={onSuccessRedirect}
             />

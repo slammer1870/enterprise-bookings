@@ -35,7 +35,6 @@ function getStripePromise(stripeAccountId?: string | null) {
 }
 
 type ClassPassPurchaseFormProps = {
-  tenantSlug: string
   defaultQuantity?: number
 }
 
@@ -86,10 +85,7 @@ function PaymentStep({ onBack }: { clientSecret: string; onBack: () => void }) {
   )
 }
 
-export function ClassPassPurchaseForm({
-  tenantSlug,
-  defaultQuantity = 1,
-}: ClassPassPurchaseFormProps) {
+export function ClassPassPurchaseForm({ defaultQuantity = 1 }: ClassPassPurchaseFormProps) {
   const [quantity, setQuantity] = useState(defaultQuantity)
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null)
@@ -104,7 +100,7 @@ export function ClassPassPurchaseForm({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ quantity, tenantSlug }),
+        body: JSON.stringify({ quantity }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {

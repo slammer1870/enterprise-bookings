@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
-import type { Tenant, ClassOption } from '@repo/shared-types'
+import type { Tenant, EventType } from '@repo/shared-types'
 
 const HOOK_TIMEOUT = 300000 // 5 minutes
 const TEST_TIMEOUT = 60000 // 60 seconds
@@ -114,8 +114,8 @@ describe('Tenant Page Filtering', () => {
       
       // Use class options instead of pages to test tenant filtering
       // (Pages require complex layout structures that are hard to create in tests)
-      const tenant1ClassOption = (await payload.create({
-        collection: 'class-options',
+      const tenant1EventType = (await payload.create({
+        collection: 'event-types',
         data: {
           name: 'Tenant 1 Class',
           places: 10,
@@ -123,10 +123,10 @@ describe('Tenant Page Filtering', () => {
           tenant: verifyTenant1.id,
         },
         overrideAccess: true,
-      })) as ClassOption
+      })) as EventType
 
-      const tenant2ClassOption = (await payload.create({
-        collection: 'class-options',
+      const tenant2EventType = (await payload.create({
+        collection: 'event-types',
         data: {
           name: 'Tenant 2 Class',
           places: 10,
@@ -134,11 +134,11 @@ describe('Tenant Page Filtering', () => {
           tenant: verifyTenant2.id,
         },
         overrideAccess: true,
-      })) as ClassOption
+      })) as EventType
 
       // Query class options with tenant1 context
-      const tenant1ClassOptions = await payload.find({
-        collection: 'class-options',
+      const tenant1EventTypes = await payload.find({
+        collection: 'event-types',
         where: {
           and: [
             {
@@ -148,7 +148,7 @@ describe('Tenant Page Filtering', () => {
             },
             {
               id: {
-                equals: tenant1ClassOption.id,
+                equals: tenant1EventType.id,
               },
             },
           ],
@@ -156,14 +156,14 @@ describe('Tenant Page Filtering', () => {
         overrideAccess: true,
       })
 
-      expect(tenant1ClassOptions.docs.length).toBe(1)
-      expect(tenant1ClassOptions.docs[0]?.id).toBe(tenant1ClassOption.id)
-      const t1 = tenant1ClassOptions.docs[0]?.tenant
+      expect(tenant1EventTypes.docs.length).toBe(1)
+      expect(tenant1EventTypes.docs[0]?.id).toBe(tenant1EventType.id)
+      const t1 = tenant1EventTypes.docs[0]?.tenant
       expect(t1 && (typeof t1 === 'object' && t1 !== null && 'id' in t1 ? t1.id : t1)).toBe(verifyTenant1.id)
 
       // Query class options with tenant2 context
-      const tenant2ClassOptions = await payload.find({
-        collection: 'class-options',
+      const tenant2EventTypes = await payload.find({
+        collection: 'event-types',
         where: {
           and: [
             {
@@ -173,7 +173,7 @@ describe('Tenant Page Filtering', () => {
             },
             {
               id: {
-                equals: tenant2ClassOption.id,
+                equals: tenant2EventType.id,
               },
             },
           ],
@@ -181,14 +181,14 @@ describe('Tenant Page Filtering', () => {
         overrideAccess: true,
       })
 
-      expect(tenant2ClassOptions.docs.length).toBe(1)
-      expect(tenant2ClassOptions.docs[0]?.id).toBe(tenant2ClassOption.id)
-      const t2 = tenant2ClassOptions.docs[0]?.tenant
+      expect(tenant2EventTypes.docs.length).toBe(1)
+      expect(tenant2EventTypes.docs[0]?.id).toBe(tenant2EventType.id)
+      const t2 = tenant2EventTypes.docs[0]?.tenant
       expect(t2 && (typeof t2 === 'object' && t2 !== null && 'id' in t2 ? t2.id : t2)).toBe(verifyTenant2.id)
 
       // Verify tenant1 cannot see tenant2's class option
       const crossTenantQuery = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             {
@@ -198,7 +198,7 @@ describe('Tenant Page Filtering', () => {
             },
             {
               id: {
-                equals: tenant2ClassOption.id,
+                equals: tenant2EventType.id,
               },
             },
           ],
@@ -237,8 +237,8 @@ describe('Tenant Page Filtering', () => {
       const name1 = `shared-name-t1-${ts}`
       const name2 = `shared-name-t2-${ts}`
 
-      const tenant1ClassOption = (await payload.create({
-        collection: 'class-options',
+      const tenant1EventType = (await payload.create({
+        collection: 'event-types',
         data: {
           name: name1,
           places: 10,
@@ -246,10 +246,10 @@ describe('Tenant Page Filtering', () => {
           tenant: verifyTenant1.id,
         },
         overrideAccess: true,
-      })) as ClassOption
+      })) as EventType
 
-      const tenant2ClassOption = (await payload.create({
-        collection: 'class-options',
+      const tenant2EventType = (await payload.create({
+        collection: 'event-types',
         data: {
           name: name2,
           places: 10,
@@ -257,11 +257,11 @@ describe('Tenant Page Filtering', () => {
           tenant: verifyTenant2.id,
         },
         overrideAccess: true,
-      })) as ClassOption
+      })) as EventType
 
       // Query with tenant1 context - should only get tenant1's class option
       const tenant1Result = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             { name: { equals: name1 } },
@@ -272,11 +272,11 @@ describe('Tenant Page Filtering', () => {
       })
 
       expect(tenant1Result.docs.length).toBe(1)
-      expect(tenant1Result.docs[0]?.id).toBe(tenant1ClassOption.id)
+      expect(tenant1Result.docs[0]?.id).toBe(tenant1EventType.id)
 
       // Query with tenant2 context - should only get tenant2's class option
       const tenant2Result = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: {
           and: [
             { name: { equals: name2 } },
@@ -287,7 +287,7 @@ describe('Tenant Page Filtering', () => {
       })
 
       expect(tenant2Result.docs.length).toBe(1)
-      expect(tenant2Result.docs[0]?.id).toBe(tenant2ClassOption.id)
+      expect(tenant2Result.docs[0]?.id).toBe(tenant2EventType.id)
     },
     TEST_TIMEOUT,
   )
@@ -315,8 +315,8 @@ describe('Tenant Page Filtering', () => {
       
       // Verify that data created for each tenant is isolated
       // Use class options as they're simpler to create than pages
-      const tenant1ClassOptions = await payload.find({
-        collection: 'class-options',
+      const tenant1EventTypes = await payload.find({
+        collection: 'event-types',
         where: {
           tenant: {
             equals: verifyTenant1.id,
@@ -325,8 +325,8 @@ describe('Tenant Page Filtering', () => {
         overrideAccess: true,
       })
 
-      const tenant2ClassOptions = await payload.find({
-        collection: 'class-options',
+      const tenant2EventTypes = await payload.find({
+        collection: 'event-types',
         where: {
           tenant: {
             equals: verifyTenant2.id,
@@ -337,9 +337,9 @@ describe('Tenant Page Filtering', () => {
 
       // Both tenants should have some data (from onboarding or test creation)
       // If onboarding failed, create test data
-      if (tenant1ClassOptions.docs.length === 0) {
+      if (tenant1EventTypes.docs.length === 0) {
         await payload.create({
-          collection: 'class-options',
+          collection: 'event-types',
           data: {
             name: 'Test Class 1',
             places: 10,
@@ -350,7 +350,7 @@ describe('Tenant Page Filtering', () => {
         })
         // Re-query
         const updated = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: {
             tenant: {
               equals: verifyTenant1.id,
@@ -358,12 +358,12 @@ describe('Tenant Page Filtering', () => {
           },
           overrideAccess: true,
         })
-        tenant1ClassOptions.docs = updated.docs
+        tenant1EventTypes.docs = updated.docs
       }
       
-      if (tenant2ClassOptions.docs.length === 0) {
+      if (tenant2EventTypes.docs.length === 0) {
         await payload.create({
-          collection: 'class-options',
+          collection: 'event-types',
           data: {
             name: 'Test Class 2',
             places: 10,
@@ -374,7 +374,7 @@ describe('Tenant Page Filtering', () => {
         })
         // Re-query
         const updated = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: {
             tenant: {
               equals: verifyTenant2.id,
@@ -382,26 +382,26 @@ describe('Tenant Page Filtering', () => {
           },
           overrideAccess: true,
         })
-        tenant2ClassOptions.docs = updated.docs
+        tenant2EventTypes.docs = updated.docs
       }
       
-      expect(tenant1ClassOptions.docs.length).toBeGreaterThan(0)
-      expect(tenant2ClassOptions.docs.length).toBeGreaterThan(0)
+      expect(tenant1EventTypes.docs.length).toBeGreaterThan(0)
+      expect(tenant2EventTypes.docs.length).toBeGreaterThan(0)
 
       // Verify they are different (different tenant IDs)
-      const tenant1Ids = tenant1ClassOptions.docs.map((co: ClassOption) => co.id)
-      const tenant2Ids = tenant2ClassOptions.docs.map((co: ClassOption) => co.id)
+      const tenant1Ids = tenant1EventTypes.docs.map((co: EventType) => co.id)
+      const tenant2Ids = tenant2EventTypes.docs.map((co: EventType) => co.id)
       
       // No overlap between tenant class options
       const overlap = tenant1Ids.filter(id => tenant2Ids.includes(id))
       expect(overlap.length).toBe(0)
 
       // Verify all class options have correct tenant assignment (tenant may be id or {id})
-      for (const co of tenant1ClassOptions.docs as ClassOption[]) {
+      for (const co of tenant1EventTypes.docs as EventType[]) {
         const t = co.tenant
         expect(t && (typeof t === 'object' && t !== null && 'id' in t ? t.id : t)).toBe(verifyTenant1.id)
       }
-      for (const co of tenant2ClassOptions.docs as ClassOption[]) {
+      for (const co of tenant2EventTypes.docs as EventType[]) {
         const t = co.tenant
         expect(t && (typeof t === 'object' && t !== null && 'id' in t ? t.id : t)).toBe(verifyTenant2.id)
       }

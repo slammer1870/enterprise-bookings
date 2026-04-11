@@ -19,17 +19,17 @@ import {
 
 import { cn } from '@repo/ui/lib/utils'
 
-export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
+export const ChildrensBookingForm = ({ timeslotId }: { timeslotId: number }) => {
   const trpc = useTRPC()
   const queryClient = useQueryClient()
 
   const { data: bookedChildren } = useSuspenseQuery(
-    trpc.bookings.getChildrensBookings.queryOptions({ id: lessonId }),
+    trpc.bookings.getChildrensBookings.queryOptions({ id: timeslotId }),
   )
 
   const { data: canBookChild } = useSuspenseQuery(
     trpc.bookings.canBookChild.queryOptions({
-      id: lessonId,
+      id: timeslotId,
     }),
   )
 
@@ -37,13 +37,13 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
     trpc.bookings.createChildBooking.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: lessonId }),
+          queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: timeslotId }),
         })
         queryClient.invalidateQueries({
-          queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
+          queryKey: trpc.bookings.canBookChild.queryKey({ id: timeslotId }),
         })
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
+          queryKey: trpc.timeslots.getByIdForChildren.queryKey({ id: timeslotId }),
         })
       },
     }),
@@ -61,17 +61,17 @@ export const ChildrensBookingForm = ({ lessonId }: { lessonId: number }) => {
       <CardContent className="flex flex-col gap-2">
         {canBookChild ? (
           <SelectChildren
-            lessonId={lessonId}
+            timeslotId={timeslotId}
             bookedChildren={
               Array.isArray(bookedChildren) ? bookedChildren.map((booking: any) => booking.user) : []
             }
-            bookChild={(data: { lessonId: number; childId: number; status?: 'confirmed' | 'pending' }) => {
-              bookChild({ lessonId: data.lessonId, childId: data.childId, status: 'confirmed' as const })
+            bookChild={(data: { timeslotId: number; childId: number; status?: 'confirmed' | 'pending' }) => {
+              bookChild({ timeslotId: data.timeslotId, childId: data.childId, status: 'confirmed' as const })
             }}
             isBooking={isBooking}
           />
         ) : (
-          <p className="text-sm text-red-500">You cannot book more children for this lesson.</p>
+          <p className="text-sm text-red-500">You cannot book more children for this timeslot.</p>
         )}
       </CardContent>
       <CardFooter>

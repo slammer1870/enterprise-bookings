@@ -8,7 +8,7 @@ import { Button } from "@repo/ui/components/ui/button";
 
 import { useConfirm } from "@repo/ui/components/ui/use-confirm";
 
-import { Lesson } from "@repo/shared-types";
+import { Timeslot } from "@repo/shared-types";
 
 import { useSchedule } from "../../../providers/schedule";
 
@@ -24,14 +24,14 @@ type ButtonVariant =
   | null
   | undefined;
 
-export default function CheckInButton({ lesson }: { lesson: Lesson }) {
+export default function CheckInButton({ timeslot }: { timeslot: Timeslot }) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(false);
 
   const { checkIn, cancelBooking, joinWaitlist } = useSchedule();
 
-  const status = lesson.bookingStatus;
+  const status = timeslot.bookingStatus;
 
   const [ConfirmationDialog, confirm] = useConfirm(
     "Are you sure you want to cancel your booking?",
@@ -52,19 +52,19 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     if (!user) {
       toast.info("Please sign in to continue");
       setLoading(false);
-      if (lesson.bookingStatus === 'trialable') {
-        return router.push(`/auth/sign-up?callbackUrl=/bookings/${lesson.id}`, {
+      if (timeslot.bookingStatus === 'trialable') {
+        return router.push(`/auth/sign-up?callbackUrl=/bookings/${timeslot.id}`, {
           scroll: false,
         });
       }
-      return router.push(`/auth/sign-in?callbackUrl=/bookings/${lesson.id}`, {
+      return router.push(`/auth/sign-in?callbackUrl=/bookings/${timeslot.id}`, {
         scroll: false,
       });
     }
 
-    if (lesson.classOption.type === "child") {
+    if (timeslot.eventType.type === "child") {
       console.log("pushing to children");
-      return router.push(`/bookings/children/${lesson.id}`);
+      return router.push(`/bookings/children/${timeslot.id}`);
     }
 
     try {
@@ -73,7 +73,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
         case "trialable":
           // Perform check-in logic here
 
-          await checkIn(lesson.id, user.id);
+          await checkIn(timeslot.id, user.id);
           setLoading(false);
 
           break;
@@ -82,7 +82,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           setLoading(false);
           break;
         case "waitlist":
-          await joinWaitlist(lesson.id, user.id);
+          await joinWaitlist(timeslot.id, user.id);
           setLoading(false);
           break;
 
@@ -90,7 +90,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           const ok = await confirm();
           if (ok) {
             setLoading(true);
-            await cancelBooking(lesson.id, user.id);
+            await cancelBooking(timeslot.id, user.id);
           }
           setLoading(false);
           break;
@@ -99,7 +99,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
           const ok2 = await confirm();
           if (ok2) {
             setLoading(true);
-            await cancelBooking(lesson.id, user.id);
+            await cancelBooking(timeslot.id, user.id);
           }
           setLoading(false);
           break;
@@ -133,10 +133,10 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
     return baseClasses;
   };
 
-  const buttonVariant: Record<Lesson["bookingStatus"], ButtonVariant> = {
+  const buttonVariant: Record<Timeslot["bookingStatus"], ButtonVariant> = {
     closed: "ghost",
     waitlist: "outline",
-    trialable: "default",
+    trialable: null,
     active: "default",
     booked: "default",
     waiting: "default",
@@ -163,7 +163,7 @@ export default function CheckInButton({ lesson }: { lesson: Lesson }) {
                 : status === "waiting"
                   ? "Leave the Waitlist"
                   : status === "active"
-                    ? lesson.classOption.type === "child"
+                    ? timeslot.eventType.type === "child"
                       ? "Check Child In"
                       : "Check In"
                     : status === "childrenBooked"

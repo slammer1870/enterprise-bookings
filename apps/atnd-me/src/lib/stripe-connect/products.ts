@@ -149,6 +149,7 @@ export type CreateTenantPriceParams = {
   unit_amount: number // cents
   currency: string
   recurring?: { interval: 'day' | 'week' | 'month' | 'year'; interval_count?: number }
+  setAsDefault?: boolean
 }
 
 export type CreateTenantPriceResult = { priceId: string }
@@ -159,7 +160,7 @@ export type CreateTenantPriceResult = { priceId: string }
 export async function createTenantPrice(
   params: CreateTenantPriceParams,
 ): Promise<CreateTenantPriceResult> {
-  const { tenant, productId, unit_amount, currency, recurring } = params
+  const { tenant, productId, unit_amount, currency, recurring, setAsDefault = true } = params
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) throw new Error('Tenant Connect account id is missing')
@@ -181,7 +182,7 @@ export async function createTenantPrice(
   }
   const price = await stripe.prices.create(priceParams, { stripeAccount: accountId })
 
-  if (recurring != null) {
+  if (setAsDefault) {
     await stripe.products.update(
       productId,
       { default_price: price.id },

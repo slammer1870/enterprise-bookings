@@ -14,8 +14,8 @@ export const PlatformFees: GlobalConfig = {
     description: 'Default booking fee percentages by product type and optional per-tenant overrides.',
   },
   access: {
-    read: ({ req }) => Boolean(req?.user && checkRole(['admin'], req.user as SharedUser)),
-    update: ({ req }) => Boolean(req?.user && checkRole(['admin'], req.user as SharedUser)),
+    read: ({ req }) => Boolean(req?.user && checkRole(['super-admin'], req.user as SharedUser)),
+    update: ({ req }) => Boolean(req?.user && checkRole(['super-admin'], req.user as SharedUser)),
   },
   fields: [
     {

@@ -1,10 +1,10 @@
 import { CalendarIcon, Clock, ClipboardCheck } from "lucide-react";
 
-import type { Lesson } from "@repo/shared-types";
+import type { Timeslot } from "@repo/shared-types";
 import {
   formatDateInTimeZone,
   formatInTimeZone,
-  resolveLessonTimeZone,
+  resolveTimeslotTimeZone,
 } from "@repo/shared-utils/timezone";
 
 import {
@@ -15,8 +15,8 @@ import {
   CardTitle,
 } from "@repo/ui/components/ui/card";
 
-export function BookingSummary({ lesson }: { lesson: Lesson }) {
-  const timeZone = resolveLessonTimeZone(lesson);
+export function BookingSummary({ timeslot }: { timeslot: Timeslot }) {
+  const timeZone = resolveTimeslotTimeZone(timeslot);
 
   return (
     <Card className="bg-card text-card-foreground">
@@ -30,7 +30,7 @@ export function BookingSummary({ lesson }: { lesson: Lesson }) {
             <CalendarIcon className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Date:</span>
             <span className="ml-2">
-              {formatDateInTimeZone(lesson.date, "en-US", timeZone, {
+              {formatDateInTimeZone(timeslot.date, "en-US", timeZone, {
                 weekday: "long",
                 month: "long",
                 day: "numeric",
@@ -43,8 +43,8 @@ export function BookingSummary({ lesson }: { lesson: Lesson }) {
             <Clock className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Time:</span>
             <span className="ml-2">
-              {formatInTimeZone(lesson.startTime, "HH:mmaa", timeZone)} -{" "}
-              {formatInTimeZone(lesson.endTime, "HH:mmaa", timeZone)}
+              {formatInTimeZone(timeslot.startTime, "HH:mmaa", timeZone)} -{" "}
+              {formatInTimeZone(timeslot.endTime, "HH:mmaa", timeZone)}
             </span>
           </div>
 
@@ -52,7 +52,7 @@ export function BookingSummary({ lesson }: { lesson: Lesson }) {
             <ClipboardCheck className="h-5 w-5 mr-2 text-primary" />
             <span className="font-medium">Booking Type:</span>
             <span className="ml-2">
-              {(lesson.classOption as { name?: string } | null | undefined)?.name ?? "—"}
+              {(timeslot.eventType as { name?: string } | null | undefined)?.name ?? "—"}
             </span>
           </div>
         </div>

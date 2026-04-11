@@ -3,35 +3,34 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QuantitySelector } from '../../src/components/bookings/quantity-selector'
-import type { Lesson } from '@repo/shared-types'
+import type { Timeslot } from '@repo/shared-types'
 
-// Mock lesson data
-const createMockLesson = (remainingCapacity: number): Lesson => ({
-  id: 1,
-  date: new Date().toISOString(),
-  startTime: new Date().toISOString(),
-  endTime: new Date().toISOString(),
-  classOption: {
+const createMockTimeslot = (remainingCapacity: number): Timeslot =>
+  ({
     id: 1,
-    name: 'Test Class',
-    places: 10,
-    description: 'Test Description',
-  },
-  remainingCapacity,
-  bookingStatus: 'active',
-  location: 'Test Location',
-  active: true,
-  bookings: { docs: [] },
-} as unknown as Lesson)
+    date: new Date().toISOString(),
+    startTime: new Date().toISOString(),
+    endTime: new Date().toISOString(),
+    eventType: {
+      id: 1,
+      name: 'Test Class',
+      places: 10,
+      description: 'Test Description',
+    },
+    remainingCapacity,
+    bookingStatus: 'active',
+    location: 'Test Location',
+    bookings: { docs: [] },
+  }) as unknown as Timeslot
 
 describe('QuantitySelector', () => {
   it('renders with correct initial quantity', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
     const onQuantityChange = vi.fn()
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -43,12 +42,12 @@ describe('QuantitySelector', () => {
   })
 
   it('displays singular form when only 1 slot available', () => {
-    const lesson = createMockLesson(1)
+    const lesson = createMockTimeslot(1)
     const onQuantityChange = vi.fn()
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -59,12 +58,12 @@ describe('QuantitySelector', () => {
 
   it('calls onQuantityChange when increase button is clicked', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
     const onQuantityChange = vi.fn()
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -78,12 +77,12 @@ describe('QuantitySelector', () => {
 
   it('calls onQuantityChange when decrease button is clicked', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
     const onQuantityChange = vi.fn()
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={3}
         onQuantityChange={onQuantityChange}
       />
@@ -96,12 +95,12 @@ describe('QuantitySelector', () => {
   })
 
   it('disables decrease button when quantity is at minimum', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
     const onQuantityChange = vi.fn()
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -112,12 +111,12 @@ describe('QuantitySelector', () => {
   })
 
   it('disables increase button when quantity is at maximum', () => {
-    const lesson = createMockLesson(3)
+    const lesson = createMockTimeslot(3)
     const onQuantityChange = vi.fn()
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={3}
         onQuantityChange={onQuantityChange}
       />
@@ -129,12 +128,12 @@ describe('QuantitySelector', () => {
 
   it('only allows selection up to remaining capacity', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(3)
+    const lesson = createMockTimeslot(3)
     const onQuantityChange = vi.fn()
 
     const { rerender } = render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />
@@ -150,7 +149,7 @@ describe('QuantitySelector', () => {
     onQuantityChange.mockClear()
     rerender(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={2}
         onQuantityChange={onQuantityChange}
       />
@@ -165,7 +164,7 @@ describe('QuantitySelector', () => {
     onQuantityChange.mockClear()
     rerender(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={3}
         onQuantityChange={onQuantityChange}
       />
@@ -179,12 +178,12 @@ describe('QuantitySelector', () => {
   })
 
   it('handles edge case when remainingCapacity is 0', () => {
-    const lesson = createMockLesson(0)
+    const lesson = createMockTimeslot(0)
     const onQuantityChange = vi.fn()
 
     render(
       <QuantitySelector
-        lesson={lesson}
+        timeslot={lesson}
         quantity={1}
         onQuantityChange={onQuantityChange}
       />

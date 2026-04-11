@@ -7,10 +7,11 @@ import { cache } from 'react'
 
 export const queryPageBySlug = cache(async ({ slug }: { slug: string }): Promise<Page | null> => {
   const { isEnabled: draft } = await draftMode()
-  const { cookies } = await import('next/headers')
+  const { cookies, headers } = await import('next/headers')
   const cookieStore = await cookies()
+  const headersList = await headers()
   const payload = await getPayload()
-  const tenant = await getTenantContext(payload, { cookies: cookieStore })
+  const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
   const tenantId = tenant?.id ?? null
 
   // Media is tenant-scoped. On the root domain (no tenant context) we still want

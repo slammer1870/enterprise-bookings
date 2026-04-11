@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   PaymentElement,
   useStripe,
@@ -22,6 +22,13 @@ import { useAnalyticsTracker } from "@repo/analytics";
 
 let stripePromise: ReturnType<typeof loadStripe> | null = null;
 const stripePromiseByAccount = new Map<string, ReturnType<typeof loadStripe>>();
+
+type PaymentIntentBootstrapResponse = {
+  clientSecret?: string | null;
+  stripeAccountId?: string | null;
+  zeroAmount?: boolean;
+  bookingIds?: number[];
+};
 
 function getStripePromise(stripeAccountId?: string | null) {
   const account = typeof stripeAccountId === "string" && stripeAccountId.trim() ? stripeAccountId.trim() : null;
@@ -170,14 +177,52 @@ export default function CheckoutForm({
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
+  const [isZeroAmountBooking, setIsZeroAmountBooking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const paymentIntentRequestIdRef = useRef(0);
+
+  const metadataKey = useMemo(() => {
+    if (!metadata) return "null";
+
+    return JSON.stringify(
+      Object.fromEntries(
+        Object.entries(metadata).sort(([left], [right]) => left.localeCompare(right))
+      )
+    );
+  }, [metadata]);
+
+  const stableMetadata = useMemo(
+    () => (metadataKey === "null" ? undefined : (JSON.parse(metadataKey) as Record<string, string>)),
+    [metadataKey]
+  );
+
+  const buildReturnUrl = (bookingIds?: number[]) => {
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SERVER_URL || "";
+    const baseReturn = returnUrl ?? "/dashboard";
+    const url = new URL(
+      baseReturn.startsWith("http")
+        ? baseReturn
+        : `${origin}${baseReturn.startsWith("/") ? baseReturn : `/${baseReturn}`}`
+    );
+    if (bookingIds?.length) {
+      url.searchParams.set("bookingIds", bookingIds.join(","));
+    }
+    return url.toString();
+  };
 
   useEffect(() => {
     const createCheckoutSession = async () => {
+      const requestId = ++paymentIntentRequestIdRef.current;
       try {
         setIsLoading(true);
         setError(null);
+        setClientSecret(null);
+        setStripeAccountId(null);
+        setIsZeroAmountBooking(false);
 
         console.log("Creating payment intent with price:", price);
 
@@ -192,7 +237,7 @@ export default function CheckoutForm({
           credentials: "include",
           body: JSON.stringify({
             price,
-            metadata,
+            metadata: stableMetadata,
           }),
         });
 
@@ -214,11 +259,24 @@ export default function CheckoutForm({
             errorMessage = "Server error - please try again later";
           }
 
-          setError(errorMessage);
+          if (paymentIntentRequestIdRef.current === requestId) {
+            setError(errorMessage);
+          }
           return;
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as PaymentIntentBootstrapResponse;
+
+        if (paymentIntentRequestIdRef.current !== requestId) {
+          return;
+        }
+
+        if (data.zeroAmount) {
+          setClientSecret(null);
+          setStripeAccountId(null);
+          setIsZeroAmountBooking(true);
+          return;
+        }
 
         if (!data.clientSecret) {
           console.error("No client secret received from payment intent");
@@ -227,6 +285,7 @@ export default function CheckoutForm({
         }
 
         console.log("Payment intent created successfully");
+        setIsZeroAmountBooking(false);
         setClientSecret(data.clientSecret);
         setStripeAccountId(
           typeof data.stripeAccountId === "string" && data.stripeAccountId.trim()
@@ -235,14 +294,18 @@ export default function CheckoutForm({
         );
       } catch (err) {
         console.error("Error creating payment intent:", err);
-        setError("Network error - please check your connection and try again");
+        if (paymentIntentRequestIdRef.current === requestId) {
+          setError("Network error - please check your connection and try again");
+        }
       } finally {
-        setIsLoading(false);
+        if (paymentIntentRequestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
       }
     };
 
     createCheckoutSession();
-  }, [price, metadata, createPaymentIntentUrl]);
+  }, [price, metadataKey, createPaymentIntentUrl]);
 
   if (error) {
     return (
@@ -259,6 +322,56 @@ export default function CheckoutForm({
   }
 
   if (isLoading || !clientSecret) {
+    if (isZeroAmountBooking) {
+      return (
+        <div className="flex flex-col gap-4">
+          {priceComponent}
+          <Button
+            type="button"
+            data-testid="complete-free-booking"
+            onClick={async () => {
+              try {
+                setIsLoading(true);
+                setError(null);
+                const url = createPaymentIntentUrl ?? "/api/stripe/create-payment-intent";
+                const response = await fetch(url, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  credentials: "include",
+                  body: JSON.stringify({
+                    price,
+                    metadata: stableMetadata,
+                    confirmOnly: true,
+                  }),
+                });
+
+                const data = (await response.json().catch(() => ({}))) as PaymentIntentBootstrapResponse & {
+                  error?: string;
+                };
+
+                if (!response.ok) {
+                  throw new Error(data.error || "Failed to complete booking");
+                }
+
+                onPaymentRedirectStart?.();
+                window.location.assign(buildReturnUrl(data.bookingIds));
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "Failed to complete booking");
+              } finally {
+                setIsLoading(false);
+              }
+            }}
+            disabled={isLoading}
+            className="ml-auto"
+          >
+            {isLoading ? "Completing..." : "Complete booking"}
+          </Button>
+        </div>
+      );
+    }
+
     return (
       <div>
         {priceComponent}
@@ -288,7 +401,11 @@ export default function CheckoutForm({
   }
 
   return (
-    <Elements stripe={stripe} options={{ appearance, clientSecret }}>
+    <Elements
+      key={`${stripeAccountId ?? "platform"}:${clientSecret}`}
+      stripe={stripe}
+      options={{ appearance, clientSecret }}
+    >
       <PaymentForm
         priceComponent={priceComponent}
         price={price}

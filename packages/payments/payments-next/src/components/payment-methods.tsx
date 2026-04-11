@@ -1,25 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Lesson, Booking, DropIn, type Plan } from "@repo/shared-types";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Timeslot, Booking, DropIn, type Plan } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from "@repo/ui/components/ui/tabs";
+import { Input } from "@repo/ui/components/ui/input";
+import { Button } from "@repo/ui/components/ui/button";
 import { PlanView } from "@repo/membership-next";
 import {
   DropInView,
   type FeeBreakdownComponentProps,
 } from "./drop-ins";
 import { toast } from "sonner";
+import {
+  getMembershipPlansForView,
+  planAllowsMultipleBookingsPerTimeslot,
+} from "./membership-plan-filter";
 
 type PaymentMethodsProps = {
-  lesson: Lesson;
+  timeslot: Timeslot;
   /** Quantity of bookings being paid for. When > 1, only payment methods that allow multiple bookings are shown. */
   quantity?: number;
   /** Pending bookings to confirm on payment. When provided, quantity defaults to pendingBookings.length. */
@@ -41,37 +47,79 @@ type PaymentMethodsProps = {
    */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
   /**
+   * Override the endpoint used to create a subscription checkout session.
+   * Defaults to tRPC `payments.createCustomerCheckoutSession`.
+   */
+  createCheckoutSessionUrl?: string;
+  /** Optional endpoint used to validate a customer-entered discount code before checkout. */
+  validateDiscountCodeUrl?: string;
+  /**
    * URL to redirect to after successful payment (checkout session, customer portal, drop-in).
    * Defaults to /dashboard for backwards compatibility with apps that use that route.
    */
   successUrl?: string;
 };
 
-/** Pass-like shape from getValidClassPassesForLesson */
-type ClassPassForLesson = {
+type CheckoutSessionInput = {
+  priceId: string;
+  quantity?: number;
+  metadata?: Record<string, string>;
+  discountCode?: string;
+  successUrl?: string;
+  cancelUrl?: string;
+  mode: "subscription" | "payment";
+};
+
+type ValidatedDiscount = {
+  code: string;
+  type: "percentage_off" | "amount_off";
+  value: number;
+  currency?: string | null;
+};
+
+/** Pass-like shape from getValidClassPassesForTimeslot */
+type ClassPassForTimeslot = {
   id: number;
   quantity?: number;
   expirationDate?: string;
   type?: number | { name?: string };
 };
 
+type PurchasableClassPassType = {
+  id: number;
+  name: string;
+  description?: string | null;
+  quantity: number;
+  allowMultipleBookingsPerTimeslot: boolean;
+  price?: number | null;
+  priceId: string;
+};
+
 function ClassPassTabContent({
   passes,
+  purchasablePassTypes,
   quantity,
-  pendingBookingIds: _pendingBookingIds,
-  lessonId: _lessonId,
   onConfirm,
+  onPurchase,
 }: {
-  passes: ClassPassForLesson[];
+  passes: ClassPassForTimeslot[];
+  purchasablePassTypes: PurchasableClassPassType[];
   quantity: number;
-  pendingBookingIds?: number[];
-  lessonId: number;
   onConfirm: (_classPassId: number) => Promise<void>;
+  onPurchase: (_passType: PurchasableClassPassType) => Promise<void>;
 }) {
   const [selectedPassId, setSelectedPassId] = useState<number | null>(
     passes.length === 1 && passes[0] != null ? passes[0].id : null
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [purchasePassTypeId, setPurchasePassTypeId] = useState<number | null>(null);
+
+  // Auto-select when the single valid pass loads asynchronously (queries resolve after mount)
+  useEffect(() => {
+    if (passes.length === 1 && passes[0] != null && selectedPassId == null) {
+      setSelectedPassId(passes[0].id);
+    }
+  }, [passes, selectedPassId]);
 
   const handleConfirm = async () => {
     if (selectedPassId == null) return;
@@ -83,71 +131,129 @@ function ClassPassTabContent({
     }
   };
 
+  if (passes.length === 0 && purchasablePassTypes.length === 0) {
+    return (
+      <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
+        <p className="font-medium">No valid class pass</p>
+        <p className="mt-1">
+          You don&apos;t have a valid class pass for this timeslot. Contact the organiser to obtain one.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Use a class pass to book. This will use {quantity} credit{quantity !== 1 ? "s" : ""} from your pass.
-      </p>
-      <div className="space-y-2">
-        {passes.map((pass) => {
-          const typeName =
-            typeof pass.type === "object" && pass.type != null && "name" in pass.type
-              ? (pass.type as { name?: string }).name
-              : "Class pass";
-          const exp =
-            pass.expirationDate != null
-              ? new Date(pass.expirationDate).toLocaleDateString()
-              : null;
-          return (
-            <div
-              key={pass.id}
-              className="flex items-center justify-between rounded-md border p-3"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="font-medium">{typeName}</span>
-                <span className="text-sm text-muted-foreground">
-                  {pass.quantity ?? 0} credit{(pass.quantity ?? 0) !== 1 ? "s" : ""} remaining
-                  {exp ? ` · Expires ${exp}` : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="classPass"
-                  checked={selectedPassId === pass.id}
-                  onChange={() => setSelectedPassId(pass.id)}
-                  className="h-4 w-4"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedPassId(pass.id);
-                    void handleConfirm();
-                  }}
-                  disabled={isSubmitting}
-                  className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      {passes.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Use a class pass to book. This will use {quantity} credit{quantity !== 1 ? "s" : ""} from your pass.
+          </p>
+          <div className="space-y-2">
+            {passes.map((pass) => {
+              const typeName =
+                typeof pass.type === "object" && pass.type != null && "name" in pass.type
+                  ? (pass.type as { name?: string }).name
+                  : "Class pass";
+              const exp =
+                pass.expirationDate != null
+                  ? new Date(pass.expirationDate).toLocaleDateString()
+                  : null;
+              return (
+                <div
+                  key={pass.id}
+                  className="flex items-center justify-between rounded-md border p-3"
                 >
-                  Use this pass
-                </button>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="font-medium">{typeName}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {pass.quantity ?? 0} credit{(pass.quantity ?? 0) !== 1 ? "s" : ""} remaining
+                      {exp ? ` · Expires ${exp}` : ""}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="classPass"
+                      checked={selectedPassId === pass.id}
+                      onChange={() => setSelectedPassId(pass.id)}
+                      className="h-4 w-4"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPassId(pass.id);
+                        void handleConfirm();
+                      }}
+                      disabled={isSubmitting}
+                      className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      Use this pass
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={selectedPassId == null || isSubmitting}
+            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          >
+            {isSubmitting ? "Booking..." : "Confirm with class pass"}
+          </button>
+        </div>
+      )}
+      {purchasablePassTypes.length > 0 && (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <p className="text-sm font-medium">Buy a class pass</p>
+            <p className="text-sm text-muted-foreground">
+              No valid pass yet? Buy one here, then return to confirm this booking with it.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {purchasablePassTypes.map((passType) => (
+              <div key={passType.id} className="rounded-md border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="font-medium">{passType.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {passType.quantity} credit{passType.quantity !== 1 ? "s" : ""}
+                      {passType.price != null ? ` · €${passType.price.toFixed(2)}` : ""}
+                    </div>
+                    {passType.description ? (
+                      <p className="text-sm text-muted-foreground">{passType.description}</p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        setPurchasePassTypeId(passType.id);
+                        await onPurchase(passType);
+                      } finally {
+                        setPurchasePassTypeId((current) => (current === passType.id ? null : current));
+                      }
+                    }}
+                    disabled={purchasePassTypeId != null}
+                    className="rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:opacity-50"
+                  >
+                    {purchasePassTypeId === passType.id ? "Redirecting..." : "Buy pass"}
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-      <button
-        type="button"
-        onClick={handleConfirm}
-        disabled={selectedPassId == null || isSubmitting}
-        className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-      >
-        {isSubmitting ? "Booking…" : "Confirm with class pass"}
-      </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * Returns true if the drop-in allows multiple bookings per lesson.
+ * Returns true if the drop-in allows multiple bookings per timeslot.
  */
 function dropInAllowsMultiple(dropIn: unknown): boolean {
   if (!dropIn || typeof dropIn !== "object") return false;
@@ -155,66 +261,67 @@ function dropInAllowsMultiple(dropIn: unknown): boolean {
   return d.adjustable === true;
 }
 
-/**
- * Returns true if the plan allows multiple bookings per lesson.
- * IMPORTANT: Plans with no session limit (unlimited) do NOT imply multi-booking.
- * Multi-booking is controlled only by the explicit flag.
- */
-function planAllowsMultipleBookingsPerLesson(plan: unknown): boolean {
-  if (!plan || typeof plan !== "object") return false;
-  const p = plan as {
-    sessionsInformation?: {
-      sessions?: number;
-      allowMultipleBookingsPerLesson?: boolean;
-    };
-  };
-  return p.sessionsInformation?.allowMultipleBookingsPerLesson === true;
+function getPendingBookingIds(pendingBookings?: Booking[]): number[] {
+  const ids: number[] = [];
+  const seen = new Set<number>();
+  for (const booking of pendingBookings ?? []) {
+    if (String(booking.status).toLowerCase() !== "pending") {
+      continue;
+    }
+    const id = Number(booking.id);
+    if (!Number.isFinite(id)) {
+      continue;
+    }
+    if (seen.has(id)) {
+      continue;
+    }
+    seen.add(id);
+    ids.push(id);
+  }
+  return ids;
 }
 
 /**
- * Returns true if the plan's capacity can cover at least `requiredQuantity` bookings in a period.
- * Uses only the plan's session limit (sessions per period), not the user's usage.
- * Unlimited plans (no sessionsInformation or sessions <= 0) always return true.
- * Otherwise returns true when plan.sessionsInformation.sessions >= requiredQuantity.
- */
-function planCanCoverQuantity(plan: unknown, requiredQuantity: number): boolean {
-  if (requiredQuantity <= 0) return true;
-  if (!plan || typeof plan !== "object") return false;
-  const p = plan as {
-    sessionsInformation?: {
-      sessions?: number;
-    };
-  };
-  const si = p.sessionsInformation;
-  if (!si || si.sessions == null || si.sessions <= 0) return true; // Unlimited
-  return si.sessions >= requiredQuantity;
-}
-
-/**
- * Component for displaying and managing payment methods for a lesson.
- * When quantity > 1, only shows payment methods that allow multiple bookings per lesson.
+ * Component for displaying and managing payment methods for a timeslot.
+ * When quantity > 1, only shows payment methods that allow multiple bookings per timeslot.
  * Uses tRPC procedures for data fetching and manipulation.
  */
 export function PaymentMethods({
-  lesson,
+  timeslot,
   quantity: quantityProp,
   pendingBookings,
   onPaymentSuccess: _onPaymentSuccess,
   onPaymentRedirectStart,
   createPaymentIntentUrl,
+  createCheckoutSessionUrl,
+  validateDiscountCodeUrl,
   FeeBreakdownComponent,
   successUrl: successUrlProp,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialDiscountCode = (searchParams?.get("discount") || "").trim() || undefined;
+  const [discountCodeInput, setDiscountCodeInput] = useState(initialDiscountCode ?? "");
+  const [appliedDiscountCode, setAppliedDiscountCode] = useState<string | undefined>(
+    validateDiscountCodeUrl ? undefined : initialDiscountCode
+  );
+  const [appliedDiscount, setAppliedDiscount] = useState<ValidatedDiscount | undefined>();
+  const [discountError, setDiscountError] = useState<string | null>(null);
+  const [discountSuccess, setDiscountSuccess] = useState<string | null>(
+    validateDiscountCodeUrl ? null : initialDiscountCode ? "Promo code applied." : null
+  );
+  const [isValidatingDiscountCode, setIsValidatingDiscountCode] = useState(false);
 
-  const quantity = pendingBookings?.length ?? quantityProp ?? 1;
+  const pendingBookingIds = getPendingBookingIds(pendingBookings);
+  const hasPendingBookings = pendingBookingIds.length > 0;
+  const quantity = hasPendingBookings ? pendingBookingIds.length : quantityProp ?? 1;
 
   const tenantId =
-    lesson.tenant != null
-      ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-        ? lesson.tenant.id
-        : lesson.tenant
+    timeslot.tenant != null
+      ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+        ? timeslot.tenant.id
+        : timeslot.tenant
       : null;
 
   const PlanPriceSummary = useMemo(() => {
@@ -263,18 +370,25 @@ export function PaymentMethods({
     };
   }, [tenantId, trpc.payments.getSubscriptionFeeBreakdown]);
 
-  // Get subscription data for this lesson using tRPC
+  // Get subscription data for this timeslot using tRPC
   const { data: subscriptionData } = useQuery(
-    trpc.subscriptions.getSubscriptionForLesson.queryOptions({
-      lessonId: lesson.id,
+    trpc.subscriptions.getSubscriptionForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
       quantity,
     })
   );
 
-  // Get valid class passes for this lesson (Phase 4.6)
+  // Get valid class passes for this timeslot (Phase 4.6)
   const { data: validClassPasses = [] } = useQuery(
-    trpc.bookings.getValidClassPassesForLesson.queryOptions({
-      lessonId: lesson.id,
+    trpc.bookings.getValidClassPassesForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
+      quantity,
+    })
+  );
+  const { data: purchasableClassPassTypes = [] } = useQuery(
+    trpc.bookings.getPurchasableClassPassTypesForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
+      quantity,
     })
   );
 
@@ -285,22 +399,160 @@ export function PaymentMethods({
   const upgradeOptions = subscriptionData?.upgradeOptions ?? [];
   const eligiblePlansForQuantity = subscriptionData?.eligiblePlansForQuantity ?? null;
 
-  // Create checkout session mutation for plans
-  const { mutateAsync: createCheckoutSession } = useMutation(
-    trpc.payments.createCustomerCheckoutSession.mutationOptions({
-      onSuccess: (session: { url: string | null }) => {
-        if (session.url) {
-          onPaymentRedirectStart?.();
-          router.push(session.url);
-        } else {
-          toast.error("Failed to create checkout session");
+  const startCheckoutRedirect = (session: { url: string | null }) => {
+    if (session.url) {
+      onPaymentRedirectStart?.();
+      router.push(session.url);
+    } else {
+      toast.error("Failed to create checkout session");
+    }
+  };
+
+  const handleCheckoutError = (error: { message?: string }) => {
+    toast.error(error.message || "Failed to create checkout session");
+  };
+
+  const validateDiscountCode = useCallback(async (rawDiscountCode: string) => {
+    const normalizedCode = rawDiscountCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      setAppliedDiscountCode(undefined);
+      setAppliedDiscount(undefined);
+      setDiscountError(null);
+      setDiscountSuccess(null);
+      return false;
+    }
+
+    if (!/^[A-Z0-9]{3,24}$/.test(normalizedCode)) {
+      setAppliedDiscountCode(undefined);
+      setAppliedDiscount(undefined);
+      setDiscountSuccess(null);
+      setDiscountError("Code must be 3-24 characters, letters and numbers only.");
+      return false;
+    }
+
+    if (!validateDiscountCodeUrl) {
+      setAppliedDiscountCode(normalizedCode);
+      setAppliedDiscount(undefined);
+      setDiscountError(null);
+      setDiscountSuccess("Promo code applied.");
+      return true;
+    }
+
+    setIsValidatingDiscountCode(true);
+    setDiscountError(null);
+    setDiscountSuccess(null);
+    try {
+      const response = await fetch(validateDiscountCodeUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          discountCode: normalizedCode,
+          metadata: tenantId != null ? { tenantId: String(tenantId), timeslotId: String(timeslot.id) } : { timeslotId: String(timeslot.id) },
+        }),
+      });
+
+      if (!response.ok) {
+        let message = "Invalid or inactive discount code.";
+        try {
+          const payload = await response.json();
+          if (typeof payload?.error === "string") {
+            message = payload.error;
+          }
+        } catch {
+          // Ignore parse failures and use fallback message
         }
-      },
-      onError: (error: { message?: string }) => {
-        toast.error(error.message || "Failed to create checkout session");
-      },
+        setAppliedDiscountCode(undefined);
+        setAppliedDiscount(undefined);
+        setDiscountError(message);
+        return false;
+      }
+
+      const payload = (await response.json()) as {
+        discountCode?: string;
+        discount?: {
+          type?: ValidatedDiscount["type"];
+          value?: number;
+          currency?: string | null;
+        };
+      };
+      const resolvedCode =
+        typeof payload.discountCode === "string" && payload.discountCode.trim()
+          ? payload.discountCode.trim().toUpperCase()
+          : normalizedCode;
+      setDiscountCodeInput(normalizedCode);
+      setAppliedDiscountCode(resolvedCode);
+      setAppliedDiscount(
+        payload.discount?.type && typeof payload.discount?.value === "number"
+          ? {
+              code: resolvedCode,
+              type: payload.discount.type,
+              value: payload.discount.value,
+              currency: payload.discount.currency ?? null,
+            }
+          : undefined
+      );
+      setDiscountSuccess("Promo code applied.");
+      return true;
+    } finally {
+      setIsValidatingDiscountCode(false);
+    }
+  }, [timeslot.id, tenantId, validateDiscountCodeUrl]);
+
+  useEffect(() => {
+    if (!initialDiscountCode || !validateDiscountCodeUrl) {
+      return;
+    }
+    void validateDiscountCode(initialDiscountCode);
+  }, [initialDiscountCode, validateDiscountCode, validateDiscountCodeUrl]);
+
+  // Create checkout session mutation for plans (default: tRPC)
+  const { mutateAsync: createCheckoutSessionWithTRPC } = useMutation(
+    trpc.payments.createCustomerCheckoutSession.mutationOptions({
+      onSuccess: startCheckoutRedirect,
+      onError: handleCheckoutError,
     })
   );
+
+  const { mutateAsync: createCheckoutSessionWithAPI } = useMutation({
+    mutationFn: async (variables: CheckoutSessionInput) => {
+      if (!createCheckoutSessionUrl) {
+        throw new Error("Checkout session endpoint is not configured");
+      }
+
+      const response = await fetch(createCheckoutSessionUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(variables),
+      });
+
+      if (!response.ok) {
+        let message = "Failed to create checkout session";
+        try {
+          const payload = await response.json();
+          if (typeof payload?.error === "string") {
+            message = payload.error;
+          }
+        } catch {
+          // Ignore parse failures and use fallback message
+        }
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
+    onSuccess: startCheckoutRedirect,
+    onError: handleCheckoutError,
+  });
+
+  const createCheckoutSession = createCheckoutSessionUrl
+    ? async (variables: CheckoutSessionInput) => createCheckoutSessionWithAPI(variables)
+    : async (variables: CheckoutSessionInput) => createCheckoutSessionWithTRPC(variables);
 
   // Create customer portal mutation
   const { mutateAsync: createCustomerPortal } = useMutation(
@@ -376,20 +628,18 @@ export function PaymentMethods({
         )
       : {};
     const tenantId =
-      lesson.tenant != null
-        ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-          ? lesson.tenant.id
-          : lesson.tenant
+      timeslot.tenant != null
+        ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+          ? timeslot.tenant.id
+          : timeslot.tenant
         : undefined;
     const metaWithTenant: Record<string, string> = {
       ...cleanMetadata,
-      lessonId: String(lesson.id),
+      timeslotId: String(timeslot.id),
       ...(tenantId != null && { tenantId: String(tenantId) }),
     };
-    if (pendingBookings && pendingBookings.length > 0) {
-      metaWithTenant.bookingIds = pendingBookings
-        .map((b) => b.id)
-        .join(",");
+    if (hasPendingBookings) {
+      metaWithTenant.bookingIds = pendingBookingIds.join(",");
     }
 
     const origin =
@@ -417,7 +667,42 @@ export function PaymentMethods({
       metadata: metaWithTenant,
       mode: "subscription",
       successUrl: `${successPath}${tenantQ}`,
-      cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
+      cancelUrl: `${origin}/bookings/${timeslot.id}${tenantQ}`,
+      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
+    });
+  };
+
+  const handleCreateClassPassCheckout = async (passType: PurchasableClassPassType) => {
+    const origin =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : process.env.NEXT_PUBLIC_SERVER_URL || "";
+    const currentPath =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search || ""}`
+        : `/bookings/${timeslot.id}`;
+    const tenantIdForMeta =
+      timeslot.tenant != null
+        ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+          ? timeslot.tenant.id
+          : timeslot.tenant
+        : undefined;
+
+    await createCheckoutSession({
+      priceId: passType.priceId,
+      quantity: 1,
+      mode: "payment",
+      metadata: {
+        type: "class_pass_purchase",
+        classPassTypeId: String(passType.id),
+        timeslotId: String(timeslot.id),
+        bookingQuantity: String(quantity),
+        ...(tenantIdForMeta != null ? { tenantId: String(tenantIdForMeta) } : {}),
+        ...(hasPendingBookings ? { bookingIds: pendingBookingIds.join(",") } : {}),
+      },
+      successUrl: `${origin}${currentPath}`,
+      cancelUrl: `${origin}${currentPath}`,
+      ...(appliedDiscountCode ? { discountCode: appliedDiscountCode } : {}),
     });
   };
 
@@ -440,58 +725,38 @@ export function PaymentMethods({
     await createCustomerUpgradePortal({ planId: planIdentifier, returnUrl });
   };
 
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
+  const allowedPlans = timeslot.eventType.paymentMethods?.allowedPlans;
   const allowedPlanDocs: Plan[] = Array.isArray(allowedPlans)
     ? (allowedPlans.filter(
         (p: unknown): p is Plan => typeof p === "object" && p != null && "id" in p
       ) as Plan[])
     : [];
-  const allowedDropIn = lesson.classOption.paymentMethods?.allowedDropIn;
-  const allowedClassPasses = (lesson.classOption.paymentMethods as { allowedClassPasses?: unknown[] } | undefined)
+  const allowedDropIn = timeslot.eventType.paymentMethods?.allowedDropIn;
+  const allowedClassPasses = (timeslot.eventType.paymentMethods as { allowedClassPasses?: unknown[] } | undefined)
     ?.allowedClassPasses;
 
-  const activeAllowedPlans = allowedPlanDocs.filter((plan) => plan.status === "active");
-  let activePlans = activeAllowedPlans;
-
-  // When quantity > 1, the server can return an eligibility-filtered plan list that accounts for:
-  // - explicit multi-booking flag
-  // - remaining sessions in the user's current period (used + selectedQuantity <= limit)
-  if (quantity > 1 && Array.isArray(eligiblePlansForQuantity)) {
-    activePlans = eligiblePlansForQuantity.filter((p) => p.status === "active");
-  } else {
-    // Fallback: filter by plan capacity only (not by user's usage): show only plans whose
-    // per-period session limit can cover the selected quantity (sessions >= quantity or unlimited).
-    activePlans = activePlans.filter((plan) => planCanCoverQuantity(plan, quantity));
-  }
+  const plansForView = getMembershipPlansForView({
+    allowedPlanDocs,
+    eligiblePlansForQuantity,
+    quantity,
+    subscription,
+  });
+  let activePlans = plansForView.filter((plan) => plan.status === "active");
 
   const hasSubscriptionWithPlan =
     subscription &&
     allowedPlanDocs.some((plan) => plan.id === subscription?.plan?.id);
 
-  // Allow legacy inactive plan usage: keep inactive plans out of the subscribe/upgrade list,
-  // but include the current subscription plan in the PlanView matching check so users don't
-  // see "you do not have a plan..." when their subscribed plan is inactive.
-  const currentSubscriptionPlan =
-    subscription && subscription.plan && typeof subscription.plan === "object" && subscription.plan != null
-      ? (subscription.plan as Plan)
-      : null;
-  const subscriptionPlanIsAllowed =
-    currentSubscriptionPlan != null && allowedPlanDocs.some((p) => p.id === currentSubscriptionPlan.id);
-  const plansForView: Plan[] =
-    subscriptionPlanIsAllowed && currentSubscriptionPlan?.status !== "active"
-      ? [currentSubscriptionPlan, ...activePlans]
-      : activePlans;
-
   const userPlanAllowsMultiple =
     subscription?.plan &&
-    planAllowsMultipleBookingsPerLesson(subscription.plan);
+    planAllowsMultipleBookingsPerTimeslot(subscription.plan);
 
   const subscriptionUsableForBooking =
     subscription &&
     (subscription.status === "active" || subscription.status === "trialing");
 
   // For "use current subscription": require (1) valid payment status (active/trialing), (2) session headroom,
-  // and (3) when quantity > 1, the plan must allow multiple bookings per lesson.
+  // and (3) when quantity > 1, the plan must allow multiple bookings per timeslot.
   const canUseSubscriptionForQuantity =
     hasSubscriptionWithPlan &&
     Boolean(subscriptionUsableForBooking) &&
@@ -499,26 +764,39 @@ export function PaymentMethods({
     (remainingSessions === null || remainingSessions >= quantity) &&
     (quantity <= 1 || Boolean(userPlanAllowsMultiple));
 
-  // When quantity > 1: only show plans that allow multiple bookings per lesson
-  if (quantity > 1) {
-    activePlans = activePlans.filter((plan) =>
-      planAllowsMultipleBookingsPerLesson(plan)
-    );
-  }
-
   // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
-  const classPassesWithEnoughCredits: ClassPassForLesson[] = Array.isArray(validClassPasses)
-    ? validClassPasses.filter(
-        (p: unknown): p is ClassPassForLesson =>
-          typeof p === "object" &&
-          p != null &&
-          "id" in p &&
-          typeof (p as ClassPassForLesson).quantity === "number" &&
-          (p as ClassPassForLesson).quantity! >= quantity
-      )
+  const classPassesWithEnoughCredits: ClassPassForTimeslot[] = Array.isArray(validClassPasses)
+    ? validClassPasses.flatMap((p) => {
+        if (
+          typeof p !== "object" ||
+          p == null ||
+          typeof (p as { id?: unknown }).id !== "number" ||
+          typeof (p as { quantity?: unknown }).quantity !== "number" ||
+          ((p as { quantity: number }).quantity < quantity)
+        ) {
+          return [];
+        }
+        return [p as ClassPassForTimeslot];
+      })
+    : [];
+  const purchasablePassesForQuantity: PurchasableClassPassType[] = Array.isArray(purchasableClassPassTypes)
+    ? purchasableClassPassTypes.flatMap((passType) => {
+        if (
+          typeof passType !== "object" ||
+          passType == null ||
+          typeof passType.id !== "number" ||
+          typeof passType.priceId !== "string" ||
+          passType.priceId.length === 0
+        ) {
+          return [];
+        }
+        return [passType as PurchasableClassPassType];
+      })
     : [];
   const hasClassPassTab =
-    Boolean(allowedClassPasses?.length) && classPassesWithEnoughCredits.length > 0;
+    Boolean(allowedClassPasses?.length) ||
+    classPassesWithEnoughCredits.length > 0 ||
+    purchasablePassesForQuantity.length > 0;
 
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
@@ -539,26 +817,25 @@ export function PaymentMethods({
       hasDropInTab && dropInAllowsMultiple(allowedDropIn as DropIn);
   }
 
+  const availableTabs = useMemo(() => {
+    const tabs: string[] = [];
+    if (hasMembershipTab) tabs.push("membership");
+    if (hasClassPassTab) tabs.push("classpass");
+    if (hasDropInTab) tabs.push("dropin");
+    return tabs;
+  }, [hasMembershipTab, hasDropInTab, hasClassPassTab]);
+
   // Controlled tab so we can auto-switch when the active tab is no longer available
-  const defaultTab = hasMembershipTab
-    ? "membership"
-    : hasClassPassTab
-      ? "classpass"
-      : "dropin";
+  const defaultTab = availableTabs[0] ?? "dropin";
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // When user changes quantity or tab becomes unavailable, switch to a valid tab
+  // When active tab becomes unavailable (or invalid), switch to a valid tab.
   useEffect(() => {
-    if (activeTab === "membership" && !hasMembershipTab) {
-      setActiveTab(hasClassPassTab ? "classpass" : "dropin");
-    } else if (activeTab === "classpass" && !hasClassPassTab) {
-      setActiveTab(hasMembershipTab ? "membership" : "dropin");
-    } else if (activeTab === "dropin" && !hasDropInTab) {
-      setActiveTab(hasMembershipTab ? "membership" : "classpass");
-    } else if (!["membership", "dropin", "classpass"].includes(activeTab)) {
+    if (availableTabs.length === 0) return;
+    if (!availableTabs.includes(activeTab)) {
       setActiveTab(defaultTab);
     }
-  }, [hasMembershipTab, hasDropInTab, hasClassPassTab, defaultTab, activeTab]);
+  }, [activeTab, availableTabs, defaultTab]);
 
   // Important: keep this after hooks so changing quantity doesn't break hook order.
   if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {
@@ -567,7 +844,7 @@ export function PaymentMethods({
         <p>
           {quantity > 1
             ? "No payment methods are available for multiple bookings. Try reducing the quantity or use a different payment method."
-            : "No payment methods are available for this lesson."}
+            : "No payment methods are available for this timeslot."}
         </p>
       </div>
     );
@@ -603,27 +880,17 @@ export function PaymentMethods({
           <TabsContent value="classpass">
             <ClassPassTabContent
               passes={classPassesWithEnoughCredits}
+              purchasablePassTypes={purchasablePassesForQuantity}
               quantity={quantity}
-              pendingBookingIds={
-                pendingBookings && pendingBookings.length > 0
-                  ? pendingBookings.map((b) => b.id as number)
-                  : undefined
-              }
-              lessonId={lesson.id}
               onConfirm={async (classPassId: number) => {
                 await createBookingsWithClassPass({
-                  lessonId: lesson.id,
-                  quantity:
-                    pendingBookings && pendingBookings.length > 0
-                      ? pendingBookings.length
-                      : quantity,
+                  timeslotId: timeslot.id,
+                  quantity: hasPendingBookings ? pendingBookingIds.length : quantity,
                   classPassId,
-                  pendingBookingIds:
-                    pendingBookings && pendingBookings.length > 0
-                      ? pendingBookings.map((b) => b.id as number)
-                      : undefined,
+                  pendingBookingIds: hasPendingBookings ? pendingBookingIds : undefined,
                 });
               }}
+              onPurchase={handleCreateClassPassCheckout}
             />
           </TabsContent>
         )}
@@ -632,12 +899,12 @@ export function PaymentMethods({
             <PlanView
               allowedPlans={plansForView}
               subscription={subscription}
-              lessonDate={new Date(lesson.startTime)}
+              timeslotDate={new Date(timeslot.startTime)}
               subscriptionLimitReached={subscriptionLimitReached}
               remainingSessions={remainingSessions}
               selectedQuantity={quantity}
               canUseSubscriptionForQuantity={Boolean(canUseSubscriptionForQuantity)}
-              subscriptionAllowsMultiplePerLesson={Boolean(userPlanAllowsMultiple)}
+              subscriptionAllowsMultiplePerTimeslot={Boolean(userPlanAllowsMultiple)}
               needsCustomerPortal={needsCustomerPortal}
               upgradeOptions={upgradeOptions}
               PlanPriceSummary={PlanPriceSummary}
@@ -647,12 +914,9 @@ export function PaymentMethods({
               onConfirmBookingWithSubscription={
                 subscription?.id != null
                   ? async (subscriptionId: number) => {
-                      const pendingIds =
-                        pendingBookings && pendingBookings.length > 0
-                          ? pendingBookings.map((b) => b.id as number)
-                          : undefined;
+                      const pendingIds = hasPendingBookings ? pendingBookingIds : undefined;
                       await createBookingsWithSubscription({
-                        lessonId: lesson.id,
+                        timeslotId: timeslot.id,
                         quantity: pendingIds ? pendingIds.length : quantity,
                         subscriptionId,
                         pendingBookingIds: pendingIds,
@@ -665,25 +929,85 @@ export function PaymentMethods({
         )}
         {hasDropInTab && (
           <TabsContent value="dropin">
+            <div className="mb-4 rounded-md border p-4 space-y-3">
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Promo code</p>
+                <p className="text-sm text-muted-foreground">
+                  Apply your promo code before completing a drop-in booking.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  aria-label="Promo code"
+                  placeholder="Enter promo code"
+                  value={discountCodeInput}
+                  onChange={(event) => {
+                    const nextValue = event.target.value.toUpperCase();
+                    setDiscountCodeInput(nextValue);
+                    if (
+                      appliedDiscountCode &&
+                      nextValue.trim().toUpperCase() !== appliedDiscountCode.trim().toUpperCase()
+                    ) {
+                      setAppliedDiscountCode(undefined);
+                      setAppliedDiscount(undefined);
+                    }
+                    setDiscountError(null);
+                    setDiscountSuccess(null);
+                  }}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={isValidatingDiscountCode}
+                    onClick={() => {
+                      void validateDiscountCode(discountCodeInput);
+                    }}
+                  >
+                    {isValidatingDiscountCode ? "Applying..." : "Apply"}
+                  </Button>
+                  {appliedDiscountCode ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setAppliedDiscountCode(undefined);
+                        setAppliedDiscount(undefined);
+                        setDiscountError(null);
+                        setDiscountSuccess(null);
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+              {discountError ? (
+                <p className="text-sm text-destructive">{discountError}</p>
+              ) : null}
+              {!discountError && discountSuccess ? (
+                <p className="text-sm text-green-600">{discountSuccess}</p>
+              ) : null}
+            </div>
             {allowedDropIn ? (
               <DropInView
-                bookingStatus={lesson.bookingStatus}
+                bookingStatus={timeslot.bookingStatus}
                 dropIn={allowedDropIn as DropIn}
                 quantity={quantity}
+                discountCode={appliedDiscountCode}
+                discount={appliedDiscount}
                 onPaymentRedirectStart={onPaymentRedirectStart}
                 createPaymentIntentUrl={createPaymentIntentUrl}
                 FeeBreakdownComponent={FeeBreakdownComponent}
                 returnUrl={successUrlProp}
                 metadata={
-                  pendingBookings && pendingBookings.length > 0
+                  hasPendingBookings
                     ? {
-                        bookingIds: pendingBookings
-                          .map((b) => b.id)
-                          .join(","),
-                        lessonId: lesson.id.toString(),
+                        bookingIds: pendingBookingIds.join(","),
+                        timeslotId: timeslot.id.toString(),
                       }
                     : {
-                        lessonId: lesson.id.toString(),
+                        timeslotId: timeslot.id.toString(),
                         quantity: String(quantity),
                       }
                 }

@@ -13,7 +13,7 @@ import { paymentsPlugin } from "@repo/payments-plugin";
 import { rolesPlugin } from "@repo/roles";
 import { checkRole } from "../../../shared-utils/src/check-role";
 import { isAdminOrOwner } from "@repo/bookings-plugin/src/access/bookings";
-import { Booking, Lesson, User } from "@repo/shared-types";
+import { Booking, Timeslot, User } from "@repo/shared-types";
 
 import {
   bookingCreateMembershipDropinAccess,
@@ -99,12 +99,12 @@ export const config: Config = {
       enabled: true,
       enableDropIns: true,
       acceptedPaymentMethods: ["cash", "card"],
-      paymentMethodSlugs: ["class-options"],
+      paymentMethodSlugs: ["event-types"],
     }),
     bookingsPaymentsPlugin({
       membership: {
         enabled: true,
-        paymentMethodSlugs: ["class-options"],
+        paymentMethodSlugs: ["event-types"],
       },
     }),
   ],

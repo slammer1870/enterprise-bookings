@@ -1,8 +1,19 @@
-import { AccessArgs } from "payload";
+import type { Access, CollectionSlug } from "payload";
 
-import { Booking, Lesson, User } from "@repo/shared-types";
+type AccessArgs<T> = Parameters<Access<T>> extends never
+  ? { req: any; id?: string | number; data?: any }
+  : Parameters<Extract<Access<T>, (..._args: any[]) => any>> extends infer P
+    ? P extends [infer A]
+      ? A
+      : never
+    : never;
+
+import { Booking, Timeslot, User } from "@repo/shared-types";
 
 import { checkRole } from "@repo/shared-utils";
+
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
+import type { BookingCollectionSlugs } from "../resolve-slugs";
 
 function normalizeID(id: unknown): number | null {
   if (typeof id === "number" && Number.isFinite(id)) return id;
@@ -13,148 +24,156 @@ function normalizeID(id: unknown): number | null {
   return null;
 }
 
-export const bookingCreateAccess = async ({
-  req,
-  data,
-}: AccessArgs<Booking>) => {
-  const user = req.user as User | null;
+/** Platform + tenant operators (super-admin, tenant admin `admin`). */
+function isElevatedOperator(user: User | null): boolean {
+  return checkRole(["super-admin", "admin"], user);
+}
 
-  if (!data?.lesson) return false;
+export function createBookingAccess(slugs: BookingCollectionSlugs) {
+  const timeslotsSlug = slugs.timeslots;
 
-  const lessonId =
-    typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
+  const bookingCreateAccess = async ({
+    req,
+    data,
+  }: AccessArgs<Booking>) => {
+    const user = req.user as User | null;
 
-  try {
-    const lesson = (await req.payload.findByID({
-      collection: "lessons",
-      id: lessonId,
-      depth: 3,
-      // Access functions often need to read related docs to decide permissions.
-      // Use overrideAccess to avoid tenant-scoped filtering causing false negatives.
-      overrideAccess: true,
-      context: {
-        triggerAfterChange: false, // Don't trigger hooks that might affect bookingStatus calculation
-      },
-    })) as unknown as Lesson;
+    if (!data?.timeslot) return false;
 
-    if (!lesson) return false;
+    const timeslotId =
+      typeof data?.timeslot === "object" ? data?.timeslot.id : data?.timeslot;
+
+    try {
+      const timeslot = (await req.payload.findByID({
+        collection: timeslotsSlug as CollectionSlug,
+        id: timeslotId,
+        depth: 3,
+        overrideAccess: true,
+        context: {
+          triggerAfterChange: false,
+        },
+      })) as unknown as Timeslot;
+
+      if (!timeslot) return false;
+
+      if (!user) return false;
+
+      if (isElevatedOperator(user)) return true;
+
+      if (timeslot.bookingStatus === "waitlist" && data.status === "waiting") {
+        return true;
+      }
+
+      if (
+        timeslot.bookingStatus === "closed" ||
+        timeslot.bookingStatus === "booked"
+      ) {
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  };
+
+  const bookingUpdateAccess = async ({
+    req,
+    id,
+  }: AccessArgs<Booking>) => {
+    const searchParams = req.searchParams;
+
+    const timeslotId = searchParams.get("where[and][0][timeslot][equals]") || id;
+
+    if (!timeslotId) return false;
+
+    let booking: Booking | undefined;
+
+    try {
+      const requester = req.user as User | null;
+      const requesterId = normalizeID(requester?.id);
+      if (!requesterId) return false;
+
+      if (requester && isElevatedOperator(requester)) return true;
+
+      if (id) {
+        booking = (await req.payload.findByID({
+          collection: "bookings",
+          id,
+          depth: 3,
+          overrideAccess: true,
+        })) as unknown as Booking;
+      } else {
+        const bookingQuery = await req.payload.find({
+          collection: "bookings",
+          where: {
+            timeslot: { equals: timeslotId },
+            user: { equals: requesterId },
+          },
+          depth: 3,
+          overrideAccess: true,
+        });
+
+        booking = bookingQuery.docs[0] as unknown as Booking | undefined;
+      }
+
+      if (!booking) return false;
+
+      const bookingUserId = normalizeID(
+        (booking as any)?.user?.id ?? (booking as any)?.user
+      );
+      if (!bookingUserId) return false;
+      if (bookingUserId !== requesterId) return false;
+
+      if (req.data?.status === "cancelled") return true;
+
+      if (
+        (booking as any)?.timeslot?.bookingStatus === "closed" ||
+        (booking as any)?.timeslot?.bookingStatus === "waitlist"
+      ) {
+        const timeslotLookup = (await req.payload.findByID({
+          collection: timeslotsSlug as CollectionSlug,
+          id: (booking as any)?.timeslot?.id ?? (booking as any)?.timeslot,
+          depth: 0,
+          overrideAccess: true,
+        })) as unknown as Timeslot | null;
+        if (!timeslotLookup) return false;
+        if (
+          timeslotLookup.bookingStatus === "closed" ||
+          timeslotLookup.bookingStatus === "waitlist"
+        )
+          return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Error in bookingUpdateAccess:", error);
+      return false;
+    }
+  };
+
+  const isAdminOrOwner = ({ req }: AccessArgs<Booking>) => {
+    const user = req.user as User | null;
 
     if (!user) return false;
 
-    if (checkRole(["admin"], user)) return true;
+    if (isElevatedOperator(user)) return true;
 
-    if (lesson.bookingStatus === "waitlist" && data.status === "waiting") {
-      return true;
-    }
-
-    if (
-      lesson.bookingStatus === "closed" ||
-      lesson.bookingStatus === "booked"
-    ) {
-      return false;
-    }
-
-    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-    //   return false;
-    // }
-
-    return true;
-  } catch (error) {
-    console.error(error);
-    return false;
-  }
-};
-
-export const bookingUpdateAccess = async ({
-  req,
-  id,
-}: AccessArgs<Booking>) => {
-  const searchParams = req.searchParams;
-
-  const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
-
-  if (!lessonId) return false;
-
-  let booking: Booking | undefined;
-
-  try {
-    const requester = req.user as User | null;
-    const requesterId = normalizeID(requester?.id);
-    if (!requesterId) return false;
-
-    // Admins can update any booking.
-    if (requester && checkRole(["admin"], requester)) return true;
-
-    if (id) {
-      booking = (await req.payload.findByID({
-        collection: "bookings",
-        id,
-        depth: 3,
-        // Access functions must be able to read the target doc to evaluate ownership.
-        // This does NOT grant access by itself; we enforce ownership below.
-        overrideAccess: true,
-      })) as unknown as Booking;
-    } else {
-      const bookingQuery = await req.payload.find({
-        collection: "bookings",
-        where: {
-          lesson: { equals: lessonId },
-          user: { equals: requesterId },
-        },
-        depth: 3,
-        overrideAccess: true,
-      });
-
-      booking = bookingQuery.docs[0] as Booking | undefined;
-    }
-
-    if (!booking) return false;
-
-    const bookingUserId = normalizeID(
-      (booking as any)?.user?.id ?? (booking as any)?.user
-    );
-    if (!bookingUserId) return false;
-    if (bookingUserId !== requesterId) return false;
-
-    // Cancellation is always allowed for the owner (even if lesson is closed/waitlist).
-    if (req.data?.status === "cancelled") return true;
-
-    // For other updates (rare in app flows), ensure lesson is not closed/waitlist.
-    if (
-      (booking as any)?.lesson?.bookingStatus === "closed" ||
-      (booking as any)?.lesson?.bookingStatus === "waitlist"
-    ) {
-      // If lesson isn't populated with bookingStatus, fetch it.
-      const lessonLookup = (await req.payload.findByID({
-        collection: "lessons",
-        id: (booking as any)?.lesson?.id ?? (booking as any)?.lesson,
-        depth: 0,
-        overrideAccess: true,
-      })) as unknown as Lesson | null;
-      if (!lessonLookup) return false;
-      if (lessonLookup.bookingStatus === "closed" || lessonLookup.bookingStatus === "waitlist")
-        return false;
-    }
-
-    // if (lesson.remainingCapacity && lesson.remainingCapacity <= 0) {
-    //   return false;
-    // }
-
-    return true;
-  } catch (error) {
-    console.error("Error in bookingUpdateAccess:", error);
-    return false;
-  }
-};
-
-export const isAdminOrOwner = ({ req }: AccessArgs<Booking>) => {
-  const user = req.user as User | null;
-
-  if (!user) return false;
-
-  if (checkRole(["admin"], user)) return true;
+    return {
+      user: { equals: user.id },
+    };
+  };
 
   return {
-    user: { equals: user.id },
+    bookingCreateAccess,
+    bookingUpdateAccess,
+    isAdminOrOwner,
   };
-};
+}
+
+/** @deprecated Prefer createBookingAccess(slugs) when using custom collection slugs. */
+const _legacyAccess = createBookingAccess(DEFAULT_BOOKING_COLLECTION_SLUGS);
+export const bookingCreateAccess = _legacyAccess.bookingCreateAccess;
+export const bookingUpdateAccess = _legacyAccess.bookingUpdateAccess;
+export const isAdminOrOwner = _legacyAccess.isAdminOrOwner;

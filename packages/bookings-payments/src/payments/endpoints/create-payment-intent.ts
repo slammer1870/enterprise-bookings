@@ -16,17 +16,17 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
   const { price, metadata } = await req.json();
 
   const rawMetadata = (metadata ?? {}) as Record<string, string | undefined>;
-  const lessonIdRaw = rawMetadata.lessonId;
-  const lessonId =
-    lessonIdRaw && typeof lessonIdRaw === "string" && /^\d+$/.test(lessonIdRaw)
-      ? parseInt(lessonIdRaw, 10)
+  const timeslotIdRaw = rawMetadata.timeslotId;
+  const timeslotId =
+    timeslotIdRaw && typeof timeslotIdRaw === "string" && /^\d+$/.test(timeslotIdRaw)
+      ? parseInt(timeslotIdRaw, 10)
       : null;
   let bookingIdsToAttach: string[] = [];
 
   // When client passes explicit bookingIds (modify-booking flow with pre-created pending bookings),
   // use those directly instead of quantity-based reserve logic. Otherwise only 1 booking is attached.
   const clientBookingIdsRaw = rawMetadata.bookingIds;
-  if (lessonId != null && clientBookingIdsRaw && typeof clientBookingIdsRaw === "string") {
+  if (timeslotId != null && clientBookingIdsRaw && typeof clientBookingIdsRaw === "string") {
     const parsed = clientBookingIdsRaw
       .split(",")
       .map((s) => s.trim())
@@ -39,7 +39,7 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
           where: {
             and: [
               { id: { in: ids } },
-              { lesson: { equals: lessonId } },
+              { timeslot: { equals: timeslotId } },
               { user: { equals: user.id } },
               { status: { equals: "pending" } },
             ],
@@ -56,24 +56,24 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
     }
   }
 
-  if (lessonId != null && bookingIdsToAttach.length === 0) {
+  if (timeslotId != null && bookingIdsToAttach.length === 0) {
     const quantity = Math.max(1, parseInt(String(rawMetadata.quantity ?? "1"), 10) || 1);
-    const lesson = await req.payload
+    const timeslot = await req.payload
       .findByID({
-        collection: "lessons",
-        id: lessonId,
+        collection: "timeslots" as any,
+        id: timeslotId,
         depth: 1,
       })
       .catch(() => null);
     const remainingCapacity =
-      lesson &&
-      typeof (lesson as unknown as { remainingCapacity?: number }).remainingCapacity === "number"
-        ? Math.max(0, (lesson as unknown as { remainingCapacity: number }).remainingCapacity)
+      timeslot &&
+      typeof (timeslot as unknown as { remainingCapacity?: number }).remainingCapacity === "number"
+        ? Math.max(0, (timeslot as unknown as { remainingCapacity: number }).remainingCapacity)
         : 0;
     if (quantity > remainingCapacity) {
       const message =
         remainingCapacity === 0
-          ? "This lesson is fully booked."
+          ? "This timeslot is fully booked."
           : `Only ${remainingCapacity} spot${remainingCapacity !== 1 ? "s" : ""} available. You requested ${quantity}.`;
       throw new APIError(message, 400);
     }
@@ -85,7 +85,7 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
         collection: "bookings",
         where: {
           and: [
-            { lesson: { equals: lessonId } },
+            { timeslot: { equals: timeslotId } },
             { user: { equals: user.id } },
             { status: { equals: "pending" } },
             { createdAt: { greater_than: pendingCutoff } },
@@ -99,33 +99,33 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
       const existingIds = (existing.docs as { id: number }[]).map((b) => String(b.id));
       const need = quantity - existingIds.length;
       if (need > 0) {
-        const lessonNow = await req.payload
-          .findByID({ collection: "lessons", id: lessonId, depth: 1 })
+        const timeslotNow = await req.payload
+          .findByID({ collection: "timeslots" as any, id: timeslotId, depth: 1 })
           .catch(() => null);
         const cap =
-          lessonNow &&
-          typeof (lessonNow as unknown as { remainingCapacity?: number }).remainingCapacity === "number"
-            ? Math.max(0, (lessonNow as unknown as { remainingCapacity: number }).remainingCapacity)
+          timeslotNow &&
+          typeof (timeslotNow as unknown as { remainingCapacity?: number }).remainingCapacity === "number"
+            ? Math.max(0, (timeslotNow as unknown as { remainingCapacity: number }).remainingCapacity)
             : 0;
         if (need > cap) {
           const message =
             cap === 0
-              ? "This lesson is fully booked."
+              ? "This timeslot is fully booked."
               : `Only ${cap} spot${cap !== 1 ? "s" : ""} available. You requested ${quantity}.`;
           throw new APIError(message, 400);
         }
-        const lessonData = lessonNow as { tenant?: number | { id: number } } | null;
+        const timeslotData = timeslotNow as { tenant?: number | { id: number } } | null;
         const tenantId =
-          lessonData?.tenant != null
-            ? typeof lessonData.tenant === "object" && lessonData.tenant !== null
-              ? lessonData.tenant.id
-              : lessonData.tenant
+          timeslotData?.tenant != null
+            ? typeof timeslotData.tenant === "object" && timeslotData.tenant !== null
+              ? timeslotData.tenant.id
+              : timeslotData.tenant
             : undefined;
         for (let i = 0; i < need; i++) {
           const created = await req.payload.create({
             collection: "bookings",
             data: {
-              lesson: lessonId,
+              timeslot: timeslotId,
               user: user.id,
               status: "pending",
               ...(tenantId != null ? { tenant: tenantId } : {}),

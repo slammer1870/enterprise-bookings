@@ -1,5 +1,26 @@
 const PAYLOAD_TENANT_COOKIE = 'payload-tenant'
+const TENANT_SLUG_COOKIE = 'tenant-slug'
+const TENANT_ID_COOKIE = 'tenant-id'
 const COOKIE_MAX_AGE_YEAR = 60 * 60 * 24 * 365
+
+function getCookiePathsToClear(): string[] {
+  const basePaths = ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/']
+
+  if (typeof window === 'undefined') return basePaths
+
+  const pathname = window.location.pathname || '/'
+  const parts = pathname.split('/').filter(Boolean)
+  const dynamicPaths = new Set<string>()
+
+  let current = ''
+  for (const part of parts) {
+    current += `/${part}`
+    dynamicPaths.add(current)
+    dynamicPaths.add(`${current}/`)
+  }
+
+  return Array.from(new Set([...basePaths, ...dynamicPaths]))
+}
 
 function getRootHostnameFromEnv(): string | undefined {
   const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL
@@ -67,7 +88,7 @@ export function setPayloadTenantCookie(
   const domainsToClear = [undefined, domain, rootDomain].filter(
     (d, idx, arr) => arr.indexOf(d) === idx,
   ) as Array<string | undefined>
-  const pathsToClear = ['/', '/admin', '/admin/'] as const
+  const pathsToClear = getCookiePathsToClear()
   for (const d of domainsToClear) {
     const domainAttr = d ? `; Domain=${d}` : ''
     for (const path of pathsToClear) {
@@ -80,24 +101,34 @@ export function setPayloadTenantCookie(
   document.cookie = `${PAYLOAD_TENANT_COOKIE}=${encoded}; Path=/; ${maxAgeAttrs}; SameSite=Lax${domainAttr}`
 }
 
-export function deleteTenantCookie(getCookieDomain?: () => string | undefined): void {
+function deleteCookieEverywhere(name: string, getCookieDomain?: () => string | undefined): void {
   if (typeof document === 'undefined') return
   // IMPORTANT: cookies can exist in both "host-only" and "domain-scoped" variants.
   // For example: after selecting a tenant on a subdomain we may set Domain=.rootHostname,
   // then later clearing on the root hostname must also delete that domain-scoped cookie.
   const domain = getCookieDomain?.() ?? getPayloadTenantCookieDomainDefault()
   const rootDomain = getRootCookieDomainFromEnv()
-  const baseNoDomain = `${PAYLOAD_TENANT_COOKIE}=; Max-Age=0; SameSite=Lax`
+  const baseNoDomain = `${name}=; Max-Age=0; SameSite=Lax`
   const baseWithDomain = domain ? `${baseNoDomain}; Domain=${domain}` : null
 
-  const paths = ['/', '/admin', '/admin/'] as const
+  const paths = getCookiePathsToClear()
   for (const path of paths) {
     document.cookie = `${baseNoDomain}; Path=${path}`
     if (baseWithDomain) document.cookie = `${baseWithDomain}; Path=${path}`
     if (rootDomain) {
-      document.cookie = `${PAYLOAD_TENANT_COOKIE}=; Max-Age=0; SameSite=Lax; Domain=${rootDomain}; Path=${path}`
+      document.cookie = `${name}=; Max-Age=0; SameSite=Lax; Domain=${rootDomain}; Path=${path}`
     }
   }
+}
+
+export function deleteTenantCookie(getCookieDomain?: () => string | undefined): void {
+  deleteCookieEverywhere(PAYLOAD_TENANT_COOKIE, getCookieDomain)
+}
+
+export function deleteTenantContextCookies(getCookieDomain?: () => string | undefined): void {
+  deleteCookieEverywhere(PAYLOAD_TENANT_COOKIE, getCookieDomain)
+  deleteCookieEverywhere(TENANT_SLUG_COOKIE, getCookieDomain)
+  deleteCookieEverywhere(TENANT_ID_COOKIE, getCookieDomain)
 }
 
 export function getTenantCookie(): string | undefined {

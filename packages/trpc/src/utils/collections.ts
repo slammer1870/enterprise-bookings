@@ -1,5 +1,6 @@
 import { TRPCError } from "@trpc/server";
 import type { CollectionSlug, JsonObject, PaginatedDocs, Payload, TypeWithID } from "payload";
+import type { TRPCBookingCollectionSlugs } from "../bookings-slugs";
 
 /**
  * Helper function to check if a collection exists in the Payload instance
@@ -22,7 +23,7 @@ export function hasCollection(payload: any, collectionSlug: string): boolean {
  *
  * @example
  * const procedure = protectedProcedure
- *   .use(requireCollections("bookings", "lessons"))
+ *   .use(requireCollections("bookings", "timeslots"))
  *   .input(...)
  *   .query(...)
  */
@@ -32,6 +33,32 @@ export function requireCollections(...collectionSlugs: string[]) {
     const missingCollections: string[] = [];
 
     for (const slug of collectionSlugs) {
+      if (!hasCollection(ctx.payload, slug)) {
+        missingCollections.push(slug);
+      }
+    }
+
+    if (missingCollections.length > 0) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `The following collections are not available in this application: ${missingCollections.join(", ")}`,
+      });
+    }
+
+    return next();
+  };
+}
+
+/**
+ * Ensure booking plugin collections exist using slugs from context (supports renamed collections).
+ */
+export function requireBookingCollections(...keys: (keyof TRPCBookingCollectionSlugs)[]) {
+  return async ({ ctx, next }: any) => {
+    const slugs = ctx.bookingsSlugs as TRPCBookingCollectionSlugs;
+    const missingCollections: string[] = [];
+
+    for (const key of keys) {
+      const slug = slugs[key];
       if (!hasCollection(ctx.payload, slug)) {
         missingCollections.push(slug);
       }
@@ -150,7 +177,7 @@ export async function createSafe<T = any>(
       showHiddenFields: false,
     })) as T;
   } catch (error: any) {
-    // Handle the specific error about missing join fields (like "lessons")
+    // Handle the specific error about missing join fields (like "timeslots")
     // This can happen when Payload tries to process join fields that don't exist in the schema
     // The field might be commented out but Payload still tries to process it
     const errorMessage = error?.message || error?.cause?.message || "";

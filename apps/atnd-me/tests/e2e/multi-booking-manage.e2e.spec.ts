@@ -2,15 +2,15 @@ import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUser } from './helpers/auth-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestBooking,
 } from './helpers/data-helpers'
 
 test.describe('Multi-Booking Management E2E Tests', () => {
   let lesson: any
-  let guardLesson: any
-  let fullLesson: any
+  let guardTimeslot: any
+  let fullTimeslot: any
   let classOptionId: number
 
   test.beforeAll(async ({ testData }) => {
@@ -18,7 +18,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     const tenant = testData.tenants[0]!
 
     // Create class option with sufficient capacity
-    const classOption = await createTestClassOption(
+    const classOption = await createTestEventType(
       tenant.id,
       'Multi-Booking Test Class',
       10,
@@ -34,7 +34,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     const endTime = new Date(startTime)
     endTime.setHours(11, 0, 0, 0)
 
-    lesson = await createTestLesson(
+    lesson = await createTestTimeslot(
       tenant.id,
       classOption.id,
       startTime,
@@ -49,7 +49,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     const guardEndTime = new Date(guardStartTime)
     guardEndTime.setHours(13, 0, 0, 0)
 
-    guardLesson = await createTestLesson(
+    guardTimeslot = await createTestTimeslot(
       tenant.id,
       classOption.id,
       guardStartTime,
@@ -59,7 +59,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     )
 
     // Create a fully booked lesson for capacity testing
-    const fullClassOption = await createTestClassOption(
+    const fullEventType = await createTestEventType(
       tenant.id,
       'Full Multi-Booking Test Class',
       2,
@@ -73,9 +73,9 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     const fullEndTime = new Date(fullStartTime)
     fullEndTime.setHours(15, 0, 0, 0)
 
-    fullLesson = await createTestLesson(
+    fullTimeslot = await createTestTimeslot(
       tenant.id,
-      fullClassOption.id,
+      fullEventType.id,
       fullStartTime,
       fullEndTime,
       undefined,
@@ -84,7 +84,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
     // Pre-book ONE slot so user1 can take the last slot during the test.
     // The guard we want to test is "can't increase beyond remaining capacity" on the manage page.
-    await createTestBooking(testData.users.user2.id, fullLesson.id, 'confirmed')
+    await createTestBooking(testData.users.user2.id, fullTimeslot.id, 'confirmed')
   })
 
   test.describe('CTA -> Manage Routing', () => {
@@ -169,7 +169,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       const raceTimeout = process.env.CI ? 20000 : 12000
 
       const tryNavigateAndRace = async () => {
-        await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
+        await navigateToTenant(page, tenant.slug, `/bookings/${guardTimeslot.id}/manage`)
         await page.waitForLoadState('load').catch(() => null)
         return Promise.race([
           page.waitForURL(redirectPredicate, { timeout: raceTimeout }).then(() => 'redirected' as const),
@@ -191,7 +191,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
       if (outcome === 'error') {
         throw new Error(
-          `Manage page showed "Booking page error" instead of redirecting to booking page. Check server/session for /bookings/${guardLesson.id}/manage with 0 bookings.`
+          `Manage page showed "Booking page error" instead of redirecting to booking page. Check server/session for /bookings/${guardTimeslot.id}/manage with 0 bookings.`
         )
       }
       if (outcome === null) {
@@ -208,7 +208,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     test('should handle manage route when user has 1 booking', async ({ page, testData }) => {
       const tenant = testData.tenants[0]!
       // Create 1 booking
-      await createTestBooking(testData.users.user1.id, guardLesson.id, 'confirmed')
+      await createTestBooking(testData.users.user1.id, guardTimeslot.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
         tenantSlug: tenant.slug,
@@ -218,7 +218,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       // Depending on backend/session timing this can either:
       // - stay on /manage (preferred behavior), or
       // - redirect back to /bookings/[id] (if the server doesn't see the booking yet).
-      await navigateToTenant(page, tenant.slug, `/bookings/${guardLesson.id}/manage`)
+      await navigateToTenant(page, tenant.slug, `/bookings/${guardTimeslot.id}/manage`)
 
       await page.waitForURL(
         (url) => {
@@ -249,7 +249,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
 
-      const decreaseLesson = await createTestLesson(
+      const decreaseTimeslot = await createTestTimeslot(
         tenant.id,
         classOptionId,
         startTime,
@@ -259,9 +259,9 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       )
       
       // Create 3 confirmed bookings
-      await createTestBooking(user.id, decreaseLesson.id, 'confirmed')
-      await createTestBooking(user.id, decreaseLesson.id, 'confirmed')
-      await createTestBooking(user.id, decreaseLesson.id, 'confirmed')
+      await createTestBooking(user.id, decreaseTimeslot.id, 'confirmed')
+      await createTestBooking(user.id, decreaseTimeslot.id, 'confirmed')
+      await createTestBooking(user.id, decreaseTimeslot.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, user.email, 'password', {
         tenantSlug: tenant.slug,
@@ -270,7 +270,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
       const quantityDisplay = page.getByTestId('booking-quantity')
       const errorHeading = page.getByRole('heading', { name: /booking page error/i })
-      const managePath = `/bookings/${decreaseLesson.id}/manage`
+      const managePath = `/bookings/${decreaseTimeslot.id}/manage`
 
       for (let attempt = 0; attempt < 3; attempt++) {
         await navigateToTenant(page, tenant.slug, managePath)
@@ -293,7 +293,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
         }
         if (outcome === 'error') {
           throw new Error(
-            `Manage page showed "Booking page error" instead of quantity view. Check server/session for /bookings/${decreaseLesson.id}/manage.`
+            `Manage page showed "Booking page error" instead of quantity view. Check server/session for /bookings/${decreaseTimeslot.id}/manage.`
           )
         }
         if (attempt === 2) {
@@ -348,7 +348,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       const endTime = new Date(startTime)
       endTime.setHours(19, 0, 0, 0)
 
-      const increaseLesson = await createTestLesson(
+      const increaseTimeslot = await createTestTimeslot(
         tenant.id,
         classOptionId,
         startTime,
@@ -358,7 +358,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
       )
       
       // Create 1 confirmed booking
-      const booking = await createTestBooking(user.id, increaseLesson.id, 'confirmed')
+      const booking = await createTestBooking(user.id, increaseTimeslot.id, 'confirmed')
       
       // Verify booking was created
       expect(booking).toBeDefined()
@@ -372,7 +372,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
 
       // Navigate to manage page and wait for UI.
       // Under load, the server can transiently redirect /manage -> /bookings/[id] or show error boundary.
-      const managePath = `/bookings/${increaseLesson.id}/manage`
+      const managePath = `/bookings/${increaseTimeslot.id}/manage`
       const manageHeading = page.getByText(/update booking quantity/i).first()
       const errorHeading = page.getByRole('heading', { name: /booking page error/i })
 
@@ -401,7 +401,7 @@ test.describe('Multi-Booking Management E2E Tests', () => {
             continue
           }
           throw new Error(
-            `Manage page showed "Booking page error" instead of quantity view. Check server/session for /bookings/${increaseLesson.id}/manage.`
+            `Manage page showed "Booking page error" instead of quantity view. Check server/session for /bookings/${increaseTimeslot.id}/manage.`
           )
         }
         if (outcome === 'success') break
@@ -442,12 +442,12 @@ test.describe('Multi-Booking Management E2E Tests', () => {
     test('should prevent increasing quantity beyond remaining capacity', async ({ page, testData }) => {
       const tenant = testData.tenants[0]!
       // Create 1 booking for user1 on the full lesson (this fills the last remaining slot)
-      await createTestBooking(testData.users.user1.id, fullLesson.id, 'confirmed')
+      await createTestBooking(testData.users.user1.id, fullTimeslot.id, 'confirmed')
 
       await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', {
         tenantSlug: tenant.slug,
       })
-      await navigateToTenant(page, tenant.slug, `/bookings/${fullLesson.id}/manage`)
+      await navigateToTenant(page, tenant.slug, `/bookings/${fullTimeslot.id}/manage`)
 
       // Wait for manage page to load
       await page.waitForLoadState('networkidle')

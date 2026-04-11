@@ -1,4 +1,4 @@
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 import { FieldHook } from 'payload'
 
 export const getLastCheckIn: FieldHook = async ({ req, siblingData, value }) => {
@@ -17,16 +17,16 @@ export const getLastCheckIn: FieldHook = async ({ req, siblingData, value }) => 
         user: { equals: user },
         status: { equals: 'confirmed' },
       },
-      sort: '-lesson.startTime',
+      sort: '-timeslot.startTime',
       limit: 1,
       depth: 3,
     })
 
-    const lesson = lastBooking?.docs[0]?.lesson as Lesson
+    const timeslot = lastBooking?.docs[0]?.timeslot as unknown as Timeslot | undefined
 
     // Return ISO string for date fields
-    if (lesson?.startTime) {
-      return new Date(lesson.startTime).toISOString()
+    if (timeslot?.startTime) {
+      return new Date(timeslot.startTime).toISOString()
     }
 
     // Return undefined to preserve existing value, not null

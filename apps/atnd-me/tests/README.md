@@ -8,12 +8,12 @@ This directory contains integration and E2E tests for the `atnd-me` app.
 
 #### `trpc-bookings.int.spec.ts`
 Integration tests for tRPC booking procedures:
-- `lessons.getByIdForBooking`: Fetches lesson for booking, handles errors
+- `timeslots.getByIdForBooking`: Fetches lesson for booking, handles errors
 - `bookings.createBookings`: Creates single and multiple bookings, validates capacity
 
 These tests:
 - Use a real Payload instance with test database
-- Create test users, lessons, and class options
+- Create test users, timeslots, and class options
 - Test authentication and authorization
 - Clean up test data after each test
 

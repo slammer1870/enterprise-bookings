@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { getTenantSlug } from '../../src/utilities/getTenantContext'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { getTenantContext, getTenantSlug } from '../../src/utilities/getTenantContext'
 
 /**
  * Step 3 - getTenantContext helper
@@ -7,6 +7,10 @@ import { getTenantSlug } from '../../src/utilities/getTenantContext'
  * Tests for extracting tenant slug from request-like sources and resolving to tenant context.
  */
 describe('getTenantSlug (slug extraction)', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('extracts slug from cookies', async () => {
     const cookieStore = {
       get: (name: string) =>
@@ -37,6 +41,22 @@ describe('getTenantSlug (slug extraction)', () => {
     expect(slug).toBe('cookie-tenant')
   })
 
+  it('ignores tenant-slug cookie on the platform base host but still honors explicit headers', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd-preview.org')
+
+    const cookieStore = {
+      get: (name: string) =>
+        name === 'tenant-slug' ? { value: 'cookie-tenant' } : undefined,
+    }
+    const headers = new Headers({
+      host: 'atnd-preview.org',
+      'x-tenant-slug': 'header-tenant',
+    })
+
+    const slug = await getTenantSlug({ cookies: cookieStore, headers })
+    expect(slug).toBe('header-tenant')
+  })
+
   it('extracts slug from searchParams when cookie and header are missing', async () => {
     const searchParams = new URLSearchParams()
     searchParams.set('slug', 'param-tenant')
@@ -65,5 +85,50 @@ describe('getTenantSlug (slug extraction)', () => {
       cookies: await asyncCookies(),
     })
     expect(slug).toBe('async-tenant')
+  })
+
+  it('ignores payload-tenant fallback on the platform base host', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd-preview.org')
+
+    const payload = {
+      findByID: vi.fn(),
+    }
+
+    const tenant = await getTenantContext(payload as never, {
+      cookies: {
+        get: (name: string) => (name === 'payload-tenant' ? { value: '42' } : undefined),
+      },
+      headers: new Headers({ host: 'atnd-preview.org' }),
+    })
+
+    expect(tenant).toBeNull()
+    expect(payload.findByID).not.toHaveBeenCalled()
+  })
+
+  it('allows payload-tenant fallback when the request host is unavailable', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd-preview.org')
+
+    const payload = {
+      findByID: vi.fn(async () => ({
+        id: 42,
+        slug: 'acme',
+        name: 'Acme Gym',
+        domain: null,
+      })),
+    }
+
+    const tenant = await getTenantContext(payload as never, {
+      cookies: {
+        get: (name: string) => (name === 'payload-tenant' ? { value: '42' } : undefined),
+      },
+    })
+
+    expect(tenant).toEqual({
+      id: 42,
+      slug: 'acme',
+      name: 'Acme Gym',
+      domain: null,
+    })
+    expect(payload.findByID).toHaveBeenCalledOnce()
   })
 })

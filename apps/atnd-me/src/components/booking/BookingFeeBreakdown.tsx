@@ -12,12 +12,24 @@ function formatCentsToCurrency(cents: number): string {
 
 export type BookingFeeBreakdownProps = {
   classPriceCents: number
+  originalClassPriceCents?: number
+  promoDiscountCents?: number
   bookingFeeCents: number
 }
 
-export function BookingFeeBreakdown({ classPriceCents, bookingFeeCents }: BookingFeeBreakdownProps) {
+export function BookingFeeBreakdown({
+  classPriceCents,
+  originalClassPriceCents,
+  promoDiscountCents,
+  bookingFeeCents,
+}: BookingFeeBreakdownProps) {
   const totalCents = classPriceCents + bookingFeeCents
   const hasBookingFee = bookingFeeCents > 0
+  const hasPromoDiscount = (promoDiscountCents ?? 0) > 0
+  const displayClassPriceCents =
+    hasPromoDiscount && typeof originalClassPriceCents === 'number'
+      ? originalClassPriceCents
+      : classPriceCents
   return (
     <Card data-testid="booking-fee-breakdown">
       <CardHeader>
@@ -26,8 +38,14 @@ export function BookingFeeBreakdown({ classPriceCents, bookingFeeCents }: Bookin
       <CardContent className="space-y-2">
         <div className="flex justify-between text-sm">
           <span>Class price</span>
-          <span data-testid="class-price">{formatCentsToCurrency(classPriceCents)}</span>
+          <span data-testid="class-price">{formatCentsToCurrency(displayClassPriceCents)}</span>
         </div>
+        {hasPromoDiscount && (
+          <div className="flex justify-between text-sm">
+            <span>Promo code</span>
+            <span data-testid="promo-discount">-{formatCentsToCurrency(promoDiscountCents ?? 0)}</span>
+          </div>
+        )}
         {hasBookingFee && (
           <div className="flex justify-between text-sm">
             <span>Booking fee</span>

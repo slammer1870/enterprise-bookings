@@ -62,13 +62,13 @@ const defaultFields: Field[] = [
     },
   },
   {
-    name: "allowMultipleBookingsPerLesson",
-    label: "Allow multiple bookings per lesson",
+    name: "allowMultipleBookingsPerTimeslot",
+    label: "Allow multiple bookings per timeslot",
     type: "checkbox",
     defaultValue: true,
     required: true,
     admin: {
-      description: "When enabled, users can use multiple credits from this pass type on the same lesson (e.g. book 3 spots using 3 credits). When disabled, only one spot per lesson per user.",
+      description: "When enabled, users can use multiple credits from this pass type on the same timeslot (e.g. book 3 spots using 3 credits). When disabled, only one spot per timeslot per user.",
     },
   },
   {

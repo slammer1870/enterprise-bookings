@@ -83,9 +83,9 @@ export interface Config {
     accounts: Account;
     sessions: Session;
     verifications: Verification;
-    instructors: Instructor;
-    lessons: Lesson;
-    'class-options': ClassOption;
+    'staff-members': StaffMember;
+    timeslots: Timeslot;
+    'event-types': EventType;
     bookings: Booking;
     'drop-ins': DropIn;
     'class-pass-types': ClassPassType;
@@ -102,14 +102,14 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
-    lessons: {
+    timeslots: {
       bookings: 'bookings';
     };
     'drop-ins': {
-      'class-optionsPaymentMethods': 'class-options';
+      'event-typesPaymentMethods': 'event-types';
     };
     plans: {
-      'class-optionsPaymentMethods': 'class-options';
+      'event-typesPaymentMethods': 'event-types';
     };
     users: {
       account: 'accounts';
@@ -134,9 +134,9 @@ export interface Config {
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    instructors: InstructorsSelect<false> | InstructorsSelect<true>;
-    lessons: LessonsSelect<false> | LessonsSelect<true>;
-    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
+    timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
+    'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
@@ -168,7 +168,7 @@ export interface Config {
   };
   jobs: {
     tasks: {
-      generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
+      generateTimeslotsFromSchedule: TaskGenerateTimeslotsFromSchedule;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -202,7 +202,7 @@ export interface UserAuthOperations {
  */
 export interface AdminInvitation {
   id: number;
-  role: 'admin' | 'tenant-admin' | 'user';
+  role: 'super-admin' | 'admin' | 'staff' | 'user';
   token: string;
   url?: string | null;
   updatedAt: string;
@@ -229,6 +229,7 @@ export interface Page {
     | HeroBlock
     | MarketingHeroBlock
     | ThreeColumnLayoutBlock
+    | TwoColumnLayoutBlock
     | AboutBlock
     | LocationBlock
     | ScheduleBlock
@@ -274,6 +275,16 @@ export interface Page {
     | DhPricingBlock
     | DhContactBlock
     | DhGroupsBlock
+    | {
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveSchedule';
+      }
+    | {
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveMembership';
+      }
     | CroiLanHeroWithLocationBlock
   )[];
   meta?: {
@@ -340,8 +351,11 @@ export interface Tenant {
         | 'dhPricing'
         | 'dhContact'
         | 'dhGroups'
+        | 'dhLiveSchedule'
+        | 'dhLiveMembership'
         | 'clHeroLoc'
         | 'threeColumnLayout'
+        | 'twoColumnLayout'
       )[]
     | null;
   logo?: (number | null) | Media;
@@ -495,12 +509,18 @@ export interface HeroScheduleBlock {
   blockType: 'heroSchedule';
 }
 /**
+ * Blog posts. Assign a tenant so the article appears on that site; leave tenant empty for platform-wide posts on the root domain only.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts".
  */
 export interface Post {
   id: number;
   title: string;
+  /**
+   * Optional. Leave empty for posts on the main platform domain only (root site). Only super-admins can change this after the post exists.
+   */
+  tenant?: (number | null) | Tenant;
   heroImage?: (number | null) | Media;
   content: {
     root: {
@@ -535,10 +555,6 @@ export interface Post {
         name?: string | null;
       }[]
     | null;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
   slug: string;
   updatedAt: string;
   createdAt: string;
@@ -595,7 +611,7 @@ export interface User {
   /**
    * The role/ roles of the user
    */
-  role?: ('admin' | 'tenant-admin' | 'user')[] | null;
+  role?: ('super-admin' | 'admin' | 'staff' | 'user')[] | null;
   /**
    * Whether the user is banned from the platform
    */
@@ -618,7 +634,6 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  roles?: ('user' | 'admin' | 'tenant-admin')[] | null;
   stripeCustomerId?: string | null;
   stripeCustomers?:
     | {
@@ -784,16 +799,16 @@ export interface Plan {
       }[]
     | null;
   /**
-   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single lesson when allow multiple bookings per lesson is enabled.
+   * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single timeslot when allow multiple bookings per timeslot is enabled.
    */
   sessionsInformation: {
     sessions?: number | null;
     intervalCount?: number | null;
     interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
     /**
-     * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
+     * When enabled, subscribers can use multiple session credits on the same timeslot (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per timeslot per user.
      */
-    allowMultipleBookingsPerLesson: boolean;
+    allowMultipleBookingsPerTimeslot: boolean;
   };
   stripeProductId?: string | null;
   /**
@@ -823,8 +838,8 @@ export interface Plan {
    */
   skipSync?: boolean | null;
   deletedAt?: string | null;
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
+  'event-typesPaymentMethods'?: {
+    docs?: (number | EventType)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -833,19 +848,22 @@ export interface Plan {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
+ * via the `definition` "event-types".
  */
-export interface ClassOption {
+export interface EventType {
   id: number;
-  tenant?: (number | null) | Tenant;
+  /**
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
   name: string;
   /**
-   * How many people can book this class option?
+   * How many people can book this event type?
    */
   places: number;
   description: string;
   /**
-   * Configure how customers can pay for this class option. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.
+   * Configure how customers can pay for this event type. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.
    */
   paymentMethods?: {
     /**
@@ -876,7 +894,7 @@ export interface DropIn {
   isActive: boolean;
   price: number;
   /**
-   * When enabled, users can book more than one spot for the same lesson when paying drop-in.
+   * When enabled, users can book more than one spot for the same timeslot when paying drop-in.
    */
   adjustable: boolean;
   discountTiers?:
@@ -888,8 +906,8 @@ export interface DropIn {
       }[]
     | null;
   paymentMethods: 'card'[];
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
+  'event-typesPaymentMethods'?: {
+    docs?: (number | EventType)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -922,9 +940,9 @@ export interface ClassPassType {
    */
   quantity: number;
   /**
-   * When enabled, users can use multiple credits from this pass type on the same lesson (e.g. book 3 spots using 3 credits). When disabled, only one spot per lesson per user.
+   * When enabled, users can use multiple credits from this pass type on the same timeslot (e.g. book 3 spots using 3 credits). When disabled, only one spot per timeslot per user.
    */
-  allowMultipleBookingsPerLesson: boolean;
+  allowMultipleBookingsPerTimeslot: boolean;
   /**
    * Link to a Stripe product with a one-time default price for purchase/checkout.
    */
@@ -1228,6 +1246,16 @@ export interface ThreeColumnLayoutBlock {
         | DhPricingBlock
         | DhContactBlock
         | DhGroupsBlock
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveSchedule';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveMembership';
+          }
         | CroiLanHeroWithLocationBlock
       )[]
     | null;
@@ -2288,6 +2316,147 @@ export interface CroiLanHeroWithLocationBlock {
   blockType: 'clHeroLoc';
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TwoColumnLayoutBlock".
+ */
+export interface TwoColumnLayoutBlock {
+  leftColumnHeading?: string | null;
+  rightColumnHeading?: string | null;
+  leftBlocks?:
+    | (
+        | HeroScheduleBlock
+        | HeroScheduleSanctuaryBlock
+        | HeroWithLocationBlock
+        | HeroBlock
+        | MarketingHeroBlock
+        | AboutBlock
+        | LocationBlock
+        | ScheduleBlock
+        | TenantScopedScheduleBlock
+        | HealthBenefitsBlock
+        | SectionTaglineBlock
+        | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
+            faqs?:
+              | {
+                  question?: string | null;
+                  answer?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faqs';
+          }
+        | FeaturesBlock
+        | CaseStudiesBlock
+        | CallToActionBlock
+        | MarketingCtaBlock
+        | ContentBlock
+        | MediaBlock
+        | ArchiveBlock
+        | FormBlock
+        | BruHeroBlock
+        | BruAboutBlock
+        | BruScheduleBlock
+        | BruLearningBlock
+        | BruMeetTheTeamBlock
+        | BruTestimonialsBlock
+        | BruContactBlock
+        | BruHeroWaitlistBlock
+        | DhHeroBlock
+        | DhTeamBlock
+        | DhTimetableBlock
+        | DhTestimonialsBlock
+        | DhPricingBlock
+        | DhContactBlock
+        | DhGroupsBlock
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveSchedule';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveMembership';
+          }
+        | CroiLanHeroWithLocationBlock
+      )[]
+    | null;
+  rightBlocks?:
+    | (
+        | HeroScheduleBlock
+        | HeroScheduleSanctuaryBlock
+        | HeroWithLocationBlock
+        | HeroBlock
+        | MarketingHeroBlock
+        | AboutBlock
+        | LocationBlock
+        | ScheduleBlock
+        | TenantScopedScheduleBlock
+        | HealthBenefitsBlock
+        | SectionTaglineBlock
+        | {
+            /**
+             * Optional title displayed above the FAQs. Defaults to "FAQs".
+             */
+            title?: string | null;
+            faqs?:
+              | {
+                  question?: string | null;
+                  answer?: string | null;
+                  id?: string | null;
+                }[]
+              | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'faqs';
+          }
+        | FeaturesBlock
+        | CaseStudiesBlock
+        | CallToActionBlock
+        | MarketingCtaBlock
+        | ContentBlock
+        | MediaBlock
+        | ArchiveBlock
+        | FormBlock
+        | BruHeroBlock
+        | BruAboutBlock
+        | BruScheduleBlock
+        | BruLearningBlock
+        | BruMeetTheTeamBlock
+        | BruTestimonialsBlock
+        | BruContactBlock
+        | BruHeroWaitlistBlock
+        | DhHeroBlock
+        | DhTeamBlock
+        | DhTimetableBlock
+        | DhTestimonialsBlock
+        | DhPricingBlock
+        | DhContactBlock
+        | DhGroupsBlock
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveSchedule';
+          }
+        | {
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'dhLiveMembership';
+          }
+        | CroiLanHeroWithLocationBlock
+      )[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'twoColumnLayout';
+}
+/**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2306,13 +2475,13 @@ export interface DiscountCode {
   code: string;
   type: 'percentage_off' | 'amount_off';
   /**
-   * For percentage: 1–100. For amount off: amount in cents (e.g. 500 = €5).
+   * For percentage: 1-100. For amount off: amount with up to 2 decimal places (e.g. 5.00).
    */
   value: number;
   /**
-   * Required for amount off (e.g. eur)
+   * Required for amount off.
    */
-  currency?: string | null;
+  currency?: ('eur' | 'gbp' | 'usd') | null;
   duration: 'once' | 'forever' | 'repeating';
   durationInMonths?: number | null;
   /**
@@ -2475,7 +2644,7 @@ export interface Footer {
   createdAt: string;
 }
 /**
- * Create recurring lessons across your weekly schedule for each tenant
+ * Create recurring timeslots across your weekly schedule for each tenant
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "scheduler".
@@ -2488,7 +2657,7 @@ export interface Scheduler {
    */
   startDate: string;
   /**
-   * When this schedule stops generating lessons
+   * When this schedule stops generating timeslots
    */
   endDate: string;
   /**
@@ -2496,9 +2665,9 @@ export interface Scheduler {
    */
   lockOutTime: number;
   /**
-   * Default class type to use when creating lessons (can be overridden per slot)
+   * Default class type to use when creating timeslots (can be overridden per slot)
    */
-  defaultClassOption: number | ClassOption;
+  defaultEventType: number | EventType;
   /**
    * The days of the week and their time slots
    */
@@ -2512,9 +2681,9 @@ export interface Scheduler {
                 /**
                  * Overrides the default class option
                  */
-                classOption?: (number | null) | ClassOption;
+                eventType?: (number | null) | EventType;
                 location?: string | null;
-                instructor?: (number | null) | Instructor;
+                staffMember?: (number | null) | StaffMember;
                 /**
                  * Overrides the default lock out time
                  */
@@ -2531,7 +2700,7 @@ export interface Scheduler {
       | null;
   };
   /**
-   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
+   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
    */
   clearExisting?: boolean | null;
   updatedAt: string;
@@ -2539,23 +2708,26 @@ export interface Scheduler {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors".
+ * via the `definition` "staff-members".
  */
-export interface Instructor {
+export interface StaffMember {
   id: number;
-  tenant?: (number | null) | Tenant;
   /**
-   * The user associated with this instructor
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
+  /**
+   * The user associated with this staffMember
    */
   user: number | User;
   name?: string | null;
   description?: string | null;
   /**
-   * Instructor profile image
+   * StaffMember profile image
    */
   profileImage?: (number | null) | Media;
   /**
-   * Whether this instructor is active and can be assigned to lessons
+   * Whether this staffMember is active and can be assigned to timeslots
    */
   active?: boolean | null;
   updatedAt: string;
@@ -2643,22 +2815,25 @@ export interface Verification {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
+ * via the `definition` "timeslots".
  */
-export interface Lesson {
+export interface Timeslot {
   id: number;
-  tenant?: (number | null) | Tenant;
+  /**
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
   date: string;
   startTime: string;
   endTime: string;
   /**
-   * The time in minutes before the lesson will be closed for new bookings.
+   * The time in minutes before the timeslot will be closed for new bookings.
    */
   lockOutTime: number;
   originalLockOutTime?: number | null;
   location?: string | null;
-  instructor?: (number | null) | Instructor;
-  classOption: number | ClassOption;
+  staffMember?: (number | null) | StaffMember;
+  eventType: number | EventType;
   /**
    * The number of places remaining
    */
@@ -2669,11 +2844,11 @@ export interface Lesson {
     totalDocs?: number;
   };
   /**
-   * Status of the lesson
+   * Status of the timeslot
    */
   bookingStatus?: string | null;
   /**
-   * Whether the lesson is active and will be shown on the schedule
+   * Whether the timeslot is active and will be shown on the schedule
    */
   active?: boolean | null;
   updatedAt: string;
@@ -2687,7 +2862,7 @@ export interface Booking {
   id: number;
   tenant?: (number | null) | Tenant;
   user: number | User;
-  lesson: number | Lesson;
+  timeslot: number | Timeslot;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
   /**
    * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
@@ -2872,7 +3047,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule' | 'schedulePublish';
+        taskSlug: 'inline' | 'generateTimeslotsFromSchedule' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -2905,7 +3080,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'generateTimeslotsFromSchedule' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -2984,16 +3159,16 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
-        relationTo: 'instructors';
-        value: number | Instructor;
+        relationTo: 'staff-members';
+        value: number | StaffMember;
       } | null)
     | ({
-        relationTo: 'lessons';
-        value: number | Lesson;
+        relationTo: 'timeslots';
+        value: number | Timeslot;
       } | null)
     | ({
-        relationTo: 'class-options';
-        value: number | ClassOption;
+        relationTo: 'event-types';
+        value: number | EventType;
       } | null)
     | ({
         relationTo: 'bookings';
@@ -3100,6 +3275,7 @@ export interface PagesSelect<T extends boolean = true> {
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
+        twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
@@ -3143,6 +3319,18 @@ export interface PagesSelect<T extends boolean = true> {
         dhPricing?: T | DhPricingBlockSelect<T>;
         dhContact?: T | DhContactBlockSelect<T>;
         dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   meta?:
@@ -3358,6 +3546,18 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         dhPricing?: T | DhPricingBlockSelect<T>;
         dhContact?: T | DhContactBlockSelect<T>;
         dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
       };
   id?: T;
@@ -3924,10 +4124,151 @@ export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TwoColumnLayoutBlock_select".
+ */
+export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
+  leftColumnHeading?: T;
+  rightColumnHeading?: T;
+  leftBlocks?:
+    | T
+    | {
+        heroSchedule?: T | HeroScheduleBlockSelect<T>;
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
+        heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
+        hero?: T | HeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
+        about?: T | AboutBlockSelect<T>;
+        location?: T | LocationBlockSelect<T>;
+        schedule?: T | ScheduleBlockSelect<T>;
+        tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
+        healthBenefits?: T | HealthBenefitsBlockSelect<T>;
+        sectionTagline?: T | SectionTaglineBlockSelect<T>;
+        faqs?:
+          | T
+          | {
+              title?: T;
+              faqs?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        features?: T | FeaturesBlockSelect<T>;
+        caseStudies?: T | CaseStudiesBlockSelect<T>;
+        cta?: T | CallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
+        content?: T | ContentBlockSelect<T>;
+        mediaBlock?: T | MediaBlockSelect<T>;
+        archive?: T | ArchiveBlockSelect<T>;
+        formBlock?: T | FormBlockSelect<T>;
+        bruHero?: T | BruHeroBlockSelect<T>;
+        bruAbout?: T | BruAboutBlockSelect<T>;
+        bruSchedule?: T | BruScheduleBlockSelect<T>;
+        bruLearning?: T | BruLearningBlockSelect<T>;
+        bruMeetTheTeam?: T | BruMeetTheTeamBlockSelect<T>;
+        bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
+        bruContact?: T | BruContactBlockSelect<T>;
+        bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        dhHero?: T | DhHeroBlockSelect<T>;
+        dhTeam?: T | DhTeamBlockSelect<T>;
+        dhTimetable?: T | DhTimetableBlockSelect<T>;
+        dhTestimonials?: T | DhTestimonialsBlockSelect<T>;
+        dhPricing?: T | DhPricingBlockSelect<T>;
+        dhContact?: T | DhContactBlockSelect<T>;
+        dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+      };
+  rightBlocks?:
+    | T
+    | {
+        heroSchedule?: T | HeroScheduleBlockSelect<T>;
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
+        heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
+        hero?: T | HeroBlockSelect<T>;
+        marketingHero?: T | MarketingHeroBlockSelect<T>;
+        about?: T | AboutBlockSelect<T>;
+        location?: T | LocationBlockSelect<T>;
+        schedule?: T | ScheduleBlockSelect<T>;
+        tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
+        healthBenefits?: T | HealthBenefitsBlockSelect<T>;
+        sectionTagline?: T | SectionTaglineBlockSelect<T>;
+        faqs?:
+          | T
+          | {
+              title?: T;
+              faqs?:
+                | T
+                | {
+                    question?: T;
+                    answer?: T;
+                    id?: T;
+                  };
+              id?: T;
+              blockName?: T;
+            };
+        features?: T | FeaturesBlockSelect<T>;
+        caseStudies?: T | CaseStudiesBlockSelect<T>;
+        cta?: T | CallToActionBlockSelect<T>;
+        marketingCta?: T | MarketingCtaBlockSelect<T>;
+        content?: T | ContentBlockSelect<T>;
+        mediaBlock?: T | MediaBlockSelect<T>;
+        archive?: T | ArchiveBlockSelect<T>;
+        formBlock?: T | FormBlockSelect<T>;
+        bruHero?: T | BruHeroBlockSelect<T>;
+        bruAbout?: T | BruAboutBlockSelect<T>;
+        bruSchedule?: T | BruScheduleBlockSelect<T>;
+        bruLearning?: T | BruLearningBlockSelect<T>;
+        bruMeetTheTeam?: T | BruMeetTheTeamBlockSelect<T>;
+        bruTestimonials?: T | BruTestimonialsBlockSelect<T>;
+        bruContact?: T | BruContactBlockSelect<T>;
+        bruHeroWaitlist?: T | BruHeroWaitlistBlockSelect<T>;
+        dhHero?: T | DhHeroBlockSelect<T>;
+        dhTeam?: T | DhTeamBlockSelect<T>;
+        dhTimetable?: T | DhTimetableBlockSelect<T>;
+        dhTestimonials?: T | DhTestimonialsBlockSelect<T>;
+        dhPricing?: T | DhPricingBlockSelect<T>;
+        dhContact?: T | DhContactBlockSelect<T>;
+        dhGroups?: T | DhGroupsBlockSelect<T>;
+        dhLiveSchedule?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        dhLiveMembership?:
+          | T
+          | {
+              id?: T;
+              blockName?: T;
+            };
+        clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "posts_select".
  */
 export interface PostsSelect<T extends boolean = true> {
   title?: T;
+  tenant?: T;
   heroImage?: T;
   content?: T;
   relatedPosts?: T;
@@ -3947,7 +4288,6 @@ export interface PostsSelect<T extends boolean = true> {
         id?: T;
         name?: T;
       };
-  generateSlug?: T;
   slug?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -4188,7 +4528,7 @@ export interface SchedulerSelect<T extends boolean = true> {
   startDate?: T;
   endDate?: T;
   lockOutTime?: T;
-  defaultClassOption?: T;
+  defaultEventType?: T;
   week?:
     | T
     | {
@@ -4200,9 +4540,9 @@ export interface SchedulerSelect<T extends boolean = true> {
                 | {
                     startTime?: T;
                     endTime?: T;
-                    classOption?: T;
+                    eventType?: T;
                     location?: T;
-                    instructor?: T;
+                    staffMember?: T;
                     lockOutTime?: T;
                     active?: T;
                     id?: T;
@@ -4436,9 +4776,9 @@ export interface VerificationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors_select".
+ * via the `definition` "staff-members_select".
  */
-export interface InstructorsSelect<T extends boolean = true> {
+export interface StaffMembersSelect<T extends boolean = true> {
   tenant?: T;
   user?: T;
   name?: T;
@@ -4450,9 +4790,9 @@ export interface InstructorsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons_select".
+ * via the `definition` "timeslots_select".
  */
-export interface LessonsSelect<T extends boolean = true> {
+export interface TimeslotsSelect<T extends boolean = true> {
   tenant?: T;
   date?: T;
   startTime?: T;
@@ -4460,8 +4800,8 @@ export interface LessonsSelect<T extends boolean = true> {
   lockOutTime?: T;
   originalLockOutTime?: T;
   location?: T;
-  instructor?: T;
-  classOption?: T;
+  staffMember?: T;
+  eventType?: T;
   remainingCapacity?: T;
   bookings?: T;
   bookingStatus?: T;
@@ -4471,9 +4811,9 @@ export interface LessonsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options_select".
+ * via the `definition` "event-types_select".
  */
-export interface ClassOptionsSelect<T extends boolean = true> {
+export interface EventTypesSelect<T extends boolean = true> {
   tenant?: T;
   name?: T;
   places?: T;
@@ -4495,7 +4835,7 @@ export interface ClassOptionsSelect<T extends boolean = true> {
 export interface BookingsSelect<T extends boolean = true> {
   tenant?: T;
   user?: T;
-  lesson?: T;
+  timeslot?: T;
   status?: T;
   paymentMethodUsed?: T;
   classPassIdUsed?: T;
@@ -4524,7 +4864,7 @@ export interface DropInsSelect<T extends boolean = true> {
         id?: T;
       };
   paymentMethods?: T;
-  'class-optionsPaymentMethods'?: T;
+  'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4538,7 +4878,7 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   slug?: T;
   description?: T;
   quantity?: T;
-  allowMultipleBookingsPerLesson?: T;
+  allowMultipleBookingsPerTimeslot?: T;
   stripeProductId?: T;
   priceInformation?:
     | T
@@ -4608,7 +4948,7 @@ export interface PlansSelect<T extends boolean = true> {
         sessions?: T;
         intervalCount?: T;
         interval?: T;
-        allowMultipleBookingsPerLesson?: T;
+        allowMultipleBookingsPerTimeslot?: T;
       };
   stripeProductId?: T;
   priceInformation?:
@@ -4622,7 +4962,7 @@ export interface PlansSelect<T extends boolean = true> {
   status?: T;
   skipSync?: T;
   deletedAt?: T;
-  'class-optionsPaymentMethods'?: T;
+  'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4657,7 +4997,6 @@ export interface UsersSelect<T extends boolean = true> {
   banExpires?: T;
   account?: T;
   session?: T;
-  roles?: T;
   stripeCustomerId?: T;
   stripeCustomers?:
     | T
@@ -4868,9 +5207,9 @@ export interface PlatformFeesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskGenerateLessonsFromSchedule".
+ * via the `definition` "TaskGenerateTimeslotsFromSchedule".
  */
-export interface TaskGenerateLessonsFromSchedule {
+export interface TaskGenerateTimeslotsFromSchedule {
   input: {
     startDate: string;
     endDate: string;
@@ -4879,15 +5218,15 @@ export interface TaskGenerateLessonsFromSchedule {
         timeSlot: {
           startTime: string;
           endTime: string;
-          classOption?: (number | null) | ClassOption;
+          eventType?: (number | null) | EventType;
           location?: string | null;
-          instructor?: (number | null) | Instructor;
+          staffMember?: (number | null) | StaffMember;
           lockOutTime?: number | null;
         }[];
       }[];
     };
     clearExisting: boolean;
-    defaultClassOption: number | ClassOption;
+    defaultEventType: number | EventType;
     lockOutTime: number;
   };
   output: {

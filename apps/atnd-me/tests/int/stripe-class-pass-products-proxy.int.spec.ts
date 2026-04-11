@@ -26,6 +26,7 @@ vi.mock('@repo/shared-utils', async (importOriginal) => {
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('Stripe class-pass-products proxy (Phase 4.5)', () => {
   let payload: Payload
@@ -42,7 +43,7 @@ describe('Stripe class-pass-products proxy (Phase 4.5)', () => {
         name: 'Admin CP Products Proxy',
         email: `admin-cpp-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
@@ -54,7 +55,7 @@ describe('Stripe class-pass-products proxy (Phase 4.5)', () => {
       data: {
         name: 'CP Products Proxy Tenant',
         slug: `cpp-tenant-${Date.now()}`,
-        stripeConnectAccountId: 'acct_cpp',
+        stripeConnectAccountId: `acct_cpp_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,

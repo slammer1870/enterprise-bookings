@@ -5,7 +5,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import { sentryPlugin } from '@payloadcms/plugin-sentry'
-import type { Field } from 'payload'
+import type { Field, Payload } from 'payload'
 import { Plugin } from 'payload'
 import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
@@ -13,21 +13,22 @@ import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
 import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
 import { searchFields } from '@/search/fieldOverrides'
 import { beforeSyncWithSearch } from '@/search/beforeSync'
-import { rolesPlugin } from '@repo/roles'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { filterSchedulerGlobal } from './filter-scheduler-global'
 import { clearableTenantPlugin } from '@repo/plugin-clearable-tenant'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
-import { validateClassOptionNameUniqueWithinTenant } from '@/hooks/validateClassOptionNameUniqueWithinTenant'
+import { validateEventTypeNameUniqueWithinTenant } from '@/hooks/validateEventTypeNameUniqueWithinTenant'
+import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { bookingsPlugin } from '@repo/bookings-plugin'
-import { lessonsRead } from '@/access/lessonsRead'
+import { timeslotsRead } from '@/access/timeslotsRead'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
   tenantScopedDelete,
   tenantScopedReadFiltered,
   tenantScopedPublicReadStrict,
+  getUserTenantIds,
 } from '../access/tenant-scoped'
 import {
   productsRequireStripeConnectRead,
@@ -36,6 +37,7 @@ import {
   productsRequireStripeConnectDelete,
   productsRequireStripeConnectAdmin,
   adminOnlyFieldAccess,
+  adminOrTenantAdminFieldAccess,
 } from '../access/productsRequireStripeConnect'
 import { plansReadWithSoftDelete } from '../access/plansWithSoftDelete'
 import { classPassTypesReadWithSoftDelete } from '../access/classPassTypesWithSoftDelete'
@@ -49,7 +51,7 @@ import {
   bookingCreateAccessWithPaymentValidation,
   bookingUpdateAccessWithPaymentValidation,
 } from '../access/bookingAccess'
-import { userTenantRead, userTenantUpdate } from '../access/userTenantAccess'
+import { isStaff, userTenantRead, userTenantUpdate, isTenantAdmin } from '../access/userTenantAccess'
 import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
 import {
   bookingsPaymentsPlugin,
@@ -68,12 +70,15 @@ import { getActiveR2Config } from '@/lib/storage/config'
 
 import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 const generateTitle: GenerateTitle<Post | Page> = ({ doc }) => {
   return doc?.title ? `${doc.title} | ATND` : 'ATND'
 }
 
 const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
+  if (!doc || typeof doc !== 'object') return getServerSideURL()
+
   const page = doc as Partial<Page>
   const tenant =
     page?.tenant && typeof page.tenant === 'object'
@@ -87,12 +92,135 @@ const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
     return baseURL
   }
 
-  if (doc?.slug) {
-    const pathname = 'tenant' in page ? `/${doc.slug}` : `/posts/${doc.slug}`
-    return getAbsoluteURL(pathname, baseURL)
+  const slug = page.slug
+  if (!slug) return getServerSideURL()
+
+  const isPayloadPage = 'layout' in doc && Array.isArray((doc as Page).layout)
+  const pathname = isPayloadPage ? `/${slug}` : `/posts/${slug}`
+  return getAbsoluteURL(pathname, baseURL)
+}
+
+async function assignTenantOnCreateFromRequest({
+  data,
+  operation,
+  req,
+}: {
+  data: Record<string, unknown> | undefined
+  operation: 'create' | 'update'
+  req: {
+    context?: Record<string, unknown>
+    cookies?: { get: (name: string) => { value?: string } | undefined }
+    headers?: Headers
+    payload: Payload
+  }
+}) {
+  if (operation !== 'create' || !data || data.tenant) return data
+
+  const tenantId = await getTenantIdForCreateRequest(req.payload, {
+    context: req.context,
+    cookies: req.cookies,
+    headers: req.headers,
+  })
+
+  if (tenantId != null && tenantId !== '') {
+    data.tenant = tenantId
   }
 
-  return getServerSideURL()
+  return data
+}
+
+function createTenantSelectorSyncField(): Field {
+  return {
+    name: '_tenantSelectorSync',
+    type: 'ui',
+    admin: {
+      position: 'sidebar',
+      components: {
+        Field: '@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField',
+      },
+    },
+  }
+}
+
+function createTenantRelationshipField(): Field {
+  return {
+    name: 'tenant',
+    type: 'relationship',
+    relationTo: 'tenants',
+    required: true,
+    label: 'Tenant',
+    index: true,
+    admin: {
+      position: 'sidebar',
+      hidden: true,
+      description: 'Controlled by the tenant selector when creating tenant-scoped documents.',
+    },
+    filterOptions: ({ req }) => {
+      const tenantIds = getUserTenantIds((req.user ?? null) as SharedUser | null)
+      if (tenantIds === null) return true
+      if (Array.isArray(tenantIds) && tenantIds.length > 0) {
+        return { id: { in: tenantIds } }
+      }
+      return true
+    },
+  }
+}
+
+function withExplicitTenantSyncFields(defaultFields: Field[]): Field[] {
+  const fields = [...defaultFields]
+
+  if (!fields.some((field) => 'name' in field && field.name === 'tenant')) {
+    fields.unshift(createTenantRelationshipField())
+  }
+
+  if (!fields.some((field) => 'name' in field && field.name === '_tenantSelectorSync')) {
+    fields.push(createTenantSelectorSyncField())
+  }
+
+  return fields
+}
+
+type NestedFieldAccess = typeof adminOnlyFieldAccess
+
+const stripeManagedSubscriptionFieldAccess = {
+  update: ({ doc }: { doc?: Record<string, unknown> | null }) => !doc?.stripeSubscriptionId,
+}
+
+function withNestedFieldAccess(field: Field, access: NestedFieldAccess): Field {
+  const next = { ...field, access } as Field
+
+  if ('fields' in next && Array.isArray(next.fields)) {
+    return {
+      ...next,
+      fields: next.fields.map((child) => withNestedFieldAccess(child, access)),
+    } as Field
+  }
+
+  return next
+}
+
+function lockStripeManagedSubscriptionFields(field: Field): Field {
+  const name = 'name' in field ? field.name : undefined
+  const next = { ...field } as Field
+
+  if (name === 'status' || name === 'cancelAt' || name === 'startDate' || name === 'endDate') {
+    return {
+      ...next,
+      access: {
+        ...(('access' in next && typeof next.access === 'object' && next.access) ? next.access : {}),
+        ...stripeManagedSubscriptionFieldAccess,
+      },
+    } as Field
+  }
+
+  if ('fields' in next && Array.isArray(next.fields)) {
+    return {
+      ...next,
+      fields: next.fields.map((child) => lockStripeManagedSubscriptionFields(child)),
+    } as Field
+  }
+
+  return next
 }
 
 export const plugins: Plugin[] = [
@@ -185,13 +313,7 @@ export const plugins: Plugin[] = [
   payloadAuth(),
   // Must run after `payloadAuth()` so the Better Auth collections exist.
   fixBetterAuthTimestamps(),
-  rolesPlugin({
-    enabled: true,
-    roles: ['user', 'admin', 'tenant-admin'],
-    defaultRole: 'user',
-    firstUserRole: 'admin',
-  }),
-  // Must run after both payloadAuth() and rolesPlugin() to sync role/roles fields
+  // Restrict who can edit the Better Auth `role` field (RBAC lives on `role` only).
   fixBetterAuthRoleField(),
   // Hide Better Auth collections (accounts, sessions, verifications) from tenant-admins; only full admins see them
   hideBetterAuthCollectionsFromTenantAdmins(),
@@ -199,34 +321,80 @@ export const plugins: Plugin[] = [
   hideWebsiteCollectionsFromTenantAdmins(),
   bookingsPlugin({
     enabled: true,
-    lessonOverrides: {
+    slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+    timeslotOverrides: {
+      versions: false,
+      // Analytics + schedule: range on startTime, often with tenant equality (leading column covers date-only scans too).
+      indexes: [{ fields: ['startTime', 'tenant'] }],
+      fields: ({ defaultFields }) =>
+        withExplicitTenantSyncFields(defaultFields).map((f) =>
+          'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
+        ),
+      hooks: ({ defaultHooks }) => {
+        const d = defaultHooks as Record<string, unknown>
+        return {
+          ...defaultHooks,
+          beforeValidate: [
+            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
+              await assignTenantOnCreateFromRequest({
+                data: data as Record<string, unknown> | undefined,
+                operation,
+                req,
+              }),
+            ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
+          ],
+        }
+      },
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        read: lessonsRead, // Preserve tenant scoping while hiding past/inactive lessons from public schedule
+        read: timeslotsRead, // Preserve tenant scoping while hiding past/inactive timeslots from public schedule
         create: tenantScopedCreate,
         update: tenantScopedUpdate,
         delete: tenantScopedDelete,
       }),
     },
-    classOptionsOverrides: {
+    eventTypesOverrides: {
+      labels: {
+        singular: 'Event Type',
+        plural: 'Event Types',
+      },
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
-        create: tenantScopedCreate,
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        create: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedCreate(args)
+        },
+        update: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedDelete(args)
+        },
       }),
       fields: ({ defaultFields }) => [
-        ...defaultFields.map((f) =>
-          'name' in f && f.name === 'name' ? { ...f, unique: false } : f,
-        ),
+        ...withExplicitTenantSyncFields(defaultFields).map((f) => {
+          if ('name' in f && f.name === 'name') return { ...f, unique: false }
+          if ('name' in f && f.name === 'places' && 'type' in f && f.type === 'number') {
+            return {
+              ...f,
+              admin: {
+                ...f.admin,
+                description: 'How many people can book this event type?',
+              },
+            }
+          }
+          return f
+        }),
         {
           name: 'paymentMethods',
           type: 'group',
           label: 'Payment Methods',
           admin: {
             description:
-              'Configure how customers can pay for this class option. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.',
+              'Configure how customers can pay for this event type. Add a drop-in price, allowed class pass types, or membership plans. Connect Stripe to enable payments.',
             components: {
               Field: '@/components/admin/RequireStripeConnectField',
             },
@@ -241,7 +409,13 @@ export const plugins: Plugin[] = [
         return {
           ...defaultHooks,
           beforeValidate: [
-            validateClassOptionNameUniqueWithinTenant,
+            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
+              await assignTenantOnCreateFromRequest({
+                data: data as Record<string, unknown> | undefined,
+                operation,
+                req,
+              }),
+            validateEventTypeNameUniqueWithinTenant,
             ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
           ],
           beforeChange: [...(Array.isArray(d?.beforeChange) ? d.beforeChange : []), requireStripeConnectForPayments],
@@ -249,16 +423,31 @@ export const plugins: Plugin[] = [
         } as any
       },
     },
-    instructorOverrides: {
+    staffMembersOverrides: {
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
-        create: tenantScopedCreate,
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        create: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedCreate(args)
+        },
+        update: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          return tenantScopedDelete(args)
+        },
       }),
+      fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
     },
     bookingOverrides: {
+      // Admin analytics: confirmed + timeslot IN (...). Tenant-scoped dashboard: tenant + same filters.
+      indexes: [
+        { fields: ['timeslot', 'status'] },
+        { fields: ['tenant', 'timeslot', 'status'] },
+      ],
       fields: ({ defaultFields }) => [
         ...defaultFields,
         {
@@ -300,19 +489,19 @@ export const plugins: Plugin[] = [
         ...defaultHooks,
         beforeValidate: [
           ...(defaultHooks.beforeValidate || []),
-          // Auto-set tenant from lesson for multi-tenant support
+          // Auto-set tenant from timeslot for multi-tenant support
           async ({ req, data, operation }) => {
-            if (operation === 'create' && data?.lesson && !data?.tenant) {
-              const lessonId = typeof data.lesson === 'object' ? data.lesson.id : data.lesson
-              const lesson = await req.payload.findByID({
-                collection: 'lessons',
-                id: lessonId,
+            if (operation === 'create' && data?.timeslot && !data?.tenant) {
+              const timeslotId = typeof data.timeslot === 'object' ? data.timeslot.id : data.timeslot
+              const timeslot = await req.payload.findByID({
+                collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+                id: timeslotId,
                 depth: 0,
               })
-              if (lesson?.tenant) {
-                const tenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
-                  ? lesson.tenant.id
-                  : lesson.tenant
+              if (timeslot?.tenant) {
+                const tenantId = typeof timeslot.tenant === 'object' && timeslot.tenant !== null
+                  ? timeslot.tenant.id
+                  : timeslot.tenant
                 if (tenantId) {
                   data.tenant = tenantId
                 }
@@ -341,7 +530,7 @@ export const plugins: Plugin[] = [
   bookingsPaymentsPlugin({
     classPass: {
       enabled: true,
-      classOptionsSlug: 'class-options',
+      eventTypesSlug: 'event-types',
       // Ensure admin product pickers (Stripe product dropdown) are tenant-scoped (no platform fallback)
       productsProxyScope: 'connect',
       bookingTransactionsOverrides: {
@@ -374,11 +563,30 @@ export const plugins: Plugin[] = [
           [
             ...defaultFields.map((field) => {
               const name = 'name' in field ? field.name : undefined
-              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+              if (name === 'priceInformation') {
+                return withNestedFieldAccess(field, adminOrTenantAdminFieldAccess)
+              }
+              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON') {
                 return { ...field, access: adminOnlyFieldAccess }
               }
               return field
             }),
+            {
+              name: 'stripeProductDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'product',
+                      label: 'View product in Stripe',
+                    },
+                  },
+                },
+              },
+            },
             { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
           ] as Field[],
         hooks: ({ defaultHooks }) => ({
@@ -392,7 +600,7 @@ export const plugins: Plugin[] = [
     // Drop-ins: single-use payment options per class option
     dropIns: {
       enabled: true,
-      paymentMethodSlugs: ['class-options'],
+      paymentMethodSlugs: ['event-types'],
       dropInsOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,
@@ -406,7 +614,7 @@ export const plugins: Plugin[] = [
     // Membership (subscriptions): recurring plans that grant access; sync job disabled (subscription lifecycle via Connect webhook)
     membership: {
       enabled: true,
-      paymentMethodSlugs: ['class-options'],
+      paymentMethodSlugs: ['event-types'],
       getStripeAccountIdForRequest,
       // Ensure the tenant's connected account is the merchant of record (no platform fallback)
       scope: 'connect',
@@ -437,11 +645,30 @@ export const plugins: Plugin[] = [
           [
             ...defaultFields.map((field) => {
               const name = 'name' in field ? field.name : undefined
-              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON' || name === 'priceInformation') {
+              if (name === 'priceInformation') {
+                return withNestedFieldAccess(field, adminOrTenantAdminFieldAccess)
+              }
+              if (name === 'skipSync' || name === 'stripeProductId' || name === 'priceJSON') {
                 return { ...field, access: adminOnlyFieldAccess }
               }
               return field
             }),
+            {
+              name: 'stripeProductDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'product',
+                      label: 'View product in Stripe',
+                    },
+                  },
+                },
+              },
+            },
             { name: 'deletedAt', type: 'date', admin: { hidden: true }, label: 'Deleted At' },
           ] as Field[],
         hooks: ({ defaultHooks }) => ({
@@ -458,6 +685,52 @@ export const plugins: Plugin[] = [
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
         },
+        fields: ({ defaultFields }) =>
+          [
+            ...defaultFields.map((field) => lockStripeManagedSubscriptionFields(field)),
+            {
+              name: 'createStripeSubscriptionAction',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: '@/components/admin/CreateStripeSubscriptionButton#CreateStripeSubscriptionButton',
+                },
+              },
+            },
+            {
+              name: 'stripeSubscriptionDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'subscription',
+                      label: 'View subscription in Stripe',
+                    },
+                  },
+                },
+              },
+            },
+            {
+              name: 'stripeCustomerDashboardLink',
+              type: 'ui',
+              admin: {
+                position: 'sidebar',
+                components: {
+                  Field: {
+                    path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+                    clientProps: {
+                      target: 'customer',
+                      label: 'View customer in Stripe',
+                    },
+                  },
+                },
+              },
+            },
+          ] as Field[],
       },
     },
   }),
@@ -479,7 +752,7 @@ export const plugins: Plugin[] = [
     // Configure admin users to have access to all tenants
     userHasAccessToAllTenants: (user) => {
       if (!user) return false
-      return checkRole(['admin'], user as unknown as SharedUser)
+      return checkRole(['super-admin'], user as unknown as SharedUser)
     },
     // Type assertion: multi-tenant plugin's types omit collections from @repo/bookings-payments
     collections: {
@@ -490,11 +763,19 @@ export const plugins: Plugin[] = [
         // our own optional `tenant` field in the Pages collection instead.
         customTenantField: true,
       },
-      lessons: {
+      timeslots: {
+        customTenantField: true,
         tenantFieldOverrides: { admin: { disableBulkEdit: true } },
+        // Disable the plugin's withTenantAccess wrapper for timeslots (timeslots).
+        // Our custom `timeslotsRead` access function already handles all tenant scoping
+        // (super-admin, tenant portal users with DB fallback, public/regular users via request context).
+        // The plugin's wrapper causes a bug for authenticated better-auth users: their session
+        // object has collection='users' but no `tenants` array (not saved to JWT), so
+        // withTenantAccess generates { tenant: { in: [] } } which matches no documents.
+        useTenantAccess: false,
       },
-      instructors: {},
-      'class-options': {},
+      'staff-members': { customTenantField: true },
+      'event-types': { customTenantField: true },
       bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
       // From @repo/bookings-payments
       'class-pass-types': {}, // Pass types (e.g. Fitness Only, Sauna Only); tenant-scoped
@@ -507,6 +788,7 @@ export const plugins: Plugin[] = [
       media: {}, // Tenant-scoped media uploads
       forms: {}, // Tenant-scoped for forms
       'form-submissions': {}, // Tenant-scoped for form submissions
+      posts: { customTenantField: true },
       // Globals converted to collections (one per tenant). customTenantField so we can allow
       // optional tenant (null = root site navbar/footer) and clear it in the admin form.
       navbar: { isGlobal: true, customTenantField: true },
@@ -523,9 +805,9 @@ export const plugins: Plugin[] = [
   clearableTenantPlugin({
     rootDocCollections: ['navbar', 'footer'],
     collectionsRequireTenantOnCreate: [
-      'lessons',
-      'instructors',
-      'class-options',
+      'timeslots',
+      'staff-members',
+      'event-types',
       'bookings',
       'class-pass-types',
       'class-passes',
@@ -539,13 +821,34 @@ export const plugins: Plugin[] = [
       'form-submissions',
       'scheduler',
     ],
-    collectionsCreateRequireTenantForTenantAdmin: ['pages', 'navbar', 'footer'],
-    collectionsWithTenantField: ['pages', 'navbar', 'footer'],
+    collectionsCreateRequireTenantForTenantAdmin: ['pages', 'posts', 'navbar', 'footer'],
+    collectionsWithTenantField: [
+      'pages',
+      'posts',
+      'navbar',
+      'footer',
+      'timeslots',
+      'staff-members',
+      'event-types',
+      'bookings',
+      'class-pass-types',
+      'class-passes',
+      'transactions',
+      'drop-ins',
+      'plans',
+      'discount-codes',
+      'subscriptions',
+      'media',
+      'forms',
+      'form-submissions',
+      'scheduler',
+    ],
     documentTenantFieldName: 'tenant',
     // Used by the selector→document sync hook. We want tenant-admin autosave drafts
     // (Pages create flow) to pick up the selected tenant automatically, while still
     // keeping "no tenant" (base pages) effectively admin-only via the UI.
-    userHasAccessToAllTenants: (user) => checkRole(['admin', 'tenant-admin'], user as SharedUser),
+    userHasAccessToAllTenants: (user) =>
+      checkRole(['super-admin', 'admin', 'staff'], user as SharedUser),
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,

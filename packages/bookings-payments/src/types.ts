@@ -10,7 +10,7 @@ export type CollectionOverrides = {
 
 /**
  * Class-pass feature config. When enabled, adds class-pass-types, class-passes collections,
- * allowedClassPasses (relationship to types) injection into class-options, checkClassPass utility, and decrement hook.
+ * allowedClassPasses (relationship to types) injection into event-types, checkClassPass utility, and decrement hook.
  */
 /** Optional: resolve Stripe Connect account ID for proxy requests (e.g. from tenant cookie). When set, plans/class-pass-products proxies list from this account. */
 export type GetStripeAccountIdForRequest = (
@@ -19,7 +19,7 @@ export type GetStripeAccountIdForRequest = (
 
 export type ClassPassConfig = {
   enabled: boolean;
-  classOptionsSlug?: string;
+  eventTypesSlug?: string;
   adminGroup?: string;
   /**
    * Controls which Stripe account GET /stripe/class-pass-products uses for CustomSelect.
@@ -151,7 +151,7 @@ export type ClassPassLike = {
   status?: string;
 };
 
-export type ClassOptionLike = {
+export type EventTypeLike = {
   paymentMethods?: {
     /** Relationship to class-pass-types (array of IDs or objects). Which pass types are accepted. */
     allowedClassPasses?: unknown[] | null;

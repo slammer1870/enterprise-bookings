@@ -77,6 +77,11 @@ export function createBeforeSubscriptionChange(config: Pick<MembershipConfig, "g
       skipSync: false,
     };
 
+    if (req.context?.skipStripeSync) {
+      if (logs) payload.logger?.info?.("Skipping subscription 'beforeChange' hook via request context");
+      return newDoc;
+    }
+
     if (data.skipSync) {
       if (logs) payload.logger?.info?.("Skipping subscription 'beforeChange' hook");
       return newDoc;

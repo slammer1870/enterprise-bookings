@@ -2,7 +2,7 @@ import { User } from "./user";
 
 import { DropIn, Plan, Transaction } from "./payments";
 
-export type Instructor = {
+export type StaffMember = {
   id: number;
   name?: string | null;
   profileImage?: {
@@ -13,31 +13,31 @@ export type Instructor = {
 };
 
 /**
- * Minimal lesson DTO for schedule/homepage views.
+ * Minimal timeslot DTO for schedule/homepage views.
  *
  * Security note: This intentionally excludes payment provider fields, tenant objects,
  * and relationship docs that shouldn't be exposed to the client.
  */
-export type ScheduleInstructor = {
+export type ScheduleStaffMember = {
   id: number;
   name?: string | null;
   profileImage?: { url: string } | null;
 };
 
-export type ScheduleClassOption = {
+export type ScheduleEventType = {
   id: number;
   name: string;
   type?: "adult" | "child";
 };
 
-export type ScheduleLesson = {
+export type ScheduleTimeslot = {
   id: number;
   date: string;
   startTime: string;
   endTime: string;
-  classOption: ScheduleClassOption;
+  eventType: ScheduleEventType;
   location: string;
-  instructor?: ScheduleInstructor | null;
+  staffMember?: ScheduleStaffMember | null;
   remainingCapacity: number;
   bookingStatus:
     | "active"
@@ -53,19 +53,19 @@ export type ScheduleLesson = {
   /** Resolved timezone for formatting/query consumers. */
   timeZone?: string;
   /** Schedule-specific view model computed server-side (tRPC). */
-  scheduleState?: LessonScheduleState;
+  scheduleState?: TimeslotScheduleState;
   /** Optional: confirmed booking count for the viewer. */
   myBookingCount?: number;
 };
 
-export type Lesson = {
+export type Timeslot = {
   id: number;
   date: string;
   startTime: string;
   endTime: string;
-  classOption: ClassOption;
+  eventType: EventType;
   location: string;
-  instructor?: Instructor | null;
+  staffMember?: StaffMember | null;
   bookings: { docs: Booking[] };
   remainingCapacity: number;
   /**
@@ -93,18 +93,18 @@ export type Lesson = {
    * Schedule-specific view model computed server-side (tRPC).
    * When present, UI should render buttons from this instead of `bookingStatus`.
    */
-  scheduleState?: LessonScheduleState;
+  scheduleState?: TimeslotScheduleState;
   /**
-   * Optional: Number of confirmed bookings the current user has for this lesson.
-   * Provided by lessons.getByDate to avoid N+1 queries in CheckInButton.
+   * Optional: Number of confirmed bookings the current user has for this timeslot.
+   * Provided by timeslots.getByDate to avoid N+1 queries in CheckInButton.
    * If not provided, CheckInButton will fetch it separately (backwards compatible).
    */
   myBookingCount?: number;
 };
 
-export type LessonAvailability = "open" | "full" | "closed";
+export type TimeslotAvailability = "open" | "full" | "closed";
 
-export type LessonViewerAction =
+export type TimeslotViewerAction =
   | "book"
   | "cancel"
   | "modify"
@@ -114,8 +114,8 @@ export type LessonViewerAction =
   | "loginToBook"
   | "manageChildren";
 
-export type LessonScheduleState = {
-  availability: LessonAvailability;
+export type TimeslotScheduleState = {
+  availability: TimeslotAvailability;
   viewer: {
     confirmedIds: number[];
     confirmedCount: number;
@@ -123,7 +123,7 @@ export type LessonScheduleState = {
     waitingCount: number;
   };
   /**
-   * True when the lesson's booking/payment configuration effectively limits the viewer
+   * True when the timeslot's booking/payment configuration effectively limits the viewer
    * to a single booking slot (e.g. membership/drop-in rules disallow multi-booking).
    * When true, schedule UX can attempt direct booking/cancellation without extra navigation.
    */
@@ -132,7 +132,7 @@ export type LessonScheduleState = {
    * UI intent for the primary CTA.
    * The client should treat this as authoritative for schedule buttons.
    */
-  action: LessonViewerAction;
+  action: TimeslotViewerAction;
   /**
    * Optional server-precomputed label for the CTA.
    * When omitted, the client may derive a label from `action`.
@@ -143,14 +143,14 @@ export type LessonScheduleState = {
 export interface Booking {
   id: number;
   user: User;
-  lesson: Lesson;
+  timeslot: Timeslot;
   status: "pending" | "confirmed" | "cancelled" | "waiting";
   updatedAt: string;
   createdAt: string;
   transaction?: Transaction;
 }
 
-export interface ClassOption {
+export interface EventType {
   id: number;
   name: string;
   places: number;
@@ -158,8 +158,21 @@ export interface ClassOption {
   type?: "adult" | "child";
   paymentMethods?: {
     allowedDropIn?: DropIn;
+    allowedClassPasses?: ClassPassType[];
     allowedPlans?: Plan[];
   };
+}
+
+export interface ClassPassType {
+  id: number;
+  name?: string | null;
+  slug?: string | null;
+  quantity?: number | null;
+  allowMultipleBookingsPerTimeslot?: boolean;
+  status?: "active" | "inactive" | null;
+  priceInformation?: {
+    price?: number | null;
+  } | null;
 }
 
 export type Attendee = {
@@ -176,7 +189,7 @@ export type BookingDetails = {
 };
 
 export type BookingFormData = {
-  lessonId: number;
+  timeslotId: number;
   attendees: Attendee[];
   paymentMethod: string;
   totalPrice: number;

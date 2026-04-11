@@ -13,7 +13,7 @@ const baseCollections: Partial<Config>["collections"] = [
     fields: [],
   },
   {
-    slug: "class-options",
+    slug: "event-types",
     fields: [],
   },
 ];
@@ -42,9 +42,9 @@ describe("config shorthand (true | object)", () => {
     expect(endpointPaths).toContain("/stripe/sync-stripe-subscriptions");
   });
 
-  it("accepts membership: { enabled: true, paymentMethodSlugs: ['class-options'] } for full config", () => {
+  it("accepts membership: { enabled: true, paymentMethodSlugs: ['event-types'] } for full config", () => {
     const plugin = bookingsPaymentsPlugin({
-      membership: { enabled: true, paymentMethodSlugs: ["class-options"] },
+      membership: { enabled: true, paymentMethodSlugs: ["event-types"] },
     });
     const incoming: Partial<Config> = { collections: baseCollections };
     const result = plugin(incoming as Config) as Config;
@@ -65,9 +65,9 @@ describe("config shorthand (true | object)", () => {
     expect(slugs).toContain("transactions");
   });
 
-  it("accepts classPass: { enabled: true, classOptionsSlug: 'class-options' } for full config", () => {
+  it("accepts classPass: { enabled: true, eventTypesSlug: 'event-types' } for full config", () => {
     const plugin = bookingsPaymentsPlugin({
-      classPass: { enabled: true, classOptionsSlug: "class-options" },
+      classPass: { enabled: true, eventTypesSlug: "event-types" },
     });
     const incoming: Partial<Config> = { collections: baseCollections };
     const result = plugin(incoming as Config) as Config;
@@ -92,9 +92,9 @@ describe("config shorthand (true | object)", () => {
     expect(paths).toContain("/stripe/create-payment-intent");
   });
 
-  it("accepts dropIns: { enabled: true, paymentMethodSlugs: ['class-options'] } for full config", () => {
+  it("accepts dropIns: { enabled: true, paymentMethodSlugs: ['event-types'] } for full config", () => {
     const plugin = bookingsPaymentsPlugin({
-      dropIns: { enabled: true, paymentMethodSlugs: ["class-options"] },
+      dropIns: { enabled: true, paymentMethodSlugs: ["event-types"] },
     });
     const incoming: Partial<Config> = { collections: baseCollections };
     const result = plugin(incoming as Config) as Config;
@@ -118,7 +118,7 @@ describe("config shorthand (true | object)", () => {
   it("can combine boolean and object config in one call", () => {
     const plugin = bookingsPaymentsPlugin({
       classPass: true,
-      membership: { enabled: true, paymentMethodSlugs: ["class-options"] },
+      membership: { enabled: true, paymentMethodSlugs: ["event-types"] },
     });
     const incoming: Partial<Config> = { collections: baseCollections };
     const result = plugin(incoming as Config) as Config;

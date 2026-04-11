@@ -29,12 +29,12 @@ export const DhHeroBlock: React.FC<HeroProps> = ({
 }) => {
   return (
     <div
-      className="mb-12 grid min-h-screen grid-rows-2 bg-foreground/70 bg-cover bg-center bg-blend-overlay"
+      className="mb-12 grid min-h-screen grid-rows-2 bg-foreground/82 bg-cover bg-center bg-blend-overlay"
       style={getImageUrl(backgroundImage) ? { backgroundImage: `url(${getImageUrl(backgroundImage)})` } : undefined}
     >
       <div className="container row-span-1 mx-auto flex flex-col items-start justify-center px-6 md:px-8 pt-12 md:pt-16 lg:row-span-2">
         <h1 className="mb-2 text-2xl font-medium text-background md:text-4xl">{heading}</h1>
-        <h3 className="text-xl text-primary md:text-2xl">{subheading}</h3>
+        <h3 className="text-xl text-yellow-400 md:text-2xl">{subheading}</h3>
       </div>
       <div className="relative row-span-1 flex h-auto w-full flex-col justify-center overflow-hidden bg-destructive text-white lg:flex-row before:pointer-events-none before:absolute before:inset-0">
         <Link href={ctaLink}>

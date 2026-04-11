@@ -7,13 +7,20 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
-import { getUserTenantIds } from '@/access/tenant-scoped'
-import { checkRole } from '@repo/shared-utils'
-import {
-  getSummaryMetrics,
-  getBookingsOverTime,
-  getTopCustomers,
-} from '@/lib/analytics'
+import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
+import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
+import { getAnalyticsDashboardBundle } from '@/lib/analytics'
+import { resolveTimeslotIdsForAnalytics } from '@/lib/analytics/analyticsBookingsWhere'
+
+function jsonStringifySafe(data: unknown): string {
+  return JSON.stringify(data, (_key, value) => {
+    if (typeof value === 'bigint') {
+      const n = Number(value)
+      return Number.isSafeInteger(n) ? n : value.toString()
+    }
+    return value
+  })
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,7 +31,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    if (!checkRole(['admin', 'tenant-admin'], user as Parameters<typeof checkRole>[1])) {
+    if (!isAdmin(user) && !isTenantAdmin(user) && !isStaff(user)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -56,7 +63,10 @@ export async function GET(request: NextRequest) {
       tenantId = id
     }
 
-    const allowedTenantIds = getUserTenantIds(user as Parameters<typeof getUserTenantIds>[0])
+    let allowedTenantIds: number[] | null = null
+    if (!isAdmin(user)) {
+      allowedTenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    }
     if (allowedTenantIds !== null && allowedTenantIds.length === 0) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -99,11 +109,14 @@ export async function GET(request: NextRequest) {
       limitTopCustomers,
     }
 
-    const [summary, bookingsOverTime, topCustomers] = await Promise.all([
-      getSummaryMetrics(payload, params),
-      getBookingsOverTime(payload, params),
-      getTopCustomers(payload, params),
-    ])
+    const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
+    const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
+
+    const { summary, bookingsOverTime, topCustomers } = await getAnalyticsDashboardBundle(
+      payload,
+      paramsWithTimeslots,
+      { includeTopCustomers: true },
+    )
 
     let previousParams: { dateFrom: string; dateTo: string; tenantId?: number; granularity: 'day' | 'week'; limitTopCustomers?: number } | null = null
     if (comparePrevious) {
@@ -130,19 +143,23 @@ export async function GET(request: NextRequest) {
     }
 
     if (comparePrevious && previousParams) {
-      const [summaryPrevious, bookingsOverTimePrevious] = await Promise.all([
-        getSummaryMetrics(payload, previousParams),
-        getBookingsOverTime(payload, previousParams),
-      ])
+      const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousParams)
+      const previousWithTimeslots = { ...previousParams, preResolvedTimeslotIds: previousTimeslotIds }
+      const { summary: summaryPrevious, bookingsOverTime: bookingsOverTimePrevious } =
+        await getAnalyticsDashboardBundle(payload, previousWithTimeslots, { includeTopCustomers: false })
       body.summaryPrevious = summaryPrevious
       body.bookingsOverTimePrevious = bookingsOverTimePrevious
     }
 
-    return NextResponse.json(body)
+    return new NextResponse(jsonStringifySafe(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Analytics failed'
+    // Always log server-side so production (Vercel, etc.) captures the real failure.
+    console.error('[api/analytics]', err)
     if (process.env.NODE_ENV === 'development') {
-      console.error('[api/analytics]', err)
       return NextResponse.json({ error: message }, { status: 500 })
     }
     return NextResponse.json({ error: 'Analytics failed' }, { status: 500 })

@@ -34,7 +34,7 @@ export const metadata = {
     default: 'Brú Grappling',
     template: '%s | Brú Grappling',
   },
-  description: 'Brazilian Jiu Jitsu and Grappling Lessons for Kids and Adults in Dublin.',
+  description: 'Brazilian Jiu Jitsu and Grappling Timeslots for Kids and Adults in Dublin.',
   openGraph: {
     type: 'website',
     locale: 'en_IE',

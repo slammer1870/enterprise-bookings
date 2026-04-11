@@ -265,10 +265,10 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
     return { fromName, fromAddress }
   },
   roles: {
-    adminRoles: ['admin', 'tenant-admin'],
+    adminRoles: ['super-admin', 'admin', 'staff'],
     defaultRole: 'user',
-    defaultAdminRole: 'admin',
-    roles: ['user', 'admin', 'tenant-admin'],
+    defaultAdminRole: 'super-admin',
+    roles: ['user', 'staff', 'admin', 'super-admin'],
     allowedFields: ['name'],
   },
   sessionExpiresInSeconds: 60 * 60 * 24 * 365, // 1 year

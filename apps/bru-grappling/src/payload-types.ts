@@ -76,9 +76,9 @@ export interface Config {
     accounts: Account;
     sessions: Session;
     verifications: Verification;
-    instructors: Instructor;
-    lessons: Lesson;
-    'class-options': ClassOption;
+    staffMembers: StaffMember;
+    timeslots: Timeslot;
+    'event-types': EventType;
     bookings: Booking;
     'drop-ins': DropIn;
     subscriptions: Subscription;
@@ -92,17 +92,17 @@ export interface Config {
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {
-    lessons: {
+    timeslots: {
       bookings: 'bookings';
     };
     'drop-ins': {
-      'class-optionsPaymentMethods': 'class-options';
+      'event-typesPaymentMethods': 'event-types';
     };
     plans: {
-      classOptionsAllowedPlans: 'class-options';
+      eventTypesAllowedPlans: 'event-types';
     };
     users: {
-      lessons: 'lessons';
+      timeslots: 'timeslots';
       children: 'users';
       account: 'accounts';
       session: 'sessions';
@@ -119,9 +119,9 @@ export interface Config {
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    instructors: InstructorsSelect<false> | InstructorsSelect<true>;
-    lessons: LessonsSelect<false> | LessonsSelect<true>;
-    'class-options': ClassOptionsSelect<false> | ClassOptionsSelect<true>;
+    staffMembers: StaffMembersSelect<false> | StaffMembersSelect<true>;
+    timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
+    'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
@@ -154,7 +154,7 @@ export interface Config {
   };
   jobs: {
     tasks: {
-      generateLessonsFromSchedule: TaskGenerateLessonsFromSchedule;
+      generateTimeslotsFromSchedule: TaskGenerateTimeslotsFromSchedule;
       inline: {
         input: unknown;
         output: unknown;
@@ -768,8 +768,8 @@ export interface Account {
  */
 export interface User {
   id: number;
-  lessons?: {
-    docs?: (number | Lesson)[];
+  timeslots?: {
+    docs?: (number | Timeslot)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -857,9 +857,9 @@ export interface User {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons".
+ * via the `definition` "timeslots".
  */
-export interface Lesson {
+export interface Timeslot {
   id: number;
   date: string;
   startTime: string;
@@ -870,8 +870,8 @@ export interface Lesson {
   lockOutTime: number;
   originalLockOutTime?: number | null;
   location?: string | null;
-  instructor?: (number | null) | Instructor;
-  classOption: number | ClassOption;
+  instructor?: (number | null) | StaffMember;
+  eventType: number | EventType;
   /**
    * The number of places remaining
    */
@@ -894,9 +894,9 @@ export interface Lesson {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors".
+ * via the `definition` "staffMembers".
  */
-export interface Instructor {
+export interface StaffMember {
   id: number;
   /**
    * The user associated with this instructor
@@ -905,11 +905,11 @@ export interface Instructor {
   name?: string | null;
   description?: string | null;
   /**
-   * Instructor profile image
+   * StaffMember profile image
    */
   profileImage?: (number | null) | Media;
   /**
-   * Whether this instructor is active and can be assigned to lessons
+   * Whether this instructor is active and can be assigned to timeslots
    */
   active?: boolean | null;
   updatedAt: string;
@@ -917,9 +917,9 @@ export interface Instructor {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options".
+ * via the `definition` "event-types".
  */
-export interface ClassOption {
+export interface EventType {
   id: number;
   name: string;
   /**
@@ -967,7 +967,7 @@ export interface Plan {
     /**
      * When enabled, subscribers can use multiple session credits on the same lesson (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per lesson per user.
      */
-    allowMultipleBookingsPerLesson: boolean;
+    allowMultipleBookingsPerTimeslot: boolean;
   };
   stripeProductId?: string | null;
   /**
@@ -1007,8 +1007,8 @@ export interface Plan {
   /**
    * The classes that are available for this plan
    */
-  classOptionsAllowedPlans?: {
-    docs?: (number | ClassOption)[];
+  eventTypesAllowedPlans?: {
+    docs?: (number | EventType)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1038,8 +1038,8 @@ export interface DropIn {
       }[]
     | null;
   paymentMethods: 'card'[];
-  'class-optionsPaymentMethods'?: {
-    docs?: (number | ClassOption)[];
+  'event-typesPaymentMethods'?: {
+    docs?: (number | EventType)[];
     hasNextPage?: boolean;
     totalDocs?: number;
   };
@@ -1053,7 +1053,7 @@ export interface DropIn {
 export interface Booking {
   id: number;
   user: number | User;
-  lesson: number | Lesson;
+  timeslot: number | Timeslot;
   status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
   /**
    * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
@@ -1240,7 +1240,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateLessonsFromSchedule';
+        taskSlug: 'inline' | 'generateTimeslotsFromSchedule';
         taskID: string;
         input?:
           | {
@@ -1273,7 +1273,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateLessonsFromSchedule') | null;
+  taskSlug?: ('inline' | 'generateTimeslotsFromSchedule') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -1324,16 +1324,16 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
-        relationTo: 'instructors';
-        value: number | Instructor;
+        relationTo: 'staffMembers';
+        value: number | StaffMember;
       } | null)
     | ({
-        relationTo: 'lessons';
-        value: number | Lesson;
+        relationTo: 'timeslots';
+        value: number | Timeslot;
       } | null)
     | ({
-        relationTo: 'class-options';
-        value: number | ClassOption;
+        relationTo: 'event-types';
+        value: number | EventType;
       } | null)
     | ({
         relationTo: 'bookings';
@@ -1854,9 +1854,9 @@ export interface VerificationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "instructors_select".
+ * via the `definition` "staffMembers_select".
  */
-export interface InstructorsSelect<T extends boolean = true> {
+export interface StaffMembersSelect<T extends boolean = true> {
   user?: T;
   name?: T;
   description?: T;
@@ -1867,9 +1867,9 @@ export interface InstructorsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "lessons_select".
+ * via the `definition` "timeslots_select".
  */
-export interface LessonsSelect<T extends boolean = true> {
+export interface TimeslotsSelect<T extends boolean = true> {
   date?: T;
   startTime?: T;
   endTime?: T;
@@ -1877,7 +1877,7 @@ export interface LessonsSelect<T extends boolean = true> {
   originalLockOutTime?: T;
   location?: T;
   instructor?: T;
-  classOption?: T;
+  eventType?: T;
   remainingCapacity?: T;
   bookings?: T;
   bookingStatus?: T;
@@ -1887,9 +1887,9 @@ export interface LessonsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-options_select".
+ * via the `definition` "event-types_select".
  */
-export interface ClassOptionsSelect<T extends boolean = true> {
+export interface EventTypesSelect<T extends boolean = true> {
   name?: T;
   places?: T;
   description?: T;
@@ -1909,7 +1909,7 @@ export interface ClassOptionsSelect<T extends boolean = true> {
  */
 export interface BookingsSelect<T extends boolean = true> {
   user?: T;
-  lesson?: T;
+  timeslot?: T;
   status?: T;
   transactions?: T;
   updatedAt?: T;
@@ -1934,7 +1934,7 @@ export interface DropInsSelect<T extends boolean = true> {
         id?: T;
       };
   paymentMethods?: T;
-  'class-optionsPaymentMethods'?: T;
+  'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -1972,7 +1972,7 @@ export interface PlansSelect<T extends boolean = true> {
         sessions?: T;
         intervalCount?: T;
         interval?: T;
-        allowMultipleBookingsPerLesson?: T;
+        allowMultipleBookingsPerTimeslot?: T;
       };
   stripeProductId?: T;
   priceInformation?:
@@ -1987,7 +1987,7 @@ export interface PlansSelect<T extends boolean = true> {
   skipSync?: T;
   type?: T;
   quantity?: T;
-  classOptionsAllowedPlans?: T;
+  eventTypesAllowedPlans?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -2009,7 +2009,7 @@ export interface TransactionsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
-  lessons?: T;
+  timeslots?: T;
   parentUser?: T;
   children?: T;
   name?: T;
@@ -2150,7 +2150,7 @@ export interface Footer {
   createdAt?: string | null;
 }
 /**
- * Create recurring lessons across your weekly schedule
+ * Create recurring timeslots across your weekly schedule
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "scheduler".
@@ -2162,7 +2162,7 @@ export interface Scheduler {
    */
   startDate: string;
   /**
-   * When this schedule stops generating lessons
+   * When this schedule stops generating timeslots
    */
   endDate: string;
   /**
@@ -2170,9 +2170,9 @@ export interface Scheduler {
    */
   lockOutTime: number;
   /**
-   * Default class type to use when creating lessons (can be overridden per slot)
+   * Default class type to use when creating timeslots (can be overridden per slot)
    */
-  defaultClassOption: number | ClassOption;
+  defaultEventType: number | EventType;
   /**
    * The days of the week and their time slots
    */
@@ -2186,9 +2186,9 @@ export interface Scheduler {
                 /**
                  * Overrides the default class option
                  */
-                classOption?: (number | null) | ClassOption;
+                eventType?: (number | null) | EventType;
                 location?: string | null;
-                instructor?: (number | null) | Instructor;
+                instructor?: (number | null) | StaffMember;
                 /**
                  * Overrides the default lock out time
                  */
@@ -2205,7 +2205,7 @@ export interface Scheduler {
       | null;
   };
   /**
-   * Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)
+   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
    */
   clearExisting?: boolean | null;
   updatedAt?: string | null;
@@ -2251,7 +2251,7 @@ export interface SchedulerSelect<T extends boolean = true> {
   startDate?: T;
   endDate?: T;
   lockOutTime?: T;
-  defaultClassOption?: T;
+  defaultEventType?: T;
   week?:
     | T
     | {
@@ -2263,7 +2263,7 @@ export interface SchedulerSelect<T extends boolean = true> {
                 | {
                     startTime?: T;
                     endTime?: T;
-                    classOption?: T;
+                    eventType?: T;
                     location?: T;
                     instructor?: T;
                     lockOutTime?: T;
@@ -2280,9 +2280,9 @@ export interface SchedulerSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "TaskGenerateLessonsFromSchedule".
+ * via the `definition` "TaskGenerateTimeslotsFromSchedule".
  */
-export interface TaskGenerateLessonsFromSchedule {
+export interface TaskGenerateTimeslotsFromSchedule {
   input: {
     startDate: string;
     endDate: string;
@@ -2291,15 +2291,15 @@ export interface TaskGenerateLessonsFromSchedule {
         timeSlot: {
           startTime: string;
           endTime: string;
-          classOption?: (number | null) | ClassOption;
+          eventType?: (number | null) | EventType;
           location?: string | null;
-          instructor?: (number | null) | Instructor;
+          instructor?: (number | null) | StaffMember;
           lockOutTime?: number | null;
         }[];
       }[];
     };
     clearExisting: boolean;
-    defaultClassOption: number | ClassOption;
+    defaultEventType: number | EventType;
     lockOutTime: number;
   };
   output: {

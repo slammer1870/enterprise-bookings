@@ -22,6 +22,9 @@ import * as webhookProcessed from '@/lib/stripe-connect/webhookProcessed'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
+const webhookAccountId = `acct_webhook_test_${runId}`
+const webhookDeauthAccountId = `acct_deauth_only_${runId}`
 
 describe('Stripe Connect webhook (step 2.5)', () => {
   let payload: Payload
@@ -37,7 +40,7 @@ describe('Stripe Connect webhook (step 2.5)', () => {
       data: {
         name: 'Webhook Test Tenant',
         slug: `webhook-tenant-${Date.now()}`,
-        stripeConnectAccountId: 'acct_webhook_test',
+        stripeConnectAccountId: webhookAccountId,
         stripeConnectOnboardingStatus: 'pending',
       },
       overrideAccess: true,
@@ -49,7 +52,7 @@ describe('Stripe Connect webhook (step 2.5)', () => {
       data: {
         name: 'Webhook Deauth Tenant',
         slug: `webhook-deauth-${Date.now()}`,
-        stripeConnectAccountId: 'acct_deauth_only',
+        stripeConnectAccountId: webhookDeauthAccountId,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,
@@ -111,8 +114,21 @@ describe('Stripe Connect webhook (step 2.5)', () => {
       const event = {
         id: 'evt_account_updated_1',
         type: 'account.updated',
-        account: 'acct_webhook_test',
-        data: { object: { charges_enabled: true } },
+        account: webhookAccountId,
+        data: {
+          object: {
+            charges_enabled: true,
+            payouts_enabled: true,
+            details_submitted: true,
+            requirements: {
+              disabled_reason: null,
+              currently_due: [],
+              eventually_due: [],
+              past_due: [],
+              pending_verification: [],
+            },
+          },
+        },
       }
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
       const res = await POST(request(JSON.stringify(event)))
@@ -125,7 +141,43 @@ describe('Stripe Connect webhook (step 2.5)', () => {
         overrideAccess: true,
       })
       expect(updated.stripeConnectOnboardingStatus).toBe('active')
-      expect(updated.stripeConnectAccountId).toBe('acct_webhook_test')
+      expect(updated.stripeConnectAccountId).toBe(webhookAccountId)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'processes account.updated with incomplete requirements as restricted',
+    async () => {
+      const event = {
+        id: 'evt_account_updated_restricted_1',
+        type: 'account.updated',
+        account: webhookAccountId,
+        data: {
+          object: {
+            charges_enabled: false,
+            payouts_enabled: false,
+            details_submitted: true,
+            requirements: {
+              disabled_reason: 'requirements.pending_verification',
+              currently_due: [],
+              eventually_due: ['individual.verification.document'],
+              past_due: [],
+              pending_verification: ['individual.verification.document'],
+            },
+          },
+        },
+      }
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const updated = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        overrideAccess: true,
+      })
+      expect(updated.stripeConnectOnboardingStatus).toBe('restricted')
     },
     TEST_TIMEOUT,
   )
@@ -136,7 +188,7 @@ describe('Stripe Connect webhook (step 2.5)', () => {
       const event = {
         id: 'evt_deauth_1',
         type: 'account.application.deauthorized',
-        account: 'acct_deauth_only',
+        account: webhookDeauthAccountId,
         data: { object: {} },
       }
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
@@ -160,7 +212,7 @@ describe('Stripe Connect webhook (step 2.5)', () => {
       const event = {
         id: 'evt_replay_1',
         type: 'account.updated',
-        account: 'acct_webhook_test',
+        account: webhookAccountId,
         data: { object: { charges_enabled: true } },
       }
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)

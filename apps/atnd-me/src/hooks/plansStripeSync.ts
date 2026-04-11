@@ -16,6 +16,19 @@ async function getTenantForPlan(payload: import('payload').Payload, tenantId: nu
   return tenant as (TenantStripeLike & { id: number }) | null
 }
 
+async function getStoredStripeProductId(
+  payload: import('payload').Payload,
+  id: number,
+): Promise<string | undefined> {
+  const stored = await payload.findByID({
+    collection: 'plans',
+    id,
+    depth: 0,
+    overrideAccess: true,
+  })
+  return (stored as unknown as Record<string, unknown>)?.stripeProductId as string | undefined
+}
+
 function getTenantId(doc: Record<string, unknown>): number | null {
   const t = doc.tenant
   if (t == null) return null
@@ -44,7 +57,11 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
 
   const data = doc as Record<string, unknown>
   const skipSync = data.skipSync === true
-  const stripeProductId = data.stripeProductId as string | undefined
+  const stripeProductId =
+    operation === 'update'
+      ? ((data.stripeProductId as string | undefined) ??
+        (typeof doc.id === 'number' ? await getStoredStripeProductId(req.payload, doc.id) : undefined))
+      : (data.stripeProductId as string | undefined)
 
   if (operation === 'create') {
     if (skipSync || stripeProductId) return
@@ -71,7 +88,6 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
       data: {
         stripeProductId: productId,
         priceJSON: JSON.stringify({ id: priceId }),
-        skipSync: true,
       },
       context: { ...req.context, skipStripeSync: true },
       req,
@@ -120,7 +136,7 @@ export const planBeforeDeleteArchive: CollectionBeforeDeleteHook = async ({ id, 
   await req.payload.update({
     collection: 'plans',
     id,
-    data: { deletedAt: new Date().toISOString(), skipSync: true },
+    data: { deletedAt: new Date().toISOString() },
     context: { skipStripeSync: true },
     req,
   })

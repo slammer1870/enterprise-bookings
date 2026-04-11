@@ -2,7 +2,8 @@ import type { Payload } from "payload";
 import { TRPCError } from "@trpc/server";
 
 import { findSafe, findByIdSafe, hasCollection } from "./collections";
-import type { ClassOption, Lesson } from "@repo/shared-types";
+import { DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS } from "../bookings-slugs";
+import type { EventType, Timeslot } from "@repo/shared-types";
 import { resolveTimeZone } from "@repo/shared-utils";
 
 export type TenantContext = {
@@ -100,63 +101,64 @@ export function getRelationId(value: unknown): number | null {
   return null;
 }
 
-export function getLessonTenantId(lesson: Lesson): number | null {
-  return getRelationId(lesson.tenant);
+export function getTimeslotTenantId(timeslot: Timeslot): number | null {
+  return getRelationId(timeslot.tenant);
 }
 
-export function getClassOptionId(lesson: Lesson): number | null {
-  return getRelationId(lesson.classOption);
+export function getEventTypeId(timeslot: Timeslot): number | null {
+  return getRelationId(timeslot.eventType);
 }
 
 /**
- * Ensure lesson belongs to the given tenant; throw NOT_FOUND otherwise.
+ * Ensure timeslot belongs to the given tenant; throw NOT_FOUND otherwise.
  */
-export function assertLessonBelongsToTenant(
-  lesson: Lesson,
+export function assertTimeslotBelongsToTenant(
+  timeslot: Timeslot,
   tenantId: number,
-  lessonId: number
+  timeslotId: number
 ): void {
-  const lessonTenantId = getLessonTenantId(lesson);
-  if (lessonTenantId !== tenantId) {
+  const timeslotTenantId = getTimeslotTenantId(timeslot);
+  if (timeslotTenantId !== tenantId) {
     throw new TRPCError({
       code: "NOT_FOUND",
-      message: `Lesson with id ${lessonId} not found`,
+      message: `Timeslot with id ${timeslotId} not found`,
     });
   }
 }
 
 /**
- * Populate lesson.classOption with full ClassOption (including paymentMethods) when
- * tenant context exists. Mutates lesson in place. No-op if class-options missing or fetch fails.
+ * Populate timeslot.eventType with full EventType (including paymentMethods) when
+ * tenant context exists. Mutates timeslot in place. No-op if event-types missing or fetch fails.
  */
-export async function populateLessonClassOption(
+export async function populateTimeslotEventType(
   payload: Payload,
-  lesson: Lesson
+  timeslot: Timeslot,
+  eventTypesSlug: string = DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS.eventTypes
 ): Promise<void> {
-  const coId = getClassOptionId(lesson);
-  if (coId == null || !hasCollection(payload, "class-options")) return;
+  const coId = getEventTypeId(timeslot);
+  if (coId == null || !hasCollection(payload, eventTypesSlug)) return;
   try {
-    const populated = await findByIdSafe<ClassOption>(payload, "class-options", coId, {
+    const populated = await findByIdSafe<EventType>(payload, eventTypesSlug, coId, {
       depth: 3,
       overrideAccess: true,
     });
     if (populated) {
-      (lesson as { classOption: ClassOption }).classOption = JSON.parse(
+      (timeslot as { eventType: EventType }).eventType = JSON.parse(
         JSON.stringify(populated)
-      ) as ClassOption;
+      ) as EventType;
     }
   } catch (err) {
-    console.error("Failed to populate classOption with payment methods:", err);
+    console.error("Failed to populate eventType with payment methods:", err);
   }
 }
 
 /**
- * Derive tenant ID from lesson or its classOption when cookie/host tenant is not set.
+ * Derive tenant ID from timeslot or its eventType when cookie/host tenant is not set.
  */
-export function deriveTenantIdFromLesson(lesson: Lesson): number | null {
-  const fromLesson = getLessonTenantId(lesson);
-  if (fromLesson != null) return fromLesson;
-  const co = lesson.classOption;
+export function deriveTenantIdFromTimeslot(timeslot: Timeslot): number | null {
+  const fromTimeslot = getTimeslotTenantId(timeslot);
+  if (fromTimeslot != null) return fromTimeslot;
+  const co = timeslot.eventType;
   if (co != null && typeof co === "object" && "tenant" in co) {
     return getRelationId((co as { tenant?: unknown }).tenant);
   }
@@ -164,33 +166,34 @@ export function deriveTenantIdFromLesson(lesson: Lesson): number | null {
 }
 
 /**
- * Resolve tenant ID from a lesson by ID (e.g. when cookie/host context is missing).
- * Returns null if lessons collection missing or lesson not found.
+ * Resolve tenant ID from a timeslot by ID (e.g. when cookie/host context is missing).
+ * Returns null if timeslots collection missing or timeslot not found.
  */
-export async function resolveTenantIdFromLessonId(
+export async function resolveTenantIdFromTimeslotId(
   payload: Payload,
-  lessonId: number
+  timeslotId: number,
+  timeslotsSlug: string = DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS.timeslots
 ): Promise<number | null> {
-  if (!hasCollection(payload, "lessons")) return null;
-  const lesson = await findByIdSafe<Lesson>(payload, "lessons", lessonId, {
+  if (!hasCollection(payload, timeslotsSlug)) return null;
+  const timeslot = await findByIdSafe<Timeslot>(payload, timeslotsSlug, timeslotId, {
     depth: 0,
     overrideAccess: true,
   });
-  return lesson ? deriveTenantIdFromLesson(lesson) : null;
+  return timeslot ? deriveTenantIdFromTimeslot(timeslot) : null;
 }
 
 /**
- * Get tenant ID from a booking-like doc (booking.tenant or booking.lesson.tenant).
+ * Get tenant ID from a booking-like doc (booking.tenant or booking.timeslot.tenant).
  * Returns null if no tenant on doc (backward compatibility).
  */
 export function getDocTenantId(doc: {
   tenant?: unknown;
-  lesson?: { tenant?: unknown } | null;
+  timeslot?: { tenant?: unknown } | null;
 }): number | null {
   const fromDoc = getRelationId(doc.tenant);
   if (fromDoc != null) return fromDoc;
-  if (doc.lesson != null && typeof doc.lesson === "object") {
-    return getRelationId((doc.lesson as { tenant?: unknown }).tenant);
+  if (doc.timeslot != null && typeof doc.timeslot === "object") {
+    return getRelationId((doc.timeslot as { tenant?: unknown }).tenant);
   }
   return null;
 }

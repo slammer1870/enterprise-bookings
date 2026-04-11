@@ -6,6 +6,8 @@ export type PaymentIntentMetadata = {
   tenantId?: string
   bookingId?: string
   bookingIds?: string
+  timeslotId?: string
+  /** Legacy Stripe/checkout metadata key; same value as timeslotId */
   lessonId?: string
   type?: string
   userId?: string
@@ -15,9 +17,20 @@ export type PaymentIntentMetadata = {
 }
 
 export type SubscriptionMetadata = {
+  timeslotId?: string
+  timeslot_id?: string
+  /** Legacy Stripe metadata key; same value as timeslotId */
   lessonId?: string
-  lesson_id?: string
   bookingIds?: string
+}
+
+/** Resolve timeslot id from Stripe metadata (new keys first, then legacy lessonId). */
+export function getTimeslotIdFromStripeMetadata(meta: {
+  timeslotId?: string
+  timeslot_id?: string
+  lessonId?: string
+}): string | undefined {
+  return meta.timeslotId ?? meta.timeslot_id ?? meta.lessonId
 }
 
 /** Parse booking IDs from metadata (supports both bookingId and comma-separated bookingIds). */

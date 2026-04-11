@@ -1,25 +1,19 @@
 import type { CollectionConfig } from 'payload'
-import { checkRole } from '@repo/shared-utils'
+import { checkRole, getEffectiveUserRoles } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
 import { authenticated } from '../../access/authenticated'
 import { getUserTenantIds } from '../../access/tenant-scoped'
-import { userTenantRead, userTenantUpdate, isAdmin, isTenantAdmin } from '../../access/userTenantAccess'
+import { userTenantRead, userTenantUpdate, isAdmin, isTenantAdmin, isStaff } from '../../access/userTenantAccess'
 
-function coerceRolesFromDoc(doc: unknown): string[] {
-  if (!doc || typeof doc !== 'object') return []
-  const d = doc as { roles?: unknown; role?: unknown }
-  const roles = Array.isArray(d.roles) ? d.roles : null
-  if (roles && roles.every((r) => typeof r === 'string')) return roles
-  const role = d.role
-  const roleArr = Array.isArray(role) ? role : role != null ? [role] : []
-  return roleArr.filter((r): r is string => typeof r === 'string')
-}
+import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
+
+const FIRST_USER_CREATE_CTX = '__atndFirstUserCreate' as const
 
 export const Users: CollectionConfig = {
   slug: 'users',
   access: {
-    admin: ({ req: { user } }) => isAdmin(user) || isTenantAdmin(user),
+    admin: ({ req: { user } }) => Boolean(user && (isAdmin(user) || isTenantAdmin(user) || isStaff(user))),
     create: () => true,
     delete: (args) => {
       // Admin can delete any user
@@ -32,91 +26,70 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     beforeChange: [
-      // Prevent tenant-admins (or any non-admin) from granting themselves or others the admin role.
-      // Field-level access on the roles field (roles plugin) already restricts who can update it;
-      // this hook is defense-in-depth in case role/roles are ever writable elsewhere (e.g. Better Auth).
-      // Only strip when there is an authenticated user who is not admin (e.g. avoid stripping on
-      // overrideAccess creates, seed, or system operations where req.user may be absent).
-      ({ data, req, originalDoc }) => {
-        if (!data || !req.user || isAdmin(req.user)) return data
-        const d = data as { roles?: string[]; role?: string | string[] }
-
-        // Tenant-admins may toggle tenant-admin for users they can update, but cannot arbitrarily
-        // rewrite roles. Keep all existing roles (except admin) and only apply the tenant-admin toggle.
-        if (isTenantAdmin(req.user) && (d.roles !== undefined || d.role !== undefined)) {
-          const existing = coerceRolesFromDoc(originalDoc)
-
-          const desired = Array.isArray(d.roles)
-            ? d.roles
-            : d.role !== undefined
-              ? (Array.isArray(d.role) ? d.role : [d.role])
-              : []
-
-          const wantsTenantAdmin = desired.includes('tenant-admin')
-
-          const next = wantsTenantAdmin
-            ? Array.from(new Set([...existing, 'tenant-admin']))
-            : existing.filter((r) => r !== 'tenant-admin')
-
-          // Ensure at least a base role remains
-          const nextWithUser = next.length > 0 ? next : ['user']
-
-          d.roles = nextWithUser
-          d.role = nextWithUser
-        }
-
-        const existingRoles = coerceRolesFromDoc(originalDoc)
-        const existingHasAdmin = existingRoles.includes('admin')
-
-        // Non-admins can never *add* or *remove* admin:
-        // - if the target already has admin, preserve it
-        // - otherwise, strip any attempted admin grant
-        if (d.roles && Array.isArray(d.roles) && d.roles.includes('admin') && !existingHasAdmin) {
-          d.roles = d.roles.filter((r) => r !== 'admin')
-        } else if (d.roles && Array.isArray(d.roles) && existingHasAdmin && !d.roles.includes('admin')) {
-          d.roles = [...d.roles, 'admin']
-        }
-        if (d.role !== undefined) {
-          const arr = Array.isArray(d.role) ? d.role : [d.role]
-          if (arr.includes('admin') && !existingHasAdmin) {
-            d.role = arr.filter((r) => r !== 'admin') as typeof d.role
-          } else if (!arr.includes('admin') && existingHasAdmin) {
-            d.role = [...arr, 'admin'] as typeof d.role
-          }
+      async ({ data, operation, req }) => {
+        if (!data || operation !== 'create') return data
+        const { totalDocs } = await req.payload.find({
+          collection: 'users',
+          limit: 0,
+          depth: 0,
+          overrideAccess: true,
+        })
+        const isFirst = totalDocs === 0
+        req.context = {
+          ...(req.context && typeof req.context === 'object' ? req.context : {}),
+          [FIRST_USER_CREATE_CTX]: isFirst,
+        } as typeof req.context
+        if (isFirst) {
+          applyFirstUserSuperAdminRole(data as { role?: unknown }, 0)
         }
         return data
       },
-    ],
-    afterChange: [
-      // Ensure the first user in the database always has admin role (Tenants and other
-      // admin-only collections are hidden otherwise). Covers first user created via
-      // Better Auth sign-up or any path that might bypass the roles plugin's beforeChange.
-      async ({ doc, operation, req }) => {
-        if (operation !== 'create' || !doc?.id) return
-        const count = await req.payload.find({
-          collection: 'users',
-          limit: 0,
-          overrideAccess: true,
-          depth: 0,
-          select: { id: true } as any,
-        })
-        if (count.totalDocs !== 1) return
-        const u = doc as { roles?: string[] }
-        if (u.roles?.includes('admin')) return
-        try {
-          await req.payload.update({
-            collection: 'users',
-            id: doc.id,
-            data: { roles: [...(u.roles || []), 'admin'] as ('user' | 'admin' | 'tenant-admin')[] },
-            overrideAccess: true,
-          })
-          req.payload.logger.info(`Assigned admin role to first user (ID: ${doc.id}) so Tenants and admin collections are visible.`)
-        } catch (err) {
-          // Update can throw NotFound when run immediately after create (e.g. transaction
-          // isolation in tests or DB replication lag). Don't fail the create; first user can
-          // be promoted to admin manually or on next login if needed.
-          req.payload.logger.warn(`Could not assign admin to first user (ID: ${doc.id}): ${err instanceof Error ? err.message : String(err)}`)
+      // Prevent non–super-admins from granting super-admin. Tenant org admins may toggle org `admin` for users they manage.
+      ({ data, req, originalDoc, operation }) => {
+        if (!data) return data
+        if (req.user && isAdmin(req.user)) return data
+        const d = data as { role?: string | string[] }
+        const skipSuperAdminStrip =
+          (req.context as Record<string, unknown> | undefined)?.[FIRST_USER_CREATE_CTX] === true
+
+        if (req.user && isTenantAdmin(req.user) && d.role !== undefined) {
+          const existing = getEffectiveUserRoles(originalDoc as SharedUser)
+
+          const desired = Array.isArray(d.role) ? d.role : d.role !== undefined ? [d.role] : []
+
+          const wantsOrgAdmin = desired.includes('admin')
+
+          const next = wantsOrgAdmin
+            ? Array.from(new Set([...existing.filter((r) => r !== 'super-admin'), 'admin']))
+            : existing.filter((r) => r !== 'admin')
+
+          const nextWithUser = next.length > 0 ? next : ['user']
+
+          d.role = nextWithUser
         }
+
+        // Only enforce super-admin add/remove rules on updates. On creates, stripping here removed
+        // `super-admin` from every seeded/admin user after the first DB row (tests + Local API).
+        if (operation === 'update') {
+          const existingRoles = getEffectiveUserRoles(originalDoc as SharedUser)
+          const existingHasSuperAdmin = existingRoles.includes('super-admin')
+
+          if (!skipSuperAdminStrip && d.role !== undefined) {
+            const arr = Array.isArray(d.role) ? d.role : [d.role]
+            if (arr.includes('super-admin') && !existingHasSuperAdmin) {
+              d.role = arr.filter((r) => r !== 'super-admin') as typeof d.role
+            } else if (!arr.includes('super-admin') && existingHasSuperAdmin) {
+              // Do not re-inject super-admin when the row mixes org/staff with super-admin (invalid);
+              // otherwise a tenant org admin could not clear a mistaken super-admin assignment.
+              const invalidSuperAdminCombo =
+                existingRoles.includes('admin') || existingRoles.includes('staff')
+              if (!invalidSuperAdminCombo) {
+                d.role = [...arr, 'super-admin'] as typeof d.role
+              }
+            }
+          }
+        }
+        return data
       },
     ],
     beforeValidate: [
@@ -125,7 +98,7 @@ export const Users: CollectionConfig = {
         // This ensures the tenant relationship is valid and the tenant-admin can create users
         if (operation === 'create' && data && !data.registrationTenant) {
           const user = req.user
-          if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+          if (user && checkRole(['admin'], user as unknown as SharedUser)) {
             // Try to get tenant from context (set by multi-tenant plugin's tenant selector)
             const rawTenant = req.context?.tenant as unknown
             if (rawTenant) {
@@ -173,11 +146,13 @@ export const Users: CollectionConfig = {
         read: () => true, // Always allow reading the field value
         update: ({ req: { user } }) => {
           // Admin can always update
+          if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
+            return true
+          }
           if (user && checkRole(['admin'], user as unknown as SharedUser)) {
             return true
           }
-          // Tenant-admin can update (validation happens in beforeValidate hook)
-          return true
+          return false
         },
       },
     },
@@ -190,6 +165,22 @@ export const Users: CollectionConfig = {
         position: 'sidebar',
         components: {
           Field: '@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField',
+        },
+      },
+    },
+    {
+      name: 'stripeCustomerDashboardLink',
+      type: 'ui',
+      admin: {
+        position: 'sidebar',
+        components: {
+          Field: {
+            path: '@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField',
+            clientProps: {
+              target: 'customer',
+              label: 'View customer in Stripe',
+            },
+          },
         },
       },
     },

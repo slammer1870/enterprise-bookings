@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { Lesson, Booking } from '@repo/shared-types'
+import { Timeslot, Booking } from '@repo/shared-types'
 import { useTRPC } from '@repo/trpc/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { BookingSummary } from './booking-summary'
@@ -19,15 +19,41 @@ import { Loader2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
 import { format } from 'date-fns'
 
+type PaymentMethodsLike = {
+  allowedDropIn?: {
+    adjustable?: boolean
+    allowMultipleBookingsPerTimeslot?: boolean
+  } | null
+  allowedPlans?:
+    | Array<{
+        sessionsInformation?: { allowMultipleBookingsPerTimeslot?: boolean } | null
+      }>
+    | null
+  allowedClassPasses?:
+    | Array<{
+        allowMultipleBookingsPerTimeslot?: boolean
+      }>
+    | null
+} | null
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function asPaymentMethodsLike(value: unknown): PaymentMethodsLike {
+  if (!isObject(value)) return null
+  return value as PaymentMethodsLike
+}
+
 interface ManageBookingPageClientProps {
-  lesson: Lesson
+  timeslot: Timeslot
   /**
-   * Optional initial bookings for this lesson that belong to the current user.
+   * Optional initial bookings for this timeslot that belong to the current user.
    *
-   * IMPORTANT: Do not derive this from `lesson.bookings.docs` unless you are 100% sure
-   * the lesson was fetched with access controls enforced. In some server paths we fetch
-   * lessons with `overrideAccess: true` for multi-tenant compatibility, which can cause
-   * joins like `lesson.bookings` to include other users' bookings.
+   * IMPORTANT: Do not derive this from `timeslot.bookings.docs` unless you are 100% sure
+   * the timeslot was fetched with access controls enforced. In some server paths we fetch
+   * timeslots with `overrideAccess: true` for multi-tenant compatibility, which can cause
+   * joins like `timeslot.bookings` to include other users' bookings.
    */
   initialBookings?: Booking[]
   /**
@@ -37,13 +63,13 @@ interface ManageBookingPageClientProps {
    * @example
    * ```tsx
    * <ManageBookingPageClient 
-   *   lesson={lesson}
+   *   timeslot={timeslot}
    *   PaymentMethodsComponent={PaymentMethods}
    * />
    * ```
    */
   PaymentMethodsComponent?: React.ComponentType<{ 
-    lesson: Lesson
+    timeslot: Timeslot
     pendingBookings?: Booking[]
     onPaymentSuccess?: () => void
     /** Called when user starts payment redirect (e.g. to Stripe); used to avoid cancelling pending on page leave */
@@ -75,7 +101,7 @@ interface ManageBookingPageClientProps {
  * - If no payment required: creates confirmed bookings directly
  */
 export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = ({
-  lesson,
+  timeslot,
   initialBookings,
   PaymentMethodsComponent,
   cancelPendingApiUrl,
@@ -90,12 +116,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     'This action cannot be undone.'
   )
 
-  // Fetch user's bookings for this lesson
+  // Fetch user's bookings for this timeslot
   const { data: bookings, isLoading } = useQuery({
-    ...trpc.bookings.getUserBookingsForLesson.queryOptions({ lessonId: lesson.id }),
+    ...trpc.bookings.getUserBookingsForTimeslot.queryOptions({ timeslotId: timeslot.id }),
     // Only ever hydrate with user-scoped bookings passed from the server.
-    // Never trust `lesson.bookings.docs` here because it can include other users'
-    // bookings when lessons are fetched with elevated access for tenant routing.
+    // Never trust `timeslot.bookings.docs` here because it can include other users'
+    // bookings when timeslots are fetched with elevated access for tenant routing.
     initialData: initialBookings,
     // Keep it "fresh" long enough that the page renders immediately without a spinner,
     // but still allows eventual background refetches for correctness.
@@ -119,7 +145,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   const initialQuantity = activeBookings.length || 0
 
-  // Desired total quantity of bookings for this lesson.
+  // Desired total quantity of bookings for this timeslot.
   // IMPORTANT: `activeBookings` starts as `[]` until the query resolves.
   const [desiredQuantity, setDesiredQuantity] = useState<number>(initialQuantity)
 
@@ -130,9 +156,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [desiredPendingQuantity, setDesiredPendingQuantity] = useState<number>(0)
   // When true, user has started a payment redirect (e.g. to Stripe) — don't cancel pending on unmount
   const paymentRedirectInProgressRef = useRef(false)
+  const hasPendingBookingsRef = useRef(false)
 
-  const { mutateAsync: cancelPendingForLesson } = useMutation(
-    trpc.bookings.cancelPendingBookingsForLesson.mutationOptions()
+  const { mutateAsync: cancelPendingForTimeslot } = useMutation(
+    trpc.bookings.cancelPendingBookingsForTimeslot.mutationOptions()
   )
 
   // When user returns to the page after leaving checkout: show checkout again with server pending
@@ -149,11 +176,20 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     }
   }, [pendingFromServer, activeBookings.length])
 
-  // Keep pendingBookings in sync with server when in payment flow (e.g. after user updates quantity)
+  // Keep pendingBookings in sync with server when in payment flow (e.g. after user updates quantity).
+  // Guard: only override when the server has data — avoids a race where isInPaymentFlow just became true
+  // but the query is still stale (pendingFromServer = []), which would wipe freshly-created pending
+  // booking IDs and trigger the "cancel on leave" cleanup effect prematurely.
   useEffect(() => {
     if (!isInPaymentFlow) return
-    setPendingBookings(pendingFromServer)
+    if (pendingFromServer.length > 0) {
+      setPendingBookings(pendingFromServer)
+    }
   }, [isInPaymentFlow, pendingFromServer])
+
+  useEffect(() => {
+    hasPendingBookingsRef.current = pendingBookings.length > 0
+  }, [pendingBookings.length])
 
   // Keep desired pending quantity in sync with actual pending count when in payment flow
   useEffect(() => {
@@ -161,24 +197,25 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     setDesiredPendingQuantity(pendingBookings.length)
   }, [isInPaymentFlow, pendingBookings.length])
 
-  // Clamp desired pending to lesson capacity so we never show/allow more than remainingCapacity new bookings
+  // Clamp desired pending to timeslot capacity so we never show/allow more than remainingCapacity new bookings
   useEffect(() => {
     if (!isInPaymentFlow) return
-    const cap = Math.max(0, lesson.remainingCapacity)
+    const cap = Math.max(0, timeslot.remainingCapacity)
     setDesiredPendingQuantity((q) => (q > cap ? cap : q))
-  }, [isInPaymentFlow, lesson.remainingCapacity])
+  }, [isInPaymentFlow, timeslot.remainingCapacity])
 
   // When user leaves the checkout page (navigate away or close tab), cancel their pending bookings
   // so capacity is released. Skip if they started a payment redirect (e.g. to Stripe).
   useEffect(() => {
-    if (!isInPaymentFlow || pendingBookings.length === 0) return
-    const lessonId = lesson.id
+    if (!isInPaymentFlow) return
+    const timeslotId = timeslot.id
     const handleBeforeUnload = () => {
+      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
       if (cancelPendingApiUrl) {
         fetch(cancelPendingApiUrl, {
           method: 'POST',
-          body: JSON.stringify({ lessonId }),
+          body: JSON.stringify({ timeslotId }),
           headers: { 'Content-Type': 'application/json' },
           keepalive: true,
         }).catch(() => {})
@@ -187,10 +224,11 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
-      cancelPendingForLesson({ lessonId }).catch(() => {})
+      cancelPendingForTimeslot({ timeslotId }).catch(() => {})
     }
-  }, [isInPaymentFlow, pendingBookings.length, lesson.id, cancelPendingForLesson, cancelPendingApiUrl])
+  }, [isInPaymentFlow, timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
 
   // Keep the UI in sync with the server-backed booking count.
   // This prevents the quantity control from getting stuck at 0 before the query resolves.
@@ -204,11 +242,26 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // Track when we're abandoning checkout (cancelling all pending)
   const [isAbandoningCheckout, setIsAbandoningCheckout] = useState(false)
 
-  // Check if lesson has payment methods configured
+  // Check if timeslot has payment methods configured
+  const paymentMethods = asPaymentMethodsLike(timeslot.eventType?.paymentMethods)
   const hasPaymentMethods = Boolean(
-    lesson.classOption.paymentMethods?.allowedDropIn ||
-    lesson.classOption.paymentMethods?.allowedPlans?.length
+    paymentMethods?.allowedDropIn ||
+      (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
+      (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
   )
+  const dropInAllowsMultiple =
+    paymentMethods?.allowedDropIn?.adjustable === true ||
+    paymentMethods?.allowedDropIn?.allowMultipleBookingsPerTimeslot === true
+  const planAllowsMultiple =
+    paymentMethods?.allowedPlans?.some(
+      (plan) => plan.sessionsInformation?.allowMultipleBookingsPerTimeslot === true
+    ) ?? false
+  const classPassAllowsMultiple =
+    paymentMethods?.allowedClassPasses?.some(
+      (classPass) => classPass.allowMultipleBookingsPerTimeslot === true
+    ) ?? false
+  const allowsMultipleBookingsForViewer =
+    !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple || classPassAllowsMultiple
 
   const { mutate: cancelBooking, mutateAsync: cancelBookingAsync, isPending: isCancelling } = useMutation(
     trpc.bookings.cancelBooking.mutationOptions({
@@ -217,30 +270,30 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         // Invalidate all booking-related queries to ensure UI updates
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-              lessonId: lesson.id,
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
+              timeslotId: timeslot.id,
             }),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.lessons.getByDate.queryKey(),
+            queryKey: trpc.timeslots.getByDate.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.lessons.getById.queryKey({ id: lesson.id }),
+            queryKey: trpc.timeslots.getById.queryKey({ id: timeslot.id }),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.lessons.getByIdForBooking.queryKey({ id: lesson.id }),
+            queryKey: trpc.timeslots.getByIdForBooking.queryKey({ id: timeslot.id }),
           }),
         ]);
         
         // Explicitly refetch active queries to ensure immediate UI update
         await Promise.all([
           queryClient.refetchQueries({
-            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-              lessonId: lesson.id,
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
+              timeslotId: timeslot.id,
             }),
           }),
           queryClient.refetchQueries({
-            queryKey: trpc.lessons.getByDate.queryKey(),
+            queryKey: trpc.timeslots.getByDate.queryKey(),
           }),
         ]);
       },
@@ -255,12 +308,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     trpc.bookings.createBookings.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-            lessonId: lesson.id,
+          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
+            timeslotId: timeslot.id,
           }),
         })
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByDate.queryKey(),
+          queryKey: trpc.timeslots.getByDate.queryKey(),
         })
       },
       onError: (error: { message?: string }) => {
@@ -270,35 +323,35 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   )
 
   const { mutateAsync: setBookingQuantity, isPending: isSettingQuantity } = useMutation(
-    trpc.bookings.setMyBookingQuantityForLesson.mutationOptions({
+    trpc.bookings.setMyBookingQuantityForTimeslot.mutationOptions({
       onSuccess: async () => {
         // Invalidate all booking-related queries to ensure UI updates
         await Promise.all([
           queryClient.invalidateQueries({
-            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-              lessonId: lesson.id,
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
+              timeslotId: timeslot.id,
             }),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.lessons.getByDate.queryKey(),
+            queryKey: trpc.timeslots.getByDate.queryKey(),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.lessons.getById.queryKey({ id: lesson.id }),
+            queryKey: trpc.timeslots.getById.queryKey({ id: timeslot.id }),
           }),
           queryClient.invalidateQueries({
-            queryKey: trpc.lessons.getByIdForBooking.queryKey({ id: lesson.id }),
+            queryKey: trpc.timeslots.getByIdForBooking.queryKey({ id: timeslot.id }),
           }),
         ]);
         
         // Explicitly refetch active queries to ensure immediate UI update
         await Promise.all([
           queryClient.refetchQueries({
-            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-              lessonId: lesson.id,
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
+              timeslotId: timeslot.id,
             }),
           }),
           queryClient.refetchQueries({
-            queryKey: trpc.lessons.getByDate.queryKey(),
+            queryKey: trpc.timeslots.getByDate.queryKey(),
           }),
         ]);
       },
@@ -350,18 +403,18 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
             if (booking.id != null) await cancelBookingAsync({ id: booking.id })
           }
           await queryClient.invalidateQueries({
-            queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
           })
         }
         if (toCancelConfirmed > 0) {
           await setBookingQuantity({
-            lessonId: lesson.id,
+            timeslotId: timeslot.id,
             desiredQuantity: confirmedCount - toCancelConfirmed,
           })
         }
         const delta = Math.abs(target - current)
         toast.success(
-          `Cancelled ${delta} booking${delta !== 1 ? 's' : ''} for this lesson.`
+          `Cancelled ${delta} booking${delta !== 1 ? 's' : ''} for this timeslot.`
         )
       } catch (error: any) {
         toast.error(error?.message ?? 'Failed to update bookings')
@@ -378,7 +431,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       const additional = target - current
       try {
         const newPendingBookings = await createBookings({
-          lessonId: lesson.id,
+          timeslotId: timeslot.id,
           quantity: additional,
           status: 'pending',
         })
@@ -391,22 +444,22 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       return
     }
 
-    // Use the new setMyBookingQuantityForLesson mutation for all quantity changes
+    // Use the new setMyBookingQuantityForTimeslot mutation for all quantity changes
     // This handles both increase and decrease cases safely
     try {
       await setBookingQuantity({
-        lessonId: lesson.id,
+        timeslotId: timeslot.id,
         desiredQuantity: target,
       })
 
       const delta = Math.abs(target - current)
       if (target > current) {
         toast.success(
-          `Added ${delta} booking${delta !== 1 ? 's' : ''} for this lesson.`
+          `Added ${delta} booking${delta !== 1 ? 's' : ''} for this timeslot.`
         )
       } else {
         toast.success(
-          `Cancelled ${delta} booking${delta !== 1 ? 's' : ''} for this lesson.`
+          `Cancelled ${delta} booking${delta !== 1 ? 's' : ''} for this timeslot.`
         )
       }
     } catch (error: any) {
@@ -423,24 +476,31 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
-  /** In payment flow: apply desired number of new (pending) bookings — cancel or create pending as needed. */
-  const handleUpdatePendingQuantity = async () => {
+  const isUpdatingPendingQuantity = isCreating || isCancelling || isAbandoningCheckout
+
+  /** In payment flow, +/- applies immediately so checkout stays in sync with the selected quantity. */
+  const handlePendingQuantityChange = async (requestedQuantity: number) => {
     const current = pendingBookings.length
-    const target = desiredPendingQuantity
+    const maxPendingQuantity = Math.max(0, timeslot.remainingCapacity)
+    const target = Math.min(Math.max(requestedQuantity, 0), maxPendingQuantity)
 
     if (target === current) return
+
+    setDesiredPendingQuantity(target)
 
     if (target === 0) {
       setIsAbandoningCheckout(true)
       try {
-        await cancelPendingForLesson({ lessonId: lesson.id })
+        await cancelPendingForTimeslot({ timeslotId: timeslot.id })
         setIsInPaymentFlow(false)
         setPendingBookings([])
+        setDesiredPendingQuantity(0)
         setDesiredQuantity(confirmedBookings.length)
         await queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
+          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
         })
       } catch (err: any) {
+        setDesiredPendingQuantity(current)
         toast.error(err?.message ?? 'Failed to cancel pending bookings')
       } finally {
         setIsAbandoningCheckout(false)
@@ -457,11 +517,15 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         for (const booking of pendingToCancel) {
           if (booking.id != null) await cancelBookingAsync({ id: booking.id })
         }
+        setPendingBookings((prev) =>
+          prev.filter((booking) => !pendingToCancel.some((pending) => pending.id === booking.id))
+        )
         await queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({ lessonId: lesson.id }),
+          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
         })
         toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
       } catch (err: any) {
+        setDesiredPendingQuantity(current)
         toast.error(err?.message ?? 'Failed to update pending bookings')
       }
       return
@@ -471,13 +535,14 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     const toCreate = target - current
     try {
       const newPending = await createBookings({
-        lessonId: lesson.id,
+        timeslotId: timeslot.id,
         quantity: toCreate,
         status: 'pending',
       })
       setPendingBookings((prev) => [...prev, ...newPending])
       toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
     } catch (err: any) {
+      setDesiredPendingQuantity(current)
       toast.error(err?.message ?? 'Failed to add pending bookings')
     }
   }
@@ -488,8 +553,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     setPendingBookings([])
     // Refresh bookings to show newly confirmed ones
     queryClient.invalidateQueries({
-      queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-        lessonId: lesson.id,
+      queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
+        timeslotId: timeslot.id,
       }),
     })
     toast.success('Payment successful! Your bookings have been confirmed.')
@@ -498,12 +563,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   if (!bookings || bookings.length === 0) {
     return (
       <div className="space-y-6">
-        <BookingSummary lesson={lesson} />
+        <BookingSummary timeslot={timeslot} />
         <Card>
           <CardContent className="py-8 text-center">
-            <p className="text-muted-foreground">You have no bookings for this lesson.</p>
+            <p className="text-muted-foreground">You have no bookings for this timeslot.</p>
             <Button
-              onClick={() => router.push(`/bookings/${lesson.id}`)}
+              onClick={() => router.push(`/bookings/${timeslot.id}`)}
               className="mt-4"
             >
               Book Now
@@ -516,14 +581,14 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   // Show payment UI if in payment flow (quantity selector = number of new/pending bookings to pay for)
   if (isInPaymentFlow && PaymentMethodsComponent && pendingBookings.length > 0) {
-    // Cap by lesson capacity: user's total (confirmed + pending) must not exceed confirmed + remainingCapacity
-    const maxPendingQuantity = Math.max(0, lesson.remainingCapacity)
+    // Cap by timeslot capacity: user's total (confirmed + pending) must not exceed confirmed + remainingCapacity
+    const maxPendingQuantity = Math.max(0, timeslot.remainingCapacity)
     const minPendingQuantity = 0
 
     return (
       <div className="space-y-6">
         <ConfirmationDialog />
-        <BookingSummary lesson={lesson} />
+        <BookingSummary timeslot={timeslot} />
 
         {/* Quantity selector for new bookings (pending) to pay for */}
         <Card>
@@ -540,7 +605,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                 <p className="font-medium">Number of new bookings</p>
                 <p className="text-sm text-muted-foreground">
                   You can add up to {maxPendingQuantity} new booking
-                  {maxPendingQuantity !== 1 ? 's' : ''} for this lesson.
+                  {maxPendingQuantity !== 1 ? 's' : ''} for this timeslot.
                 </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   This will bring your total number of bookings up to{' '}
@@ -556,8 +621,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                   type="button"
                   size="icon"
                   variant="outline"
-                  disabled={desiredPendingQuantity <= minPendingQuantity || isCreating || isCancelling}
-                  onClick={() => setDesiredPendingQuantity((q) => Math.max(minPendingQuantity, q - 1))}
+                  disabled={
+                    desiredPendingQuantity <= minPendingQuantity || isUpdatingPendingQuantity
+                  }
+                  onClick={() => {
+                    void handlePendingQuantityChange(desiredPendingQuantity - 1)
+                  }}
                   aria-label="Decrease new bookings"
                 >
                   <Minus className="h-4 w-4" />
@@ -573,32 +642,20 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                   size="icon"
                   variant="outline"
                   disabled={
-                    desiredPendingQuantity >= maxPendingQuantity || isCreating || isCancelling
+                    desiredPendingQuantity >= maxPendingQuantity || isUpdatingPendingQuantity
                   }
-                  onClick={() =>
-                    setDesiredPendingQuantity((q) => Math.min(maxPendingQuantity, q + 1))
-                  }
+                  onClick={() => {
+                    void handlePendingQuantityChange(desiredPendingQuantity + 1)
+                  }}
                   aria-label="Increase new bookings"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-
-            <Button
-              className="w-full"
-              disabled={isCreating || isCancelling || isAbandoningCheckout || desiredPendingQuantity === pendingBookings.length}
-              onClick={handleUpdatePendingQuantity}
-            >
-              {isCreating || isCancelling || isAbandoningCheckout ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : (
-                'Update Quantity'
-              )}
-            </Button>
+            <p className="text-sm text-muted-foreground">
+              {isUpdatingPendingQuantity ? 'Updating quantity...' : 'Changes save automatically.'}
+            </p>
           </CardContent>
         </Card>
 
@@ -607,12 +664,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
             <CardTitle>Complete Payment</CardTitle>
             <CardDescription>
               You have {pendingBookings.length} pending booking{pendingBookings.length !== 1 ? 's' : ''}{' '}
-              for this lesson. Please complete payment to confirm.
+              for this timeslot. Please complete payment to confirm.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <PaymentMethodsComponent 
-              lesson={lesson}
+              timeslot={timeslot}
               pendingBookings={pendingBookings}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentRedirectStart={() => { paymentRedirectInProgressRef.current = true }}
@@ -628,13 +685,13 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               onClick={async () => {
                 setIsAbandoningCheckout(true)
                 try {
-                  await cancelPendingForLesson({ lessonId: lesson.id })
+                  await cancelPendingForTimeslot({ timeslotId: timeslot.id })
                   setIsInPaymentFlow(false)
                   setPendingBookings([])
                   setDesiredQuantity(confirmedBookings.length)
                   await queryClient.invalidateQueries({
-                    queryKey: trpc.bookings.getUserBookingsForLesson.queryKey({
-                      lessonId: lesson.id,
+                    queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
+                      timeslotId: timeslot.id,
                     }),
                   })
                 } catch (err: any) {
@@ -660,13 +717,15 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
-  const maxTotalQuantity = activeBookings.length + lesson.remainingCapacity
+  const maxTotalQuantity = allowsMultipleBookingsForViewer
+    ? activeBookings.length + timeslot.remainingCapacity
+    : Math.max(activeBookings.length, 1)
   const minQuantity = 0 // allow cancelling all via quantity control
 
   return (
     <div className="space-y-6">
       <ConfirmationDialog />
-      <BookingSummary lesson={lesson} />
+      <BookingSummary timeslot={timeslot} />
 
       {/* Quantity control card (Mindful Yard-style aggregate control) */}
       <Card>
@@ -674,7 +733,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           <CardTitle>Update Booking Quantity</CardTitle>
           <CardDescription>
             You currently have {activeBookings.length} booking
-            {activeBookings.length !== 1 ? 's' : ''} for this lesson. Adjust the
+            {activeBookings.length !== 1 ? 's' : ''} for this timeslot. Adjust the
             total number of bookings you want to hold.
           </CardDescription>
         </CardHeader>
@@ -683,8 +742,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
             <div>
               <p className="font-medium">Number of bookings</p>
               <p className="text-sm text-muted-foreground">
-                Up to {maxTotalQuantity} total booking
-                {maxTotalQuantity !== 1 ? 's' : ''} available for this lesson.
+                {allowsMultipleBookingsForViewer
+                  ? `Up to ${maxTotalQuantity} total booking${maxTotalQuantity !== 1 ? 's' : ''} available for this timeslot.`
+                  : 'Only 1 slot per booking.'}
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -744,7 +804,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           <CardTitle>Your Bookings</CardTitle>
           <CardDescription>
             You have {bookings.length} booking{bookings.length !== 1 ? 's' : ''} for
-            this lesson. You can also cancel individual bookings below.
+            this timeslot. You can also cancel individual bookings below.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

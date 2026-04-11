@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import {
   clearTestMagicLinks,
   ensureAdminLoggedIn,
-  ensureLessonForTomorrowWithSubscription,
+  ensureTimeslotForTomorrowWithSubscription,
   mockPaymentIntentSucceededWebhook,
   mockSubscriptionCreatedWebhook,
   pollForTestMagicLink,
@@ -47,7 +47,7 @@ async function apiPost<T>(page: any, path: string, data: Record<string, unknown>
   return (json?.doc ?? json) as T
 }
 
-async function createClassOptionViaApi(
+async function createEventTypeViaApi(
   page: any,
   options: {
     name: string
@@ -55,7 +55,7 @@ async function createClassOptionViaApi(
     paymentMethods?: { allowedPlans?: number[]; allowedDropIn?: number | null }
   },
 ): Promise<number> {
-  const created = await apiPost<{ id: number }>(page, '/api/class-options', {
+  const created = await apiPost<{ id: number }>(page, '/api/event-types', {
     name: options.name,
     places: 10,
     description: options.description,
@@ -66,14 +66,14 @@ async function createClassOptionViaApi(
   return Number(created.id)
 }
 
-async function createLessonForTomorrowViaApi(page: any, classOptionId: number): Promise<Date> {
+async function createTimeslotForTomorrowViaApi(page: any, classOptionId: number): Promise<Date> {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
   const start = new Date(tomorrow)
   start.setHours(10, 0, 0, 0)
   const end = new Date(tomorrow)
   end.setHours(11, 0, 0, 0)
-  await apiPost(page, '/api/lessons', {
+  await apiPost(page, '/api/timeslots', {
     date: tomorrow.toISOString(),
     startTime: start.toISOString(),
     endTime: end.toISOString(),
@@ -88,26 +88,26 @@ async function createLessonForTomorrowViaApi(page: any, classOptionId: number): 
  * Ensure there is a lesson tomorrow with a basic class option.
  * Returns the Date for tomorrow.
  */
-async function ensureLessonForTomorrow(
+async function ensureTimeslotForTomorrow(
   page: any,
   className = `E2E Test Class ${Date.now()}`,
 ): Promise<{ tomorrow: Date; className: string }> {
-  const existingClassOption = await apiGet<{ docs?: Array<{ id: number }> }>(
+  const existingEventType = await apiGet<{ docs?: Array<{ id: number }> }>(
     page,
-    `/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1&depth=0`,
+    `/api/event-types?where[name][equals]=${encodeURIComponent(className)}&limit=1&depth=0`,
   )
   const classOptionId =
-    existingClassOption?.docs?.[0]?.id ??
-    (await createClassOptionViaApi(page, {
+    existingEventType?.docs?.[0]?.id ??
+    (await createEventTypeViaApi(page, {
       name: className,
       description: 'A test class option for e2e',
     }))
 
-  const tomorrow = await createLessonForTomorrowViaApi(page, classOptionId)
+  const tomorrow = await createTimeslotForTomorrowViaApi(page, classOptionId)
   return { tomorrow, className }
 }
 
-function getScheduleLessonCard(page: any, className: string) {
+function getScheduleTimeslotCard(page: any, className: string) {
   return page
     .locator('#schedule')
     .first()
@@ -196,7 +196,7 @@ async function ensureAtLeastOneDropIn(page: any): Promise<string> {
  * Ensure there is a lesson tomorrow whose class option has an Allowed Drop In configured.
  * Returns the Date for tomorrow.
  */
-async function ensureLessonForTomorrowWithDropIn(page: any): Promise<Date> {
+async function ensureTimeslotForTomorrowWithDropIn(page: any): Promise<Date> {
   const className = `E2E Drop-In Class ${Date.now()}`
   const dropInName = await ensureAtLeastOneDropIn(page)
   const dropIns = await apiGet<{ docs?: Array<{ id: number }> }>(
@@ -206,21 +206,21 @@ async function ensureLessonForTomorrowWithDropIn(page: any): Promise<Date> {
   const dropInId = dropIns?.docs?.[0]?.id
   if (!dropInId) throw new Error(`Drop In "${dropInName}" not found after creation`)
 
-  const classOptionId = await createClassOptionViaApi(page, {
+  const classOptionId = await createEventTypeViaApi(page, {
     name: className,
     description: 'A test class option for e2e (drop-in)',
     paymentMethods: { allowedDropIn: Number(dropInId) },
   })
 
-  await verifyClassOptionPaymentMethod(page, className, 'dropIn')
-  return await createLessonForTomorrowViaApi(page, classOptionId)
+  await verifyEventTypePaymentMethod(page, className, 'dropIn')
+  return await createTimeslotForTomorrowViaApi(page, classOptionId)
 }
 
 /**
  * Verify that a class option has the required payment method configured.
  * Uses API to check the class option without navigating away from the current page.
  */
-async function verifyClassOptionPaymentMethod(
+async function verifyEventTypePaymentMethod(
   page: any,
   className: string,
   requiredMethod: 'dropIn' | 'subscription',
@@ -230,8 +230,8 @@ async function verifyClassOptionPaymentMethod(
 
   // Find the class option by name via API
   const cookies = await page.context().cookies()
-  const classOptionsResponse = await request.get(
-    `${baseUrl}/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
+  const eventTypesResponse = await request.get(
+    `${baseUrl}/api/event-types?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
     {
       headers: {
         Cookie: cookies
@@ -241,12 +241,12 @@ async function verifyClassOptionPaymentMethod(
     },
   )
 
-  if (!classOptionsResponse.ok()) {
-    throw new Error(`Failed to fetch class option "${className}": ${classOptionsResponse.status()}`)
+  if (!eventTypesResponse.ok()) {
+    throw new Error(`Failed to fetch class option "${className}": ${eventTypesResponse.status()}`)
   }
 
-  const classOptionsData = await classOptionsResponse.json()
-  const classOption = classOptionsData.docs?.[0]
+  const eventTypesData = await eventTypesResponse.json()
+  const classOption = eventTypesData.docs?.[0]
 
   if (!classOption) {
     throw new Error(`Class option "${className}" not found`)
@@ -271,7 +271,7 @@ async function verifyClassOptionPaymentMethod(
  * This ensures the lesson can be checked in directly without payment flow.
  * Uses API to check the class option without navigating away from the current page.
  */
-async function verifyClassOptionHasNoPaymentMethods(
+async function verifyEventTypeHasNoPaymentMethods(
   page: any,
   className: string,
 ): Promise<void> {
@@ -280,8 +280,8 @@ async function verifyClassOptionHasNoPaymentMethods(
 
   // Find the class option by name via API
   const cookies = await page.context().cookies()
-  const classOptionsResponse = await request.get(
-    `${baseUrl}/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
+  const eventTypesResponse = await request.get(
+    `${baseUrl}/api/event-types?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
     {
       headers: {
         Cookie: cookies
@@ -291,12 +291,12 @@ async function verifyClassOptionHasNoPaymentMethods(
     },
   )
 
-  if (!classOptionsResponse.ok()) {
-    throw new Error(`Failed to fetch class option "${className}": ${classOptionsResponse.status()}`)
+  if (!eventTypesResponse.ok()) {
+    throw new Error(`Failed to fetch class option "${className}": ${eventTypesResponse.status()}`)
   }
 
-  const classOptionsData = await classOptionsResponse.json()
-  const classOption = classOptionsData.docs?.[0]
+  const eventTypesData = await eventTypesResponse.json()
+  const classOption = eventTypesData.docs?.[0]
 
   if (!classOption) {
     throw new Error(`Class option "${className}" not found`)
@@ -340,11 +340,11 @@ test.describe('User booking flow from schedule', () => {
     // Admin phase: ensure prerequisites
     await ensureAdminLoggedIn(page)
     await ensureHomePageWithSchedule(page)
-    const { tomorrow, className } = await ensureLessonForTomorrow(page)
+    const { tomorrow, className } = await ensureTimeslotForTomorrow(page)
 
     // Verify the class option has NO payment methods configured
     // This ensures the lesson can be checked in directly without payment flow
-    await verifyClassOptionHasNoPaymentMethods(page, className)
+    await verifyEventTypeHasNoPaymentMethods(page, className)
 
     // Log out admin
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => { })
@@ -365,11 +365,11 @@ test.describe('User booking flow from schedule', () => {
     // The lesson we created has a unique class name for this test run.
     // This ensures we're clicking on the lesson we created, not another lesson on the schedule
 
-    const lessonCard = getScheduleLessonCard(page, className)
+    const lessonCard = getScheduleTimeslotCard(page, className)
     await expect(lessonCard).toBeVisible({ timeout: 60000 })
 
     // Within this specific lesson card, find the "Book" or "Check In" button
-    // Button text is "Book" for active lessons without payment methods
+    // Button text is "Book" for active timeslots without payment methods
     const checkInButtonAfterCancel = lessonCard
       .getByRole('button', { name: /^(Book|Check In)$/i })
       .first()
@@ -559,7 +559,7 @@ test.describe('User booking flow from schedule', () => {
     await goToTomorrowInSchedule(page)
 
     // Find the specific lesson by the unique class name created for this test run.
-    const lessonCardForCancel = getScheduleLessonCard(page, className)
+    const lessonCardForCancel = getScheduleTimeslotCard(page, className)
     await expect(lessonCardForCancel).toBeVisible({ timeout: 60000 })
 
     // With the schedule view model, a single booking can show "Modify Booking" (manage quantity)
@@ -634,7 +634,7 @@ test.describe('User booking flow from schedule', () => {
     await goToTomorrowInSchedule(page)
 
     // Re-find the lesson card on the schedule (fresh DOM after reload).
-    const lessonCardAfterCancel = getScheduleLessonCard(page, className)
+    const lessonCardAfterCancel = getScheduleTimeslotCard(page, className)
 
     const bookButtonAfter = lessonCardAfterCancel
       .getByRole('button', { name: /^(Book|Check In)$/i })
@@ -659,7 +659,7 @@ test.describe('User booking flow from schedule', () => {
     // Admin phase: ensure prerequisites
     await ensureAdminLoggedIn(page)
     await ensureHomePageWithSchedule(page)
-    await ensureLessonForTomorrowWithDropIn(page)
+    await ensureTimeslotForTomorrowWithDropIn(page)
 
     // Log out admin
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => { })
@@ -674,7 +674,7 @@ test.describe('User booking flow from schedule', () => {
 
     await goToTomorrowInSchedule(page)
 
-    // Click "Book" for tomorrow's lesson (button text is "Book" for active lessons)
+    // Click "Book" for tomorrow's lesson (button text is "Book" for active timeslots)
     const checkInButton = page.getByRole('button', { name: /^(Book|Check In)$/i }).first()
     await expect(checkInButton).toBeVisible({ timeout: 60000 })
     // Ensure button is actionable (critical for UI mode)
@@ -806,7 +806,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Mock the payment intent succeeded webhook to confirm the booking
     await mockPaymentIntentSucceededWebhook(page.context().request, {
-      lessonId,
+      timeslotId: lessonId,
       userEmail: email,
     })
 
@@ -895,7 +895,7 @@ test.describe('User booking flow from schedule', () => {
     // Admin phase: ensure prerequisites
     await ensureAdminLoggedIn(page)
     await ensureHomePageWithSchedule(page)
-    await ensureLessonForTomorrowWithSubscription(page)
+    await ensureTimeslotForTomorrowWithSubscription(page)
 
     // Log out admin
     await page.goto('/admin/logout', { waitUntil: 'load' }).catch(() => { })
@@ -910,7 +910,7 @@ test.describe('User booking flow from schedule', () => {
 
     await goToTomorrowInSchedule(page)
 
-    // Click "Book" for tomorrow's lesson (button text is "Book" for active lessons)
+    // Click "Book" for tomorrow's lesson (button text is "Book" for active timeslots)
     const checkInButton = page.getByRole('button', { name: /^(Book|Check In)$/i }).first()
     await expect(checkInButton).toBeVisible({ timeout: 60000 })
     await expect(checkInButton)
@@ -1044,7 +1044,7 @@ test.describe('User booking flow from schedule', () => {
 
     // Mock subscription created webhook to confirm booking
     await mockSubscriptionCreatedWebhook(page.context().request, {
-      lessonId: lessonIdFromCallback,
+      timeslotId: lessonIdFromCallback,
       userEmail: email,
     })
 

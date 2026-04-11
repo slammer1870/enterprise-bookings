@@ -15,7 +15,7 @@ export type UpgradeOption = {
 export type PlanViewProps = {
   allowedPlans: Plan[] | undefined;
   subscription: Subscription | null;
-  lessonDate: Date;
+  timeslotDate: Date;
   subscriptionLimitReached: boolean;
   PlanPriceSummary?: React.ComponentType<{ plan: Plan }>;
   /** Remaining sessions in current period (null = unlimited). */
@@ -24,8 +24,8 @@ export type PlanViewProps = {
   selectedQuantity?: number;
   /** When false, user cannot use subscription for current selection. */
   canUseSubscriptionForQuantity?: boolean;
-  /** When false and selectedQuantity > 1, plan allows only one slot per lesson. */
-  subscriptionAllowsMultiplePerLesson?: boolean;
+  /** When false and selectedQuantity > 1, plan allows only one slot per timeslot. */
+  subscriptionAllowsMultiplePerTimeslot?: boolean;
   /** When true, show customer portal CTA (e.g. payment past due). */
   needsCustomerPortal?: boolean;
   /** Upgrade options with pro-rata additional sessions when limit reached. */
@@ -47,13 +47,13 @@ export type PlanViewProps = {
 export function PlanView({
   allowedPlans,
   subscription,
-  lessonDate,
+  timeslotDate,
   subscriptionLimitReached,
   PlanPriceSummary,
   remainingSessions = null,
   selectedQuantity = 1,
   canUseSubscriptionForQuantity = true,
-  subscriptionAllowsMultiplePerLesson = true,
+  subscriptionAllowsMultiplePerTimeslot = true,
   needsCustomerPortal = false,
   upgradeOptions = [],
   onCreateCheckoutSession,
@@ -66,7 +66,7 @@ export function PlanView({
   if (!allowedPlans) {
     return (
       <p className="text-sm text-muted-foreground">
-        No plans are available for this lesson
+        No plans are available for this timeslot
       </p>
     );
   }
@@ -94,7 +94,7 @@ export function PlanView({
     return (
       <>
         <p className="text-sm text-red-500 mb-2">
-          You do not have a plan that allows you to book into this lesson, please
+          You do not have a plan that allows you to book into this timeslot, please
           upgrade your plan to continue
         </p>
         {onCreateCustomerUpgradePortal && upgradeablePlans.length > 0 ? (
@@ -130,17 +130,17 @@ export function PlanView({
     );
   }
 
-  // Only show "not enough sessions" when the limiting factor is session count (not per-lesson limit)
+  // Only show "not enough sessions" when the limiting factor is session count (not per-timeslot limit)
   const notEnoughSessionsLeft =
     !canUseSubscriptionForQuantity &&
     remainingSessions != null &&
     remainingSessions > 0 &&
     remainingSessions < selectedQuantity;
 
-  const oneSlotPerLessonOnly =
+  const oneSlotPerTimeslotOnly =
     !canUseSubscriptionForQuantity &&
     selectedQuantity > 1 &&
-    !subscriptionAllowsMultiplePerLesson;
+    !subscriptionAllowsMultiplePerTimeslot;
 
   const showPastDueMessage = needsCustomerPortal || subscription.status === "unpaid" || subscription.status === "past_due";
 
@@ -186,7 +186,7 @@ export function PlanView({
                     <Button
                       className="w-full"
                       onClick={() =>
-                        onCreateCheckoutSession(priceId, { lesson_id: String(lessonDate) })
+                        onCreateCheckoutSession(priceId, { timeslot_id: String(timeslotDate) })
                       }
                     >
                       Upgrade
@@ -202,9 +202,9 @@ export function PlanView({
           ))}
         </div>
       )}
-      {oneSlotPerLessonOnly && (
+      {oneSlotPerTimeslotOnly && (
         <p className="text-sm text-amber-600 mb-2">
-          Your plan allows one slot per lesson. Use drop-in to pay for additional slots.
+          Your plan allows one slot per timeslot. Use drop-in to pay for additional slots.
         </p>
       )}
       {notEnoughSessionsLeft && (
@@ -219,7 +219,7 @@ export function PlanView({
         </p>
       )}
       {subscription.cancelAt &&
-        new Date(subscription.cancelAt) < new Date(lessonDate) && (
+        new Date(subscription.cancelAt) < new Date(timeslotDate) && (
           <p className="text-sm text-red-500 mb-2">
             {`Your subscription currently ends on ${new Date(subscription.cancelAt).toLocaleDateString()} please upgrade your plan.`}
           </p>

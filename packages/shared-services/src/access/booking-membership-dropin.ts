@@ -1,11 +1,11 @@
-import { Booking, Lesson, User } from "@repo/shared-types";
+import { Booking, Timeslot, User } from "@repo/shared-types";
 import { checkRole } from "@repo/shared-utils";
 import { AccessArgs } from "payload";
 
-// Helper function to validate lesson status and capacity
-import { validateLessonStatus } from "../lesson";
-
-import { validateLessonPaymentMethods } from "../lesson";
+import {
+  validateTimeslotPaymentMethods,
+  validateTimeslotStatus,
+} from "../timeslot";
 
 function normalizeID(id: unknown): number | null {
   if (typeof id === "number" && Number.isFinite(id)) return id;
@@ -26,18 +26,20 @@ export const bookingCreateMembershipDropinAccess = async ({
     return false;
   }
 
-  if (!data?.lesson) return false;
+  if (!data?.timeslot) return false;
 
   const lessonId =
-    typeof data?.lesson === "object" ? data?.lesson.id : data?.lesson;
+    typeof data?.timeslot === "object"
+      ? (data.timeslot as Timeslot).id
+      : (data.timeslot as number);
 
   try {
     const lesson = (await req.payload.findByID({
-      collection: "lessons",
+      collection: "timeslots",
       id: lessonId,
       depth: 3,
       overrideAccess: true,
-    })) as unknown as Lesson;
+    })) as unknown as Timeslot;
 
     if (!lesson || !user) return false;
 
@@ -47,9 +49,9 @@ export const bookingCreateMembershipDropinAccess = async ({
       return true;
     }
 
-    if (!validateLessonStatus(lesson)) return false;
+    if (!validateTimeslotStatus(lesson)) return false;
 
-    return await validateLessonPaymentMethods(lesson, user, req.payload);
+    return await validateTimeslotPaymentMethods(lesson, user, req.payload);
   } catch (error) {
     console.error(error);
     return false;
@@ -62,7 +64,10 @@ export const bookingUpdateMembershipDropinAccess = async ({
 }: AccessArgs<Booking>) => {
   const searchParams = req.searchParams;
 
-  const lessonId = searchParams.get("where[and][0][lesson][equals]") || id;
+  const lessonId =
+    searchParams.get("where[and][0][timeslot][equals]") ||
+    searchParams.get("where[and][0][lesson][equals]") ||
+    id;
   const userId =
     searchParams.get("where[and][1][user][equals]") || req.user?.id;
 
@@ -86,7 +91,7 @@ export const bookingUpdateMembershipDropinAccess = async ({
       const bookingQuery = await req.payload.find({
         collection: "bookings",
         where: {
-          lesson: { equals: lessonId },
+          timeslot: { equals: lessonId },
           user: { equals: userId ?? requesterId },
         },
         depth: 3,
@@ -99,11 +104,11 @@ export const bookingUpdateMembershipDropinAccess = async ({
     if (!booking) return false;
 
     const lesson = (await req.payload.findByID({
-      collection: "lessons",
-      id: booking.lesson.id,
+      collection: "timeslots",
+      id: booking.timeslot.id,
       depth: 3,
       overrideAccess: true,
-    })) as unknown as Lesson;
+    })) as unknown as Timeslot;
 
     const user = (await req.payload.findByID({
       collection: "users",
@@ -122,9 +127,9 @@ export const bookingUpdateMembershipDropinAccess = async ({
 
     if (req.data?.status === "cancelled") return true;
 
-    if (!validateLessonStatus(lesson)) return false;
+    if (!validateTimeslotStatus(lesson)) return false;
 
-    return await validateLessonPaymentMethods(lesson, user, req.payload);
+    return await validateTimeslotPaymentMethods(lesson, user, req.payload);
   } catch (error) {
     console.error(error);
     return false;

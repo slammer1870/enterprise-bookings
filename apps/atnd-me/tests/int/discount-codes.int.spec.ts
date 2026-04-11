@@ -20,6 +20,7 @@ vi.mock('@/lib/stripe/platform', () => ({
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('Discount codes (Phase 4.5)', () => {
   let payload: Payload
@@ -37,7 +38,7 @@ describe('Discount codes (Phase 4.5)', () => {
         name: 'Admin Discount Codes',
         email: `admin-dc-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
@@ -49,7 +50,7 @@ describe('Discount codes (Phase 4.5)', () => {
       data: {
         name: 'Discount Codes Tenant',
         slug: `dc-tenant-${Date.now()}`,
-        stripeConnectAccountId: 'acct_dc',
+        stripeConnectAccountId: `acct_dc_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,
@@ -62,7 +63,7 @@ describe('Discount codes (Phase 4.5)', () => {
         name: 'Tenant Admin DC',
         email: `ta-dc-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['tenant-admin'],
+        role: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: tenantWithConnectId }],
       },
@@ -135,6 +136,58 @@ describe('Discount codes (Phase 4.5)', () => {
         const t = (d as Record<string, unknown>).tenant
         const tenantId = typeof t === 'object' && t !== null && 'id' in t ? (t as { id: number }).id : t
         expect(tenantId).toBe(tenantWithConnectId)
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'keeps Stripe-immutable fields unchanged after sync while allowing local-only updates',
+    async () => {
+      const created = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Lock Test',
+          code: `LOCK${Date.now()}`.slice(0, 24),
+          type: 'percentage_off',
+          value: 20,
+          duration: 'once',
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      await payload.update({
+        collection: 'discount-codes',
+        id: created.id,
+        data: {
+          name: 'Renamed Lock Test',
+          code: 'SHOULDNOTAPPLY',
+          value: 50,
+          duration: 'forever',
+          maxRedemptions: 99,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.update>[0])
+
+      const updated = await payload.findByID({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
+      })
+
+      expect(updated.name).toBe('Renamed Lock Test')
+      expect(updated.code).toBe(created.code)
+      expect(updated.value).toBe(created.value)
+      expect(updated.duration).toBe(created.duration)
+      expect(updated.maxRedemptions).toBe(created.maxRedemptions)
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
       })
     },
     TEST_TIMEOUT,

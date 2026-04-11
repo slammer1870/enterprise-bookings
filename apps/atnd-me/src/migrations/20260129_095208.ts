@@ -67,7 +67,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"slug" varchar NOT NULL,
   	"description" varchar,
   	"quantity" numeric NOT NULL,
-  	"allow_multiple_bookings_per_lesson" boolean DEFAULT true NOT NULL,
+  	"allow_multiple_bookings_per_timeslot" boolean DEFAULT true NOT NULL,
   	"stripe_product_id" varchar,
   	"price_information_price_cents" numeric,
   	"price_j_s_o_n" varchar,
@@ -144,7 +144,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-29T09:52:04.867Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-29T09:52:04.867Z';
   DO $$ BEGIN ALTER TABLE "tenants" ADD COLUMN "class_pass_settings_enabled" boolean DEFAULT false; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
   DO $$ BEGIN ALTER TABLE "tenants" ADD COLUMN "class_pass_settings_default_expiration_days" numeric DEFAULT 365; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
   DO $$ BEGIN ALTER TABLE "class_options" ADD COLUMN "payment_methods_allowed_drop_in_id" integer; EXCEPTION WHEN duplicate_column THEN NULL; END $$;
@@ -269,11 +269,11 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   
   ALTER TABLE "payload_jobs_log" ALTER COLUMN "task_slug" SET DATA TYPE text;
   DROP TYPE "public"."enum_payload_jobs_log_task_slug";
-  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule', 'schedulePublish');
+  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule', 'schedulePublish');
   ALTER TABLE "payload_jobs_log" ALTER COLUMN "task_slug" SET DATA TYPE "public"."enum_payload_jobs_log_task_slug" USING "task_slug"::"public"."enum_payload_jobs_log_task_slug";
   ALTER TABLE "payload_jobs" ALTER COLUMN "task_slug" SET DATA TYPE text;
   DROP TYPE "public"."enum_payload_jobs_task_slug";
-  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule', 'schedulePublish');
+  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule', 'schedulePublish');
   ALTER TABLE "payload_jobs" ALTER COLUMN "task_slug" SET DATA TYPE "public"."enum_payload_jobs_task_slug" USING "task_slug"::"public"."enum_payload_jobs_task_slug";
   DROP INDEX "class_options_payment_methods_payment_methods_allowed_dr_idx";
   DROP INDEX "payload_locked_documents_rels_drop_ins_id_idx";
@@ -282,7 +282,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   DROP INDEX "payload_locked_documents_rels_booking_transactions_id_idx";
   DROP INDEX "payload_locked_documents_rels_subscriptions_id_idx";
   DROP INDEX "payload_locked_documents_rels_plans_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-27T13:10:55.694Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-27T13:10:55.694Z';
   ALTER TABLE "tenants" DROP COLUMN "class_pass_settings_enabled";
   ALTER TABLE "tenants" DROP COLUMN "class_pass_settings_default_expiration_days";
   ALTER TABLE "class_options" DROP COLUMN "payment_methods_allowed_drop_in_id";

@@ -6,8 +6,8 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsSuperAdmin, loginAsRegularUserViaApi, loginAsRegularUser, BASE_URL } from './helpers/auth-helpers'
 import { navigateToRoot, navigateToTenant } from './helpers/subdomain-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestBooking,
   getPayloadInstance,
 } from './helpers/data-helpers'
@@ -50,7 +50,7 @@ test.describe('App smoke', () => {
 
     if (!tenantId || !tenantSlug) throw new Error('Tenant required')
 
-    const co = await createTestClassOption(tenantId, 'Smoke Pay at Door', 5, undefined, w)
+    const co = await createTestEventType(tenantId, 'Smoke Pay at Door', 5, undefined, w)
     // Do not set paymentMethods (no drop-in, no class pass). Omitting allowedClassPasses avoids
     // touching the dropped column (migration 20260210); class option stays pay-at-door.
 
@@ -59,7 +59,7 @@ test.describe('App smoke', () => {
     start.setHours(12, 0, 0, 0)
     const end = new Date(start)
     end.setHours(13, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
 
     // Use subdomain-aware login and navigation (preserves auth across subdomain)
     await loginAsRegularUser(page, 1, testData.users.user1.email, 'password', { tenantSlug })
@@ -145,10 +145,10 @@ test.describe('App smoke', () => {
       },
       overrideAccess: true,
     }) as { id: number }
-    const co = await createTestClassOption(tenantId, 'Smoke Stripe UI', 5, undefined, w)
+    const co = await createTestEventType(tenantId, 'Smoke Stripe UI', 5, undefined, w)
     // Use only allowedDropIn; omit allowedClassPasses to avoid touching dropped column / rels (see migration 20260210).
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: { paymentMethods: { allowedDropIn: dropIn.id } },
       overrideAccess: true,
@@ -159,7 +159,7 @@ test.describe('App smoke', () => {
     start.setHours(14, 0, 0, 0)
     const end = new Date(start)
     end.setHours(15, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
     // Ensure lesson is for the same tenant we navigate to (host derives tenant from subdomain).
     const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null ? (lesson.tenant as { id: number }).id : lesson.tenant
     if (lessonTenantId !== tenantId) {
@@ -175,7 +175,7 @@ test.describe('App smoke', () => {
     const tenantNotFound = await page.getByText(/tenant not found/i).isVisible().catch(() => false)
     if (tenantNotFound) {
       throw new Error(
-        `Tenant "${tenantSlug}" not found when loading tenant root. Lesson ${lesson.id}. ` +
+        `Tenant "${tenantSlug}" not found when loading tenant root. Timeslot ${lesson.id}. ` +
           `App and test must use the same DB.`
       )
     }
@@ -191,13 +191,13 @@ test.describe('App smoke', () => {
     ]).catch(() => 'timeout')
 
     if (result === 'error') {
-      throw new Error(`Server error on booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. Check server logs.`)
+      throw new Error(`Server error on booking page. Timeslot ${lesson.id}, tenant ${tenantSlug}. Check server logs.`)
     }
     if (result === 'timeout') {
       const url = page.url()
       const body = await page.textContent('body').catch(() => '')
       throw new Error(
-        `Timeout waiting for Stripe booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. URL: ${url}. Body: ${body?.slice(0, 300) ?? 'none'}`
+        `Timeout waiting for Stripe booking page. Timeslot ${lesson.id}, tenant ${tenantSlug}. URL: ${url}. Body: ${body?.slice(0, 300) ?? 'none'}`
       )
     }
 
@@ -241,13 +241,13 @@ test.describe('App smoke', () => {
         quantity: 5,
         tenant: tenantId,
         status: 'active',
-        allowMultipleBookingsPerLesson: true,
+        allowMultipleBookingsPerTimeslot: true,
       },
       overrideAccess: true,
     }) as { id: number }
-    const co = await createTestClassOption(tenantId, 'Smoke Class Pass Only', 5, undefined, w)
+    const co = await createTestEventType(tenantId, 'Smoke Class Pass Only', 5, undefined, w)
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: co.id,
       data: {
         paymentMethods: {
@@ -262,7 +262,7 @@ test.describe('App smoke', () => {
     start.setHours(16, 0, 0, 0)
     const end = new Date(start)
     end.setHours(17, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
     await new Promise((r) => setTimeout(r, 400))
 
     // API login + tenant-scoped cookies (same as manage test) so session is reliably sent on tenant subdomain.
@@ -275,7 +275,7 @@ test.describe('App smoke', () => {
     const tenantNotFound = await page.getByText(/tenant not found/i).isVisible().catch(() => false)
     if (tenantNotFound) {
       throw new Error(
-        `Tenant "${tenantSlug}" not found when loading tenant root. Lesson ${lesson.id}. ` +
+        `Tenant "${tenantSlug}" not found when loading tenant root. Timeslot ${lesson.id}. ` +
           `App and test must use the same DB: set DATABASE_URI in apps/atnd-me/.env and run e2e with a fresh server ` +
           `(CI=1 or close any existing dev server so Playwright starts it with the same env).`
       )
@@ -297,7 +297,7 @@ test.describe('App smoke', () => {
     }
     if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
       throw new Error(
-        `Booking page redirected away. Lesson ${lesson.id}, tenant ${tenantSlug}. ` +
+        `Booking page redirected away. Timeslot ${lesson.id}, tenant ${tenantSlug}. ` +
           `Expected ${bookingPath}, got ${currentPath}. ` +
           `Check server logs for [createBookingPage] or getByIdForBooking (NOT_FOUND, tenant mismatch, or bookingStatus closed).`
       )
@@ -311,11 +311,11 @@ test.describe('App smoke', () => {
     ]).catch(() => 'timeout')
 
     if (result === 'error') {
-      throw new Error(`Server error on booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. Check server logs.`)
+      throw new Error(`Server error on booking page. Timeslot ${lesson.id}, tenant ${tenantSlug}. Check server logs.`)
     }
     if (result === 'tenant_not_found') {
       throw new Error(
-        `Tenant "${tenantSlug}" not found on subdomain. Lesson ${lesson.id}. ` +
+        `Tenant "${tenantSlug}" not found on subdomain. Timeslot ${lesson.id}. ` +
           `Ensure testData.tenants[0].slug matches the subdomain and the app uses the same DB as the test (e.g. same DATABASE_URI).`
       )
     }
@@ -327,19 +327,30 @@ test.describe('App smoke', () => {
         ? ' Redirected to /home — booking page likely failed (lesson not found or tenant mismatch), then root redirected to /home.'
         : ''
       throw new Error(
-        `Timeout waiting for class-pass booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. ` +
+        `Timeout waiting for class-pass booking page. Timeslot ${lesson.id}, tenant ${tenantSlug}. ` +
           `Current URL: ${url}.${hint} Body preview: ${body?.slice(0, 300) ?? 'none'}`
       )
     }
 
     await expect(page.getByText(/number of slots/i).first()).toBeVisible()
-    // Class-pass-only: either Book (or confirm) button, or "No payment methods" when user has no pass
+    // Class-pass-only can show:
+    // - Book / Confirm when user already has a usable pass
+    // - "No payment methods" when there is no purchasable fallback
+    // - "Buy pass" when a pass can be purchased inline first
     const bookBtn = page.getByRole('button', { name: /book|confirm/i }).first()
     const noPaymentMsg = page.getByText(/no payment methods are available/i)
-    await Promise.race([
-      bookBtn.waitFor({ state: 'visible', timeout: 5000 }),
-      noPaymentMsg.waitFor({ state: 'visible', timeout: 5000 }),
-    ])
+    const buyPassBtn = page.getByRole('button', { name: /buy pass/i }).first()
+    await expect
+      .poll(
+        async () => {
+          const bookVisible = await bookBtn.isVisible().catch(() => false)
+          const noPaymentVisible = await noPaymentMsg.isVisible().catch(() => false)
+          const buyPassVisible = await buyPassBtn.isVisible().catch(() => false)
+          return bookVisible || noPaymentVisible || buyPassVisible
+        },
+        { timeout: 10000 },
+      )
+      .toBe(true)
   })
 
   test('manage bookings: navigate to manage when 2+ bookings, manage UI visible', async ({
@@ -354,7 +365,7 @@ test.describe('App smoke', () => {
 
     if (!tenantId || !tenantSlug || !user1) throw new Error('Tenant and user required')
 
-    const co = await createTestClassOption(tenantId, 'Smoke Manage', 10, undefined, w)
+    const co = await createTestEventType(tenantId, 'Smoke Manage', 10, undefined, w)
     // No paymentMethods update needed for manage flow; avoid touching dropped column (migration 20260210).
 
     const start = new Date()
@@ -362,7 +373,7 @@ test.describe('App smoke', () => {
     start.setHours(10, 0, 0, 0)
     const end = new Date(start)
     end.setHours(11, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, co.id, start, end, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
 
     await createTestBooking(user1.id, lesson.id, 'confirmed')
     await createTestBooking(user1.id, lesson.id, 'confirmed')
@@ -377,7 +388,7 @@ test.describe('App smoke', () => {
     const onLoginPage = await page.getByText(/sign in|enter your email/i).first().isVisible().catch(() => false)
     if (onLoginPage) {
       throw new Error(
-        `Manage page required login. Lesson ${lesson.id}, tenant ${tenantSlug}. ` +
+        `Manage page required login. Timeslot ${lesson.id}, tenant ${tenantSlug}. ` +
           `Session may not have persisted (run with mode: 'serial' or check auth cookie domain).`
       )
     }

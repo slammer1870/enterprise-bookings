@@ -1,53 +1,53 @@
 import { test, expect } from '@playwright/test'
 import {
-  createClassOption,
+  createEventType,
   ensureAdminLoggedIn,
-  saveLesson,
+  saveTimeslot,
   saveObjectAndWaitForNavigation,
-  setLessonDateAndTime,
-  selectClassOptionInLessonForm,
+  setTimeslotDateAndTime,
+  selectEventTypeInTimeslotForm,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
-import { getLessonsQuery } from '@repo/shared-utils'
+import { getTimeslotsQuery } from '@repo/shared-utils'
 
 test.describe('Darkhorse Strength: admin lesson creation', () => {
   test.setTimeout(180000)
 
-  test('lesson created from /create appears on the selected future date in the lessons dashboard', async ({
+  test('lesson created from /create appears on the selected future date in the timeslots dashboard', async ({
     page,
   }) => {
     await ensureAdminLoggedIn(page)
 
-    const className = uniqueClassName('Darkhorse Admin Lesson')
-    await createClassOption(page, {
+    const className = uniqueClassName('Darkhorse Admin Timeslot')
+    await createEventType(page, {
       name: className,
       description: 'E2E class option for admin lesson creation date coverage',
     })
     await saveObjectAndWaitForNavigation(page, {
-      apiPath: '/api/class-options',
-      expectedUrlPattern: /\/admin\/collections\/class-options\/\d+/,
-      collectionName: 'class-options',
+      apiPath: '/api/event-types',
+      expectedUrlPattern: /\/admin\/collections\/event-types\/\d+/,
+      collectionName: 'event-types',
     })
 
     const targetDate = new Date()
     targetDate.setDate(targetDate.getDate() + 3)
     targetDate.setHours(0, 0, 0, 0)
 
-    await page.goto('/admin/collections/lessons/create', {
+    await page.goto('/admin/collections/timeslots/create', {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
 
-    await selectClassOptionInLessonForm(page, className)
-    await setLessonDateAndTime(page, targetDate)
-    await saveLesson(page)
+    await selectEventTypeInTimeslotForm(page, className)
+    await setTimeslotDateAndTime(page, targetDate)
+    await saveTimeslot(page)
 
-    await page.goto(`/admin/collections/lessons${getLessonsQuery(targetDate)}`, {
+    await page.goto(`/admin/collections/timeslots${getTimeslotsQuery(targetDate)}`, {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120000 : 60000,
     })
 
-    await expect(page.getByRole('heading', { name: /lessons/i }).first()).toBeVisible({
+    await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
       timeout: process.env.CI ? 120000 : 60000,
     })
     await expect(page.getByRole('cell', { name: className }).first()).toBeVisible({

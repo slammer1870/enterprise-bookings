@@ -86,9 +86,9 @@ const days: Field = {
                     },
                 },
                 {
-                    name: 'classOption',
+                    name: 'eventType',
                     type: 'relationship',
-                    relationTo: 'class-options',
+                    relationTo: 'event-types',
                     admin: {
                         description: 'Overrides the default class option',
                     },
@@ -98,9 +98,9 @@ const days: Field = {
                     type: 'text',
                 },
                 {
-                    name: 'instructor',
+                    name: 'staffMember',
                     type: 'relationship',
-                    relationTo: 'instructors',
+                    relationTo: 'staff-members',
                 },
                 {
                     name: 'lockOutTime',
@@ -124,16 +124,20 @@ const days: Field = {
 
 export const Scheduler: CollectionConfig = {
     slug: 'scheduler',
+    labels: {
+        singular: 'Scheduler',
+        plural: 'Scheduler',
+    },
     admin: {
         useAsTitle: 'tenant',
         defaultColumns: ['tenant', 'startDate', 'endDate', 'updatedAt'],
         group: 'Bookings',
-        description: 'Create recurring lessons across your weekly schedule for each tenant',
+        description: 'Create recurring timeslots across your weekly schedule for each tenant',
     },
     access: {
         admin: ({ req: { user } }) => {
             if (!user) return false
-            return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
+            return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
         },
         read: tenantScopedReadFiltered,
         create: tenantScopedCreate,
@@ -175,13 +179,13 @@ export const Scheduler: CollectionConfig = {
                 }
 
                 const job = await req.payload.jobs.queue({
-                    task: 'generateLessonsFromSchedule',
+                    task: 'generateTimeslotsFromSchedule',
                     input: {
                         startDate: doc.startDate,
                         endDate: doc.endDate,
                         week: doc.week,
                         clearExisting: doc.clearExisting,
-                        defaultClassOption: doc.defaultClassOption,
+                        defaultEventType: doc.defaultEventType,
                         lockOutTime: doc.lockOutTime,
                         tenant: tenantId,
                     } as Parameters<Payload['jobs']['queue']>[0]['input'],
@@ -217,7 +221,7 @@ export const Scheduler: CollectionConfig = {
             type: 'date',
             required: true,
             admin: {
-                description: 'When this schedule stops generating lessons',
+                description: 'When this schedule stops generating timeslots',
                 date: {
                     pickerAppearance: 'dayOnly',
                     displayFormat: 'dd/MM/yyyy',
@@ -246,13 +250,13 @@ export const Scheduler: CollectionConfig = {
             },
         },
         {
-            name: 'defaultClassOption',
+            name: 'defaultEventType',
             label: 'Default Class Option',
             type: 'relationship',
-            relationTo: 'class-options',
+            relationTo: 'event-types',
             required: true,
             admin: {
-                description: 'Default class type to use when creating lessons (can be overridden per slot)',
+                description: 'Default class type to use when creating timeslots (can be overridden per slot)',
             },
         },
         {
@@ -267,11 +271,11 @@ export const Scheduler: CollectionConfig = {
         {
             name: 'clearExisting',
             type: 'checkbox',
-            label: 'Clear Existing Lessons',
+            label: 'Clear Existing Timeslots',
             defaultValue: false,
             admin: {
                 description:
-                    'Clear existing lessons before generating new ones (this will not delete lessons that have any bookings)',
+                    'Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)',
             },
         },
     ],

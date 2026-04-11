@@ -26,6 +26,8 @@ import { createPaymentIntentSucceededEvent } from '../helpers/stripe-webhook-eve
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
+const connectAccountId = `acct_payment_webhook_${runId}`
 
 function request(body: string, signature = 't=123,v1=valid') {
   return new NextRequest('http://localhost/api/stripe/webhook', {
@@ -55,7 +57,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       data: {
         name: 'Payment Webhook Tenant',
         slug: `payment-webhook-tenant-${Date.now()}`,
-        stripeConnectAccountId: 'acct_payment_webhook',
+        stripeConnectAccountId: connectAccountId,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,
@@ -68,7 +70,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         name: 'Payment Webhook User',
         email: `payment-webhook-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -77,7 +79,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     userId = user.id as number
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Payment Webhook Class ${Date.now()}`,
         places: 10,
@@ -93,11 +95,11 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     const endTime = new Date(startTime)
     endTime.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         tenant: tenantId,
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: startTime.toISOString().split('T')[0],
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
@@ -112,7 +114,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       collection: 'bookings',
       data: {
         user: userId,
-        lesson: lessonId,
+        timeslot: lessonId,
         tenant: tenantId,
         status: 'pending',
       },
@@ -140,12 +142,12 @@ describe('Stripe payment webhooks (step 2.8)', () => {
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: lessonId } },
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: classOptionId } },
           overrideAccess: true,
         })
@@ -171,7 +173,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     async () => {
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_1',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_123',
         metadata: {
           tenantId: String(tenantId),
@@ -211,7 +213,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     async () => {
       const booking2 = await payload.create({
         collection: 'bookings',
-        data: { user: userId, lesson: lessonId, tenant: tenantId, status: 'pending' },
+        data: { user: userId, timeslot: lessonId, tenant: tenantId, status: 'pending' },
         overrideAccess: true,
       })
       const event = createPaymentIntentSucceededEvent({
@@ -264,11 +266,11 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     'payment_intent.succeeded: confirms existing pending when lessonId+userId in metadata (quantity 1)',
     async () => {
       const lessonConfirm = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
-          classOption: classOptionId,
+          eventType: classOptionId,
           date: new Date().toISOString().split('T')[0],
           startTime: new Date(Date.now() + 86400000).toISOString(),
           endTime: new Date(Date.now() + 86400000 + 3600000).toISOString(),
@@ -282,7 +284,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonConfirmId,
+          timeslot: lessonConfirmId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -291,7 +293,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_confirm',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_confirm_789',
         metadata: {
           tenantId: String(tenantId),
@@ -318,7 +320,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: lessonConfirmId } },
         overrideAccess: true,
       })
@@ -330,7 +332,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     'payment_intent.succeeded: creates two bookings when lessonId+userId+quantity 2 in metadata',
     async () => {
       const co2 = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Payment Webhook Class Qty ${Date.now()}`,
           places: 10,
@@ -344,11 +346,11 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       const endTime2 = new Date(startTime2)
       endTime2.setHours(17, 0, 0, 0)
       const lesson2 = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
-          classOption: co2.id,
+          eventType: co2.id,
           date: startTime2.toISOString().split('T')[0],
           startTime: startTime2.toISOString(),
           endTime: endTime2.toISOString(),
@@ -361,7 +363,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_qty2',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_qty2',
         metadata: {
           tenantId: String(tenantId),
@@ -374,7 +376,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const bookingsBefore = await payload.find({
         collection: 'bookings',
-        where: { lesson: { equals: lesson2Id }, user: { equals: userId } },
+        where: { timeslot: { equals: lesson2Id }, user: { equals: userId } },
         overrideAccess: true,
       })
       expect(bookingsBefore.docs.length).toBe(0)
@@ -384,7 +386,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const bookingsAfter = await payload.find({
         collection: 'bookings',
-        where: { lesson: { equals: lesson2Id }, user: { equals: userId } },
+        where: { timeslot: { equals: lesson2Id }, user: { equals: userId } },
         overrideAccess: true,
       })
       expect(bookingsAfter.docs.length).toBe(2)
@@ -409,12 +411,12 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         })
       }
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: lesson2Id } },
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'class-options',
+        collection: 'event-types',
         where: { id: { equals: co2.id } },
         overrideAccess: true,
       })
@@ -426,7 +428,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
     'payment_intent.succeeded: caps bookings to remainingCapacity when quantity exceeds capacity',
     async () => {
       const coCap = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Payment Webhook Class Cap ${Date.now()}`,
           places: 2,
@@ -440,11 +442,11 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       const endTimeCap = new Date(startTimeCap)
       endTimeCap.setHours(19, 0, 0, 0)
       const lessonCap = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
-          classOption: coCap.id,
+          eventType: coCap.id,
           date: startTimeCap.toISOString().split('T')[0],
           startTime: startTimeCap.toISOString(),
           endTime: endTimeCap.toISOString(),
@@ -461,7 +463,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
           name: 'Cap Other User',
           email: `cap-other-${Date.now()}@test.com`,
           password: 'test',
-          roles: ['user'],
+          role: ['user'],
           emailVerified: true,
         },
         draft: false,
@@ -473,7 +475,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         collection: 'bookings',
         data: {
           user: otherUserId,
-          lesson: lessonCapId,
+          timeslot: lessonCapId,
           tenant: tenantId,
           status: 'confirmed',
         },
@@ -482,7 +484,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const event = createPaymentIntentSucceededEvent({
         id: 'evt_pi_succeeded_cap',
-        account: 'acct_payment_webhook',
+        account: connectAccountId,
         paymentIntentId: 'pi_test_cap',
         metadata: {
           tenantId: String(tenantId),
@@ -498,18 +500,18 @@ describe('Stripe payment webhooks (step 2.8)', () => {
 
       const bookingsAfter = await payload.find({
         collection: 'bookings',
-        where: { lesson: { equals: lessonCapId }, user: { equals: userId } },
+        where: { timeslot: { equals: lessonCapId }, user: { equals: userId } },
         overrideAccess: true,
       })
       expect(bookingsAfter.docs.length).toBe(1)
       expect(bookingsAfter.docs[0]?.status).toBe('confirmed')
 
-      const allForLesson = await payload.find({
+      const allForTimeslot = await payload.find({
         collection: 'bookings',
-        where: { lesson: { equals: lessonCapId } },
+        where: { timeslot: { equals: lessonCapId } },
         overrideAccess: true,
       })
-      expect(allForLesson.docs.filter((b) => b.status === 'confirmed').length).toBe(2)
+      expect(allForTimeslot.docs.filter((b) => b.status === 'confirmed').length).toBe(2)
 
       for (const b of bookingsAfter.docs) {
         await payload.delete({
@@ -525,7 +527,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       }
       await payload.delete({
         collection: 'bookings',
-        where: { lesson: { equals: lessonCapId }, user: { equals: otherUserId } },
+        where: { timeslot: { equals: lessonCapId }, user: { equals: otherUserId } },
         overrideAccess: true,
       })
       await payload.delete({
@@ -534,12 +536,12 @@ describe('Stripe payment webhooks (step 2.8)', () => {
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'lessons',
+        collection: 'timeslots',
         where: { id: { equals: lessonCapId } },
         overrideAccess: true,
       })
       await payload.delete({
-        collection: 'class-options',
+        collection: 'event-types',
         where: { id: { equals: coCap.id } },
         overrideAccess: true,
       })

@@ -38,7 +38,7 @@ describe('Analytics API (Phase 4)', () => {
         name: 'Analytics Admin',
         email: `analytics-admin-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
@@ -71,7 +71,7 @@ describe('Analytics API (Phase 4)', () => {
         name: 'Analytics Tenant Admin',
         email: `analytics-ta-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['tenant-admin'],
+        role: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenantId }],
       },
@@ -85,7 +85,7 @@ describe('Analytics API (Phase 4)', () => {
         name: 'Analytics Regular User',
         email: `analytics-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -261,6 +261,126 @@ describe('Analytics API (Phase 4)', () => {
     )
 
     it(
+      'bookingsOverTime includes zero-count days between booked days (Sat / Sun / Mon in range)',
+      async () => {
+        const satD = new Date(Date.UTC(2046, 0, 1))
+        while (satD.getUTCDay() !== 6) {
+          satD.setUTCDate(satD.getUTCDate() + 1)
+        }
+        const sunD = new Date(satD)
+        sunD.setUTCDate(sunD.getUTCDate() + 1)
+        const monD = new Date(sunD)
+        monD.setUTCDate(monD.getUTCDate() + 1)
+        const sat = satD.toISOString().slice(0, 10)
+        const sun = sunD.toISOString().slice(0, 10)
+        const mon = monD.toISOString().slice(0, 10)
+        expect(sunD.getUTCDay()).toBe(0)
+        expect(monD.getUTCDay()).toBe(1)
+
+        const uniqueName = `Analytics Weekend Dense ${Date.now()}`
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: uniqueName,
+            places: 10,
+            description: 'dense bookingsOverTime series',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+
+        const mkTimeslot = async (ymd: string) => {
+          const startTime = new Date(`${ymd}T12:00:00.000Z`)
+          const endTime = new Date(startTime)
+          endTime.setUTCHours(13)
+          return payload.create({
+            collection: 'timeslots',
+            data: {
+              date: startTime.toISOString(),
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              eventType: eventType.id,
+              tenant: testTenantId,
+              active: true,
+              lockOutTime: 0,
+            },
+            draft: false,
+            overrideAccess: true,
+          })
+        }
+
+        const slotSat = await mkTimeslot(sat)
+        const slotSun = await mkTimeslot(sun)
+        const slotMon = await mkTimeslot(mon)
+
+        const bSat = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: slotSat.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+        const bMon = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: slotMon.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        try {
+          const url = `http://localhost/api/analytics?dateFrom=${sat}&dateTo=${mon}&tenantId=${testTenantId}`
+          const res = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url,
+            }),
+          )
+          expect(res.status).toBe(200)
+          const data = (await res.json()) as {
+            bookingsOverTime: { date: string; count: number }[]
+          }
+          expect(data.bookingsOverTime).toHaveLength(3)
+          const byDate = new Map(
+            data.bookingsOverTime.map((r) => [r.date.slice(0, 10), r.count]),
+          )
+          expect(byDate.get(sat)).toBe(1)
+          expect(byDate.get(sun)).toBe(0)
+          expect(byDate.get(mon)).toBe(1)
+        } finally {
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { in: [bSat.id as number, bMon.id as number] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { in: [slotSat.id as number, slotSun.id as number, slotMon.id as number] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'returns 400 when dateFrom or dateTo is missing',
       async () => {
         const resNoFrom = await GET(
@@ -325,6 +445,106 @@ describe('Analytics API (Phase 4)', () => {
         const data = await res.json()
         expect(data).not.toHaveProperty('summaryPrevious')
         expect(data).not.toHaveProperty('bookingsOverTimePrevious')
+      },
+      TEST_TIMEOUT,
+    )
+
+    /**
+     * Proves the Postgres-safe path (startTime query + calendar date filter + booking chunks):
+     * without this, tests only assert shape and >= 0 counts.
+     */
+    it(
+      'increments totalBookings by 1 after adding a confirmed booking in a far-future calendar range',
+      async () => {
+        const from = '2045-03-01'
+        const to = '2045-03-31'
+        const baseUrl = `http://localhost/api/analytics?dateFrom=${from}&dateTo=${to}`
+        const adminHeaders = { 'x-test-user-id': String(adminUser.id) }
+
+        const beforeRes = await GET(request({ headers: adminHeaders, url: baseUrl }))
+        expect(beforeRes.status).toBe(200)
+        const beforeJson = (await beforeRes.json()) as { summary: { totalBookings: number } }
+        const beforeTotal = beforeJson.summary.totalBookings
+
+        const uniqueName = `Analytics ET ${Date.now()}`
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: uniqueName,
+            places: 10,
+            description: 'analytics int test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+
+        const startTime = new Date('2045-03-15T12:00:00.000Z')
+        const endTime = new Date('2045-03-15T13:00:00.000Z')
+        const timeslot = await payload.create({
+          collection: 'timeslots',
+          data: {
+            date: startTime.toISOString(),
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            eventType: eventType.id,
+            tenant: testTenantId,
+            active: true,
+            lockOutTime: 0,
+          },
+          draft: false,
+          overrideAccess: true,
+        })
+
+        const booking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: timeslot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        try {
+          const afterRes = await GET(request({ headers: adminHeaders, url: baseUrl }))
+          expect(afterRes.status).toBe(200)
+          const afterJson = (await afterRes.json()) as {
+            summary: { totalBookings: number; uniqueCustomers: number }
+            bookingsOverTime: { date: string; count: number }[]
+            topCustomers: { userId: number; count: number }[]
+          }
+          expect(afterJson.summary.totalBookings - beforeTotal).toBe(1)
+          expect(afterJson.summary.uniqueCustomers).toBeGreaterThanOrEqual(1)
+
+          const march15 = afterJson.bookingsOverTime.find((r) => r.date.startsWith('2045-03-15'))
+          expect(march15?.count).toBeGreaterThanOrEqual(1)
+
+          const top = afterJson.topCustomers.find((r) => r.userId === regularUser.id)
+          expect(top?.count).toBeGreaterThanOrEqual(1)
+        } finally {
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { equals: booking.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { equals: timeslot.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+        }
       },
       TEST_TIMEOUT,
     )

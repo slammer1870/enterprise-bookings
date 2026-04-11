@@ -3,10 +3,11 @@
  * Requires auth; tenant from cookie (tenant-slug). Uses POST /api/class-passes/purchase + Stripe Elements.
  */
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 import { getSession } from '@/lib/auth/context/get-context-props'
 import { ClassPassPurchaseForm } from '@/components/class-pass/ClassPassPurchaseForm'
 import Link from 'next/link'
+import { getTenantSlug } from '@/utilities/getTenantContext'
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
@@ -35,7 +36,8 @@ export default async function ClassPassPurchasePage({
   }
 
   const cookieStore = await cookies()
-  const tenantSlug = cookieStore.get('tenant-slug')?.value ?? null
+  const headersList = await headers()
+  const tenantSlug = await getTenantSlug({ cookies: cookieStore, headers: headersList })
 
   if (!tenantSlug) {
     return (
@@ -52,7 +54,7 @@ export default async function ClassPassPurchasePage({
 
   return (
     <div className="container max-w-md py-8">
-      <ClassPassPurchaseForm tenantSlug={tenantSlug} defaultQuantity={1} />
+      <ClassPassPurchaseForm defaultQuantity={1} />
     </div>
   )
 }

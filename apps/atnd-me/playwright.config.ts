@@ -17,9 +17,12 @@ import { defineConfig, devices } from '@playwright/test'
 // Payload's drizzle adapter will attempt schema push in-process unless this is set,
 // which can collide with the already-migrated test DB (e.g. enum type already exists).
 process.env.PW_E2E_PROFILE ??= 'true'
-// Skip expensive default tenant data creation (class options, pages, lessons, etc.)
+// Skip expensive default tenant data creation (class options, pages, timeslots, etc.)
 // during test setup to avoid timeouts.
 process.env.PW_E2E_SKIP_DEFAULT_TENANT_DATA ??= 'true'
+// Ensure Playwright workers use the same Stripe test-mode shortcuts as the web server.
+process.env.ENABLE_TEST_WEBHOOKS ??= 'true'
+process.env.ENABLE_TEST_MAGIC_LINKS ??= 'true'
 
 // Use production build for e2e tests (faster, more stable, cacheable by Turbo)
 const useProductionBuild = process.env.E2E_USE_PROD !== 'false'
@@ -48,10 +51,11 @@ export default defineConfig({
   ],
   webServer: useProductionBuild
     ? {
-        // Production mode: `next start` (requires build first)
+        // Production mode: reuse the existing build, then launch it.
         command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e',
         url: 'http://localhost:3000/admin',
-        timeout: 120000,
+        // Building the standalone app can exceed 2 minutes on cold or uncached runs.
+        timeout: 600000,
         reuseExistingServer: !process.env.CI,
         stdout: 'pipe',
         stderr: 'pipe',

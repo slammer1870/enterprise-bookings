@@ -17,7 +17,7 @@ import * as migration_20260106_000001_rename_role_customer_to_user from './20260
 import * as migration_20260115_130704 from './20260115_130704';
 import * as migration_20260115_135828 from './20260115_135828';
 import * as migration_20260115_140000_fix_payload_migrations_constraint from './20260115_140000_fix_payload_migrations_constraint';
-import * as migration_20260116_102317_replace_user_with_instructor_in_lessons from './20260116_102317_replace_user_with_instructor_in_lessons';
+import * as migration_20260116_102317_replace_user_with_instructor_in_timeslots from './20260116_102317_replace_user_with_instructor_in_lessons';
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260123_071019 from './20260123_071019';
 import * as migration_20260127_190008 from './20260127_190008';
@@ -123,9 +123,9 @@ export const migrations = [
     name: '20260115_140000_fix_payload_migrations_constraint',
   },
   {
-    up: migration_20260116_102317_replace_user_with_instructor_in_lessons.up,
-    down: migration_20260116_102317_replace_user_with_instructor_in_lessons.down,
-    name: '20260116_102317_replace_user_with_instructor_in_lessons',
+    up: migration_20260116_102317_replace_user_with_instructor_in_timeslots.up,
+    down: migration_20260116_102317_replace_user_with_instructor_in_timeslots.down,
+    name: '20260116_102317_replace_user_with_instructor_in_timeslots',
   },
   {
     up: migration_20260120_200612.up,

@@ -24,14 +24,14 @@ import { Check, ChevronsUpDown } from 'lucide-react'
 import { AddChild } from './add-child'
 
 export const SelectChildren = ({
-  lessonId,
+  timeslotId,
   bookedChildren,
   bookChild,
   isBooking,
 }: {
-  lessonId: number
+  timeslotId: number
   bookedChildren: User[]
-  bookChild: (_data: { lessonId: number; childId: number; status?: 'confirmed' | 'pending' }) => void
+  bookChild: (_data: { timeslotId: number; childId: number; status?: 'confirmed' | 'pending' }) => void
   isBooking: boolean
 }) => {
   const trpc = useTRPC()
@@ -63,7 +63,7 @@ export const SelectChildren = ({
                       value={child.name}
                       key={child.name}
                       onSelect={() => {
-                        bookChild({ lessonId, childId: child.id, status: 'confirmed' })
+                        bookChild({ timeslotId, childId: child.id, status: 'confirmed' })
                       }}
                       disabled={bookedChildren?.some((c) => c.id === child.id)}
                     >
@@ -80,14 +80,14 @@ export const SelectChildren = ({
               </CommandList>
             </Command>
             <div className="p-2 border-t">
-              <AddChild bookChild={bookChild as any} lessonId={lessonId} />
+              <AddChild bookChild={bookChild as any} timeslotId={timeslotId} />
             </div>
           </PopoverContent>
         </Popover>
       ) : (
         <div className="flex flex-col gap-2">
-          <p>Please register your first child to book this lesson.</p>
-          <AddChild bookChild={bookChild as any} lessonId={lessonId} />
+          <p>Please register your first child to book this timeslot.</p>
+          <AddChild bookChild={bookChild as any} timeslotId={timeslotId} />
         </div>
       )}
     </>

@@ -2,8 +2,9 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
-import type { ClassOption, Lesson, User } from '@repo/shared-types'
+import type { EventType, Timeslot, User } from '@repo/shared-types'
 import { createTRPCContext, appRouter } from '@repo/trpc'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { TZDate } from '@date-fns/tz'
 
 const TEST_TIMEOUT = 120000
@@ -15,7 +16,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
   let payload: Payload
   let testTenant: { id: number | string; slug: string }
   let user: User
-  let classOption: ClassOption
+  let eventType: EventType
 
   const getLocalDateTimeParts = (value: string | Date, timeZone: string) => {
     const zoned = new TZDate(new Date(value), timeZone)
@@ -52,14 +53,14 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         name: 'DST User',
         email: uniqueEmail,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       overrideAccess: true,
     } as any)) as User
 
-    classOption = (await payload.create({
-      collection: 'class-options',
+    eventType = (await payload.create({
+      collection: 'event-types',
       data: {
         name: `DST Class Option ${Date.now()}`,
         places: 10,
@@ -67,7 +68,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         tenant: Number(testTenant.id),
       },
       overrideAccess: true,
-    })) as ClassOption
+    })) as EventType
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -83,6 +84,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       headers,
       payload,
       user,
+      bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     })
     return appRouter.createCaller(ctx)
   }
@@ -101,8 +103,8 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       const endDate = '2026-04-04' // Saturday
 
       // Keep this to the two active weekdays in the regression scenario:
-      // - Monday lessons at 10:00
-      // - Tuesday lessons at 11:00
+      // - Monday timeslots at 10:00
+      // - Tuesday timeslots at 11:00
       // If Monday is shifted to Sunday, this assertion pattern catches it immediately.
       const hourByScheduleIndex = [10, 11] as const
 
@@ -131,7 +133,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         return {
           startTime: start.toISOString(),
           endTime: end.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: `DST Slot ${hour}`,
           active: true,
         }
@@ -144,7 +146,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
           startDate,
           endDate,
           clearExisting: true,
-          defaultClassOption: classOption.id,
+          defaultEventType: eventType.id,
           lockOutTime: 0,
           week: {
             // week.days is Monday-first: 0=Mon ... 6=Sun
@@ -181,7 +183,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
       for (const { y, m, d } of calendarDates) {
         const middayInstant = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).toISOString()
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: middayInstant,
           tenantId: Number(testTenant.id),
         })
@@ -190,19 +192,19 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
         if (jsDay === 0) {
           // Sunday should not get a generated lesson in this schedule
-          expect(lessons.length).toBe(0)
+          expect(timeslots.length).toBe(0)
           continue
         }
 
         if (jsDay >= 3 && jsDay <= 6) {
           // Wednesday through Saturday are intentionally not scheduled in this fixture
-          expect(lessons.length).toBe(0)
+          expect(timeslots.length).toBe(0)
           continue
         }
 
         // Active days Mon/Tue: exactly one lesson each with the configured hour.
-        expect(lessons.length).toBe(1)
-        const lesson = lessons[0]!
+        expect(timeslots.length).toBe(1)
+        const lesson = timeslots[0]!
         expect(lesson).toBeDefined()
         const start = new TZDate(new Date(lesson.startTime as any), timeZone)
 
@@ -225,12 +227,12 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
       // 2) If this test is green, Monday is still being created on Monday
       // (not on Sunday) after crossing the DST boundary.
-      const mondayLessons = await caller.lessons.getByDate({
+      const mondayTimeslots = await caller.timeslots.getByDate({
         date: new TZDate(2026, 2, 30, 12, 0, 0, 0, timeZone).toISOString(),
         tenantId: Number(testTenant.id),
       })
-      expect(mondayLessons.length).toBe(1)
-      const mondayStart = new TZDate(new Date((mondayLessons[0] as any).startTime as any), timeZone)
+      expect(mondayTimeslots.length).toBe(1)
+      const mondayStart = new TZDate(new Date((mondayTimeslots[0] as any).startTime as any), timeZone)
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(10)
       expect(mondayStart.getDate()).toBe(30)
@@ -280,7 +282,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         return {
           startTime: start.toISOString(),
           endTime: end.toISOString(),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: `DST Slot ${hour}`,
           active: true,
         }
@@ -293,7 +295,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
           startDate,
           endDate,
           clearExisting: true,
-          defaultClassOption: classOption.id,
+          defaultEventType: eventType.id,
           lockOutTime: 0,
           week: {
             // week.days is Monday-first: 0=Mon ... 6=Sun
@@ -329,7 +331,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
 
       for (const { y, m, d } of calendarDates) {
         const middayInstant = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).toISOString()
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: middayInstant,
           tenantId: Number(testTenant.id),
         })
@@ -337,17 +339,17 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         const jsDay = new TZDate(y, m, d, 12, 0, 0, 0, timeZone).getDay()
 
         if (jsDay === 0) {
-          expect(lessons.length).toBe(0)
+          expect(timeslots.length).toBe(0)
           continue
         }
 
         if (jsDay >= 3 && jsDay <= 6) {
-          expect(lessons.length).toBe(0)
+          expect(timeslots.length).toBe(0)
           continue
         }
 
-        expect(lessons.length).toBe(1)
-        const lesson = lessons[0]!
+        expect(timeslots.length).toBe(1)
+        const lesson = timeslots[0]!
         expect(lesson).toBeDefined()
         const start = new TZDate(new Date(lesson.startTime as any), timeZone)
 
@@ -367,12 +369,12 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         }
       }
 
-      const mondayLessons = await caller.lessons.getByDate({
+      const mondayTimeslots = await caller.timeslots.getByDate({
         date: new TZDate(2026, 9, 26, 12, 0, 0, 0, timeZone).toISOString(),
         tenantId: Number(testTenant.id),
       })
-      expect(mondayLessons.length).toBe(1)
-      const mondayStart = new TZDate(new Date((mondayLessons[0] as any).startTime as any), timeZone)
+      expect(mondayTimeslots.length).toBe(1)
+      const mondayStart = new TZDate(new Date((mondayTimeslots[0] as any).startTime as any), timeZone)
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(9)
       expect(mondayStart.getDate()).toBe(26)
@@ -389,37 +391,37 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       const timeZone = 'Europe/Dublin'
 
       const lesson = (await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         data: {
           tenant: Number(testTenant.id),
           date: new TZDate(2026, 2, 30, 0, 0, 0, 0, timeZone).toISOString(),
           startTime: '10:00',
           endTime: '11:00',
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'DST lesson update regression',
           active: true,
         },
         overrideAccess: true,
-      })) as Lesson
+      })) as Timeslot
 
       const beforeDate = getLocalDateTimeParts(String(lesson.date), timeZone)
       const beforeStart = getLocalDateTimeParts(String(lesson.startTime), timeZone)
       const beforeEnd = getLocalDateTimeParts(String(lesson.endTime), timeZone)
 
       const updated = (await payload.update({
-        collection: 'lessons',
+        collection: 'timeslots',
         id: lesson.id,
         data: {
           tenant: Number(testTenant.id),
           date: new Date(String(lesson.date)),
           startTime: new Date(String(lesson.startTime)),
           endTime: new Date(String(lesson.endTime)),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: 'DST lesson update regression',
           active: false,
         },
         overrideAccess: true,
-      })) as Lesson
+      })) as Timeslot
 
       const afterDate = getLocalDateTimeParts(String(updated.date), timeZone)
       const afterStart = getLocalDateTimeParts(String(updated.startTime), timeZone)

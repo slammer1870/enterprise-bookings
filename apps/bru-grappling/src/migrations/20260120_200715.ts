@@ -54,7 +54,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   
   // Alter table defaults
   await db.execute(sql`
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:07:15.435Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:07:15.435Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-20T20:07:15.538Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-20T20:07:15.538Z';
   `)
@@ -130,7 +130,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   ALTER TABLE "users_roles" ALTER COLUMN "value" SET DATA TYPE "public"."enum_users_roles" USING "value"::"public"."enum_users_roles";
   DROP INDEX "class_options_payment_methods_payment_methods_allowed_dr_idx";
   DROP INDEX "users_parent_user_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-12-14T23:07:32.750Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-12-14T23:07:32.750Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2025-12-14T23:07:32.852Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2025-12-14T23:07:32.852Z';
   ALTER TABLE "users" ADD COLUMN "parent_id" integer;

@@ -10,7 +10,7 @@ Error [TRPCError]: You are not allowed to perform this action.
 ## Root Cause
 The issue was in the `bookingUpdateAccess` function in `/packages/bookings/bookings-plugin/src/access/bookings.ts`. 
 
-When the tRPC mutation `setMyBookingForLesson` called `updateSafe` with `overrideAccess: false`, it triggered the access control check. The `bookingUpdateAccess` function tried to look up the booking by ID to verify permissions, but it wasn't using `overrideAccess: true` for these lookups.
+When the tRPC mutation `setMyBookingForTimeslot` called `updateSafe` with `overrideAccess: false`, it triggered the access control check. The `bookingUpdateAccess` function tried to look up the booking by ID to verify permissions, but it wasn't using `overrideAccess: true` for these lookups.
 
 In a multi-tenant setup, the `multiTenantPlugin` adds a `tenant` field to the `bookings` collection and applies tenant-scoped read access control. Without `overrideAccess: true`, the booking lookup was subject to tenant filtering, and if the tenant context wasn't properly set or accessible, the booking wouldn't be found, causing the access check to fail.
 

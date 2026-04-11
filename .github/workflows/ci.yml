@@ -168,9 +168,6 @@ jobs:
       fail-fast: false
       matrix:
         app:
-          - name: boatyard-sauna
-            db: e2e_boatyard_sauna
-            app_path: apps/boatyard-sauna
           - name: bru-grappling
             db: e2e_bru_grappling
             app_path: apps/bru-grappling

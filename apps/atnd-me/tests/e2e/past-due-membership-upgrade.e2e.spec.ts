@@ -3,11 +3,11 @@ import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import {
   createTestBooking,
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestPlan,
   createTestSubscription,
-  setClassOptionAllowedPlans,
+  setEventTypeAllowedPlans,
   updateTenantStripeConnect,
 } from './helpers/data-helpers'
 
@@ -22,14 +22,14 @@ test.describe('Past-due membership upgrade flow', () => {
 
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
-      stripeConnectAccountId: `acct_test_upgrade_${tenant.id}`,
+      stripeConnectAccountId: null,
     })
 
     const currentPlan = await createTestPlan({
       tenantId: tenant.id,
       name: `Single Membership Upgrade Test ${workerIndex}`,
       sessions: 8,
-      allowMultipleBookingsPerLesson: false,
+      allowMultipleBookingsPerTimeslot: false,
       stripeProductId: `prod_single_upgrade_${workerIndex}`,
       priceId: `price_single_upgrade_${workerIndex}`,
     })
@@ -38,12 +38,12 @@ test.describe('Past-due membership upgrade flow', () => {
       tenantId: tenant.id,
       name: `Family Membership Upgrade Test ${workerIndex}`,
       sessions: 8,
-      allowMultipleBookingsPerLesson: true,
+      allowMultipleBookingsPerTimeslot: true,
       stripeProductId: `prod_family_upgrade_${workerIndex}`,
       priceId: `price_family_upgrade_${workerIndex}`,
     })
 
-    const classOption = await createTestClassOption(
+    const classOption = await createTestEventType(
       tenant.id,
       'Past Due Upgrade Booking Class',
       10,
@@ -51,7 +51,7 @@ test.describe('Past-due membership upgrade flow', () => {
       workerIndex
     )
 
-    await setClassOptionAllowedPlans(classOption.id, [currentPlan.id, familyPlan.id])
+    await setEventTypeAllowedPlans(classOption.id, [currentPlan.id, familyPlan.id])
 
     const startTime = new Date()
     startTime.setHours(9, 0, 0, 0)
@@ -59,7 +59,7 @@ test.describe('Past-due membership upgrade flow', () => {
     const endTime = new Date(startTime)
     endTime.setHours(10, 0, 0, 0)
 
-    const lesson = await createTestLesson(
+    const lesson = await createTestTimeslot(
       tenant.id,
       classOption.id,
       startTime,
@@ -79,7 +79,7 @@ test.describe('Past-due membership upgrade flow', () => {
       status: 'past_due',
       stripeSubscriptionId: null,
       stripeCustomerId: `cus_upgrade_${workerIndex}`,
-      stripeAccountId: `acct_test_upgrade_${tenant.id}`,
+      stripeAccountId: null,
     })
 
     await loginAsRegularUserViaApi(page, user.email, 'password', {
@@ -95,7 +95,7 @@ test.describe('Past-due membership upgrade flow', () => {
     })
     await expect(page.getByText(/payment methods/i)).toBeVisible({ timeout: 15000 })
     await expect(
-      page.getByText(/you do not have a plan that allows you to book into this lesson/i)
+      page.getByText(/you do not have a plan that allows you to book into this (lesson|timeslot)/i)
     ).toBeVisible({ timeout: 10000 })
 
     const upgradeButton = page.getByRole('button', { name: /upgrade subscription/i })

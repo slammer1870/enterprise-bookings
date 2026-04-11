@@ -211,11 +211,6 @@ These apps use `createPlaywrightConfig` and are ready for production mode:
   - Estimated runtime: ~6-8 min
   - No changes needed
 
-- **boatyard-sauna**
-  - Workers: 4 (default)
-  - Estimated runtime: ~5-7 min
-  - No changes needed
-
 - **atnd** (if has e2e tests)
   - Workers: 3 (multi-tenant)
   - Estimated runtime: TBD
@@ -231,7 +226,7 @@ None! All apps using the shared config are automatically compatible.
 
 ```bash
 # Test each app locally
-for app in atnd-me kyuzo darkhorse-strength bru-grappling boatyard-sauna; do
+for app in atnd-me kyuzo darkhorse-strength bru-grappling; do
   echo "Testing $app..."
   E2E_USE_PROD=true turbo run test:e2e --filter=$app
 done

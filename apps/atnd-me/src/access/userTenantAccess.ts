@@ -2,10 +2,19 @@ import type { Access, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
-import { getUserTenantIds } from './tenant-scoped'
+import { getTenantMembershipIdsFromUserDoc, getUserTenantIds } from './tenant-scoped'
 
-/** True if user is admin (checks both roles[] and role[] from Better Auth). */
+/** Platform super-admin (full system access). */
 export function isAdmin(u: unknown): boolean {
+  if (checkRole(['super-admin'], u as SharedUser)) return true
+  const role = (u as { role?: string | string[] })?.role
+  if (Array.isArray(role) && role.includes('super-admin')) return true
+  if (role === 'super-admin') return true
+  return false
+}
+
+/** Tenant organization admin (former tenant-admin). */
+export function isTenantAdmin(u: unknown): boolean {
   if (checkRole(['admin'], u as SharedUser)) return true
   const role = (u as { role?: string | string[] })?.role
   if (Array.isArray(role) && role.includes('admin')) return true
@@ -13,13 +22,18 @@ export function isAdmin(u: unknown): boolean {
   return false
 }
 
-/** True if user is tenant-admin (checks both roles[] and role[] from Better Auth). */
-export function isTenantAdmin(u: unknown): boolean {
-  if (checkRole(['tenant-admin'], u as SharedUser)) return true
+/** Tenant staff: limited operational access (bookings / attendance). */
+export function isStaff(u: unknown): boolean {
+  if (checkRole(['staff'], u as SharedUser)) return true
   const role = (u as { role?: string | string[] })?.role
-  if (Array.isArray(role) && role.includes('tenant-admin')) return true
-  if (role === 'tenant-admin') return true
+  if (Array.isArray(role) && role.includes('staff')) return true
+  if (role === 'staff') return true
   return false
+}
+
+/** Tenant-scoped roles that use the tenant selector / cookie rules (org admin or staff). */
+export function isTenantPortalUser(u: unknown): boolean {
+  return isTenantAdmin(u) || isStaff(u)
 }
 
 /**
@@ -40,11 +54,11 @@ function toUserId(user: unknown): number | null {
 }
 
 /**
- * For tenant-admins, req.user may come from the session without the `tenants`
+ * For tenant portal users, req.user may come from the session without the `tenants`
  * relationship populated. Fetch the full user from the database so we can resolve
  * their tenant IDs and show users who belong to them or have bookings with them.
  */
-async function getTenantAdminUserWithTenants(
+async function getTenantPortalUserWithTenants(
   user: unknown,
   payload: { findByID: (args: { collection: 'users'; id: number; depth?: number; overrideAccess?: boolean }) => Promise<unknown> },
 ): Promise<SharedUser | null> {
@@ -88,10 +102,10 @@ function getContextTenantId(req: { context?: { tenant?: unknown } }): number | n
  * User read access for multi-tenant apps.
  *
  * - Super admin: can read all users (no query filter)
- * - Tenant admin: can only read users for their domain(s) (tenant = domain):
+ * - Tenant admin / staff: can only read users for their domain(s) (tenant = domain):
  *   - Users who registered at their domain (registrationTenant in tenant IDs)
  *   - Users who have a booking at their domain
- *   - The tenant-admin themselves
+ *   - The tenant portal user themselves
  *   When req.context.tenant is set (e.g. tenant selected in admin), scope to that domain only.
  * - Regular user: can only read themselves
  */
@@ -103,17 +117,22 @@ export const userTenantRead: Access = async ({ req }) => {
     return true
   }
 
-  if (isTenantAdmin(user)) {
+  if (isTenantPortalUser(user)) {
     let tenantIds = getUserTenantIds(user as unknown as SharedUser)
     let fullUser: SharedUser | null = null
     // Session user may not have tenants populated; fetch full user so we can resolve tenant IDs
     if (tenantIds !== null && tenantIds.length === 0) {
-      fullUser = await getTenantAdminUserWithTenants(user, payload)
-      if (fullUser) tenantIds = getUserTenantIds(fullUser)
+      fullUser = await getTenantPortalUserWithTenants(user, payload)
+      if (fullUser) {
+        tenantIds = getUserTenantIds(fullUser)
+        if (tenantIds === null && !isAdmin(user)) {
+          tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+        }
+      }
     }
-    // Fallback: tenants relation may be empty from join table; use registrationTenant for tenant-admin
+    // Fallback: tenants relation may be empty from join table; use registrationTenant
     if (tenantIds !== null && tenantIds.length === 0) {
-      const u = fullUser ?? (await getTenantAdminUserWithTenants(user, payload)) ?? user
+      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? user
       const reg = (u as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
       const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
       if (typeof tid === 'number') tenantIds = [tid]
@@ -169,9 +188,7 @@ export const userTenantRead: Access = async ({ req }) => {
  * User update access for multi-tenant apps.
  *
  * - Super admin: can update any user
- * - Tenant admin: can only update users for their domain(s) (tenant = domain):
- *   - Users who registered at their domain, or have a booking at their domain, or themselves
- *   When req.context.tenant is set, scope to that domain only.
+ * - Tenant admin / staff: can only update users for their domain(s) (same scoping as read)
  * - Regular user: can only update themselves
  */
 export const userTenantUpdate: Access = async ({ req, id }) => {
@@ -182,24 +199,26 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
     return true
   }
 
-  if (isTenantAdmin(user)) {
+  if (isTenantPortalUser(user)) {
     let tenantIds = getUserTenantIds(user as unknown as SharedUser)
     let fullUser: SharedUser | null = null
-    // Session user may not have tenants populated; fetch full user so we can resolve tenant IDs
     if (tenantIds !== null && tenantIds.length === 0) {
-      fullUser = await getTenantAdminUserWithTenants(user, payload)
-      if (fullUser) tenantIds = getUserTenantIds(fullUser)
+      fullUser = await getTenantPortalUserWithTenants(user, payload)
+      if (fullUser) {
+        tenantIds = getUserTenantIds(fullUser)
+        if (tenantIds === null && !isAdmin(user)) {
+          tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+        }
+      }
     }
-    // Fallback: tenants relation may be empty from join table; use registrationTenant for tenant-admin
     if (tenantIds !== null && tenantIds.length === 0) {
-      const u = fullUser ?? (await getTenantAdminUserWithTenants(user, payload)) ?? user
+      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? user
       const reg = (u as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
       const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
       if (typeof tid === 'number') tenantIds = [tid]
     }
     if (tenantIds === null || tenantIds.length === 0) return false
 
-    // When a specific tenant (domain) is selected in context, scope to that domain only
     const contextTenantId = getContextTenantId(req as { context?: { tenant?: unknown } })
     const effectiveTenantIds =
       contextTenantId != null && tenantIds.includes(contextTenantId)
@@ -237,7 +256,6 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
     return where
   }
 
-  // Regular user: can only update themselves
   const updateUserId = toUserId(user)
   if (updateUserId == null) return false
   const targetId = typeof id === 'number' ? id : typeof id === 'string' ? parseInt(id, 10) : null

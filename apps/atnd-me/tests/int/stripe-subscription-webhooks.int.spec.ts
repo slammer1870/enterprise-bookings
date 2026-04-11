@@ -21,6 +21,7 @@ import * as webhookProcessed from '../../src/lib/stripe-connect/webhookProcessed
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 function request(body: string, signature = 't=123,v1=valid') {
   return new NextRequest('http://localhost/api/stripe/webhook', {
@@ -38,10 +39,10 @@ describe('Stripe subscription webhooks (Connect)', () => {
   let tenantId: number
   let userId: number
   let planId: number
-  const accountId = 'acct_sub_webhook_test'
-  const stripeCustomerId = 'cus_sub_test_123'
-  const stripeProductId = 'prod_sub_plan_123'
-  const subId = 'sub_test_123'
+  const accountId = `acct_sub_webhook_test_${runId}`
+  const stripeCustomerId = `cus_sub_test_123_${runId}`
+  const stripeProductId = `prod_sub_plan_123_${runId}`
+  const subId = `sub_test_123_${runId}`
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -65,7 +66,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
         name: 'Subscription Webhook User',
         email: `sub-webhook-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
         stripeCustomerId,
       },
@@ -136,26 +137,26 @@ describe('Stripe subscription webhooks (Connect)', () => {
             overrideAccess: true,
           })
         }
-        const lessonsResult = await payload.find({
-          collection: 'lessons',
+        const timeslotsResult = await payload.find({
+          collection: 'timeslots',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
-        for (const l of lessonsResult.docs) {
+        for (const l of timeslotsResult.docs) {
           await payload.delete({
-            collection: 'lessons',
+            collection: 'timeslots',
             id: l.id,
             overrideAccess: true,
           })
         }
         const coResult = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
         for (const c of coResult.docs) {
           await payload.delete({
-            collection: 'class-options',
+            collection: 'event-types',
             id: c.id,
             overrideAccess: true,
           })
@@ -266,12 +267,13 @@ describe('Stripe subscription webhooks (Connect)', () => {
         overrideAccess: true,
       })
       expect(subs.docs).toHaveLength(1)
-      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string; stripeSubscriptionId?: string }
+      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string; stripeSubscriptionId?: string; skipSync?: boolean }
       expect(sub.tenant).toBe(tenantId)
       expect(sub.user).toBe(userId)
       expect(sub.plan).toBe(planId)
       expect(sub.status).toBe('active')
       expect(sub.stripeSubscriptionId).toBe(subId)
+      expect(sub.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
@@ -303,8 +305,9 @@ describe('Stripe subscription webhooks (Connect)', () => {
         collection: 'subscriptions' as import('payload').CollectionSlug,
         id: existingSubId,
         overrideAccess: true,
-      }) as { status?: string; endDate?: string | null }
+      }) as { status?: string; endDate?: string | null; skipSync?: boolean }
       expect(updated.status).toBe('past_due')
+      expect(updated.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
@@ -336,9 +339,10 @@ describe('Stripe subscription webhooks (Connect)', () => {
         collection: 'subscriptions' as import('payload').CollectionSlug,
         id: existingSubId,
         overrideAccess: true,
-      }) as { status?: string; endDate?: string | null }
+      }) as { status?: string; endDate?: string | null; skipSync?: boolean }
       expect(updated.status).toBe('canceled')
       expect(updated.endDate).toBeTruthy()
+      expect(updated.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
@@ -410,11 +414,12 @@ describe('Stripe subscription webhooks (Connect)', () => {
         overrideAccess: true,
       })
       expect(subs.docs).toHaveLength(1)
-      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string }
+      const sub = subs.docs[0] as { tenant?: number; user?: number; plan?: number; status?: string; skipSync?: boolean }
       expect(sub.tenant).toBe(tenantId)
       expect(sub.user).toBe(userId)
       expect(sub.plan).toBe(planId)
       expect(sub.status).toBe('active')
+      expect(sub.skipSync).toBe(false)
     },
     TEST_TIMEOUT,
   )
@@ -423,7 +428,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
     'customer.subscription.created with lessonId in metadata: creates subscription and confirms booking (subscription-from-booking-page flow)',
     async () => {
       const co = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Sub Booking Class ${Date.now()}`,
           places: 10,
@@ -439,11 +444,11 @@ describe('Stripe subscription webhooks (Connect)', () => {
       const endTime = new Date(startTime)
       endTime.setHours(15, 0, 0, 0)
       const lesson = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
-          classOption: classOptionId,
+          eventType: classOptionId,
           date: startTime.toISOString().split('T')[0],
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -452,13 +457,13 @@ describe('Stripe subscription webhooks (Connect)', () => {
         },
         overrideAccess: true,
       })
-      const testLessonId = lesson.id as number
+      const testTimeslotId = lesson.id as number
 
       const pendingBooking = await payload.create({
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: testLessonId,
+          timeslot: testTimeslotId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -467,7 +472,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
       const pendingBookingId = pendingBooking.id as number
 
       const event = subscriptionCreatedEvent({
-        metadata: { lessonId: String(testLessonId) },
+        metadata: { lessonId: String(testTimeslotId) },
       })
       ;(event.data.object as { id: string }).id = 'sub_booking_flow_123'
       vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
@@ -507,7 +512,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
     'customer.subscription.created with bookingIds in metadata: confirms specified bookings (children flow)',
     async () => {
       const co = await payload.create({
-        collection: 'class-options',
+        collection: 'event-types',
         data: {
           name: `Sub BookingIds Class ${Date.now()}`,
           places: 10,
@@ -523,11 +528,11 @@ describe('Stripe subscription webhooks (Connect)', () => {
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
       const lesson = await payload.create({
-        collection: 'lessons',
+        collection: 'timeslots',
         draft: false,
         data: {
           tenant: tenantId,
-          classOption: classOptionId,
+          eventType: classOptionId,
           date: startTime.toISOString().split('T')[0],
           startTime: startTime.toISOString(),
           endTime: endTime.toISOString(),
@@ -536,13 +541,13 @@ describe('Stripe subscription webhooks (Connect)', () => {
         },
         overrideAccess: true,
       })
-      const testLessonId = lesson.id as number
+      const testTimeslotId = lesson.id as number
 
       const childBooking = await payload.create({
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: testLessonId,
+          timeslot: testTimeslotId,
           tenant: tenantId,
           status: 'pending',
         },

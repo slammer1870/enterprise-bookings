@@ -12,7 +12,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   DROP INDEX IF EXISTS "payload_locked_documents_rels_payload_folders_id_idx";
   DROP TABLE IF EXISTS "payload_folders_folder_type" CASCADE;
   DROP TABLE IF EXISTS "payload_folders" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-13T17:10:59.906Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-13T17:10:59.906Z';
   ALTER TABLE "media" DROP COLUMN IF EXISTS "folder_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN IF EXISTS "payload_folders_id";
   DROP TYPE IF EXISTS "public"."enum_payload_folders_folder_type";`)
@@ -36,7 +36,7 @@ export async function down({ db }: MigrateDownArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-11T18:34:30.810Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-11T18:34:30.810Z';
   ALTER TABLE "media" ADD COLUMN "folder_id" integer;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "payload_folders_id" integer;
   ALTER TABLE "payload_folders_folder_type" ADD CONSTRAINT "payload_folders_folder_type_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."payload_folders"("id") ON DELETE cascade ON UPDATE no action;

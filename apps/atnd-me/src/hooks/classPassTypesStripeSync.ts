@@ -21,6 +21,19 @@ async function getTenantForDoc(payload: import('payload').Payload, tenantId: num
   return tenant as { id: number; stripeConnectAccountId?: string | null; stripeConnectOnboardingStatus?: string | null } | null
 }
 
+async function getStoredStripeProductId(
+  payload: import('payload').Payload,
+  id: number,
+): Promise<string | undefined> {
+  const stored = await payload.findByID({
+    collection: 'class-pass-types',
+    id,
+    depth: 0,
+    overrideAccess: true,
+  })
+  return (stored as unknown as Record<string, unknown>)?.stripeProductId as string | undefined
+}
+
 function getTenantId(doc: Record<string, unknown>): number | null {
   const t = doc.tenant
   if (t == null) return null
@@ -47,10 +60,11 @@ export const classPassTypeAfterChangeSyncToStripe: CollectionAfterChangeHook = a
   if (!ctx.isConnected) return
 
   const data = doc as Record<string, unknown>
-  if (data.skipSync === true || data.stripeProductId) return
+  if (data.skipSync === true) return
 
   const tenantLike = tenant as TenantStripeLike & { id?: number }
   if (operation === 'create') {
+    if (data.stripeProductId) return
     const priceInfo = data.priceInformation as { price?: number } | undefined
     const priceCents = priceInfo?.price != null ? Math.round(priceInfo.price * 100) : 0
     const { productId, priceId } = await createTenantProduct({
@@ -66,7 +80,6 @@ export const classPassTypeAfterChangeSyncToStripe: CollectionAfterChangeHook = a
       data: {
         stripeProductId: productId,
         priceJSON: JSON.stringify({ id: priceId }),
-        skipSync: true,
       },
       context: { ...req.context, skipStripeSync: true },
       req,
@@ -74,7 +87,9 @@ export const classPassTypeAfterChangeSyncToStripe: CollectionAfterChangeHook = a
     return
   }
 
-  const stripeProductId = data.stripeProductId as string | undefined
+  const stripeProductId =
+    (data.stripeProductId as string | undefined) ??
+    (typeof doc.id === 'number' ? await getStoredStripeProductId(req.payload, doc.id) : undefined)
   if (operation === 'update' && stripeProductId) {
     if (data.name !== (previousDoc as Record<string, unknown>)?.name) {
       await updateTenantProduct({ tenant: tenantLike, productId: stripeProductId, name: String(data.name) })
@@ -109,7 +124,7 @@ export const classPassTypeBeforeDeleteArchive: CollectionBeforeDeleteHook = asyn
   await req.payload.update({
     collection: 'class-pass-types',
     id,
-    data: { deletedAt: new Date().toISOString(), skipSync: true },
+    data: { deletedAt: new Date().toISOString() },
     context: { skipStripeSync: true },
     req,
   })

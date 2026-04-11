@@ -1,5 +1,5 @@
 import { CollectionAfterChangeHook } from 'payload'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 
 /**
  * Updates the subscription's lastCheckIn field when a booking status changes
@@ -60,25 +60,25 @@ export const updateSubscriptionLastCheckIn: CollectionAfterChangeHook = async ({
 
     if (becameConfirmed) {
       // Get the lesson to get the start time
-      const lessonId = typeof doc.lesson === 'object' ? doc.lesson.id : doc.lesson
-      if (!lessonId) {
+      const timeslotId = typeof doc.timeslot === 'object' ? doc.timeslot.id : doc.timeslot
+      if (!timeslotId) {
         return
       }
 
-      const lesson = (await req.payload.findByID({
-        collection: 'lessons',
-        id: lessonId,
+      const timeslotDoc = (await req.payload.findByID({
+        collection: 'timeslots',
+        id: timeslotId,
         depth: 0,
-      })) as Lesson
+      })) as unknown as Timeslot
 
-      if (lesson?.startTime) {
-        // Update the subscription's lastCheckIn with the lesson start time
+      if (timeslotDoc?.startTime) {
+        // Update the subscription's lastCheckIn with the timeslot start time
         // Convert to ISO string for Payload
         await req.payload.update({
           collection: 'subscriptions',
           id: subscription.id,
           data: {
-            lastCheckIn: new Date(lesson.startTime).toISOString(),
+            lastCheckIn: new Date(timeslotDoc.startTime).toISOString(),
           },
           context: {
             triggerAfterChange: false,
@@ -93,7 +93,7 @@ export const updateSubscriptionLastCheckIn: CollectionAfterChangeHook = async ({
           user: { equals: userId },
           status: { equals: 'confirmed' },
         },
-        sort: '-lesson.startTime',
+        sort: '-timeslot.startTime',
         limit: 1,
         depth: 1,
         context: {
@@ -107,14 +107,14 @@ export const updateSubscriptionLastCheckIn: CollectionAfterChangeHook = async ({
           return
         }
 
-        const lesson = booking.lesson as Lesson
+        const timeslot = booking.timeslot as unknown as Timeslot
 
-        if (lesson?.startTime) {
+        if (timeslot?.startTime) {
           await req.payload.update({
             collection: 'subscriptions',
             id: subscription.id,
             data: {
-              lastCheckIn: new Date(lesson.startTime).toISOString(),
+              lastCheckIn: new Date(timeslot.startTime).toISOString(),
             },
             context: {
               triggerAfterChange: false,

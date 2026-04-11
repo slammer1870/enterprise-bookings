@@ -278,7 +278,7 @@ describe('Tenant-Scoped Page Slugs', () => {
           })
           expect.fail('Should have thrown an error')
         } catch (error: any) {
-          expect(error.message).toContain('already exists for this tenant')
+          expect(error.message).toMatch(/already exists for this (tenant|site)/)
           expect(error.message).toContain(slug)
         }
       },

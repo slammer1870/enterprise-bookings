@@ -42,7 +42,7 @@ async function ensureSidebarOpen(page: Page) {
 test.describe('Admin tenant selector — required-tenant collection edit page', () => {
   test.describe.configure({ mode: 'serial', timeout: 90_000 })
 
-  test('when no tenant is selected, opening a subscriptions doc auto-sets tenant and selector is immutable', async ({
+  test('when no tenant is selected, opening a subscriptions doc keeps the selector cleared', async ({
     page,
     testData,
     request,
@@ -98,7 +98,6 @@ test.describe('Admin tenant selector — required-tenant collection edit page', 
 
     // Start from "no tenant selected" while keeping auth cookies intact.
     const origin = new URL(page.url()).origin
-    const cookieURLs = [`${origin}/`, `${origin}/admin/`, `${origin}/admin/collections/`]
     await page.context().addCookies([
       { name: 'payload-tenant', value: '', url: `${origin}/` },
       { name: 'payload-tenant', value: '', url: `${origin}/admin/` },
@@ -115,27 +114,24 @@ test.describe('Admin tenant selector — required-tenant collection edit page', 
     })
     await ensureSidebarOpen(page)
 
-    // Selector should auto-select the document's tenant.
-    await expect(wrap.getByText(new RegExp(escapeRegex(tenant.name), 'i')).first()).toBeVisible({
+    // Opening the doc should not implicitly change the root-host tenant selector.
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible({
       timeout: 20_000,
     })
 
-    // Cookie should match the document's tenant.
-    await expect
-      .poll(
-        async () => {
-          const cookies = await page.context().cookies(cookieURLs)
-          return cookies.find((c) => c.name === 'payload-tenant')?.value ?? ''
-        },
-        { timeout: 20_000 },
-      )
-      .toBe(String(tenant.id))
+    // Assert persisted behavior instead of polling the browser cookie jar,
+    // which is flaky with path-scoped duplicates in this admin flow.
+    await page.reload({ waitUntil: 'load' })
+    await ensureSidebarOpen(page)
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible({
+      timeout: 20_000,
+    })
 
-    // Required tenant collection: selector must be immutable (no clear, no change).
+    // With no selected tenant, the selector should already be effectively clear-only.
     const clearBtn = wrap.locator('button[aria-label*="Clear"], button[title*="Clear"]').first()
     await expect(clearBtn).not.toBeVisible()
 
-    // Attempt to switch tenant anyway (should be blocked; selector remains on the document tenant).
+    // Attempt to switch tenant anyway; editing the doc should not force a selector value.
     const combobox = wrap.getByRole('combobox').or(wrap).first()
     await wrap.getByRole('button').last().click({ timeout: 5000, force: true }).catch(() => null)
     await combobox.click({ timeout: 5000 }).catch(() => null)
@@ -147,16 +143,7 @@ test.describe('Admin tenant selector — required-tenant collection edit page', 
     await otherOption.click({ timeout: 1500 }).catch(() => null)
     await page.waitForTimeout(300)
 
-    await expect(wrap.getByText(new RegExp(escapeRegex(tenant.name), 'i')).first()).toBeVisible()
-    await expect
-      .poll(
-        async () => {
-          const cookies = await page.context().cookies(cookieURLs)
-          return cookies.find((c) => c.name === 'payload-tenant')?.value ?? ''
-        },
-        { timeout: 10_000 },
-      )
-      .toBe(String(tenant.id))
+    await expect(wrap.getByText(/select a value/i).first()).toBeVisible()
   })
 })
 

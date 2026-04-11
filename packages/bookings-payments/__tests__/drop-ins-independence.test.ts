@@ -10,7 +10,7 @@ describe("drop-ins and transactions at root", () => {
     const plugin = bookingsPaymentsPlugin({
       dropIns: {
         enabled: true,
-        paymentMethodSlugs: ["class-options"],
+        paymentMethodSlugs: ["event-types"],
       },
     });
     const incoming: Partial<Config> = {
@@ -22,7 +22,7 @@ describe("drop-ins and transactions at root", () => {
           fields: [],
         },
         {
-          slug: "class-options",
+          slug: "event-types",
           fields: [],
         },
       ],
@@ -47,11 +47,11 @@ describe("drop-ins and transactions at root", () => {
     const plugin = bookingsPaymentsPlugin({
       dropIns: {
         enabled: true,
-        paymentMethodSlugs: ["class-options"],
+        paymentMethodSlugs: ["event-types"],
       },
       classPass: {
         enabled: true,
-        classOptionsSlug: "class-options",
+        eventTypesSlug: "event-types",
       },
     });
     const incoming: Partial<Config> = {
@@ -63,7 +63,7 @@ describe("drop-ins and transactions at root", () => {
           fields: [],
         },
         {
-          slug: "class-options",
+          slug: "event-types",
           fields: [],
         },
       ],
@@ -81,11 +81,11 @@ describe("drop-ins and transactions at root", () => {
     const plugin = bookingsPaymentsPlugin({
       dropIns: {
         enabled: true,
-        paymentMethodSlugs: ["class-options"],
+        paymentMethodSlugs: ["event-types"],
       },
       membership: {
         enabled: true,
-        paymentMethodSlugs: ["class-options"],
+        paymentMethodSlugs: ["event-types"],
       },
     });
     const incoming: Partial<Config> = {
@@ -97,7 +97,7 @@ describe("drop-ins and transactions at root", () => {
           fields: [],
         },
         {
-          slug: "class-options",
+          slug: "event-types",
           fields: [],
         },
       ],

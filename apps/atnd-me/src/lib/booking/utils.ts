@@ -2,10 +2,10 @@ import { headers as nextHeaders } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createCaller } from '@/trpc/server'
 import { getSession } from '@/lib/auth/context/get-context-props'
-import type { Lesson } from '@repo/shared-types'
+import type { Timeslot } from '@repo/shared-types'
 
-/** Parse lesson ID from route param; redirects to home if invalid. */
-export function parseLessonId(idParam: string): number {
+/** Parse timeslot ID from route param; redirects to home if invalid. */
+export function parseTimeslotId(idParam: string): number {
   const id = parseInt(idParam, 10)
   if (Number.isNaN(id)) redirect('/')
   return id
@@ -37,30 +37,30 @@ export async function createCallerForBooking(
 
 /** Require auth; redirect to sign-in with callback if not logged in. */
 export async function requireAuthForBooking(
-  lessonId: number,
+  timeslotId: number,
   callbackPath?: string
 ) {
   const session = await getSession()
   const user = session?.user
   if (!user) {
-    const path = callbackPath ?? `/bookings/${lessonId}`
+    const path = callbackPath ?? `/bookings/${timeslotId}`
     redirect(`/auth/sign-in?callbackUrl=${path}`)
   }
   return user
 }
 
-/** Redirect to manage page if user has 2+ bookings for the lesson. */
+/** Redirect to manage page if user has 2+ bookings for the timeslot. */
 export async function redirectToManageIfMultipleBookings(
-  lesson: Lesson,
+  timeslot: Timeslot,
   user: unknown,
   caller: Awaited<ReturnType<typeof createCaller>>
 ): Promise<string | null> {
   try {
-    const userBookings = await caller.bookings.getUserBookingsForLesson({
-      lessonId: lesson.id,
+    const userBookings = await caller.bookings.getUserBookingsForTimeslot({
+      timeslotId: timeslot.id,
     })
     const count = Array.isArray(userBookings) ? userBookings.length : 0
-    return count >= 2 ? `/bookings/${lesson.id}/manage` : null
+    return count >= 2 ? `/bookings/${timeslot.id}/manage` : null
   } catch (err) {
     console.error('[redirectToManageIfMultipleBookings]', err)
     return null

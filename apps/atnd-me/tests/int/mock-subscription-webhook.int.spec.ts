@@ -16,6 +16,7 @@ import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/test/mock-subscription-created-webhook/route'
 
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('mock-subscription-created-webhook', () => {
   let payload: Payload
@@ -24,8 +25,8 @@ describe('mock-subscription-created-webhook', () => {
   let planId: number
   let lessonId: number
   let userEmail: string
-  const accountId = 'acct_mock_sub_test'
-  const stripeCustomerId = 'cus_mock_sub_test'
+  const accountId = `acct_mock_sub_test_${runId}`
+  const stripeCustomerId = `cus_mock_sub_test_${runId}`
 
   beforeAll(async () => {
     process.env.STRIPE_CONNECT_WEBHOOK_SECRET =
@@ -54,7 +55,7 @@ describe('mock-subscription-created-webhook', () => {
         name: 'Mock Sub User',
         email: userEmail,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
         stripeCustomerId,
       },
@@ -76,7 +77,7 @@ describe('mock-subscription-created-webhook', () => {
     planId = plan.id as number
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Mock Sub Class ${Date.now()}`,
         places: 10,
@@ -91,11 +92,11 @@ describe('mock-subscription-created-webhook', () => {
     const endTime = new Date(startTime)
     endTime.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         tenant: tenantId,
-        classOption: co.id,
+        eventType: co.id,
         date: startTime.toISOString().split('T')[0],
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
@@ -111,7 +112,7 @@ describe('mock-subscription-created-webhook', () => {
       draft: false,
       data: {
         user: userId,
-        lesson: lessonId,
+        timeslot: lessonId,
         tenant: tenantId,
         status: 'pending',
       },
@@ -159,26 +160,26 @@ describe('mock-subscription-created-webhook', () => {
             overrideAccess: true,
           })
         }
-        const lessonsResult = await payload.find({
-          collection: 'lessons',
+        const timeslotsResult = await payload.find({
+          collection: 'timeslots',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
-        for (const l of lessonsResult.docs) {
+        for (const l of timeslotsResult.docs) {
           await payload.delete({
-            collection: 'lessons',
+            collection: 'timeslots',
             id: l.id,
             overrideAccess: true,
           })
         }
         const coResult = await payload.find({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { tenant: { equals: tenantId } },
           overrideAccess: true,
         })
         for (const c of coResult.docs) {
           await payload.delete({
-            collection: 'class-options',
+            collection: 'event-types',
             id: c.id,
             overrideAccess: true,
           })
@@ -198,7 +199,7 @@ describe('mock-subscription-created-webhook', () => {
     async () => {
       const bookingsBefore = await payload.find({
         collection: 'bookings',
-        where: { user: { equals: userId }, lesson: { equals: lessonId } },
+        where: { user: { equals: userId }, timeslot: { equals: lessonId } },
         overrideAccess: true,
       })
       const pendingBooking = bookingsBefore.docs[0]

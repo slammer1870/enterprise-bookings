@@ -40,7 +40,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE TYPE "public"."enum_plans_type" AS ENUM('adult', 'child');
   ALTER TABLE "plans" ALTER COLUMN "type" SET DEFAULT 'adult'::"public"."enum_plans_type";
   ALTER TABLE "plans" ALTER COLUMN "type" SET DATA TYPE "public"."enum_plans_type" USING "type"::"public"."enum_plans_type";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-22T15:05:52.924Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-22T15:05:52.924Z';
   ALTER TABLE "plans" ALTER COLUMN "type" DROP NOT NULL;
   ALTER TABLE "plans" ALTER COLUMN "quantity" SET DEFAULT 1;
   ALTER TABLE "scheduler_schedule_monday_slots" ALTER COLUMN "start_time" SET DEFAULT '2025-07-22T15:05:53.070Z';
@@ -93,7 +93,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP TABLE "new_scheduler_week_day_time_slot" CASCADE;
   DROP TABLE "new_scheduler_week_day" CASCADE;
   DROP TABLE "new_scheduler" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2025-07-17T09:35:28.939Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2025-07-17T09:35:28.939Z';
   ALTER TABLE "plans" ALTER COLUMN "type" SET NOT NULL;
   ALTER TABLE "plans" ALTER COLUMN "quantity" DROP DEFAULT;
   ALTER TABLE "scheduler_schedule_monday_slots" ALTER COLUMN "start_time" SET DEFAULT '2025-07-17T09:35:29.145Z';

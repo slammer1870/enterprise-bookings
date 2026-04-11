@@ -2,15 +2,19 @@ import { TZDate } from "@date-fns/tz";
 import qs from "qs";
 import { describe, expect, it } from "vitest";
 
-import { generateLessonCollection } from "../src/collections/lessons";
-import { getLessonsQuery } from "../src/utils/query";
+import { generateTimeslotCollection } from "../src/collections/timeslots";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../src/resolve-slugs";
+import { getTimeslotsQuery } from "../src/utils/query";
 
 const LESSON_TIMEZONE = "Europe/Dublin";
 
 const normalizeTimeFields = async (data: Record<string, unknown>) => {
-  const lessonCollection = generateLessonCollection({
-    enabled: true,
-  });
+  const lessonCollection = generateTimeslotCollection(
+    {
+      enabled: true,
+    },
+    DEFAULT_BOOKING_COLLECTION_SLUGS,
+  );
   const hook = lessonCollection.hooks?.beforeChange?.[0];
   if (!hook) throw new Error("Expected lesson beforeChange hook");
 
@@ -36,13 +40,13 @@ const normalizeTimeFields = async (data: Record<string, unknown>) => {
   return data;
 };
 
-describe("Lesson beforeChange normalization", () => {
+describe("Timeslot beforeChange normalization", () => {
   it("re-bases canonical ISO time picker values onto the selected lesson date", async () => {
-    const selectedLessonDate = new TZDate(2026, 3, 1, 0, 0, 0, 0, "Europe/Dublin");
+    const selectedTimeslotDate = new TZDate(2026, 3, 1, 0, 0, 0, 0, "Europe/Dublin");
     const adminPickerStartValue = new TZDate(2026, 2, 29, 10, 0, 0, 0, "Europe/Dublin");
     const adminPickerEndValue = new TZDate(2026, 2, 29, 11, 0, 0, 0, "Europe/Dublin");
     const data = {
-      date: selectedLessonDate.toISOString(),
+      date: selectedTimeslotDate.toISOString(),
       startTime: adminPickerStartValue.toISOString(),
       endTime: adminPickerEndValue.toISOString(),
     } as Record<string, unknown>;
@@ -66,11 +70,11 @@ describe("Lesson beforeChange normalization", () => {
   });
 
   it("re-bases admin time picker Date values onto the selected lesson date", async () => {
-    const selectedLessonDate = new TZDate(2026, 3, 3, 0, 0, 0, 0, "Europe/Dublin");
+    const selectedTimeslotDate = new TZDate(2026, 3, 3, 0, 0, 0, 0, "Europe/Dublin");
     const adminPickerStartValue = new TZDate(2026, 2, 29, 10, 0, 0, 0, "Europe/Dublin");
     const adminPickerEndValue = new TZDate(2026, 2, 29, 11, 0, 0, 0, "Europe/Dublin");
     const data = {
-      date: selectedLessonDate.toISOString(),
+      date: selectedTimeslotDate.toISOString(),
       startTime: new Date(adminPickerStartValue.toISOString()),
       endTime: new Date(adminPickerEndValue.toISOString()),
     } as Record<string, unknown>;
@@ -155,7 +159,7 @@ describe("Lesson beforeChange normalization", () => {
     await normalizeTimeFields(data);
 
     const start = new Date(String(data.startTime));
-    const query = qs.parse(getLessonsQuery(new Date(lessonDate), LESSON_TIMEZONE), {
+    const query = qs.parse(getTimeslotsQuery(new Date(lessonDate), LESSON_TIMEZONE), {
       ignoreQueryPrefix: true,
     });
     const queryConditions = query.where?.and as unknown as Array<{

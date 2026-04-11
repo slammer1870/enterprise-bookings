@@ -15,7 +15,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
   );
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-27T19:00:08.519Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-27T19:00:08.519Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-27T19:00:08.707Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-27T19:00:08.707Z';
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "booking_transactions_id" integer;
@@ -35,14 +35,14 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   
   ALTER TABLE "payload_jobs_log" ALTER COLUMN "task_slug" SET DATA TYPE text;
   DROP TYPE "public"."enum_payload_jobs_log_task_slug";
-  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+  CREATE TYPE "public"."enum_payload_jobs_log_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule');
   ALTER TABLE "payload_jobs_log" ALTER COLUMN "task_slug" SET DATA TYPE "public"."enum_payload_jobs_log_task_slug" USING "task_slug"::"public"."enum_payload_jobs_log_task_slug";
   ALTER TABLE "payload_jobs" ALTER COLUMN "task_slug" SET DATA TYPE text;
   DROP TYPE "public"."enum_payload_jobs_task_slug";
-  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateLessonsFromSchedule');
+  CREATE TYPE "public"."enum_payload_jobs_task_slug" AS ENUM('inline', 'generateTimeslotsFromSchedule');
   ALTER TABLE "payload_jobs" ALTER COLUMN "task_slug" SET DATA TYPE "public"."enum_payload_jobs_task_slug" USING "task_slug"::"public"."enum_payload_jobs_task_slug";
   DROP INDEX "payload_locked_documents_rels_booking_transactions_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-23T07:10:19.125Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-23T07:10:19.125Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-23T07:10:19.235Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-23T07:10:19.235Z';
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "booking_transactions_id";

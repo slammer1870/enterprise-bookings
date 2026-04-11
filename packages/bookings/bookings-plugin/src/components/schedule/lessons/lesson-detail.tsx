@@ -2,38 +2,38 @@ import React from "react";
 
 import Image from "next/image";
 
-import { Lesson } from "@repo/shared-types";
-import { formatInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils/timezone";
+import { Timeslot } from "@repo/shared-types";
+import { formatInTimeZone, resolveTimeslotTimeZone } from "@repo/shared-utils/timezone";
 
 import CheckInButton from "./checkin-button";
 
-export function LessonDetail({ lesson }: { lesson: Lesson }) {
-  const timeZone = resolveLessonTimeZone(lesson);
+export function TimeslotDetail({ timeslot }: { timeslot: Timeslot }) {
+  const timeZone = resolveTimeslotTimeZone(timeslot);
 
   return (
     <div
       className="w-full flex flex-col gap-4 md:flex-row md:items-center md:justify-between"
-      key={lesson.id}
+      key={timeslot.id}
     >
       <div>
         <div className="text-sm font-light">
-          {formatInTimeZone(lesson.startTime, "HH:mm a", timeZone)} -{" "}
-          {formatInTimeZone(lesson.endTime, "HH:mm a", timeZone)}
+          {formatInTimeZone(timeslot.startTime, "HH:mm a", timeZone)} -{" "}
+          {formatInTimeZone(timeslot.endTime, "HH:mm a", timeZone)}
         </div>
         <div className="text-xl font-medium">
-          {lesson.classOption.name}{" "}
-          {lesson.location && (
+          {timeslot.eventType.name}{" "}
+          {timeslot.location && (
             <>
-              - <span className="font-normal">{lesson.location}</span>
+              - <span className="font-normal">{timeslot.location}</span>
             </>
           )}
         </div>
-        {lesson.instructor ? (
+        {timeslot.staffMember ? (
           <div className="flex items-center justify-start mt-2">
-            {lesson.instructor.profileImage && (
+            {timeslot.staffMember.profileImage && (
               <Image
-                src={(lesson.instructor.profileImage.url as string) || ""}
-                alt={lesson.classOption.name}
+                src={(timeslot.staffMember.profileImage.url as string) || ""}
+                alt={timeslot.eventType.name}
                 height={100}
                 width={100}
                 objectFit="cover"
@@ -41,26 +41,26 @@ export function LessonDetail({ lesson }: { lesson: Lesson }) {
               />
             )}
             <div className="flex flex-col">
-              <span>{lesson.instructor.name}</span>
-              {lesson.bookingStatus !== "closed" && (
+              <span>{timeslot.staffMember.name}</span>
+              {timeslot.bookingStatus !== "closed" && (
                 <span className="font-light text-sm">
-                  {lesson.remainingCapacity} places remaining
+                  {timeslot.remainingCapacity} places remaining
                 </span>
               )}
             </div>
           </div>
         ) : (
           <>
-            {lesson.bookingStatus !== "closed" && (
+            {timeslot.bookingStatus !== "closed" && (
               <span className="font-light text-sm">
-                {lesson.remainingCapacity} places remaining
+                {timeslot.remainingCapacity} places remaining
               </span>
             )}
           </>
         )}
       </div>
       <div className="w-full md:w-1/4">
-        <CheckInButton lesson={lesson} />
+        <CheckInButton timeslot={timeslot} />
       </div>
     </div>
   );

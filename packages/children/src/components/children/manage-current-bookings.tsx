@@ -4,10 +4,10 @@ import { useSuspenseQuery } from '@tanstack/react-query'
 import { useTRPC } from '@repo/trpc/client'
 import { ChildBookingDetail } from './child-booking-detail'
 
-export const ManageCurrentBookings = ({ lessonId }: { lessonId: number }) => {
+export const ManageCurrentBookings = ({ timeslotId }: { timeslotId: number }) => {
   const trpc = useTRPC()
 
-  const { data: bookings } = useSuspenseQuery(trpc.bookings.getChildrensBookings.queryOptions({ id: lessonId }))
+  const { data: bookings } = useSuspenseQuery(trpc.bookings.getChildrensBookings.queryOptions({ id: timeslotId }))
 
   if (!bookings || !Array.isArray(bookings) || !bookings.length) return null
 

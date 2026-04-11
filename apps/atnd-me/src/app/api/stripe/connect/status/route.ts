@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
         id: userId,
         depth: 2,
         overrideAccess: true,
-        select: { id: true, roles: true, role: true, tenants: true, registrationTenant: true } as any,
+        select: { id: true, role: true, tenants: true, registrationTenant: true } as any,
       })
       .catch(() => null)
     if (fullUser) {
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         limit: 1,
         depth: 2,
         overrideAccess: true,
-        select: { id: true, roles: true, role: true, tenants: true, registrationTenant: true } as any,
+        select: { id: true, role: true, tenants: true, registrationTenant: true } as any,
       })
       const doc = found.docs?.[0]
       if (doc) {

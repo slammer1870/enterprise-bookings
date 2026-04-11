@@ -13,27 +13,27 @@ const extractId = (field: any): number => {
   return typeof id === 'string' ? parseInt(id, 10) : id
 }
 
-// Helper function to invalidate and refetch queries for a lesson
-const invalidateLessonQueries = async (
+// Helper function to invalidate and refetch queries for a timeslot
+const invalidateTimeslotQueries = async (
   queryClient: ReturnType<typeof useQueryClient>,
   trpc: ReturnType<typeof useTRPC>,
-  lessonId: number,
+  timeslotId: number,
 ) => {
   await Promise.all([
     queryClient.invalidateQueries({
-      queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: lessonId }),
+      queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: timeslotId }),
     }),
     queryClient.invalidateQueries({
-      queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
+      queryKey: trpc.bookings.canBookChild.queryKey({ id: timeslotId }),
     }),
     queryClient.invalidateQueries({
-      queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
+      queryKey: trpc.timeslots.getByIdForChildren.queryKey({ id: timeslotId }),
     }),
   ])
 
   // Explicitly refetch to ensure data is updated immediately
   await queryClient.refetchQueries({
-    queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
+    queryKey: trpc.bookings.canBookChild.queryKey({ id: timeslotId }),
   })
 }
 
@@ -42,12 +42,12 @@ export const ChildBookingDetail = ({ booking }: { booking: Booking }) => {
   const queryClient = useQueryClient()
 
   // Extract IDs once at component level
-  const lessonId = extractId(booking.lesson)
+  const timeslotId = extractId(booking.timeslot)
   const userId = extractId(booking.user)
 
   const { mutate: unbookChildren, isPending: isUnbooking } = useMutation(
     trpc.bookings.cancelChildBooking.mutationOptions({
-      onSuccess: () => invalidateLessonQueries(queryClient, trpc, lessonId),
+      onSuccess: () => invalidateTimeslotQueries(queryClient, trpc, timeslotId),
       onError: (error) => {
         toast.error(error.message)
       },
@@ -69,7 +69,7 @@ export const ChildBookingDetail = ({ booking }: { booking: Booking }) => {
       <Button
         type="button"
         variant="ghost"
-        onClick={() => unbookChildren({ lessonId, childId: userId })}
+        onClick={() => unbookChildren({ timeslotId, childId: userId })}
         disabled={isUnbooking}
       >
         <X />

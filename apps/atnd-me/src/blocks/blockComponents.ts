@@ -21,6 +21,7 @@ import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
 import { MissionElementsBlock } from '@/blocks/MissionElements/Component'
 import { ThreeColumnLayoutBlock } from '@repo/website/src/blocks/threeColumnLayout'
+import { TwoColumnLayoutBlock } from '@repo/website/src/blocks/twoColumnLayout'
 import { BruHeroBlock } from '@repo/website/src/blocks/bru-grappling/BruHero'
 import { BruAboutBlock } from '@repo/website/src/blocks/bru-grappling/BruAbout'
 import { BruScheduleBlock } from '@repo/website/src/blocks/bru-grappling/BruSchedule'
@@ -36,6 +37,8 @@ import { DhTestimonialsBlock } from '@repo/website/src/blocks/darkhorse-strength
 import { DhPricingBlock } from '@repo/website/src/blocks/darkhorse-strength/DhPricing'
 import { DhContactBlock } from '@repo/website/src/blocks/darkhorse-strength/DhContact'
 import { DhGroupsBlock } from '@repo/website/src/blocks/darkhorse-strength/DhGroups'
+import { DhLiveScheduleBlock } from '@/blocks/DhLiveSchedule/Component'
+import { DhLiveMembershipBlock } from '@/blocks/DhLiveMembership/Component'
 
 // Export the block components registry — heterogeneous block props, so typed loosely
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,6 +66,7 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   sectionTagline: SectionTaglineBlock,
   missionElements: MissionElementsBlock,
   threeColumnLayout: ThreeColumnLayoutBlock,
+  twoColumnLayout: TwoColumnLayoutBlock,
   bruHero: BruHeroBlock,
   bruAbout: BruAboutBlock,
   bruSchedule: BruScheduleBlock,
@@ -78,4 +82,6 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   dhPricing: DhPricingBlock,
   dhContact: DhContactBlock,
   dhGroups: DhGroupsBlock,
+  dhLiveSchedule: DhLiveScheduleBlock,
+  dhLiveMembership: DhLiveMembershipBlock,
 }

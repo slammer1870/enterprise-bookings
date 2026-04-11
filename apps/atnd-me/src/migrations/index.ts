@@ -22,7 +22,7 @@ import * as migration_20260129_booking_transactions_subscription from './2026012
 import * as migration_20260129_bookings_rels from './20260129_bookings_rels';
 import * as migration_20260129_bookings_subscription_id_used from './20260129_bookings_subscription_id_used';
 import * as migration_20260129_class_pass_types_price_in_euros from './20260129_class_pass_types_price_in_euros';
-import * as migration_20260129_memberships_allow_multiple_per_lesson from './20260129_memberships_allow_multiple_per_lesson';
+import * as migration_20260129_memberships_allow_multiple_per_timeslot from './20260129_memberships_allow_multiple_per_timeslot';
 import * as migration_20260210_064706 from './20260210_064706';
 import * as migration_20260210_drop_pages_generate_slug from './20260210_drop_pages_generate_slug';
 import * as migration_20260210_drop_payment_methods_allowed_class_passes from './20260210_drop_payment_methods_allowed_class_passes';
@@ -67,6 +67,23 @@ import * as migration_20260325_tenants_timezone from './20260325_tenants_timezon
 import * as migration_20260326_form_submissions_tenant_id from './20260326_form_submissions_tenant_id';
 import * as migration_20260329_162234 from './20260329_162234';
 import * as migration_20260329_202734 from './20260329_202734';
+import * as migration_20260331_125424 from './20260331_125424';
+import * as migration_20260409000000_roles_and_booking_collection_tables from './20260409000000_roles_and_booking_collection_tables';
+import * as migration_20260409000001_roles_data_and_booking_table_renames from './20260409000001_roles_data_and_booking_table_renames';
+import * as migration_20260409_144441 from './20260409_144441';
+import * as migration_20260409_152419 from './20260409_152419';
+import * as migration_20260409_posts_tenant_scoped from './20260409_posts_tenant_scoped';
+import * as migration_20260410_drop_posts_generate_slug from './20260410_drop_posts_generate_slug';
+import * as migration_20260410_add_two_column_layout_enum from './20260410_add_two_column_layout_enum';
+import * as migration_20260410_bookings_timeslot_id from './20260410_bookings_timeslot_id';
+import * as migration_20260410_rename_dh_dashboard_to_two_column_layout from './20260410_rename_dh_dashboard_to_two_column_layout';
+import * as migration_20260410_timeslots_event_type_id from './20260410_timeslots_event_type_id';
+import * as migration_20260410_timeslots_staff_member_id from './20260410_timeslots_staff_member_id';
+import * as migration_20260410_ensure_class_pass_types_allow_multiple_column from './20260410_ensure_class_pass_types_allow_multiple_column';
+import * as migration_20260411_analytics_compound_indexes from './20260411_analytics_compound_indexes';
+import * as migration_20260412_users_role_tenant_admin_to_admin from './20260412_users_role_tenant_admin_to_admin';
+import * as migration_20260413_drop_users_roles_merge_into_users_role from './20260413_drop_users_roles_merge_into_users_role';
+import * as migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id from './20260414_ensure_pages_blocks_dh_live_schedule_tenant_id';
 
 export const migrations = [
   {
@@ -190,9 +207,9 @@ export const migrations = [
     name: '20260129_class_pass_types_price_in_euros',
   },
   {
-    up: migration_20260129_memberships_allow_multiple_per_lesson.up,
-    down: migration_20260129_memberships_allow_multiple_per_lesson.down,
-    name: '20260129_memberships_allow_multiple_per_lesson',
+    up: migration_20260129_memberships_allow_multiple_per_timeslot.up,
+    down: migration_20260129_memberships_allow_multiple_per_timeslot.down,
+    name: '20260129_memberships_allow_multiple_per_timeslot',
   },
   {
     up: migration_20260210_064706.up,
@@ -412,6 +429,91 @@ export const migrations = [
   {
     up: migration_20260329_202734.up,
     down: migration_20260329_202734.down,
-    name: '20260329_202734'
+    name: '20260329_202734',
+  },
+  {
+    up: migration_20260331_125424.up,
+    down: migration_20260331_125424.down,
+    name: '20260331_125424',
+  },
+  {
+    up: migration_20260409000000_roles_and_booking_collection_tables.up,
+    down: migration_20260409000000_roles_and_booking_collection_tables.down,
+    name: '20260409000000_roles_and_booking_collection_tables',
+  },
+  {
+    up: migration_20260409000001_roles_data_and_booking_table_renames.up,
+    down: migration_20260409000001_roles_data_and_booking_table_renames.down,
+    name: '20260409000001_roles_data_and_booking_table_renames',
+  },
+  {
+    up: migration_20260409_144441.up,
+    down: migration_20260409_144441.down,
+    name: '20260409_144441',
+  },
+  {
+    up: migration_20260409_152419.up,
+    down: migration_20260409_152419.down,
+    name: '20260409_152419',
+  },
+  {
+    up: migration_20260409_posts_tenant_scoped.up,
+    down: migration_20260409_posts_tenant_scoped.down,
+    name: '20260409_posts_tenant_scoped',
+  },
+  {
+    up: migration_20260410_drop_posts_generate_slug.up,
+    down: migration_20260410_drop_posts_generate_slug.down,
+    name: '20260410_drop_posts_generate_slug',
+  },
+  {
+    up: migration_20260410_add_two_column_layout_enum.up,
+    down: migration_20260410_add_two_column_layout_enum.down,
+    name: '20260410_add_two_column_layout_enum',
+  },
+  {
+    up: migration_20260410_bookings_timeslot_id.up,
+    down: migration_20260410_bookings_timeslot_id.down,
+    name: '20260410_bookings_timeslot_id',
+  },
+  {
+    up: migration_20260410_rename_dh_dashboard_to_two_column_layout.up,
+    down: migration_20260410_rename_dh_dashboard_to_two_column_layout.down,
+    name: '20260410_rename_dh_dashboard_to_two_column_layout',
+  },
+  {
+    up: migration_20260410_timeslots_event_type_id.up,
+    down: migration_20260410_timeslots_event_type_id.down,
+    name: '20260410_timeslots_event_type_id',
+  },
+  {
+    up: migration_20260410_timeslots_staff_member_id.up,
+    down: migration_20260410_timeslots_staff_member_id.down,
+    name: '20260410_timeslots_staff_member_id',
+  },
+  {
+    up: migration_20260410_ensure_class_pass_types_allow_multiple_column.up,
+    down: migration_20260410_ensure_class_pass_types_allow_multiple_column.down,
+    name: '20260410_ensure_class_pass_types_allow_multiple_column',
+  },
+  {
+    up: migration_20260411_analytics_compound_indexes.up,
+    down: migration_20260411_analytics_compound_indexes.down,
+    name: '20260411_analytics_compound_indexes',
+  },
+  {
+    up: migration_20260412_users_role_tenant_admin_to_admin.up,
+    down: migration_20260412_users_role_tenant_admin_to_admin.down,
+    name: '20260412_users_role_tenant_admin_to_admin',
+  },
+  {
+    up: migration_20260413_drop_users_roles_merge_into_users_role.up,
+    down: migration_20260413_drop_users_roles_merge_into_users_role.down,
+    name: '20260413_drop_users_roles_merge_into_users_role',
+  },
+  {
+    up: migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id.up,
+    down: migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id.down,
+    name: '20260414_ensure_pages_blocks_dh_live_schedule_tenant_id',
   },
 ];

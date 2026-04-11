@@ -58,7 +58,7 @@ export async function goToTomorrowInSchedule(page: Page): Promise<Date> {
     timeout: 60000,
   })
 
-  // Wait for lessons to finish loading after date change
+  // Wait for timeslots to finish loading after date change
   // The schedule component uses React Query which shows a loading spinner while fetching
   // We need to wait for the query to complete and the UI to update
   
@@ -76,8 +76,8 @@ export async function goToTomorrowInSchedule(page: Page): Promise<Date> {
     await expect(loaderIcon).not.toBeVisible({ timeout: 30000 })
   }
 
-  // Wait a bit more for React to finish rendering the lesson list
-  // This ensures the DOM has fully updated with lesson buttons
+  // Wait a bit more for React to finish rendering the timeslot list
+  // This ensures the DOM has fully updated with timeslot buttons
   await p.waitForTimeout(1000)
 
   return tomorrow

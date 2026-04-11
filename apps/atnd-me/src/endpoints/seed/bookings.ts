@@ -1,6 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
-import type { User, Lesson, Booking } from '@repo/shared-types'
-import type { Tenant, ClassOption, Instructor } from '@/payload-types'
+import type { User, Timeslot, Booking } from '@repo/shared-types'
+import type { Tenant, EventType, StaffMember } from '@/payload-types'
 
 const SAUNA_TENANTS = [
   { name: 'Dundrum', slug: 'dundrum', description: 'Sauna — Dublin South' },
@@ -24,8 +24,8 @@ async function deleteDefaultTenantData(
   payload.logger.info(`  Deleting default data for tenant ${tenantId}...`)
 
   try {
-    const lessons = await payload.find({
-      collection: 'lessons',
+    const timeslots = await payload.find({
+      collection: 'timeslots',
       where: {
         location: { equals: 'Main Studio' },
         tenant: { equals: tenantId },
@@ -35,28 +35,28 @@ async function deleteDefaultTenantData(
       overrideAccess: true,
     })
 
-    for (const lesson of lessons.docs) {
+    for (const timeslot of timeslots.docs) {
       await payload.delete({
-        collection: 'lessons',
-        id: lesson.id,
+        collection: 'timeslots',
+        id: timeslot.id,
         req: tenantReq,
         overrideAccess: true,
       })
     }
   } catch (error) {
-    payload.logger.warn(`    Could not delete default lessons: ${error}`)
+    payload.logger.warn(`    Could not delete default timeslots: ${error}`)
   }
 
-  const defaultClassOptionPatterns = [
+  const defaultEventTypePatterns = [
     `Yoga Class ${tenantId}`,
     `Fitness Class ${tenantId}`,
     `Small Group Class ${tenantId}`,
   ]
 
-  for (const pattern of defaultClassOptionPatterns) {
+  for (const pattern of defaultEventTypePatterns) {
     try {
-      const classOptions = await payload.find({
-        collection: 'class-options',
+      const eventTypes = await payload.find({
+        collection: 'event-types',
         where: {
           name: { equals: pattern },
           tenant: { equals: tenantId },
@@ -66,10 +66,10 @@ async function deleteDefaultTenantData(
         overrideAccess: true,
       })
 
-      for (const classOption of classOptions.docs) {
+      for (const eventType of eventTypes.docs) {
         await payload.delete({
-          collection: 'class-options',
-          id: classOption.id,
+          collection: 'event-types',
+          id: eventType.id,
           req: tenantReq,
           overrideAccess: true,
         })
@@ -82,7 +82,7 @@ async function deleteDefaultTenantData(
 
 /**
  * Seeds booking data for sauna demo: Dundrum, Greystones, Tallaght.
- * Creates tenants, admin user, demo users, instructors, class options, lessons, bookings.
+ * Creates tenants, admin user, demo users, staffMembers, class options, timeslots, bookings.
  */
 export async function seedBookings({
   payload,
@@ -93,9 +93,9 @@ export async function seedBookings({
 }): Promise<{
   tenants: Tenant[]
   users: User[]
-  instructors: Instructor[]
-  classOptions: ClassOption[]
-  lessons: Lesson[]
+  staffMembers: StaffMember[]
+  eventTypes: EventType[]
+  timeslots: Timeslot[]
   bookings: Booking[]
 }> {
   payload.logger.info('— Seeding sauna demo (Dundrum, Greystones, Tallaght)...')
@@ -112,14 +112,14 @@ export async function seedBookings({
     payload.logger.warn(`  Could not delete bookings: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
   try {
-    await payload.db.deleteMany({ collection: 'lessons', req, where: {} })
+    await payload.db.deleteMany({ collection: 'timeslots', req, where: {} })
   } catch (e) {
-    payload.logger.warn(`  Could not delete lessons: ${e instanceof Error ? e.message : 'Unknown error'}`)
+    payload.logger.warn(`  Could not delete timeslots: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
   try {
-    await payload.db.deleteMany({ collection: 'class-options', req, where: {} })
+    await payload.db.deleteMany({ collection: 'event-types', req, where: {} })
   } catch (e) {
-    payload.logger.warn(`  Could not delete class-options: ${e instanceof Error ? e.message : 'Unknown error'}`)
+    payload.logger.warn(`  Could not delete event-types: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
   try {
     await payload.db.deleteMany({ collection: 'class-passes', req, where: {} })
@@ -132,9 +132,9 @@ export async function seedBookings({
     payload.logger.warn(`  Could not delete class-pass-types: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
   try {
-    await payload.db.deleteMany({ collection: 'instructors', req, where: {} })
+    await payload.db.deleteMany({ collection: 'staff-members', req, where: {} })
   } catch (e) {
-    payload.logger.warn(`  Could not delete instructors: ${e instanceof Error ? e.message : 'Unknown error'}`)
+    payload.logger.warn(`  Could not delete staffMembers: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
 
   const demoUserEmails = ['admin@test.com', 'demo1@test.com', 'demo2@test.com', 'demo3@test.com', 'demo4@test.com', 'demo5@test.com']
@@ -237,8 +237,7 @@ export async function seedBookings({
       email: 'admin@test.com',
       password: 'password',
       emailVerified: true,
-      role: ['admin'],
-      roles: ['admin'],
+      role: ['super-admin'],
     },
     draft: false,
     overrideAccess: true,
@@ -254,7 +253,6 @@ export async function seedBookings({
         password: 'password',
         emailVerified: true,
         role: ['user'],
-        roles: ['user'],
       },
       draft: false,
       overrideAccess: true,
@@ -262,47 +260,46 @@ export async function seedBookings({
     demoUsers.push({ id: u.id as number })
   }
 
-  const allLessons: Lesson[] = []
+  const allTimeslots: Timeslot[] = []
   const allBookings: Booking[] = []
-  const allClassOptions: ClassOption[] = []
-  const allInstructors: Instructor[] = []
+  const allEventTypes: EventType[] = []
+  const allStaffMembers: StaffMember[] = []
 
   const now = new Date()
 
   for (const tenant of tenants) {
     payload.logger.info(`  Seeding tenant: ${tenant.name}...`)
 
-    const instructorEmail = `${(tenant as { slug?: string }).slug}@instructor.com`.toLowerCase()
-    let instructorUser = await payload.find({
+    const staffMemberEmail = `${(tenant as { slug?: string }).slug}@staffMember.com`.toLowerCase()
+    let staffMemberUser = await payload.find({
       collection: 'users',
-      where: { email: { equals: instructorEmail } },
+      where: { email: { equals: staffMemberEmail } },
       limit: 1,
       overrideAccess: true,
     }).then((r) => r.docs[0])
 
-    if (!instructorUser) {
-      instructorUser = await payload.create({
+    if (!staffMemberUser) {
+      staffMemberUser = await payload.create({
         collection: 'users',
         data: {
-          name: `${tenant.name} Instructor`,
-          email: instructorEmail,
+          name: `${tenant.name} StaffMember`,
+          email: staffMemberEmail,
           password: 'password',
           emailVerified: true,
           role: ['user'],
-          roles: ['user'],
         },
         draft: false,
         overrideAccess: true,
       })
     }
 
-    const instructor = await createWithTenant(
-      'instructors',
-      { user: instructorUser.id, active: true },
+    const staffMember = await createWithTenant(
+      'staff-members',
+      { user: staffMemberUser.id, active: true },
       tenant.id,
       { overrideAccess: true },
     )
-    allInstructors.push(instructor as Instructor)
+    allStaffMembers.push(staffMember as StaffMember)
 
     const saunaOnly = await createWithTenant(
       'class-pass-types',
@@ -330,7 +327,7 @@ export async function seedBookings({
     const allAccessId = getId(allAccess)
 
     const opt50 = await createWithTenant(
-      'class-options',
+      'event-types',
       {
         name: 'Wood fired sauna (50 min)',
         places: 12,
@@ -341,7 +338,7 @@ export async function seedBookings({
       { draft: false, overrideAccess: true },
     )
     const opt30 = await createWithTenant(
-      'class-options',
+      'event-types',
       {
         name: 'Wood fired sauna (30 min)',
         places: 8,
@@ -351,23 +348,23 @@ export async function seedBookings({
       tenant.id,
       { draft: false, overrideAccess: true },
     )
-    allClassOptions.push(opt50 as ClassOption, opt30 as ClassOption)
+    allEventTypes.push(opt50 as EventType, opt30 as EventType)
     const opt50Id = getId(opt50)
 
-    const pastLessons: { id: number }[] = []
+    const pastTimeslots: { id: number }[] = []
     for (let d = 1; d <= 21; d++) {
-      const lessonDate = new Date(now)
-      lessonDate.setDate(lessonDate.getDate() - d)
-      lessonDate.setHours(17, 0, 0, 0)
-      const endDate = new Date(lessonDate)
+      const timeslotDate = new Date(now)
+      timeslotDate.setDate(timeslotDate.getDate() - d)
+      timeslotDate.setHours(17, 0, 0, 0)
+      const endDate = new Date(timeslotDate)
       endDate.setHours(17, 50, 0, 0)
-      const lesson = await createWithTenant(
-        'lessons',
+      const timeslot = await createWithTenant(
+        'timeslots',
         {
-          date: lessonDate.toISOString(),
-          startTime: lessonDate.toISOString(),
+          date: timeslotDate.toISOString(),
+          startTime: timeslotDate.toISOString(),
           endTime: endDate.toISOString(),
-          classOption: opt50Id,
+          eventType: opt50Id,
           location: 'Sauna 1',
           active: true,
           lockOutTime: 30,
@@ -375,24 +372,24 @@ export async function seedBookings({
         tenant.id,
         { draft: false, overrideAccess: true },
       )
-      pastLessons.push({ id: (lesson as { id: number }).id })
-      allLessons.push(lesson as Lesson)
+      pastTimeslots.push({ id: (timeslot as { id: number }).id })
+      allTimeslots.push(timeslot as Timeslot)
     }
 
-    const upcomingLessons: { id: number }[] = []
+    const upcomingTimeslots: { id: number }[] = []
     for (let d = 1; d <= 7; d++) {
-      const lessonDate = new Date(now)
-      lessonDate.setDate(lessonDate.getDate() + d)
-      lessonDate.setHours(17, 0, 0, 0)
-      const endDate = new Date(lessonDate)
+      const timeslotDate = new Date(now)
+      timeslotDate.setDate(timeslotDate.getDate() + d)
+      timeslotDate.setHours(17, 0, 0, 0)
+      const endDate = new Date(timeslotDate)
       endDate.setHours(17, 50, 0, 0)
-      const lesson = await createWithTenant(
-        'lessons',
+      const timeslot = await createWithTenant(
+        'timeslots',
         {
-          date: lessonDate.toISOString(),
-          startTime: lessonDate.toISOString(),
+          date: timeslotDate.toISOString(),
+          startTime: timeslotDate.toISOString(),
           endTime: endDate.toISOString(),
-          classOption: opt50Id,
+          eventType: opt50Id,
           location: 'Sauna 1',
           active: true,
           lockOutTime: 30,
@@ -400,12 +397,12 @@ export async function seedBookings({
         tenant.id,
         { draft: false, overrideAccess: true },
       )
-      upcomingLessons.push({ id: (lesson as { id: number }).id })
-      allLessons.push(lesson as Lesson)
+      upcomingTimeslots.push({ id: (timeslot as { id: number }).id })
+      allTimeslots.push(timeslot as Timeslot)
     }
 
     const bookingCount = tenant.slug === 'dundrum' ? 45 : tenant.slug === 'greystones' ? 32 : 28
-    const lessonPool = [...pastLessons, ...upcomingLessons]
+    const timeslotPool = [...pastTimeslots, ...upcomingTimeslots]
 
     // Build a weighted day distribution for realistic graph variation:
     // - Spread over last 63 days (9 weeks) for analytics presets (7, 30, 91 days)
@@ -449,16 +446,16 @@ export async function seedBookings({
     for (let d = 0; d < daysBack && bookingIndex < bookingCount; d++) {
       const perDay = bookingsPerDay[d] ?? 0
       for (let c = 0; c < perDay && bookingIndex < bookingCount; c++) {
-        const lesson = lessonPool[bookingIndex % lessonPool.length]
+        const timeslot = timeslotPool[bookingIndex % timeslotPool.length]
         const user = demoUsers[bookingIndex % demoUsers.length]
-        if (!lesson || !user) continue
+        if (!timeslot || !user) continue
         const bookingDate = new Date(now)
         bookingDate.setDate(bookingDate.getDate() - d)
         const b = await createWithTenant(
           'bookings',
           {
             user: user.id,
-            lesson: lesson.id,
+            timeslot: timeslot.id,
             status: 'confirmed',
             createdAt: bookingDate.toISOString(),
           },
@@ -472,15 +469,15 @@ export async function seedBookings({
   }
 
   payload.logger.info(
-    `  Created: ${tenants.length} tenants, ${1 + demoUsers.length} users, ${allInstructors.length} instructors, ${allClassOptions.length} class options, ${allLessons.length} lessons, ${allBookings.length} bookings`,
+    `  Created: ${tenants.length} tenants, ${1 + demoUsers.length} users, ${allStaffMembers.length} staffMembers, ${allEventTypes.length} class options, ${allTimeslots.length} timeslots, ${allBookings.length} bookings`,
   )
 
   return {
     tenants,
     users: [adminUser as User, ...(demoUsers as unknown as User[])],
-    instructors: allInstructors,
-    classOptions: allClassOptions,
-    lessons: allLessons,
+    staffMembers: allStaffMembers,
+    eventTypes: allEventTypes,
+    timeslots: allTimeslots,
     bookings: allBookings,
   }
 }
@@ -492,14 +489,14 @@ export async function seedSchedulers({
   payload,
   req,
   tenants,
-  classOptions,
-  instructors,
+  eventTypes,
+  staffMembers,
 }: {
   payload: Payload
   req: PayloadRequest
   tenants: Tenant[]
-  classOptions: ClassOption[]
-  instructors: Instructor[]
+  eventTypes: EventType[]
+  staffMembers: StaffMember[]
 }): Promise<void> {
   payload.logger.info('— Seeding schedulers for tenants...')
 
@@ -518,21 +515,21 @@ export async function seedSchedulers({
 
   for (const tenant of tenants) {
     const tenantReq = { ...req, context: { ...req.context, tenant: tenant.id } }
-    const tenantClassOptions = classOptions.filter((co) => getId(co.tenant) === tenant.id)
-    const tenantInstructors = instructors.filter((inst) => getId(inst.tenant) === tenant.id)
+    const tenantEventTypes = eventTypes.filter((co) => getId(co.tenant) === tenant.id)
+    const tenantStaffMembers = staffMembers.filter((inst) => getId(inst.tenant) === tenant.id)
 
-    const defaultClassOption = tenantClassOptions[0]
-    const defaultInstructor = tenantInstructors[0]
-    const defaultClassOptionId =
-      typeof getId(defaultClassOption) === 'string'
-        ? Number(getId(defaultClassOption))
-        : (getId(defaultClassOption) as number)
-    const defaultInstructorIdRaw = getId(defaultInstructor)
-    const defaultInstructorId =
-      typeof defaultInstructorIdRaw === 'string' ? Number(defaultInstructorIdRaw) : defaultInstructorIdRaw
+    const defaultEventType = tenantEventTypes[0]
+    const defaultStaffMember = tenantStaffMembers[0]
+    const defaultEventTypeId =
+      typeof getId(defaultEventType) === 'string'
+        ? Number(getId(defaultEventType))
+        : (getId(defaultEventType) as number)
+    const defaultStaffMemberIdRaw = getId(defaultStaffMember)
+    const defaultStaffMemberId =
+      typeof defaultStaffMemberIdRaw === 'string' ? Number(defaultStaffMemberIdRaw) : defaultStaffMemberIdRaw
 
-    if (!defaultClassOptionId || !defaultInstructorId) {
-      payload.logger.warn(`  Skipping scheduler for tenant ${tenant.id}: missing class option or instructor`)
+    if (!defaultEventTypeId || !defaultStaffMemberId) {
+      payload.logger.warn(`  Skipping scheduler for tenant ${tenant.id}: missing class option or staffMember`)
       continue
     }
 
@@ -549,17 +546,17 @@ export async function seedSchedulers({
         {
           startTime: new Date('2000-01-01T17:00:00').toISOString(),
           endTime: new Date('2000-01-01T17:50:00').toISOString(),
-          classOption: defaultClassOptionId,
+          eventType: defaultEventTypeId,
           location: 'Sauna 1',
-          instructor: defaultInstructorId as number,
+          staffMember: defaultStaffMemberId as number,
           active: true,
         },
         {
           startTime: new Date('2000-01-01T18:00:00').toISOString(),
           endTime: new Date('2000-01-01T18:50:00').toISOString(),
-          classOption: defaultClassOptionId,
+          eventType: defaultEventTypeId,
           location: 'Sauna 1',
-          instructor: defaultInstructorId as number,
+          staffMember: defaultStaffMemberId as number,
           active: true,
         },
       ],
@@ -570,7 +567,7 @@ export async function seedSchedulers({
       startDate: startDate.toISOString().split('T')[0] as string,
       endDate: endDate.toISOString().split('T')[0] as string,
       lockOutTime: 30,
-      defaultClassOption: defaultClassOptionId,
+      defaultEventType: defaultEventTypeId,
       week: { days: weekDays },
       clearExisting: false,
     }

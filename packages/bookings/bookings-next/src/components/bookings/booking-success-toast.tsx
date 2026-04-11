@@ -11,40 +11,40 @@ export function BookingSuccessToast() {
   const searchParams = useSearchParams()
   if (!searchParams) return null
 
-  const lessonIdRaw = searchParams.get('lesson')
+  const timeslotIdRaw = searchParams.get('timeslot')
   const success = searchParams.get('success')
 
-  const lessonId = lessonIdRaw ? Number(lessonIdRaw) : null
+  const timeslotId = timeslotIdRaw ? Number(timeslotIdRaw) : null
 
   const trpc = useTRPC()
 
-  const { data: lesson } = useQuery(
-    trpc.lessons.getById.queryOptions(
-      { id: lessonId ?? -1 },
+  const { data: timeslot } = useQuery(
+    trpc.timeslots.getById.queryOptions(
+      { id: timeslotId ?? -1 },
       {
-        enabled: Boolean(success && lessonId && Number.isFinite(lessonId)),
+        enabled: Boolean(success && timeslotId && Number.isFinite(timeslotId)),
         staleTime: 30_000,
       },
     ),
   )
 
   useEffect(() => {
-    if (!success || !lesson) return
+    if (!success || !timeslot) return
 
     toast.success('Booking successful', {
-      description: `You have successfully booked a lesson: ${lesson.classOption?.name} on ${new Date(
-        lesson.date,
+      description: `You have successfully booked a timeslot: ${timeslot.eventType?.name} on ${new Date(
+        timeslot.date,
       ).toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
         day: 'numeric',
-      })} at ${new Date(lesson.startTime).toLocaleTimeString('en-US', {
+      })} at ${new Date(timeslot.startTime).toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
       })}`,
     })
-  }, [success, lesson?.id])
+  }, [success, timeslot?.id])
 
   return null
 }

@@ -1,9 +1,11 @@
 /**
- * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*.
+ * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*, product.*, price.*,
+ * coupon.*, promotion_code.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
 import { NextResponse } from 'next/server'
+import type Stripe from 'stripe'
 
 /** Format Stripe Unix timestamp as date-only (YYYY-MM-DD) for Payload dayOnly date fields. */
 function stripeDateOnly(unix: number | null | undefined): string | null {
@@ -23,13 +25,20 @@ import {
 } from '@/lib/stripe-connect/webhookProcessed'
 import {
   parseBookingIds,
+  getTimeslotIdFromStripeMetadata,
   getAccountIdFromEvent,
   resolveTenant,
   confirmBookingsFromPaymentIntent,
   confirmBookingsFromQuantityFlow,
   confirmBookingsFromSubscriptionMetadata,
-  findOrCreateAndConfirmBookingForLesson,
+  findOrCreateAndConfirmBookingForTimeslot,
 } from '@/lib/stripe-connect/webhook'
+import {
+  getStripeProductIdFromWebhookObject,
+  syncStripeProductToPayload,
+} from '@/lib/stripe-connect/webhook/sync-products'
+import { syncDiscountFromWebhookEvent } from '@/lib/stripe-connect/webhook/sync-discount-codes'
+import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -75,20 +84,36 @@ export async function POST(request: NextRequest) {
     const accountId = getAccountIdFromEvent(event)
     const tenant = await resolveTenant(payload, accountId, meta.tenantId)
     const bookingIdsToConfirm = parseBookingIds(meta)
+    const paymentIntentTenantContext = tenant ? { tenant: tenant.id } : null
 
-    // Class pass purchase (no bookingIds)
+    // Class pass purchase
     if (
       tenant &&
       meta.type === 'class_pass_purchase' &&
-      !meta.bookingId &&
-      !meta.bookingIds
+      !meta.bookingId
     ) {
       const userId = meta.userId
-      const quantity = meta.quantity ? parseInt(meta.quantity, 10) : 0
+      const classPassTypeId = meta.classPassTypeId ? parseInt(meta.classPassTypeId, 10) : NaN
       const expirationDays = meta.expirationDays ? parseInt(meta.expirationDays, 10) : 365
       const totalCents = meta.totalCents ? parseInt(meta.totalCents, 10) : 0
       const transactionId = obj?.id ?? null
-      if (userId && quantity >= 1) {
+      if (userId && Number.isFinite(classPassTypeId) && classPassTypeId > 0) {
+        const classPassType = (await payload.findByID({
+          collection: 'class-pass-types' as import('payload').CollectionSlug,
+          id: classPassTypeId,
+          depth: 0,
+          overrideAccess: true,
+        }).catch(() => null)) as { quantity?: number } | null
+        const passCredits =
+          classPassType && typeof classPassType.quantity === 'number'
+            ? classPassType.quantity
+            : 0
+
+        if (passCredits < 1) {
+          markStripeConnectEventProcessed(event.id)
+          return NextResponse.json({ received: true }, { status: 200 })
+        }
+
         const now = new Date()
         const expirationDate = new Date(now)
         expirationDate.setDate(expirationDate.getDate() + expirationDays)
@@ -98,13 +123,15 @@ export async function POST(request: NextRequest) {
           data: {
             user: Number(userId),
             tenant: tenant.id,
-            quantity,
+            type: classPassTypeId,
+            quantity: passCredits,
             expirationDate: expirationDate.toISOString().slice(0, 10),
             purchasedAt: now.toISOString().slice(0, 10),
             price: totalCents,
             status: 'active',
             ...(transactionId ? { transactionId } : {}),
           } as Record<string, unknown>,
+          ...(paymentIntentTenantContext ? { context: paymentIntentTenantContext } : {}),
           overrideAccess: true,
         })
       }
@@ -115,26 +142,28 @@ export async function POST(request: NextRequest) {
       await confirmBookingsFromPaymentIntent(payload, bookingIdsToConfirm, {
         paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
         tenantId: tenant.id,
+        tenantContext: paymentIntentTenantContext,
       })
     }
-    // Legacy quantity-based flow (lessonId + userId, no explicit bookingIds)
+    // Legacy quantity-based flow (timeslotId or legacy lessonId + userId, no explicit bookingIds)
     else if (
       tenant &&
-      meta.lessonId &&
+      getTimeslotIdFromStripeMetadata(meta) &&
       meta.userId &&
       !meta.type &&
       bookingIdsToConfirm.length === 0
     ) {
-      const lessonId = parseInt(meta.lessonId, 10)
+      const timeslotId = parseInt(getTimeslotIdFromStripeMetadata(meta)!, 10)
       const userId = parseInt(meta.userId, 10)
       const quantity = Math.max(1, parseInt(meta.quantity ?? '1', 10) || 1)
-      if (!Number.isNaN(lessonId) && !Number.isNaN(userId)) {
+      if (!Number.isNaN(timeslotId) && !Number.isNaN(userId)) {
         await confirmBookingsFromQuantityFlow(payload, {
-          lessonId,
+          timeslotId,
           userId,
           quantity,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
           tenantId: tenant.id,
+          tenantContext: paymentIntentTenantContext,
         })
       }
     }
@@ -175,6 +204,84 @@ export async function POST(request: NextRequest) {
   }
 
   const tenantId = tenant.id
+  const tenantContext = { tenant: tenantId }
+  const isProductSyncEvent =
+    event.type === 'product.updated' ||
+    event.type === 'product.deleted' ||
+    event.type === 'price.created' ||
+    event.type === 'price.updated' ||
+    event.type === 'price.deleted'
+
+  if (isProductSyncEvent) {
+    if (!accountId) {
+      payload.logger?.info?.(`product sync event skipped: missing account id (event=${event.type})`)
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+
+    const stripeProductId = getStripeProductIdFromWebhookObject(
+      event.data?.object as Record<string, unknown> | undefined,
+    )
+
+    if (!stripeProductId) {
+      payload.logger?.info?.(`product sync event skipped: missing stripe product id (event=${event.type})`)
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+
+    try {
+      await syncStripeProductToPayload({
+        payload,
+        tenantId,
+        accountId,
+        stripeProductId,
+        fallbackProduct:
+          event.type === 'product.deleted'
+            ? ((event.data?.object as Record<string, unknown> | undefined) as Partial<Stripe.Product> | undefined)
+            : undefined,
+      })
+    } catch (error) {
+      payload.logger?.error?.(
+        `Failed to sync Stripe product ${stripeProductId} from webhook ${event.type}: ${error}`,
+      )
+    }
+
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
+
+  const isDiscountSyncEvent =
+    event.type === 'coupon.updated' ||
+    event.type === 'coupon.deleted' ||
+    event.type === 'promotion_code.created' ||
+    event.type === 'promotion_code.updated'
+
+  if (isDiscountSyncEvent) {
+    if (!accountId) {
+      payload.logger?.info?.(
+        `discount sync event skipped: missing account id (event=${event.type})`,
+      )
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
+
+    try {
+      await syncDiscountFromWebhookEvent({
+        payload,
+        tenantId,
+        accountId,
+        eventType: event.type,
+        eventObject: (event.data?.object ?? {}) as Record<string, unknown>,
+      })
+    } catch (error) {
+      payload.logger?.error?.(
+        `Failed to sync discount/coupon from webhook ${event.type}: ${error}`,
+      )
+    }
+
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
 
   if (isSubscriptionEvent) {
     const obj = event.data?.object as {
@@ -192,7 +299,13 @@ export async function POST(request: NextRequest) {
           current_period_end?: number
         }>
       }
-      metadata?: { lessonId?: string; lesson_id?: string; bookingIds?: string; tenantId?: string }
+      metadata?: {
+        timeslotId?: string
+        timeslot_id?: string
+        lessonId?: string
+        bookingIds?: string
+        tenantId?: string
+      }
     } | undefined
     if (!obj?.id) {
       markStripeConnectEventProcessed(event.id)
@@ -259,22 +372,23 @@ export async function POST(request: NextRequest) {
         // subscription.updated may have created the record first; still run booking confirmation
         const existingSub = existing.docs[0] as { id: number }
         const meta = obj.metadata ?? {}
-        const lessonId = meta.lessonId ?? meta.lesson_id
+        const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
         const bookingIdsFromMeta = parseBookingIds(meta)
         if (bookingIdsFromMeta.length > 0) {
           await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, existingSub.id)
-        } else if (lessonId) {
-          const lessonIdNum = Number(lessonId)
-          if (Number.isFinite(lessonIdNum)) {
+        } else if (timeslotIdRaw) {
+          const timeslotIdNum = Number(timeslotIdRaw)
+          if (Number.isFinite(timeslotIdNum)) {
             try {
-              await findOrCreateAndConfirmBookingForLesson(payload, {
-                lessonId: lessonIdNum,
+              await findOrCreateAndConfirmBookingForTimeslot(payload, {
+                timeslotId: timeslotIdNum,
                 userId: user.id,
                 tenantId,
                 subscriptionId: existingSub.id,
+                tenantContext,
               })
             } catch (e) {
-              payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+              payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
             }
           }
         }
@@ -299,29 +413,30 @@ export async function POST(request: NextRequest) {
           startDate: stripeDateOnly(currentPeriodStart),
           endDate: stripeDateOnly(currentPeriodEnd),
           cancelAt: stripeDateOnly(cancelAt),
-          skipSync: true,
         } as Record<string, unknown>,
+        context: { ...(tenantContext ?? {}), skipStripeSync: true },
         overrideAccess: true,
       })
       const subId = created.id as number
       const meta = obj.metadata ?? {}
-      const lessonId = meta.lessonId ?? meta.lesson_id
+      const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
       const bookingIdsFromMeta = parseBookingIds(meta)
 
       if (bookingIdsFromMeta.length > 0) {
         await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, subId)
-      } else if (lessonId) {
-        const lessonIdNum = Number(lessonId)
-        if (Number.isFinite(lessonIdNum)) {
+      } else if (timeslotIdRaw) {
+        const timeslotIdNum = Number(timeslotIdRaw)
+        if (Number.isFinite(timeslotIdNum)) {
           try {
-            await findOrCreateAndConfirmBookingForLesson(payload, {
-              lessonId: lessonIdNum,
+            await findOrCreateAndConfirmBookingForTimeslot(payload, {
+              timeslotId: timeslotIdNum,
               userId: user.id,
               tenantId,
               subscriptionId: subId,
+              tenantContext,
             })
           } catch (e) {
-            payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+            payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
           }
         }
       }
@@ -341,7 +456,6 @@ export async function POST(request: NextRequest) {
       const sub = subResult.docs[0] as { id: number } | undefined
       if (sub) {
         const updateData: Record<string, unknown> = {
-          skipSync: true,
         }
         if (event.type === 'customer.subscription.paused') {
           updateData.status = 'paused'
@@ -361,6 +475,7 @@ export async function POST(request: NextRequest) {
           collection: 'subscriptions' as import('payload').CollectionSlug,
           id: sub.id,
           data: updateData,
+          context: { ...(tenantContext ?? {}), skipStripeSync: true },
           overrideAccess: true,
         })
       } else {
@@ -412,28 +527,29 @@ export async function POST(request: NextRequest) {
                   startDate: stripeDateOnly(currentPeriodStart),
                   endDate: stripeDateOnly(currentPeriodEnd),
                   cancelAt: stripeDateOnly(cancelAt),
-                  skipSync: true,
                 } as Record<string, unknown>,
+                context: { ...(tenantContext ?? {}), skipStripeSync: true },
                 overrideAccess: true,
               })
               const subId = createdSub.id as number
               const meta = obj.metadata ?? {}
-              const lessonId = meta.lessonId ?? meta.lesson_id
+              const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
               const bookingIdsFromMeta = parseBookingIds(meta)
               if (bookingIdsFromMeta.length > 0) {
                 await confirmBookingsFromSubscriptionMetadata(payload, bookingIdsFromMeta, subId)
-              } else if (lessonId) {
-                const lessonIdNum = Number(lessonId)
-                if (Number.isFinite(lessonIdNum)) {
+              } else if (timeslotIdRaw) {
+                const timeslotIdNum = Number(timeslotIdRaw)
+                if (Number.isFinite(timeslotIdNum)) {
                   try {
-                    await findOrCreateAndConfirmBookingForLesson(payload, {
-                      lessonId: lessonIdNum,
+                    await findOrCreateAndConfirmBookingForTimeslot(payload, {
+                      timeslotId: timeslotIdNum,
                       userId: user.id,
                       tenantId,
                       subscriptionId: subId,
+                      tenantContext,
                     })
                   } catch (e) {
-                    payload.logger?.error?.(`Failed to confirm booking for lesson ${lessonId}: ${e}`)
+                    payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
                   }
                 }
               }
@@ -459,8 +575,8 @@ export async function POST(request: NextRequest) {
             status: 'canceled',
             endDate: stripeDateOnly(currentPeriodEnd) ?? new Date().toISOString().slice(0, 10),
             cancelAt: stripeDateOnly(cancelAt) ?? new Date().toISOString().slice(0, 10),
-            skipSync: true,
           } as Record<string, unknown>,
+          context: { ...(tenantContext ?? {}), skipStripeSync: true },
           overrideAccess: true,
         })
       }
@@ -470,12 +586,15 @@ export async function POST(request: NextRequest) {
   }
 
   if (event.type === 'account.updated') {
-    const obj = (event.data?.object ?? {}) as { charges_enabled?: boolean }
-    const status = obj.charges_enabled === true ? 'active' : 'restricted'
+    const obj = (event.data?.object ?? {}) as Parameters<
+      typeof getStripeConnectOnboardingStatus
+    >[0]
+    const status = getStripeConnectOnboardingStatus(obj)
     await payload.update({
       collection: 'tenants',
       id: tenant.id,
       data: { stripeConnectOnboardingStatus: status },
+      ...(tenantContext ? { context: tenantContext } : {}),
       overrideAccess: true,
       select: { id: true } as any,
     })
@@ -487,10 +606,15 @@ export async function POST(request: NextRequest) {
         stripeConnectAccountId: null,
         stripeConnectOnboardingStatus: 'deauthorized',
       },
+      ...(tenantContext ? { context: tenantContext } : {}),
       overrideAccess: true,
       select: { id: true } as any,
     })
-    console.info('[Stripe Connect] deauthorized', { tenantId: tenant.id })
+    console.info('[Stripe Connect] deauthorized', {
+      tenantId: tenant.id,
+      eventId: event.id,
+      eventType: event.type,
+    })
   }
 
   markStripeConnectEventProcessed(event.id)

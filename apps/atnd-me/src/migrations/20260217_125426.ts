@@ -92,7 +92,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     DO $$ BEGIN
       ALTER TABLE "tenants_allowed_blocks" ALTER COLUMN "value" SET DATA TYPE text;
       DROP TYPE "public"."enum_tenants_allowed_blocks";
-      CREATE TYPE "public"."enum_tenants_allowed_blocks" AS ENUM('location', 'healthBenefits', 'sectionTagline', 'faqs', 'mediaBlock', 'archive', 'formBlock', 'threeColumnLayout');
+      CREATE TYPE "public"."enum_tenants_allowed_blocks" AS ENUM('heroScheduleSanctuary', 'location', 'healthBenefits', 'sectionTagline', 'faqs', 'mediaBlock', 'archive', 'formBlock', 'threeColumnLayout');
       ALTER TABLE "tenants_allowed_blocks" ALTER COLUMN "value" SET DATA TYPE "public"."enum_tenants_allowed_blocks" USING "value"::"public"."enum_tenants_allowed_blocks";
     EXCEPTION WHEN duplicate_object OR undefined_object THEN
       NULL;
@@ -103,7 +103,7 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     DROP INDEX IF EXISTS "class_options_name_idx";
     DROP INDEX IF EXISTS "navbar_tenant_idx";
     DROP INDEX IF EXISTS "footer_tenant_idx";
-    ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-17T12:54:26.169Z';
+    ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-17T12:54:26.169Z';
     ALTER TABLE "navbar_nav_items" ADD COLUMN IF NOT EXISTS "icon" "public"."enum_navbar_nav_items_icon" DEFAULT 'none';
   `)
 
@@ -169,7 +169,7 @@ export async function down({ db }: MigrateDownArgs): Promise<void> {
   DROP TABLE "_pages_v_blocks_tenant_scoped_schedule" CASCADE;
   DROP INDEX "navbar_tenant_idx";
   DROP INDEX "footer_tenant_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-13T17:10:59.906Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-13T17:10:59.906Z';
   CREATE UNIQUE INDEX "class_options_name_idx" ON "class_options" USING btree ("name");
   CREATE UNIQUE INDEX "navbar_tenant_idx" ON "navbar" USING btree ("tenant_id");
   CREATE UNIQUE INDEX "footer_tenant_idx" ON "footer" USING btree ("tenant_id");

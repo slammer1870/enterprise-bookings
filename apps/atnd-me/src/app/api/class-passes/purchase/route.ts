@@ -37,10 +37,10 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const tenantSlugOrId = body.tenantSlug ?? resolveTenantSlugOrId(request) ?? null
+  const tenantSlugOrId = resolveTenantSlugOrId(request)
   if (!tenantSlugOrId) {
     return NextResponse.json(
-      { error: 'Tenant context required (tenantSlug or x-tenant-slug / x-tenant-id)' },
+      { error: 'Tenant context required (x-tenant-slug / x-tenant-id / tenant-slug cookie)' },
       { status: 400 }
     )
   }
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
   const totalCents = DEFAULT_PRICE_CENTS * quantity
 
   const placeholderAccount =
-    /^acct_[a-z_]+_\d+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
+    /^acct_[a-z0-9_]+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
   if (isStripeTestAccount(tenant.stripeConnectAccountId) || placeholderAccount) {
     const mockId = `pi_test_${Date.now()}`
     return NextResponse.json({

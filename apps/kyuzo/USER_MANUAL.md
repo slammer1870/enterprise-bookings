@@ -90,7 +90,7 @@ The dashboard is your central hub for all Kyuzo services. It displays:
 3. Review the class details:
    - Date and time
    - Class type (adult/child)
-   - Instructor
+   - StaffMember
    - Location
 4. Confirm your booking
 5. You'll receive a confirmation email

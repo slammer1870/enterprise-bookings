@@ -14,7 +14,7 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   DROP INDEX "footer_rels_path_idx";
   DROP INDEX "footer_rels_pages_id_idx";
   DROP INDEX "footer_rels_posts_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-21T12:17:12.932Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-21T12:17:12.932Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" DROP DEFAULT;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" DROP DEFAULT;
   ALTER TABLE "scheduler" ALTER COLUMN "updated_at" SET DEFAULT now();
@@ -80,7 +80,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   ALTER TABLE "scheduler" ALTER COLUMN "updated_at" DROP NOT NULL;
   ALTER TABLE "scheduler" ALTER COLUMN "created_at" DROP DEFAULT;
   ALTER TABLE "scheduler" ALTER COLUMN "created_at" DROP NOT NULL;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-21T11:14:36.151Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-21T11:14:36.151Z';
   ALTER TABLE "footer_rels" ADD CONSTRAINT "footer_rels_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."footer"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "footer_rels" ADD CONSTRAINT "footer_rels_pages_fk" FOREIGN KEY ("pages_id") REFERENCES "public"."pages"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "footer_rels" ADD CONSTRAINT "footer_rels_posts_fk" FOREIGN KEY ("posts_id") REFERENCES "public"."posts"("id") ON DELETE cascade ON UPDATE no action;

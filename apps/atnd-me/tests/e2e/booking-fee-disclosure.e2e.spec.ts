@@ -6,8 +6,8 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   getPayloadInstance,
 } from './helpers/data-helpers'
 
@@ -76,11 +76,11 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     }) as { id: number }
 
     // Create class option with tenant relationship
-    const classOption = await createTestClassOption(tenantId, 'Fee Disclosure Class', 5, undefined, w)
+    const classOption = await createTestEventType(tenantId, 'Fee Disclosure Class', 5, undefined, w)
 
     // Update class option with drop-in payment method
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: { allowedDropIn: dropIn.id },
@@ -95,7 +95,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     startTime.setHours(12, 0, 0, 0)
     const endTime = new Date(startTime)
     endTime.setHours(13, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, classOption.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, classOption.id, startTime, endTime, undefined, true)
 
     await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', {
       request,
@@ -107,7 +107,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     await page.waitForLoadState('domcontentloaded').catch(() => null)
     if (await page.getByText(/tenant not found/i).isVisible().catch(() => false)) {
       throw new Error(
-        `Tenant "${tenantSlug}" not found when loading tenant root. App and test must use the same DB (DATABASE_URI). Lesson ${lesson.id}.`
+        `Tenant "${tenantSlug}" not found when loading tenant root. App and test must use the same DB (DATABASE_URI). Timeslot ${lesson.id}.`
       )
     }
     await page.waitForURL((u) => u.pathname === '/home', { timeout: 10000 }).catch(() => null)
@@ -126,7 +126,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
     }
     if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
       throw new Error(
-        `Booking page redirected away. Lesson ${lesson.id}, tenant ${tenantSlug}. Expected ${bookingPath}, got ${currentPath}. Check server logs for createBookingPage or getByIdForBooking.`
+        `Booking page redirected away. Timeslot ${lesson.id}, tenant ${tenantSlug}. Expected ${bookingPath}, got ${currentPath}. Check server logs for createBookingPage or getByIdForBooking.`
       )
     }
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
@@ -144,7 +144,7 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
         ? 'Route error boundary (client error in booking/payment components). Check browser console.'
         : 'Global error boundary. Check server logs for [createBookingPage] or [postValidation].'
       throw new Error(
-        `Booking page hit error boundary. Lesson ${lesson.id}, tenant ${tenantSlug}. URL: ${url}. ${boundaryHint}`
+        `Booking page hit error boundary. Timeslot ${lesson.id}, tenant ${tenantSlug}. URL: ${url}. ${boundaryHint}`
       )
     }
     if (result === 'timeout') {
@@ -152,11 +152,11 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
       const pathname = new URL(url).pathname
       if (!pathname.startsWith('/bookings/')) {
         throw new Error(
-          `Booking page redirected away (likely server error). Lesson ${lesson.id}, tenant ${tenantSlug}. Final URL: ${url}. Check server logs for [createBookingPage].`
+          `Booking page redirected away (likely server error). Timeslot ${lesson.id}, tenant ${tenantSlug}. Final URL: ${url}. Check server logs for [createBookingPage].`
         )
       }
       const body = await page.textContent('body').catch(() => '')
-      throw new Error(`Timeout waiting for booking page. Lesson ${lesson.id}. URL: ${url}. Body: ${body?.slice(0, 300) ?? 'none'}`)
+      throw new Error(`Timeout waiting for booking page. Timeslot ${lesson.id}. URL: ${url}. Body: ${body?.slice(0, 300) ?? 'none'}`)
     }
 
     expect(new URL(page.url()).hostname).toBe(`${tenantSlug}.localhost`)

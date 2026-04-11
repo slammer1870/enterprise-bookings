@@ -1,13 +1,13 @@
 'use client'
 
 import React from 'react'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 import { Label } from '@repo/ui/components/ui/label'
 import { Button } from '@repo/ui/components/ui/button'
 import { Plus, Minus } from 'lucide-react'
 
 interface QuantitySelectorProps {
-  lesson: Lesson
+  timeslot: Timeslot
   quantity: number
   onQuantityChange: (quantity: number) => void
   /** Optional override to cap quantity due to payment-method rules. */
@@ -15,12 +15,12 @@ interface QuantitySelectorProps {
 }
 
 export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
-  lesson,
+  timeslot,
   quantity,
   onQuantityChange,
   maxQuantity: maxQuantityOverride,
 }) => {
-  const capacityMaxQuantity = Math.max(1, lesson.remainingCapacity || 1)
+  const capacityMaxQuantity = Math.max(1, timeslot.remainingCapacity || 1)
   const maxQuantity =
     typeof maxQuantityOverride === 'number'
       ? Math.max(1, maxQuantityOverride)

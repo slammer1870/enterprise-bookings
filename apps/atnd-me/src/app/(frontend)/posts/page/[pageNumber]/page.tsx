@@ -3,12 +3,15 @@ import type { Metadata } from 'next/types'
 import { CollectionArchive } from '@/components/CollectionArchive'
 import { PageRange } from '@/components/PageRange'
 import { Pagination } from '@/components/Pagination'
-import { getPayload } from '@/lib/payload'
 import React from 'react'
 import PageClient from './page.client'
 import { notFound } from 'next/navigation'
+import { queryPostsArchive } from '../../queryPostsArchive'
 
-export const revalidate = 600
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const PAGE_SIZE = 12
 
 type Args = {
   params: Promise<{
@@ -18,19 +21,12 @@ type Args = {
 
 export default async function Page({ params: paramsPromise }: Args) {
   const { pageNumber } = await paramsPromise
-  const payload = await getPayload()
 
   const sanitizedPageNumber = Number(pageNumber)
 
-  if (!Number.isInteger(sanitizedPageNumber)) notFound()
+  if (!Number.isInteger(sanitizedPageNumber) || sanitizedPageNumber < 1) notFound()
 
-  const posts = await payload.find({
-    collection: 'posts',
-    depth: 1,
-    limit: 12,
-    page: sanitizedPageNumber,
-    overrideAccess: false,
-  })
+  const posts = await queryPostsArchive({ page: sanitizedPageNumber, limit: PAGE_SIZE })
 
   return (
     <div className="pt-24 pb-24">
@@ -45,7 +41,7 @@ export default async function Page({ params: paramsPromise }: Args) {
         <PageRange
           collection="posts"
           currentPage={posts.page}
-          limit={12}
+          limit={PAGE_SIZE}
           totalDocs={posts.totalDocs}
         />
       </div>
@@ -68,21 +64,7 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   }
 }
 
+/** Paginated routes are resolved per tenant at request time. */
 export async function generateStaticParams() {
-  try {
-    const payload = await getPayload()
-    const { totalDocs } = await payload.count({
-      collection: 'posts',
-      overrideAccess: false,
-    })
-    const totalPages = Math.ceil(totalDocs / 10)
-    const pages: { pageNumber: string }[] = []
-    for (let i = 1; i <= totalPages; i++) {
-      pages.push({ pageNumber: String(i) })
-    }
-    return pages
-  } catch {
-    // Build may run before DB migrations; return [] so build succeeds (pages generated on-demand).
-    return []
-  }
+  return []
 }

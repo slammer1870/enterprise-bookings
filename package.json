@@ -23,9 +23,12 @@
     "lint": "turbo lint",
     "syncpack": "syncpack",
     "test": "turbo run test",
-    "test:e2e": "turbo test:e2e",
-    "test:e2e:ci": "turbo test:e2e:ci",
-    "test:int": "turbo test:int",
+    "test:e2e": "turbo run test:e2e",
+    "test:e2e:ci": "turbo run test:e2e:ci",
+    "test:int": "turbo run test:int",
+    "test:e2e:atnd-me": "turbo run test:e2e --filter=atnd-me",
+    "test:int:atnd-me": "turbo run test:int --filter=atnd-me",
+    "test:unit:atnd-me": "turbo run test:unit --filter=atnd-me",
     "ui": "pnpm --filter @repo/ui ui"
   },
   "pnpm": {

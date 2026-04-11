@@ -3,7 +3,8 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
-import type { User, Lesson, ClassOption, Tenant, Booking } from '@repo/shared-types'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import type { User, Timeslot, EventType, Tenant, Booking } from '@repo/shared-types'
 import { TZDate } from '@date-fns/tz'
 
 /**
@@ -20,8 +21,8 @@ describe('tRPC Tenant Compatibility Tests', () => {
   let payload: Payload
   let regularUser: User
   let testTenant: Tenant
-  let testLesson: Lesson
-  let testClassOption: ClassOption
+  let testTimeslot: Timeslot
+  let testEventType: EventType
   let testBooking: Booking
 
   beforeAll(async () => {
@@ -45,7 +46,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
         name: 'Regular User',
         email: `user-compat-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
         // Explicitly NOT adding this tenant to user's tenants array
         // to test cross-tenant booking scenario
@@ -55,8 +56,8 @@ describe('tRPC Tenant Compatibility Tests', () => {
     } as Parameters<typeof payload.create>[0])) as User
 
     // Create class option for the tenant
-    testClassOption = (await payload.create({
-      collection: 'class-options',
+    testEventType = (await payload.create({
+      collection: 'event-types',
       data: {
         name: `Compat Test Class ${Date.now()}`,
         places: 10,
@@ -64,31 +65,31 @@ describe('tRPC Tenant Compatibility Tests', () => {
         tenant: testTenant.id,
       },
       overrideAccess: true,
-    })) as ClassOption
+    })) as EventType
 
-    // Create a lesson in the future (schedule endpoint hides ended lessons)
+    // Create a lesson in the future (schedule endpoint hides ended timeslots)
     const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
     startTime.setSeconds(0, 0)
     const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
-    testLesson = (await payload.create({
-      collection: 'lessons',
+    testTimeslot = (await payload.create({
+      collection: 'timeslots',
       data: {
         date: startTime.toISOString(),
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        classOption: testClassOption.id,
+        eventType: testEventType.id,
         active: true,
         tenant: testTenant.id,
       },
       overrideAccess: true,
-    })) as Lesson
+    })) as Timeslot
 
     // Create a booking for the user
     testBooking = (await payload.create({
       collection: 'bookings',
       data: {
-        lesson: testLesson.id,
+        timeslot: testTimeslot.id,
         user: regularUser.id,
         status: 'confirmed',
         tenant: testTenant.id,
@@ -106,12 +107,12 @@ describe('tRPC Tenant Compatibility Tests', () => {
           where: { id: { equals: testBooking.id } },
         })
         await payload.delete({
-          collection: 'lessons',
-          where: { id: { equals: testLesson.id } },
+          collection: 'timeslots',
+          where: { id: { equals: testTimeslot.id } },
         })
         await payload.delete({
-          collection: 'class-options',
-          where: { id: { equals: testClassOption.id } },
+          collection: 'event-types',
+          where: { id: { equals: testEventType.id } },
         })
         await payload.delete({
           collection: 'users',
@@ -129,12 +130,16 @@ describe('tRPC Tenant Compatibility Tests', () => {
   })
 
   describe('Auth: unauthenticated access is rejected', () => {
-    it('lessons.getById throws when no user in context', async () => {
+    it('timeslots.getById throws when no user in context', async () => {
       const headers = new Headers()
       headers.set('cookie', `tenant-slug=${testTenant.slug}`)
-      const ctx = await createTRPCContext({ headers, payload })
+      const ctx = await createTRPCContext({
+        headers,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
       const caller = appRouter.createCaller(ctx)
-      await expect(caller.lessons.getById({ id: testLesson.id })).rejects.toThrow(
+      await expect(caller.timeslots.getById({ id: testTimeslot.id })).rejects.toThrow(
         'You must be logged in to access this resource'
       )
     })
@@ -142,11 +147,15 @@ describe('tRPC Tenant Compatibility Tests', () => {
     it('bookings.createBookings throws when no user in context', async () => {
       const headers = new Headers()
       headers.set('cookie', `tenant-slug=${testTenant.slug}`)
-      const ctx = await createTRPCContext({ headers, payload })
+      const ctx = await createTRPCContext({
+        headers,
+        payload,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
       const caller = appRouter.createCaller(ctx)
       await expect(
         caller.bookings.createBookings({
-          lessonId: testLesson.id,
+          timeslotId: testTimeslot.id,
           quantity: 1,
           status: 'confirmed',
         })
@@ -156,7 +165,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
   describe('Multi-tenant app scenarios (with tenants collection)', () => {
     it(
-      'lessons.getByDate: returns lessons for subdomain tenant even when user does not have tenant in tenants array',
+      'timeslots.getByDate: returns timeslots for subdomain tenant even when user does not have tenant in tenants array',
       async () => {
         const mockHeaders = new Headers()
         mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
@@ -165,22 +174,23 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testLesson.startTime)
+        const today = new Date(testTimeslot.startTime)
 
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
-        // Should see lessons for the subdomain tenant
-        const lessonIds = lessons.map((l) => l.id)
-        expect(lessonIds).toContain(testLesson.id)
-        expect(lessons.length).toBeGreaterThan(0)
+        // Should see timeslots for the subdomain tenant
+        const lessonIds = timeslots.map((l) => l.id)
+        expect(lessonIds).toContain(testTimeslot.id)
+        expect(timeslots.length).toBeGreaterThan(0)
 
-        // All lessons should be from the subdomain tenant
-        for (const lesson of lessons) {
+        // All timeslots should be from the subdomain tenant
+        for (const lesson of timeslots) {
           expect(lesson.tenant).toBe(testTenant.id)
         }
       },
@@ -188,7 +198,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
     )
 
     it(
-      'lessons.getByDate: uses the tenant timezone instead of the app default for local day boundaries',
+      'timeslots.getByDate: uses the tenant timezone instead of the app default for local day boundaries',
       async () => {
         const tenantTimeZone = 'America/New_York'
         const zonedTenant = (await payload.create({
@@ -201,8 +211,8 @@ describe('tRPC Tenant Compatibility Tests', () => {
           overrideAccess: true,
         })) as Tenant
 
-        const zonedClassOption = (await payload.create({
-          collection: 'class-options',
+        const zonedEventType = (await payload.create({
+          collection: 'event-types',
           data: {
             name: `Timezone Class ${Date.now()}`,
             places: 10,
@@ -210,7 +220,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
             tenant: zonedTenant.id,
           },
           overrideAccess: true,
-        })) as ClassOption
+        })) as EventType
 
         // Use a future local date to avoid schedule endpoint filtering past days.
         // Pick a date 2 days from now in the tenant timezone, near midnight to test local-day boundaries.
@@ -237,17 +247,17 @@ describe('tRPC Tenant Compatibility Tests', () => {
           tenantTimeZone,
         )
         const lesson = (await payload.create({
-          collection: 'lessons',
+          collection: 'timeslots',
           data: {
             date: start.toISOString(),
             startTime: start.toISOString(),
             endTime: end.toISOString(),
-            classOption: zonedClassOption.id,
+            eventType: zonedEventType.id,
             active: true,
             tenant: zonedTenant.id,
           },
           overrideAccess: true,
-        })) as Lesson
+        })) as Timeslot
 
         try {
           const headers = new Headers()
@@ -256,10 +266,11 @@ describe('tRPC Tenant Compatibility Tests', () => {
             headers,
             payload,
             user: regularUser,
+            bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
           })
 
           const caller = appRouter.createCaller(ctx)
-          const lessons = await caller.lessons.getByDate({
+          const timeslots = await caller.timeslots.getByDate({
             date: new TZDate(
               future.getFullYear(),
               future.getMonth(),
@@ -272,17 +283,17 @@ describe('tRPC Tenant Compatibility Tests', () => {
             ).toISOString(),
           })
 
-          expect(lessons.map((entry) => entry.id)).toContain(lesson.id)
+          expect(timeslots.map((entry) => entry.id)).toContain(lesson.id)
         } finally {
           try {
             await payload.delete({
-              collection: 'lessons',
+              collection: 'timeslots',
               where: { id: { equals: lesson.id } },
               overrideAccess: true,
             })
             await payload.delete({
-              collection: 'class-options',
-              where: { id: { equals: zonedClassOption.id } },
+              collection: 'event-types',
+              where: { id: { equals: zonedEventType.id } },
               overrideAccess: true,
             })
             await payload.delete({
@@ -299,7 +310,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
     )
 
     it(
-      'lessons.getById: returns lesson for subdomain tenant even when user does not have tenant in tenants array',
+      'timeslots.getById: returns lesson for subdomain tenant even when user does not have tenant in tenants array',
       async () => {
         const mockHeaders = new Headers()
         mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
@@ -308,13 +319,14 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
-        const lesson = await caller.lessons.getById({ id: testLesson.id })
+        const lesson = await caller.timeslots.getById({ id: testTimeslot.id })
 
         expect(lesson).toBeDefined()
-        expect(lesson.id).toBe(testLesson.id)
+        expect(lesson.id).toBe(testTimeslot.id)
 
         // Verify lesson belongs to the subdomain tenant
         const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
@@ -326,7 +338,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
     )
 
     it(
-      'lessons.getByIdForBooking: returns lesson for subdomain tenant even when user does not have tenant in tenants array',
+      'timeslots.getByIdForBooking: returns lesson for subdomain tenant even when user does not have tenant in tenants array',
       async () => {
         // Create a lesson that's available for booking (not booked/closed)
         // Use a future date and ensure class has enough capacity
@@ -337,8 +349,8 @@ describe('tRPC Tenant Compatibility Tests', () => {
         endTime.setHours(17, 0, 0, 0)
 
         // Create a class option with more capacity
-        const largeClassOption = (await payload.create({
-          collection: 'class-options',
+        const largeEventType = (await payload.create({
+          collection: 'event-types',
           data: {
             name: `Large Class ${Date.now()}`,
             places: 20, // More capacity
@@ -346,20 +358,20 @@ describe('tRPC Tenant Compatibility Tests', () => {
             tenant: testTenant.id,
           },
           overrideAccess: true,
-        })) as ClassOption
+        })) as EventType
 
-        const availableLesson = (await payload.create({
-          collection: 'lessons',
+        const availableTimeslot = (await payload.create({
+          collection: 'timeslots',
           data: {
             date: futureDate.toISOString(),
             startTime: futureDate.toISOString(),
             endTime: endTime.toISOString(),
-            classOption: largeClassOption.id,
+            eventType: largeEventType.id,
             active: true,
             tenant: testTenant.id,
           },
           overrideAccess: true,
-        })) as Lesson
+        })) as Timeslot
 
         try {
           // Wait a bit for booking status to be calculated
@@ -372,13 +384,14 @@ describe('tRPC Tenant Compatibility Tests', () => {
             headers: mockHeaders,
             payload,
             user: regularUser,
+            bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
           })
 
           const caller = appRouter.createCaller(ctx)
-          const lesson = await caller.lessons.getByIdForBooking({ id: availableLesson.id })
+          const lesson = await caller.timeslots.getByIdForBooking({ id: availableTimeslot.id })
 
           expect(lesson).toBeDefined()
-          expect(lesson.id).toBe(availableLesson.id)
+          expect(lesson.id).toBe(availableTimeslot.id)
 
           // Verify lesson belongs to the subdomain tenant
           const lessonTenantId = typeof lesson.tenant === 'object' && lesson.tenant !== null
@@ -389,12 +402,12 @@ describe('tRPC Tenant Compatibility Tests', () => {
           // Cleanup
           try {
             await payload.delete({
-              collection: 'lessons',
-              where: { id: { equals: availableLesson.id } },
+              collection: 'timeslots',
+              where: { id: { equals: availableTimeslot.id } },
             })
             await payload.delete({
-              collection: 'class-options',
-              where: { id: { equals: largeClassOption.id } },
+              collection: 'event-types',
+              where: { id: { equals: largeEventType.id } },
             })
           } catch {
             // ignore cleanup errors
@@ -405,7 +418,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
     )
 
     it(
-      'bookings.getUserBookingsForLesson: returns bookings for subdomain tenant even when user does not have tenant in tenants array',
+      'bookings.getUserBookingsForTimeslot: returns bookings for subdomain tenant even when user does not have tenant in tenants array',
       async () => {
         const mockHeaders = new Headers()
         mockHeaders.set('cookie', `tenant-slug=${testTenant.slug}`)
@@ -414,11 +427,12 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
-        const bookings = await caller.bookings.getUserBookingsForLesson({
-          lessonId: testLesson.id,
+        const bookings = await caller.bookings.getUserBookingsForTimeslot({
+          timeslotId: testTimeslot.id,
         })
 
         // Should see bookings for the subdomain tenant
@@ -428,15 +442,15 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
         // All bookings should be for the subdomain tenant
         for (const booking of bookings) {
-          // Check booking.tenant or booking.lesson.tenant
+          // Check booking.tenant or booking.timeslot.tenant
           const bookingTenantId = booking.tenant
             ? (typeof booking.tenant === 'object' && booking.tenant !== null
                 ? booking.tenant.id
                 : booking.tenant)
-            : (typeof booking.lesson === 'object' && booking.lesson?.tenant
-                ? (typeof booking.lesson.tenant === 'object' && booking.lesson.tenant !== null
-                    ? booking.lesson.tenant.id
-                    : booking.lesson.tenant)
+            : (typeof booking.timeslot === 'object' && booking.timeslot?.tenant
+                ? (typeof booking.timeslot.tenant === 'object' && booking.timeslot.tenant !== null
+                    ? booking.timeslot.tenant.id
+                    : booking.timeslot.tenant)
                 : null)
           expect(bookingTenantId).toBe(testTenant.id)
         }
@@ -454,11 +468,12 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
         const bookings = await caller.bookings.createBookings({
-          lessonId: testLesson.id,
+          timeslotId: testTimeslot.id,
           quantity: 1,
           status: 'confirmed',
         })
@@ -491,7 +506,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const bookingToCancel = (await payload.create({
           collection: 'bookings',
           data: {
-            lesson: testLesson.id,
+            timeslot: testTimeslot.id,
             user: regularUser.id,
             status: 'confirmed',
             tenant: testTenant.id,
@@ -506,6 +521,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
@@ -533,7 +549,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
   describe('Regular app scenarios (without tenants collection)', () => {
     it(
-      'lessons.getByDate: works correctly when no tenant-slug cookie is provided (backward compatibility)',
+      'timeslots.getByDate: works correctly when no tenant-slug cookie is provided (backward compatibility)',
       async () => {
         // No tenant-slug cookie (simulating regular app behavior)
         const mockHeaders = new Headers()
@@ -542,26 +558,27 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testLesson.startTime)
+        const today = new Date(testTimeslot.startTime)
 
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
         // Should work without errors (backward compatibility)
         // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
         // This tests that the code gracefully handles the absence of tenant context
-        expect(Array.isArray(lessons)).toBe(true)
+        expect(Array.isArray(timeslots)).toBe(true)
         // The important thing is it doesn't throw an error
       },
       TEST_TIMEOUT,
     )
 
     it(
-      'lessons.getById: works correctly when no tenant-slug cookie is provided (backward compatibility)',
+      'timeslots.getById: works correctly when no tenant-slug cookie is provided (backward compatibility)',
       async () => {
         // No tenant-slug cookie (simulating regular app behavior)
         const mockHeaders = new Headers()
@@ -570,22 +587,23 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
-        const lesson = await caller.lessons.getById({ id: testLesson.id })
+        const lesson = await caller.timeslots.getById({ id: testTimeslot.id })
 
         // Should work without errors (backward compatibility)
         // When no tenant-slug cookie, tenantId will be null, and overrideAccess will be false
         // This tests that the code gracefully handles the absence of tenant context
         expect(lesson).toBeDefined()
-        expect(lesson.id).toBe(testLesson.id)
+        expect(lesson.id).toBe(testTimeslot.id)
       },
       TEST_TIMEOUT,
     )
 
     it(
-      'bookings.getUserBookingsForLesson: works correctly when no tenant-slug cookie is provided (backward compatibility)',
+      'bookings.getUserBookingsForTimeslot: works correctly when no tenant-slug cookie is provided (backward compatibility)',
       async () => {
         // No tenant-slug cookie (simulating regular app behavior)
         const mockHeaders = new Headers()
@@ -594,11 +612,12 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
         const caller = appRouter.createCaller(ctx)
-        const bookings = await caller.bookings.getUserBookingsForLesson({
-          lessonId: testLesson.id,
+        const bookings = await caller.bookings.getUserBookingsForTimeslot({
+          timeslotId: testTimeslot.id,
         })
 
         // Should work without errors (backward compatibility)
@@ -619,18 +638,18 @@ describe('tRPC Tenant Compatibility Tests', () => {
         const endTime = new Date(today)
         endTime.setHours(19, 0, 0, 0)
 
-        const availableLesson = (await payload.create({
-          collection: 'lessons',
+        const availableTimeslot = (await payload.create({
+          collection: 'timeslots',
           data: {
             date: today.toISOString(),
             startTime: today.toISOString(),
             endTime: endTime.toISOString(),
-            classOption: testClassOption.id,
+            eventType: testEventType.id,
             active: true,
             tenant: testTenant.id,
           },
           overrideAccess: true,
-        })) as Lesson
+        })) as Timeslot
 
         try {
           // No tenant-slug cookie (simulating regular app behavior)
@@ -640,11 +659,12 @@ describe('tRPC Tenant Compatibility Tests', () => {
             headers: mockHeaders,
             payload,
             user: regularUser,
+            bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
           })
 
           const caller = appRouter.createCaller(ctx)
           const bookings = await caller.bookings.createBookings({
-            lessonId: availableLesson.id,
+            timeslotId: availableTimeslot.id,
             quantity: 1,
             status: 'confirmed',
           })
@@ -664,8 +684,8 @@ describe('tRPC Tenant Compatibility Tests', () => {
           // Cleanup
           try {
             await payload.delete({
-              collection: 'lessons',
-              where: { id: { equals: availableLesson.id } },
+              collection: 'timeslots',
+              where: { id: { equals: availableTimeslot.id } },
             })
           } catch {
             // ignore cleanup errors
@@ -678,7 +698,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
   describe('Edge cases', () => {
     it(
-      'lessons.getByDate: handles invalid tenant slug gracefully',
+      'timeslots.getByDate: handles invalid tenant slug gracefully',
       async () => {
         const mockHeaders = new Headers()
         mockHeaders.set('cookie', 'tenant-slug=non-existent-tenant-12345')
@@ -687,34 +707,35 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testLesson.startTime)
+        const today = new Date(testTimeslot.startTime)
 
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
         // Should return empty array when tenant doesn't exist
-        // Note: The default tenant onboarding hook may create lessons, but they won't match
+        // Note: The default tenant onboarding hook may create timeslots, but they won't match
         // the non-existent tenant slug, so we should get an empty array
-        expect(Array.isArray(lessons)).toBe(true)
-        // Filter out any lessons that might have been created by default hooks
-        const lessonsForNonExistentTenant = lessons.filter((l) => {
+        expect(Array.isArray(timeslots)).toBe(true)
+        // Filter out any timeslots that might have been created by default hooks
+        const timeslotsForNonExistentTenant = timeslots.filter((l) => {
           const _lessonTenantId = typeof l.tenant === 'object' && l.tenant !== null
             ? l.tenant.id
             : l.tenant
-          // Since the tenant doesn't exist, no lessons should match
+          // Since the tenant doesn't exist, no timeslots should match
           return false
         })
-        expect(lessonsForNonExistentTenant.length).toBe(0)
+        expect(timeslotsForNonExistentTenant.length).toBe(0)
       },
       TEST_TIMEOUT,
     )
 
     it(
-      'lessons.getByDate: works without tenant-slug cookie (regular app behavior)',
+      'timeslots.getByDate: works without tenant-slug cookie (regular app behavior)',
       async () => {
         const mockHeaders = new Headers()
         // No tenant-slug cookie
@@ -723,17 +744,18 @@ describe('tRPC Tenant Compatibility Tests', () => {
           headers: mockHeaders,
           payload,
           user: regularUser,
+          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testLesson.startTime)
+        const today = new Date(testTimeslot.startTime)
 
         const caller = appRouter.createCaller(ctx)
-        const lessons = await caller.lessons.getByDate({
+        const timeslots = await caller.timeslots.getByDate({
           date: today.toISOString(),
         })
 
         // Should work without errors (backward compatibility)
-        expect(Array.isArray(lessons)).toBe(true)
+        expect(Array.isArray(timeslots)).toBe(true)
       },
       TEST_TIMEOUT,
     )

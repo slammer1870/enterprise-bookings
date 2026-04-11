@@ -7,6 +7,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '@payloadcms/ui'
 import { isTenantAdmin } from '@/utilities/check-admin-role'
+import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
 
 type Status = { connected: boolean; tenantSlug?: string } | null
 
@@ -44,9 +45,31 @@ export const StripeConnectStatus: React.FC = () => {
   if (status === null) {
     return null
   }
+  const notice =
+    typeof window !== 'undefined'
+      ? getStripeConnectNoticeFromSearch(window.location.search, {
+          connected: status?.connected,
+        })
+      : null
   if (status.connected) {
     return (
       <div data-testid="stripe-connect-status">
+        {notice ? (
+          <div
+            data-testid="stripe-connect-notice"
+            role={notice.tone === 'error' ? 'alert' : 'status'}
+            style={{
+              marginBottom: '8px',
+              padding: '10px 12px',
+              borderRadius: '4px',
+              backgroundColor: notice.tone === 'error' ? '#fef2f2' : '#f0fdf4',
+              color: notice.tone === 'error' ? '#b91c1c' : '#166534',
+              border: `1px solid ${notice.tone === 'error' ? '#fecaca' : '#bbf7d0'}`,
+            }}
+          >
+            {notice.message}
+          </div>
+        ) : null}
         <strong>Stripe connected</strong>
       </div>
     )
@@ -57,6 +80,22 @@ export const StripeConnectStatus: React.FC = () => {
     : `${base}/api/stripe/connect/authorize`
   return (
     <div data-testid="stripe-connect-status">
+      {notice ? (
+        <div
+          data-testid="stripe-connect-notice"
+          role={notice.tone === 'error' ? 'alert' : 'status'}
+          style={{
+            marginBottom: '8px',
+            padding: '10px 12px',
+            borderRadius: '4px',
+            backgroundColor: notice.tone === 'error' ? '#fef2f2' : '#f0fdf4',
+            color: notice.tone === 'error' ? '#b91c1c' : '#166534',
+            border: `1px solid ${notice.tone === 'error' ? '#fecaca' : '#bbf7d0'}`,
+          }}
+        >
+          {notice.message}
+        </div>
+      ) : null}
       <a href={href}>Connect Stripe</a>
     </div>
   )

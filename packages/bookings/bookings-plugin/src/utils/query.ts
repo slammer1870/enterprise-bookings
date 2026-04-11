@@ -2,7 +2,7 @@ import qs from "qs";
 
 import { getDayBoundsInTimeZone } from "@repo/shared-utils";
 
-export const getLessonsQuery = (
+export const getTimeslotsQuery = (
   date: Date,
   timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
 ) => {
@@ -36,13 +36,13 @@ export const getLessonsQuery = (
 
 export const getBookingsQuery = (
   userId: number | undefined,
-  lessonId: number
+  timeslotId: number
 ) => {
   const query = {
     depth: 2,
     limit: 1,
     where: {
-      and: [{ lesson: { equals: lessonId } }, { user: { equals: userId } }],
+      and: [{ timeslot: { equals: timeslotId } }, { user: { equals: userId } }],
     },
   };
 
@@ -53,14 +53,14 @@ export const getBookingsQuery = (
 
 export const getActiveBookingsQuery = (
   userId: number | undefined,
-  lessonId: number
+  timeslotId: number
 ) => {
   const query = {
     depth: 2,
     limit: 1,
     where: {
       and: [
-        { lesson: { equals: lessonId } },
+        { timeslot: { equals: timeslotId } },
         { user: { equals: userId } },
         {
           status: {

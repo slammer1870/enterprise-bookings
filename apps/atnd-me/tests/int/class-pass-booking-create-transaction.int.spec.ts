@@ -35,7 +35,7 @@ describe('Class-pass booking create → booking-transaction', () => {
         name: 'CP Tx User',
         email: `cp-tx-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -44,7 +44,7 @@ describe('Class-pass booking create → booking-transaction', () => {
     userId = user.id as number
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `CP Tx Class ${Date.now()}`,
         places: 10,
@@ -60,10 +60,10 @@ describe('Class-pass booking create → booking-transaction', () => {
     const end = new Date(start)
     end.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       data: {
         tenant: tenantId,
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -119,12 +119,12 @@ describe('Class-pass booking create → booking-transaction', () => {
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: lessonId } },
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: classOptionId } },
           overrideAccess: true,
         })
@@ -153,7 +153,7 @@ describe('Class-pass booking create → booking-transaction', () => {
         draft: false,
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
           paymentMethodUsed: 'class_pass',
@@ -194,7 +194,7 @@ describe('Class-pass booking create → booking-transaction', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },

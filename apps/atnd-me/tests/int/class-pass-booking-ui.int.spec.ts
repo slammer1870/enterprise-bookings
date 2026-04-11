@@ -1,6 +1,6 @@
 /**
- * Phase 4.6 – Integration: getValidClassPassesForLesson and createBookings with classPassId.
- * - getValidClassPassesForLesson returns only passes for lesson's tenant and allowed types.
+ * Phase 4.6 – Integration: getValidClassPassesForTimeslot and createBookings with classPassId.
+ * - getValidClassPassesForTimeslot returns only passes for lesson's tenant and allowed types.
  * - createBookings with classPassId creates booking with paymentMethodUsed and classPassIdUsed; pass quantity decremented.
  * - Invalid pass / wrong tenant / quantity rejected.
  */
@@ -9,10 +9,12 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
-import type { User, Lesson } from '@repo/shared-types'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import type { User, Timeslot } from '@repo/shared-types'
 
 const TEST_TIMEOUT = 60000
 const HOOK_TIMEOUT = 300000
+const runId = Math.random().toString(36).slice(2, 10)
 
 describe('Class pass booking UI (Phase 4.6)', () => {
   let payload: Payload
@@ -22,6 +24,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
   let classOptionId: number
   let classPassTypeId: number
   let classPassId: number
+  let limitedClassPassId: number
   let lessonId: number
 
   const createCaller = async () => {
@@ -31,6 +34,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       headers,
       payload,
       user,
+      bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     })
     return appRouter.createCaller(ctx)
   }
@@ -44,7 +48,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       data: {
         name: 'CP UI Tenant',
         slug: 'cp-ui-tenant',
-        stripeConnectAccountId: 'acct_cp_ui_1',
+        stripeConnectAccountId: `acct_e2e_connected_cp_ui_${runId}`,
         stripeConnectOnboardingStatus: 'active',
       },
       overrideAccess: true,
@@ -64,7 +68,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         name: 'CP UI User',
         email: `cp-ui-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -72,7 +76,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     } as Parameters<typeof payload.create>[0])) as User
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `CP UI Class ${Date.now()}`,
         places: 10,
@@ -90,14 +94,17 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         slug: `cp-ui-5pack-${Date.now()}`,
         quantity: 5,
         tenant: testTenantId,
+        status: 'active',
+        allowMultipleBookingsPerTimeslot: true,
         priceInformation: { price: 29.99 },
       },
+      draft: false,
       overrideAccess: true,
-    })
+    } as Parameters<typeof payload.create>[0])
     classPassTypeId = cpt.id as number
 
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOptionId,
       data: { paymentMethods: { allowedClassPasses: [classPassTypeId] } },
       overrideAccess: true,
@@ -120,16 +127,32 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     })
     classPassId = pass.id as number
 
+    const limitedPass = await payload.create({
+      collection: 'class-passes',
+      data: {
+        user: user.id,
+        tenant: testTenantId,
+        type: classPassTypeId,
+        quantity: 2,
+        expirationDate: future.toISOString().slice(0, 10),
+        purchasedAt: new Date().toISOString(),
+        price: 1999,
+        status: 'active',
+      },
+      overrideAccess: true,
+    })
+    limitedClassPassId = limitedPass.id as number
+
     const start = new Date()
     start.setDate(start.getDate() + 1)
     start.setHours(14, 0, 0, 0)
     const end = new Date(start)
     end.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       data: {
         tenant: testTenantId,
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -145,11 +168,15 @@ describe('Class pass booking UI (Phase 4.6)', () => {
   afterAll(async () => {
     if (payload?.db) {
       try {
-        await payload.delete({ collection: 'bookings', where: { lesson: { equals: lessonId } }, overrideAccess: true })
-        await payload.delete({ collection: 'lessons', where: { id: { equals: lessonId } }, overrideAccess: true })
-        await payload.delete({ collection: 'class-passes', where: { id: { equals: classPassId } }, overrideAccess: true })
+        await payload.delete({ collection: 'bookings', where: { timeslot: { equals: lessonId } }, overrideAccess: true })
+        await payload.delete({ collection: 'timeslots', where: { id: { equals: lessonId } }, overrideAccess: true })
+        await payload.delete({
+          collection: 'class-passes',
+          where: { id: { in: [classPassId, limitedClassPassId] } },
+          overrideAccess: true,
+        })
         await payload.delete({ collection: 'class-pass-types', where: { id: { equals: classPassTypeId } }, overrideAccess: true })
-        await payload.delete({ collection: 'class-options', where: { id: { equals: classOptionId } }, overrideAccess: true })
+        await payload.delete({ collection: 'event-types', where: { id: { equals: classOptionId } }, overrideAccess: true })
         await payload.delete({ collection: 'users', where: { id: { equals: user.id } }, overrideAccess: true })
         await payload.delete({ collection: 'tenants', where: { id: { in: [testTenantId, otherTenantId] } }, overrideAccess: true })
       } catch {
@@ -160,21 +187,38 @@ describe('Class pass booking UI (Phase 4.6)', () => {
   })
 
   it(
-    'getValidClassPassesForLesson returns only passes for lesson tenant and allowed types',
+    'getValidClassPassesForTimeslot returns only passes for lesson tenant and allowed types',
     async () => {
       const caller = await createCaller()
-      const getValid = (caller as any).bookings?.getValidClassPassesForLesson
+      const getValid = (caller as any).bookings?.getValidClassPassesForTimeslot
       if (typeof getValid !== 'function') {
         expect(getValid).toBeDefined()
         return
       }
-      const passes = await getValid({ lessonId })
+      const passes = await getValid({ timeslotId: lessonId })
       expect(Array.isArray(passes)).toBe(true)
       expect(passes.length).toBeGreaterThanOrEqual(1)
       const found = passes.find((p: any) => p.id === classPassId)
       expect(found).toBeDefined()
       expect(found.quantity).toBe(5)
       expect(found.status).toBe('active')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'getValidClassPassesForTimeslot hides passes that cannot cover the requested quantity',
+    async () => {
+      const caller = await createCaller()
+      const getValid = (caller as any).bookings?.getValidClassPassesForTimeslot
+      if (typeof getValid !== 'function') {
+        expect(getValid).toBeDefined()
+        return
+      }
+      const passes = await getValid({ timeslotId: lessonId, quantity: 3 })
+      expect(Array.isArray(passes)).toBe(true)
+      expect(passes.find((p: any) => p.id === classPassId)).toBeDefined()
+      expect(passes.find((p: any) => p.id === limitedClassPassId)).toBeUndefined()
     },
     TEST_TIMEOUT,
   )
@@ -189,7 +233,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         return
       }
       const result = await createBookings({
-        lessonId,
+        timeslotId: lessonId,
         quantity: 1,
         classPassId,
       })
@@ -218,11 +262,33 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       const caller = await createCaller()
       await expect(
         (caller as any).bookings.createBookings({
-          lessonId,
+          timeslotId: lessonId,
           quantity: 1,
           classPassId: 999999,
         }),
       ).rejects.toThrow()
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'createBookings with classPassId is rejected when requested quantity exceeds remaining credits',
+    async () => {
+      const caller = await createCaller()
+      await expect(
+        (caller as any).bookings.createBookings({
+          timeslotId: lessonId,
+          quantity: 3,
+          classPassId: limitedClassPassId,
+        }),
+      ).rejects.toThrow(/not enough credits/i)
+
+      const passAfter = await payload.findByID({
+        collection: 'class-passes',
+        id: limitedClassPassId,
+        depth: 0,
+      }) as any
+      expect(passAfter.quantity).toBe(2)
     },
     TEST_TIMEOUT,
   )

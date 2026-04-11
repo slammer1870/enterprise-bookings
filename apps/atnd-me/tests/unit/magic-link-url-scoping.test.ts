@@ -37,10 +37,10 @@ describe('Magic-link URL scoping', () => {
       enableMagicLink: true,
       includeMagicLinkOptionConfig: true,
       roles: {
-        adminRoles: ['admin', 'tenant-admin'],
+        adminRoles: ['super-admin', 'admin', 'staff'],
         defaultRole: 'user',
-        defaultAdminRole: 'admin',
-        roles: ['user', 'admin', 'tenant-admin'],
+        defaultAdminRole: 'super-admin',
+        role: ['user', 'super-admin', 'admin', 'staff'],
         allowedFields: ['name'],
       },
       resolveMagicLinkAppName: ({ url }) => {

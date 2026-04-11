@@ -74,7 +74,7 @@ export function HeaderAuthMenu({
         <div className="flex items-center gap-4">
           <span
             className={cn(
-              'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold',
+              'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold text-foreground',
             )}
             aria-hidden
           >
@@ -90,12 +90,15 @@ export function HeaderAuthMenu({
         </div>
 
         <div className="border-t border-border pt-3">
-          <Button
+          <button
             type="button"
-            size="sm"
-            variant="outline"
-            className="w-full justify-center cursor-pointer"
             disabled={billingLoading}
+            className={cn(
+              'w-full text-left text-sm text-primary underline-offset-4 hover:underline',
+              'bg-transparent p-0 border-0 shadow-none',
+              'cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm',
+            )}
             onClick={async () => {
               if (billingLoading) return
               setBillingLoading(true)
@@ -119,7 +122,7 @@ export function HeaderAuthMenu({
             }}
           >
             {billingLoading ? 'Opening billing portal…' : 'Billing portal'}
-          </Button>
+          </button>
         </div>
 
         <Button
@@ -150,7 +153,7 @@ export function HeaderAuthMenu({
       >
         <span
           className={cn(
-            'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold',
+            'inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold text-foreground',
           )}
           aria-hidden
         >
@@ -160,7 +163,7 @@ export function HeaderAuthMenu({
 
       <div
         className={cn(
-          'absolute right-0 mt-2 w-56 rounded-md border border-border bg-background shadow-lg',
+          'absolute right-0 mt-2 w-56 rounded-md border border-border bg-background text-foreground shadow-lg',
         )}
       >
         <div className="px-3 py-2 border-b border-border">

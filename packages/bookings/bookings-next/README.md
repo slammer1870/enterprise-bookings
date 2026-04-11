@@ -4,7 +4,7 @@ Next.js components for displaying and managing lesson schedules with customizabl
 
 ## Features
 
-- **Schedule Component**: Display lessons for a selected date
+- **Schedule Component**: Display timeslots for a selected date
 - **Customizable Button Colors**: Check-in and cancel buttons use CSS variables that can be customized per app
 - **tRPC Integration**: Uses tRPC for data fetching and mutations
 - **Type-Safe**: Built with TypeScript and shared types
@@ -80,11 +80,11 @@ All button states use CSS variables that can be customized in your app's CSS/SCS
 You can also use the components individually:
 
 ```tsx
-import { LessonList, LessonDetail, CheckInButton } from '@repo/bookings-next'
-import { Lesson } from '@repo/shared-types'
+import { TimeslotList, TimeslotDetail, CheckInButton } from '@repo/bookings-next'
+import { Timeslot } from '@repo/shared-types'
 
-function CustomSchedule({ lessons }: { lessons: Lesson[] }) {
-  return <LessonList lessons={lessons} />
+function CustomSchedule({ timeslots }: { timeslots: Timeslot[] }) {
+  return <TimeslotList timeslots={timeslots} />
 }
 ```
 
@@ -94,28 +94,28 @@ function CustomSchedule({ lessons }: { lessons: Lesson[] }) {
 
 Main schedule component that handles date selection and lesson fetching.
 
-### `LessonList`
+### `TimeslotList`
 
-Displays a list of lessons.
+Displays a list of timeslots.
 
 **Props:**
-- `lessons: Lesson[]` - Array of lessons to display
+- `timeslots: Timeslot[]` - Array of timeslots to display
 
-### `LessonDetail`
+### `TimeslotDetail`
 
 Displays details for a single lesson including time, class name, location, instructor, and check-in button.
 
 **Props:**
-- `lesson: Lesson` - The lesson to display
+- `lesson: Timeslot` - The lesson to display
 
 ### `CheckInButton`
 
 Button component for checking in or canceling bookings. Automatically uses `bg-checkin` for check-in actions and `bg-cancel` for cancel actions.
 
 **Props:**
-- `bookingStatus: Lesson['bookingStatus']` - Current booking status
-- `type: Lesson['classOption']['type']` - Class type (adult/child)
-- `id: Booking['id']` - Lesson/booking ID
+- `bookingStatus: Timeslot['bookingStatus']` - Current booking status
+- `type: Timeslot['classOption']['type']` - Class type (adult/child)
+- `id: Booking['id']` - Timeslot/booking ID
 
 ## Requirements
 

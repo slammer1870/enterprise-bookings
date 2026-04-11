@@ -1,72 +1,76 @@
-import { Lesson } from "@repo/shared-types";
-import { CollectionAfterChangeHook } from "payload";
+import { Timeslot } from "@repo/shared-types";
+import type { CollectionAfterChangeHook, CollectionSlug } from "payload";
 
-export const setLockout: CollectionAfterChangeHook = async ({
-  req,
-  doc,
-  context,
-}) => {
-  if (context.triggerAfterChange === false) {
-    return;
-  }
+import type { BookingCollectionSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 
-  // This hook is only relevant when `doc` is a Booking-like shape (has `lesson` + `status`).
-  // It is attached in some contexts where `doc` may be a Lesson, so guard defensively.
-  const bookingLike = doc as any;
-  const lessonRel = bookingLike?.lesson;
-  const status = bookingLike?.status;
+export function createSetLockout(
+  slugs: BookingCollectionSlugs,
+): CollectionAfterChangeHook {
+  const timeslotsSlug = slugs.timeslots as CollectionSlug;
 
-  if (!lessonRel || !status) {
-    return;
-  }
-
-  const lessonId = typeof lessonRel === "object" ? lessonRel.id : lessonRel;
-
-  if (!lessonId) {
-    return;
-  }
-
-  const confirmed = status === "confirmed";
-
-  try {
-    if (confirmed) {
-      await req.payload.update({
-        collection: "lessons",
-        id: lessonId,
-        data: {
-          lockOutTime: 0,
-        },
-        context: { triggerAfterChange: false },
-      });
+  return async ({ req, doc, context }) => {
+    if (context.triggerAfterChange === false) {
       return;
     }
 
-    const lesson = (await req.payload.findByID({
-      collection: "lessons",
-      id: lessonId,
-      depth: 2,
-    })) as Lesson;
+    const bookingLike = doc as any;
+    const timeslotRel = bookingLike?.timeslot;
+    const status = bookingLike?.status;
 
-    if (
-      !lesson.bookings?.docs
-        ?.filter((booking) => booking.id != bookingLike.id)
-        .some((booking) => booking.status === "confirmed")
-    ) {
-      await req.payload.update({
-        collection: "lessons",
-        id: lessonId,
-        data: {
-          lockOutTime: lesson.originalLockOutTime,
-        },
-        context: { triggerAfterChange: false },
-      });
+    if (!timeslotRel || !status) {
       return;
     }
-  } catch (error: any) {
-    // Silently handle cases where lesson was deleted (e.g., during test cleanup)
-    if (error?.status === 404 || error?.name === "NotFound") {
+
+    const timeslotId = typeof timeslotRel === "object" ? timeslotRel.id : timeslotRel;
+
+    if (!timeslotId) {
       return;
     }
-    throw error;
-  }
-};
+
+    const confirmed = status === "confirmed";
+
+    try {
+      if (confirmed) {
+        await req.payload.update({
+          collection: timeslotsSlug,
+          id: timeslotId,
+          data: {
+            lockOutTime: 0,
+          },
+          context: { triggerAfterChange: false },
+        });
+        return;
+      }
+
+      const timeslot = (await req.payload.findByID({
+        collection: timeslotsSlug,
+        id: timeslotId,
+        depth: 2,
+      })) as unknown as Timeslot;
+
+      if (
+        !timeslot.bookings?.docs
+          ?.filter((booking) => booking.id != bookingLike.id)
+          .some((booking) => booking.status === "confirmed")
+      ) {
+        await req.payload.update({
+          collection: timeslotsSlug,
+          id: timeslotId,
+          data: {
+            lockOutTime: timeslot.originalLockOutTime,
+          },
+          context: { triggerAfterChange: false },
+        });
+        return;
+      }
+    } catch (error: any) {
+      if (error?.status === 404 || error?.name === "NotFound") {
+        return;
+      }
+      throw error;
+    }
+  };
+}
+
+export const setLockout = createSetLockout(DEFAULT_BOOKING_COLLECTION_SLUGS);

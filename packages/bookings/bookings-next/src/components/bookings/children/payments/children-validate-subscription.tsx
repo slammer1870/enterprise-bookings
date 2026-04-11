@@ -35,12 +35,12 @@ const getSubscriptionMessage = (status: string, hasLimitReached: boolean) => {
 
 export function ChildrenValidateSubscription({
   subscription,
-  lessonDate,
-  lessonId,
+  timeslotDate,
+  timeslotId,
 }: {
   subscription: Subscription;
-  lessonDate: Date;
-  lessonId: number;
+  timeslotDate: Date;
+  timeslotId: number;
 }) {
   const trpc = useTRPC();
 
@@ -52,7 +52,7 @@ export function ChildrenValidateSubscription({
           sessionsInformation: subscription.plan.sessionsInformation || undefined,
         },
       },
-      lessonDate,
+      timeslotDate,
     })
   );
 
@@ -65,7 +65,7 @@ export function ChildrenValidateSubscription({
   );
 
   if (!limitReached && subscription.status === "active") {
-    return <ChildrensBookingForm lessonId={lessonId} />;
+    return <ChildrensBookingForm timeslotId={timeslotId} />;
   }
 
   const message = getSubscriptionMessage(subscription.status, Boolean(limitReached));

@@ -39,7 +39,7 @@ export const Navbar: GlobalConfig = {
         { label: 'Schedule', link: '/#schedule', isExternal: false },
         { label: 'Kids Classes', link: '/kids', isExternal: false },
         { label: 'Seminars', link: '/seminars', isExternal: false },
-        { label: 'Private Lessons', link: '/private-lessons', isExternal: false },
+        { label: 'Private Timeslots', link: '/private-timeslots', isExternal: false },
         { label: 'Online Store', link: 'https://store.brugrappling.ie/', isExternal: true },
       ],
     },

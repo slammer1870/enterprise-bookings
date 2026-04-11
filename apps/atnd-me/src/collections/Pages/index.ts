@@ -11,6 +11,10 @@ import {
 import { defaultBlockSlugs } from '../../blocks/registry'
 import { getBlocksForTenant } from '../../utilities/getBlocksForTenant'
 import {
+  resolveTenantIdForDocumentWrite,
+  type TenantDocumentWriteReq,
+} from '@/utilities/resolveTenantIdForDocumentWrite'
+import {
   Hero,
   About,
   Location,
@@ -35,6 +39,7 @@ import {
   DhPricing,
   DhContact,
   DhGroups,
+  createTwoColumnLayout,
 } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
 import { CallToAction } from '../../blocks/CallToAction/config'
@@ -48,6 +53,8 @@ import { HeroWithLocation } from '@/blocks/HeroWithLocation/config'
 import { CroiLanHeroWithLocation } from '@/blocks/CroiLanHeroWithLocation/config'
 import { Schedule } from '@/blocks/Schedule/config'
 import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
+import { DhLiveSchedule } from '@/blocks/DhLiveSchedule/config'
+import { DhLiveMembership } from '@/blocks/DhLiveMembership/config'
 import { SectionTagline } from '@/blocks/SectionTagline/config'
 import { populatePublishedAt } from '../../hooks/populatePublishedAt'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
@@ -103,12 +110,15 @@ const availableBlocks = [
   DhPricing,
   DhContact,
   DhGroups,
+  DhLiveSchedule,
+  DhLiveMembership,
   // Croí Lán (tenant-scoped extras)
   CroiLanHeroWithLocation,
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config
 const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
+const TwoColumnLayout = createTwoColumnLayout(availableBlocks)
 
 const pageBlocks = [
   HeroSchedule,
@@ -117,6 +127,7 @@ const pageBlocks = [
   Hero,
   MarketingHero,
   ThreeColumnLayout,
+  TwoColumnLayout,
   ...availableBlocks.filter(
     (block) =>
       block.slug !== 'heroSchedule' &&
@@ -128,75 +139,6 @@ const pageBlocks = [
 ]
 
 const allPageBlockSlugs: string[] = pageBlocks.map((b) => b.slug!).filter(Boolean)
-
-async function resolveTenantIdForPageWrite(req: {
-  context?: { tenant?: unknown; __resolvedTenantIdFromSlug?: unknown; __resolvedTenantIdFromHost?: unknown }
-  cookies?: { get?: (name: string) => { value?: string } | undefined }
-  headers?: { get?: (name: string) => string | null }
-  payload?: {
-    find: (args: {
-      collection: 'tenants'
-      where: Record<string, unknown>
-      limit: number
-      depth: number
-      overrideAccess: boolean
-      select: { id: true }
-      req?: unknown
-    }) => Promise<{ docs?: Array<{ id?: number | string }> }>
-  }
-}): Promise<number | string | null> {
-  const ctxTenant = req.context?.tenant
-  if (ctxTenant) {
-    return typeof ctxTenant === 'object' && ctxTenant !== null && 'id' in ctxTenant
-      ? (ctxTenant as { id: number | string }).id
-      : (ctxTenant as number | string)
-  }
-
-  const cookieStore = req.cookies
-  const headerGetter = req.headers?.get?.bind(req.headers)
-  const cookieHeader = headerGetter?.('cookie') ?? ''
-  const getCookieFromHeader = (name: string): string | null => {
-    if (!cookieHeader) return null
-    const m = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
-    if (!m?.[1]) return null
-    try {
-      return decodeURIComponent(m[1])
-    } catch {
-      return m[1]
-    }
-  }
-
-  const payloadTenant =
-    cookieStore?.get?.('payload-tenant')?.value ?? getCookieFromHeader('payload-tenant') ?? null
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-    return parseInt(payloadTenant, 10)
-  }
-
-  const cachedTenantId =
-    req.context?.__resolvedTenantIdFromSlug ?? req.context?.__resolvedTenantIdFromHost ?? null
-  if (typeof cachedTenantId === 'number' || typeof cachedTenantId === 'string') {
-    return cachedTenantId
-  }
-
-  const tenantSlug =
-    cookieStore?.get?.('tenant-slug')?.value ?? getCookieFromHeader('tenant-slug') ?? null
-  if (!tenantSlug || !req.payload) return null
-
-  const result = await req.payload
-    .find({
-      collection: 'tenants',
-      where: { slug: { equals: tenantSlug } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: { id: true },
-      req,
-    })
-    .catch(() => null)
-
-  const tenantId = result?.docs?.[0]?.id
-  return typeof tenantId === 'number' || typeof tenantId === 'string' ? tenantId : null
-}
 
 /** Extract allowed block slugs from the document's tenant only (not navbar context). Base pages get default blocks. */
 function _getAllowedBlockSlugs(data: { tenant?: unknown }, _req?: { context?: { tenant?: unknown } }): string[] {
@@ -243,11 +185,6 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
     | undefined
   const tenant = data?.tenant
   if (!tenant) {
-    // When running server-side code paths (migrations, seeds, tests) we often use overrideAccess
-    // and the request may have no user. In that case, allow all blocks for global pages.
-    // Access control still prevents unauthenticated users from creating/updating pages.
-    if (!r?.user) return allPageBlockSlugs
-
     // Prefer the tenant implied by request context (subdomain / middleware) when `data.tenant`
     // hasn't been synced into the form yet (common on create pages during initial hydration).
     const rawCtxTenant = r?.context?.tenant
@@ -257,7 +194,7 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
 
     if (typeof ctxTenantId === 'number' || typeof ctxTenantId === 'string') {
       try {
-        const tenantDoc = await r.payload?.findByID({
+        const tenantDoc = await r?.payload?.findByID({
           collection: 'tenants',
           id: ctxTenantId,
           depth: 0,
@@ -270,7 +207,9 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
 
     // Create-page block filtering can run before the form tenant field hydrates and before
     // req.context.tenant is available. Reuse the same cookie/header fallback as page writes.
-    const resolvedTenantId = r ? await resolveTenantIdForPageWrite(r).catch(() => null) : null
+    const resolvedTenantId = r
+      ? await resolveTenantIdForDocumentWrite(r as unknown as TenantDocumentWriteReq).catch(() => null)
+      : null
     if (typeof resolvedTenantId === 'number' || typeof resolvedTenantId === 'string') {
       try {
         const tenantDoc = await r?.payload?.findByID({
@@ -283,6 +222,11 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
         // fall back to user-based behavior below
       }
     }
+
+    // When running server-side code paths (migrations, seeds, tests) we often use overrideAccess
+    // and the request may have no user. If we still couldn't resolve a tenant from context/cookies,
+    // allow all blocks for truly global pages.
+    if (!r?.user) return allPageBlockSlugs
 
     const tenantIds = getUserTenantIds((r.user ?? null) as unknown as SharedUser | null)
     if (tenantIds === null) return allPageBlockSlugs
@@ -323,7 +267,7 @@ export const Pages: CollectionConfig<'pages'> = {
     // Without this, Payload can render a 404 Not Found for /admin/collections/pages/*.
     admin: ({ req: { user } }) => {
       if (!user) return false
-      return checkRole(['admin', 'tenant-admin'], user as unknown as SharedUser)
+      return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
     },
     read: tenantScopedReadFiltered,
     create: tenantScopedCreate,
@@ -470,7 +414,7 @@ export const Pages: CollectionConfig<'pages'> = {
         if (data.tenant) return data
 
         const rawTenant =
-          (await resolveTenantIdForPageWrite(req as Parameters<typeof resolveTenantIdForPageWrite>[0])) ??
+          (await resolveTenantIdForDocumentWrite(req as unknown as TenantDocumentWriteReq)) ??
           (operation === 'update' && originalDoc?.tenant ? originalDoc.tenant : null)
         if (rawTenant) {
           data.tenant =
@@ -515,6 +459,15 @@ export const Pages: CollectionConfig<'pages'> = {
               const nested =
                 typeof b === 'object' && b !== null && 'blocks' in b ? (b as { blocks?: unknown }).blocks : undefined
               out.push(...collectBlockTypes(nested))
+            }
+
+            if (blockType === 'twoColumnLayout') {
+              const row = b as {
+                leftBlocks?: unknown
+                rightBlocks?: unknown
+              }
+              out.push(...collectBlockTypes(row.leftBlocks))
+              out.push(...collectBlockTypes(row.rightBlocks))
             }
           }
           return out

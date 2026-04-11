@@ -19,9 +19,13 @@ import { PlatformFees } from './globals/PlatformFees'
 import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
-import { generateLessonsFromScheduleWithTenant } from './tasks/generate-lessons-with-tenant'
+import { generateTimeslotsFromScheduleWithTenant } from './tasks/generate-timeslots-with-tenant'
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
+import { resolvePayloadEmailConfig } from './utilities/emailConfig'
+import { createSubscriptionInStripeEndpoint } from './endpoints/admin/stripe/create-subscription'
+import { stripeDashboardLinkEndpoint } from './endpoints/admin/stripe/dashboard-link'
+import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/update-subscription'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -103,11 +107,7 @@ export default buildConfig({
   },
   // This config helps us configure global or default features that the other editors can inherit
   editor: defaultLexical,
-  email: resendAdapter({
-    defaultFromAddress: process.env.DEFAULT_FROM_ADDRESS || '',
-    defaultFromName: process.env.DEFAULT_FROM_NAME || '',
-    apiKey: process.env.RESEND_API_KEY || '',
-  }),
+  email: resendAdapter(resolvePayloadEmailConfig(process.env)),
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
@@ -140,6 +140,9 @@ export default buildConfig({
         getStripeAccountIdForRequest,
       }),
     },
+    createSubscriptionInStripeEndpoint,
+    updateStripeSubscriptionEndpoint,
+    stripeDashboardLinkEndpoint,
   ],
   plugins,
   secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),
@@ -164,11 +167,11 @@ export default buildConfig({
       },
     },
     tasks: [
-      // Override the generateLessonsFromSchedule task to include tenant context
-      // This ensures the job can find tenant-scoped lessons correctly
+      // Override the generateTimeslotsFromSchedule task to include tenant context
+      // This ensures the job can find tenant-scoped timeslots correctly
       {
-        slug: 'generateLessonsFromSchedule',
-        handler: generateLessonsFromScheduleWithTenant,
+        slug: 'generateTimeslotsFromSchedule',
+        handler: generateTimeslotsFromScheduleWithTenant,
       },
     ],
   },

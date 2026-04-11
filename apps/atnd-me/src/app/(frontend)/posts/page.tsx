@@ -3,28 +3,17 @@ import type { Metadata } from 'next/types'
 import { CollectionArchive } from '@/components/CollectionArchive'
 import { PageRange } from '@/components/PageRange'
 import { Pagination } from '@/components/Pagination'
-import { getPayload } from '@/lib/payload'
 import React from 'react'
 import PageClient from './page.client'
+import { queryPostsArchive } from './queryPostsArchive'
 
-export const dynamic = 'force-static'
-export const revalidate = 600
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+const PAGE_SIZE = 12
 
 export default async function Page() {
-  const payload = await getPayload()
-
-  const posts = await payload.find({
-    collection: 'posts',
-    depth: 1,
-    limit: 12,
-    overrideAccess: false,
-    select: {
-      title: true,
-      slug: true,
-      categories: true,
-      meta: true,
-    },
-  })
+  const posts = await queryPostsArchive({ page: 1, limit: PAGE_SIZE })
 
   return (
     <div className="pt-24 pb-24">
@@ -39,7 +28,7 @@ export default async function Page() {
         <PageRange
           collection="posts"
           currentPage={posts.page}
-          limit={12}
+          limit={PAGE_SIZE}
           totalDocs={posts.totalDocs}
         />
       </div>

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { BookingForm } from '../../src/components/bookings/booking-form'
-import type { Lesson } from '@repo/shared-types'
+import type { Timeslot } from '@repo/shared-types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useTRPC } from '@repo/trpc/client'
 import { useRouter } from 'next/navigation'
@@ -25,23 +25,23 @@ vi.mock('sonner', () => ({
   },
 }))
 
-const createMockLesson = (remainingCapacity: number): Lesson => ({
-  id: 1,
-  date: new Date().toISOString(),
-  startTime: new Date().toISOString(),
-  endTime: new Date().toISOString(),
-  classOption: {
+const createMockTimeslot = (remainingCapacity: number): Timeslot =>
+  ({
     id: 1,
-    name: 'Test Class',
-    places: 10,
-    description: 'Test Description',
-  },
-  remainingCapacity,
-  bookingStatus: 'active',
-  location: 'Test Location',
-  active: true,
-  bookings: { docs: [] },
-} as unknown as Lesson)
+    date: new Date().toISOString(),
+    startTime: new Date().toISOString(),
+    endTime: new Date().toISOString(),
+    eventType: {
+      id: 1,
+      name: 'Test Class',
+      places: 10,
+      description: 'Test Description',
+    },
+    remainingCapacity,
+    bookingStatus: 'active',
+    location: 'Test Location',
+    bookings: { docs: [] },
+  }) as unknown as Timeslot
 
 describe('BookingForm', () => {
   let queryClient: QueryClient
@@ -73,16 +73,16 @@ describe('BookingForm', () => {
     })
   })
 
-  const renderComponent = (lesson: Lesson, quantity: number, onSuccessRedirect?: string) => {
+  const renderComponent = (timeslot: Timeslot, quantity: number, onSuccessRedirect?: string) => {
     return render(
       <QueryClientProvider client={queryClient}>
-        <BookingForm lesson={lesson} quantity={quantity} onSuccessRedirect={onSuccessRedirect} />
+        <BookingForm timeslot={timeslot} quantity={quantity} onSuccessRedirect={onSuccessRedirect} />
       </QueryClientProvider>
     )
   }
 
   it('renders booking form with correct information', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     renderComponent(lesson, 2)
 
@@ -94,7 +94,7 @@ describe('BookingForm', () => {
   })
 
   it('displays singular form for single slot', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     renderComponent(lesson, 1)
 
@@ -104,7 +104,7 @@ describe('BookingForm', () => {
 
   it('submits booking when form is submitted', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
     const mockBookings = [{ id: 1 }, { id: 2 }]
 
     mockMutateAsync.mockResolvedValue(mockBookings)
@@ -119,7 +119,7 @@ describe('BookingForm', () => {
       // Check the first argument (the actual mutation variables)
       const callArgs = mockMutateAsync.mock.calls[0]
       expect(callArgs[0]).toEqual({
-        lessonId: 1,
+        timeslotId: 1,
         quantity: 2,
       })
     })
@@ -127,7 +127,7 @@ describe('BookingForm', () => {
 
   it('shows success toast and redirects on successful booking', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
     const mockBookings = [{ id: 1 }, { id: 2 }]
 
     mockMutateAsync.mockResolvedValue(mockBookings)
@@ -145,7 +145,7 @@ describe('BookingForm', () => {
 
   it('shows error toast on booking failure', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
     const error = { message: 'Booking failed' }
 
     mockMutateAsync.mockRejectedValue(error)
@@ -161,7 +161,7 @@ describe('BookingForm', () => {
   })
 
   it('disables submit button when quantity exceeds capacity', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     renderComponent(lesson, 10) // Quantity exceeds capacity
 
@@ -170,7 +170,7 @@ describe('BookingForm', () => {
   })
 
   it('disables submit button when quantity is less than 1', () => {
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     renderComponent(lesson, 0) // Invalid quantity
 
@@ -180,7 +180,7 @@ describe('BookingForm', () => {
 
   it('shows loading state during submission', async () => {
     const user = userEvent.setup()
-    const lesson = createMockLesson(5)
+    const lesson = createMockTimeslot(5)
 
     // Create a promise that we can control
     let resolvePromise: (value: any) => void

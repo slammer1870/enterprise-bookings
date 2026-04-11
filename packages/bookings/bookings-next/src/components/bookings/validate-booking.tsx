@@ -1,4 +1,4 @@
-import { Lesson } from "@repo/shared-types";
+import { Timeslot } from "@repo/shared-types";
 import { BookingSummary } from "./booking-summary";
 
 /**
@@ -21,26 +21,26 @@ export type ValidateCheckInResult = {
  * Example usage in a page component:
  * ```tsx
  * const caller = await createCaller()
- * const checkInResult = await caller.bookings.validateAndAttemptCheckIn({ lessonId: id });
+ * const checkInResult = await caller.bookings.validateAndAttemptCheckIn({ timeslotId: id });
  * if (checkInResult.shouldRedirect) {
  *   redirect('/dashboard');
  * }
  * // Then render this component
- * <ValidateBooking lesson={lesson} user={user} validationResult={checkInResult} />
+ * <ValidateBooking timeslot={timeslot} user={user} validationResult={checkInResult} />
  * ```
  */
 export const ValidateBooking = async ({
-  lesson,
+  timeslot,
   user,
   validationResult,
 }: {
-  lesson: Lesson;
+  timeslot: Timeslot;
   user: { id: string | number; name?: string | null; email?: string | null };
   validationResult?: ValidateCheckInResult;
 }) => {
   return (
     <div className="space-y-4">
-      <BookingSummary lesson={lesson} />
+      <BookingSummary timeslot={timeslot} />
       
       {validationResult && (
         <div className="space-y-2">

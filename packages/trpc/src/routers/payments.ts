@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   stripeProtectedProcedure,
   protectedProcedure,
+  requireBookingCollections,
   requireCollections,
   type GetSubscriptionBookingFeeCents,
 } from "../trpc";
@@ -12,9 +13,17 @@ import Stripe from "stripe";
 
 export type GetDropInFeeBreakdown = (_params: {
   payload: any;
-  lessonId: number;
+  timeslotId: number;
   classPriceCents: number;
-}) => Promise<{ classPriceCents: number; bookingFeeCents: number; totalCents: number }>;
+  originalClassPriceCents?: number;
+  promoDiscountCents?: number;
+}) => Promise<{
+  classPriceCents: number;
+  originalClassPriceCents?: number;
+  promoDiscountCents?: number;
+  bookingFeeCents: number;
+  totalCents: number;
+}>;
 
 export type CreatePaymentsRouterDeps = {
   getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
@@ -274,18 +283,23 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
        * Returns fee breakdown for drop-in checkout (class price, booking fee, total).
        */
       getDropInFeeBreakdown: protectedProcedure
-        .use(requireCollections("lessons", "tenants"))
+        .use(requireBookingCollections("timeslots"))
+        .use(requireCollections("tenants"))
         .input(
           z.object({
-            lessonId: z.number(),
+            timeslotId: z.number(),
             classPriceCents: z.number().min(0),
+            originalClassPriceCents: z.number().min(0).optional(),
+            promoDiscountCents: z.number().min(0).optional(),
           })
         )
         .query(({ ctx, input }) =>
           getDropInFeeBreakdown({
             payload: ctx.payload,
-            lessonId: input.lessonId,
+            timeslotId: input.timeslotId,
             classPriceCents: input.classPriceCents,
+            originalClassPriceCents: input.originalClassPriceCents,
+            promoDiscountCents: input.promoDiscountCents,
           })
         ),
     }),
@@ -598,6 +612,8 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       };
       if (promotionCodeId) {
         sessionParams.discounts = [{ promotion_code: promotionCodeId }];
+      } else {
+        sessionParams.allow_promotion_codes = true;
       }
       if (input.mode === "subscription") {
         sessionParams.subscription_data = {

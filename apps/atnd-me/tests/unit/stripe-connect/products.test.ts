@@ -213,7 +213,11 @@ describe('stripe-connect/products', () => {
         },
         { stripeAccount: MOCK_ACCOUNT_ID },
       )
-      expect(mockStripe.products.update).not.toHaveBeenCalled()
+      expect(mockStripe.products.update).toHaveBeenCalledWith(
+        'prod_123',
+        { default_price: 'price_new' },
+        { stripeAccount: MOCK_ACCOUNT_ID },
+      )
     })
   })
 })

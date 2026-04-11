@@ -216,9 +216,9 @@ describe("Subscription Webhooks", () => {
       },
     });
 
-    // Clean up lessons after each test
+    // Clean up timeslots after each test
     await payload.delete({
-      collection: "lessons",
+      collection: "timeslots",
       where: {
         id: {
           exists: true,
@@ -226,9 +226,9 @@ describe("Subscription Webhooks", () => {
       },
     });
 
-    // Clean up class-options after each test
+    // Clean up event-types after each test
     await payload.delete({
-      collection: "class-options",
+      collection: "event-types",
       where: {
         id: {
           exists: true,
@@ -306,10 +306,10 @@ describe("Subscription Webhooks", () => {
       );
     });
 
-    it("should create booking when lessonId is provided in metadata", async () => {
+    it("should create booking when timeslotId is provided in metadata", async () => {
       // Create a class option and lesson for booking
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -318,12 +318,12 @@ describe("Subscription Webhooks", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -333,7 +333,7 @@ describe("Subscription Webhooks", () => {
         testUser.stripeCustomerId!,
         testPlan.stripeProductId!,
         "active",
-        { lessonId: String(lesson.id) }
+        { timeslotId: String(lesson.id) }
       );
 
       await subscriptionCreated(mockEvent);
@@ -342,7 +342,7 @@ describe("Subscription Webhooks", () => {
         collection: "bookings",
         where: {
           user: { equals: testUser.id },
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
         },
       });
 
@@ -350,10 +350,10 @@ describe("Subscription Webhooks", () => {
       expect(bookings.docs[0]?.status).toBe("confirmed");
     });
 
-    it("should update existing booking when lessonId is provided", async () => {
+    it("should update existing booking when timeslotId is provided", async () => {
       // Create a class option and lesson
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -362,12 +362,12 @@ describe("Subscription Webhooks", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(Date.now() + 24 * 60 * 60 * 1000),
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -377,7 +377,7 @@ describe("Subscription Webhooks", () => {
         collection: "bookings",
         data: {
           user: testUser.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "pending",
         },
       });
@@ -387,7 +387,7 @@ describe("Subscription Webhooks", () => {
         testUser.stripeCustomerId!,
         testPlan.stripeProductId!,
         "active",
-        { lessonId: String(lesson.id) }
+        { timeslotId: String(lesson.id) }
       );
 
       await subscriptionCreated(mockEvent);
@@ -628,7 +628,7 @@ describe("Subscription Webhooks", () => {
 
     it("should support both camelCase and snake_case metadata", async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -637,12 +637,12 @@ describe("Subscription Webhooks", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(Date.now() + 24 * 60 * 60 * 1000),
           startTime: new Date(Date.now() + 24 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 25 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -663,7 +663,7 @@ describe("Subscription Webhooks", () => {
         testUser.stripeCustomerId!,
         testPlan.stripeProductId!,
         "active",
-        { lessonId: String(lesson.id) }
+        { timeslotId: String(lesson.id) }
       );
 
       await subscriptionUpdated(mockEventCamel);
@@ -672,7 +672,7 @@ describe("Subscription Webhooks", () => {
         collection: "bookings",
         where: {
           user: { equals: testUser.id },
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
         },
       });
 
@@ -691,7 +691,7 @@ describe("Subscription Webhooks", () => {
         testUser.stripeCustomerId!,
         testPlan.stripeProductId!,
         "active",
-        { lesson_id: String(lesson.id) }
+        { timeslot_id: String(lesson.id) }
       );
 
       await subscriptionUpdated(mockEventSnake);
@@ -700,7 +700,7 @@ describe("Subscription Webhooks", () => {
         collection: "bookings",
         where: {
           user: { equals: testUser.id },
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
         },
       });
 
@@ -978,7 +978,7 @@ describe("Subscription Webhooks", () => {
 
     it("should cancel related bookings when planId is provided", async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class",
           places: 10,
@@ -991,12 +991,12 @@ describe("Subscription Webhooks", () => {
 
       const futureDate = new Date(Date.now() + 48 * 60 * 60 * 1000); // 2 days from now
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: futureDate,
           startTime: futureDate,
           endTime: new Date(futureDate.getTime() + 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -1015,7 +1015,7 @@ describe("Subscription Webhooks", () => {
         collection: "bookings",
         data: {
           user: testUser.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });

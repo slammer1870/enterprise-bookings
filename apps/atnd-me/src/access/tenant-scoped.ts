@@ -2,6 +2,46 @@ import type { Access, Payload, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
+import {
+  getPayloadTenantIdFromRequest,
+  isBaseHostRequest,
+  getTenantSlugFromHost,
+  getTenantSlugFromRequest,
+} from '@/utilities/tenantRequest'
+
+/**
+ * Tenant IDs from `tenants` + `registrationTenant` only (no role-based shortcuts).
+ * Used when resolving membership for tenant portal access while `isAdmin(session)` is false,
+ * even if the DB row incorrectly includes `super-admin` (where {@link getUserTenantIds} would return null).
+ */
+export function getTenantMembershipIdsFromUserDoc(user: unknown): number[] {
+  if (!user || typeof user !== 'object') return []
+  const tenants = (user as Record<string, unknown>).tenants as
+    | Array<{ tenant?: number | { id: number }; tenant_id?: number; id?: number } | number>
+    | undefined
+  if (tenants && tenants.length > 0) {
+    return tenants
+      .map((tenant: { tenant?: number | { id: number }; tenant_id?: number; id?: number } | number) => {
+        if (typeof tenant === 'object' && tenant !== null) {
+          if ('tenant' in tenant) {
+            const tenantValue = tenant.tenant
+            return typeof tenantValue === 'object' && tenantValue !== null ? tenantValue.id : tenantValue
+          }
+          if ('tenant_id' in tenant && typeof tenant.tenant_id === 'number') {
+            return tenant.tenant_id
+          }
+          if ('id' in tenant) {
+            return tenant.id
+          }
+        }
+        return tenant
+      })
+      .filter((id): id is number => typeof id === 'number')
+  }
+  const reg = (user as { registrationTenant?: number | { id: number } }).registrationTenant
+  const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
+  return typeof tid === 'number' ? [tid] : []
+}
 
 /**
  * Get tenant IDs that a user has access to
@@ -11,45 +51,17 @@ import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
  */
 export function getUserTenantIds(user: SharedUser | null): number[] | null {
   if (!user) return []
-  
-  // Admin can access all tenants
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+
+  // Platform super-admin can access all tenants
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return null // null means "all tenants"
   }
-  
-  // Tenant-admin can access their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-    const tenants = (user as unknown as Record<string, unknown>).tenants as Array<{ tenant?: number | { id: number }; id?: number } | number> | undefined
-    // Auth/session payloads often omit the `tenants` relationship. Fall back to `registrationTenant`
-    // so tenant-admins still have access to their primary tenant.
-    if (!tenants || tenants.length === 0) {
-      const reg = (user as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
-      const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
-      return typeof tid === 'number' ? [tid] : []
-    }
-    
-    // tenants can be an array of IDs, an array of tenant objects with 'id', or an array of objects with 'tenant' / 'tenant_id' (join table)
-    return tenants.map((tenant: { tenant?: number | { id: number }; tenant_id?: number; id?: number } | number) => {
-      if (typeof tenant === 'object' && tenant !== null) {
-        // Handle structure: { tenant: <id> } or { tenant: { id } }
-        if ('tenant' in tenant) {
-          const tenantValue = tenant.tenant
-          return typeof tenantValue === 'object' && tenantValue !== null ? tenantValue.id : tenantValue
-        }
-        // Handle join table shape: { tenant_id: <id> }
-        if ('tenant_id' in tenant && typeof tenant.tenant_id === 'number') {
-          return tenant.tenant_id
-        }
-        // Handle structure: { id: <id> }
-        if ('id' in tenant) {
-          return tenant.id
-        }
-      }
-      // Handle direct ID
-      return tenant
-    }).filter((id): id is number => typeof id === 'number')
+
+  // Tenant org admin or staff: assigned tenants
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
+    return getTenantMembershipIdsFromUserDoc(user)
   }
-  
+
   // Regular users have no tenant management access
   return []
 }
@@ -61,7 +73,7 @@ type TenantsFindResult = {
   }>
 }
 
-type RequestLike = {
+export type RequestLike = {
   user?: unknown
   context?: Record<string, unknown>
   payload: Payload
@@ -96,7 +108,10 @@ export async function resolveTenantAdminTenantIds(args: {
     })
     .catch(() => null)
 
-  const fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
+  let fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
+  if (fromDb === null && fullUser && !checkRole(['super-admin'], user as SharedUser)) {
+    fromDb = getTenantMembershipIdsFromUserDoc(fullUser)
+  }
   return fromDb === null ? [] : fromDb
 }
 
@@ -123,22 +138,27 @@ function normalizeContextTenantId(contextTenant: unknown): number | null {
   return null
 }
 
-async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | null> {
+export async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | null> {
   const contextTenantId = normalizeContextTenantId(req.context?.tenant)
   if (contextTenantId) return contextTenantId
 
   const ctx = (req.context ??= {}) as Record<string, unknown>
+  const isBaseHost = isBaseHostRequest(req.headers as Headers | undefined)
 
-  const payloadTenant =
-    req.cookies?.get?.('payload-tenant')?.value ?? getCookieFromRequestHeader(req, 'payload-tenant') ?? null
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-    const id = parseInt(payloadTenant, 10)
-    ctx.__resolvedTenantIdFromPayloadCookie = id
-    return id
+  const payloadTenant = getPayloadTenantIdFromRequest({ cookies: req.cookies })
+  if (isBaseHost) {
+    if (payloadTenant) {
+      ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+      return payloadTenant
+    }
+    return null
   }
 
   const tenantSlug =
-    req.cookies?.get?.('tenant-slug')?.value ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
+    getTenantSlugFromRequest({
+      cookies: req.cookies,
+      headers: req.headers as Headers | undefined,
+    }) ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
   if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
     const cached = ctx.__resolvedTenantIdFromSlug
     if (typeof cached === 'number' && Number.isFinite(cached)) return cached
@@ -161,6 +181,11 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
     }
   }
 
+  if (payloadTenant) {
+    ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+    return payloadTenant
+  }
+
   const cachedHostTenant = ctx.__resolvedTenantIdFromHost
   if (typeof cachedHostTenant === 'number' && Number.isFinite(cachedHostTenant)) {
     return cachedHostTenant
@@ -170,26 +195,7 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
   const hostname = String(hostHeader).split(':')[0] ?? ''
   if (!hostname) return null
 
-  const rootHostname = (() => {
-    const url = process.env.NEXT_PUBLIC_SERVER_URL
-    if (!url) return null
-    try {
-      return new URL(url).hostname
-    } catch {
-      return null
-    }
-  })()
-
-  const isLocalhost = hostname.includes('localhost')
-  let slugFromSubdomain: string | null = null
-
-  if (isLocalhost) {
-    const parts = hostname.split('.')
-    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') slugFromSubdomain = parts[0]
-  } else if (rootHostname && hostname.endsWith('.' + rootHostname)) {
-    const prefix = hostname.slice(0, -(rootHostname.length + 1))
-    slugFromSubdomain = prefix.split('.')[0] || null
-  }
+  const slugFromSubdomain = getTenantSlugFromHost(req.headers as Headers | undefined)
 
   const where =
     slugFromSubdomain
@@ -229,7 +235,7 @@ async function resolveTenantIdFromRequest(req: RequestLike): Promise<number | nu
  */
 export const tenantScopedRead: Access = ({ req: { user: _user } }) => {
   // Public read access (for booking pages, etc.)
-  // This allows regular users to read lessons, class-options, etc. for booking
+  // This allows regular users to read timeslots, event-types, etc. for booking
   return true
 }
 
@@ -247,25 +253,33 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
   if (!user) return false
   
   // Admin can create for any tenant
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
   
   // Tenant-admin can only create for their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
     if (tenantIds.length === 0) return false
     
-    // If data.tenant is set, validate it's in the user's tenants
+    // If data.tenant is set, it must be one of the user's tenants (otherwise deny)
     const dataTenant = data?.tenant
-    if (dataTenant) {
-      const dataTenantId = typeof dataTenant === 'object' && dataTenant !== null
-        ? dataTenant.id
-        : dataTenant
-      
-      if (dataTenantId && typeof dataTenantId === 'number' && tenantIds.includes(dataTenantId)) {
+    if (dataTenant !== undefined && dataTenant !== null && dataTenant !== '') {
+      const raw =
+        typeof dataTenant === 'object' && dataTenant !== null && 'id' in dataTenant
+          ? (dataTenant as { id: unknown }).id
+          : dataTenant
+      const dataTenantId =
+        typeof raw === 'number' && Number.isFinite(raw)
+          ? raw
+          : typeof raw === 'string' && /^\d+$/.test(raw)
+            ? parseInt(raw, 10)
+            : NaN
+
+      if (Number.isFinite(dataTenantId) && tenantIds.includes(dataTenantId)) {
         return true
       }
+      return false
     }
     
     // If data.tenant is not set, check if context.tenant is set and valid
@@ -301,12 +315,12 @@ export const tenantScopedUpdate: Access = async ({ req: { user, payload }, id: _
   if (!user) return false
   
   // Admin can update any document
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
   
   // Tenant-admin can only update documents from their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     // We need to check the document's tenant
     // This will be handled by query constraints in the access control
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
@@ -330,13 +344,13 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
   if (!user) return false
   
   // Admin can delete any document
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
   
   // Tenant-admin can delete documents from their assigned tenants
   // (query constraint will be applied automatically by update access)
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
     if (tenantIds.length === 0) return false
     return { tenant: { in: tenantIds } }
@@ -344,6 +358,40 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
   
   // Regular users cannot delete configuration documents
   return false
+}
+
+export async function resolveTenantAdminReadConstraint(args: {
+  req: {
+    user?: unknown
+    payload: Payload
+    context?: Record<string, unknown>
+    cookies?: {
+      get?: (name: string) => { value?: string } | undefined
+    }
+    headers?: {
+      get?: (name: string) => string | null
+    }
+  }
+}): Promise<Where | false> {
+  const { req } = args
+  const tenantIds = await resolveTenantAdminTenantIds({ user: req.user, payload: req.payload })
+  if (tenantIds.length === 0) return false
+
+  const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
+  if (resolvedTenantId != null) {
+    if (!tenantIds.includes(resolvedTenantId)) return false
+    return {
+      tenant: {
+        equals: resolvedTenantId,
+      },
+    }
+  }
+
+  return {
+    tenant: {
+      in: tenantIds,
+    },
+  }
 }
 
 /**
@@ -354,31 +402,33 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
  * - Regular users: can read documents for the current tenant context (from subdomain)
  * 
  * IMPORTANT: When req.context.tenant is set (from subdomain), it takes precedence over
- * the user's tenants array. This allows cross-tenant booking - users can see lessons
+ * the user's tenants array. This allows cross-tenant booking - users can see timeslots
  * for the tenant they're viewing, regardless of their tenant assignments.
  */
-export const tenantScopedReadFiltered: Access = ({ req }) => {
+export const tenantScopedReadFiltered: Access = async ({ req }) => {
   const user = req.user
   const contextTenant = req.context?.tenant
   
   // Public read - allow access (multi-tenant plugin will filter by request context)
   if (!user) return true
   
-  // Admin can read all documents
-  if (checkRole(['admin'], user as unknown as SharedUser)) {
+  // Admin can read all documents, but when the admin sidebar selected a tenant
+  // we should scope list data to that tenant on the server as well.
+  if (checkRole(['super-admin'], user as unknown as SharedUser)) {
+    const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
+    if (resolvedTenantId != null) {
+      return {
+        tenant: {
+          equals: resolvedTenantId,
+        },
+      }
+    }
     return true
   }
   
   // Tenant-admin can only read documents from their assigned tenants
-  if (checkRole(['tenant-admin'], user as unknown as SharedUser)) {
-    const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    if (tenantIds === null || tenantIds.length === 0) return false
-    
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
+    return await resolveTenantAdminReadConstraint({ req })
   }
   
   // Regular users: Allow read access for booking purposes
@@ -390,7 +440,7 @@ export const tenantScopedReadFiltered: Access = ({ req }) => {
   // 2. Having both explicit filter AND access control constraint can cause conflicts
   // 3. The explicit filter is more reliable and easier to debug
   //
-  // This allows cross-tenant booking - users can see lessons for the tenant
+  // This allows cross-tenant booking - users can see timeslots for the tenant
   // they're viewing (from subdomain), regardless of their tenant assignments.
   if (contextTenant) {
     // Return true to allow access - tenant filtering is handled by explicit where clause
@@ -411,18 +461,12 @@ export const tenantScopedReadFiltered: Access = ({ req }) => {
 export const tenantScopedPublicReadStrict: Access = async ({ req }) => {
   const user = req.user
 
-  if (user && checkRole(['admin'], user as SharedUser)) {
+  if (user && checkRole(['super-admin'], user as SharedUser)) {
     return true
   }
 
-  if (user && checkRole(['tenant-admin'], user as SharedUser)) {
-    const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
-    if (tenantIds.length === 0) return false
-    return {
-      tenant: {
-        in: tenantIds,
-      },
-    }
+  if (user && checkRole(['admin', 'staff'], user as SharedUser)) {
+    return await resolveTenantAdminReadConstraint({ req })
   }
 
   const tenantId = await resolveTenantIdFromRequest(req as RequestLike)
@@ -456,12 +500,12 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
     }) as unknown as Where
 
   // Admin can read all documents
-  if (user && checkRole(['admin'], user as unknown as SharedUser)) {
+  if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
     return true
   }
 
   // Tenant-admin: constrain to their tenants
-  if (user && checkRole(['tenant-admin'], user as unknown as SharedUser)) {
+  if (user && checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     const tenantIds = getUserTenantIds(user as unknown as SharedUser)
     if (tenantIds === null || tenantIds.length === 0) return false
     return whereTenantsOrPublic(tenantIds)
@@ -489,4 +533,22 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
     // No tenant context could be resolved: only publicly-linked media.
     return { isPublic: { equals: true } } as unknown as Where
   })()
+}
+
+/**
+ * Resolve the current site tenant for React Server Components (e.g. page blocks) using
+ * cookies, host, and slug — same rules as `resolveTenantIdFromRequest` on a Payload request.
+ */
+export async function resolveTenantIdFromServerContext(): Promise<number | null> {
+  const { getPayload } = await import('@/lib/payload')
+  const payload = await getPayload()
+  const { cookies, headers } = await import('next/headers')
+  const cookieStore = await cookies()
+  const headerList = await headers()
+  return resolveTenantIdFromRequest({
+    payload,
+    cookies: cookieStore,
+    headers: headerList,
+    context: {},
+  })
 }

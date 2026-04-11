@@ -5,7 +5,7 @@
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsTenantAdmin, BASE_URL } from './helpers/auth-helpers'
-import { createTestClassOption } from './helpers/data-helpers'
+import { createTestEventType } from './helpers/data-helpers'
 
 test.describe('Admin payment methods gated by Stripe Connect', () => {
   test('when not connected, shows "Connect Stripe to enable payments" and Connect CTA on class option edit', async ({
@@ -13,9 +13,9 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
     testData,
     request,
   }) => {
-    const co = await createTestClassOption(testData.tenants[0]!.id, 'Gated Test Class', 5)
+    const co = await createTestEventType(testData.tenants[0]!.id, 'Gated Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto(`${BASE_URL}/admin/collections/class-options/${co.id}`, {
+    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, {
       waitUntil: 'networkidle',
     })
 
@@ -26,7 +26,7 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
 
     // Ensure we're in the class-option edit view (CI can be slower; don't couple to doc title markup)
     await page
-      .waitForURL((url) => url.pathname.includes(`/admin/collections/class-options/${co.id}`), {
+      .waitForURL((url) => url.pathname.includes(`/admin/collections/event-types/${co.id}`), {
         timeout: 30000,
       })
       .catch(() => null)
@@ -90,14 +90,14 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
       overrideAccess: true,
     })
 
-    const co = await createTestClassOption(tenantId, 'Connected Test Class', 5)
+    const co = await createTestEventType(tenantId, 'Connected Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
     const tenantSlug = testData.tenants[0]!.slug
     await page.context().addCookies([
       { name: 'tenant-slug', value: tenantSlug, url: `${BASE_URL}/` },
       { name: 'tenant-slug', value: tenantSlug, url: `${BASE_URL}/admin/` },
     ])
-    await page.goto(`${BASE_URL}/admin/collections/class-options/${co.id}`, {
+    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, {
       waitUntil: 'networkidle',
     })
 
@@ -107,7 +107,7 @@ test.describe('Admin payment methods gated by Stripe Connect', () => {
       .catch(() => null)
 
     await page
-      .waitForURL((url) => url.pathname.includes(`/admin/collections/class-options/${co.id}`), {
+      .waitForURL((url) => url.pathname.includes(`/admin/collections/event-types/${co.id}`), {
         timeout: 30000,
       })
       .catch(() => null)

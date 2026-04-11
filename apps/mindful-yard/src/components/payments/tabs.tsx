@@ -1,12 +1,12 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@repo/ui/components/ui/tabs'
 
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 import { DropInPayment } from './drop-ins'
 
 export function PaymentTabs({
   paymentMethods,
 }: {
-  paymentMethods: Lesson['classOption']['paymentMethods']
+  paymentMethods: Timeslot['eventType']['paymentMethods']
 }) {
   if (!paymentMethods) {
     return null

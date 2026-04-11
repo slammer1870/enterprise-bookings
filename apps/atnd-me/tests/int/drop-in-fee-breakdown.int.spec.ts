@@ -7,6 +7,7 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@/trpc/router'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import type { User } from '@repo/shared-types'
 
 const HOOK_TIMEOUT = 300000
@@ -39,7 +40,7 @@ describe('Drop-in fee breakdown total', () => {
         name: 'Fee Breakdown User',
         email: `fee-breakdown-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -58,7 +59,7 @@ describe('Drop-in fee breakdown total', () => {
     } as Parameters<typeof payload.updateGlobal>[0])
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Fee Breakdown Class ${Date.now()}`,
         places: 10,
@@ -74,11 +75,11 @@ describe('Drop-in fee breakdown total', () => {
     const endTime = new Date(startTime)
     endTime.setHours(15, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       draft: false,
       data: {
         tenant: tenantId,
-        classOption: co.id,
+        eventType: co.id,
         date: startTime.toISOString().split('T')[0],
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
@@ -94,12 +95,12 @@ describe('Drop-in fee breakdown total', () => {
     if (payload?.db) {
       try {
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: lessonId } },
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: classOptionId } },
           overrideAccess: true,
         })
@@ -127,12 +128,13 @@ describe('Drop-in fee breakdown total', () => {
         headers: new Headers(),
         payload,
         user: { id: userId },
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       })
       const caller = appRouter.createCaller(ctx)
 
       const classPriceCents = 1000
       const result = await caller.payments.getDropInFeeBreakdown({
-        lessonId,
+        timeslotId: lessonId,
         classPriceCents,
       })
 

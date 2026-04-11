@@ -5,27 +5,26 @@ import type { NextRequest } from 'next/server'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
+import { getTenantIdentifierFromRequest } from '@/utilities/tenantRequest'
+import type { TenantStripeStatus } from '@/lib/stripe-connect/tenantStripe'
 
 export type TenantForConnect = {
   id: number
   slug?: string | null
   domain?: string | null
   stripeConnectAccountId?: string | null
-  stripeConnectOnboardingStatus?: string | null
+  stripeConnectOnboardingStatus?: TenantStripeStatus | null
 }
 
 /** Resolve tenant slug/id from request (headers, cookies, searchParams). Supports test mode. */
 export function resolveTenantSlugOrId(request: NextRequest): string | null {
-  if (process.env.NODE_ENV === 'test') {
-    const id = request.headers.get('x-tenant-id')
-    if (id) return id
-  }
-  return (
-    request.headers.get('x-tenant-slug') ??
-    request.headers.get('x-tenant-id') ??
-    request.cookies.get('tenant-slug')?.value ??
-    request.nextUrl.searchParams.get('tenantSlug') ??
-    null
+  return getTenantIdentifierFromRequest(
+    {
+      headers: request.headers,
+      cookies: request.cookies,
+      searchParams: request.nextUrl.searchParams,
+    },
+    { allowNumericHeaderId: process.env.NODE_ENV === 'test' },
   )
 }
 
@@ -42,7 +41,7 @@ export async function getCurrentUser(
         collection: 'users',
         id: parseInt(testUserId, 10),
         overrideAccess: true,
-        select: { id: true, email: true, name: true, roles: true, tenants: true } as any,
+        select: { id: true, email: true, name: true, role: true, tenants: true } as any,
       })
       return u as unknown as SharedUser
     }
@@ -57,7 +56,7 @@ export async function resolveTenantForConnect(
   payload: any,
   slugOrId: string
 ): Promise<TenantForConnect | null> {
-  if (process.env.NODE_ENV === 'test' && /^\d+$/.test(slugOrId)) {
+  if (/^\d+$/.test(slugOrId)) {
     const t = await payload.findByID({
       collection: 'tenants',
       id: parseInt(slugOrId, 10),
@@ -93,7 +92,7 @@ export async function resolveTenantForConnect(
 /** Check user has one of the roles and (optionally) access to tenantId. */
 export function userHasStripeConnectAccess(
   user: SharedUser | null,
-  roles: ('admin' | 'tenant-admin')[],
+  roles: ('super-admin' | 'admin')[],
   tenantId?: number
 ): boolean {
   if (!user) return false

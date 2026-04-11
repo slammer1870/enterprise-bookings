@@ -13,7 +13,7 @@ const statusOptions = [
   { label: "Cancelled", value: "cancelled" },
 ] as { label: string; value: string }[];
 
-export const AddBooking = ({ lessonId }: { lessonId: number }) => {
+export const AddBooking = ({ timeslotId }: { timeslotId: number }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [status, setStatus] = useState<string>("pending");
@@ -61,7 +61,7 @@ export const AddBooking = ({ lessonId }: { lessonId: number }) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           user: Number(selectedUserId),
-          lesson: lessonId,
+          timeslot: timeslotId,
           status,
         }),
         credentials: "include",

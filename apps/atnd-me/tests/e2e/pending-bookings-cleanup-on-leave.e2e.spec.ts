@@ -7,8 +7,8 @@ import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUser } from './helpers/auth-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestBooking,
   getPayloadInstance,
 } from './helpers/data-helpers'
@@ -48,7 +48,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         overrideAccess: true,
       })) as { id: number }
 
-      const classOption = await createTestClassOption(
+      const classOption = await createTestEventType(
         tenant.id,
         'Leave Cleanup With PM',
         10,
@@ -56,7 +56,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
         workerIndex
       )
       await payload.update({
-        collection: 'class-options',
+        collection: 'event-types',
         id: classOption.id,
         data: { paymentMethods: { allowedDropIn: dropIn.id } },
         overrideAccess: true,
@@ -68,7 +68,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       const endTime = new Date(startTime)
       endTime.setHours(11, 0, 0, 0)
 
-      const lesson = await createTestLesson(
+      const lesson = await createTestTimeslot(
         tenant.id,
         classOption.id,
         startTime,
@@ -169,7 +169,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       const bookings = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
         depth: 0,
@@ -195,7 +195,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       const user = testData.users.user2 ?? testData.users.user1
 
       // Class option with no payment methods
-      const classOption = await createTestClassOption(
+      const classOption = await createTestEventType(
         tenant.id,
         'Leave Cleanup No PM',
         10,
@@ -209,7 +209,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       const endTime = new Date(startTime)
       endTime.setHours(13, 0, 0, 0)
 
-      const lesson = await createTestLesson(
+      const lesson = await createTestTimeslot(
         tenant.id,
         classOption.id,
         startTime,
@@ -291,7 +291,7 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
       const bookings = await payload.find({
         collection: 'bookings',
         where: {
-          lesson: { equals: lesson.id },
+          timeslot: { equals: lesson.id },
           user: { equals: user.id },
         },
         depth: 0,

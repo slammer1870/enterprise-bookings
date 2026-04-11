@@ -60,13 +60,13 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   	"tenant_id" integer NOT NULL
   );
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-21T11:14:36.151Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-21T11:14:36.151Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-21T11:14:36.255Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-21T11:14:36.255Z';
   ALTER TABLE "pages" ADD COLUMN "tenant_id" integer;
   ALTER TABLE "_pages_v" ADD COLUMN "version_tenant_id" integer;
-  ALTER TABLE "instructors" ADD COLUMN "tenant_id" integer;
-  ALTER TABLE "lessons" ADD COLUMN "tenant_id" integer;
+  ALTER TABLE "staff-members" ADD COLUMN "tenant_id" integer;
+  ALTER TABLE "timeslots" ADD COLUMN "tenant_id" integer;
   ALTER TABLE "class_options" ADD COLUMN "tenant_id" integer;
   ALTER TABLE "bookings" ADD COLUMN "tenant_id" integer;
   ALTER TABLE "payload_locked_documents_rels" ADD COLUMN "tenants_id" integer;
@@ -100,16 +100,16 @@ export async function up({ db, payload: _payload, req: _req }: MigrateUpArgs): P
   CREATE INDEX "users_tenants_tenant_idx" ON "users_tenants" USING btree ("tenant_id");
   ALTER TABLE "pages" ADD CONSTRAINT "pages_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "_pages_v" ADD CONSTRAINT "_pages_v_version_tenant_id_tenants_id_fk" FOREIGN KEY ("version_tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "instructors" ADD CONSTRAINT "instructors_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
-  ALTER TABLE "lessons" ADD CONSTRAINT "lessons_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "staff-members" ADD CONSTRAINT "staffMembers_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
+  ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "class_options" ADD CONSTRAINT "class_options_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "bookings" ADD CONSTRAINT "bookings_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE set null ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_tenants_fk" FOREIGN KEY ("tenants_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
   ALTER TABLE "payload_locked_documents_rels" ADD CONSTRAINT "payload_locked_documents_rels_navbar_fk" FOREIGN KEY ("navbar_id") REFERENCES "public"."navbar"("id") ON DELETE cascade ON UPDATE no action;
   CREATE INDEX "pages_tenant_idx" ON "pages" USING btree ("tenant_id");
   CREATE INDEX "_pages_v_version_version_tenant_idx" ON "_pages_v" USING btree ("version_tenant_id");
-  CREATE INDEX "instructors_tenant_idx" ON "instructors" USING btree ("tenant_id");
-  CREATE INDEX "lessons_tenant_idx" ON "lessons" USING btree ("tenant_id");
+  CREATE INDEX "staffMembers_tenant_idx" ON "staff-members" USING btree ("tenant_id");
+  CREATE INDEX "timeslots_tenant_idx" ON "timeslots" USING btree ("tenant_id");
   CREATE INDEX "class_options_tenant_idx" ON "class_options" USING btree ("tenant_id");
   CREATE INDEX "bookings_tenant_idx" ON "bookings" USING btree ("tenant_id");
   CREATE INDEX "payload_locked_documents_rels_tenants_id_idx" ON "payload_locked_documents_rels" USING btree ("tenants_id");
@@ -132,9 +132,9 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   
   ALTER TABLE "_pages_v" DROP CONSTRAINT "_pages_v_version_tenant_id_tenants_id_fk";
   
-  ALTER TABLE "instructors" DROP CONSTRAINT "instructors_tenant_id_tenants_id_fk";
+  ALTER TABLE "staff-members" DROP CONSTRAINT "staffMembers_tenant_id_tenants_id_fk";
   
-  ALTER TABLE "lessons" DROP CONSTRAINT "lessons_tenant_id_tenants_id_fk";
+  ALTER TABLE "timeslots" DROP CONSTRAINT "timeslots_tenant_id_tenants_id_fk";
   
   ALTER TABLE "class_options" DROP CONSTRAINT "class_options_tenant_id_tenants_id_fk";
   
@@ -162,19 +162,19 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   ALTER TABLE "users" ALTER COLUMN "role" SET DATA TYPE "public"."enum_users_role" USING "role"::"public"."enum_users_role";
   DROP INDEX "pages_tenant_idx";
   DROP INDEX "_pages_v_version_version_tenant_idx";
-  DROP INDEX "instructors_tenant_idx";
-  DROP INDEX "lessons_tenant_idx";
+  DROP INDEX "staffMembers_tenant_idx";
+  DROP INDEX "timeslots_tenant_idx";
   DROP INDEX "class_options_tenant_idx";
   DROP INDEX "bookings_tenant_idx";
   DROP INDEX "payload_locked_documents_rels_tenants_id_idx";
   DROP INDEX "payload_locked_documents_rels_navbar_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:06:11.924Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:06:11.924Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-20T20:06:12.060Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-20T20:06:12.060Z';
   ALTER TABLE "pages" DROP COLUMN "tenant_id";
   ALTER TABLE "_pages_v" DROP COLUMN "version_tenant_id";
-  ALTER TABLE "instructors" DROP COLUMN "tenant_id";
-  ALTER TABLE "lessons" DROP COLUMN "tenant_id";
+  ALTER TABLE "staff-members" DROP COLUMN "tenant_id";
+  ALTER TABLE "timeslots" DROP COLUMN "tenant_id";
   ALTER TABLE "class_options" DROP COLUMN "tenant_id";
   ALTER TABLE "bookings" DROP COLUMN "tenant_id";
   ALTER TABLE "payload_locked_documents_rels" DROP COLUMN "tenants_id";

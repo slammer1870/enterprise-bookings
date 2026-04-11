@@ -29,11 +29,11 @@ export function dropInsCollection(
       { name: "price", label: "Price", type: "number", required: true, min: 0 },
       {
         name: "adjustable",
-        label: "Allow multiple bookings per lesson",
+        label: "Allow multiple bookings per timeslot",
         type: "checkbox",
         defaultValue: true,
         required: true,
-        admin: { description: "When enabled, users can book more than one spot for the same lesson when paying drop-in." },
+        admin: { description: "When enabled, users can book more than one spot for the same timeslot when paying drop-in." },
       },
       {
         name: "discountTiers",

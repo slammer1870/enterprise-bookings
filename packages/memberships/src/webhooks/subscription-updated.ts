@@ -17,9 +17,12 @@ export const subscriptionUpdated: StripeWebhookHandler<{
 
   const planId = event.data.object.items.data[0]?.plan?.product;
 
-  // Support both camelCase and snake_case for backward compatibility
-  const lessonId =
-    event.data.object.metadata.lessonId || event.data.object.metadata.lesson_id;
+  const metadata = event.data.object.metadata ?? {};
+  const timeslotIdRaw =
+    metadata.timeslotId ||
+    metadata.timeslot_id ||
+    metadata.lessonId ||
+    metadata.lesson_id;
 
   try {
     const user = await findUserByCustomer(payload, customer as string);
@@ -89,26 +92,24 @@ export const subscriptionUpdated: StripeWebhookHandler<{
           ? new Date(event.data.object.cancel_at * 1000).toISOString()
           : null,
         ...(plan.docs[0]?.id && { plan: plan.docs[0].id }),
-        skipSync: true, // Prevent Stripe API call in beforeChange hook
       },
+      context: { skipStripeSync: true },
     });
 
-    if (lessonId) {
-      // Convert lessonId to number and verify it exists
-      const lessonIdNum = Number(lessonId);
-      if (isNaN(lessonIdNum)) {
-        payload.logger.error(`Invalid lessonId in metadata: ${lessonId}`);
+    if (timeslotIdRaw) {
+      const timeslotIdNum = Number(timeslotIdRaw);
+      if (isNaN(timeslotIdNum)) {
+        payload.logger.error(`Invalid timeslot id in metadata: ${timeslotIdRaw}`);
         return;
       }
 
-      // Verify lesson exists
       try {
         await payload.findByID({
-          collection: "lessons",
-          id: lessonIdNum,
+          collection: "timeslots",
+          id: timeslotIdNum,
         });
       } catch {
-        payload.logger.error(`Lesson not found: ${lessonIdNum}`);
+        payload.logger.error(`Timeslot not found: ${timeslotIdNum}`);
         return;
       }
 
@@ -116,7 +117,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         collection: "bookings",
         where: {
           user: { equals: subscriptionUserId },
-          lesson: { equals: lessonIdNum },
+          timeslot: { equals: timeslotIdNum },
         },
         limit: 1,
       });
@@ -125,7 +126,7 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         await payload.create({
           collection: "bookings",
           data: {
-            lesson: lessonIdNum,
+            timeslot: timeslotIdNum,
             user: subscriptionUserId,
             status: "confirmed",
           },

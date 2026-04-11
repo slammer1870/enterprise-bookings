@@ -1,6 +1,6 @@
 "use client";
 
-import { Lesson } from "@repo/shared-types";
+import { Timeslot } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
 import { useMutation, useQuery, useSuspenseQuery } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -10,32 +10,32 @@ import type { Plan } from "@repo/shared-types";
 import { useMemo } from "react";
 
 type MembershipPaymentMethodsProps = {
-  lesson: Lesson;
+  timeslot: Timeslot;
 };
 
 /**
  * Like PaymentMethods, but **membership-only** (no drop-in/tab UI).
  * Useful for gyms that do not support drop-ins.
  */
-export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsProps) {
+export function MembershipPaymentMethods({ timeslot }: MembershipPaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
   const searchParams = useSearchParams();
   const discountCode = (searchParams?.get("discount") || "").trim() || undefined;
 
   const { data: subscriptionData } = useSuspenseQuery(
-    trpc.subscriptions.getSubscriptionForLesson.queryOptions({
-      lessonId: lesson.id,
+    trpc.subscriptions.getSubscriptionForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
     })
   );
 
   const { subscription, subscriptionLimitReached } = subscriptionData;
 
   const tenantId =
-    lesson.tenant != null
-      ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-        ? lesson.tenant.id
-        : lesson.tenant
+    timeslot.tenant != null
+      ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+        ? timeslot.tenant.id
+        : timeslot.tenant
       : null;
 
   const PlanPriceSummary = useMemo(() => {
@@ -141,14 +141,14 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
         )
       : {};
     const tenantId =
-      lesson.tenant != null
-        ? typeof lesson.tenant === "object" && "id" in lesson.tenant
-          ? lesson.tenant.id
-          : lesson.tenant
+      timeslot.tenant != null
+        ? typeof timeslot.tenant === "object" && "id" in timeslot.tenant
+          ? timeslot.tenant.id
+          : timeslot.tenant
         : undefined;
     const metaWithTenant: Record<string, string> = {
       ...cleanMetadata,
-      lessonId: String(lesson.id),
+      timeslotId: String(timeslot.id),
       ...(tenantId != null && { tenantId: String(tenantId) }),
     };
 
@@ -176,11 +176,11 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
       ...(discountCode ? { discountCode } : {}),
       mode: "subscription",
       successUrl: `${origin}/dashboard${tenantQ}`,
-      cancelUrl: `${origin}/bookings/${lesson.id}${tenantQ}`,
+      cancelUrl: `${origin}/bookings/${timeslot.id}${tenantQ}`,
     });
   };
 
-  const allowedPlans = lesson.classOption.paymentMethods?.allowedPlans;
+  const allowedPlans = timeslot.eventType.paymentMethods?.allowedPlans;
   const allowedPlanDocs: Plan[] = Array.isArray(allowedPlans)
     ? (allowedPlans.filter(
         (p: unknown): p is Plan => typeof p === "object" && p != null && "id" in p
@@ -208,7 +208,7 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
   if (!hasMembership) {
     return (
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
-        <p>No membership plans are available for this lesson.</p>
+        <p>No membership plans are available for this timeslot.</p>
       </div>
     );
   }
@@ -217,7 +217,7 @@ export function MembershipPaymentMethods({ lesson }: MembershipPaymentMethodsPro
     <PlanView
       allowedPlans={plansForView}
       subscription={subscription}
-      lessonDate={new Date(lesson.startTime)}
+      timeslotDate={new Date(timeslot.startTime)}
       subscriptionLimitReached={subscriptionLimitReached}
       PlanPriceSummary={PlanPriceSummary}
       onCreateCheckoutSession={handleCreateCheckoutSession}

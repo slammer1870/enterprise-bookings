@@ -1,12 +1,12 @@
 /**
- * Check if the user has a valid class pass for the given tenant and class option.
- * Class options restrict which pass types (allowedClassPasses) are accepted;
+ * Check if the user has a valid class pass for the given tenant and event type.
+ * Event types restrict which pass types (allowedClassPasses) are accepted;
  * the user must have a pass whose type is in that list.
  */
 import type { Payload } from "payload";
 import type {
   ClassPassLike,
-  ClassOptionLike,
+  EventTypeLike,
   UserLike,
   TenantLike,
 } from "../../types";
@@ -15,7 +15,7 @@ export type CheckClassPassArgs = {
   payload: Payload;
   user: UserLike;
   tenant: TenantLike;
-  classOption: ClassOptionLike;
+  eventType: EventTypeLike;
 };
 
 export type CheckClassPassResult =
@@ -35,12 +35,12 @@ export async function checkClassPass({
   payload,
   user,
   tenant,
-  classOption,
+  eventType,
 }: CheckClassPassArgs): Promise<CheckClassPassResult> {
-  const allowed = classOption?.paymentMethods?.allowedClassPasses;
+  const allowed = eventType?.paymentMethods?.allowedClassPasses;
   const allowedTypeIds = toIdArray(allowed);
   if (allowedTypeIds.length === 0) {
-    return { valid: false, error: "Class passes not allowed for this class" };
+    return { valid: false, error: "Class passes not allowed for this event type" };
   }
 
   const tenantId =
@@ -71,7 +71,7 @@ export async function checkClassPass({
   });
 
   if (!result.docs.length) {
-    return { valid: false, error: "No valid class pass found for this class" };
+    return { valid: false, error: "No valid class pass found for this event type" };
   }
 
   return { valid: true, pass: result.docs[0] as ClassPassLike };

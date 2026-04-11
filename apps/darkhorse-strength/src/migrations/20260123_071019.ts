@@ -9,7 +9,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"id" serial PRIMARY KEY NOT NULL
   );
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-23T07:10:19.125Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-23T07:10:19.125Z';
   ALTER TABLE "users" ALTER COLUMN "name" SET NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-23T07:10:19.235Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-23T07:10:19.235Z';
@@ -29,7 +29,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP INDEX "accounts_access_token_expires_at_idx";
   DROP INDEX "accounts_refresh_token_expires_at_idx";
   DROP INDEX "verifications_expires_at_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:06:12.106Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:06:12.106Z';
   ALTER TABLE "users" ALTER COLUMN "name" DROP NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-20T20:06:12.276Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-01-20T20:06:12.276Z';

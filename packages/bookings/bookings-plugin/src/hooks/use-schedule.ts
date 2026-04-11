@@ -1,34 +1,34 @@
 import { useEffect, useState } from "react";
 
-import { Lesson } from "@repo/shared-types";
+import { Timeslot } from "@repo/shared-types";
 
-import { getLessonsQuery } from "@repo/shared-utils/query";
+import { getTimeslotsQuery } from "@repo/shared-utils/query";
 
 export const useSchedule = (date: Date) => {
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [timeslots, setTimeslots] = useState<Timeslot[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const query = getLessonsQuery(date);
+  const query = getTimeslotsQuery(date);
 
   useEffect(() => {
-    const fetchLessons = async () => {
+    const fetchTimeslots = async () => {
       setIsLoading(true);
-      const data = await fetch(`/api/lessons${query}`, {
+      const data = await fetch(`/api/timeslots${query}`, {
         method: "GET",
       });
 
-      const lessons = await data.json();
+      const timeslots = await data.json();
 
-      setLessons(lessons.docs);
+      setTimeslots(timeslots.docs);
       setIsLoading(false);
     };
 
-    fetchLessons();
+    fetchTimeslots();
   }, [date]);
 
   return {
-    lessons: lessons,
+    timeslots: timeslots,
     isLoading: isLoading,
   };
 };

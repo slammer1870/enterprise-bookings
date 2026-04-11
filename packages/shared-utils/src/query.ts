@@ -2,7 +2,7 @@ import * as qs from "qs";
 
 import { getDayBoundsInTimeZone } from "./timezone";
 
-export const getLessonsQuery = (
+export const getTimeslotsQuery = (
   date: Date,
   timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
 ) => {

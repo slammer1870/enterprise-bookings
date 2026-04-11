@@ -48,7 +48,7 @@ export const PlanDetail = ({
 
   const metadata =
     pathname && pathname.split("/")[1] === "bookings" && params?.id
-      ? { lesson_id: params.id as string }
+      ? { timeslot_id: params.id as string }
       : undefined;
 
   const handleAction = async () => {

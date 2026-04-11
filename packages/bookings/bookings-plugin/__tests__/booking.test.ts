@@ -78,7 +78,7 @@ describe("Booking tests", () => {
         },
       });
       const classOptionWithoutPaymentMethods = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 1",
           places: 4,
@@ -87,12 +87,12 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOptionWithoutPaymentMethods.id,
+          eventType: classOptionWithoutPaymentMethods.id,
           location: "Test Location",
         },
       });
@@ -107,7 +107,7 @@ describe("Booking tests", () => {
         .then(() =>
           restClient.POST("/bookings", {
             body: JSON.stringify({
-              lesson: lesson.id,
+              timeslot: lesson.id,
               user: userWithoutPaymentMethods.id,
               status: "confirmed",
             }),
@@ -140,7 +140,7 @@ describe("Booking tests", () => {
       });
 
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 2",
           places: 1,
@@ -149,12 +149,12 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -162,7 +162,7 @@ describe("Booking tests", () => {
       const booking1 = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user1.id,
           status: "confirmed",
         },
@@ -178,7 +178,7 @@ describe("Booking tests", () => {
         .then(() =>
           restClient.POST("/bookings", {
             body: JSON.stringify({
-              lesson: lesson.id,
+              timeslot: lesson.id,
               user: user2.id,
               status: "confirmed",
             }),
@@ -193,7 +193,7 @@ describe("Booking tests", () => {
     "should be able to create a booking",
     async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 3",
           places: 1,
@@ -202,12 +202,12 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -222,7 +222,7 @@ describe("Booking tests", () => {
 
       const response = await restClient.POST("/bookings", {
         body: JSON.stringify({
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user.id,
           status: "confirmed",
         }),
@@ -236,7 +236,7 @@ describe("Booking tests", () => {
     "should be able to update a booking",
     async () => {
       const classOption = await payload.create({
-        collection: "class-options",
+        collection: "event-types",
         data: {
           name: "Test Class Option 4",
           places: 1,
@@ -245,12 +245,12 @@ describe("Booking tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: classOption.id,
           location: "Test Location",
         },
       });
@@ -266,7 +266,7 @@ describe("Booking tests", () => {
       const booking = await payload.create({
         collection: "bookings",
         data: {
-          lesson: lesson.id,
+          timeslot: lesson.id,
           user: user.id,
           status: "confirmed",
         },

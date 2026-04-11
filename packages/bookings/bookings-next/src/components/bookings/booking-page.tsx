@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 import { BookingPageClient } from './booking-page-client'
 import React from 'react'
 
@@ -23,29 +23,29 @@ export interface BookingPageConfig {
   
   /**
    * Redirect path when user is not authenticated
-   * Can include {id} placeholder for the lesson ID
+   * Can include {id} placeholder for the timeslot ID
    */
   authRedirectPath: string | ((id: number) => string)
   
   /**
-   * Redirect path for errors (invalid ID, lesson not found, etc.)
+   * Redirect path for errors (invalid ID, timeslot not found, etc.)
    */
   errorRedirectPath: string
   
   /**
-   * Optional: Custom validation before fetching lesson
+   * Optional: Custom validation before fetching timeslot
    * Return a redirect path if validation fails, or null to continue
    */
   preValidation?: (id: number, user: any) => Promise<string | null>
   
   /**
-   * Optional: Custom validation after fetching lesson
+   * Optional: Custom validation after fetching timeslot
    * Return a redirect path if validation fails, or null to continue
-   * @param lesson - The lesson that was fetched
+   * @param timeslot - The timeslot that was fetched
    * @param user - The authenticated user
    * @param caller - The tRPC caller (already created with proper context)
    */
-  postValidation?: (lesson: Lesson, user: any, caller: any) => Promise<string | null>
+  postValidation?: (timeslot: Timeslot, user: any, caller: any) => Promise<string | null>
   
   /**
    * Optional: Whether to attempt check-in before showing booking page
@@ -70,16 +70,16 @@ export interface BookingPageConfig {
    * 
    * @example
    * ```tsx
-   * BookingPageClient: ({ lesson, onSuccessRedirect }) => (
+   * BookingPageClient: ({ timeslot, onSuccessRedirect }) => (
    *   <CustomBookingPageWithPayments 
-   *     lesson={lesson} 
+   *     timeslot={timeslot} 
    *     onSuccessRedirect={onSuccessRedirect}
    *   />
    * )
    * ```
    */
   BookingPageClient?: React.ComponentType<{
-    lesson: Lesson
+    timeslot: Timeslot
     onSuccessRedirect?: string
   }>
 }
@@ -134,15 +134,15 @@ export async function createBookingPage(
       }
     }
 
-    // Fetch lesson via tRPC (pass host when available so tenant resolution uses the same request's host)
+    // Fetch timeslot via tRPC (pass host when available so tenant resolution uses the same request's host)
     const host = config.getRequestHost ? await config.getRequestHost() : undefined
     const caller = await config.createCaller(host ? { host } : undefined)
 
-    const lesson = await caller.lessons.getByIdForBooking({ id })
+    const timeslot = await caller.timeslots.getByIdForBooking({ id })
 
     // Post-validation (if provided)
     if (config.postValidation) {
-      const postValidationRedirect = await config.postValidation(lesson, user, caller)
+      const postValidationRedirect = await config.postValidation(timeslot, user, caller)
       if (postValidationRedirect) {
         redirect(postValidationRedirect)
       }
@@ -151,7 +151,7 @@ export async function createBookingPage(
     // Attempt check-in if configured
     if (config.attemptCheckIn) {
       const checkInResult = await caller.bookings.validateAndAttemptCheckIn({
-        lessonId: id,
+        timeslotId: id,
       })
 
       // Handle redirects based on check-in result
@@ -167,12 +167,12 @@ export async function createBookingPage(
 
     // Use custom BookingPageClient if provided, otherwise use default
     const ClientComponent = config.BookingPageClient || BookingPageClient
-    // Ensure lesson is plain-data so RSC serialization cannot throw (e.g. Dates, virtuals, or Payload internals)
-    const serializableLesson = JSON.parse(JSON.stringify(lesson)) as Lesson
+    // Ensure timeslot is plain-data so RSC serialization cannot throw (e.g. Dates, virtuals, or Payload internals)
+    const serializableTimeslot = JSON.parse(JSON.stringify(timeslot)) as Timeslot
 
     const content = (
       <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
-        <ClientComponent lesson={serializableLesson} onSuccessRedirect={config.onSuccessRedirect} />
+        <ClientComponent timeslot={serializableTimeslot} onSuccessRedirect={config.onSuccessRedirect} />
       </div>
     )
 

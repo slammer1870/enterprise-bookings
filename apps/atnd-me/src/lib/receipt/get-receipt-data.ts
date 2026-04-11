@@ -3,8 +3,10 @@
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import type { Payload } from 'payload'
 
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+
 export type ReceiptData = {
-  lesson?: {
+  timeslot?: {
     id: number
     className: string
     date: string
@@ -39,33 +41,33 @@ export async function getReceiptFromPaymentIntent(
 
   if (transactions.docs.length === 0) return null
 
-  const bookings: { id: number; user: number | { id: number }; lesson: number | { id: number } }[] = []
+  const bookings: { id: number; user: number | { id: number }; timeslot: number | { id: number } }[] = []
   for (const tx of transactions.docs) {
     const b = tx.booking
     if (typeof b === 'object' && b !== null && 'id' in b) {
       const uid = typeof b.user === 'object' && b.user !== null && 'id' in b.user ? b.user.id : b.user
       if (Number(uid) === userId) {
-        bookings.push(b as { id: number; user: number | { id: number }; lesson: number | { id: number } })
+        bookings.push(b as { id: number; user: number | { id: number }; timeslot: number | { id: number } })
       }
     }
   }
   const firstBooking = bookings[0]
   if (!firstBooking) return null
 
-  const lessonRef = firstBooking.lesson
-  const lessonId = typeof lessonRef === 'object' && lessonRef !== null && 'id' in lessonRef
-    ? (lessonRef as { id: number }).id
-    : lessonRef
+  const timeslotRef = firstBooking.timeslot
+  const timeslotId = typeof timeslotRef === 'object' && timeslotRef !== null && 'id' in timeslotRef
+    ? (timeslotRef as { id: number }).id
+    : timeslotRef
 
-  const lesson = await payload.findByID({
-    collection: 'lessons',
-    id: lessonId,
+  const timeslot = await payload.findByID({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+    id: timeslotId,
     depth: 1,
     overrideAccess: true,
-    select: { id: true, startTime: true, endTime: true, date: true, classOption: true } as any,
-  }) as { id: number; startTime: string; endTime: string; date: string; classOption?: { name?: string } } | null
+    select: { id: true, startTime: true, endTime: true, date: true, eventType: true } as any,
+  }) as { id: number; startTime: string; endTime: string; date: string; eventType?: { name?: string } } | null
 
-  if (!lesson) return null
+  if (!timeslot) return null
 
   let amountPaidCents: number | null = null
   try {
@@ -81,14 +83,14 @@ export async function getReceiptFromPaymentIntent(
     // Stripe fetch failed - receipt can still show booking info without amount
   }
 
-  const classOption = lesson.classOption as { name?: string } | undefined
+  const eventType = timeslot.eventType as { name?: string } | undefined
   return {
-    lesson: {
-      id: lesson.id,
-      className: classOption?.name ?? 'Class',
-      date: lesson.date,
-      startTime: lesson.startTime,
-      endTime: lesson.endTime,
+    timeslot: {
+      id: timeslot.id,
+      className: eventType?.name ?? 'Class',
+      date: timeslot.date,
+      startTime: timeslot.startTime,
+      endTime: timeslot.endTime,
     },
     bookingCount: bookings.length,
     amountPaidCents,
@@ -117,35 +119,35 @@ export async function getReceiptFromBookingIds(
     depth: 2,
     limit: bookingIds.length,
     overrideAccess: true,
-    select: { lesson: true } as any,
+    select: { timeslot: true } as any,
   })
 
   if (bookings.docs.length === 0) return null
 
-  const first = bookings.docs[0] as { lesson: number | { id: number; startTime: string; endTime: string; date: string; classOption?: { name?: string } } }
-  const lessonRef = first.lesson
-  const lessonId = typeof lessonRef === 'object' && lessonRef !== null && 'id' in lessonRef
-    ? (lessonRef as { id: number }).id
-    : lessonRef
+  const first = bookings.docs[0] as { timeslot: number | { id: number; startTime: string; endTime: string; date: string; eventType?: { name?: string } } }
+  const timeslotRef = first.timeslot
+  const timeslotId = typeof timeslotRef === 'object' && timeslotRef !== null && 'id' in timeslotRef
+    ? (timeslotRef as { id: number }).id
+    : timeslotRef
 
-  const lesson = await payload.findByID({
-    collection: 'lessons',
-    id: lessonId,
+  const timeslot = await payload.findByID({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+    id: timeslotId,
     depth: 1,
     overrideAccess: true,
-    select: { id: true, startTime: true, endTime: true, date: true, classOption: true } as any,
-  }) as { id: number; startTime: string; endTime: string; date: string; classOption?: { name?: string } } | null
+    select: { id: true, startTime: true, endTime: true, date: true, eventType: true } as any,
+  }) as { id: number; startTime: string; endTime: string; date: string; eventType?: { name?: string } } | null
 
-  if (!lesson) return null
+  if (!timeslot) return null
 
-  const classOption = lesson.classOption as { name?: string } | undefined
+  const eventType = timeslot.eventType as { name?: string } | undefined
   return {
-    lesson: {
-      id: lesson.id,
-      className: classOption?.name ?? 'Class',
-      date: lesson.date,
-      startTime: lesson.startTime,
-      endTime: lesson.endTime,
+    timeslot: {
+      id: timeslot.id,
+      className: eventType?.name ?? 'Class',
+      date: timeslot.date,
+      startTime: timeslot.startTime,
+      endTime: timeslot.endTime,
     },
     bookingCount: bookings.docs.length,
     amountPaidCents: null,

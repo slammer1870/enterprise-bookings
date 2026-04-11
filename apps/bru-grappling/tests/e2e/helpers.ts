@@ -14,7 +14,7 @@ export { clearTestMagicLinks, pollForTestMagicLink, mockPaymentIntentSucceededWe
 
 /**
  * Helper to save an object and wait for navigation, with fallback to extract ID from response.
- * Works for class-options, lessons, drop-ins, and other admin objects.
+ * Works for event-types, timeslots, drop-ins, and other admin objects.
  */
 // saveObjectAndWaitForNavigation now comes from @repo/testing-config
 
@@ -151,19 +151,19 @@ async function apiPatch<T>(page: Page, path: string, data: Record<string, unknow
   return (json?.doc ?? json) as T
 }
 
-async function getClassOptionByName(
+async function getEventTypeByName(
   page: Page,
   className: string,
 ): Promise<{ id: number; paymentMethods?: { allowedPlans?: unknown[] | null; allowedDropIn?: unknown } } | null> {
   const result = await apiGet<{ docs?: Array<any> }>(
     page,
-    `/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1&depth=0`,
+    `/api/event-types?where[name][equals]=${encodeURIComponent(className)}&limit=1&depth=0`,
   )
   const doc = result?.docs?.[0]
   return doc?.id ? doc : null
 }
 
-async function createClassOptionViaApi(
+async function createEventTypeViaApi(
   page: Page,
   options: {
     name: string
@@ -171,7 +171,7 @@ async function createClassOptionViaApi(
     paymentMethods?: { allowedPlans?: number[]; allowedDropIn?: number | null }
   },
 ): Promise<number> {
-  const created = await apiPost<{ id: number }>(page, '/api/class-options', {
+  const created = await apiPost<{ id: number }>(page, '/api/event-types', {
     name: options.name,
     places: 10,
     description: options.description,
@@ -182,10 +182,10 @@ async function createClassOptionViaApi(
   return Number(created.id)
 }
 
-async function createLessonForTomorrowViaApi(page: Page, classOptionId: number): Promise<Date> {
+async function createTimeslotForTomorrowViaApi(page: Page, classOptionId: number): Promise<Date> {
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  await apiPost(page, '/api/lessons', {
+  await apiPost(page, '/api/timeslots', {
     date: tomorrow.toISOString(),
     startTime: new Date(tomorrow.setHours(10, 0, 0, 0)).toISOString(),
     endTime: new Date(tomorrow.setHours(11, 0, 0, 0)).toISOString(),
@@ -294,7 +294,7 @@ export async function ensureAtLeastOnePlan(page: Page): Promise<string> {
  * Verify that a class option has the required payment method configured.
  * Uses API to check the class option without navigating away from the current page.
  */
-async function verifyClassOptionPaymentMethod(
+async function verifyEventTypePaymentMethod(
   page: any,
   className: string,
   requiredMethod: 'dropIn' | 'subscription',
@@ -304,8 +304,8 @@ async function verifyClassOptionPaymentMethod(
 
   // Find the class option by name via API
   const cookies = await page.context().cookies()
-  const classOptionsResponse = await request.get(
-    `${baseUrl}/api/class-options?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
+  const eventTypesResponse = await request.get(
+    `${baseUrl}/api/event-types?where[name][equals]=${encodeURIComponent(className)}&limit=1`,
     {
       headers: {
         Cookie: cookies
@@ -315,12 +315,12 @@ async function verifyClassOptionPaymentMethod(
     },
   )
 
-  if (!classOptionsResponse.ok()) {
-    throw new Error(`Failed to fetch class option "${className}": ${classOptionsResponse.status()}`)
+  if (!eventTypesResponse.ok()) {
+    throw new Error(`Failed to fetch class option "${className}": ${eventTypesResponse.status()}`)
   }
 
-  const classOptionsData = await classOptionsResponse.json()
-  const classOption = classOptionsData.docs?.[0]
+  const eventTypesData = await eventTypesResponse.json()
+  const classOption = eventTypesData.docs?.[0]
 
   if (!classOption) {
     throw new Error(`Class option "${className}" not found`)
@@ -344,7 +344,7 @@ async function verifyClassOptionPaymentMethod(
  * Ensure there is a lesson tomorrow whose class option is subscription-only.
  * Returns tomorrow's date.
  */
-export async function ensureLessonForTomorrowWithSubscription(page: any): Promise<Date> {
+export async function ensureTimeslotForTomorrowWithSubscription(page: any): Promise<Date> {
   const className = `E2E Subscription Class ${Date.now()}`
   const planName = await ensureAtLeastOnePlan(page)
   const plans = await apiGet<{ docs?: Array<{ id: number; name?: string }> }>(
@@ -354,12 +354,12 @@ export async function ensureLessonForTomorrowWithSubscription(page: any): Promis
   const planId = plans?.docs?.[0]?.id
   if (!planId) throw new Error(`Plan "${planName}" not found after creation`)
 
-  const classOptionId = await createClassOptionViaApi(page, {
+  const classOptionId = await createEventTypeViaApi(page, {
     name: className,
     description: 'A test class option for e2e (subscription)',
     paymentMethods: { allowedPlans: [Number(planId)] },
   })
 
-  await verifyClassOptionPaymentMethod(page, className, 'subscription')
-  return await createLessonForTomorrowViaApi(page, classOptionId)
+  await verifyEventTypePaymentMethod(page, className, 'subscription')
+  return await createTimeslotForTomorrowViaApi(page, classOptionId)
 }

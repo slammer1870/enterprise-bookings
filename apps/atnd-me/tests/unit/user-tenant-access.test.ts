@@ -1,63 +1,55 @@
 import { describe, it, expect } from 'vitest'
-import { isAdmin, isTenantAdmin } from '../../src/access/userTenantAccess'
+import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
 
 /**
- * Unit tests for user access helpers (isAdmin, isTenantAdmin).
- * Ensures both role (Better Auth singular) and roles (Payload/rolesPlugin plural) are recognized
- * so tenant-admins and admins are correctly identified for access control and field-level access.
+ * Unit tests for userTenantAccess helpers used in multi-tenant Payload access control.
  */
-describe('isAdmin', () => {
-  it('returns true when user has roles array containing admin', () => {
-    expect(isAdmin({ id: 1, roles: ['admin'] })).toBe(true)
-    expect(isAdmin({ id: 1, roles: ['admin', 'tenant-admin'] })).toBe(true)
+describe('userTenantAccess helpers', () => {
+  describe('isAdmin (platform super-admin)', () => {
+    it('returns true when user has super-admin', () => {
+      expect(isAdmin({ id: 1, role: ['super-admin'] })).toBe(true)
+      expect(isAdmin({ id: 1, role: ['super-admin', 'user'] })).toBe(true)
+    })
+
+    it('returns true when singular role is super-admin', () => {
+      expect(isAdmin({ id: 1, role: 'super-admin' })).toBe(true)
+      expect(isAdmin({ id: 1, role: ['super-admin', 'user'] })).toBe(true)
+    })
+
+    it('returns false for org admin, staff, and regular users', () => {
+      expect(isAdmin({ id: 1, role: ['admin'] })).toBe(false)
+      expect(isAdmin({ id: 1, role: ['staff'] })).toBe(false)
+      expect(isAdmin({ id: 1, role: ['user'] })).toBe(false)
+    })
   })
 
-  it('returns true when user has role (singular) array containing admin', () => {
-    expect(isAdmin({ id: 1, role: ['admin'] })).toBe(true)
-    expect(isAdmin({ id: 1, role: ['admin', 'user'] })).toBe(true)
+  describe('isTenantAdmin (org admin)', () => {
+    it('returns true when user has org admin role', () => {
+      expect(isTenantAdmin({ id: 1, role: ['admin'] })).toBe(true)
+      expect(isTenantAdmin({ id: 1, role: ['admin', 'user'] })).toBe(true)
+    })
+
+    it('returns true when singular role is admin', () => {
+      expect(isTenantAdmin({ id: 1, role: ['admin'] })).toBe(true)
+      expect(isTenantAdmin({ id: 1, role: ['admin', 'user'] })).toBe(true)
+      expect(isTenantAdmin({ id: 1, role: 'admin' })).toBe(true)
+    })
+
+    it('returns false when user has no org admin', () => {
+      expect(isTenantAdmin({ id: 1, role: ['user'] })).toBe(false)
+      expect(isTenantAdmin({ id: 1, role: ['super-admin'] })).toBe(false)
+    })
   })
 
-  it('returns true when user has role (singular) string admin', () => {
-    expect(isAdmin({ id: 1, role: 'admin' })).toBe(true)
-  })
+  describe('isStaff', () => {
+    it('returns true when user has staff role', () => {
+      expect(isStaff({ id: 1, role: ['staff'] })).toBe(true)
+      expect(isStaff({ id: 1, role: ['staff', 'user'] })).toBe(true)
+    })
 
-  it('returns false when user has no admin', () => {
-    expect(isAdmin({ id: 1, roles: ['user'] })).toBe(false)
-    expect(isAdmin({ id: 1, roles: ['tenant-admin'] })).toBe(false)
-    expect(isAdmin({ id: 1, role: ['user'] })).toBe(false)
-    expect(isAdmin({ id: 1, role: 'user' })).toBe(false)
-  })
-
-  it('returns false when user is null or undefined', () => {
-    expect(isAdmin(null)).toBe(false)
-    expect(isAdmin(undefined)).toBe(false)
-  })
-})
-
-describe('isTenantAdmin', () => {
-  it('returns true when user has roles array containing tenant-admin', () => {
-    expect(isTenantAdmin({ id: 1, roles: ['tenant-admin'] })).toBe(true)
-    expect(isTenantAdmin({ id: 1, roles: ['tenant-admin', 'user'] })).toBe(true)
-  })
-
-  it('returns true when user has role (singular) array containing tenant-admin', () => {
-    expect(isTenantAdmin({ id: 1, role: ['tenant-admin'] })).toBe(true)
-    expect(isTenantAdmin({ id: 1, role: ['tenant-admin', 'user'] })).toBe(true)
-  })
-
-  it('returns true when user has role (singular) string tenant-admin', () => {
-    expect(isTenantAdmin({ id: 1, role: 'tenant-admin' })).toBe(true)
-  })
-
-  it('returns false when user has no tenant-admin', () => {
-    expect(isTenantAdmin({ id: 1, roles: ['user'] })).toBe(false)
-    expect(isTenantAdmin({ id: 1, roles: ['admin'] })).toBe(false)
-    expect(isTenantAdmin({ id: 1, role: ['user'] })).toBe(false)
-    expect(isTenantAdmin({ id: 1, role: 'user' })).toBe(false)
-  })
-
-  it('returns false when user is null or undefined', () => {
-    expect(isTenantAdmin(null)).toBe(false)
-    expect(isTenantAdmin(undefined)).toBe(false)
+    it('returns false otherwise', () => {
+      expect(isStaff({ id: 1, role: ['user'] })).toBe(false)
+      expect(isStaff({ id: 1, role: ['admin'] })).toBe(false)
+    })
   })
 })

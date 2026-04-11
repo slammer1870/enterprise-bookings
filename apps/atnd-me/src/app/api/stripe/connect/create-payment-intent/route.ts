@@ -14,8 +14,11 @@ import {
   validateBookingIdsFromMetadata,
   reservePendingBookings,
   formatCapacityError,
+  computeRemainingCapacityForTimeslot,
 } from '@/lib/booking/payment-intent'
+import { confirmBookingsFromPaymentIntent } from '@/lib/stripe-connect/webhook/confirm-bookings'
 import { formatAmountForStripe } from '@repo/shared-utils'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,36 +38,50 @@ export async function POST(request: NextRequest) {
   if (price == null || Number.isNaN(price)) {
     return NextResponse.json({ error: 'Missing price' }, { status: 400 })
   }
+  const confirmOnly = body.confirmOnly === true
 
   const metadata = coerceMetadata(body.metadata)
-  const lessonIdRaw = metadata?.lessonId
-  const lessonId =
-    lessonIdRaw && /^\d+$/.test(lessonIdRaw) ? parseInt(lessonIdRaw, 10) : null
-  if (!lessonId) {
-    return NextResponse.json({ error: 'lessonId is required in metadata' }, { status: 400 })
+  const timeslotIdRaw = metadata?.timeslotId
+  const timeslotId =
+    timeslotIdRaw && /^\d+$/.test(timeslotIdRaw) ? parseInt(timeslotIdRaw, 10) : null
+  if (!timeslotId) {
+    return NextResponse.json({ error: 'timeslotId is required in metadata' }, { status: 400 })
   }
 
   const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
 
   let bookingIds = await validateBookingIdsFromMetadata(payload, metadata ?? {}, {
-    lessonId,
+    timeslotId,
     userId: user.id,
     user,
   })
 
-  const lesson = (await payload.findByID({
-    collection: 'lessons',
-    id: lessonId,
+  const timeslot = (await payload.findByID({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+    id: timeslotId,
     depth: 1,
     overrideAccess: true,
-  })) as { tenant?: number | { id: number }; remainingCapacity?: number } | null
+  })) as {
+    tenant?: number | { id: number }
+    remainingCapacity?: number
+    eventType?: number | { id: number } | null
+  } | null
+
+  if (!timeslot) {
+    return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
+  }
 
   const remainingCapacity =
-    lesson && typeof lesson.remainingCapacity === 'number'
-      ? Math.max(0, lesson.remainingCapacity)
-      : 0
+    typeof timeslot.remainingCapacity === 'number'
+      ? Math.max(0, timeslot.remainingCapacity)
+      : await computeRemainingCapacityForTimeslot(payload, timeslotId, timeslot)
 
-  if (bookingIds.length === 0 && quantity > remainingCapacity) {
+  const classPriceAmountCents = formatAmountForStripe(price, 'eur')
+  // €0 bootstrap (e.g. 100% promo): skip capacity precheck so we can return { zeroAmount } before
+  // any heavier checks; confirmOnly still reserves with real capacity.
+  const skipCapacityPrecheck = classPriceAmountCents <= 0 && !confirmOnly
+
+  if (bookingIds.length === 0 && quantity > remainingCapacity && !skipCapacityPrecheck) {
     return NextResponse.json(
       { error: formatCapacityError(remainingCapacity, quantity) },
       { status: 400 }
@@ -72,14 +89,14 @@ export async function POST(request: NextRequest) {
   }
 
   const tenantId =
-    lesson?.tenant != null
-      ? typeof lesson.tenant === 'object' && lesson.tenant !== null
-        ? lesson.tenant.id
-        : lesson.tenant
+    timeslot?.tenant != null
+      ? typeof timeslot.tenant === 'object' && timeslot.tenant !== null
+        ? timeslot.tenant.id
+        : timeslot.tenant
       : null
 
   if (!tenantId) {
-    return NextResponse.json({ error: 'Tenant context not found for lesson' }, { status: 400 })
+    return NextResponse.json({ error: 'Tenant context not found for timeslot' }, { status: 400 })
   }
 
   const tenant = (await payload.findByID({
@@ -98,22 +115,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  if (!tenant.stripeConnectAccountId || tenant.stripeConnectOnboardingStatus !== 'active') {
-    return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
-  }
-
   const placeholderAccount =
-    /^acct_[a-z_]+_\d+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
+    /^acct_[a-z0-9_]+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
   const isTestMode =
     process.env.NODE_ENV === 'test' ||
     process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
     isStripeTestAccount(tenant.stripeConnectAccountId) ||
     placeholderAccount
 
+  // €0 flows (bootstrap or confirm-only) never create a PaymentIntent; don't require Connect.
+  const needsLiveStripeConnect = classPriceAmountCents > 0 && !isTestMode
+  if (
+    needsLiveStripeConnect &&
+    (!tenant.stripeConnectAccountId || tenant.stripeConnectOnboardingStatus !== 'active')
+  ) {
+    return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
+  }
+
   if (bookingIds.length === 0 && !isTestMode) {
     try {
       bookingIds = await reservePendingBookings(payload, {
-        lessonId,
+        timeslotId,
         userId: user.id,
         user,
         tenantId,
@@ -125,11 +147,46 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const classPriceAmountCents = formatAmountForStripe(price, 'eur')
+  if (classPriceAmountCents <= 0) {
+    if (!confirmOnly) {
+      return NextResponse.json({ zeroAmount: true, amount: 0 }, { status: 200 })
+    }
+
+    if (bookingIds.length === 0) {
+      try {
+        bookingIds = await reservePendingBookings(payload, {
+          timeslotId,
+          userId: user.id,
+          user,
+          tenantId,
+          quantity,
+          trustedServerReservation: true,
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Capacity exceeded'
+        return NextResponse.json({ error: msg }, { status: 400 })
+      }
+    }
+
+    const resolvedBookingIds = bookingIds
+      .map((id) => parseInt(id, 10))
+      .filter((id) => Number.isFinite(id))
+
+    await confirmBookingsFromPaymentIntent(payload, resolvedBookingIds, {
+      tenantId,
+      tenantContext: { tenant: tenantId },
+    })
+
+    return NextResponse.json(
+      { zeroAmount: true, amount: 0, bookingIds: resolvedBookingIds },
+      { status: 200 }
+    )
+  }
 
   if (isTestMode) {
+    // Stripe Elements expects a PaymentIntent-style client secret shape in tests too.
     return NextResponse.json(
-      { clientSecret: `pi_test_${Date.now()}_secret_test`, amount: price },
+      { clientSecret: `pi_${Date.now()}_secret_test`, amount: price },
       { status: 200 }
     )
   }
@@ -157,7 +214,7 @@ export async function POST(request: NextRequest) {
       customerId: stripeCustomerId,
       metadata: {
         ...(metadata ?? {}),
-        lessonId: String(lessonId),
+        timeslotId: String(timeslotId),
         userId: String(user.id),
         quantity: String(quantity),
         ...(bookingIds.length > 0 ? { bookingIds: bookingIds.join(',') } : {}),

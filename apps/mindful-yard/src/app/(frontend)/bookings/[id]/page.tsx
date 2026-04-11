@@ -2,7 +2,7 @@ import { getMeUser } from '@repo/auth-next'
 
 import { checkInAction } from '@repo/bookings-plugin/src/actions/bookings'
 
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 
 import { redirect } from 'next/navigation'
 
@@ -15,15 +15,15 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
     nullUserRedirect: `/login?callbackUrl=/bookings/${id}`,
   })
 
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/lessons/${id}?depth=6`, {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/api/timeslots/${id}?depth=6`, {
     headers: {
       Authorization: `JWT ${token}`,
     },
   })
 
-  const lesson: Lesson = await response.json()
+  const timeslot: Timeslot = await response.json()
 
-  if (lesson.bookingStatus == 'active' || lesson.bookingStatus == 'trialable') {
+  if (timeslot.bookingStatus == 'active' || timeslot.bookingStatus == 'trialable') {
     const checkIn = await checkInAction(id, user.id)
 
     if (checkIn.success) {
@@ -35,7 +35,7 @@ export default async function BookingPage({ params }: { params: Promise<{ id: nu
 
   return (
     <div className="container mx-auto max-w-screen-xl flex flex-col gap-4 px-4 py-8 min-h-[80vh]">
-      <SaunaPaymentForm lesson={lesson} user={user} />
+      <SaunaPaymentForm timeslot={timeslot} user={user} />
     </div>
   )
 }

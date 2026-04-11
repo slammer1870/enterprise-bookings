@@ -34,7 +34,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         name: 'Dec User',
         email: `dec-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -43,7 +43,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
     userId = user.id as number
 
     const co = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data: {
         name: `Dec Class ${Date.now()}`,
         places: 10,
@@ -59,10 +59,10 @@ describe('Booking-transactions decrement (class_pass only)', () => {
     const end = new Date(start)
     end.setHours(11, 0, 0, 0)
     const lesson = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       data: {
         tenant: tenantId,
-        classOption: classOptionId,
+        eventType: classOptionId,
         date: start.toISOString().slice(0, 10),
         startTime: start.toISOString(),
         endTime: end.toISOString(),
@@ -97,12 +97,12 @@ describe('Booking-transactions decrement (class_pass only)', () => {
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'lessons',
+          collection: 'timeslots',
           where: { id: { equals: lessonId } },
           overrideAccess: true,
         })
         await payload.delete({
-          collection: 'class-options',
+          collection: 'event-types',
           where: { id: { equals: classOptionId } },
           overrideAccess: true,
         })
@@ -145,7 +145,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -183,7 +183,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -267,7 +267,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },
@@ -341,7 +341,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: lessonId,
           tenant: tenantId,
           status: 'pending',
         },

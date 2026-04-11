@@ -67,12 +67,13 @@ export default async function Page({ params: paramsPromise }: Args) {
   const decodedSlug = decodeURIComponent(slug)
   const url = '/' + decodedSlug
   
-  const { cookies } = await import('next/headers')
+  const { cookies, headers } = await import('next/headers')
   const cookieStore = await cookies()
-  const tenantSlug = await getTenantSlug({ cookies: cookieStore })
+  const headersList = await headers()
+  const tenantSlug = await getTenantSlug({ cookies: cookieStore, headers: headersList })
   if (tenantSlug) {
     const payload = await getPayload()
-    const tenant = await getTenantContext(payload, { cookies: cookieStore })
+    const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
     if (!tenant) {
       const { notFound } = await import('next/navigation')
       notFound()

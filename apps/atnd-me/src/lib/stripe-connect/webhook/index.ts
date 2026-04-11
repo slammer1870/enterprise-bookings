@@ -1,4 +1,7 @@
-export { parseBookingIds } from './parse-metadata'
+export {
+  parseBookingIds,
+  getTimeslotIdFromStripeMetadata,
+} from './parse-metadata'
 export type { PaymentIntentMetadata, SubscriptionMetadata } from './parse-metadata'
 export {
   getAccountIdFromEvent,
@@ -9,5 +12,5 @@ export {
   confirmBookingsFromPaymentIntent,
   confirmBookingsFromQuantityFlow,
   confirmBookingsFromSubscriptionMetadata,
-  findOrCreateAndConfirmBookingForLesson,
+  findOrCreateAndConfirmBookingForTimeslot,
 } from './confirm-bookings'

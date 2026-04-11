@@ -13,9 +13,9 @@ const collections: CollectionSlug[] = [
   'form-submissions',
   'search',
   'bookings',
-  'lessons',
-  'class-options',
-  'instructors',
+  'timeslots',
+  'event-types',
+  'staff-members',
   'navbar',
   'footer',
   'scheduler',
@@ -42,23 +42,23 @@ export const seed = async ({
   const orderedCollections: CollectionSlug[] = [
     'transactions',
     'bookings',
-    'lessons',
+    'timeslots',
     'scheduler',
-    'class-options',
+    'event-types',
     'class-passes',
     'class-pass-types',
-    'instructors',
+    'staff-members',
     ...collections.filter(
       (c) =>
         ![
           'transactions',
           'bookings',
-          'lessons',
+          'timeslots',
           'scheduler',
-          'class-options',
+          'event-types',
           'class-passes',
           'class-pass-types',
-          'instructors',
+          'staff-members',
         ].includes(c),
     ),
     'tenants',
@@ -87,8 +87,8 @@ export const seed = async ({
     payload,
     req,
     tenants: bookingData.tenants,
-    classOptions: bookingData.classOptions,
-    instructors: bookingData.instructors,
+    eventTypes: bookingData.eventTypes,
+    staffMembers: bookingData.staffMembers,
   })
 
   payload.logger.info(`— Seeding pages, navbar and footer for each tenant...`)

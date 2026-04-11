@@ -1,4 +1,4 @@
-import { lessonsRouter } from "./routers/lessons";
+import { timeslotsRouter } from "./routers/timeslots";
 import { createPaymentsRouter } from "./routers/payments";
 import { subscriptionsRouter } from "./routers/subscriptions";
 import { usersRouter } from "./routers/users";
@@ -22,7 +22,7 @@ export function createAppRouter(options?: AppRouterOptions) {
   const paymentsRouter = createPaymentsRouter(options?.payments);
 
   return createTRPCRouter({
-    lessons: lessonsRouter,
+    timeslots: timeslotsRouter,
     bookings: bookingsRouter,
     subscriptions: subscriptionsRouter,
     payments: paymentsRouter,

@@ -104,7 +104,7 @@ export const DhGroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits,
         <div className="flex flex-col gap-4 md:col-span-2 md:flex-row md:items-center md:justify-between md:py-10">
           <div>
             <h3 className="mb-2 text-xl font-medium md:text-3xl">{cta.title}</h3>
-            <p className="mb-8 text-xl font-light text-muted-foreground md:text-2xl">
+            <p className="mb-8 text-xl font-light text-gray-700 md:text-2xl">
               {cta.description}
             </p>
           </div>

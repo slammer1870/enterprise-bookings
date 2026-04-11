@@ -36,14 +36,14 @@ import { createBookingPage, type BookingPageConfig, BookingSummary } from '@repo
 import { PaymentMethods } from '@repo/payments-next'
 import { QuantitySelector } from '@repo/bookings-next'
 import { useState } from 'react'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 
 // Custom booking page client that integrates payment methods
 function CustomBookingPageClient({ 
   lesson, 
   onSuccessRedirect 
 }: { 
-  lesson: Lesson
+  lesson: Timeslot
   onSuccessRedirect?: string 
 }) {
   const [quantity, setQuantity] = useState(1)
@@ -131,13 +131,13 @@ Since `createBookingPage` is a server component, you can also create the custom 
 
 import { BookingPageClient } from '@repo/bookings-next'
 import { PaymentMethods } from '@repo/payments-next'
-import { Lesson } from '@repo/shared-types'
+import { Timeslot } from '@repo/shared-types'
 
 export function CustomBookingPageClient({ 
   lesson, 
   onSuccessRedirect 
 }: { 
-  lesson: Lesson
+  lesson: Timeslot
   onSuccessRedirect?: string 
 }) {
   const hasPaymentMethods = Boolean(
@@ -181,5 +181,5 @@ export default async function BookingPage({ params }: { params: Promise<{ id: st
 
 The `BookingPageClient` component receives:
 
-- `lesson: Lesson` - The lesson being booked (includes payment methods, capacity, etc.)
+- `lesson: Timeslot` - The lesson being booked (includes payment methods, capacity, etc.)
 - `onSuccessRedirect?: string` - Optional redirect path after successful booking

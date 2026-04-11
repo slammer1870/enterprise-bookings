@@ -19,7 +19,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "users_stripe_customers_order_idx" ON "users_stripe_customers" USING btree ("_order");
   CREATE INDEX IF NOT EXISTS "users_stripe_customers_parent_id_idx" ON "users_stripe_customers" USING btree ("_parent_id");
   
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-03-29T09:19:23.673Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-03-29T09:19:23.673Z';
   ALTER TABLE "plans" ALTER COLUMN "sessions_information_allow_multiple_bookings_per_lesson" SET NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-03-29T09:19:23.797Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-03-29T09:19:23.797Z';
@@ -60,7 +60,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
     WHEN undefined_table THEN NULL;
   END $$;
   DROP TABLE IF EXISTS "users_stripe_customers" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-11T20:09:34.271Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-11T20:09:34.271Z';
   ALTER TABLE "plans" ALTER COLUMN "sessions_information_allow_multiple_bookings_per_lesson" DROP NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-02-11T20:09:34.383Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-02-11T20:09:34.383Z';`)

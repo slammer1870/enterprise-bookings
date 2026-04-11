@@ -2,6 +2,8 @@
  * Helpers for create-payment-intent API: validate booking IDs, reserve pending capacity.
  */
 
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PayloadLike = any
 
@@ -9,7 +11,7 @@ type PayloadLike = any
 export async function validateBookingIdsFromMetadata(
   payload: PayloadLike,
   metadata: { bookingIds?: string },
-  opts: { lessonId: number; userId: number; user?: unknown }
+  opts: { timeslotId: number; userId: number; user?: unknown }
 ): Promise<string[]> {
   const raw = metadata?.bookingIds
   if (!raw || typeof raw !== 'string') return []
@@ -28,7 +30,7 @@ export async function validateBookingIdsFromMetadata(
     where: {
       and: [
         { id: { in: ids } },
-        { lesson: { equals: opts.lessonId } },
+        { timeslot: { equals: opts.timeslotId } },
         { user: { equals: opts.userId } },
         { status: { equals: 'pending' } },
       ],
@@ -45,22 +47,92 @@ export async function validateBookingIdsFromMetadata(
 
 /** Format capacity error message. */
 export function formatCapacityError(remaining: number, requested: number): string {
-  if (remaining === 0) return 'This lesson is fully booked.'
+  if (remaining === 0) return 'This timeslot is fully booked.'
   return `Only ${remaining} spot${remaining !== 1 ? 's' : ''} available. You requested ${requested}.`
+}
+
+/**
+ * Same rules as bookings-plugin remainingCapacity virtual field: places minus
+ * confirmed + recent pending bookings. Use when findByID did not populate the virtual.
+ */
+export async function computeRemainingCapacityForTimeslot(
+  payload: PayloadLike,
+  timeslotId: number,
+  timeslotDoc?: { eventType?: number | { id: number } | null } | null
+): Promise<number> {
+  const ts =
+    timeslotDoc ??
+    ((await payload.findByID({
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      id: timeslotId,
+      depth: 1,
+      overrideAccess: true,
+    })) as { eventType?: number | { id: number } | null } | null)
+
+  if (!ts?.eventType) return 0
+
+  const eventTypeId =
+    typeof ts.eventType === 'object' && ts.eventType !== null ? ts.eventType.id : ts.eventType
+
+  if (!eventTypeId) return 0
+
+  const eventType = (await payload.findByID({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
+    id: eventTypeId,
+    depth: 0,
+    overrideAccess: true,
+    context: { triggerAfterChange: false },
+  })) as { places?: number } | null
+
+  const places = typeof eventType?.places === 'number' ? eventType.places : 0
+
+  const pendingCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+  const bookings = await payload.find({
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
+    depth: 0,
+    limit: 0,
+    overrideAccess: true,
+    context: { triggerAfterChange: false },
+    where: {
+      and: [
+        { timeslot: { equals: timeslotId } },
+        {
+          or: [
+            { status: { equals: 'confirmed' } },
+            {
+              and: [
+                { status: { equals: 'pending' } },
+                { createdAt: { greater_than: pendingCutoff } },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  })
+
+  return Math.max(0, places - bookings.totalDocs)
 }
 
 /** Reserve or reuse pending bookings for payment intent. Returns booking IDs. */
 export async function reservePendingBookings(
   payload: PayloadLike,
   opts: {
-    lessonId: number
+    timeslotId: number
     userId: number
     user?: unknown
     tenantId: number
     quantity: number
+    /**
+     * Checkout API only: user is already authenticated and amount validated (e.g. €0 confirm).
+     * Bypasses booking `create` access (which requires Connect when the class has drop-in), so
+     * free-checkout completion matches the payment-intent route (no Connect for zero amount).
+     */
+    trustedServerReservation?: boolean
   }
 ): Promise<string[]> {
-  const { lessonId, userId, tenantId, quantity } = opts
+  const { timeslotId, userId, tenantId, quantity } = opts
+  const trusted = opts.trustedServerReservation === true
   const PENDING_CUTOFF_MS = 5 * 60 * 1000
   const pendingCutoff = new Date(Date.now() - PENDING_CUTOFF_MS).toISOString()
 
@@ -68,7 +140,7 @@ export async function reservePendingBookings(
     collection: 'bookings',
     where: {
       and: [
-        { lesson: { equals: lessonId } },
+        { timeslot: { equals: timeslotId } },
         { user: { equals: userId } },
         { status: { equals: 'pending' } },
         { createdAt: { greater_than: pendingCutoff } },
@@ -77,7 +149,7 @@ export async function reservePendingBookings(
     sort: 'id',
     limit: quantity,
     depth: 0,
-    overrideAccess: false,
+    overrideAccess: trusted,
     user: opts.user,
   })
 
@@ -85,16 +157,16 @@ export async function reservePendingBookings(
   const need = quantity - existingIds.length
 
   if (need > 0) {
-    const lesson = (await payload.findByID({
-      collection: 'lessons',
-      id: lessonId,
+    const timeslot = (await payload.findByID({
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      id: timeslotId,
       depth: 1,
       overrideAccess: true,
-    })) as { remainingCapacity?: number } | null
+    })) as { remainingCapacity?: number; eventType?: number | { id: number } | null } | null
     const cap =
-      lesson && typeof lesson.remainingCapacity === 'number'
-        ? Math.max(0, lesson.remainingCapacity)
-        : 0
+      timeslot && typeof timeslot.remainingCapacity === 'number'
+        ? Math.max(0, timeslot.remainingCapacity)
+        : await computeRemainingCapacityForTimeslot(payload, timeslotId, timeslot)
 
     if (need > cap) {
       throw new Error(formatCapacityError(cap, quantity))
@@ -105,11 +177,11 @@ export async function reservePendingBookings(
         collection: 'bookings',
         data: {
           user: userId,
-          lesson: lessonId,
+          timeslot: timeslotId,
           tenant: tenantId,
           status: 'pending',
         },
-        overrideAccess: false,
+        overrideAccess: trusted,
         user: opts.user,
       })
       existingIds.push(String(created.id))

@@ -2,8 +2,8 @@ import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUser } from './helpers/auth-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestBooking,
   getPayloadInstance,
 } from './helpers/data-helpers'
@@ -23,7 +23,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
     const tenant = testData.tenants[0]!
     const user = testData.users.user1
 
-    const classOption = await createTestClassOption(
+    const classOption = await createTestEventType(
       tenant.id,
       'Pending Checkout Edge Case Class',
       10,
@@ -36,7 +36,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
     const endTime = new Date(startTime)
     endTime.setHours(11, 0, 0, 0)
 
-    const lesson = await createTestLesson(
+    const lesson = await createTestTimeslot(
       tenant.id,
       classOption.id,
       startTime,
@@ -106,7 +106,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
     const tenant = testData.tenants[0]!
     const user = testData.users.user2 ?? testData.users.user1
 
-    const classOption = await createTestClassOption(
+    const classOption = await createTestEventType(
       tenant.id,
       'Pending Checkout Cancel Class',
       10,
@@ -119,7 +119,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
     const endTime = new Date(startTime)
     endTime.setHours(12, 0, 0, 0)
 
-    const lesson = await createTestLesson(
+    const lesson = await createTestTimeslot(
       tenant.id,
       classOption.id,
       startTime,
@@ -191,7 +191,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
     const bookings = await payload.find({
       collection: 'bookings',
       where: {
-        lesson: { equals: lesson.id },
+        timeslot: { equals: lesson.id },
         user: { equals: user.id },
       },
       depth: 0,

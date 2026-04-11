@@ -1,6 +1,9 @@
-import { Booking, ClassOption, User } from "@repo/shared-types";
+import { Booking, EventType, User } from "@repo/shared-types";
 
-import { FieldHook } from "payload";
+import type { CollectionSlug, FieldHook } from "payload";
+
+import type { BookingCollectionSlugs } from "../resolve-slugs";
+import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 
 // Constants
 const MILLISECONDS_PER_MINUTE = 60000;
@@ -26,7 +29,7 @@ const getParentId = (user: User): number | null => {
     : (user.parentUser as unknown as number);
 };
 
-const isLessonClosed = (
+const isTimeslotClosed = (
   startTime: string | undefined,
   lockOutTime: number | undefined,
   currentTime: Date
@@ -43,17 +46,17 @@ const isLessonClosed = (
     return false;
   }
 
-  // If lesson has already started, it's closed
+  // If timeslot has already started, it's closed
   if (currentTime.getTime() >= startTimeMs) {
     return true;
   }
 
-  // If lockOutTime is not defined or is null, only check if lesson has started
+  // If lockOutTime is not defined or is null, only check if timeslot has started
   if (lockOutTime === undefined || lockOutTime === null) {
     return false;
   }
 
-  // If lockOutTime is 0, only check if lesson has started (already checked above)
+  // If lockOutTime is 0, only check if timeslot has started (already checked above)
   if (lockOutTime === 0) {
     return false;
   }
@@ -99,22 +102,24 @@ const _hasParentConfirmedBooking = (
   });
 };
 
-const isTrialable = (classOption: ClassOption): boolean => {
+const isTrialable = (eventType: EventType): boolean => {
   return (
-    classOption.paymentMethods?.allowedDropIn?.discountTiers?.some(
+    eventType.paymentMethods?.allowedDropIn?.discountTiers?.some(
       (tier) => tier.type === "trial"
     ) ?? false
   );
 };
 
-export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
-  // Early return if hook should not run
+export function createGetBookingStatus(slugs: BookingCollectionSlugs): FieldHook {
+  const eventTypesSlug = slugs.eventTypes as CollectionSlug;
+  const bookingsSlug = slugs.bookings as CollectionSlug;
+
+  return async ({ req, data, context }) => {
   if (context.triggerAfterChange === false) {
     return;
   }
 
-  // Validate required data
-  if (!data?.id || !data?.classOption) {
+  if (!data?.id || !data?.eventType) {
     return "active";
   }
 
@@ -122,26 +127,25 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
   const userId = getUserId(req.user);
 
   try {
-    // Fetch class option
-    const classOption = (await req.payload.findByID({
-      collection: "class-options",
-      id: data.classOption,
-    })) as unknown as ClassOption;
+    const eventType = (await req.payload.findByID({
+      collection: eventTypesSlug,
+      id: data.eventType,
+    })) as unknown as EventType;
 
-    if (!classOption) {
+    if (!eventType) {
       return "active";
     }
 
     // Compute capacity cheaply (avoid loading all bookings + deep relationships).
     // We bypass access control here because this is an internal derived field.
     const confirmedCountResult = await req.payload.find({
-      collection: "bookings",
+      collection: bookingsSlug,
       depth: 0,
       limit: 0,
       overrideAccess: true,
       where: {
         and: [
-          { lesson: { equals: data.id } },
+          { timeslot: { equals: data.id } },
           { status: { equals: "confirmed" } },
         ],
       },
@@ -155,23 +159,23 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
         ? (confirmedCountResult as any).totalDocs
         : (confirmedCountResult.docs as any[]).length;
 
-    const isFull = confirmedCount >= classOption.places;
-    const trialable = isTrialable(classOption);
+    const isFull = confirmedCount >= eventType.places;
+    const trialable = isTrialable(eventType);
 
-    if (isLessonClosed(data.startTime, undefined, currentTime)) {
+    if (isTimeslotClosed(data.startTime, undefined, currentTime)) {
       return "closed";
     }
 
     // Check children bookings (only for child classes) - check this first
-    if (classOption.type === "child" && userId) {
+    if (eventType.type === "child" && userId) {
       const parentConfirmed = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 0,
         limit: 1,
         overrideAccess: true,
         where: {
           and: [
-            { lesson: { equals: data.id } },
+            { timeslot: { equals: data.id } },
             { "user.parentUser": { equals: userId } },
             { status: { equals: "confirmed" } },
           ],
@@ -184,16 +188,16 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
       }
     }
 
-    // Check if user already has confirmed bookings for this lesson
+    // Check if user already has confirmed bookings for this timeslot
     if (userId) {
       const userConfirmed = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 0,
         limit: 2,
         overrideAccess: true,
         where: {
           and: [
-            { lesson: { equals: data.id } },
+            { timeslot: { equals: data.id } },
             { user: { equals: userId } },
             { status: { equals: "confirmed" } },
           ],
@@ -208,13 +212,13 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
     // Check if user is on waiting list
     if (userId && isFull) {
       const userWaiting = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 0,
         limit: 1,
         overrideAccess: true,
         where: {
           and: [
-            { lesson: { equals: data.id } },
+            { timeslot: { equals: data.id } },
             { user: { equals: userId } },
             { status: { equals: "waiting" } },
           ],
@@ -227,8 +231,8 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
       }
     }
 
-    // Check if lesson is closed (lock-out time) - check after user booking status
-    if (isLessonClosed(data.startTime, data.lockOutTime, currentTime)) {
+    // Check if timeslot is closed (lock-out time) - check after user booking status
+    if (isTimeslotClosed(data.startTime, data.lockOutTime, currentTime)) {
       return "closed";
     }
 
@@ -246,12 +250,12 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
       // Check if user has any confirmed bookings
       // For child classes, check parent's bookings; for adult classes, check user's bookings
       const bookingCheckQuery = await req.payload.find({
-        collection: "bookings",
+        collection: bookingsSlug,
         depth: 1,
         limit: 1,
         where: {
           and: [
-            classOption.type === "child"
+            eventType.type === "child"
               ? {
                   "user.parentUser": {
                     equals: userId,
@@ -279,8 +283,12 @@ export const getBookingStatus: FieldHook = async ({ req, data, context }) => {
 
     return "active";
   } catch (error) {
-    // Log error in production, but return a safe default
     console.error("Error calculating booking status:", error);
     return "active";
   }
-};
+  };
+}
+
+export const getBookingStatus = createGetBookingStatus(
+  DEFAULT_BOOKING_COLLECTION_SLUGS,
+);

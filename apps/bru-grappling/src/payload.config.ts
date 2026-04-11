@@ -121,7 +121,7 @@ export default buildConfig({
     }),
     bookingsPlugin({
       enabled: true,
-      classOptionsOverrides: {
+      eventTypesOverrides: {
         fields: ({ defaultFields }) => [
           ...defaultFields,
           {
@@ -176,7 +176,7 @@ export default buildConfig({
     bookingsPaymentsPlugin({
       dropIns: {
         enabled: true,
-        paymentMethodSlugs: ['class-options'],
+        paymentMethodSlugs: ['event-types'],
       },
       membership: {
         enabled: true,
@@ -216,10 +216,10 @@ export default buildConfig({
               },
             },
             {
-              name: `classOptionsAllowedPlans`,
+              name: `eventTypesAllowedPlans`,
               label: `Class Options Allowed Plans`,
               type: 'join',
-              collection: 'class-options',
+              collection: 'event-types',
               on: 'paymentMethods.allowedPlans',
               admin: {
                 description: 'The classes that are available for this plan',

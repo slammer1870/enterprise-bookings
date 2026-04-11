@@ -12,21 +12,21 @@ import {
   Section,
   Text,
 } from "@react-email/components";
-import { Lesson } from "@repo/shared-types";
-import { formatDateInTimeZone, resolveLessonTimeZone } from "@repo/shared-utils";
+import { Timeslot } from "@repo/shared-types";
+import { formatDateInTimeZone, resolveTimeslotTimeZone } from "@repo/shared-utils";
 import * as React from "react";
 
 interface WaitlistNotificationEmailProps {
-  lesson: Lesson;
+  timeslot: Timeslot;
   dashboardUrl: string;
 }
 
 export const WaitlistNotificationEmail = ({
-  lesson,
+  timeslot,
   dashboardUrl,
 }: WaitlistNotificationEmailProps) => {
-  const timeZone = resolveLessonTimeZone(lesson);
-  const formattedDate = formatDateInTimeZone(lesson.date, "en-US", timeZone, {
+  const timeZone = resolveTimeslotTimeZone(timeslot);
+  const formattedDate = formatDateInTimeZone(timeslot.date, "en-US", timeZone, {
     weekday: "long",
     year: "numeric",
     month: "long",
@@ -45,19 +45,19 @@ export const WaitlistNotificationEmail = ({
             <Text style={paragraph}>Hi there,</Text>
 
             <Text style={paragraph}>
-              Great news! A spot has become available in the lesson you were waitlisted for. 
+              Great news! A spot has become available in the timeslot you were waitlisted for. 
               You have a limited time to secure your booking.
             </Text>
 
             <Section style={bookingDetails}>
               <Heading as="h2" style={subheading}>
-                Lesson Details
+                Timeslot Details
               </Heading>
               <Hr style={divider} />
 
               <Row style={detailRow}>
-                <Column style={detailLabel}>Lesson:</Column>
-                <Column style={detailValue}>{lesson.classOption.name}</Column>
+                <Column style={detailLabel}>Timeslot:</Column>
+                <Column style={detailValue}>{timeslot.eventType.name}</Column>
               </Row>
 
               <Row style={detailRow}>
@@ -65,17 +65,17 @@ export const WaitlistNotificationEmail = ({
                 <Column style={detailValue}>{formattedDate}</Column>
               </Row>
 
-              {lesson.startTime && lesson.endTime && (
+              {timeslot.startTime && timeslot.endTime && (
                 <Row style={detailRow}>
                   <Column style={detailLabel}>Time:</Column>
                   <Column style={detailValue}>
-                    {new Date(lesson.startTime).toLocaleTimeString("en-US", {
+                    {new Date(timeslot.startTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
                       timeZone,
                     })}{" "}
                     -{" "}
-                    {new Date(lesson.endTime).toLocaleTimeString("en-US", {
+                    {new Date(timeslot.endTime).toLocaleTimeString("en-US", {
                       hour: "2-digit",
                       minute: "2-digit",
                       timeZone,
@@ -84,17 +84,17 @@ export const WaitlistNotificationEmail = ({
                 </Row>
               )}
 
-              {lesson.location && (
+              {timeslot.location && (
                 <Row style={detailRow}>
                   <Column style={detailLabel}>Location:</Column>
-                  <Column style={detailValue}>{lesson.location}</Column>
+                  <Column style={detailValue}>{timeslot.location}</Column>
                 </Row>
               )}
 
-              {lesson.instructor?.name && (
+              {timeslot.staffMember?.name && (
                 <Row style={detailRow}>
-                  <Column style={detailLabel}>Instructor:</Column>
-                  <Column style={detailValue}>{lesson.instructor.name}</Column>
+                  <Column style={detailLabel}>StaffMember:</Column>
+                  <Column style={detailValue}>{timeslot.staffMember.name}</Column>
                 </Row>
               )}
             </Section>

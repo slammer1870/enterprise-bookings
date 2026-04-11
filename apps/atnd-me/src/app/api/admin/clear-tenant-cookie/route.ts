@@ -11,6 +11,9 @@ import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
 import { checkRole } from '@repo/shared-utils'
 
 const COOKIE_NAME = 'payload-tenant'
+const TENANT_SLUG_COOKIE_NAME = 'tenant-slug'
+const TENANT_ID_COOKIE_NAME = 'tenant-id'
+const TENANT_COOKIE_NAMES = [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME]
 
 function getRootHostname(): string | null {
   const url = process.env.NEXT_PUBLIC_SERVER_URL
@@ -22,9 +25,33 @@ function getRootHostname(): string | null {
   }
 }
 
-function clearCookieHeader(path: string, domain?: string | null): string {
+function clearCookieHeader(name: string, path: string, domain?: string | null): string {
   const domainAttr = domain ? `; Domain=${domain}` : ''
-  return `${COOKIE_NAME}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
+  return `${name}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
+}
+
+function getPathsToClear(request: NextRequest): string[] {
+  const basePaths = ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/']
+  const rawReferer = request.headers.get('referer')
+
+  if (!rawReferer) return basePaths
+
+  try {
+    const refererPathname = new URL(rawReferer).pathname || '/'
+    const parts = refererPathname.split('/').filter(Boolean)
+    const dynamicPaths = new Set<string>()
+
+    let current = ''
+    for (const part of parts) {
+      current += `/${part}`
+      dynamicPaths.add(current)
+      dynamicPaths.add(`${current}/`)
+    }
+
+    return Array.from(new Set([...basePaths, ...dynamicPaths]))
+  } catch {
+    return basePaths
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -35,24 +62,30 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!checkRole(['admin', 'tenant-admin'], user as Parameters<typeof checkRole>[1])) {
+    if (!checkRole(['super-admin', 'admin', 'staff'], user as Parameters<typeof checkRole>[1])) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const res = NextResponse.json({ ok: true })
-    // Clear for both path=/ and path=/admin so the cookie is gone regardless of how the plugin set it
-    res.headers.append('Set-Cookie', clearCookieHeader('/'))
-    res.headers.append('Set-Cookie', clearCookieHeader('/admin'))
-    res.headers.append('Set-Cookie', clearCookieHeader('/admin/'))
+    const pathsToClear = getPathsToClear(request)
+
+    // Clear all known legacy admin paths so the cookie is gone regardless of how it was set.
+    for (const name of TENANT_COOKIE_NAMES) {
+      for (const path of pathsToClear) {
+        res.headers.append('Set-Cookie', clearCookieHeader(name, path))
+      }
+    }
 
     // Also clear any domain-scoped cookie (Domain=.rootHostname). This can exist even when
     // the current request is on the root hostname (e.g. user previously visited admin on a subdomain).
     const rootHostname = getRootHostname()
     if (rootHostname) {
       const domain = rootHostname === 'localhost' ? '.localhost' : `.${rootHostname}`
-      res.headers.append('Set-Cookie', clearCookieHeader('/', domain))
-      res.headers.append('Set-Cookie', clearCookieHeader('/admin', domain))
-      res.headers.append('Set-Cookie', clearCookieHeader('/admin/', domain))
+      for (const name of TENANT_COOKIE_NAMES) {
+        for (const path of pathsToClear) {
+          res.headers.append('Set-Cookie', clearCookieHeader(name, path, domain))
+        }
+      }
     }
 
     return res

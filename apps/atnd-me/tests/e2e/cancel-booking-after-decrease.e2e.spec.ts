@@ -1,8 +1,8 @@
 import { test, expect } from './helpers/fixtures'
 import { BASE_URL, loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import {
-  createTestClassOption,
-  createTestLesson,
+  createTestEventType,
+  createTestTimeslot,
   createTestBooking,
   getPayloadInstance,
 } from './helpers/data-helpers'
@@ -19,7 +19,7 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
     // --- data setup (moved from beforeAll to avoid fixture-timeout chicken-and-egg) ---
 
     // Create class option with sufficient capacity
-    const classOption = await createTestClassOption(
+    const classOption = await createTestEventType(
       tenant.id,
       'Cancel After Decrease Test Class',
       10,
@@ -36,7 +36,7 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
     const endTime = new Date(startTime)
     endTime.setHours(11, 0, 0, 0)
 
-    const lesson = await createTestLesson(
+    const lesson = await createTestTimeslot(
       tenant.id,
       classOption.id,
       startTime,
@@ -74,12 +74,12 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
     // Step 3: Decrease quantity from 2 to 1 via the same tRPC mutation the manage UI uses.
     // This keeps the test focused on the edge case without relying on seeded CMS pages.
     const setQtyRes = await page.request.post(
-      `${BASE_URL}/api/trpc/bookings.setMyBookingQuantityForLesson?batch=1`,
+      `${BASE_URL}/api/trpc/bookings.setMyBookingQuantityForTimeslot?batch=1`,
       {
         data: {
           0: {
             json: {
-              lessonId: lesson.id,
+              timeslotId: lesson.id,
               desiredQuantity: 1,
             },
           },
@@ -90,7 +90,7 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
 
     if (!setQtyRes.ok()) {
       const text = await setQtyRes.text().catch(() => '')
-      throw new Error(`bookings.setMyBookingQuantityForLesson failed: ${setQtyRes.status()} ${text}`)
+      throw new Error(`bookings.setMyBookingQuantityForTimeslot failed: ${setQtyRes.status()} ${text}`)
     }
 
     // Verify exactly one active booking remains.
@@ -99,7 +99,7 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
       collection: 'bookings',
       where: {
         and: [
-          { lesson: { equals: lesson.id } },
+          { timeslot: { equals: lesson.id } },
           { user: { equals: user.id } },
         ],
       },
@@ -115,12 +115,12 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
     // Step 4: Cancel the remaining booking the same way the schedule UI does (tRPC mutation).
     // This avoids coupling the test to seeded CMS pages while still covering the original 403 edge case.
     const cancelRes = await page.request.post(
-      `${BASE_URL}/api/trpc/bookings.setMyBookingForLesson?batch=1`,
+      `${BASE_URL}/api/trpc/bookings.setMyBookingForTimeslot?batch=1`,
       {
         data: {
           0: {
             json: {
-              lessonId: lesson.id,
+              timeslotId: lesson.id,
               intent: 'cancel',
             },
           },
@@ -131,7 +131,7 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
 
     if (!cancelRes.ok()) {
       const text = await cancelRes.text().catch(() => '')
-      throw new Error(`bookings.setMyBookingForLesson failed: ${cancelRes.status()} ${text}`)
+      throw new Error(`bookings.setMyBookingForTimeslot failed: ${cancelRes.status()} ${text}`)
     }
 
     const cancelJSON = (await cancelRes.json().catch(() => null)) as
@@ -141,7 +141,7 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
     const trpcError =
       (Array.isArray(cancelJSON) ? cancelJSON[0]?.error : cancelJSON?.error) ?? null
     if (trpcError) {
-      throw new Error(`setMyBookingForLesson returned error: ${trpcError.message || 'Unknown error'}`)
+      throw new Error(`setMyBookingForTimeslot returned error: ${trpcError.message || 'Unknown error'}`)
     }
 
     // Verify there are no active bookings left for this lesson/user.
@@ -149,7 +149,7 @@ test.describe('Cancel Booking After Decrease E2E Test', () => {
       collection: 'bookings',
       where: {
         and: [
-          { lesson: { equals: lesson.id } },
+          { timeslot: { equals: lesson.id } },
           { user: { equals: user.id } },
         ],
       },

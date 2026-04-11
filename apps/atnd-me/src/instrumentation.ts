@@ -1,7 +1,7 @@
 import * as Sentry from "@sentry/nextjs";
 
 /** E2E placeholder account pattern; mock Stripe when these are used so tests never hit the real API. */
-const E2E_ACCOUNT_PATTERN = /^acct_[a-z_]+_\d+$/;
+const E2E_ACCOUNT_PATTERN = /^acct_[a-z0-9_]+$/;
 
 function isTestAccount(id: string | null | undefined): boolean {
   return Boolean(id?.trim() && E2E_ACCOUNT_PATTERN.test(id.trim()));

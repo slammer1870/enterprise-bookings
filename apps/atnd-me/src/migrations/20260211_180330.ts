@@ -155,9 +155,9 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     END $$;
   `)
 
-  // 3. Alter lessons default (idempotent)
+  // 3. Alter timeslots default (idempotent)
   await db.execute(sql`
-    ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-11T18:03:30.384Z';
+    ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-11T18:03:30.384Z';
   `)
 
   // 4. Add constraints (ignore if already exist)
@@ -249,7 +249,7 @@ export async function down({ db, payload: _payload, req: _req }: MigrateDownArgs
   DROP TABLE IF EXISTS "_pages_v_blocks_health_benefits" CASCADE;
   DROP TABLE IF EXISTS "_pages_v_blocks_section_tagline" CASCADE;
   DROP TABLE IF EXISTS "tenants_allowed_blocks" CASCADE;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-02-11T14:48:27.176Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-02-11T14:48:27.176Z';
   DROP TYPE IF EXISTS "public"."enum_hero_sched_sanc_links_link_type";
   DROP TYPE IF EXISTS "public"."enum_hero_sched_sanc_links_link_appearance";
   DROP TYPE IF EXISTS "public"."enum__hero_sched_sanc_v_links_link_type";

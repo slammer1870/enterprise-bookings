@@ -1,5 +1,5 @@
 import { stripe } from "@repo/shared-utils";
-import { headers } from "next/headers";
+import { headers } from "next/headers.js";
 import { APIError, type PayloadHandler } from "payload";
 import type { User } from "@repo/shared-types";
 import type { GetStripeAccountIdForRequest } from "../../types.js";

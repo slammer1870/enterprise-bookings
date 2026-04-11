@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { Lesson, Booking } from '@repo/shared-types'
+import { Timeslot, Booking } from '@repo/shared-types'
 import { useTRPC } from '@repo/trpc/client'
 import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
@@ -10,13 +10,13 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 
 interface BookingFormProps {
-  lesson: Lesson
+  timeslot: Timeslot
   quantity: number
   onSuccessRedirect?: string
 }
 
 export const BookingForm: React.FC<BookingFormProps> = ({
-  lesson,
+  timeslot,
   quantity,
   onSuccessRedirect = '/',
 }) => {
@@ -38,14 +38,14 @@ export const BookingForm: React.FC<BookingFormProps> = ({
   )
 
   const handleBook = async () => {
-    if (quantity < 1 || quantity > lesson.remainingCapacity) {
+    if (quantity < 1 || quantity > timeslot.remainingCapacity) {
       toast.error('Invalid quantity selected')
       return
     }
 
     try {
       await createBookingsMutation({
-        lessonId: lesson.id,
+        timeslotId: timeslot.id,
         quantity,
       })
     } catch (error) {
@@ -66,7 +66,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         <div className="text-right">
           <p className="font-medium">Remaining Capacity</p>
           <p className="text-sm text-muted-foreground">
-            {lesson.remainingCapacity} available
+            {timeslot.remainingCapacity} available
           </p>
         </div>
       </div>
@@ -74,7 +74,7 @@ export const BookingForm: React.FC<BookingFormProps> = ({
       <Button
         type="button"
         onClick={handleBook}
-        disabled={isLoading || quantity < 1 || quantity > lesson.remainingCapacity}
+        disabled={isLoading || quantity < 1 || quantity > timeslot.remainingCapacity}
         className="w-full"
       >
         {isLoading ? (

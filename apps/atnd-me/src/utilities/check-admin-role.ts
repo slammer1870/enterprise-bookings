@@ -1,6 +1,6 @@
 /**
- * Client-safe role checks that support both Payload `roles` and Better Auth `role`.
- * Use in admin UI components; use isAdmin/isTenantAdmin from @/access/userTenantAccess in API routes.
+ * Client-safe role checks for Better Auth `role` (and legacy `roles` during migration).
+ * Use in admin UI components; use @/access/userTenantAccess in API routes.
  */
 type MaybeRoleObj = { role?: unknown; value?: unknown }
 
@@ -28,7 +28,6 @@ function extractRoles(user: unknown): string[] {
         }
       }
     } else if (value && typeof value === 'object') {
-      // Some auth/session payloads may nest roles under { value } or { role }
       const obj = value as MaybeRoleObj
       pushOne(obj.role)
       pushOne(obj.value)
@@ -41,10 +40,16 @@ function extractRoles(user: unknown): string[] {
   return out
 }
 
+/** Tenant organization admin (Payload role `admin`). */
 export function isTenantAdmin(user: unknown): boolean {
-  return extractRoles(user).includes('tenant-admin')
+  return extractRoles(user).includes('admin')
 }
 
+/** Platform super-admin. */
 export function isAdmin(user: unknown): boolean {
-  return extractRoles(user).includes('admin')
+  return extractRoles(user).includes('super-admin')
+}
+
+export function isStaff(user: unknown): boolean {
+  return extractRoles(user).includes('staff')
 }

@@ -63,7 +63,7 @@ async function main() {
     let adminUser = await payload.find({
       collection: 'users',
       where: {
-        roles: {
+        role: {
           contains: 'admin',
         },
       },
@@ -84,7 +84,6 @@ async function main() {
           password: 'password',
           emailVerified: true,
           role: ['admin'],
-          roles: ['admin'],
         },
         overrideAccess: true,
       })
@@ -112,7 +111,7 @@ async function main() {
     console.log('  - Tallaght (slug: tallaght) — Dublin South-West, Stripe Connect')
     console.log('\n🌐 Subdomains: dundrum.localhost, greystones.localhost, tallaght.localhost')
     console.log('\n📚 Each tenant: 50 min session (Stripe + Class Pass), 30 min session (Class Pass only)')
-    console.log('  Pages, navbar, footer, schedulers, lessons, bookings per tenant.')
+    console.log('  Pages, navbar, footer, schedulers, timeslots, bookings per tenant.')
 
     await payload.db?.destroy?.()
     process.exit(0)

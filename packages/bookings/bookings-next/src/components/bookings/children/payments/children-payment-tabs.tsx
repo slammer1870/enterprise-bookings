@@ -1,6 +1,6 @@
 "use client";
 
-import { ClassOption, Lesson, Plan } from "@repo/shared-types";
+import { EventType, Timeslot, Plan } from "@repo/shared-types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@repo/ui/components/ui/tabs";
 import { toast } from "sonner";
 
@@ -15,19 +15,19 @@ import { ChildrenPlanList } from "./children-plan-list";
 export function ChildrenPaymentTabs({
   paymentMethods,
   bookingStatus,
-  lessonId,
+  timeslotId,
   remainingCapacity,
 }: {
-  paymentMethods: ClassOption["paymentMethods"];
-  bookingStatus: Lesson["bookingStatus"];
-  lessonId: number;
+  paymentMethods: EventType["paymentMethods"];
+  bookingStatus: Timeslot["bookingStatus"];
+  timeslotId: number;
   remainingCapacity: number;
 }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   const { data: bookedChildren } = useSuspenseQuery(
-    trpc.bookings.getChildrensBookings.queryOptions({ id: lessonId })
+    trpc.bookings.getChildrensBookings.queryOptions({ id: timeslotId })
   );
 
   const bookings = Array.isArray(bookedChildren) ? bookedChildren : [];
@@ -49,13 +49,13 @@ export function ChildrenPaymentTabs({
     trpc.bookings.createChildBooking.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: lessonId }),
+          queryKey: trpc.bookings.getChildrensBookings.queryKey({ id: timeslotId }),
         });
         queryClient.invalidateQueries({
-          queryKey: trpc.bookings.canBookChild.queryKey({ id: lessonId }),
+          queryKey: trpc.bookings.canBookChild.queryKey({ id: timeslotId }),
         });
         queryClient.invalidateQueries({
-          queryKey: trpc.lessons.getByIdForChildren.queryKey({ id: lessonId }),
+          queryKey: trpc.timeslots.getByIdForChildren.queryKey({ id: timeslotId }),
         });
       },
     })
@@ -96,14 +96,14 @@ export function ChildrenPaymentTabs({
         <TabsContent value="drop-in" className="w-full flex flex-col gap-4 mt-4">
           {canAddMoreChildren ? (
             <SelectChildren
-              lessonId={lessonId}
+              timeslotId={timeslotId}
               bookedChildren={bookings.map((booking: any) => booking.user)}
               bookChild={(data) => bookChild({ ...data, status: "pending" })}
               isBooking={isBooking}
             />
           ) : (
             <div className="flex flex-col gap-2">
-              {bookings.length >= remainingCapacity && <p>This lesson is now full.</p>}
+              {bookings.length >= remainingCapacity && <p>This timeslot is now full.</p>}
             </div>
           )}
 
@@ -124,14 +124,14 @@ export function ChildrenPaymentTabs({
         <TabsContent value="subscription" className="w-full flex flex-col gap-4 mt-4">
           {canAddMoreChildren ? (
             <SelectChildren
-              lessonId={lessonId}
+              timeslotId={timeslotId}
               bookedChildren={bookings.map((booking: any) => booking.user)}
               bookChild={(data) => bookChild({ ...data, status: "pending" })}
               isBooking={isBooking}
             />
           ) : (
             <div className="flex flex-col gap-2">
-              {bookings.length >= remainingCapacity && <p>This lesson is now full.</p>}
+              {bookings.length >= remainingCapacity && <p>This timeslot is now full.</p>}
             </div>
           )}
 
@@ -156,7 +156,7 @@ export function ChildrenPaymentTabs({
             getCheckoutArgs={() => {
               const bookingIds = [...new Set(pendingBookings.map((b: any) => b.id.toString()))].join(",");
               const base = window.location.origin;
-              const bookingPath = `/bookings/children/${lessonId}`;
+              const bookingPath = `/bookings/children/${timeslotId}`;
               return {
                 quantity: 1,
                 metadata: {

@@ -8,7 +8,7 @@
 import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { createTestClassOption, createTestLesson, getPayloadInstance } from './helpers/data-helpers'
+import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 
 test.describe('Drop-in multi-quantity discount', () => {
   test.describe.configure({ timeout: 90_000 })
@@ -51,9 +51,9 @@ test.describe('Drop-in multi-quantity discount', () => {
       overrideAccess: true,
     })) as { id: number }
 
-    const classOption = await createTestClassOption(tenantId, 'Drop-in Discount Class', 5)
+    const classOption = await createTestEventType(tenantId, 'Drop-in Discount Class', 5)
     await payload.update({
-      collection: 'class-options',
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: { allowedDropIn: dropIn.id },
@@ -68,7 +68,7 @@ test.describe('Drop-in multi-quantity discount', () => {
     startTime.setHours(12, 0, 0, 0)
     const endTime = new Date(startTime)
     endTime.setHours(13, 0, 0, 0)
-    const lesson = await createTestLesson(tenantId, classOption.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(tenantId, classOption.id, startTime, endTime, undefined, true)
 
     // API login + tenant-scoped cookies so session is sent on tenant subdomain (same as app-smoke).
     await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
@@ -78,7 +78,7 @@ test.describe('Drop-in multi-quantity discount', () => {
     await page.waitForLoadState('domcontentloaded').catch(() => null)
     if (await page.getByText(/tenant not found/i).isVisible().catch(() => false)) {
       throw new Error(
-        `Tenant "${tenantSlug}" not found when loading tenant root. App and test must use the same DB (DATABASE_URI). Lesson ${lesson.id}.`
+        `Tenant "${tenantSlug}" not found when loading tenant root. App and test must use the same DB (DATABASE_URI). Timeslot ${lesson.id}.`
       )
     }
     await page.waitForURL((u) => u.pathname === '/home', { timeout: 10000 }).catch(() => null)
@@ -97,7 +97,7 @@ test.describe('Drop-in multi-quantity discount', () => {
     }
     if (currentPath === '/home' || !currentPath.startsWith('/bookings/')) {
       throw new Error(
-        `Booking page redirected away. Lesson ${lesson.id}, tenant ${tenantSlug}. Expected ${bookingPath}, got ${currentPath}. Check server logs for createBookingPage or getByIdForBooking.`
+        `Booking page redirected away. Timeslot ${lesson.id}, tenant ${tenantSlug}. Expected ${bookingPath}, got ${currentPath}. Check server logs for createBookingPage or getByIdForBooking.`
       )
     }
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
@@ -111,11 +111,11 @@ test.describe('Drop-in multi-quantity discount', () => {
 
     if (result === 'error') {
       const body = await page.textContent('body').catch(() => '')
-      throw new Error(`Server error on booking page. Lesson ${lesson.id}, tenant ${tenantSlug}.\n${body?.slice(0, 500)}`)
+      throw new Error(`Server error on booking page. Timeslot ${lesson.id}, tenant ${tenantSlug}.\n${body?.slice(0, 500)}`)
     }
     if (result === 'tenant_not_found') {
       throw new Error(
-        `Tenant "${tenantSlug}" not found on subdomain. Lesson ${lesson.id}. Ensure app and test use the same DB (DATABASE_URI).`
+        `Tenant "${tenantSlug}" not found on subdomain. Timeslot ${lesson.id}. Ensure app and test use the same DB (DATABASE_URI).`
       )
     }
     if (result === 'timeout') {
@@ -126,7 +126,7 @@ test.describe('Drop-in multi-quantity discount', () => {
         ? ' Redirected to /home — booking page likely failed (lesson not found or tenant mismatch).'
         : ''
       throw new Error(
-        `Timeout waiting for booking page. Lesson ${lesson.id}, tenant ${tenantSlug}. URL: ${url}.${hint} Body: ${body?.slice(0, 300) ?? 'none'}`
+        `Timeout waiting for booking page. Timeslot ${lesson.id}, tenant ${tenantSlug}. URL: ${url}.${hint} Body: ${body?.slice(0, 300) ?? 'none'}`
       )
     }
 
@@ -139,8 +139,8 @@ test.describe('Drop-in multi-quantity discount', () => {
 
     await page.getByRole('tab', { name: /drop-?in/i }).click()
 
-    // Baseline: quantity 1 shows €10.00 (class price and/or total; avoid strict mode with .first())
-    await expect(page.getByText(/total:/i)).toBeVisible({ timeout: 15_000 })
+    // Baseline: quantity 1 shows class price €10.00 and total €11.00 in the price breakdown.
+    await expect(page.getByText(/^Total$/i)).toBeVisible({ timeout: 15_000 })
     await expect(page.getByText('€10.00').first()).toBeVisible({ timeout: 15_000 })
 
     // Wait for the *discounted* payment intent request when quantity becomes 2 (price should be 18.00).

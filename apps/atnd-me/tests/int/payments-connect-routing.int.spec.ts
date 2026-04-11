@@ -23,6 +23,9 @@ import { calculateQuantityDiscount } from '@repo/shared-utils'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
+const runId = Math.random().toString(36).slice(2, 10)
+const connectedRoutingAccountId = `acct_connected_routing_${runId}`
+const otherConnectedAccountId = `acct_other_xyz_${runId}`
 
 type TenantDoc = TenantStripeLike & { id: number }
 
@@ -41,7 +44,7 @@ describe('Payments Connect routing (step 2.7)', () => {
         name: 'Connected Routing Tenant',
         slug: `connected-routing-${Date.now()}`,
         stripeConnectOnboardingStatus: 'active',
-        stripeConnectAccountId: 'acct_connected_routing',
+        stripeConnectAccountId: connectedRoutingAccountId,
       },
       overrideAccess: true,
     })
@@ -113,8 +116,8 @@ describe('Payments Connect routing (step 2.7)', () => {
 
       expect(mockPaymentIntentsCreate).toHaveBeenCalledTimes(1)
       const call = mockPaymentIntentsCreate.mock.calls[0]?.[0]
-      expect(call?.on_behalf_of).toBe('acct_connected_routing')
-      expect(call?.transfer_data?.destination).toBe('acct_connected_routing')
+      expect(call?.on_behalf_of).toBe(connectedRoutingAccountId)
+      expect(call?.transfer_data?.destination).toBe(connectedRoutingAccountId)
     },
     TEST_TIMEOUT,
   )
@@ -224,7 +227,7 @@ describe('Payments Connect routing (step 2.7)', () => {
           name: 'Other Connected',
           slug: `other-connected-${Date.now()}`,
           stripeConnectOnboardingStatus: 'active',
-          stripeConnectAccountId: 'acct_other_xyz',
+          stripeConnectAccountId: otherConnectedAccountId,
         },
         overrideAccess: true,
       })
@@ -240,8 +243,8 @@ describe('Payments Connect routing (step 2.7)', () => {
 
       expect(mockPaymentIntentsCreate).toHaveBeenCalledTimes(1)
       const call = mockPaymentIntentsCreate.mock.calls[0]?.[0]
-      expect(call?.transfer_data?.destination).toBe('acct_other_xyz')
-      expect(call?.on_behalf_of).toBe('acct_other_xyz')
+      expect(call?.transfer_data?.destination).toBe(otherConnectedAccountId)
+      expect(call?.on_behalf_of).toBe(otherConnectedAccountId)
       expect(call?.metadata?.tenantId).toBe(String(other.id))
 
       await payload.delete({

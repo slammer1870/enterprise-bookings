@@ -35,6 +35,7 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
   } = useTenantSelection()
   const { closeModal, openModal } = useModal()
   const { i18n, t } = useTranslation()
+  const selectorRef = React.useRef<HTMLDivElement | null>(null)
   const [tenantSelection, setTenantSelection] = React.useState<
     ReactSelectOption | ReactSelectOption[] | undefined
   >(undefined)
@@ -53,6 +54,14 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
       }
     },
     [setTenant],
+  )
+  const clearSelectedTenant = React.useCallback(
+    (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+      event.preventDefault()
+      event.stopPropagation()
+      switchTenant(undefined)
+    },
+    [switchTenant],
   )
 
   const handleChange = React.useCallback(
@@ -120,11 +129,37 @@ export function ClearableTenantSelectorClient({ disabled, label, viewType }: Pro
     // The doc's tenant is controlled by the selector (synced to the hidden `tenant` relationship field).
     (isOnNavbarOrFooter && isDocumentLikeView) ||
     (!isOnNavbarOrFooter && !canClearTenantOnCurrentRoute && entityType !== 'global' && isDocumentLikeView)
+  const hasSelectedTenant =
+    selectedTenantID !== undefined && selectedTenantID !== null && selectedTenantID !== ''
+  const handleSelectorMouseDownCapture = React.useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!canClear || readOnly || !hasSelectedTenant) return
+
+      const target = event.target
+      if (!(target instanceof Element)) return
+
+      const button = target.closest('button')
+      if (!button || !selectorRef.current?.contains(button)) return
+
+      const buttons = Array.from(selectorRef.current.querySelectorAll('button'))
+      const clearIndicatorButton = buttons[0]
+
+      // Payload's SelectInput renders the clear affordance before the dropdown indicator.
+      // Route that built-in control through our explicit clear flow so cookie + router state
+      // stay in sync without needing a separate visible "Clear" button.
+      if (clearIndicatorButton && button === clearIndicatorButton) {
+        clearSelectedTenant(event)
+      }
+    },
+    [canClear, readOnly, hasSelectedTenant, clearSelectedTenant],
+  )
 
   return (
     <div
       className="tenant-selector"
       data-testid="tenant-selector"
+      onMouseDownCapture={handleSelectorMouseDownCapture}
+      ref={selectorRef}
       style={{ width: '100%', marginBottom: '2rem' }}
     >
       <SelectInput

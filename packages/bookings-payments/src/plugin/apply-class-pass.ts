@@ -7,14 +7,14 @@ import { injectAllowedClassPassesIntoCollection } from "./inject-payment-methods
 
 /**
  * Applies the class-pass feature: class-pass-types, class-passes collections,
- * Stripe class-pass-products endpoint, and allowedClassPasses injection into class-options.
+ * Stripe class-pass-products endpoint, and allowedClassPasses injection into event-types.
  * Does not add transactions (handled by main plugin when classPass or payments enabled).
  */
 export function applyClassPassFeature(
   ctx: PluginContext,
   classPass: ClassPassConfig
 ): void {
-  const classOptionsSlug = classPass.classOptionsSlug ?? "class-options";
+  const eventTypesSlug = classPass.eventTypesSlug ?? "event-types";
   const classPassTypesAdminGroup = classPass.adminGroup ?? "Products";
   const classPassesAdminGroup = classPass.adminGroup ?? "Billing";
 
@@ -32,13 +32,13 @@ export function applyClassPassFeature(
   );
   ctx.collections.push(
     classPassesCollection({
-      classOptionsSlug,
+      eventTypesSlug,
       adminGroup: classPassesAdminGroup,
       overrides: classPass.classPassesOverrides,
     })
   );
-  const target = ctx.collections.find((c) => c.slug === classOptionsSlug);
+  const target = ctx.collections.find((c) => c.slug === eventTypesSlug);
   if (target) {
-    injectAllowedClassPassesIntoCollection(target, classOptionsSlug);
+    injectAllowedClassPassesIntoCollection(target, eventTypesSlug);
   }
 }

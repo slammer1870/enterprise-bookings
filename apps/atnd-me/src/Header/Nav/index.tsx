@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 
 import { CMSLink } from '@/components/Link'
 import type { NavbarData } from '@/utilities/getNavbarFooterForRequest'
+import { cn } from '@/utilities/ui'
 import { HeaderAuthMenu } from './AuthMenu'
 
 const iconClass = 'size-5 flex-shrink-0'
@@ -207,39 +208,45 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
 
   return (
     <nav className="relative flex items-center">
-      <div className="hidden md:flex gap-3 items-center">
-        {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
-          const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
-            | 'inline'
-            | 'default'
-            | 'outline'
-            | 'secondary'
-            | 'ghost'
-            | 'link'
-          const displayIcon =
-            icon === 'instagram' || icon === 'facebook' || icon === 'x'
-              ? icon
-              : null
-          const linkProps = link as React.ComponentProps<typeof CMSLink>
-          return (
-            <CMSLink
-              key={i}
-              {...linkProps}
-              appearance={appearance}
-              {...(displayIcon != null
-                ? {
-                    label: undefined,
-                    children: (
-                      <>
-                        <NavIcon icon={displayIcon} />
-                        <span className="ml-1.5">{linkProps.label ?? ''}</span>
-                      </>
-                    ),
-                  }
-                : {})}
-            />
-          )
-        })}
+      <div className="hidden md:flex items-center gap-6">
+        <div className="flex gap-3 items-center">
+          {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
+            const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
+              | 'inline'
+              | 'default'
+              | 'outline'
+              | 'secondary'
+              | 'ghost'
+              | 'link'
+            const displayIcon =
+              icon === 'instagram' || icon === 'facebook' || icon === 'x'
+                ? icon
+                : null
+            const linkProps = link as React.ComponentProps<typeof CMSLink>
+            return (
+              <CMSLink
+                key={i}
+                {...linkProps}
+                appearance={appearance}
+                className={cn(
+                  linkProps.className,
+                  appearance === 'link' && 'text-inherit hover:text-inherit',
+                )}
+                {...(displayIcon != null
+                  ? {
+                      label: undefined,
+                      children: (
+                        <>
+                          <NavIcon icon={displayIcon} />
+                          <span className="ml-1.5">{linkProps.label ?? ''}</span>
+                        </>
+                      ),
+                    }
+                  : {})}
+              />
+            )
+          })}
+        </div>
         <HeaderAuthMenu />
       </div>
 
@@ -272,7 +279,7 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
           <div
             id="mobile-header-nav"
             className={[
-              'absolute right-0 top-0 h-screen w-1/3 bg-background text-foreground border-l border-border shadow-lg',
+              'absolute right-0 top-0 h-screen w-1/2 max-w-[50vw] bg-background text-foreground border-l border-border shadow-lg',
               'transition-transform duration-200 ease-out will-change-transform',
               mobileOpen ? 'translate-x-0' : 'translate-x-full',
             ].join(' ')}

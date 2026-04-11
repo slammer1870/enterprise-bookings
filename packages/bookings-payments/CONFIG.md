@@ -16,7 +16,7 @@ bookingsPaymentsPlugin({
   // Class pass: pass types, class passes, transactions (class_pass)
   classPass?: true | {
     enabled: boolean
-    classOptionsSlug?: string
+    eventTypesSlug?: string
     adminGroup?: string
     bookingTransactionsOverrides?: { access?, fields?, hooks? }
     classPassesOverrides?: { access?, fields?, hooks? }
@@ -68,17 +68,17 @@ bookingsPaymentsPlugin({
 bookingsPaymentsPlugin({
   classPass: {
     enabled: true,
-    classOptionsSlug: 'class-options',
+    eventTypesSlug: 'event-types',
     bookingTransactionsOverrides: { access: { read, create, update, delete } },
     classPassesOverrides: { access: { ... } },
     classPassTypesOverrides: { access: { ... } },
   },
   dropIns: {
     enabled: true,
-    paymentMethodSlugs: ['class-options'],
+    paymentMethodSlugs: ['event-types'],
     dropInsOverrides: { access: { ... } },
   },
-  membership: { enabled: true, paymentMethodSlugs: ['class-options'] },
+  membership: { enabled: true, paymentMethodSlugs: ['event-types'] },
 })
 ```
 
@@ -90,8 +90,8 @@ bookingsPaymentsPlugin({
 bookingsPaymentsPlugin({
   payments: {
     enabled: true,
-    enableDropIns: true,  // or dropIns: { enabled: true, paymentMethodSlugs: ['class-options'] }
-    paymentMethodSlugs: ['class-options'],
+    enableDropIns: true,  // or dropIns: { enabled: true, paymentMethodSlugs: ['event-types'] }
+    paymentMethodSlugs: ['event-types'],
   },
   membership: {
     enabled: true,
@@ -112,7 +112,7 @@ bookingsPaymentsPlugin({
   payments: {
     enabled: true,
     enableDropIns: true,
-    paymentMethodSlugs: ['class-options'],
+    paymentMethodSlugs: ['event-types'],
   },
 })
 ```
@@ -126,7 +126,7 @@ bookingsPaymentsPlugin({
   payments: { enabled: true, enableDropIns: false },
   membership: {
     enabled: true,
-    paymentMethodSlugs: ['class-options'],
+    paymentMethodSlugs: ['event-types'],
     subscriptionOverrides: {
       fields: ({ defaultFields }) => [...defaultFields, { name: 'lastCheckIn', ... }],
     },

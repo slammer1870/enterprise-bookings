@@ -3,7 +3,7 @@ import { waitForServerReady } from './helpers/server.js'
 
 /**
  * Helper to save an object and wait for navigation, with fallback to extract ID from response.
- * Works for class-options, lessons, and other Payload admin objects.
+ * Works for event-types, timeslots, and other Payload admin objects.
  */
 export async function saveObjectAndWaitForNavigation(
   page: Page,
@@ -28,8 +28,7 @@ export async function saveObjectAndWaitForNavigation(
       (response: any) => {
         const url = response.url()
         const method = response.request().method()
-        const status = response.status()
-        return method === 'POST' && url.includes(apiPath) && !url.includes(`${apiPath}/`) && status === 201
+        return method === 'POST' && url.includes(apiPath) && !url.includes(`${apiPath}/`)
       },
       { timeout: navigationTimeout },
     )
@@ -38,14 +37,25 @@ export async function saveObjectAndWaitForNavigation(
   await saveButton.click()
 
   let objectId: number | null = null
-  try {
-    const response = await responsePromise
-    if (response) {
-      const responseBody: any = await response.json()
-      objectId = responseBody?.doc?.id ?? responseBody?.id ?? null
+  const response = await responsePromise
+  if (response) {
+    const responseBodyText = await response.text().catch(() => '')
+    let responseBody: any = null
+
+    try {
+      responseBody = responseBodyText ? JSON.parse(responseBodyText) : null
+    } catch {
+      responseBody = null
     }
-  } catch {
-    // ignore
+
+    const isSuccessfulResponse = response.status() >= 200 && response.status() < 300
+    if (!isSuccessfulResponse) {
+      throw new Error(
+        `Save failed for ${collectionName} (${response.status()}): ${responseBodyText || '<empty response>'}`,
+      )
+    }
+
+    objectId = responseBody?.doc?.id ?? responseBody?.id ?? null
   }
 
   await page.waitForLoadState('load', { timeout: process.env.CI ? 30000 : 15000 }).catch(() => {})

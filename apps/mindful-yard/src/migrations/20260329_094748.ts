@@ -47,7 +47,7 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   DROP INDEX "transactions_created_at_idx";
   DROP INDEX "payload_locked_documents_rels_transactions_id_idx";
   ALTER TABLE "users" ALTER COLUMN "name" SET NOT NULL;
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-03-29T09:47:48.103Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-03-29T09:47:48.103Z';
   ALTER TABLE "drop_ins" ALTER COLUMN "adjustable" SET DEFAULT true;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-03-29T09:47:48.227Z';
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "end_time" SET DEFAULT '2026-03-29T09:47:48.227Z';
@@ -125,7 +125,7 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   DROP INDEX "booking_transactions_updated_at_idx";
   DROP INDEX "booking_transactions_created_at_idx";
   DROP INDEX "payload_locked_documents_rels_booking_transactions_id_idx";
-  ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:13:16.977Z';
+  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-01-20T20:13:16.977Z';
   ALTER TABLE "drop_ins" ALTER COLUMN "adjustable" SET DEFAULT false;
   ALTER TABLE "users" ALTER COLUMN "name" DROP NOT NULL;
   ALTER TABLE "scheduler_week_days_time_slot" ALTER COLUMN "start_time" SET DEFAULT '2026-01-20T20:13:17.080Z';

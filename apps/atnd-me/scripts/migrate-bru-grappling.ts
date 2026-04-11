@@ -1,6 +1,25 @@
 #!/usr/bin/env tsx
 /**
- * One-off migration: bru-grappling → atnd-me tenant (content + custom blocks).
+ * One-off migration: standalone Payload app → atnd-me tenant (content + custom blocks).
+ *
+ * Supported sources (`--from`):
+ * - `bru-grappling` (default): maps Bru page blocks to `bru*` slugs; source DB from
+ *   `BRU_SOURCE_DATABASE_URI` or `SOURCE_DATABASE_URI`.
+ * - `darkhorse-strength`: maps Dark Horse page blocks to tenant-scoped `dh*` slugs; source DB from
+ *   `DH_SOURCE_DATABASE_URI`, `DARKHORSE_SOURCE_DATABASE_URI`, or `SOURCE_DATABASE_URI`.
+ *
+ * Migrated users get atnd-me role names: legacy `admin` → `super-admin`, `tenant-admin` → `admin`
+ * (see migration `20260409000001_roles_data_and_booking_table_renames`).
+ *
+ * By default, **passwords are preserved** when the source DB has Payload `users.salt`/`users.hash`
+ * (stored in target `accounts.password` as `salt:hash` for `@repo/auth-next` legacy PBKDF2 verify)
+ * or an existing Better Auth `accounts` row for `credential` (scrypt hash copied as-is).
+ * This does **not** depend on `PAYLOAD_SECRET` or `BETTER_AUTH_SECRET` matching the source app.
+ * Use `--no-preserve-passwords` to force random (or `MIGRATION_DEFAULT_USER_PASSWORD`) passwords.
+ *
+ * With default `--upsert` (`--no-upsert` to disable), an existing atnd-me user matched by email
+ * still gets `accounts.password` overwritten from the source when `preservePasswords` is on,
+ * so re-runs can align passwords without creating duplicate users.
  *
  * This script is intentionally conservative:
  * - Supports --dry-run
@@ -11,6 +30,30 @@
  *   DATABASE_URI=... PAYLOAD_SECRET=... \
  *   BRU_SOURCE_DATABASE_URI=... \
  *   pnpm exec tsx scripts/migrate-bru-grappling.ts --tenant-slug bru-grappling --dry-run
+ *
+ * Dark Horse:
+ *   DH_SOURCE_DATABASE_URI=... \
+ *   pnpm exec tsx scripts/migrate-bru-grappling.ts --from darkhorse-strength --tenant-slug darkhorse-strength --dry-run
+ *
+ * Users + **future** timeslots (source `lessons` / `timeslots`) + bookings (skip pages/forms):
+ *   DH_SOURCE_DATABASE_URI=... DATABASE_URI=... PAYLOAD_SECRET=... \
+ *   pnpm exec tsx scripts/migrate-bru-grappling.ts \
+ *     --from darkhorse-strength --tenant-slug YOUR_TENANT_SLUG \
+ *     --future-timeslots-only \
+ *     --skip-pages --skip-forms --skip-media --skip-navbar-footer \
+ *     --dry-run
+ *
+ * `--timeslots-from-date YYYY-MM-DD` overrides the cutoff (inclusive). Bookings only import rows
+ * whose source timeslot/lesson id was migrated (past slots omitted when using future-only).
+ *
+ * **From start of previous UTC week onwards** (last week + all future source slots, no upper bound):
+ *   --timeslots-from-previous-week-onwards
+ *
+ * **Previous week → future (same bookings, new class dates):** migrate only last week’s source
+ * lessons/timeslots, add N calendar days to each slot’s `date`, then migrate bookings. Bookings
+ * still key off source lesson id → new timeslot id.
+ *   --migrate-previous-week-timeslots-shift-days 7
+ * Or manually: `--timeslots-from-date ... --timeslots-to-date ... --shift-timeslot-dates-days 7`
  *
  * Then run without --dry-run.
  */
@@ -31,8 +74,11 @@ import type { User } from '@repo/shared-types'
 
 type Id = string | number
 
+type SourceApp = 'bru-grappling' | 'darkhorse-strength'
+
 type Args = {
   dryRun: boolean
+  from: SourceApp
   tenantId?: string
   tenantSlug?: string
   sourceDatabaseUri?: string
@@ -46,11 +92,20 @@ type Args = {
   skipPages: boolean
   skipNavbarFooter: boolean
   skipBookingData: boolean
+  /** When true (default), copy legacy salt:hash or source credential password into target accounts. */
+  preservePasswords: boolean
+  /** If set, only migrate source timeslots/lessons with `date` on or after this day (`YYYY-MM-DD`). */
+  timeslotsFromDate?: string
+  /** If set, only migrate source timeslots/lessons with `date` on or before this day (inclusive). */
+  timeslotsToDate?: string
+  /** Add this many calendar days to each migrated timeslot’s `date` (UTC date math). */
+  shiftTimeslotDatesByDays?: number
 }
 
 function parseArgs(argv: string[]): Args {
   const out: Args = {
     dryRun: false,
+    from: 'bru-grappling',
     upsertByNaturalKey: true,
     excludeChildData: false,
     includePaymentMethods: false,
@@ -60,12 +115,20 @@ function parseArgs(argv: string[]): Args {
     skipPages: false,
     skipNavbarFooter: false,
     skipBookingData: false,
+    preservePasswords: true,
   }
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--dry-run') out.dryRun = true
-    else if (a === '--tenant-id') out.tenantId = argv[++i]
+    else if (a === '--from') {
+      const v = argv[++i]
+      if (v === 'bru-grappling' || v === 'darkhorse-strength') out.from = v
+      else {
+        console.error(`❌ Invalid --from "${v}". Use bru-grappling or darkhorse-strength.`)
+        process.exit(1)
+      }
+    } else if (a === '--tenant-id') out.tenantId = argv[++i]
     else if (a === '--tenant-slug') out.tenantSlug = argv[++i]
     else if (a === '--source-database-uri') out.sourceDatabaseUri = argv[++i]
     else if (a === '--limit') out.limit = Number(argv[++i])
@@ -78,6 +141,49 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--skip-pages') out.skipPages = true
     else if (a === '--skip-navbar-footer') out.skipNavbarFooter = true
     else if (a === '--skip-booking-data') out.skipBookingData = true
+    else if (a === '--no-preserve-passwords') out.preservePasswords = false
+    else if (a === '--future-timeslots-only') {
+      out.timeslotsFromDate = new Date().toISOString().slice(0, 10)
+    } else if (a === '--timeslots-from-previous-week-onwards') {
+      out.timeslotsFromDate = getPreviousUtcMondaySundayWeekBounds().from
+    } else if (a === '--timeslots-from-date') {
+      const d = argv[++i]
+      if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        console.error('❌ --timeslots-from-date expects YYYY-MM-DD')
+        process.exit(1)
+      }
+      out.timeslotsFromDate = d
+    } else if (a === '--timeslots-to-date') {
+      const d = argv[++i]
+      if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        console.error('❌ --timeslots-to-date expects YYYY-MM-DD')
+        process.exit(1)
+      }
+      out.timeslotsToDate = d
+    } else if (a === '--shift-timeslot-dates-days') {
+      const raw = argv[++i]
+      const n = raw != null ? Number(raw) : NaN
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        console.error('❌ --shift-timeslot-dates-days expects an integer (e.g. 7)')
+        process.exit(1)
+      }
+      out.shiftTimeslotDatesByDays = n
+    } else if (a === '--migrate-previous-week-timeslots-shift-days') {
+      let n = 7
+      const next = argv[i + 1]
+      if (next && /^-?\d+$/.test(next)) {
+        n = Number(next)
+        i++
+      }
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        console.error('❌ --migrate-previous-week-timeslots-shift-days expects an integer (default 7)')
+        process.exit(1)
+      }
+      const { from: wFrom, to: wTo } = getPreviousUtcMondaySundayWeekBounds()
+      out.timeslotsFromDate = wFrom
+      out.timeslotsToDate = wTo
+      out.shiftTimeslotDatesByDays = n
+    }
   }
 
   return out
@@ -92,20 +198,30 @@ function blockInProduction(): void {
 }
 
 async function getAdminReq(payload: Awaited<ReturnType<typeof getPayload>>) {
-  const found = await payload.find({
+  const superAdmins = await payload.find({
     collection: 'users',
-    where: { roles: { contains: 'admin' } },
+    where: { role: { contains: 'super-admin' } } as any,
     limit: 1,
     overrideAccess: true,
-  })
-
-  const user = found.docs[0] || null
-  if (!user || !checkRole(['admin'], user as unknown as User)) {
-    console.error('❌ No admin user found (or roles misconfigured). Create an admin user first.')
+  } as any)
+  let user = superAdmins.docs[0] ?? null
+  if (!user) {
+    const orgAdmins = await payload.find({
+      collection: 'users',
+      where: { role: { contains: 'admin' } } as any,
+      limit: 1,
+      overrideAccess: true,
+    } as any)
+    user = orgAdmins.docs[0] ?? null
+  }
+  if (!user || !checkRole(['super-admin', 'admin'], user as unknown as User)) {
+    console.error(
+      '❌ No super-admin or org admin user found (or roles misconfigured). Create a super-admin user first.',
+    )
     process.exit(1)
   }
 
-  return await createLocalReq({ user: { ...user, collection: 'users' } }, payload)
+  return await createLocalReq({ user: { ...user, collection: 'users' } as any }, payload)
 }
 
 async function resolveTenantId(payload: Awaited<ReturnType<typeof getPayload>>, args: Args): Promise<string> {
@@ -146,7 +262,36 @@ type IdMaps = {
   classPassIdMap: Map<Id, Id>
 }
 
-function mapBlockType(oldType: string): string {
+function mapBlockType(oldType: string, sourceApp: SourceApp): string {
+  if (sourceApp === 'darkhorse-strength') {
+    switch (oldType) {
+      // Standalone darkhorse-strength app used unprefixed slugs; atnd-me uses dh* tenant blocks.
+      case 'hero':
+        return 'dhHero'
+      case 'team':
+        return 'dhTeam'
+      case 'timetable':
+        return 'dhTimetable'
+      case 'testimonials':
+        return 'dhTestimonials'
+      case 'pricing':
+        return 'dhPricing'
+      case 'contact':
+        return 'dhContact'
+      case 'groups':
+        return 'dhGroups'
+      case 'reviews':
+        return 'dhTestimonials'
+      // Shared form block slug in legacy installs
+      case 'form-block':
+        return 'formBlock'
+      case 'dhDashboardLayout':
+        return 'twoColumnLayout'
+      default:
+        return oldType
+    }
+  }
+
   switch (oldType) {
     case 'hero':
       return 'bruHero'
@@ -167,6 +312,8 @@ function mapBlockType(oldType: string): string {
       return 'bruContact'
     case 'hero-waitlist':
       return 'bruHeroWaitlist'
+    case 'dhDashboardLayout':
+      return 'twoColumnLayout'
     default:
       return oldType
   }
@@ -195,13 +342,13 @@ function remapKnownRelationshipIds(value: unknown, maps: IdMaps): unknown {
   return value
 }
 
-function remapPageLayout(layout: unknown, maps: IdMaps): unknown {
+function remapPageLayout(layout: unknown, maps: IdMaps, sourceApp: SourceApp): unknown {
   if (!Array.isArray(layout)) return layout
   return layout.map((block) => {
     if (!block || typeof block !== 'object') return block
     const b = block as Record<string, unknown>
     const blockType = typeof b.blockType === 'string' ? b.blockType : undefined
-    const mapped = blockType ? mapBlockType(blockType) : blockType
+    const mapped = blockType ? mapBlockType(blockType, sourceApp) : blockType
     const withMappedType = blockType ? { ...b, blockType: mapped } : { ...b }
     return remapKnownRelationshipIds(withMappedType, maps)
   })
@@ -234,6 +381,65 @@ async function resolveTableName(pool: Pool, slugOrName: string): Promise<string 
     if (reg) return reg
   }
   return null
+}
+
+/** First matching physical table (legacy single-tenant apps used different names). */
+async function resolveFirstTableName(pool: Pool, slugOrNames: string[]): Promise<string | null> {
+  for (const name of slugOrNames) {
+    const resolved = await resolveTableName(pool, name)
+    if (resolved) return resolved
+  }
+  return null
+}
+
+/**
+ * Value to store in atnd-me `accounts.password` so users keep the same password as on the source app.
+ * - Legacy Payload local auth: `users.salt` + `users.hash` → `salt:hash` (PBKDF2; verified by `@repo/auth-next`)
+ * - Source already on Better Auth: copy existing credential row password (e.g. scrypt) unchanged.
+ * Neither path uses `PAYLOAD_SECRET` or `BETTER_AUTH_SECRET`.
+ */
+async function getImportableCredentialPasswordFromSource(
+  pool: Pool,
+  row: Record<string, unknown>,
+  sourceUserId: Id,
+): Promise<string | null> {
+  const salt = getRowValue<string>(row, 'salt')
+  const hash = getRowValue<string>(row, 'hash')
+  const saltS = salt != null && typeof salt === 'string' ? salt.trim() : ''
+  const hashS = hash != null && typeof hash === 'string' ? hash.trim() : ''
+  if (saltS.length > 0 && hashS.length > 0) {
+    return `${saltS}:${hashS}`
+  }
+
+  const accountsTable = await resolveTableName(pool, 'accounts')
+  if (!accountsTable) return null
+
+  const res = await pool.query(
+    `select "password" from ${accountsTable} where "user_id" = $1 and "provider_id" = $2 limit 1`,
+    [sourceUserId, 'credential'],
+  )
+  const pw = res.rows?.[0]?.password
+  if (typeof pw === 'string' && pw.trim().length > 0) return pw.trim()
+  return null
+}
+
+/** Set `accounts.password` with raw SQL so Payload/Better Auth hooks do not re-hash the value. */
+async function setTargetCredentialPassword(
+  targetPool: Pool,
+  targetUserId: number,
+  passwordValue: string,
+): Promise<void> {
+  const upd = await targetPool.query(
+    `update "accounts" set "password" = $1, "updated_at" = now() where "user_id" = $2 and "provider_id" = $3`,
+    [passwordValue, targetUserId, 'credential'],
+  )
+  if ((upd.rowCount ?? 0) > 0) return
+
+  await targetPool.query(
+    `insert into "accounts" ("user_id", "account_id", "provider_id", "password", "updated_at", "created_at")
+     values ($1, $2, 'credential', $3, now(), now())`,
+    [targetUserId, String(targetUserId), passwordValue],
+  )
 }
 
 function getRowValue<T = unknown>(row: Record<string, unknown>, camel: string): T | undefined {
@@ -272,6 +478,37 @@ function getObjValue<T = unknown>(obj: unknown, camel: string): T | undefined {
   const snake = camel.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
   if (snake in o) return o[snake] as T
   return undefined
+}
+
+/**
+ * Standalone apps (bru-grappling, darkhorse-strength) used legacy role names.
+ * atnd-me uses: platform `super-admin`, org/tenant manager `admin`, plus `staff` / `user`.
+ */
+function mapStandaloneRolesToAtndMe(roles: string[]): string[] {
+  const out = new Set<string>()
+  for (const r of roles) {
+    switch (r) {
+      case 'tenant-admin':
+        out.add('admin')
+        break
+      case 'admin':
+        out.add('super-admin')
+        break
+      case 'super-admin':
+        out.add('super-admin')
+        break
+      case 'staff':
+        out.add('staff')
+        break
+      case 'user':
+        out.add('user')
+        break
+      default:
+        out.add('user')
+    }
+  }
+  if (out.size === 0) out.add('user')
+  return Array.from(out)
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -411,6 +648,72 @@ function remapIdsDeep(value: unknown, map: Map<Id, Id>): unknown {
   return value
 }
 
+/** Coerce FK ids for Payload relationships (Drizzle / PG often expects numbers). */
+function coerceNumberId(id: Id | null | undefined): number | null {
+  if (id === null || id === undefined) return null
+  if (typeof id === 'number' && Number.isFinite(id)) return id
+  if (typeof id === 'bigint') {
+    const n = Number(id)
+    return Number.isSafeInteger(n) ? n : null
+  }
+  const n = Number(String(id).trim())
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Source FKs may be bigint vs number; userIdMap keys follow migrateUsers source row `id` types.
+ */
+function getMappedTargetId(map: Map<Id, Id>, raw: Id | null | undefined): Id | null {
+  if (raw === null || raw === undefined) return null
+  if (map.has(raw)) return map.get(raw) ?? null
+  const n = coerceNumberId(raw)
+  if (n != null && map.has(n)) return map.get(n) ?? null
+  if (typeof raw === 'bigint' && map.has(String(raw))) return map.get(String(raw)) ?? null
+  if (typeof raw === 'string' && /^\d+$/.test(raw) && map.has(Number(raw))) return map.get(Number(raw)) ?? null
+  return null
+}
+
+/** Existing users matched by email may lack this tenant on `tenants`; staff/bookings expect membership. */
+async function ensureUserTenantMembership(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  req: Awaited<ReturnType<typeof createLocalReq>>,
+  userId: Id,
+  tenantIdNum: number,
+): Promise<void> {
+  const id = coerceNumberId(userId)
+  if (id == null) return
+
+  const user = (await payload.findByID({
+    collection: 'users',
+    id,
+    depth: 1,
+    overrideAccess: true,
+  } as any)) as { tenants?: Array<{ tenant?: number | { id: number } }> } | null
+  if (!user) return
+
+  const rows = Array.isArray(user.tenants) ? user.tenants : []
+  const tenantIds: number[] = []
+  for (const row of rows) {
+    const t = row?.tenant
+    const tid =
+      typeof t === 'object' && t !== null && 'id' in t
+        ? Number((t as { id: number }).id)
+        : coerceNumberId(t as Id)
+    if (tid != null && !tenantIds.includes(tid)) tenantIds.push(tid)
+  }
+  if (tenantIds.includes(tenantIdNum)) return
+
+  await payload.update({
+    collection: 'users',
+    id,
+    data: {
+      tenants: [...tenantIds.map((tid) => ({ tenant: tid })), { tenant: tenantIdNum }],
+    },
+    req,
+    overrideAccess: true,
+  } as any)
+}
+
 function omitNil<T extends Record<string, unknown>>(obj: T): T {
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(obj)) {
@@ -520,6 +823,7 @@ async function findExistingIdByField(
 
 async function migrateUsers(
   pool: Pool,
+  targetPool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
   tenantId: string,
@@ -536,7 +840,11 @@ async function migrateUsers(
 
   console.log(`Users: source rows=${rows.length}`)
   const passwordMode = getDefaultUserPassword()
-  if (passwordMode.mode === 'fixed') {
+  if (args.preservePasswords) {
+    console.log(
+      'Users: preservePasswords=yes — new users and existing (upsert-by-email) users get source salt:hash or credential password on target accounts.',
+    )
+  } else if (passwordMode.mode === 'fixed') {
     console.warn(
       'Users: using MIGRATION_DEFAULT_USER_PASSWORD for all newly created users (existing users are not modified).',
     )
@@ -567,26 +875,39 @@ async function migrateUsers(
       const existingId = await findExistingIdByField(payload, 'users', 'email', email)
       if (existingId != null) {
         maps.userIdMap.set(sourceId, existingId)
+        if (!args.dryRun) {
+          await ensureUserTenantMembership(payload, req, existingId, Number(tenantId))
+        }
+        if (args.preservePasswords && !args.dryRun) {
+          const importedForExisting = await getImportableCredentialPasswordFromSource(pool, row, sourceId)
+          if (importedForExisting != null) {
+            await setTargetCredentialPassword(targetPool, Number(existingId), importedForExisting)
+          }
+        }
         continue
       }
     }
 
     const rolesRaw = getRowValueAny(row, ['roles', 'role'])
     const roles = normalizeStringArray(rolesRaw)
-    const safeRoles = roles.map((r) => (r === 'tenant-admin' || r === 'admin' ? r : 'user')) as (
-      | 'user'
-      | 'admin'
-      | 'tenant-admin'
-    )[]
+    const safeRoles = mapStandaloneRolesToAtndMe(roles)
 
-    const password =
-      passwordMode.mode === 'fixed' ? passwordMode.value : randomBytes(24).toString('base64url')
+    const importedCredential =
+      args.preservePasswords && !args.dryRun
+        ? await getImportableCredentialPasswordFromSource(pool, row, sourceId)
+        : null
+
+    const passwordForCreate =
+      importedCredential != null
+        ? randomBytes(24).toString('base64url')
+        : passwordMode.mode === 'fixed'
+          ? passwordMode.value
+          : randomBytes(24).toString('base64url')
 
     const data = omitNil({
       email,
       name,
       emailVerified,
-      roles: safeRoles.length > 0 ? safeRoles : ['user'],
       role: safeRoles.length > 0 ? safeRoles : ['user'],
       registrationTenant: Number(tenantId),
       tenants: [{ tenant: Number(tenantId) }],
@@ -594,8 +915,7 @@ async function migrateUsers(
       banned: getRowValue<boolean>(row, 'banned'),
       banReason: getRowValue<string>(row, 'banReason'),
       banExpires: getRowValue<string>(row, 'banExpires'),
-      // atnd-me user creation requires a password; we intentionally do NOT import salt/hash across apps.
-      password,
+      password: passwordForCreate,
     })
 
     if (args.dryRun) {
@@ -609,7 +929,12 @@ async function migrateUsers(
       req,
       overrideAccess: true,
     } as any)
+    const newUserId = Number(created.id)
     maps.userIdMap.set(sourceId, created.id as Id)
+
+    if (args.preservePasswords && importedCredential != null) {
+      await setTargetCredentialPassword(targetPool, newUserId, importedCredential)
+    }
   }
 }
 
@@ -841,7 +1166,7 @@ async function migrateDropIns(
   }
 }
 
-async function migrateClassOptions(
+async function migrateEventTypes(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
@@ -849,14 +1174,19 @@ async function migrateClassOptions(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'class-options')
+  const table = await resolveFirstTableName(pool, [
+    'event-types',
+    'event_types',
+    'class-options',
+    'class_options',
+  ])
   if (!table) {
-    console.warn('ClassOptions: source table not found, skipping')
+    console.warn('EventTypes: source table not found (tried event-types, class_options), skipping')
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`ClassOptions: source rows=${rows.length}`)
+  console.log(`EventTypes: source table=${table}, rows=${rows.length}`)
 
   // If tenant isn't Stripe-connected, enabling payments will fail. Default to off unless explicitly requested.
   const tenant = await payload.findByID({
@@ -878,7 +1208,7 @@ async function migrateClassOptions(
     if (args.upsertByNaturalKey) {
       // Name isn't globally unique; best effort within tenant.
       const res = await payload.find({
-        collection: 'class-options',
+        collection: 'event-types',
         where: { and: [{ tenant: { equals: Number(tenantId) } }, { name: { equals: name } }] } as any,
         limit: 1,
         depth: 0,
@@ -919,7 +1249,7 @@ async function migrateClassOptions(
 
     if (args.includePaymentMethods && !canEnablePayments) {
       console.warn(
-        `ClassOptions: omitting paymentMethods for "${name}" because tenant stripeConnectOnboardingStatus=${String(
+        `EventTypes: omitting paymentMethods for "${name}" because tenant stripeConnectOnboardingStatus=${String(
           stripeStatus ?? 'unset',
         )}`,
       )
@@ -931,7 +1261,7 @@ async function migrateClassOptions(
     }
 
     const created = await payload.create({
-      collection: 'class-options',
+      collection: 'event-types',
       data,
       req,
       overrideAccess: true,
@@ -940,7 +1270,8 @@ async function migrateClassOptions(
   }
 }
 
-async function migrateInstructors(
+/** Legacy `instructors` / `staff_members` source rows → atnd-me `staff-members` collection. */
+async function migrateStaffMembers(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
@@ -948,39 +1279,72 @@ async function migrateInstructors(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'instructors')
+  const table = await resolveFirstTableName(pool, ['staff_members', 'staffMembers', 'instructors'])
   if (!table) {
-    console.warn('Instructors: source table not found, skipping')
+    console.warn(
+      'StaffMembers: source table not found (tried staff_members, staffMembers, instructors), skipping',
+    )
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`Instructors: source rows=${rows.length}`)
+  console.log(`StaffMembers: source table=${table}, rows=${rows.length}`)
   for (const row of rows) {
     const sourceId = row.id as Id
     const userId = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
-    const mappedUserId = userId != null ? maps.userIdMap.get(userId) : null
+    const mappedUserId = userId != null ? getMappedTargetId(maps.userIdMap, userId) : null
     if (mappedUserId == null) {
-      console.warn(`Instructors: skipping id=${String(sourceId)} (user not mapped)`)
+      console.warn(`StaffMembers: skipping id=${String(sourceId)} (user not mapped)`)
       continue
     }
 
-    const data = omitNil({
-      tenant: Number(tenantId),
-      user: mappedUserId,
-      name: getRowValue(row, 'name') ?? null,
-      description: getRowValue(row, 'description') ?? null,
-      profileImage: null, // media migration not implemented
-      active: getRowValue(row, 'active') ?? true,
-    })
+    const userFk = coerceNumberId(mappedUserId)
+    if (userFk == null) {
+      console.warn(`StaffMembers: skipping id=${String(sourceId)} (invalid mapped user id)`)
+      continue
+    }
 
     if (args.dryRun) {
       maps.instructorIdMap.set(sourceId, sourceId)
       continue
     }
 
+    // `user` is globally unique on staff-members: reuse row if this user already has staff profile.
+    if (args.upsertByNaturalKey) {
+      const existingStaff = await payload.find({
+        collection: 'staff-members',
+        where: { user: { equals: userFk } } as any,
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      } as any)
+      const existingDoc = existingStaff?.docs?.[0] as { id?: Id; tenant?: number | { id: number } } | undefined
+      if (existingDoc?.id != null) {
+        const exT =
+          typeof existingDoc.tenant === 'object' && existingDoc.tenant != null && 'id' in existingDoc.tenant
+            ? Number((existingDoc.tenant as { id: number }).id)
+            : coerceNumberId(existingDoc.tenant as Id)
+        if (exT != null && exT !== Number(tenantId)) {
+          console.warn(
+            `StaffMembers: source id=${String(sourceId)} user=${userFk} already has staff-members id=${String(existingDoc.id)} for tenant ${exT}; reusing id for lesson FK map (one staff row per user).`,
+          )
+        }
+        maps.instructorIdMap.set(sourceId, existingDoc.id as Id)
+        continue
+      }
+    }
+
+    const data = omitNil({
+      tenant: Number(tenantId),
+      user: userFk,
+      name: getRowValue(row, 'name') ?? null,
+      description: getRowValue(row, 'description') ?? null,
+      profileImage: null, // media migration not implemented
+      active: getRowValue(row, 'active') ?? true,
+    })
+
     const created = await payload.create({
-      collection: 'instructors',
+      collection: 'staff-members',
       data,
       req,
       overrideAccess: true,
@@ -989,7 +1353,74 @@ async function migrateInstructors(
   }
 }
 
-async function migrateLessons(
+/** Previous calendar week Mon–Sun in UTC (the week before the current UTC week). */
+function getPreviousUtcMondaySundayWeekBounds(): { from: string; to: string } {
+  const now = new Date()
+  const y = now.getUTCFullYear()
+  const mo = now.getUTCMonth()
+  const d = now.getUTCDate()
+  const dow = now.getUTCDay()
+  const daysFromMonday = dow === 0 ? 6 : dow - 1
+  const thisMonday = new Date(Date.UTC(y, mo, d - daysFromMonday))
+  const prevMonday = new Date(thisMonday)
+  prevMonday.setUTCDate(prevMonday.getUTCDate() - 7)
+  const prevSunday = new Date(prevMonday)
+  prevSunday.setUTCDate(prevSunday.getUTCDate() + 6)
+  return {
+    from: prevMonday.toISOString().slice(0, 10),
+    to: prevSunday.toISOString().slice(0, 10),
+  }
+}
+
+function formatIsoDateFromRowValue(val: unknown): string | null {
+  if (val == null) return null
+  if (val instanceof Date) return val.toISOString().slice(0, 10)
+  const s = String(val).trim()
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  const cap = m?.[1]
+  return cap ?? null
+}
+
+function addCalendarDaysToIsoDate(isoYmd: string, days: number): string {
+  const parts = isoYmd.split('-')
+  const y = Number(parts[0])
+  const mo = Number(parts[1])
+  const d = Number(parts[2])
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+    return isoYmd
+  }
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + days)
+  return dt.toISOString().slice(0, 10)
+}
+
+function buildTimeslotsSourceQuery(
+  table: string,
+  timeslotsFromDate: string | undefined,
+  timeslotsToDate: string | undefined,
+  limit: number | null,
+): { sql: string; params: unknown[] } {
+  const params: unknown[] = []
+  const clauses: string[] = []
+  if (timeslotsFromDate) {
+    params.push(timeslotsFromDate)
+    clauses.push(`"date"::date >= $${params.length}::date`)
+  }
+  if (timeslotsToDate) {
+    params.push(timeslotsToDate)
+    clauses.push(`"date"::date <= $${params.length}::date`)
+  }
+  let sql = `select * from ${table}`
+  if (clauses.length) sql += ` where ${clauses.join(' and ')}`
+  sql += ` order by id asc`
+  if (limit != null && !Number.isNaN(limit)) {
+    params.push(limit)
+    sql += ` limit $${params.length}`
+  }
+  return { sql, params }
+}
+
+async function migrateTimeslots(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
@@ -997,40 +1428,83 @@ async function migrateLessons(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'lessons')
+  const table = await resolveFirstTableName(pool, ['timeslots', 'lessons'])
   if (!table) {
-    console.warn('Lessons: source table not found, skipping')
+    console.warn('Timeslots: source table not found (tried timeslots, lessons), skipping')
     return
   }
   const limit = args.limit ?? null
-  const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`Lessons: source rows=${rows.length}`)
+  const { sql, params } = buildTimeslotsSourceQuery(
+    table,
+    args.timeslotsFromDate,
+    args.timeslotsToDate,
+    limit,
+  )
+  const rows = await queryAll(pool, sql, params)
+  const filterParts: string[] = []
+  if (args.timeslotsFromDate) filterParts.push(`date >= ${args.timeslotsFromDate}`)
+  if (args.timeslotsToDate) filterParts.push(`date <= ${args.timeslotsToDate}`)
+  console.log(
+    `Timeslots: source table=${table}, rows=${rows.length}` +
+      (filterParts.length ? ` (${filterParts.join(', ')})` : ''),
+  )
+  if (args.shiftTimeslotDatesByDays != null && args.shiftTimeslotDatesByDays !== 0) {
+    console.log(`Timeslots: shifting each migrated date by ${args.shiftTimeslotDatesByDays} day(s) (UTC)`)
+  }
   for (const row of rows) {
     const sourceId = row.id as Id
-    const sourceClassOption = getRowValueAny<Id>(row, [
+    const sourceEventType = getRowValueAny<Id>(row, [
+      'eventType',
+      'event_type',
+      'eventTypeId',
+      'event_type_id',
       'classOption',
       'class_option',
       'classOptionId',
       'class_option_id',
     ])
-    const mappedClassOption = sourceClassOption != null ? maps.classOptionIdMap.get(sourceClassOption) : null
-    if (mappedClassOption == null) {
-      console.warn(`Lessons: skipping id=${String(sourceId)} (classOption not mapped)`)
+    const mappedEventType = sourceEventType != null ? maps.classOptionIdMap.get(sourceEventType) : null
+    if (mappedEventType == null) {
+      console.warn(
+        `Timeslots: skipping id=${String(sourceId)} (event-type/class-option id=${String(sourceEventType)} not in map)`,
+      )
       continue
     }
-    const sourceInstructor = getRowValueAny<Id>(row, ['instructor', 'instructorId', 'instructor_id'])
-    const mappedInstructor = sourceInstructor != null ? maps.instructorIdMap.get(sourceInstructor) : null
+    const sourceStaffMember = getRowValueAny<Id>(row, [
+      'instructor',
+      'instructorId',
+      'instructor_id',
+      'staffMember',
+      'staff_member',
+      'staffMemberId',
+      'staff_member_id',
+    ])
+    const mappedStaffMember = sourceStaffMember != null ? maps.instructorIdMap.get(sourceStaffMember) : null
+
+    const rawDate = getRowValue(row, 'date')
+    let dateForCreate: unknown = rawDate
+    const shift = args.shiftTimeslotDatesByDays
+    if (shift != null && shift !== 0) {
+      const iso = formatIsoDateFromRowValue(rawDate)
+      if (iso) {
+        dateForCreate = addCalendarDaysToIsoDate(iso, shift)
+      } else {
+        console.warn(
+          `Timeslots: id=${String(sourceId)} could not parse date for shift; using raw value`,
+        )
+      }
+    }
 
     const data = omitNil({
       tenant: Number(tenantId),
-      date: getRowValue(row, 'date'),
+      date: dateForCreate,
       startTime: getRowValue(row, 'startTime'),
       endTime: getRowValue(row, 'endTime'),
       lockOutTime: Number(getRowValue(row, 'lockOutTime') ?? getRowValue(row, 'lock_out_time') ?? 0),
       originalLockOutTime: getRowValue(row, 'originalLockOutTime') ?? null,
       location: getRowValue(row, 'location') ?? null,
-      instructor: mappedInstructor ?? null,
-      classOption: mappedClassOption,
+      staffMember: mappedStaffMember ?? null,
+      eventType: mappedEventType,
       remainingCapacity: getRowValue(row, 'remainingCapacity') ?? null,
       bookingStatus: getRowValue(row, 'bookingStatus') ?? null,
       active: getRowValue(row, 'active') ?? true,
@@ -1042,13 +1516,16 @@ async function migrateLessons(
     }
 
     const created = await payload.create({
-      collection: 'lessons',
+      collection: 'timeslots',
       data,
       req,
       overrideAccess: true,
     } as any)
     maps.lessonIdMap.set(sourceId, created.id as Id)
   }
+  console.log(
+    `Timeslots: lessonIdMap size=${maps.lessonIdMap.size} (source lesson ids that were migrated; bookings need this)`,
+  )
 }
 
 async function migrateSubscriptions(
@@ -1121,27 +1598,57 @@ async function migrateBookings(
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
   console.log(`Bookings: source rows=${rows.length}`)
+  if (args.timeslotsFromDate || args.timeslotsToDate) {
+    console.log(
+      'Bookings: only source lessons/timeslots that were migrated (same date window as timeslots phase) exist in lessonIdMap. ' +
+        'Bookings pointing at older lessons are skipped — that is expected when using --timeslots-from-date, --timeslots-to-date, ' +
+        '--future-timeslots-only, or --timeslots-from-previous-week-onwards.',
+    )
+  }
+  const maxSkipDetailLogs = 15
+  let skipDetailLogs = 0
+  let importedOrDryRun = 0
+  let skippedRows = 0
+  let skippedMissingUser = 0
+  let skippedMissingTimeslot = 0
+
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceUser = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
-    const sourceLesson = getRowValueAny<Id>(row, ['lesson', 'lessonId', 'lesson_id'])
+    const sourceTimeslot = getRowValueAny<Id>(row, [
+      'timeslot',
+      'timeslotId',
+      'timeslot_id',
+      'lesson',
+      'lessonId',
+      'lesson_id',
+    ])
     const mappedUser = sourceUser != null ? maps.userIdMap.get(sourceUser) : null
-    const mappedLesson = sourceLesson != null ? maps.lessonIdMap.get(sourceLesson) : null
-    if (mappedUser == null || mappedLesson == null) {
-      console.warn(`Bookings: skipping id=${String(sourceId)} (user/lesson not mapped)`)
+    const mappedTimeslot = sourceTimeslot != null ? maps.lessonIdMap.get(sourceTimeslot) : null
+    if (mappedUser == null || mappedTimeslot == null) {
+      skippedRows++
+      if (mappedUser == null) skippedMissingUser++
+      if (mappedTimeslot == null) skippedMissingTimeslot++
+      if (skipDetailLogs < maxSkipDetailLogs) {
+        const parts: string[] = []
+        if (mappedUser == null) parts.push(`user id=${String(sourceUser)} not in map`)
+        if (mappedTimeslot == null) parts.push(`timeslot/lesson id=${String(sourceTimeslot)} not in map`)
+        console.warn(`Bookings: skipping id=${String(sourceId)} (${parts.join('; ')})`)
+        skipDetailLogs++
+      }
       continue
     }
 
     const data = omitNil({
       tenant: Number(tenantId),
       user: mappedUser,
-      lesson: mappedLesson,
+      timeslot: mappedTimeslot,
       status: getRowValue(row, 'status') ?? 'confirmed',
-      // atnd-me uses these helper fields; safe to omit here
     })
 
     if (args.dryRun) {
       maps.bookingIdMap.set(sourceId, sourceId)
+      importedOrDryRun++
       continue
     }
 
@@ -1152,7 +1659,19 @@ async function migrateBookings(
       overrideAccess: true,
     } as any)
     maps.bookingIdMap.set(sourceId, created.id as Id)
+    importedOrDryRun++
   }
+
+  if (skippedRows > maxSkipDetailLogs) {
+    console.warn(
+      `Bookings: suppressed ${skippedRows - maxSkipDetailLogs} additional per-row skip messages (showing first ${maxSkipDetailLogs}).`,
+    )
+  }
+  console.log(
+    `Bookings: summary — ${args.dryRun ? 'would import' : 'imported'} ${importedOrDryRun}, skipped ${skippedRows} rows ` +
+      `(missing user on ${skippedMissingUser} rows, missing timeslot/lesson in map on ${skippedMissingTimeslot} rows; a row can count in both). ` +
+      `lessonIdMap size=${maps.lessonIdMap.size}`,
+  )
 }
 
 async function migrateTransactions(
@@ -1233,7 +1752,7 @@ async function migratePages(
   const tenantNum = Number(tenantId)
   const tenantReq = { ...req, context: { ...(req as any).context, tenant: tenantNum } }
 
-  const knownBlockSlugs = new Set<string>([...allBlockSlugs, 'threeColumnLayout'])
+  const knownBlockSlugs = new Set<string>([...allBlockSlugs, 'threeColumnLayout', 'twoColumnLayout'])
 
   const remapLayout = (layoutUnknown: unknown): unknown[] => {
     const raw = parseJSONIfString(layoutUnknown)
@@ -1245,15 +1764,18 @@ async function migratePages(
       const oldType = typeof b.blockType === 'string' ? b.blockType : null
       if (!oldType) continue
 
-      const mappedType = mapBlockType(oldType)
+      const mappedType = mapBlockType(oldType, args.from)
       if (!knownBlockSlugs.has(mappedType)) {
         console.warn(`Pages: dropping unknown blockType "${mappedType}" (from "${oldType}")`)
         continue
       }
 
-      // Special-case: reviews -> bruTestimonials shape transform
+      // Special-case: reviews -> bruTestimonials / dhTestimonials shape transform
       let mappedBlock: Record<string, unknown> = { ...b, blockType: mappedType }
-      if (oldType === 'reviews' && mappedType === 'bruTestimonials') {
+      if (
+        oldType === 'reviews' &&
+        (mappedType === 'bruTestimonials' || mappedType === 'dhTestimonials')
+      ) {
         const reviews = parseJSONIfString(b.reviews)
         const reviewArr = Array.isArray(reviews) ? reviews : []
         mappedBlock = {
@@ -1367,14 +1889,22 @@ async function main() {
 
   const args = parseArgs(process.argv.slice(2))
   const sourceDatabaseUri =
-    args.sourceDatabaseUri || process.env.BRU_SOURCE_DATABASE_URI || process.env.SOURCE_DATABASE_URI
+    args.sourceDatabaseUri ||
+    (args.from === 'darkhorse-strength'
+      ? process.env.DH_SOURCE_DATABASE_URI || process.env.DARKHORSE_SOURCE_DATABASE_URI
+      : process.env.BRU_SOURCE_DATABASE_URI) ||
+    process.env.SOURCE_DATABASE_URI
 
   if (!process.env.DATABASE_URI) {
     console.error('❌ DATABASE_URI must be set for atnd-me target DB')
     process.exit(1)
   }
   if (!sourceDatabaseUri) {
-    console.error('❌ Missing source DB connection string. Provide BRU_SOURCE_DATABASE_URI or --source-database-uri')
+    const hint =
+      args.from === 'darkhorse-strength'
+        ? 'DH_SOURCE_DATABASE_URI, DARKHORSE_SOURCE_DATABASE_URI, SOURCE_DATABASE_URI, or --source-database-uri'
+        : 'BRU_SOURCE_DATABASE_URI, SOURCE_DATABASE_URI, or --source-database-uri'
+    console.error(`❌ Missing source DB connection string. Provide ${hint}`)
     process.exit(1)
   }
 
@@ -1383,12 +1913,24 @@ async function main() {
   const tenantId = await resolveTenantId(payload, args)
 
   console.log(`Target tenant id: ${tenantId}`)
+  console.log(`Source app: ${args.from}`)
   console.log(`Dry run: ${args.dryRun ? 'yes' : 'no'}`)
   console.log(`Upsert: ${args.upsertByNaturalKey ? 'yes' : 'no'}`)
   console.log(`Exclude child data: ${args.excludeChildData ? 'yes' : 'no'}`)
   console.log(`Include payment methods: ${args.includePaymentMethods ? 'yes' : 'no'}`)
+  console.log(`Preserve passwords: ${args.preservePasswords ? 'yes' : 'no'}`)
+  if (args.timeslotsFromDate) {
+    console.log(`Timeslots date filter: >= ${args.timeslotsFromDate}`)
+  }
+  if (args.timeslotsToDate) {
+    console.log(`Timeslots date filter: <= ${args.timeslotsToDate}`)
+  }
+  if (args.shiftTimeslotDatesByDays != null && args.shiftTimeslotDatesByDays !== 0) {
+    console.log(`Timeslots date shift (days): ${args.shiftTimeslotDatesByDays}`)
+  }
 
   const sourcePool = new Pool({ connectionString: sourceDatabaseUri })
+  const targetPool = new Pool({ connectionString: process.env.DATABASE_URI })
   const maps: IdMaps = {
     mediaIdMap: new Map<Id, Id>(),
     formIdMap: new Map<Id, Id>(),
@@ -1415,16 +1957,16 @@ async function main() {
 
     // Phase 1.5: Users
     if (!args.skipUsers) {
-      await migrateUsers(sourcePool, payload, req, tenantId, maps, args)
+      await migrateUsers(sourcePool, targetPool, payload, req, tenantId, maps, args)
     }
 
     // Phase 1.6: Booking-related data (dependency order)
     if (!args.skipBookingData) {
       await migratePlans(sourcePool, payload, req, tenantId, maps, args)
       await migrateDropIns(sourcePool, payload, req, tenantId, maps, args)
-      await migrateClassOptions(sourcePool, payload, req, tenantId, maps, args)
-      await migrateInstructors(sourcePool, payload, req, tenantId, maps, args)
-      await migrateLessons(sourcePool, payload, req, tenantId, maps, args)
+      await migrateEventTypes(sourcePool, payload, req, tenantId, maps, args)
+      await migrateStaffMembers(sourcePool, payload, req, tenantId, maps, args)
+      await migrateTimeslots(sourcePool, payload, req, tenantId, maps, args)
       await migrateSubscriptions(sourcePool, payload, req, tenantId, maps, args)
       await migrateBookings(sourcePool, payload, req, tenantId, maps, args)
       await migrateTransactions(sourcePool, payload, req, tenantId, maps, args)
@@ -1450,6 +1992,7 @@ async function main() {
     console.log('✅ Migration completed (or simulated via --dry-run).')
   } finally {
     await sourcePool.end()
+    await targetPool.end()
     await payload.db?.destroy?.()
   }
 }

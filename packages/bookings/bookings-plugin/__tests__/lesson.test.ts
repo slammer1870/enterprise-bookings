@@ -19,14 +19,14 @@ import { createDbString } from "@repo/testing-config/src/utils/db";
 
 import { NextRESTClient } from "@repo/payload-testing/src/helpers/NextRESTClient";
 
-import { ClassOption, Lesson } from "@repo/shared-types";
+import { EventType, Timeslot } from "@repo/shared-types";
 
 const TEST_TIMEOUT = 30000; // 30 seconds
 const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
 
 let payload: Payload;
 let restClient: NextRESTClient;
-let classOption: ClassOption;
+let eventType: EventType;
 
 const getLocalDateTimeParts = (value: string | Date, timeZone: string) => {
   const zoned = new TZDate(new Date(value), timeZone);
@@ -39,7 +39,7 @@ const getLocalDateTimeParts = (value: string | Date, timeZone: string) => {
   };
 };
 
-describe("Lesson tests", () => {
+describe("Timeslot tests", () => {
   const ORIGINAL_TZ = process.env.TZ;
   beforeAll(async () => {
     process.env.TZ = "UTC";
@@ -54,14 +54,14 @@ describe("Lesson tests", () => {
     payload = await getPayload({ config: builtConfig });
     restClient = new NextRESTClient(builtConfig);
 
-    classOption = (await payload.create({
-      collection: "class-options",
+    eventType = (await payload.create({
+      collection: "event-types",
       data: {
         name: "Test Class Option",
         places: 4,
         description: "Test Class Option",
       },
-      })) as ClassOption;
+      })) as EventType;
   }, HOOK_TIMEOUT);
 
   afterAll(async () => {
@@ -78,12 +78,12 @@ describe("Lesson tests", () => {
       const lessonDate = new TZDate(2026, 3, 7, 0, 0, 0, 0, timeZone);
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: lessonDate.toISOString(),
           startTime: "18:00",
           endTime: "19:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "DST Manual Save",
         },
       });
@@ -107,33 +107,33 @@ describe("Lesson tests", () => {
       const lessonDate = new TZDate(2026, 2, 30, 0, 0, 0, 0, timeZone);
 
       const lesson = (await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: lessonDate.toISOString(),
           startTime: "10:00",
           endTime: "11:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "DST Update Save",
           active: true,
         },
-      })) as Lesson;
+      })) as Timeslot;
 
       const beforeDate = getLocalDateTimeParts(String(lesson.date), timeZone);
       const beforeStart = getLocalDateTimeParts(String(lesson.startTime), timeZone);
       const beforeEnd = getLocalDateTimeParts(String(lesson.endTime), timeZone);
 
       const updated = (await payload.update({
-        collection: "lessons",
+        collection: "timeslots",
         id: lesson.id,
         data: {
           date: new Date(String(lesson.date)),
           startTime: new Date(String(lesson.startTime)),
           endTime: new Date(String(lesson.endTime)),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "DST Update Save",
           active: false,
         },
-      })) as Lesson;
+      })) as Timeslot;
 
       const afterDate = getLocalDateTimeParts(String(updated.date), timeZone);
       const afterStart = getLocalDateTimeParts(String(updated.startTime), timeZone);
@@ -157,7 +157,7 @@ describe("Lesson tests", () => {
       const lessonDate = new TZDate(2026, 3, 15, 0, 0, 0, 0, timeZone);
 
       const lesson = (await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: {
             raw: "legacy-form-date",
@@ -165,10 +165,10 @@ describe("Lesson tests", () => {
           },
           startTime: "10:00",
           endTime: "11:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Object Date Save",
         },
-      })) as Lesson;
+      })) as Timeslot;
 
       const start = new TZDate(new Date(String(lesson.startTime)), timeZone);
       const end = new TZDate(new Date(String(lesson.endTime)), timeZone);
@@ -186,21 +186,21 @@ describe("Lesson tests", () => {
     "normalizes updated lesson time-only fields when date payload is an object",
     async () => {
       const timeZone = "Europe/Dublin";
-      const originalLesson = (await payload.create({
-        collection: "lessons",
+      const originalTimeslot = (await payload.create({
+        collection: "timeslots",
         data: {
           date: new TZDate(2026, 4, 1, 0, 0, 0, 0, timeZone).toISOString(),
           startTime: "08:00",
           endTime: "09:00",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Legacy Payload Update",
         },
-      })) as Lesson;
+      })) as Timeslot;
 
       const updatedDate = new TZDate(2026, 4, 2, 0, 0, 0, 0, timeZone);
       const updated = (await payload.update({
-        collection: "lessons",
-        id: originalLesson.id,
+        collection: "timeslots",
+        id: originalTimeslot.id,
         data: {
           date: {
             raw: "legacy-form-date",
@@ -208,10 +208,10 @@ describe("Lesson tests", () => {
           },
           startTime: "10:30",
           endTime: "11:30",
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Legacy Payload Update",
         },
-      })) as Lesson;
+      })) as Timeslot;
 
       const start = new TZDate(new Date(String(updated.startTime)), timeZone);
       const end = new TZDate(new Date(String(updated.endTime)), timeZone);
@@ -228,9 +228,9 @@ describe("Lesson tests", () => {
   );
 
   it(
-    "should should get the lessons endpoint",
+    "should should get the timeslots endpoint",
     async () => {
-      const response = await restClient.GET("/lessons");
+      const response = await restClient.GET("/timeslots");
       expect(response.status).toBe(200);
     },
     TEST_TIMEOUT
@@ -246,18 +246,18 @@ describe("Lesson tests", () => {
       oneHourLater.setHours(oneHourLater.getHours() + 1);
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: tomorrow,
           startTime: tomorrow,
           endTime: oneHourLater,
           lockOutTime: 720,
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
 
-      const response = await restClient.GET(`/lessons/${lesson.id}`);
+      const response = await restClient.GET(`/timeslots/${lesson.id}`);
 
       const data = await response.json();
 
@@ -270,17 +270,17 @@ describe("Lesson tests", () => {
     "should have a booking status of closed",
     async () => {
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() - 1 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
 
-      const response = await restClient.GET(`/lessons/${lesson.id}`);
+      const response = await restClient.GET(`/timeslots/${lesson.id}`);
 
       const data = await response.json();
 
@@ -300,12 +300,12 @@ describe("Lesson tests", () => {
         },
       });
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
@@ -314,14 +314,14 @@ describe("Lesson tests", () => {
         collection: "bookings",
         data: {
           user: user.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
 
       const response = await restClient
         .login({ credentials: { email: "test@test.com", password: "test" } })
-        .then(() => restClient.GET(`/lessons/${lesson.id}`));
+        .then(() => restClient.GET(`/timeslots/${lesson.id}`));
 
       const data = await response.json();
 
@@ -367,12 +367,12 @@ describe("Lesson tests", () => {
       });
 
       const lesson = await payload.create({
-        collection: "lessons",
+        collection: "timeslots",
         data: {
           date: new Date(),
           startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
           endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
-          classOption: classOption.id,
+          eventType: eventType.id,
           location: "Test Location",
         },
       });
@@ -381,7 +381,7 @@ describe("Lesson tests", () => {
         collection: "bookings",
         data: {
           user: user1.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
@@ -389,7 +389,7 @@ describe("Lesson tests", () => {
         collection: "bookings",
         data: {
           user: user2.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
@@ -397,7 +397,7 @@ describe("Lesson tests", () => {
         collection: "bookings",
         data: {
           user: user3.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
@@ -405,14 +405,14 @@ describe("Lesson tests", () => {
         collection: "bookings",
         data: {
           user: user4.id,
-          lesson: lesson.id,
+          timeslot: lesson.id,
           status: "confirmed",
         },
       });
 
-      const response = await restClient.GET(`/lessons/${lesson.id}`);
+      const response = await restClient.GET(`/timeslots/${lesson.id}`);
 
-      const data = (await response.json()) as Lesson;
+      const data = (await response.json()) as Timeslot;
 
       expect(response.status).toBe(200);
       expect(data.bookingStatus).toBe("waitlist");

@@ -1,46 +1,138 @@
 import type { Config, CollectionSlug, Plugin } from "payload";
 
-import { generateLessonCollection } from "../collections/lessons";
-import { generateClassOptionsCollection } from "../collections/class-options";
+import { generateTimeslotCollection } from "../collections/timeslots";
+import { generateEventTypesCollection } from "../collections/event-types";
 import { generateBookingCollection } from "../collections/bookings";
-import { generateInstructorCollection } from "../collections/instructors";
+import { generateStaffMemberCollection } from "../collections/staff-members";
 
 import { BookingsPluginConfig } from "../types";
 
-import { schedulerGlobal } from "../globals/scheduler";
+import { createSchedulerGlobal } from "../globals/scheduler";
 
-import { generateLessonsFromSchedule } from "../tasks/generate-lessons";
+import { createGenerateTimeslotsFromScheduleHandler } from "../tasks/create-generate-timeslots-handler";
+
+import { resolveBookingCollectionSlugs } from "../resolve-slugs";
+
+function createGenerateTimeslotsTaskInputSchema(slugs: {
+  eventTypes: string;
+  staffMembers: string;
+}) {
+  const eventTypesSlug = slugs.eventTypes as CollectionSlug;
+  const staffMembersSlug = slugs.staffMembers as CollectionSlug;
+
+  return [
+    {
+      name: "startDate",
+      type: "date" as const,
+      required: true,
+    },
+    {
+      name: "endDate",
+      type: "date" as const,
+      required: true,
+    },
+    {
+      name: "week",
+      type: "group" as const,
+      required: true,
+      fields: [
+        {
+          name: "days",
+          type: "array" as const,
+          required: true,
+          minRows: 7,
+          maxRows: 7,
+          fields: [
+            {
+              name: "timeSlot",
+              type: "array" as const,
+              required: true,
+              fields: [
+                {
+                  name: "startTime",
+                  type: "date" as const,
+                  required: true,
+                },
+                {
+                  name: "endTime",
+                  type: "date" as const,
+                  required: true,
+                },
+                {
+                  name: "eventType",
+                  type: "relationship" as const,
+                  relationTo: eventTypesSlug,
+                },
+                {
+                  name: "location",
+                  type: "text" as const,
+                },
+                {
+                  name: "staffMember",
+                  type: "relationship" as const,
+                  relationTo: staffMembersSlug,
+                },
+                {
+                  name: "lockOutTime",
+                  type: "number" as const,
+                  required: false,
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      name: "clearExisting",
+      type: "checkbox" as const,
+      required: true,
+    },
+    {
+      name: "defaultEventType",
+      type: "relationship" as const,
+      relationTo: eventTypesSlug,
+      required: true,
+    },
+    {
+      name: "lockOutTime",
+      type: "number" as const,
+      required: true,
+    },
+  ];
+}
 
 export const bookingsPlugin =
   (pluginOptions: BookingsPluginConfig): Plugin =>
   (incomingConfig: Config) => {
-    let config = { ...incomingConfig };
+    const config = { ...incomingConfig };
 
     if (!pluginOptions.enabled) {
       return config;
     }
 
+    const slugs = resolveBookingCollectionSlugs(pluginOptions);
+
     let collections = config.collections || [];
 
-    const instructors = generateInstructorCollection(pluginOptions);
-    const lessons = generateLessonCollection(pluginOptions);
-    const classOptions = generateClassOptionsCollection(pluginOptions);
-    const bookings = generateBookingCollection(pluginOptions);
+    const staffMembers = generateStaffMemberCollection(pluginOptions, slugs);
+    const timeslots = generateTimeslotCollection(pluginOptions, slugs);
+    const eventTypes = generateEventTypesCollection(pluginOptions, slugs);
+    const bookings = generateBookingCollection(pluginOptions, slugs);
 
-    collections.push(instructors);
-    collections.push(lessons);
-    collections.push(classOptions);
+    collections.push(staffMembers);
+    collections.push(timeslots);
+    collections.push(eventTypes);
     collections.push(bookings);
 
     const globals = config.globals || [];
 
-    globals.push(schedulerGlobal);
+    globals.push(createSchedulerGlobal(slugs));
 
     config.globals = globals;
 
     config.collections = collections;
 
-    // Register task handlers
     if (!config.jobs) {
       config.jobs = {
         tasks: [],
@@ -52,88 +144,9 @@ export const bookingsPlugin =
     }
 
     config.jobs.tasks.push({
-      slug: "generateLessonsFromSchedule",
-      handler: generateLessonsFromSchedule,
-      inputSchema: [
-        {
-          name: "startDate",
-          type: "date",
-          required: true,
-        },
-        {
-          name: "endDate",
-          type: "date",
-          required: true,
-        },
-        {
-          name: "week",
-          type: "group",
-          required: true,
-          fields: [
-            {
-              name: "days",
-              type: "array",
-              required: true,
-              minRows: 7,
-              maxRows: 7,
-              fields: [
-                {
-                  name: "timeSlot",
-                  type: "array",
-                  required: true,
-                  fields: [
-                    {
-                      name: "startTime",
-                      type: "date",
-                      required: true,
-                    },
-                    {
-                      name: "endTime",
-                      type: "date",
-                      required: true,
-                    },
-                    {
-                      name: "classOption",
-                      type: "relationship",
-                      relationTo: "class-options",
-                    },
-                    {
-                      name: "location",
-                      type: "text",
-                    },
-                    {
-                      name: "instructor",
-                      type: "relationship",
-                      relationTo: "instructors" as CollectionSlug,
-                    },
-                    {
-                      name: "lockOutTime",
-                      type: "number",
-                      required: false,
-                    },
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          name: "clearExisting",
-          type: "checkbox",
-          required: true,
-        },
-        {
-          name: "defaultClassOption",
-          type: "relationship",
-          relationTo: "class-options",
-          required: true,
-        },
-        {
-          name: "lockOutTime",
-          type: "number",
-          required: true,
-        },
-      ],
+      slug: "generateTimeslotsFromSchedule",
+      handler: createGenerateTimeslotsFromScheduleHandler(slugs),
+      inputSchema: createGenerateTimeslotsTaskInputSchema(slugs),
       outputSchema: [
         {
           name: "success",
@@ -152,7 +165,7 @@ export const bookingsPlugin =
       },
     });
 
-    let timezones = config.admin?.timezones || {
+    const timezones = config.admin?.timezones || {
       defaultTimezone: "Europe/Dublin",
     };
 

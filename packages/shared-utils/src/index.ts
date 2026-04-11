@@ -1,6 +1,7 @@
 export * from "./query";
 export * from "./date";
 export * from "./check-role";
+export * from "./effective-user-roles";
 export * from "./stripe";
 export * from "./utm";
 export * from "./discount";

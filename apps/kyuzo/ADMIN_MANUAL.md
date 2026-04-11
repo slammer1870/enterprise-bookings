@@ -29,7 +29,7 @@ The Kyuzo Admin Panel is a comprehensive content management system built on Payl
 
 ### Admin Groups
 The admin panel is organized into logical groups:
-- **Bookings**: Class options, lessons, and bookings
+- **Bookings**: Class options, timeslots, and bookings
 - **Billing**: Subscriptions, plans, and transactions
 - **Products**: Drop-ins and payment methods
 - **Website**: Pages, posts, and navigation
@@ -130,23 +130,23 @@ The admin panel is organized into logical groups:
 - Adult classes can accept adult and family plans
 - Children's classes can accept child and family plans
 
-### Lessons
-**Location**: Collections → Lessons
+### Timeslots
+**Location**: Collections → Timeslots
 
-#### Creating Lessons
-1. Navigate to Collections → Lessons
+#### Creating Timeslots
+1. Navigate to Collections → Timeslots
 2. Click "Create New"
 3. Configure lesson details:
    - **Date**: When the class takes place
    - **Start Time**: Class start time
    - **End Time**: Class end time
    - **Class Option**: Which type of class
-   - **Instructor**: Who's teaching (if applicable)
+   - **StaffMember**: Who's teaching (if applicable)
 
-#### Lesson Management
-- **Bulk Creation**: Create multiple lessons at once
-- **Recurring Lessons**: Set up regular class schedules
-- **Cancellation**: Cancel individual or recurring lessons
+#### Timeslot Management
+- **Bulk Creation**: Create multiple timeslots at once
+- **Recurring Timeslots**: Set up regular class schedules
+- **Cancellation**: Cancel individual or recurring timeslots
 - **Capacity Management**: Monitor class attendance
 
 ### Bookings
@@ -166,7 +166,7 @@ The admin panel is organized into logical groups:
 
 #### Booking Information
 - **Member**: Who made the booking
-- **Lesson**: Which class they booked
+- **Timeslot**: Which class they booked
 - **Status**: Confirmed, cancelled, etc.
 - **Payment**: Associated payment information
 - **Created Date**: When the booking was made

@@ -51,16 +51,30 @@ describe('Middleware', () => {
     })
 
     it('treats root domain as no tenant and clears cookies', async () => {
-      const res = await middleware(createMockRequest('atnd-me.com', '/'))
+      const req = new NextRequest('http://atnd-me.com/', {
+        headers: {
+          host: 'atnd-me.com',
+          cookie: 'tenant-slug=acme; payload-tenant=7',
+        },
+      })
+      const res = await middleware(req)
       const setCookie = res.headers.get('set-cookie')
-      expect(setCookie).not.toContain('tenant-slug=tenant')
-      expect(setCookie).not.toContain('tenant-slug=atnd')
+      expect(setCookie).toContain('tenant-slug=; Path=/; Max-Age=0')
+      expect(setCookie).toContain('payload-tenant=; Path=/; Max-Age=0')
     })
 
     it('extracts tenant from subdomain when host ends with root hostname', async () => {
       const res = await middleware(createMockRequest('acme.atnd-me.com', '/'))
       const setCookie = res.headers.get('set-cookie')
       expect(setCookie).toBeTruthy()
+      expect(setCookie).toContain('tenant-slug=acme')
+    })
+
+    it('rewrites tenant root requests to /home while keeping tenant cookies in sync', async () => {
+      const res = await middleware(createMockRequest('acme.atnd-me.com', '/'))
+      const setCookie = res.headers.get('set-cookie')
+
+      expect(res.headers.get('x-middleware-rewrite')).toBe('http://acme.atnd-me.com/home')
       expect(setCookie).toContain('tenant-slug=acme')
     })
 
@@ -119,6 +133,7 @@ describe('Middleware', () => {
       const res = await middleware(createMockRequest('studio.example.com', '/'))
       const setCookie = res.headers.get('set-cookie')
       expect(setCookie).toBeTruthy()
+      expect(res.headers.get('x-middleware-rewrite')).toBe('http://studio.example.com/home')
       expect(setCookie).toContain('tenant-slug=acme')
       // Custom domain: cookie must not be scoped to platform (no Domain=.atnd-me.com)
       expect(setCookie).not.toContain('Domain=.atnd-me.com')

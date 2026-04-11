@@ -7,11 +7,6 @@ All apps have been aligned to use the **atnd-me** e2e testing standard.
 ### ✅ atnd-me (Standard/Reference)
 - Already using the correct pattern
 - Tests passing
-
-### ✅ boatyard-sauna  
-- Already using the correct pattern
-- Tests passing
-
 ### ⚠️ bru-grappling (Partially Fixed)
 **Changes Made:**
 1. Updated `playwright.config.ts` - Aligned with atnd-me pattern
