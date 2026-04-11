@@ -332,7 +332,6 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   	"block_name" varchar
   );
   
-  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-03-29T16:22:34.379Z';
   ALTER TABLE "media" ADD COLUMN IF NOT EXISTS "tenant_id" integer;
   ALTER TABLE "media" ADD COLUMN IF NOT EXISTS "is_public" boolean DEFAULT false;
   ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "time_zone" varchar;
@@ -479,6 +478,26 @@ export async function up({ db, payload, req }: MigrateUpArgs): Promise<void> {
   CREATE INDEX IF NOT EXISTS "media_tenant_idx" ON "media" USING btree ("tenant_id");
   END IF;
   END $$;
+
+  DO $$ BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'timeslots'
+    ) AND EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'timeslots' AND column_name = 'date'
+    ) THEN
+      ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-03-29T16:22:34.379Z';
+    ELSIF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'lessons'
+    ) AND EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'lessons' AND column_name = 'date'
+    ) THEN
+      ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-03-29T16:22:34.379Z';
+    END IF;
+  END $$;
 `)
 }
 
@@ -551,7 +570,25 @@ export async function down({ db, payload, req }: MigrateDownArgs): Promise<void>
   CREATE TYPE "public"."enum_tenants_allowed_blocks" AS ENUM('heroWithLocation', 'marketingHero', 'location', 'healthBenefits', 'sectionTagline', 'missionElements', 'faqs', 'features', 'caseStudies', 'marketingCta', 'mediaBlock', 'archive', 'formBlock', 'bruHero', 'bruAbout', 'bruSchedule', 'bruLearning', 'bruMeetTheTeam', 'bruTestimonials', 'bruContact', 'bruHeroWaitlist', 'clHeroLoc', 'threeColumnLayout');
   ALTER TABLE "tenants_allowed_blocks" ALTER COLUMN "value" SET DATA TYPE "public"."enum_tenants_allowed_blocks" USING "value"::"public"."enum_tenants_allowed_blocks";
   DROP INDEX "media_tenant_idx";
-  ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-03-19T13:17:29.774Z';
+  DO $$ BEGIN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'timeslots'
+    ) AND EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'timeslots' AND column_name = 'date'
+    ) THEN
+      ALTER TABLE "timeslots" ALTER COLUMN "date" SET DEFAULT '2026-03-19T13:17:29.774Z';
+    ELSIF EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'lessons'
+    ) AND EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'lessons' AND column_name = 'date'
+    ) THEN
+      ALTER TABLE "lessons" ALTER COLUMN "date" SET DEFAULT '2026-03-19T13:17:29.774Z';
+    END IF;
+  END $$;
   ALTER TABLE "media" DROP COLUMN "tenant_id";
   ALTER TABLE "media" DROP COLUMN "is_public";
   ALTER TABLE "tenants" DROP COLUMN "time_zone";`)
