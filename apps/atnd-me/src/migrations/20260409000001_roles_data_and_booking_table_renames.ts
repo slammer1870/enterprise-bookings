@@ -125,12 +125,24 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
     END $$;
 
     DO $$ BEGIN
-      IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'staffMembers_id'
-      ) AND NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'staff_members_id'
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'payload_locked_documents_rels'
+          AND a.attname = 'staff_members_id'
+          AND NOT a.attisdropped
+      ) AND EXISTS (
+        SELECT 1
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'payload_locked_documents_rels'
+          AND a.attname = 'staffMembers_id'
+          AND NOT a.attisdropped
       ) THEN
         ALTER TABLE "payload_locked_documents_rels" RENAME COLUMN "staffMembers_id" TO "staff_members_id";
       END IF;
@@ -262,11 +274,23 @@ export async function down({ db }: MigrateDownArgs): Promise<void> {
 
     DO $$ BEGIN
       IF EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'staff_members_id'
+        SELECT 1
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'payload_locked_documents_rels'
+          AND a.attname = 'staff_members_id'
+          AND NOT a.attisdropped
       ) AND NOT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'payload_locked_documents_rels' AND column_name = 'staffMembers_id'
+        SELECT 1
+        FROM pg_attribute a
+        JOIN pg_class c ON c.oid = a.attrelid
+        JOIN pg_namespace n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public'
+          AND c.relname = 'payload_locked_documents_rels'
+          AND a.attname = 'staffMembers_id'
+          AND NOT a.attisdropped
       ) THEN
         ALTER TABLE "payload_locked_documents_rels" RENAME COLUMN "staff_members_id" TO "staffMembers_id";
       END IF;
