@@ -68,7 +68,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         name: 'CP UI User',
         email: `cp-ui-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,

@@ -56,7 +56,7 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
         name: 'Checkout Route User',
         email: `checkout-route-user-${runId}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,

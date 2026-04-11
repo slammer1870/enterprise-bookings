@@ -17,14 +17,15 @@ describe('Roles configuration', () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
 
+    // Prefer explicit `role`: int tests run in parallel / shared DBs, so "first row" bootstrap may not run.
     superAdminUser = (await payload.create({
       collection: 'users',
       data: {
         name: 'Super Admin User',
         email: `super-admin-roles-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['super-admin'],
         emailVerified: true,
+        role: ['super-admin'],
       },
       draft: false,
       overrideAccess: true,
@@ -36,7 +37,7 @@ describe('Roles configuration', () => {
         name: 'Org Admin User',
         email: `org-admin-roles-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        role: ['admin'],
         emailVerified: true,
       },
       draft: false,
@@ -49,7 +50,7 @@ describe('Roles configuration', () => {
         name: 'Regular User',
         email: `user-roles-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -75,7 +76,7 @@ describe('Roles configuration', () => {
     'allows creating users with super-admin role',
     async () => {
       expect(superAdminUser).toBeDefined()
-      expect(superAdminUser.roles).toContain('super-admin')
+      expect(superAdminUser.role).toContain('super-admin')
       expect(checkRole(['super-admin'], superAdminUser)).toBe(true)
     },
     TEST_TIMEOUT,
@@ -85,7 +86,7 @@ describe('Roles configuration', () => {
     'allows creating users with org admin role',
     async () => {
       expect(orgAdminUser).toBeDefined()
-      expect(orgAdminUser.roles).toContain('admin')
+      expect(orgAdminUser.role).toContain('admin')
       expect(checkRole(['admin'], orgAdminUser)).toBe(true)
     },
     TEST_TIMEOUT,
@@ -95,7 +96,7 @@ describe('Roles configuration', () => {
     'allows creating users with user role',
     async () => {
       expect(regularUser).toBeDefined()
-      expect(regularUser.roles).toContain('user')
+      expect(regularUser.role).toContain('user')
       expect(checkRole(['user'], regularUser)).toBe(true)
     },
     TEST_TIMEOUT,
@@ -126,19 +127,19 @@ describe('Roles configuration', () => {
         collection: 'users',
         id: regularUser.id,
         data: {
-          roles: ['admin'],
+          role: ['admin'],
         },
         overrideAccess: true,
       })
 
-      expect(updated.roles).toContain('admin')
+      expect(updated.role).toContain('admin')
       expect(checkRole(['admin'], updated as User)).toBe(true)
 
       await payload.update({
         collection: 'users',
         id: regularUser.id,
         data: {
-          roles: ['user'],
+          role: ['user'],
         },
         overrideAccess: true,
       })

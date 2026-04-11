@@ -35,7 +35,7 @@ describe('Class-pass booking create → booking-transaction', () => {
         name: 'CP Tx User',
         email: `cp-tx-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,

@@ -1,21 +1,14 @@
 import type { CollectionConfig } from 'payload'
-import { checkRole } from '@repo/shared-utils'
+import { checkRole, getEffectiveUserRoles } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import type { User } from '@/payload-types'
 
 import { authenticated } from '../../access/authenticated'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { userTenantRead, userTenantUpdate, isAdmin, isTenantAdmin, isStaff } from '../../access/userTenantAccess'
 
-function coerceRolesFromDoc(doc: unknown): string[] {
-  if (!doc || typeof doc !== 'object') return []
-  const d = doc as { roles?: unknown; role?: unknown }
-  const roles = Array.isArray(d.roles) ? d.roles : null
-  if (roles && roles.every((r) => typeof r === 'string')) return roles
-  const role = d.role
-  const roleArr = Array.isArray(role) ? role : role != null ? [role] : []
-  return roleArr.filter((r): r is string => typeof r === 'string')
-}
+import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
+
+const FIRST_USER_CREATE_CTX = '__atndFirstUserCreate' as const
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -33,19 +26,36 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     beforeChange: [
+      async ({ data, operation, req }) => {
+        if (!data || operation !== 'create') return data
+        const { totalDocs } = await req.payload.find({
+          collection: 'users',
+          limit: 0,
+          depth: 0,
+          overrideAccess: true,
+        })
+        const isFirst = totalDocs === 0
+        req.context = {
+          ...(req.context && typeof req.context === 'object' ? req.context : {}),
+          [FIRST_USER_CREATE_CTX]: isFirst,
+        } as typeof req.context
+        if (isFirst) {
+          applyFirstUserSuperAdminRole(data as { role?: unknown }, 0)
+        }
+        return data
+      },
       // Prevent non–super-admins from granting super-admin. Tenant org admins may toggle org `admin` for users they manage.
-      ({ data, req, originalDoc }) => {
-        if (!data || !req.user || isAdmin(req.user)) return data
-        const d = data as { roles?: string[]; role?: string | string[] }
+      ({ data, req, originalDoc, operation }) => {
+        if (!data) return data
+        if (req.user && isAdmin(req.user)) return data
+        const d = data as { role?: string | string[] }
+        const skipSuperAdminStrip =
+          (req.context as Record<string, unknown> | undefined)?.[FIRST_USER_CREATE_CTX] === true
 
-        if (isTenantAdmin(req.user) && (d.roles !== undefined || d.role !== undefined)) {
-          const existing = coerceRolesFromDoc(originalDoc)
+        if (req.user && isTenantAdmin(req.user) && d.role !== undefined) {
+          const existing = getEffectiveUserRoles(originalDoc as SharedUser)
 
-          const desired = Array.isArray(d.roles)
-            ? d.roles
-            : d.role !== undefined
-              ? (Array.isArray(d.role) ? d.role : [d.role])
-              : []
+          const desired = Array.isArray(d.role) ? d.role : d.role !== undefined ? [d.role] : []
 
           const wantsOrgAdmin = desired.includes('admin')
 
@@ -55,57 +65,31 @@ export const Users: CollectionConfig = {
 
           const nextWithUser = next.length > 0 ? next : ['user']
 
-          d.roles = nextWithUser
           d.role = nextWithUser
         }
 
-        const existingRoles = coerceRolesFromDoc(originalDoc)
-        const existingHasSuperAdmin = existingRoles.includes('super-admin')
+        // Only enforce super-admin add/remove rules on updates. On creates, stripping here removed
+        // `super-admin` from every seeded/admin user after the first DB row (tests + Local API).
+        if (operation === 'update') {
+          const existingRoles = getEffectiveUserRoles(originalDoc as SharedUser)
+          const existingHasSuperAdmin = existingRoles.includes('super-admin')
 
-        if (d.roles && Array.isArray(d.roles) && d.roles.includes('super-admin') && !existingHasSuperAdmin) {
-          d.roles = d.roles.filter((r) => r !== 'super-admin')
-        } else if (d.roles && Array.isArray(d.roles) && existingHasSuperAdmin && !d.roles.includes('super-admin')) {
-          d.roles = [...d.roles, 'super-admin']
-        }
-        if (d.role !== undefined) {
-          const arr = Array.isArray(d.role) ? d.role : [d.role]
-          if (arr.includes('super-admin') && !existingHasSuperAdmin) {
-            d.role = arr.filter((r) => r !== 'super-admin') as typeof d.role
-          } else if (!arr.includes('super-admin') && existingHasSuperAdmin) {
-            d.role = [...arr, 'super-admin'] as typeof d.role
+          if (!skipSuperAdminStrip && d.role !== undefined) {
+            const arr = Array.isArray(d.role) ? d.role : [d.role]
+            if (arr.includes('super-admin') && !existingHasSuperAdmin) {
+              d.role = arr.filter((r) => r !== 'super-admin') as typeof d.role
+            } else if (!arr.includes('super-admin') && existingHasSuperAdmin) {
+              // Do not re-inject super-admin when the row mixes org/staff with super-admin (invalid);
+              // otherwise a tenant org admin could not clear a mistaken super-admin assignment.
+              const invalidSuperAdminCombo =
+                existingRoles.includes('admin') || existingRoles.includes('staff')
+              if (!invalidSuperAdminCombo) {
+                d.role = [...arr, 'super-admin'] as typeof d.role
+              }
+            }
           }
         }
         return data
-      },
-    ],
-    afterChange: [
-      // First user becomes platform super-admin.
-      async ({ doc, operation, req }) => {
-        if (operation !== 'create' || !doc?.id) return
-        const count = await req.payload.find({
-          collection: 'users',
-          limit: 0,
-          overrideAccess: true,
-          depth: 0,
-          select: { id: true } as any,
-        })
-        if (count.totalDocs !== 1) return
-        const u = doc as { roles?: string[] }
-        if (u.roles?.includes('super-admin')) return
-        try {
-          await req.payload.update({
-            collection: 'users',
-            id: doc.id,
-            data: { roles: [...(u.roles || []), 'super-admin'] as User['roles'] },
-            overrideAccess: true,
-          })
-          req.payload.logger.info(`Assigned super-admin to first user (ID: ${doc.id}).`)
-        } catch (err) {
-          // Update can throw NotFound when run immediately after create (e.g. transaction
-          // isolation in tests or DB replication lag). Don't fail the create; first user can
-          // be promoted to admin manually or on next login if needed.
-          req.payload.logger.warn(`Could not assign admin to first user (ID: ${doc.id}): ${err instanceof Error ? err.message : String(err)}`)
-        }
       },
     ],
     beforeValidate: [

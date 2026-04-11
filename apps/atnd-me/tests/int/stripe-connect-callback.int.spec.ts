@@ -45,7 +45,7 @@ describe('Stripe Connect callback route (step 2.4)', () => {
         name: 'Admin Callback',
         email: `admin-callback-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['super-admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,

@@ -276,10 +276,6 @@ export interface Page {
     | DhContactBlock
     | DhGroupsBlock
     | {
-        /**
-         * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
-         */
-        tenantId?: number | null;
         id?: string | null;
         blockName?: string | null;
         blockType: 'dhLiveSchedule';
@@ -522,7 +518,7 @@ export interface Post {
   id: number;
   title: string;
   /**
-   * Optional. Leave empty for posts on the main platform domain only. Set for tenant blog content.
+   * Optional. Leave empty for posts on the main platform domain only (root site). Only super-admins can change this after the post exists.
    */
   tenant?: (number | null) | Tenant;
   heroImage?: (number | null) | Media;
@@ -638,7 +634,6 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  roles?: ('user' | 'staff' | 'admin' | 'super-admin')[] | null;
   stripeCustomerId?: string | null;
   stripeCustomers?:
     | {
@@ -1252,10 +1247,6 @@ export interface ThreeColumnLayoutBlock {
         | DhContactBlock
         | DhGroupsBlock
         | {
-            /**
-             * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
-             */
-            tenantId?: number | null;
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveSchedule';
@@ -2384,10 +2375,6 @@ export interface TwoColumnLayoutBlock {
         | DhContactBlock
         | DhGroupsBlock
         | {
-            /**
-             * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
-             */
-            tenantId?: number | null;
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveSchedule';
@@ -2453,10 +2440,6 @@ export interface TwoColumnLayoutBlock {
         | DhContactBlock
         | DhGroupsBlock
         | {
-            /**
-             * Leave empty to use the current site tenant. Set only if you need a fixed tenant.
-             */
-            tenantId?: number | null;
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveSchedule';
@@ -3339,7 +3322,6 @@ export interface PagesSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
-              tenantId?: T;
               id?: T;
               blockName?: T;
             };
@@ -3567,7 +3549,6 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
-              tenantId?: T;
               id?: T;
               blockName?: T;
             };
@@ -4202,7 +4183,6 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
-              tenantId?: T;
               id?: T;
               blockName?: T;
             };
@@ -4268,7 +4248,6 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
-              tenantId?: T;
               id?: T;
               blockName?: T;
             };
@@ -5018,7 +4997,6 @@ export interface UsersSelect<T extends boolean = true> {
   banExpires?: T;
   account?: T;
   session?: T;
-  roles?: T;
   stripeCustomerId?: T;
   stripeCustomers?:
     | T

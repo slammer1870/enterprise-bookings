@@ -82,7 +82,7 @@ describe('User Tenant Access Control', () => {
         name: 'Admin User',
         email: `admin-access-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['super-admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
@@ -97,7 +97,7 @@ describe('User Tenant Access Control', () => {
         name: 'Tenant Admin User',
         email: `tenant-admin-access-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        role: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenant.id }], // Array of objects with 'tenant' property
       },
@@ -112,7 +112,7 @@ describe('User Tenant Access Control', () => {
         name: 'Regular User',
         email: `user-access-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
@@ -499,7 +499,7 @@ describe('User Tenant Access Control', () => {
           name: 'User In Test Tenant',
           email: `user-test-tenant-${Date.now()}@test.com`,
           password: 'test',
-          roles: ['user'],
+          role: ['user'],
           emailVerified: true,
           registrationTenant: testTenant.id,
         },
@@ -514,7 +514,7 @@ describe('User Tenant Access Control', () => {
           name: 'User In Second Tenant',
           email: `user-second-tenant-${Date.now()}@test.com`,
           password: 'test',
-          roles: ['user'],
+          role: ['user'],
           emailVerified: true,
           registrationTenant: secondTenant.id,
         },
@@ -683,7 +683,6 @@ describe('User Tenant Access Control', () => {
           id: tenantAdminUser.id,
           email: tenantAdminUser.email,
           name: tenantAdminUser.name,
-          roles: ['admin'],
           role: 'admin',
           // Intentionally omit: tenants
         }
@@ -720,7 +719,7 @@ describe('User Tenant Access Control', () => {
             name: 'User With Booking Only',
             email: `user-booking-only-${Date.now()}@test.com`,
             password: 'test',
-            roles: ['user'],
+            role: ['user'],
             emailVerified: true,
             registrationTenant: secondTenant.id,
           },
@@ -803,7 +802,7 @@ describe('User Tenant Access Control', () => {
             await payload.update({
               collection: 'users',
               id: tenantAdminUser.id,
-              data: { roles: ['super-admin', 'admin'] },
+              data: { role: ['super-admin', 'admin'] },
               req,
               overrideAccess: false,
             })
@@ -816,8 +815,40 @@ describe('User Tenant Access Control', () => {
             id: tenantAdminUser.id,
             overrideAccess: true,
           }) as User
-          expect(refetched.roles).not.toContain('super-admin')
-          expect(refetched.roles).toContain('admin')
+          expect(refetched.role).not.toContain('super-admin')
+          expect(refetched.role).toContain('admin')
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'org admin cannot add super-admin to self via singular role field',
+        async () => {
+          const req = {
+            ...payload,
+            context: { tenant: testTenant.id },
+            user: tenantAdminUser,
+          } as any
+
+          try {
+            await payload.update({
+              collection: 'users',
+              id: tenantAdminUser.id,
+              data: { role: ['super-admin', 'admin'] },
+              req,
+              overrideAccess: false,
+            })
+          } catch {
+            // Field-level access or validation may reject the update
+          }
+
+          const refetched = (await payload.findByID({
+            collection: 'users',
+            id: tenantAdminUser.id,
+            overrideAccess: true,
+          })) as User
+          expect(refetched.role).not.toContain('super-admin')
+          expect(refetched.role).toContain('admin')
         },
         TEST_TIMEOUT,
       )
@@ -835,7 +866,7 @@ describe('User Tenant Access Control', () => {
             await payload.update({
               collection: 'users',
               id: userInTestTenant.id,
-              data: { roles: ['super-admin', 'user'] },
+              data: { role: ['super-admin', 'user'] },
               req,
               overrideAccess: false,
             })
@@ -848,7 +879,7 @@ describe('User Tenant Access Control', () => {
             id: userInTestTenant.id,
             overrideAccess: true,
           }) as User
-          expect(refetched.roles).not.toContain('super-admin')
+          expect(refetched.role).not.toContain('super-admin')
         },
         TEST_TIMEOUT,
       )
@@ -867,19 +898,19 @@ describe('User Tenant Access Control', () => {
           const updated = (await payload.update({
             collection: 'users',
             id: userInTestTenant.id,
-            data: { roles: ['user', 'admin'] },
+            data: { role: ['user', 'admin'] },
             req,
             overrideAccess: false,
           })) as User
 
-          expect(updated.roles).toContain('admin')
+          expect(updated.role).toContain('admin')
 
           const refetched = (await payload.findByID({
             collection: 'users',
             id: userInTestTenant.id,
             overrideAccess: true,
           })) as User
-          expect(refetched.roles).toContain('admin')
+          expect(refetched.role).toContain('admin')
         },
         TEST_TIMEOUT,
       )
@@ -1032,7 +1063,7 @@ describe('User Tenant Access Control', () => {
             name: `Leak Test StaffMember ${Date.now()}`,
             email: `leak-test-instructor-${Date.now()}@test.com`,
             password: 'test',
-            roles: ['user'],
+            role: ['user'],
             emailVerified: true,
           },
           draft: false,

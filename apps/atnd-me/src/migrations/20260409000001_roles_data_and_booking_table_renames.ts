@@ -33,6 +33,19 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       ELSE "value"
     END;
 
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'users_role'
+      ) THEN
+        UPDATE "users_role" SET "value" = CASE "value"::text
+          WHEN 'tenant-admin' THEN 'admin'::"public"."enum_users_role"
+          WHEN 'admin' THEN 'super-admin'::"public"."enum_users_role"
+          ELSE "value"
+        END;
+      END IF;
+    END $$;
+
     UPDATE "admin_invitations" SET "role" = CASE "role"::text
       WHEN 'tenant-admin' THEN 'admin'::"public"."enum_admin_invitations_role"
       WHEN 'admin' THEN 'super-admin'::"public"."enum_admin_invitations_role"
@@ -328,6 +341,19 @@ export async function down({ db }: MigrateDownArgs): Promise<void> {
       WHEN 'admin' THEN 'tenant-admin'::"public"."enum_users_roles"
       ELSE "value"
     END;
+
+    DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.tables
+        WHERE table_schema = 'public' AND table_name = 'users_role'
+      ) THEN
+        UPDATE "users_role" SET "value" = CASE "value"::text
+          WHEN 'super-admin' THEN 'admin'::"public"."enum_users_role"
+          WHEN 'admin' THEN 'tenant-admin'::"public"."enum_users_role"
+          ELSE "value"
+        END;
+      END IF;
+    END $$;
 
     UPDATE "admin_invitations" SET "role" = CASE "role"::text
       WHEN 'super-admin' THEN 'admin'::"public"."enum_admin_invitations_role"

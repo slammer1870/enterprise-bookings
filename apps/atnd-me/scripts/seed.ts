@@ -63,7 +63,7 @@ async function main() {
     let adminUser = await payload.find({
       collection: 'users',
       where: {
-        roles: {
+        role: {
           contains: 'admin',
         },
       },
@@ -84,7 +84,6 @@ async function main() {
           password: 'password',
           emailVerified: true,
           role: ['admin'],
-          roles: ['admin'],
         },
         overrideAccess: true,
       })

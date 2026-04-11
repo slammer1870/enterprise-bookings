@@ -129,7 +129,7 @@ describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
         name: 'Admin User',
         email: `admin-lesson-view-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['super-admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,
@@ -144,7 +144,7 @@ describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
         name: 'Tenant Admin User',
         email: `tenant-admin-lesson-view-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        role: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenant.id }], // Array of objects with 'tenant' property
       },

@@ -13,16 +13,17 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
 
 import { postsCreate, postsDelete, postsRead, postsUpdate } from '../../access/postsAccess'
-import {
-  getUserTenantIds,
-  resolveTenantIdFromRequest,
-  type RequestLike,
-} from '../../access/tenant-scoped'
+import { isAdmin } from '../../access/userTenantAccess'
+import { getUserTenantIds } from '../../access/tenant-scoped'
 import { tenantScopedSlugField } from '../../fields/tenant-scoped-slug-field'
 import { Banner } from '../../blocks/Banner/config'
 import { Code } from '../../blocks/Code/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
+import {
+  resolveTenantIdForDocumentWrite,
+  type TenantDocumentWriteReq,
+} from '../../utilities/resolveTenantIdForDocumentWrite'
 import { populateAuthors } from './hooks/populateAuthors'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
@@ -90,15 +91,19 @@ export const Posts: CollectionConfig<'posts'> = {
       relationTo: 'tenants',
       required: false,
       index: true,
-      label: 'Assigned tenant',
+      label: 'Assigned Tenant',
+      access: {
+        update: ({ req }) => isAdmin(req.user),
+      },
       admin: {
         position: 'sidebar',
+        hidden: true,
         description:
-          'Optional. Leave empty for posts on the main platform domain only. Set for tenant blog content.',
+          'Optional. Leave empty for posts on the main platform domain only (root site). Only super-admins can change this after the post exists.',
       },
       filterOptions: ({ req }) => {
         const tenantIds = getUserTenantIds((req.user ?? null) as unknown as SharedUser | null)
-        if (tenantIds === null) return true
+        if (tenantIds === null) return true // admin: all tenants
         if (Array.isArray(tenantIds) && tenantIds.length > 0) {
           return { id: { in: tenantIds } }
         }
@@ -282,27 +287,26 @@ export const Posts: CollectionConfig<'posts'> = {
   hooks: {
     beforeValidate: [
       async ({ data, operation, req, originalDoc }) => {
+        // Ensure tenant is set so version creation and slug validation have it (same pattern as Pages).
         if (!data) return data
+        // Respect an explicit "no tenant" selection (platform-wide post). Payload sends `null` when cleared.
         if (data.tenant === null) return data
         if (data.tenant) return data
 
-        const tid = await resolveTenantIdFromRequest(req as RequestLike)
-        if (tid != null) {
-          data.tenant = tid
-          return data
-        }
-
-        if (operation === 'update' && originalDoc?.tenant) {
+        const rawTenant =
+          (await resolveTenantIdForDocumentWrite(req as unknown as TenantDocumentWriteReq)) ??
+          (operation === 'update' && originalDoc?.tenant ? originalDoc.tenant : null)
+        if (rawTenant) {
           data.tenant =
-            typeof originalDoc.tenant === 'object' && originalDoc.tenant !== null && 'id' in originalDoc.tenant
-              ? (originalDoc.tenant as { id: number }).id
-              : originalDoc.tenant
+            typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
+              ? (rawTenant as { id: number }).id
+              : (rawTenant as number)
         }
         return data
       },
       async ({ data, operation, req, originalDoc }) => {
         if (!data || !req.user) return data
-        if (checkRole(['super-admin'], req.user as unknown as SharedUser)) return data
+        if (isAdmin(req.user)) return data
         if (!checkRole(['admin', 'staff'], req.user as unknown as SharedUser)) return data
 
         const tenantIdFromValue = (raw: unknown): number | null => {
@@ -326,13 +330,19 @@ export const Posts: CollectionConfig<'posts'> = {
         if (
           operation === 'update' &&
           originalDoc &&
-          Object.prototype.hasOwnProperty.call(data, 'tenant') &&
-          tenantIdFromValue(data.tenant) == null &&
-          originalDoc.tenant != null
+          Object.prototype.hasOwnProperty.call(data, 'tenant')
         ) {
-          const ot = originalDoc.tenant
-          data.tenant =
-            typeof ot === 'object' && ot !== null && 'id' in ot ? (ot as { id: number }).id : ot
+          const desired = tenantIdFromValue(data.tenant)
+          const current = tenantIdFromValue(originalDoc.tenant)
+          if (desired !== current) {
+            const ot = originalDoc.tenant
+            if (current == null) {
+              data.tenant = null
+            } else {
+              data.tenant =
+                typeof ot === 'object' && ot !== null && 'id' in ot ? (ot as { id: number }).id : ot
+            }
+          }
         }
         return data
       },

@@ -1,5 +1,5 @@
 /**
- * Client-safe role checks that support both Payload `roles` and Better Auth `role`.
+ * Client-safe role checks for Better Auth `role` (and legacy `roles` during migration).
  * Use in admin UI components; use @/access/userTenantAccess in API routes.
  */
 type MaybeRoleObj = { role?: unknown; value?: unknown }

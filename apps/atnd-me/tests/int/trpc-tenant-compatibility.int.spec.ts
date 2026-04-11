@@ -46,7 +46,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
         name: 'Regular User',
         email: `user-compat-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
         // Explicitly NOT adding this tenant to user's tenants array
         // to test cross-tenant booking scenario

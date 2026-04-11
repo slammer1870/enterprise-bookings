@@ -64,7 +64,7 @@ describe('tRPC Bookings Integration Tests', () => {
         name: 'Test User',
         email: uniqueEmail, // Use unique email to avoid conflicts
         password: 'test', // Simple password like integration-testing
-        roles: ['user'], // Assign user role for booking access
+        role: ['user'], // Assign user role for booking access
         emailVerified: true, // Better Auth may require this
       },
       draft: false, // Explicitly set to non-draft
@@ -310,7 +310,7 @@ describe('tRPC Bookings Integration Tests', () => {
               name: `Fully Booked User ${i}`,
               email: `fully-booked-${Date.now()}-${i}@test.com`,
               password: 'test',
-              roles: ['user'],
+              role: ['user'],
               emailVerified: true,
             },
             draft: false,
@@ -803,7 +803,7 @@ describe('tRPC Bookings Integration Tests', () => {
           name: 'Other User',
           email: `other-${Date.now()}@test.com`,
           password: 'test',
-          roles: ['user'],
+          role: ['user'],
           emailVerified: true,
         },
       draft: false,
@@ -1153,7 +1153,7 @@ describe('tRPC Bookings Integration Tests', () => {
           name: 'Other Cap User',
           email: `other-cap-${Date.now()}@test.com`,
           password: 'test',
-          roles: ['user'],
+          role: ['user'],
           emailVerified: true,
         },
         draft: false,
@@ -1505,7 +1505,7 @@ describe('tRPC Bookings Integration Tests', () => {
           name: 'Other Test User',
           email: `other-test-${Date.now()}@test.com`,
           password: 'test',
-          roles: ['user'],
+          role: ['user'],
           emailVerified: true,
         },
         draft: false,
@@ -1593,7 +1593,7 @@ describe('tRPC Bookings Integration Tests', () => {
           name: 'Other User',
           email: `other-user-${Date.now()}@test.com`,
           password: 'test',
-          roles: ['user'],
+          role: ['user'],
           emailVerified: true,
         },
         draft: false,

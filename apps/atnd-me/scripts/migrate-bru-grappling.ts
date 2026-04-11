@@ -1,6 +1,21 @@
 #!/usr/bin/env tsx
 /**
- * One-off migration: bru-grappling → atnd-me tenant (content + custom blocks).
+ * One-off migration: standalone Payload app → atnd-me tenant (content + custom blocks).
+ *
+ * Supported sources (`--from`):
+ * - `bru-grappling` (default): maps Bru page blocks to `bru*` slugs; source DB from
+ *   `BRU_SOURCE_DATABASE_URI` or `SOURCE_DATABASE_URI`.
+ * - `darkhorse-strength`: maps Dark Horse page blocks to tenant-scoped `dh*` slugs; source DB from
+ *   `DH_SOURCE_DATABASE_URI`, `DARKHORSE_SOURCE_DATABASE_URI`, or `SOURCE_DATABASE_URI`.
+ *
+ * Migrated users get atnd-me role names: legacy `admin` → `super-admin`, `tenant-admin` → `admin`
+ * (see migration `20260409000001_roles_data_and_booking_table_renames`).
+ *
+ * By default, **passwords are preserved** when the source DB has Payload `users.salt`/`users.hash`
+ * (stored in target `accounts.password` as `salt:hash` for `@repo/auth-next` legacy PBKDF2 verify)
+ * or an existing Better Auth `accounts` row for `credential` (scrypt hash copied as-is).
+ * This does **not** depend on `PAYLOAD_SECRET` or `BETTER_AUTH_SECRET` matching the source app.
+ * Use `--no-preserve-passwords` to force random (or `MIGRATION_DEFAULT_USER_PASSWORD`) passwords.
  *
  * This script is intentionally conservative:
  * - Supports --dry-run
@@ -11,6 +26,10 @@
  *   DATABASE_URI=... PAYLOAD_SECRET=... \
  *   BRU_SOURCE_DATABASE_URI=... \
  *   pnpm exec tsx scripts/migrate-bru-grappling.ts --tenant-slug bru-grappling --dry-run
+ *
+ * Dark Horse:
+ *   DH_SOURCE_DATABASE_URI=... \
+ *   pnpm exec tsx scripts/migrate-bru-grappling.ts --from darkhorse-strength --tenant-slug darkhorse-strength --dry-run
  *
  * Then run without --dry-run.
  */
@@ -31,8 +50,11 @@ import type { User } from '@repo/shared-types'
 
 type Id = string | number
 
+type SourceApp = 'bru-grappling' | 'darkhorse-strength'
+
 type Args = {
   dryRun: boolean
+  from: SourceApp
   tenantId?: string
   tenantSlug?: string
   sourceDatabaseUri?: string
@@ -46,11 +68,14 @@ type Args = {
   skipPages: boolean
   skipNavbarFooter: boolean
   skipBookingData: boolean
+  /** When true (default), copy legacy salt:hash or source credential password into target accounts. */
+  preservePasswords: boolean
 }
 
 function parseArgs(argv: string[]): Args {
   const out: Args = {
     dryRun: false,
+    from: 'bru-grappling',
     upsertByNaturalKey: true,
     excludeChildData: false,
     includePaymentMethods: false,
@@ -60,12 +85,20 @@ function parseArgs(argv: string[]): Args {
     skipPages: false,
     skipNavbarFooter: false,
     skipBookingData: false,
+    preservePasswords: true,
   }
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--dry-run') out.dryRun = true
-    else if (a === '--tenant-id') out.tenantId = argv[++i]
+    else if (a === '--from') {
+      const v = argv[++i]
+      if (v === 'bru-grappling' || v === 'darkhorse-strength') out.from = v
+      else {
+        console.error(`❌ Invalid --from "${v}". Use bru-grappling or darkhorse-strength.`)
+        process.exit(1)
+      }
+    } else if (a === '--tenant-id') out.tenantId = argv[++i]
     else if (a === '--tenant-slug') out.tenantSlug = argv[++i]
     else if (a === '--source-database-uri') out.sourceDatabaseUri = argv[++i]
     else if (a === '--limit') out.limit = Number(argv[++i])
@@ -78,6 +111,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--skip-pages') out.skipPages = true
     else if (a === '--skip-navbar-footer') out.skipNavbarFooter = true
     else if (a === '--skip-booking-data') out.skipBookingData = true
+    else if (a === '--no-preserve-passwords') out.preservePasswords = false
   }
 
   return out
@@ -92,20 +126,30 @@ function blockInProduction(): void {
 }
 
 async function getAdminReq(payload: Awaited<ReturnType<typeof getPayload>>) {
-  const found = await payload.find({
+  const superAdmins = await payload.find({
     collection: 'users',
-    where: { roles: { contains: 'admin' } },
+    where: { role: { contains: 'super-admin' } } as any,
     limit: 1,
     overrideAccess: true,
-  })
-
-  const user = found.docs[0] || null
-  if (!user || !checkRole(['admin'], user as unknown as User)) {
-    console.error('❌ No admin user found (or roles misconfigured). Create an admin user first.')
+  } as any)
+  let user = superAdmins.docs[0] ?? null
+  if (!user) {
+    const orgAdmins = await payload.find({
+      collection: 'users',
+      where: { role: { contains: 'admin' } } as any,
+      limit: 1,
+      overrideAccess: true,
+    } as any)
+    user = orgAdmins.docs[0] ?? null
+  }
+  if (!user || !checkRole(['super-admin', 'admin'], user as unknown as User)) {
+    console.error(
+      '❌ No super-admin or org admin user found (or roles misconfigured). Create a super-admin user first.',
+    )
     process.exit(1)
   }
 
-  return await createLocalReq({ user: { ...user, collection: 'users' } }, payload)
+  return await createLocalReq({ user: { ...user, collection: 'users' } as any }, payload)
 }
 
 async function resolveTenantId(payload: Awaited<ReturnType<typeof getPayload>>, args: Args): Promise<string> {
@@ -146,7 +190,36 @@ type IdMaps = {
   classPassIdMap: Map<Id, Id>
 }
 
-function mapBlockType(oldType: string): string {
+function mapBlockType(oldType: string, sourceApp: SourceApp): string {
+  if (sourceApp === 'darkhorse-strength') {
+    switch (oldType) {
+      // Standalone darkhorse-strength app used unprefixed slugs; atnd-me uses dh* tenant blocks.
+      case 'hero':
+        return 'dhHero'
+      case 'team':
+        return 'dhTeam'
+      case 'timetable':
+        return 'dhTimetable'
+      case 'testimonials':
+        return 'dhTestimonials'
+      case 'pricing':
+        return 'dhPricing'
+      case 'contact':
+        return 'dhContact'
+      case 'groups':
+        return 'dhGroups'
+      case 'reviews':
+        return 'dhTestimonials'
+      // Shared form block slug in legacy installs
+      case 'form-block':
+        return 'formBlock'
+      case 'dhDashboardLayout':
+        return 'twoColumnLayout'
+      default:
+        return oldType
+    }
+  }
+
   switch (oldType) {
     case 'hero':
       return 'bruHero'
@@ -197,13 +270,13 @@ function remapKnownRelationshipIds(value: unknown, maps: IdMaps): unknown {
   return value
 }
 
-function remapPageLayout(layout: unknown, maps: IdMaps): unknown {
+function remapPageLayout(layout: unknown, maps: IdMaps, sourceApp: SourceApp): unknown {
   if (!Array.isArray(layout)) return layout
   return layout.map((block) => {
     if (!block || typeof block !== 'object') return block
     const b = block as Record<string, unknown>
     const blockType = typeof b.blockType === 'string' ? b.blockType : undefined
-    const mapped = blockType ? mapBlockType(blockType) : blockType
+    const mapped = blockType ? mapBlockType(blockType, sourceApp) : blockType
     const withMappedType = blockType ? { ...b, blockType: mapped } : { ...b }
     return remapKnownRelationshipIds(withMappedType, maps)
   })
@@ -236,6 +309,65 @@ async function resolveTableName(pool: Pool, slugOrName: string): Promise<string 
     if (reg) return reg
   }
   return null
+}
+
+/** First matching physical table (legacy single-tenant apps used different names). */
+async function resolveFirstTableName(pool: Pool, slugOrNames: string[]): Promise<string | null> {
+  for (const name of slugOrNames) {
+    const resolved = await resolveTableName(pool, name)
+    if (resolved) return resolved
+  }
+  return null
+}
+
+/**
+ * Value to store in atnd-me `accounts.password` so users keep the same password as on the source app.
+ * - Legacy Payload local auth: `users.salt` + `users.hash` → `salt:hash` (PBKDF2; verified by `@repo/auth-next`)
+ * - Source already on Better Auth: copy existing credential row password (e.g. scrypt) unchanged.
+ * Neither path uses `PAYLOAD_SECRET` or `BETTER_AUTH_SECRET`.
+ */
+async function getImportableCredentialPasswordFromSource(
+  pool: Pool,
+  row: Record<string, unknown>,
+  sourceUserId: Id,
+): Promise<string | null> {
+  const salt = getRowValue<string>(row, 'salt')
+  const hash = getRowValue<string>(row, 'hash')
+  const saltS = salt != null && typeof salt === 'string' ? salt.trim() : ''
+  const hashS = hash != null && typeof hash === 'string' ? hash.trim() : ''
+  if (saltS.length > 0 && hashS.length > 0) {
+    return `${saltS}:${hashS}`
+  }
+
+  const accountsTable = await resolveTableName(pool, 'accounts')
+  if (!accountsTable) return null
+
+  const res = await pool.query(
+    `select "password" from ${accountsTable} where "user_id" = $1 and "provider_id" = $2 limit 1`,
+    [sourceUserId, 'credential'],
+  )
+  const pw = res.rows?.[0]?.password
+  if (typeof pw === 'string' && pw.trim().length > 0) return pw.trim()
+  return null
+}
+
+/** Set `accounts.password` with raw SQL so Payload/Better Auth hooks do not re-hash the value. */
+async function setTargetCredentialPassword(
+  targetPool: Pool,
+  targetUserId: number,
+  passwordValue: string,
+): Promise<void> {
+  const upd = await targetPool.query(
+    `update "accounts" set "password" = $1, "updated_at" = now() where "user_id" = $2 and "provider_id" = $3`,
+    [passwordValue, targetUserId, 'credential'],
+  )
+  if ((upd.rowCount ?? 0) > 0) return
+
+  await targetPool.query(
+    `insert into "accounts" ("user_id", "account_id", "provider_id", "password", "updated_at", "created_at")
+     values ($1, $2, 'credential', $3, now(), now())`,
+    [targetUserId, String(targetUserId), passwordValue],
+  )
 }
 
 function getRowValue<T = unknown>(row: Record<string, unknown>, camel: string): T | undefined {
@@ -274,6 +406,37 @@ function getObjValue<T = unknown>(obj: unknown, camel: string): T | undefined {
   const snake = camel.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`)
   if (snake in o) return o[snake] as T
   return undefined
+}
+
+/**
+ * Standalone apps (bru-grappling, darkhorse-strength) used legacy role names.
+ * atnd-me uses: platform `super-admin`, org/tenant manager `admin`, plus `staff` / `user`.
+ */
+function mapStandaloneRolesToAtndMe(roles: string[]): string[] {
+  const out = new Set<string>()
+  for (const r of roles) {
+    switch (r) {
+      case 'tenant-admin':
+        out.add('admin')
+        break
+      case 'admin':
+        out.add('super-admin')
+        break
+      case 'super-admin':
+        out.add('super-admin')
+        break
+      case 'staff':
+        out.add('staff')
+        break
+      case 'user':
+        out.add('user')
+        break
+      default:
+        out.add('user')
+    }
+  }
+  if (out.size === 0) out.add('user')
+  return Array.from(out)
 }
 
 function normalizeStringArray(value: unknown): string[] {
@@ -522,6 +685,7 @@ async function findExistingIdByField(
 
 async function migrateUsers(
   pool: Pool,
+  targetPool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
   tenantId: string,
@@ -538,7 +702,11 @@ async function migrateUsers(
 
   console.log(`Users: source rows=${rows.length}`)
   const passwordMode = getDefaultUserPassword()
-  if (passwordMode.mode === 'fixed') {
+  if (args.preservePasswords) {
+    console.log(
+      'Users: preservePasswords=yes — copying salt:hash or source credential password into target accounts (secrets need not match).',
+    )
+  } else if (passwordMode.mode === 'fixed') {
     console.warn(
       'Users: using MIGRATION_DEFAULT_USER_PASSWORD for all newly created users (existing users are not modified).',
     )
@@ -575,20 +743,24 @@ async function migrateUsers(
 
     const rolesRaw = getRowValueAny(row, ['roles', 'role'])
     const roles = normalizeStringArray(rolesRaw)
-    const safeRoles = roles.map((r) => (r === 'tenant-admin' || r === 'admin' ? r : 'user')) as (
-      | 'user'
-      | 'admin'
-      | 'tenant-admin'
-    )[]
+    const safeRoles = mapStandaloneRolesToAtndMe(roles)
 
-    const password =
-      passwordMode.mode === 'fixed' ? passwordMode.value : randomBytes(24).toString('base64url')
+    const importedCredential =
+      args.preservePasswords && !args.dryRun
+        ? await getImportableCredentialPasswordFromSource(pool, row, sourceId)
+        : null
+
+    const passwordForCreate =
+      importedCredential != null
+        ? randomBytes(24).toString('base64url')
+        : passwordMode.mode === 'fixed'
+          ? passwordMode.value
+          : randomBytes(24).toString('base64url')
 
     const data = omitNil({
       email,
       name,
       emailVerified,
-      roles: safeRoles.length > 0 ? safeRoles : ['user'],
       role: safeRoles.length > 0 ? safeRoles : ['user'],
       registrationTenant: Number(tenantId),
       tenants: [{ tenant: Number(tenantId) }],
@@ -596,8 +768,7 @@ async function migrateUsers(
       banned: getRowValue<boolean>(row, 'banned'),
       banReason: getRowValue<string>(row, 'banReason'),
       banExpires: getRowValue<string>(row, 'banExpires'),
-      // atnd-me user creation requires a password; we intentionally do NOT import salt/hash across apps.
-      password,
+      password: passwordForCreate,
     })
 
     if (args.dryRun) {
@@ -611,7 +782,12 @@ async function migrateUsers(
       req,
       overrideAccess: true,
     } as any)
+    const newUserId = Number(created.id)
     maps.userIdMap.set(sourceId, created.id as Id)
+
+    if (args.preservePasswords && importedCredential != null) {
+      await setTargetCredentialPassword(targetPool, newUserId, importedCredential)
+    }
   }
 }
 
@@ -851,14 +1027,19 @@ async function migrateEventTypes(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'event-types')
+  const table = await resolveFirstTableName(pool, [
+    'event-types',
+    'event_types',
+    'class-options',
+    'class_options',
+  ])
   if (!table) {
-    console.warn('EventTypes: source table not found, skipping')
+    console.warn('EventTypes: source table not found (tried event-types, class_options), skipping')
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`EventTypes: source rows=${rows.length}`)
+  console.log(`EventTypes: source table=${table}, rows=${rows.length}`)
 
   // If tenant isn't Stripe-connected, enabling payments will fail. Default to off unless explicitly requested.
   const tenant = await payload.findByID({
@@ -950,14 +1131,19 @@ async function migrateStaffMembers(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'staffMembers')
+  const table = await resolveFirstTableName(pool, [
+    'staff_members',
+    'staff-members',
+    'staffMembers',
+    'instructors',
+  ])
   if (!table) {
-    console.warn('StaffMembers: source table not found, skipping')
+    console.warn('StaffMembers: source table not found (tried staff_members, instructors), skipping')
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`StaffMembers: source rows=${rows.length}`)
+  console.log(`StaffMembers: source table=${table}, rows=${rows.length}`)
   for (const row of rows) {
     const sourceId = row.id as Id
     const userId = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
@@ -999,17 +1185,21 @@ async function migrateTimeslots(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveTableName(pool, 'timeslots')
+  const table = await resolveFirstTableName(pool, ['timeslots', 'lessons'])
   if (!table) {
-    console.warn('Timeslots: source table not found, skipping')
+    console.warn('Timeslots: source table not found (tried timeslots, lessons), skipping')
     return
   }
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`Timeslots: source rows=${rows.length}`)
+  console.log(`Timeslots: source table=${table}, rows=${rows.length}`)
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceEventType = getRowValueAny<Id>(row, [
+      'eventType',
+      'event_type',
+      'eventTypeId',
+      'event_type_id',
       'classOption',
       'class_option',
       'classOptionId',
@@ -1017,10 +1207,20 @@ async function migrateTimeslots(
     ])
     const mappedEventType = sourceEventType != null ? maps.classOptionIdMap.get(sourceEventType) : null
     if (mappedEventType == null) {
-      console.warn(`Timeslots: skipping id=${String(sourceId)} (classOption not mapped)`)
+      console.warn(
+        `Timeslots: skipping id=${String(sourceId)} (event-type/class-option id=${String(sourceEventType)} not in map)`,
+      )
       continue
     }
-    const sourceStaffMember = getRowValueAny<Id>(row, ['instructor', 'instructorId', 'instructor_id'])
+    const sourceStaffMember = getRowValueAny<Id>(row, [
+      'instructor',
+      'instructorId',
+      'instructor_id',
+      'staffMember',
+      'staff_member',
+      'staffMemberId',
+      'staff_member_id',
+    ])
     const mappedStaffMember = sourceStaffMember != null ? maps.instructorIdMap.get(sourceStaffMember) : null
 
     const data = omitNil({
@@ -1031,8 +1231,8 @@ async function migrateTimeslots(
       lockOutTime: Number(getRowValue(row, 'lockOutTime') ?? getRowValue(row, 'lock_out_time') ?? 0),
       originalLockOutTime: getRowValue(row, 'originalLockOutTime') ?? null,
       location: getRowValue(row, 'location') ?? null,
-      instructor: mappedStaffMember ?? null,
-      classOption: mappedEventType,
+      staffMember: mappedStaffMember ?? null,
+      eventType: mappedEventType,
       remainingCapacity: getRowValue(row, 'remainingCapacity') ?? null,
       bookingStatus: getRowValue(row, 'bookingStatus') ?? null,
       active: getRowValue(row, 'active') ?? true,
@@ -1126,20 +1326,29 @@ async function migrateBookings(
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceUser = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
-    const sourceTimeslot = getRowValueAny<Id>(row, ['lesson', 'lessonId', 'lesson_id'])
+    const sourceTimeslot = getRowValueAny<Id>(row, [
+      'timeslot',
+      'timeslotId',
+      'timeslot_id',
+      'lesson',
+      'lessonId',
+      'lesson_id',
+    ])
     const mappedUser = sourceUser != null ? maps.userIdMap.get(sourceUser) : null
     const mappedTimeslot = sourceTimeslot != null ? maps.lessonIdMap.get(sourceTimeslot) : null
     if (mappedUser == null || mappedTimeslot == null) {
-      console.warn(`Bookings: skipping id=${String(sourceId)} (user/lesson not mapped)`)
+      const parts: string[] = []
+      if (mappedUser == null) parts.push(`user id=${String(sourceUser)} not in map`)
+      if (mappedTimeslot == null) parts.push(`timeslot/lesson id=${String(sourceTimeslot)} not in map`)
+      console.warn(`Bookings: skipping id=${String(sourceId)} (${parts.join('; ')})`)
       continue
     }
 
     const data = omitNil({
       tenant: Number(tenantId),
       user: mappedUser,
-      lesson: mappedTimeslot,
+      timeslot: mappedTimeslot,
       status: getRowValue(row, 'status') ?? 'confirmed',
-      // atnd-me uses these helper fields; safe to omit here
     })
 
     if (args.dryRun) {
@@ -1247,15 +1456,18 @@ async function migratePages(
       const oldType = typeof b.blockType === 'string' ? b.blockType : null
       if (!oldType) continue
 
-      const mappedType = mapBlockType(oldType)
+      const mappedType = mapBlockType(oldType, args.from)
       if (!knownBlockSlugs.has(mappedType)) {
         console.warn(`Pages: dropping unknown blockType "${mappedType}" (from "${oldType}")`)
         continue
       }
 
-      // Special-case: reviews -> bruTestimonials shape transform
+      // Special-case: reviews -> bruTestimonials / dhTestimonials shape transform
       let mappedBlock: Record<string, unknown> = { ...b, blockType: mappedType }
-      if (oldType === 'reviews' && mappedType === 'bruTestimonials') {
+      if (
+        oldType === 'reviews' &&
+        (mappedType === 'bruTestimonials' || mappedType === 'dhTestimonials')
+      ) {
         const reviews = parseJSONIfString(b.reviews)
         const reviewArr = Array.isArray(reviews) ? reviews : []
         mappedBlock = {
@@ -1369,14 +1581,22 @@ async function main() {
 
   const args = parseArgs(process.argv.slice(2))
   const sourceDatabaseUri =
-    args.sourceDatabaseUri || process.env.BRU_SOURCE_DATABASE_URI || process.env.SOURCE_DATABASE_URI
+    args.sourceDatabaseUri ||
+    (args.from === 'darkhorse-strength'
+      ? process.env.DH_SOURCE_DATABASE_URI || process.env.DARKHORSE_SOURCE_DATABASE_URI
+      : process.env.BRU_SOURCE_DATABASE_URI) ||
+    process.env.SOURCE_DATABASE_URI
 
   if (!process.env.DATABASE_URI) {
     console.error('❌ DATABASE_URI must be set for atnd-me target DB')
     process.exit(1)
   }
   if (!sourceDatabaseUri) {
-    console.error('❌ Missing source DB connection string. Provide BRU_SOURCE_DATABASE_URI or --source-database-uri')
+    const hint =
+      args.from === 'darkhorse-strength'
+        ? 'DH_SOURCE_DATABASE_URI, DARKHORSE_SOURCE_DATABASE_URI, SOURCE_DATABASE_URI, or --source-database-uri'
+        : 'BRU_SOURCE_DATABASE_URI, SOURCE_DATABASE_URI, or --source-database-uri'
+    console.error(`❌ Missing source DB connection string. Provide ${hint}`)
     process.exit(1)
   }
 
@@ -1385,12 +1605,15 @@ async function main() {
   const tenantId = await resolveTenantId(payload, args)
 
   console.log(`Target tenant id: ${tenantId}`)
+  console.log(`Source app: ${args.from}`)
   console.log(`Dry run: ${args.dryRun ? 'yes' : 'no'}`)
   console.log(`Upsert: ${args.upsertByNaturalKey ? 'yes' : 'no'}`)
   console.log(`Exclude child data: ${args.excludeChildData ? 'yes' : 'no'}`)
   console.log(`Include payment methods: ${args.includePaymentMethods ? 'yes' : 'no'}`)
+  console.log(`Preserve passwords: ${args.preservePasswords ? 'yes' : 'no'}`)
 
   const sourcePool = new Pool({ connectionString: sourceDatabaseUri })
+  const targetPool = new Pool({ connectionString: process.env.DATABASE_URI })
   const maps: IdMaps = {
     mediaIdMap: new Map<Id, Id>(),
     formIdMap: new Map<Id, Id>(),
@@ -1417,7 +1640,7 @@ async function main() {
 
     // Phase 1.5: Users
     if (!args.skipUsers) {
-      await migrateUsers(sourcePool, payload, req, tenantId, maps, args)
+      await migrateUsers(sourcePool, targetPool, payload, req, tenantId, maps, args)
     }
 
     // Phase 1.6: Booking-related data (dependency order)
@@ -1452,6 +1675,7 @@ async function main() {
     console.log('✅ Migration completed (or simulated via --dry-run).')
   } finally {
     await sourcePool.end()
+    await targetPool.end()
     await payload.db?.destroy?.()
   }
 }

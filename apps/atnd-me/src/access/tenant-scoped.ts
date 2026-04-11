@@ -10,6 +10,40 @@ import {
 } from '@/utilities/tenantRequest'
 
 /**
+ * Tenant IDs from `tenants` + `registrationTenant` only (no role-based shortcuts).
+ * Used when resolving membership for tenant portal access while `isAdmin(session)` is false,
+ * even if the DB row incorrectly includes `super-admin` (where {@link getUserTenantIds} would return null).
+ */
+export function getTenantMembershipIdsFromUserDoc(user: unknown): number[] {
+  if (!user || typeof user !== 'object') return []
+  const tenants = (user as Record<string, unknown>).tenants as
+    | Array<{ tenant?: number | { id: number }; tenant_id?: number; id?: number } | number>
+    | undefined
+  if (tenants && tenants.length > 0) {
+    return tenants
+      .map((tenant: { tenant?: number | { id: number }; tenant_id?: number; id?: number } | number) => {
+        if (typeof tenant === 'object' && tenant !== null) {
+          if ('tenant' in tenant) {
+            const tenantValue = tenant.tenant
+            return typeof tenantValue === 'object' && tenantValue !== null ? tenantValue.id : tenantValue
+          }
+          if ('tenant_id' in tenant && typeof tenant.tenant_id === 'number') {
+            return tenant.tenant_id
+          }
+          if ('id' in tenant) {
+            return tenant.id
+          }
+        }
+        return tenant
+      })
+      .filter((id): id is number => typeof id === 'number')
+  }
+  const reg = (user as { registrationTenant?: number | { id: number } }).registrationTenant
+  const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
+  return typeof tid === 'number' ? [tid] : []
+}
+
+/**
  * Get tenant IDs that a user has access to
  * - Admin users: null (can access all tenants)
  * - Tenant-admin users: array of tenant IDs from their tenants field
@@ -17,7 +51,7 @@ import {
  */
 export function getUserTenantIds(user: SharedUser | null): number[] | null {
   if (!user) return []
-  
+
   // Platform super-admin can access all tenants
   if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return null // null means "all tenants"
@@ -25,37 +59,9 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
 
   // Tenant org admin or staff: assigned tenants
   if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
-    const tenants = (user as unknown as Record<string, unknown>).tenants as Array<{ tenant?: number | { id: number }; id?: number } | number> | undefined
-    // Auth/session payloads often omit the `tenants` relationship. Fall back to `registrationTenant`
-    // so tenant portal users still have access to their primary tenant.
-    if (!tenants || tenants.length === 0) {
-      const reg = (user as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
-      const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
-      return typeof tid === 'number' ? [tid] : []
-    }
-    
-    // tenants can be an array of IDs, an array of tenant objects with 'id', or an array of objects with 'tenant' / 'tenant_id' (join table)
-    return tenants.map((tenant: { tenant?: number | { id: number }; tenant_id?: number; id?: number } | number) => {
-      if (typeof tenant === 'object' && tenant !== null) {
-        // Handle structure: { tenant: <id> } or { tenant: { id } }
-        if ('tenant' in tenant) {
-          const tenantValue = tenant.tenant
-          return typeof tenantValue === 'object' && tenantValue !== null ? tenantValue.id : tenantValue
-        }
-        // Handle join table shape: { tenant_id: <id> }
-        if ('tenant_id' in tenant && typeof tenant.tenant_id === 'number') {
-          return tenant.tenant_id
-        }
-        // Handle structure: { id: <id> }
-        if ('id' in tenant) {
-          return tenant.id
-        }
-      }
-      // Handle direct ID
-      return tenant
-    }).filter((id): id is number => typeof id === 'number')
+    return getTenantMembershipIdsFromUserDoc(user)
   }
-  
+
   // Regular users have no tenant management access
   return []
 }
@@ -102,7 +108,10 @@ export async function resolveTenantAdminTenantIds(args: {
     })
     .catch(() => null)
 
-  const fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
+  let fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
+  if (fromDb === null && fullUser && !checkRole(['super-admin'], user as SharedUser)) {
+    fromDb = getTenantMembershipIdsFromUserDoc(fullUser)
+  }
   return fromDb === null ? [] : fromDb
 }
 

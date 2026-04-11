@@ -120,7 +120,7 @@ async function createTestTenantHomePage(tenantId: number, tenantName: string): P
  * @param email - User email
  * @param password - User password
  * @param name - User name
- * @param roles - User roles
+ * @param roles - Better Auth `role` values (hasMany select; same as Payload `role` field)
  * @param registrationTenantId - Optional registration tenant ID
  */
 export async function createTestUser(
@@ -213,8 +213,6 @@ export async function createTestUser(
       name,
       email,
       password,
-      roles,
-      // Sync role field for Better Auth compatibility (Better Auth uses 'role', rolesPlugin uses 'roles')
       role: roles,
       emailVerified: true,
       ...(registrationTenantId && { registrationTenant: registrationTenantId }),

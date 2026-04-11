@@ -62,8 +62,8 @@ async function resolveTenantIdsForUser(args: {
       id,
       depth: 2,
       overrideAccess: true,
-      // Keep this tight; we only need tenant relationships + roles.
-      select: { id: true, roles: true, tenants: true },
+      // Keep this tight; we only need tenant relationships + role.
+      select: { id: true, role: true, tenants: true },
     })
     .catch(() => null)
 

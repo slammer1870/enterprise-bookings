@@ -39,7 +39,7 @@ describe('validate-discount-code API route', () => {
         name: 'Validate Discount Route User',
         email: `validate-discount-${runId}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,

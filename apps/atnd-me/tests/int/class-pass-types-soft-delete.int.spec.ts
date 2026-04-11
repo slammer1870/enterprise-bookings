@@ -38,7 +38,7 @@ describe('Class-pass-types soft delete (Phase 4.5)', () => {
         name: 'Admin CPT Soft Delete',
         email: `admin-cpt-soft-${runId}@test.com`,
         password: 'test',
-        roles: ['super-admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,

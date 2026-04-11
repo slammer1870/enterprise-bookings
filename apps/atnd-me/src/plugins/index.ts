@@ -13,7 +13,6 @@ import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
 import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
 import { searchFields } from '@/search/fieldOverrides'
 import { beforeSyncWithSearch } from '@/search/beforeSync'
-import { rolesPlugin } from '@repo/roles'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { filterSchedulerGlobal } from './filter-scheduler-global'
@@ -314,13 +313,7 @@ export const plugins: Plugin[] = [
   payloadAuth(),
   // Must run after `payloadAuth()` so the Better Auth collections exist.
   fixBetterAuthTimestamps(),
-  rolesPlugin({
-    enabled: true,
-    roles: ['user', 'staff', 'admin', 'super-admin'],
-    defaultRole: 'user',
-    firstUserRole: 'super-admin',
-  }),
-  // Must run after both payloadAuth() and rolesPlugin() to sync role/roles fields
+  // Restrict who can edit the Better Auth `role` field (RBAC lives on `role` only).
   fixBetterAuthRoleField(),
   // Hide Better Auth collections (accounts, sessions, verifications) from tenant-admins; only full admins see them
   hideBetterAuthCollectionsFromTenantAdmins(),

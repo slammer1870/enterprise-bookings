@@ -53,7 +53,7 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         name: 'DST User',
         email: uniqueEmail,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       overrideAccess: true,

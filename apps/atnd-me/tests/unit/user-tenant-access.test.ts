@@ -7,8 +7,8 @@ import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
 describe('userTenantAccess helpers', () => {
   describe('isAdmin (platform super-admin)', () => {
     it('returns true when user has super-admin', () => {
-      expect(isAdmin({ id: 1, roles: ['super-admin'] })).toBe(true)
-      expect(isAdmin({ id: 1, roles: ['super-admin', 'user'] })).toBe(true)
+      expect(isAdmin({ id: 1, role: ['super-admin'] })).toBe(true)
+      expect(isAdmin({ id: 1, role: ['super-admin', 'user'] })).toBe(true)
     })
 
     it('returns true when singular role is super-admin', () => {
@@ -17,16 +17,16 @@ describe('userTenantAccess helpers', () => {
     })
 
     it('returns false for org admin, staff, and regular users', () => {
-      expect(isAdmin({ id: 1, roles: ['admin'] })).toBe(false)
-      expect(isAdmin({ id: 1, roles: ['staff'] })).toBe(false)
-      expect(isAdmin({ id: 1, roles: ['user'] })).toBe(false)
+      expect(isAdmin({ id: 1, role: ['admin'] })).toBe(false)
+      expect(isAdmin({ id: 1, role: ['staff'] })).toBe(false)
+      expect(isAdmin({ id: 1, role: ['user'] })).toBe(false)
     })
   })
 
   describe('isTenantAdmin (org admin)', () => {
     it('returns true when user has org admin role', () => {
-      expect(isTenantAdmin({ id: 1, roles: ['admin'] })).toBe(true)
-      expect(isTenantAdmin({ id: 1, roles: ['admin', 'user'] })).toBe(true)
+      expect(isTenantAdmin({ id: 1, role: ['admin'] })).toBe(true)
+      expect(isTenantAdmin({ id: 1, role: ['admin', 'user'] })).toBe(true)
     })
 
     it('returns true when singular role is admin', () => {
@@ -36,20 +36,20 @@ describe('userTenantAccess helpers', () => {
     })
 
     it('returns false when user has no org admin', () => {
-      expect(isTenantAdmin({ id: 1, roles: ['user'] })).toBe(false)
-      expect(isTenantAdmin({ id: 1, roles: ['super-admin'] })).toBe(false)
+      expect(isTenantAdmin({ id: 1, role: ['user'] })).toBe(false)
+      expect(isTenantAdmin({ id: 1, role: ['super-admin'] })).toBe(false)
     })
   })
 
   describe('isStaff', () => {
     it('returns true when user has staff role', () => {
-      expect(isStaff({ id: 1, roles: ['staff'] })).toBe(true)
-      expect(isStaff({ id: 1, roles: ['staff', 'user'] })).toBe(true)
+      expect(isStaff({ id: 1, role: ['staff'] })).toBe(true)
+      expect(isStaff({ id: 1, role: ['staff', 'user'] })).toBe(true)
     })
 
     it('returns false otherwise', () => {
-      expect(isStaff({ id: 1, roles: ['user'] })).toBe(false)
-      expect(isStaff({ id: 1, roles: ['admin'] })).toBe(false)
+      expect(isStaff({ id: 1, role: ['user'] })).toBe(false)
+      expect(isStaff({ id: 1, role: ['admin'] })).toBe(false)
     })
   })
 })

@@ -3,6 +3,8 @@
 import * as React from "react"
 import { SelectInput, toast, useAuth, useDocumentInfo } from "@payloadcms/ui"
 
+import { isAdmin, isTenantAdmin } from "@/utilities/check-admin-role"
+
 type StripeCustomer = { id: string; email?: string | null; name?: string | null }
 type StripeCustomersResponse = { data?: StripeCustomer[]; meta?: { stripeAccountId?: string | null } }
 type TenantStripeCustomer = { stripeAccountId: string; stripeCustomerId: string }
@@ -23,10 +25,7 @@ function parseTenantStripeCustomers(value: unknown): TenantStripeCustomer[] {
 }
 
 function isAdminUser(user: unknown): boolean {
-  if (!user || typeof user !== "object") return false
-  const candidate = user as Record<string, unknown>
-  const roles = Array.isArray(candidate.roles) ? candidate.roles : []
-  return roles.some((role) => role === "admin")
+  return isAdmin(user) || isTenantAdmin(user)
 }
 
 export const TenantStripeCustomerMappingField: React.FC = () => {

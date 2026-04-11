@@ -18,6 +18,36 @@ import { TimeslotLoading } from "./timeslot-loading";
 import { FetchTimeslots } from "./fetch-timeslots";
 import { getTimeslotStartTimeFilter } from "../../utils/timeslot-search-params";
 
+/** Tenant ids from a populated users row (`tenants` join + `registrationTenant`). */
+function tenantMembershipIdsFromUserDoc(doc: unknown): number[] {
+  if (!doc || typeof doc !== "object") return [];
+  const o = doc as Record<string, unknown>;
+  const tenants = o.tenants;
+  if (Array.isArray(tenants) && tenants.length > 0) {
+    const ids = tenants
+      .map((row: unknown) => {
+        if (typeof row === "number") return row;
+        if (row && typeof row === "object") {
+          const t = (row as { tenant?: unknown }).tenant;
+          if (typeof t === "number" && Number.isFinite(t)) return t;
+          if (t && typeof t === "object" && t !== null && "id" in t) {
+            const id = (t as { id: unknown }).id;
+            if (typeof id === "number" && Number.isFinite(id)) return id;
+          }
+        }
+        return null;
+      })
+      .filter((id): id is number => typeof id === "number");
+    if (ids.length > 0) return ids;
+  }
+  const reg = o.registrationTenant;
+  const tid =
+    typeof reg === "object" && reg !== null && "id" in reg
+      ? (reg as { id: unknown }).id
+      : reg;
+  return typeof tid === "number" && Number.isFinite(tid) ? [tid] : [];
+}
+
 export const TimeslotAdmin: React.FC<{
   params: any;
   searchParams: { [key: string]: string | string[] | undefined };
@@ -44,7 +74,10 @@ export const TimeslotAdmin: React.FC<{
     : undefined;
 
   const cookieStore = await cookies();
-  const isAdmin = user && checkRole(['admin'], user as unknown as SharedUser);
+  // Only super-admins are "global tenant picker" users. Org admins use role `admin` too after
+  // RBAC renamed `tenant-admin` → `admin`; treating them like super-admin skipped subdomain /
+  // membership fallbacks and broke `/admin/collections/timeslots` on the base host.
+  const isSuperAdmin = user && checkRole(["super-admin"], user as unknown as SharedUser);
 
   // 1) Respect admin TenantSelector: when user picks a tenant, filter to that tenant.
   // The multi-tenant plugin sets the selected tenant in the 'payload-tenant' cookie.
@@ -53,7 +86,7 @@ export const TimeslotAdmin: React.FC<{
     const tenantId = /^\d+$/.test(payloadTenant) ? Number(payloadTenant) : payloadTenant;
     if (!req.context) req.context = {};
     req.context.tenant = tenantId;
-  } else if (!isAdmin && req && hasTenantsCollection) {
+  } else if (!isSuperAdmin && req && hasTenantsCollection) {
     // 2) Fallback: tenant from subdomain (tenant-slug, set by middleware)
     const tenantSlug = cookieStore.get('tenant-slug')?.value;
     if (tenantSlug) {
@@ -73,6 +106,51 @@ export const TimeslotAdmin: React.FC<{
         }
       } catch (error) {
         console.error('Error looking up tenant in admin view:', error);
+      }
+    }
+  }
+
+  // 3) Base-host admin sessions often lack `tenant-slug`. Resolve tenant from the user row.
+  if (
+    req &&
+    hasTenantsCollection &&
+    user &&
+    !checkRole(["super-admin"], user as unknown as SharedUser) &&
+    checkRole(["admin", "staff"], user as unknown as SharedUser)
+  ) {
+    const rawCtx = req.context?.tenant;
+    const missingTenantContext =
+      rawCtx === undefined ||
+      rawCtx === null ||
+      rawCtx === "" ||
+      (typeof rawCtx === "number" && !Number.isFinite(rawCtx));
+    if (missingTenantContext) {
+      try {
+        const idRaw =
+          typeof user === "object" && user !== null && "id" in user
+            ? (user as { id: unknown }).id
+            : null;
+        const uid =
+          typeof idRaw === "number"
+            ? idRaw
+            : typeof idRaw === "string"
+              ? parseInt(idRaw, 10)
+              : NaN;
+        if (Number.isFinite(uid)) {
+          const full = await payload.findByID({
+            collection: "users",
+            id: uid,
+            depth: 1,
+            overrideAccess: true,
+          });
+          const ids = tenantMembershipIdsFromUserDoc(full);
+          if (ids.length > 0) {
+            if (!req.context) req.context = {};
+            req.context.tenant = ids[0]!;
+          }
+        }
+      } catch (error) {
+        console.error("Error resolving tenant for timeslots admin view:", error);
       }
     }
   }

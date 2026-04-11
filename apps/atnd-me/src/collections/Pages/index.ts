@@ -11,10 +11,9 @@ import {
 import { defaultBlockSlugs } from '../../blocks/registry'
 import { getBlocksForTenant } from '../../utilities/getBlocksForTenant'
 import {
-  getPayloadTenantIdFromRequest,
-  getTenantSlugFromRequest,
-  isBaseHostRequest,
-} from '@/utilities/tenantRequest'
+  resolveTenantIdForDocumentWrite,
+  type TenantDocumentWriteReq,
+} from '@/utilities/resolveTenantIdForDocumentWrite'
 import {
   Hero,
   About,
@@ -141,123 +140,6 @@ const pageBlocks = [
 
 const allPageBlockSlugs: string[] = pageBlocks.map((b) => b.slug!).filter(Boolean)
 
-function getTenantIdFromPageRequestSync(req: {
-  context?: { tenant?: unknown; __resolvedTenantIdFromSlug?: unknown; __resolvedTenantIdFromHost?: unknown }
-  cookies?: { get?: (name: string) => { value?: string } | undefined }
-  headers?: { get?: (name: string) => string | null }
-}): number | string | null {
-  const ctxTenant = req.context?.tenant
-  if (ctxTenant) {
-    return typeof ctxTenant === 'object' && ctxTenant !== null && 'id' in ctxTenant
-      ? (ctxTenant as { id: number | string }).id
-      : (ctxTenant as number | string)
-  }
-
-  const cachedTenantId =
-    req.context?.__resolvedTenantIdFromSlug ?? req.context?.__resolvedTenantIdFromHost ?? null
-  if (typeof cachedTenantId === 'number' || typeof cachedTenantId === 'string') {
-    return cachedTenantId
-  }
-
-  const headerGetter = req.headers?.get?.bind(req.headers)
-  const cookieHeader = headerGetter?.('cookie') ?? ''
-  const getCookieFromHeader = (name: string): string | null => {
-    if (!cookieHeader) return null
-    const m = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
-    if (!m?.[1]) return null
-    try {
-      return decodeURIComponent(m[1])
-    } catch {
-      return m[1]
-    }
-  }
-
-  const payloadTenantFromHeaderRaw = getCookieFromHeader('payload-tenant')
-  const payloadTenantFromHeader =
-    payloadTenantFromHeaderRaw && /^\d+$/.test(payloadTenantFromHeaderRaw)
-      ? parseInt(payloadTenantFromHeaderRaw, 10)
-      : null
-
-  return getPayloadTenantIdFromRequest({ cookies: req.cookies }) ?? payloadTenantFromHeader
-}
-
-async function resolveTenantIdForPageWrite(req: {
-  context?: { tenant?: unknown; __resolvedTenantIdFromSlug?: unknown; __resolvedTenantIdFromHost?: unknown }
-  cookies?: { get?: (name: string) => { value?: string } | undefined }
-  headers?: { get?: (name: string) => string | null }
-  payload?: {
-    find: (args: {
-      collection: 'tenants'
-      where: Record<string, unknown>
-      limit: number
-      depth: number
-      overrideAccess: boolean
-      select: { id: true }
-      req?: unknown
-    }) => Promise<{ docs?: Array<{ id?: number | string }> }>
-  }
-}): Promise<number | string | null> {
-  const syncTenantId = getTenantIdFromPageRequestSync(req)
-  if (typeof syncTenantId === 'number' || typeof syncTenantId === 'string') {
-    return syncTenantId
-  }
-
-  const cookieStore = req.cookies
-  const headerGetter = req.headers?.get?.bind(req.headers)
-  const cookieHeader = headerGetter?.('cookie') ?? ''
-  const getCookieFromHeader = (name: string): string | null => {
-    if (!cookieHeader) return null
-    const m = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
-    if (!m?.[1]) return null
-    try {
-      return decodeURIComponent(m[1])
-    } catch {
-      return m[1]
-    }
-  }
-
-  const payloadTenantFromHeaderRaw = getCookieFromHeader('payload-tenant')
-  const payloadTenantFromHeader =
-    payloadTenantFromHeaderRaw && /^\d+$/.test(payloadTenantFromHeaderRaw)
-      ? parseInt(payloadTenantFromHeaderRaw, 10)
-      : null
-
-  const cachedTenantId =
-    req.context?.__resolvedTenantIdFromSlug ?? req.context?.__resolvedTenantIdFromHost ?? null
-  if (typeof cachedTenantId === 'number' || typeof cachedTenantId === 'string') {
-    return cachedTenantId
-  }
-
-  const payloadTenantId = getPayloadTenantIdFromRequest({ cookies: cookieStore }) ?? payloadTenantFromHeader
-  if (isBaseHostRequest(req.headers)) {
-    return payloadTenantId
-  }
-
-  const tenantSlug =
-    getTenantSlugFromRequest({
-      cookies: cookieStore,
-      headers: req.headers,
-    }) ?? getCookieFromHeader('tenant-slug') ?? null
-  if (!tenantSlug || !req.payload) return null
-
-  const result = await req.payload
-    .find({
-      collection: 'tenants',
-      where: { slug: { equals: tenantSlug } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: { id: true },
-      req,
-    })
-    .catch(() => null)
-
-  const tenantId = result?.docs?.[0]?.id
-  if (typeof tenantId === 'number' || typeof tenantId === 'string') return tenantId
-
-  return payloadTenantId
-}
-
 /** Extract allowed block slugs from the document's tenant only (not navbar context). Base pages get default blocks. */
 function _getAllowedBlockSlugs(data: { tenant?: unknown }, _req?: { context?: { tenant?: unknown } }): string[] {
   const tenant = data?.tenant
@@ -325,7 +207,9 @@ async function getAllowedBlockSlugsAsync(data: { tenant?: unknown }, req?: unkno
 
     // Create-page block filtering can run before the form tenant field hydrates and before
     // req.context.tenant is available. Reuse the same cookie/header fallback as page writes.
-    const resolvedTenantId = r ? await resolveTenantIdForPageWrite(r).catch(() => null) : null
+    const resolvedTenantId = r
+      ? await resolveTenantIdForDocumentWrite(r as unknown as TenantDocumentWriteReq).catch(() => null)
+      : null
     if (typeof resolvedTenantId === 'number' || typeof resolvedTenantId === 'string') {
       try {
         const tenantDoc = await r?.payload?.findByID({
@@ -530,7 +414,7 @@ export const Pages: CollectionConfig<'pages'> = {
         if (data.tenant) return data
 
         const rawTenant =
-          (await resolveTenantIdForPageWrite(req as Parameters<typeof resolveTenantIdForPageWrite>[0])) ??
+          (await resolveTenantIdForDocumentWrite(req as unknown as TenantDocumentWriteReq)) ??
           (operation === 'update' && originalDoc?.tenant ? originalDoc.tenant : null)
         if (rawTenant) {
           data.tenant =

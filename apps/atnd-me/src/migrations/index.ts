@@ -81,6 +81,8 @@ import * as migration_20260410_timeslots_event_type_id from './20260410_timeslot
 import * as migration_20260410_timeslots_staff_member_id from './20260410_timeslots_staff_member_id';
 import * as migration_20260410_ensure_class_pass_types_allow_multiple_column from './20260410_ensure_class_pass_types_allow_multiple_column';
 import * as migration_20260411_analytics_compound_indexes from './20260411_analytics_compound_indexes';
+import * as migration_20260412_users_role_tenant_admin_to_admin from './20260412_users_role_tenant_admin_to_admin';
+import * as migration_20260413_drop_users_roles_merge_into_users_role from './20260413_drop_users_roles_merge_into_users_role';
 
 export const migrations = [
   {
@@ -497,5 +499,15 @@ export const migrations = [
     up: migration_20260411_analytics_compound_indexes.up,
     down: migration_20260411_analytics_compound_indexes.down,
     name: '20260411_analytics_compound_indexes',
+  },
+  {
+    up: migration_20260412_users_role_tenant_admin_to_admin.up,
+    down: migration_20260412_users_role_tenant_admin_to_admin.down,
+    name: '20260412_users_role_tenant_admin_to_admin',
+  },
+  {
+    up: migration_20260413_drop_users_roles_merge_into_users_role.up,
+    down: migration_20260413_drop_users_roles_merge_into_users_role.down,
+    name: '20260413_drop_users_roles_merge_into_users_role',
   },
 ];

@@ -41,7 +41,7 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
         name: 'Tenant Admin Payments',
         email: `tenant-admin-payments-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['admin'],
+        role: ['admin'],
         emailVerified: true,
         tenants: [{ tenant: testTenantId }],
       },

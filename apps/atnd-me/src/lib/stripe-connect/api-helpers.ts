@@ -41,7 +41,7 @@ export async function getCurrentUser(
         collection: 'users',
         id: parseInt(testUserId, 10),
         overrideAccess: true,
-        select: { id: true, email: true, name: true, roles: true, tenants: true } as any,
+        select: { id: true, email: true, name: true, role: true, tenants: true } as any,
       })
       return u as unknown as SharedUser
     }

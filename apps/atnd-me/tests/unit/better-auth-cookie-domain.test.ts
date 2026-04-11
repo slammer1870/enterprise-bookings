@@ -14,7 +14,7 @@ function makeConfig(baseURL: string) {
       adminRoles: ['super-admin', 'admin', 'staff'],
       defaultRole: 'user',
       defaultAdminRole: 'admin',
-      roles: ['user', 'super-admin', 'admin', 'staff'],
+      role: ['user', 'super-admin', 'admin', 'staff'],
       allowedFields: ['name'],
     },
   }

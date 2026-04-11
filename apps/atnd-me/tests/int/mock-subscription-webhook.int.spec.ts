@@ -55,7 +55,7 @@ describe('mock-subscription-created-webhook', () => {
         name: 'Mock Sub User',
         email: userEmail,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
         stripeCustomerId,
       },

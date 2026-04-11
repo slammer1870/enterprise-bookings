@@ -321,9 +321,6 @@ importers:
       '@repo/plugin-clearable-tenant':
         specifier: workspace:*
         version: link:../../packages/plugin-clearable-tenant
-      '@repo/roles':
-        specifier: workspace:*
-        version: link:../../packages/roles
       '@repo/shared-services':
         specifier: workspace:*
         version: link:../../packages/shared-services

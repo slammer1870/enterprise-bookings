@@ -46,7 +46,7 @@ describe('Scheduler Timeslot Generation with Tenant Context', () => {
         name: 'Test User',
         email: uniqueEmail,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,

@@ -43,7 +43,7 @@ describe('Stripe class-pass-products proxy (Phase 4.5)', () => {
         name: 'Admin CP Products Proxy',
         email: `admin-cpp-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['super-admin'],
+        role: ['super-admin'],
         emailVerified: true,
       },
       draft: false,

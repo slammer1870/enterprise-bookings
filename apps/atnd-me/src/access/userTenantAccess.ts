@@ -2,7 +2,7 @@ import type { Access, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
-import { getUserTenantIds } from './tenant-scoped'
+import { getTenantMembershipIdsFromUserDoc, getUserTenantIds } from './tenant-scoped'
 
 /** Platform super-admin (full system access). */
 export function isAdmin(u: unknown): boolean {
@@ -123,7 +123,12 @@ export const userTenantRead: Access = async ({ req }) => {
     // Session user may not have tenants populated; fetch full user so we can resolve tenant IDs
     if (tenantIds !== null && tenantIds.length === 0) {
       fullUser = await getTenantPortalUserWithTenants(user, payload)
-      if (fullUser) tenantIds = getUserTenantIds(fullUser)
+      if (fullUser) {
+        tenantIds = getUserTenantIds(fullUser)
+        if (tenantIds === null && !isAdmin(user)) {
+          tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+        }
+      }
     }
     // Fallback: tenants relation may be empty from join table; use registrationTenant
     if (tenantIds !== null && tenantIds.length === 0) {
@@ -199,7 +204,12 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
     let fullUser: SharedUser | null = null
     if (tenantIds !== null && tenantIds.length === 0) {
       fullUser = await getTenantPortalUserWithTenants(user, payload)
-      if (fullUser) tenantIds = getUserTenantIds(fullUser)
+      if (fullUser) {
+        tenantIds = getUserTenantIds(fullUser)
+        if (tenantIds === null && !isAdmin(user)) {
+          tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+        }
+      }
     }
     if (tenantIds !== null && tenantIds.length === 0) {
       const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? user

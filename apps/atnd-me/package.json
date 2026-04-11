@@ -25,6 +25,7 @@
     "test:e2e:ci": "cross-env CI=1 PW_TEST_HTML_REPORT_OPEN=never PW_E2E_SKIP_DEFAULT_TENANT_DATA=true NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" pnpm exec playwright test --config=playwright.config.ts",
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts",
     "test:unit": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.unit.config.mts",
+    "db:fix-users-role": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec tsx scripts/fix-users-role-tenant-admin.ts",
     "seed": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec tsx scripts/seed.ts",
     "ci": "pnpm run payload migrate:fresh --force-accept-warning && sleep 2 && pnpm run build"
   },
@@ -58,7 +59,6 @@
     "@repo/bookings-plugin": "workspace:*",
     "@repo/payments-next": "workspace:*",
     "@repo/plugin-clearable-tenant": "workspace:*",
-    "@repo/roles": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

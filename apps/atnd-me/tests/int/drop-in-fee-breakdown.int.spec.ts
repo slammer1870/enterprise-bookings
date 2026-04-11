@@ -40,7 +40,7 @@ describe('Drop-in fee breakdown total', () => {
         name: 'Fee Breakdown User',
         email: `fee-breakdown-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,

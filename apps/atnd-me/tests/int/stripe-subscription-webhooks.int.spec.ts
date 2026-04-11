@@ -66,7 +66,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
         name: 'Subscription Webhook User',
         email: `sub-webhook-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
         stripeCustomerId,
       },

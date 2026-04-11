@@ -34,7 +34,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         name: 'Dec User',
         email: `dec-user-${Date.now()}@test.com`,
         password: 'test',
-        roles: ['user'],
+        role: ['user'],
         emailVerified: true,
       },
       draft: false,
