@@ -17,6 +17,10 @@
  * This does **not** depend on `PAYLOAD_SECRET` or `BETTER_AUTH_SECRET` matching the source app.
  * Use `--no-preserve-passwords` to force random (or `MIGRATION_DEFAULT_USER_PASSWORD`) passwords.
  *
+ * With default `--upsert` (`--no-upsert` to disable), an existing atnd-me user matched by email
+ * still gets `accounts.password` overwritten from the source when `preservePasswords` is on,
+ * so re-runs can align passwords without creating duplicate users.
+ *
  * This script is intentionally conservative:
  * - Supports --dry-run
  * - Requires an explicit tenant id or slug
@@ -30,6 +34,26 @@
  * Dark Horse:
  *   DH_SOURCE_DATABASE_URI=... \
  *   pnpm exec tsx scripts/migrate-bru-grappling.ts --from darkhorse-strength --tenant-slug darkhorse-strength --dry-run
+ *
+ * Users + **future** timeslots (source `lessons` / `timeslots`) + bookings (skip pages/forms):
+ *   DH_SOURCE_DATABASE_URI=... DATABASE_URI=... PAYLOAD_SECRET=... \
+ *   pnpm exec tsx scripts/migrate-bru-grappling.ts \
+ *     --from darkhorse-strength --tenant-slug YOUR_TENANT_SLUG \
+ *     --future-timeslots-only \
+ *     --skip-pages --skip-forms --skip-media --skip-navbar-footer \
+ *     --dry-run
+ *
+ * `--timeslots-from-date YYYY-MM-DD` overrides the cutoff (inclusive). Bookings only import rows
+ * whose source timeslot/lesson id was migrated (past slots omitted when using future-only).
+ *
+ * **From start of previous UTC week onwards** (last week + all future source slots, no upper bound):
+ *   --timeslots-from-previous-week-onwards
+ *
+ * **Previous week → future (same bookings, new class dates):** migrate only last week’s source
+ * lessons/timeslots, add N calendar days to each slot’s `date`, then migrate bookings. Bookings
+ * still key off source lesson id → new timeslot id.
+ *   --migrate-previous-week-timeslots-shift-days 7
+ * Or manually: `--timeslots-from-date ... --timeslots-to-date ... --shift-timeslot-dates-days 7`
  *
  * Then run without --dry-run.
  */
@@ -70,6 +94,12 @@ type Args = {
   skipBookingData: boolean
   /** When true (default), copy legacy salt:hash or source credential password into target accounts. */
   preservePasswords: boolean
+  /** If set, only migrate source timeslots/lessons with `date` on or after this day (`YYYY-MM-DD`). */
+  timeslotsFromDate?: string
+  /** If set, only migrate source timeslots/lessons with `date` on or before this day (inclusive). */
+  timeslotsToDate?: string
+  /** Add this many calendar days to each migrated timeslot’s `date` (UTC date math). */
+  shiftTimeslotDatesByDays?: number
 }
 
 function parseArgs(argv: string[]): Args {
@@ -112,6 +142,48 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--skip-navbar-footer') out.skipNavbarFooter = true
     else if (a === '--skip-booking-data') out.skipBookingData = true
     else if (a === '--no-preserve-passwords') out.preservePasswords = false
+    else if (a === '--future-timeslots-only') {
+      out.timeslotsFromDate = new Date().toISOString().slice(0, 10)
+    } else if (a === '--timeslots-from-previous-week-onwards') {
+      out.timeslotsFromDate = getPreviousUtcMondaySundayWeekBounds().from
+    } else if (a === '--timeslots-from-date') {
+      const d = argv[++i]
+      if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        console.error('❌ --timeslots-from-date expects YYYY-MM-DD')
+        process.exit(1)
+      }
+      out.timeslotsFromDate = d
+    } else if (a === '--timeslots-to-date') {
+      const d = argv[++i]
+      if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        console.error('❌ --timeslots-to-date expects YYYY-MM-DD')
+        process.exit(1)
+      }
+      out.timeslotsToDate = d
+    } else if (a === '--shift-timeslot-dates-days') {
+      const raw = argv[++i]
+      const n = raw != null ? Number(raw) : NaN
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        console.error('❌ --shift-timeslot-dates-days expects an integer (e.g. 7)')
+        process.exit(1)
+      }
+      out.shiftTimeslotDatesByDays = n
+    } else if (a === '--migrate-previous-week-timeslots-shift-days') {
+      let n = 7
+      const next = argv[i + 1]
+      if (next && /^-?\d+$/.test(next)) {
+        n = Number(next)
+        i++
+      }
+      if (!Number.isFinite(n) || !Number.isInteger(n)) {
+        console.error('❌ --migrate-previous-week-timeslots-shift-days expects an integer (default 7)')
+        process.exit(1)
+      }
+      const { from: wFrom, to: wTo } = getPreviousUtcMondaySundayWeekBounds()
+      out.timeslotsFromDate = wFrom
+      out.timeslotsToDate = wTo
+      out.shiftTimeslotDatesByDays = n
+    }
   }
 
   return out
@@ -576,6 +648,72 @@ function remapIdsDeep(value: unknown, map: Map<Id, Id>): unknown {
   return value
 }
 
+/** Coerce FK ids for Payload relationships (Drizzle / PG often expects numbers). */
+function coerceNumberId(id: Id | null | undefined): number | null {
+  if (id === null || id === undefined) return null
+  if (typeof id === 'number' && Number.isFinite(id)) return id
+  if (typeof id === 'bigint') {
+    const n = Number(id)
+    return Number.isSafeInteger(n) ? n : null
+  }
+  const n = Number(String(id).trim())
+  return Number.isFinite(n) ? n : null
+}
+
+/**
+ * Source FKs may be bigint vs number; userIdMap keys follow migrateUsers source row `id` types.
+ */
+function getMappedTargetId(map: Map<Id, Id>, raw: Id | null | undefined): Id | null {
+  if (raw === null || raw === undefined) return null
+  if (map.has(raw)) return map.get(raw) ?? null
+  const n = coerceNumberId(raw)
+  if (n != null && map.has(n)) return map.get(n) ?? null
+  if (typeof raw === 'bigint' && map.has(String(raw))) return map.get(String(raw)) ?? null
+  if (typeof raw === 'string' && /^\d+$/.test(raw) && map.has(Number(raw))) return map.get(Number(raw)) ?? null
+  return null
+}
+
+/** Existing users matched by email may lack this tenant on `tenants`; staff/bookings expect membership. */
+async function ensureUserTenantMembership(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  req: Awaited<ReturnType<typeof createLocalReq>>,
+  userId: Id,
+  tenantIdNum: number,
+): Promise<void> {
+  const id = coerceNumberId(userId)
+  if (id == null) return
+
+  const user = (await payload.findByID({
+    collection: 'users',
+    id,
+    depth: 1,
+    overrideAccess: true,
+  } as any)) as { tenants?: Array<{ tenant?: number | { id: number } }> } | null
+  if (!user) return
+
+  const rows = Array.isArray(user.tenants) ? user.tenants : []
+  const tenantIds: number[] = []
+  for (const row of rows) {
+    const t = row?.tenant
+    const tid =
+      typeof t === 'object' && t !== null && 'id' in t
+        ? Number((t as { id: number }).id)
+        : coerceNumberId(t as Id)
+    if (tid != null && !tenantIds.includes(tid)) tenantIds.push(tid)
+  }
+  if (tenantIds.includes(tenantIdNum)) return
+
+  await payload.update({
+    collection: 'users',
+    id,
+    data: {
+      tenants: [...tenantIds.map((tid) => ({ tenant: tid })), { tenant: tenantIdNum }],
+    },
+    req,
+    overrideAccess: true,
+  } as any)
+}
+
 function omitNil<T extends Record<string, unknown>>(obj: T): T {
   const out: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(obj)) {
@@ -704,7 +842,7 @@ async function migrateUsers(
   const passwordMode = getDefaultUserPassword()
   if (args.preservePasswords) {
     console.log(
-      'Users: preservePasswords=yes — copying salt:hash or source credential password into target accounts (secrets need not match).',
+      'Users: preservePasswords=yes — new users and existing (upsert-by-email) users get source salt:hash or credential password on target accounts.',
     )
   } else if (passwordMode.mode === 'fixed') {
     console.warn(
@@ -737,6 +875,15 @@ async function migrateUsers(
       const existingId = await findExistingIdByField(payload, 'users', 'email', email)
       if (existingId != null) {
         maps.userIdMap.set(sourceId, existingId)
+        if (!args.dryRun) {
+          await ensureUserTenantMembership(payload, req, existingId, Number(tenantId))
+        }
+        if (args.preservePasswords && !args.dryRun) {
+          const importedForExisting = await getImportableCredentialPasswordFromSource(pool, row, sourceId)
+          if (importedForExisting != null) {
+            await setTargetCredentialPassword(targetPool, Number(existingId), importedForExisting)
+          }
+        }
         continue
       }
     }
@@ -1123,6 +1270,7 @@ async function migrateEventTypes(
   }
 }
 
+/** Legacy `instructors` / `staff_members` source rows → atnd-me `staff-members` collection. */
 async function migrateStaffMembers(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
@@ -1131,14 +1279,11 @@ async function migrateStaffMembers(
   maps: IdMaps,
   args: Args,
 ): Promise<void> {
-  const table = await resolveFirstTableName(pool, [
-    'staff_members',
-    'staff-members',
-    'staffMembers',
-    'instructors',
-  ])
+  const table = await resolveFirstTableName(pool, ['staff_members', 'staffMembers', 'instructors'])
   if (!table) {
-    console.warn('StaffMembers: source table not found (tried staff_members, instructors), skipping')
+    console.warn(
+      'StaffMembers: source table not found (tried staff_members, staffMembers, instructors), skipping',
+    )
     return
   }
   const limit = args.limit ?? null
@@ -1147,34 +1292,132 @@ async function migrateStaffMembers(
   for (const row of rows) {
     const sourceId = row.id as Id
     const userId = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
-    const mappedUserId = userId != null ? maps.userIdMap.get(userId) : null
+    const mappedUserId = userId != null ? getMappedTargetId(maps.userIdMap, userId) : null
     if (mappedUserId == null) {
       console.warn(`StaffMembers: skipping id=${String(sourceId)} (user not mapped)`)
       continue
     }
 
-    const data = omitNil({
-      tenant: Number(tenantId),
-      user: mappedUserId,
-      name: getRowValue(row, 'name') ?? null,
-      description: getRowValue(row, 'description') ?? null,
-      profileImage: null, // media migration not implemented
-      active: getRowValue(row, 'active') ?? true,
-    })
+    const userFk = coerceNumberId(mappedUserId)
+    if (userFk == null) {
+      console.warn(`StaffMembers: skipping id=${String(sourceId)} (invalid mapped user id)`)
+      continue
+    }
 
     if (args.dryRun) {
       maps.instructorIdMap.set(sourceId, sourceId)
       continue
     }
 
+    // `user` is globally unique on staff-members: reuse row if this user already has staff profile.
+    if (args.upsertByNaturalKey) {
+      const existingStaff = await payload.find({
+        collection: 'staff-members',
+        where: { user: { equals: userFk } } as any,
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      } as any)
+      const existingDoc = existingStaff?.docs?.[0] as { id?: Id; tenant?: number | { id: number } } | undefined
+      if (existingDoc?.id != null) {
+        const exT =
+          typeof existingDoc.tenant === 'object' && existingDoc.tenant != null && 'id' in existingDoc.tenant
+            ? Number((existingDoc.tenant as { id: number }).id)
+            : coerceNumberId(existingDoc.tenant as Id)
+        if (exT != null && exT !== Number(tenantId)) {
+          console.warn(
+            `StaffMembers: source id=${String(sourceId)} user=${userFk} already has staff-members id=${String(existingDoc.id)} for tenant ${exT}; reusing id for lesson FK map (one staff row per user).`,
+          )
+        }
+        maps.instructorIdMap.set(sourceId, existingDoc.id as Id)
+        continue
+      }
+    }
+
+    const data = omitNil({
+      tenant: Number(tenantId),
+      user: userFk,
+      name: getRowValue(row, 'name') ?? null,
+      description: getRowValue(row, 'description') ?? null,
+      profileImage: null, // media migration not implemented
+      active: getRowValue(row, 'active') ?? true,
+    })
+
     const created = await payload.create({
-      collection: 'staffMembers',
+      collection: 'staff-members',
       data,
       req,
       overrideAccess: true,
     } as any)
     maps.instructorIdMap.set(sourceId, created.id as Id)
   }
+}
+
+/** Previous calendar week Mon–Sun in UTC (the week before the current UTC week). */
+function getPreviousUtcMondaySundayWeekBounds(): { from: string; to: string } {
+  const now = new Date()
+  const y = now.getUTCFullYear()
+  const mo = now.getUTCMonth()
+  const d = now.getUTCDate()
+  const dow = now.getUTCDay()
+  const daysFromMonday = dow === 0 ? 6 : dow - 1
+  const thisMonday = new Date(Date.UTC(y, mo, d - daysFromMonday))
+  const prevMonday = new Date(thisMonday)
+  prevMonday.setUTCDate(prevMonday.getUTCDate() - 7)
+  const prevSunday = new Date(prevMonday)
+  prevSunday.setUTCDate(prevSunday.getUTCDate() + 6)
+  return {
+    from: prevMonday.toISOString().slice(0, 10),
+    to: prevSunday.toISOString().slice(0, 10),
+  }
+}
+
+function formatIsoDateFromRowValue(val: unknown): string | null {
+  if (val == null) return null
+  if (val instanceof Date) return val.toISOString().slice(0, 10)
+  const s = String(val).trim()
+  const m = s.match(/^(\d{4}-\d{2}-\d{2})/)
+  const cap = m?.[1]
+  return cap ?? null
+}
+
+function addCalendarDaysToIsoDate(isoYmd: string, days: number): string {
+  const parts = isoYmd.split('-')
+  const y = Number(parts[0])
+  const mo = Number(parts[1])
+  const d = Number(parts[2])
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+    return isoYmd
+  }
+  const dt = new Date(Date.UTC(y, mo - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + days)
+  return dt.toISOString().slice(0, 10)
+}
+
+function buildTimeslotsSourceQuery(
+  table: string,
+  timeslotsFromDate: string | undefined,
+  timeslotsToDate: string | undefined,
+  limit: number | null,
+): { sql: string; params: unknown[] } {
+  const params: unknown[] = []
+  const clauses: string[] = []
+  if (timeslotsFromDate) {
+    params.push(timeslotsFromDate)
+    clauses.push(`"date"::date >= $${params.length}::date`)
+  }
+  if (timeslotsToDate) {
+    params.push(timeslotsToDate)
+    clauses.push(`"date"::date <= $${params.length}::date`)
+  }
+  let sql = `select * from ${table}`
+  if (clauses.length) sql += ` where ${clauses.join(' and ')}`
+  sql += ` order by id asc`
+  if (limit != null && !Number.isNaN(limit)) {
+    params.push(limit)
+    sql += ` limit $${params.length}`
+  }
+  return { sql, params }
 }
 
 async function migrateTimeslots(
@@ -1191,8 +1434,23 @@ async function migrateTimeslots(
     return
   }
   const limit = args.limit ?? null
-  const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
-  console.log(`Timeslots: source table=${table}, rows=${rows.length}`)
+  const { sql, params } = buildTimeslotsSourceQuery(
+    table,
+    args.timeslotsFromDate,
+    args.timeslotsToDate,
+    limit,
+  )
+  const rows = await queryAll(pool, sql, params)
+  const filterParts: string[] = []
+  if (args.timeslotsFromDate) filterParts.push(`date >= ${args.timeslotsFromDate}`)
+  if (args.timeslotsToDate) filterParts.push(`date <= ${args.timeslotsToDate}`)
+  console.log(
+    `Timeslots: source table=${table}, rows=${rows.length}` +
+      (filterParts.length ? ` (${filterParts.join(', ')})` : ''),
+  )
+  if (args.shiftTimeslotDatesByDays != null && args.shiftTimeslotDatesByDays !== 0) {
+    console.log(`Timeslots: shifting each migrated date by ${args.shiftTimeslotDatesByDays} day(s) (UTC)`)
+  }
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceEventType = getRowValueAny<Id>(row, [
@@ -1223,9 +1481,23 @@ async function migrateTimeslots(
     ])
     const mappedStaffMember = sourceStaffMember != null ? maps.instructorIdMap.get(sourceStaffMember) : null
 
+    const rawDate = getRowValue(row, 'date')
+    let dateForCreate: unknown = rawDate
+    const shift = args.shiftTimeslotDatesByDays
+    if (shift != null && shift !== 0) {
+      const iso = formatIsoDateFromRowValue(rawDate)
+      if (iso) {
+        dateForCreate = addCalendarDaysToIsoDate(iso, shift)
+      } else {
+        console.warn(
+          `Timeslots: id=${String(sourceId)} could not parse date for shift; using raw value`,
+        )
+      }
+    }
+
     const data = omitNil({
       tenant: Number(tenantId),
-      date: getRowValue(row, 'date'),
+      date: dateForCreate,
       startTime: getRowValue(row, 'startTime'),
       endTime: getRowValue(row, 'endTime'),
       lockOutTime: Number(getRowValue(row, 'lockOutTime') ?? getRowValue(row, 'lock_out_time') ?? 0),
@@ -1251,6 +1523,9 @@ async function migrateTimeslots(
     } as any)
     maps.lessonIdMap.set(sourceId, created.id as Id)
   }
+  console.log(
+    `Timeslots: lessonIdMap size=${maps.lessonIdMap.size} (source lesson ids that were migrated; bookings need this)`,
+  )
 }
 
 async function migrateSubscriptions(
@@ -1323,6 +1598,20 @@ async function migrateBookings(
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
   console.log(`Bookings: source rows=${rows.length}`)
+  if (args.timeslotsFromDate || args.timeslotsToDate) {
+    console.log(
+      'Bookings: only source lessons/timeslots that were migrated (same date window as timeslots phase) exist in lessonIdMap. ' +
+        'Bookings pointing at older lessons are skipped — that is expected when using --timeslots-from-date, --timeslots-to-date, ' +
+        '--future-timeslots-only, or --timeslots-from-previous-week-onwards.',
+    )
+  }
+  const maxSkipDetailLogs = 15
+  let skipDetailLogs = 0
+  let importedOrDryRun = 0
+  let skippedRows = 0
+  let skippedMissingUser = 0
+  let skippedMissingTimeslot = 0
+
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceUser = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
@@ -1337,10 +1626,16 @@ async function migrateBookings(
     const mappedUser = sourceUser != null ? maps.userIdMap.get(sourceUser) : null
     const mappedTimeslot = sourceTimeslot != null ? maps.lessonIdMap.get(sourceTimeslot) : null
     if (mappedUser == null || mappedTimeslot == null) {
-      const parts: string[] = []
-      if (mappedUser == null) parts.push(`user id=${String(sourceUser)} not in map`)
-      if (mappedTimeslot == null) parts.push(`timeslot/lesson id=${String(sourceTimeslot)} not in map`)
-      console.warn(`Bookings: skipping id=${String(sourceId)} (${parts.join('; ')})`)
+      skippedRows++
+      if (mappedUser == null) skippedMissingUser++
+      if (mappedTimeslot == null) skippedMissingTimeslot++
+      if (skipDetailLogs < maxSkipDetailLogs) {
+        const parts: string[] = []
+        if (mappedUser == null) parts.push(`user id=${String(sourceUser)} not in map`)
+        if (mappedTimeslot == null) parts.push(`timeslot/lesson id=${String(sourceTimeslot)} not in map`)
+        console.warn(`Bookings: skipping id=${String(sourceId)} (${parts.join('; ')})`)
+        skipDetailLogs++
+      }
       continue
     }
 
@@ -1353,6 +1648,7 @@ async function migrateBookings(
 
     if (args.dryRun) {
       maps.bookingIdMap.set(sourceId, sourceId)
+      importedOrDryRun++
       continue
     }
 
@@ -1363,7 +1659,19 @@ async function migrateBookings(
       overrideAccess: true,
     } as any)
     maps.bookingIdMap.set(sourceId, created.id as Id)
+    importedOrDryRun++
   }
+
+  if (skippedRows > maxSkipDetailLogs) {
+    console.warn(
+      `Bookings: suppressed ${skippedRows - maxSkipDetailLogs} additional per-row skip messages (showing first ${maxSkipDetailLogs}).`,
+    )
+  }
+  console.log(
+    `Bookings: summary — ${args.dryRun ? 'would import' : 'imported'} ${importedOrDryRun}, skipped ${skippedRows} rows ` +
+      `(missing user on ${skippedMissingUser} rows, missing timeslot/lesson in map on ${skippedMissingTimeslot} rows; a row can count in both). ` +
+      `lessonIdMap size=${maps.lessonIdMap.size}`,
+  )
 }
 
 async function migrateTransactions(
@@ -1611,6 +1919,15 @@ async function main() {
   console.log(`Exclude child data: ${args.excludeChildData ? 'yes' : 'no'}`)
   console.log(`Include payment methods: ${args.includePaymentMethods ? 'yes' : 'no'}`)
   console.log(`Preserve passwords: ${args.preservePasswords ? 'yes' : 'no'}`)
+  if (args.timeslotsFromDate) {
+    console.log(`Timeslots date filter: >= ${args.timeslotsFromDate}`)
+  }
+  if (args.timeslotsToDate) {
+    console.log(`Timeslots date filter: <= ${args.timeslotsToDate}`)
+  }
+  if (args.shiftTimeslotDatesByDays != null && args.shiftTimeslotDatesByDays !== 0) {
+    console.log(`Timeslots date shift (days): ${args.shiftTimeslotDatesByDays}`)
+  }
 
   const sourcePool = new Pool({ connectionString: sourceDatabaseUri })
   const targetPool = new Pool({ connectionString: process.env.DATABASE_URI })
