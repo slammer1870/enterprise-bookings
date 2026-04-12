@@ -86,6 +86,7 @@ import * as migration_20260412_users_role_tenant_admin_to_admin from './20260412
 import * as migration_20260413_drop_users_roles_merge_into_users_role from './20260413_drop_users_roles_merge_into_users_role';
 import * as migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id from './20260414_ensure_pages_blocks_dh_live_schedule_tenant_id';
 import * as migration_20260415_payload_locked_documents_rels_staff_members_id from './20260415_payload_locked_documents_rels_staff_members_id';
+import * as migration_20260416_repair_timeslots_staff_event_locked_docs_rels from './20260416_repair_timeslots_staff_event_locked_docs_rels';
 
 export const migrations = [
   {
@@ -527,5 +528,10 @@ export const migrations = [
     up: migration_20260415_payload_locked_documents_rels_staff_members_id.up,
     down: migration_20260415_payload_locked_documents_rels_staff_members_id.down,
     name: '20260415_payload_locked_documents_rels_staff_members_id'
+  },
+  {
+    up: migration_20260416_repair_timeslots_staff_event_locked_docs_rels.up,
+    down: migration_20260416_repair_timeslots_staff_event_locked_docs_rels.down,
+    name: '20260416_repair_timeslots_staff_event_locked_docs_rels',
   },
 ];
