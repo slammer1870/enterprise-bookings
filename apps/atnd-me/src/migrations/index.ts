@@ -87,6 +87,7 @@ import * as migration_20260413_drop_users_roles_merge_into_users_role from './20
 import * as migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id from './20260414_ensure_pages_blocks_dh_live_schedule_tenant_id';
 import * as migration_20260415_payload_locked_documents_rels_staff_members_id from './20260415_payload_locked_documents_rels_staff_members_id';
 import * as migration_20260416_repair_timeslots_staff_event_locked_docs_rels from './20260416_repair_timeslots_staff_event_locked_docs_rels';
+import * as migration_20260417_ensure_timeslots_staff_event_type_columns from './20260417_ensure_timeslots_staff_event_type_columns';
 
 export const migrations = [
   {
@@ -533,5 +534,10 @@ export const migrations = [
     up: migration_20260416_repair_timeslots_staff_event_locked_docs_rels.up,
     down: migration_20260416_repair_timeslots_staff_event_locked_docs_rels.down,
     name: '20260416_repair_timeslots_staff_event_locked_docs_rels',
+  },
+  {
+    up: migration_20260417_ensure_timeslots_staff_event_type_columns.up,
+    down: migration_20260417_ensure_timeslots_staff_event_type_columns.down,
+    name: '20260417_ensure_timeslots_staff_event_type_columns',
   },
 ];

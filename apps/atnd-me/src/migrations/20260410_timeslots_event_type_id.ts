@@ -28,26 +28,28 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       ELSIF EXISTS (
         SELECT 1 FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'timeslots'
-      ) AND EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name = 'event_types'
       ) THEN
-        ALTER TABLE "timeslots" ADD COLUMN "event_type_id" integer;
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.table_constraints
-          WHERE constraint_schema = 'public'
-            AND table_name = 'timeslots'
-            AND constraint_name = 'timeslots_event_type_id_event_types_id_fk'
+        ALTER TABLE "timeslots" ADD COLUMN IF NOT EXISTS "event_type_id" integer;
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'event_types'
         ) THEN
-          ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_event_type_id_event_types_id_fk"
-            FOREIGN KEY ("event_type_id") REFERENCES "public"."event_types"("id")
-            ON DELETE set null ON UPDATE no action;
-        END IF;
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_indexes
-          WHERE schemaname = 'public' AND tablename = 'timeslots' AND indexname = 'timeslots_event_type_idx'
-        ) THEN
-          CREATE INDEX "timeslots_event_type_idx" ON "timeslots" USING btree ("event_type_id");
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_schema = 'public'
+              AND table_name = 'timeslots'
+              AND constraint_name = 'timeslots_event_type_id_event_types_id_fk'
+          ) THEN
+            ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_event_type_id_event_types_id_fk"
+              FOREIGN KEY ("event_type_id") REFERENCES "public"."event_types"("id")
+              ON DELETE set null ON UPDATE no action;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_indexes
+            WHERE schemaname = 'public' AND tablename = 'timeslots' AND indexname = 'timeslots_event_type_idx'
+          ) THEN
+            CREATE INDEX IF NOT EXISTS "timeslots_event_type_idx" ON "timeslots" USING btree ("event_type_id");
+          END IF;
         END IF;
       END IF;
     END $$;
