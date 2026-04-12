@@ -73,14 +73,15 @@ import * as migration_20260409000001_roles_data_and_booking_table_renames from '
 import * as migration_20260409_144441 from './20260409_144441';
 import * as migration_20260409_152419 from './20260409_152419';
 import * as migration_20260409_posts_tenant_scoped from './20260409_posts_tenant_scoped';
-import * as migration_20260410_drop_posts_generate_slug from './20260410_drop_posts_generate_slug';
 import * as migration_20260410_add_two_column_layout_enum from './20260410_add_two_column_layout_enum';
 import * as migration_20260410_bookings_timeslot_id from './20260410_bookings_timeslot_id';
+import * as migration_20260410_drop_posts_generate_slug from './20260410_drop_posts_generate_slug';
+import * as migration_20260410_ensure_class_pass_types_allow_multiple_column from './20260410_ensure_class_pass_types_allow_multiple_column';
 import * as migration_20260410_rename_dh_dashboard_to_two_column_layout from './20260410_rename_dh_dashboard_to_two_column_layout';
 import * as migration_20260410_timeslots_event_type_id from './20260410_timeslots_event_type_id';
 import * as migration_20260410_timeslots_staff_member_id from './20260410_timeslots_staff_member_id';
-import * as migration_20260410_ensure_class_pass_types_allow_multiple_column from './20260410_ensure_class_pass_types_allow_multiple_column';
 import * as migration_20260411_analytics_compound_indexes from './20260411_analytics_compound_indexes';
+import * as migration_20260412_001754 from './20260412_001754';
 import * as migration_20260412_users_role_tenant_admin_to_admin from './20260412_users_role_tenant_admin_to_admin';
 import * as migration_20260413_drop_users_roles_merge_into_users_role from './20260413_drop_users_roles_merge_into_users_role';
 import * as migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id from './20260414_ensure_pages_blocks_dh_live_schedule_tenant_id';
@@ -463,11 +464,6 @@ export const migrations = [
     name: '20260409_posts_tenant_scoped',
   },
   {
-    up: migration_20260410_drop_posts_generate_slug.up,
-    down: migration_20260410_drop_posts_generate_slug.down,
-    name: '20260410_drop_posts_generate_slug',
-  },
-  {
     up: migration_20260410_add_two_column_layout_enum.up,
     down: migration_20260410_add_two_column_layout_enum.down,
     name: '20260410_add_two_column_layout_enum',
@@ -476,6 +472,16 @@ export const migrations = [
     up: migration_20260410_bookings_timeslot_id.up,
     down: migration_20260410_bookings_timeslot_id.down,
     name: '20260410_bookings_timeslot_id',
+  },
+  {
+    up: migration_20260410_drop_posts_generate_slug.up,
+    down: migration_20260410_drop_posts_generate_slug.down,
+    name: '20260410_drop_posts_generate_slug',
+  },
+  {
+    up: migration_20260410_ensure_class_pass_types_allow_multiple_column.up,
+    down: migration_20260410_ensure_class_pass_types_allow_multiple_column.down,
+    name: '20260410_ensure_class_pass_types_allow_multiple_column',
   },
   {
     up: migration_20260410_rename_dh_dashboard_to_two_column_layout.up,
@@ -493,14 +499,14 @@ export const migrations = [
     name: '20260410_timeslots_staff_member_id',
   },
   {
-    up: migration_20260410_ensure_class_pass_types_allow_multiple_column.up,
-    down: migration_20260410_ensure_class_pass_types_allow_multiple_column.down,
-    name: '20260410_ensure_class_pass_types_allow_multiple_column',
-  },
-  {
     up: migration_20260411_analytics_compound_indexes.up,
     down: migration_20260411_analytics_compound_indexes.down,
     name: '20260411_analytics_compound_indexes',
+  },
+  {
+    up: migration_20260412_001754.up,
+    down: migration_20260412_001754.down,
+    name: '20260412_001754',
   },
   {
     up: migration_20260412_users_role_tenant_admin_to_admin.up,
@@ -520,6 +526,6 @@ export const migrations = [
   {
     up: migration_20260415_payload_locked_documents_rels_staff_members_id.up,
     down: migration_20260415_payload_locked_documents_rels_staff_members_id.down,
-    name: '20260415_payload_locked_documents_rels_staff_members_id',
+    name: '20260415_payload_locked_documents_rels_staff_members_id'
   },
 ];
