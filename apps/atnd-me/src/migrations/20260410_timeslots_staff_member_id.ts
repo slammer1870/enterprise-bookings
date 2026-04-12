@@ -23,26 +23,28 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
       ELSIF EXISTS (
         SELECT 1 FROM information_schema.tables
         WHERE table_schema = 'public' AND table_name = 'timeslots'
-      ) AND EXISTS (
-        SELECT 1 FROM information_schema.tables
-        WHERE table_schema = 'public' AND table_name = 'staff_members'
       ) THEN
-        ALTER TABLE "timeslots" ADD COLUMN "staff_member_id" integer;
-        IF NOT EXISTS (
-          SELECT 1 FROM information_schema.table_constraints
-          WHERE constraint_schema = 'public'
-            AND table_name = 'timeslots'
-            AND constraint_name = 'timeslots_staff_member_id_staff_members_id_fk'
+        ALTER TABLE "timeslots" ADD COLUMN IF NOT EXISTS "staff_member_id" integer;
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'staff_members'
         ) THEN
-          ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_staff_member_id_staff_members_id_fk"
-            FOREIGN KEY ("staff_member_id") REFERENCES "public"."staff_members"("id")
-            ON DELETE set null ON UPDATE no action;
-        END IF;
-        IF NOT EXISTS (
-          SELECT 1 FROM pg_indexes
-          WHERE schemaname = 'public' AND tablename = 'timeslots' AND indexname = 'timeslots_staff_member_idx'
-        ) THEN
-          CREATE INDEX "timeslots_staff_member_idx" ON "timeslots" USING btree ("staff_member_id");
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.table_constraints
+            WHERE constraint_schema = 'public'
+              AND table_name = 'timeslots'
+              AND constraint_name = 'timeslots_staff_member_id_staff_members_id_fk'
+          ) THEN
+            ALTER TABLE "timeslots" ADD CONSTRAINT "timeslots_staff_member_id_staff_members_id_fk"
+              FOREIGN KEY ("staff_member_id") REFERENCES "public"."staff_members"("id")
+              ON DELETE set null ON UPDATE no action;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_indexes
+            WHERE schemaname = 'public' AND tablename = 'timeslots' AND indexname = 'timeslots_staff_member_idx'
+          ) THEN
+            CREATE INDEX IF NOT EXISTS "timeslots_staff_member_idx" ON "timeslots" USING btree ("staff_member_id");
+          END IF;
         END IF;
       END IF;
     END $$;
