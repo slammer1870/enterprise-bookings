@@ -30,15 +30,20 @@ import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/updat
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+// Schema push mutates the DB from the running app; production must use migrations only.
+// - production / test / CI / E2E: never push
+// - development: push only when PAYLOAD_PUSH_SCHEMA=1 (opt-in); otherwise migrations + push: false
+// - NODE_ENV unset (e.g. some CLI/build steps): treat like non-dev → no push
+const schemaPushExplicitlyAllowedInDev =
+  process.env.NODE_ENV === 'development' && process.env.PAYLOAD_PUSH_SCHEMA === '1'
+
 const disableSchemaPush =
+  process.env.NODE_ENV === 'production' ||
   process.env.NODE_ENV === 'test' ||
   process.env.CI === 'true' ||
   // Playwright webServer sets PW_E2E_PROFILE even when NODE_ENV=development.
-  // Disable schema pushing during E2E runs to avoid flaky/duplicate DDL (constraints already exist).
   Boolean(process.env.PW_E2E_PROFILE) ||
-  // Disable in development to avoid Payload/Drizzle constraint name mismatches (truncation, duplicate ADD).
-  // Run `payload migrate run` for schema changes. Set PAYLOAD_PUSH_SCHEMA=1 to re-enable push in dev.
-  (process.env.NODE_ENV === 'development' && process.env.PAYLOAD_PUSH_SCHEMA !== '1')
+  !schemaPushExplicitlyAllowedInDev
 
 export default buildConfig({
   admin: {
@@ -121,7 +126,7 @@ export default buildConfig({
     migrationDir: path.resolve(dirname, 'migrations'),
     ...(disableSchemaPush
       ? {
-        push: false, // Disable automatic schema pushing in test/CI/E2E after first push
+        push: false,
       }
       : {}),
   }),
