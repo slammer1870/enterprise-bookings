@@ -92,6 +92,7 @@ import * as migration_20260417_ensure_timeslots_staff_event_type_columns from '.
 import * as migration_20260418_rename_legacy_staff_hyphen_table from './20260418_rename_legacy_staff_hyphen_table';
 import * as migration_20260420_repair_create_staff_members_table from './20260420_repair_create_staff_members_table';
 import * as migration_20260421_scheduler_time_slot_staff_member_column from './20260421_scheduler_time_slot_staff_member_column';
+import * as migration_20260422_pages_require_auth from './20260422_pages_require_auth';
 
 export const migrations = [
   {
@@ -563,5 +564,10 @@ export const migrations = [
     up: migration_20260421_scheduler_time_slot_staff_member_column.up,
     down: migration_20260421_scheduler_time_slot_staff_member_column.down,
     name: '20260421_scheduler_time_slot_staff_member_column',
+  },
+  {
+    up: migration_20260422_pages_require_auth.up,
+    down: migration_20260422_pages_require_auth.down,
+    name: '20260422_pages_require_auth',
   },
 ];

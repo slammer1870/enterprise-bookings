@@ -6,10 +6,10 @@ import type { RequiredDataFromCollectionSlug } from 'payload'
 import { draftMode } from 'next/headers'
 import React from 'react'
 import { homeStatic } from '@/endpoints/seed/home-static'
-
 import { RenderBlocks } from '@/blocks/RenderBlocks'
 import { generateMeta } from '@/utilities/generateMeta'
 import { getTenantSlug, getTenantContext, getTenantWithBranding } from '@/utilities/getTenantContext'
+import { redirectIfPageRequiresAuth } from '@/lib/auth/redirect-if-page-requires-auth'
 import PageClient from './page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { queryPageBySlug } from './queryPageBySlug'
@@ -71,6 +71,7 @@ export default async function Page({ params: paramsPromise }: Args) {
   const cookieStore = await cookies()
   const headersList = await headers()
   const tenantSlug = await getTenantSlug({ cookies: cookieStore, headers: headersList })
+
   if (tenantSlug) {
     const payload = await getPayload()
     const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
@@ -96,6 +97,12 @@ export default async function Page({ params: paramsPromise }: Args) {
     return <PayloadRedirects url={url} />
   }
 
+  await redirectIfPageRequiresAuth({
+    page,
+    draft,
+    callbackPath: url,
+  })
+
   const { layout } = page
 
   return (
@@ -115,15 +122,24 @@ export async function generateMetadata({ params: paramsPromise }: Args): Promise
   const { slug = 'home' } = await paramsPromise
   // Decode to support slugs with special characters
   const decodedSlug = decodeURIComponent(slug)
+  const url = decodedSlug === 'home' ? '/' : `/${decodedSlug}`
+
+  const { cookies, headers } = await import('next/headers')
+  const cookieStore = await cookies()
+  const headersList = await headers()
+  const { isEnabled: draft } = await draftMode()
+
   const page = await queryPageBySlug({
     slug: decodedSlug,
   })
 
+  await redirectIfPageRequiresAuth({
+    page,
+    draft,
+    callbackPath: url,
+  })
+
   const payload = await getPayload()
-  const { cookies } = await import('next/headers')
-  const cookieStore = await cookies()
-  const { headers } = await import('next/headers')
-  const headersList = await headers()
   const tenantBranding = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
 
   return generateMeta({

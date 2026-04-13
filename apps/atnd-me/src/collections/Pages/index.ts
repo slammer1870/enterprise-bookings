@@ -395,6 +395,17 @@ export const Pages: CollectionConfig<'pages'> = {
         position: 'sidebar',
       },
     },
+    {
+      name: 'requireAuth',
+      type: 'checkbox',
+      label: 'Require sign-in',
+      defaultValue: false,
+      admin: {
+        position: 'sidebar',
+        description:
+          'When enabled, only signed-in users can view this page on the website. Draft / live preview still works for editors.',
+      },
+    },
     tenantScopedSlugField({ fieldToUse: 'title' }),
   ],
   hooks: {
