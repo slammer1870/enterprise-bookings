@@ -19,17 +19,20 @@ export type CheckoutArgs = {
 
 export type UseSubscriptionActionsOptions = {
   redirect?: SubscriptionActionsRedirect
+  /**
+   * Force a canonical origin (tests only). Omit in production so checkout/cancel URLs use the
+   * browser’s current origin (custom domains, tenant subdomains) instead of NEXT_PUBLIC_SERVER_URL.
+   */
   baseUrl?: string
   defaultSuccessPath?: string
   defaultCancelPath?: string
 }
 
 function resolveBaseUrl(explicit?: string) {
-  if (explicit) return explicit
-  const env = process.env.NEXT_PUBLIC_SERVER_URL
-  if (env) return env
+  if (explicit) return explicit.replace(/\/$/, '')
   if (typeof window !== 'undefined') return window.location.origin
-  return ''
+  const env = process.env.NEXT_PUBLIC_SERVER_URL?.replace(/\/$/, '')
+  return env ?? ''
 }
 
 function cleanMetadata(metadata?: Record<string, string | undefined>) {

@@ -13,12 +13,8 @@ export function DashboardMembershipPanel({
   /** Stripe Connect + tRPC resolve the merchant account from checkout/portal metadata. */
   tenantId: number
 }) {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_SERVER_URL ||
-    (typeof window !== 'undefined' ? window.location.origin : '')
   const { createCheckoutSession, openCustomerPortal } = useSubscriptionActions({
     redirect: 'window',
-    baseUrl,
     defaultSuccessPath: '/',
     defaultCancelPath: '/',
   })
