@@ -296,6 +296,10 @@ export interface Page {
     description?: string | null;
   };
   publishedAt?: string | null;
+  /**
+   * When enabled, only signed-in users can view this page on the website. Draft / live preview still works for editors.
+   */
+  requireAuth?: boolean | null;
   slug: string;
   updatedAt: string;
   createdAt: string;
@@ -3341,6 +3345,7 @@ export interface PagesSelect<T extends boolean = true> {
         description?: T;
       };
   publishedAt?: T;
+  requireAuth?: T;
   slug?: T;
   updatedAt?: T;
   createdAt?: T;

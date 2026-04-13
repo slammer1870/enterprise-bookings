@@ -42,18 +42,14 @@ export const DhTeamBlock: React.FC<TeamProps> = ({
       <div className="container mx-auto flex flex-col px-5 py-12">
         <h5 className="mb-8 text-3xl font-medium ">{title}</h5>
         <div className="mx-auto">
-          <div className="h-80 overflow-hidden rounded-lg md:h-64">
+          <div className="relative h-80 w-full overflow-hidden rounded-lg md:h-64">
             <Image
               src={getImageUrl(teamImage) || '/placeholder.svg'}
               alt={getImageAlt(teamImage, 'Team image')}
-              width={1800}
-              height={1900}
-              style={{
-                maxWidth: "100%",
-                height: "auto",
-                objectFit: "cover",
-                objectPosition: "bottom"
-              }} />
+              fill
+              sizes="100vw"
+              className="object-cover object-center"
+            />
           </div>
           <div className="mt-10 flex flex-col lg:flex-row">
             {teamMembers.map((member: TeamMember, index: number) => (
