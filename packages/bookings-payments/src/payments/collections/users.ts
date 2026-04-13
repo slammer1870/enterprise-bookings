@@ -11,11 +11,11 @@ const stripeCustomersMappingField = {
   admin: { hidden: true },
   access: {
     read: ({ req: { user } }: { req: { user?: unknown } }) =>
-      checkRole(["admin"], user as User | null),
+      checkRole(["super-admin", "admin"], user as User | null),
     update: ({ req: { user } }: { req: { user?: unknown } }) =>
-      checkRole(["admin"], user as User | null),
+      checkRole(["super-admin", "admin"], user as User | null),
     create: ({ req: { user } }: { req: { user?: unknown } }) =>
-      checkRole(["admin"], user as User | null),
+      checkRole(["super-admin", "admin"], user as User | null),
   },
   fields: [
     { name: "stripeAccountId", type: "text", required: true },

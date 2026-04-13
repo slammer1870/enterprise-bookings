@@ -19,7 +19,9 @@
  *
  * With default `--upsert` (`--no-upsert` to disable), an existing atnd-me user matched by email
  * still gets `accounts.password` overwritten from the source when `preservePasswords` is on,
- * so re-runs can align passwords without creating duplicate users.
+ * so re-runs can align passwords without creating duplicate users. Non-empty source
+ * `stripeCustomerId` is synced: top-level `stripeCustomerId`, and when the target tenant has
+ * active Stripe Connect, `stripeCustomers` (per-account mapping used by admin + checkout helpers).
  *
  * Timeslots: by default the script **dedupes** against the target `timeslots` table (same tenant,
  * calendar `date`, `event_type_id`, start/end within 300s) and keeps an in-memory fingerprint for
@@ -783,6 +785,57 @@ function omitNil<T extends Record<string, unknown>>(obj: T): T {
   return out as T
 }
 
+type StripeCustomerMappingRow = { stripeAccountId: string; stripeCustomerId: string }
+
+function parseValidStripeCustomers(value: unknown): StripeCustomerMappingRow[] {
+  if (!Array.isArray(value)) return []
+  const out: StripeCustomerMappingRow[] = []
+  for (const x of value) {
+    if (!x || typeof x !== 'object') continue
+    const o = x as Record<string, unknown>
+    const acct = typeof o.stripeAccountId === 'string' ? o.stripeAccountId.trim() : ''
+    const cus = typeof o.stripeCustomerId === 'string' ? o.stripeCustomerId.trim() : ''
+    if (acct && cus) out.push({ stripeAccountId: acct, stripeCustomerId: cus })
+  }
+  return out
+}
+
+function mergeStripeCustomerMappings(
+  existing: unknown,
+  stripeAccountId: string,
+  stripeCustomerId: string,
+): StripeCustomerMappingRow[] {
+  const rows = parseValidStripeCustomers(existing)
+  const next = rows.filter((r) => r.stripeAccountId !== stripeAccountId)
+  next.push({ stripeAccountId, stripeCustomerId })
+  return next
+}
+
+/**
+ * Maps standalone `users.stripeCustomerId` into atnd-me:
+ * - **Connect tenant:** `stripeCustomers` row for the tenant's connected account (admin mapping UI).
+ *   Also sets top-level `stripeCustomerId` to the same id so the payments `createStripeCustomer`
+ *   hook does not call Stripe again on `create` when a mapping already exists.
+ * - **No Connect:** top-level `stripeCustomerId` only.
+ */
+function stripeCustomerFieldsForMigration(
+  rawSourceCustomerId: string | undefined,
+  tenantStripeAccountId: string | null,
+  existingStripeCustomers?: unknown,
+): Record<string, unknown> {
+  const id = typeof rawSourceCustomerId === 'string' ? rawSourceCustomerId.trim() : ''
+  if (!id) return {}
+  if (tenantStripeAccountId) {
+    const stripeCustomers = mergeStripeCustomerMappings(
+      existingStripeCustomers,
+      tenantStripeAccountId,
+      id,
+    )
+    return { stripeCustomers, stripeCustomerId: id }
+  }
+  return { stripeCustomerId: id }
+}
+
 function getDefaultUserPassword(): { mode: 'fixed'; value: string } | { mode: 'random' } {
   const env = process.env.MIGRATION_DEFAULT_USER_PASSWORD
   if (env && env.trim().length > 0) return { mode: 'fixed', value: env.trim() }
@@ -896,6 +949,27 @@ async function migrateUsers(
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
 
   console.log(`Users: source rows=${rows.length}`)
+
+  const tenant = await payload.findByID({
+    collection: 'tenants',
+    id: Number(tenantId),
+    depth: 0,
+    overrideAccess: true,
+  } as any)
+  const tenantStripe = tenant as unknown as TenantStripeLike
+  const tenantStripeCtx = getTenantStripeContext(tenantStripe)
+  const tenantStripeAccountId =
+    tenantStripeCtx.isConnected && tenantStripeCtx.accountId && !isStripeTestAccount(tenantStripeCtx.accountId)
+      ? String(tenantStripeCtx.accountId).trim()
+      : null
+  if (tenantStripeAccountId) {
+    console.log(
+      `Users: tenant Stripe Connect account=${tenantStripeAccountId} — syncing stripeCustomers for admin mapping + payments.`,
+    )
+  } else {
+    console.log('Users: no active non-test Stripe Connect on tenant — only top-level stripeCustomerId from source.')
+  }
+
   const passwordMode = getDefaultUserPassword()
   if (args.preservePasswords) {
     console.log(
@@ -934,6 +1008,27 @@ async function migrateUsers(
         maps.userIdMap.set(sourceId, existingId)
         if (!args.dryRun) {
           await ensureUserTenantMembership(payload, req, existingId, Number(tenantId))
+          const sourceStripeCustomerId = getRowValue<string>(row, 'stripeCustomerId')
+          const existingUser = await payload.findByID({
+            collection: 'users',
+            id: existingId,
+            depth: 0,
+            overrideAccess: true,
+          } as any)
+          const stripePatch = stripeCustomerFieldsForMigration(
+            sourceStripeCustomerId,
+            tenantStripeAccountId,
+            (existingUser as any)?.stripeCustomers,
+          )
+          if (Object.keys(stripePatch).length > 0) {
+            await payload.update({
+              collection: 'users',
+              id: existingId,
+              data: stripePatch,
+              req,
+              overrideAccess: true,
+            } as any)
+          }
         }
         if (args.preservePasswords && !args.dryRun) {
           const importedForExisting = await getImportableCredentialPasswordFromSource(pool, row, sourceId)
@@ -968,7 +1063,11 @@ async function migrateUsers(
       role: safeRoles.length > 0 ? safeRoles : ['user'],
       registrationTenant: Number(tenantId),
       tenants: [{ tenant: Number(tenantId) }],
-      stripeCustomerId: getRowValue<string>(row, 'stripeCustomerId'),
+      ...stripeCustomerFieldsForMigration(
+        getRowValue<string>(row, 'stripeCustomerId'),
+        tenantStripeAccountId,
+        undefined,
+      ),
       banned: getRowValue<boolean>(row, 'banned'),
       banReason: getRowValue<string>(row, 'banReason'),
       banExpires: getRowValue<string>(row, 'banExpires'),
