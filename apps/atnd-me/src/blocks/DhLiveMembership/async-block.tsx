@@ -55,6 +55,7 @@ export async function DhLiveMembershipAsync() {
     <DashboardMembershipPanel
       plans={plansResult.docs as Plan[]}
       subscription={activeSubscription}
+      tenantId={tenantId}
     />
   )
 }

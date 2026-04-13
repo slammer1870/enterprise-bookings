@@ -6,9 +6,12 @@ import { PlanDetail, PlanList, useSubscriptionActions } from '@repo/membership-n
 export function DashboardMembershipPanel({
   plans,
   subscription,
+  tenantId,
 }: {
   plans: Plan[]
   subscription: Subscription | null
+  /** Stripe Connect + tRPC resolve the merchant account from checkout/portal metadata. */
+  tenantId: number
 }) {
   const baseUrl =
     process.env.NEXT_PUBLIC_SERVER_URL ||
@@ -42,7 +45,7 @@ export function DashboardMembershipPanel({
     _planId: string,
     _metadata?: { [key: string]: string | undefined },
   ) => {
-    await openCustomerPortal()
+    await openCustomerPortal({ tenantId })
   }
 
   return (
