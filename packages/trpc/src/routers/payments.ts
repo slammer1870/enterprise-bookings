@@ -30,6 +30,48 @@ export type CreatePaymentsRouterDeps = {
   getDropInFeeBreakdown?: GetDropInFeeBreakdown;
 };
 
+/**
+ * Stripe success/cancel/portal URLs must land on the host the user is browsing (custom domain,
+ * tenant subdomain). Prefer request headers over NEXT_PUBLIC_SERVER_URL.
+ */
+function publicOriginFromTrpcContext(ctx: {
+  headers: Headers;
+  hostOverride?: string | null;
+}): string {
+  const rawOverride = ctx.hostOverride?.trim();
+  if (rawOverride?.includes("://")) {
+    try {
+      return new URL(rawOverride).origin;
+    } catch {
+      /* fall through */
+    }
+  }
+  const forwardedProto = ctx.headers
+    .get("x-forwarded-proto")
+    ?.split(",")[0]
+    ?.trim();
+  const forwardedHost = ctx.headers
+    .get("x-forwarded-host")
+    ?.split(",")[0]
+    ?.trim();
+  const hostHeader = ctx.headers.get("host")?.trim();
+  const host = rawOverride || forwardedHost || hostHeader;
+  if (host) {
+    const proto =
+      forwardedProto ||
+      (host.startsWith("localhost") ||
+      host.startsWith("127.0.0.1") ||
+      /^\d+\.\d+\.\d+\.\d+/.test(host)
+        ? "http"
+        : "https");
+    return `${proto}://${host}`;
+  }
+  return (
+    process.env.NEXT_PUBLIC_SERVER_URL?.replace(/\/$/, "") ||
+    "http://localhost:3000"
+  );
+}
+
 async function resolveStripeAccountIdFromMetadata(params: {
   payload: any;
   metadata?: Record<string, string>;
@@ -401,7 +443,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         const redirectUrl = (() => {
           const raw =
             input.successUrl ||
-            `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
+            `${publicOriginFromTrpcContext(ctx)}/`;
           try {
             // Next/router.push expects an internal path; normalize absolute URLs to a pathname.
             return raw.startsWith("http") ? new URL(raw).pathname : raw;
@@ -600,15 +642,16 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         }
       }
 
+      const checkoutOrigin = publicOriginFromTrpcContext(ctx);
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
         line_items: lineItems,
         metadata: meta,
         mode: input.mode,
         customer: customerId,
         success_url:
-          input.successUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
+          input.successUrl || `${checkoutOrigin}/`,
         cancel_url:
-          input.cancelUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`,
+          input.cancelUrl || `${checkoutOrigin}/`,
       };
       if (promotionCodeId) {
         sessionParams.discounts = [{ promotion_code: promotionCodeId }];
@@ -681,7 +724,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       );
       const returnUrl =
         input?.returnUrl ||
-        `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
+        `${publicOriginFromTrpcContext(ctx)}/`;
 
       const session = await ctx.stripe.billingPortal.sessions.create(
         {
@@ -991,7 +1034,8 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
 
       if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
         const redirectUrl = (() => {
-          const raw = input.returnUrl || `${process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000"}/`;
+          const raw =
+            input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
           try {
             const url = new URL(raw.startsWith("http") ? raw : `http://localhost:3000${raw.startsWith("/") ? raw : `/${raw}`}`);
             url.searchParams.set("test_stripe_portal", "upgrade");
@@ -1047,7 +1091,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       console.log(`Created new configuration: ${configId}`);
 
       const returnUrl =
-        input.returnUrl || `${process.env.NEXT_PUBLIC_SERVER_URL}/`;
+        input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
       const session = await ctx.stripe.billingPortal.sessions.create(
         {
           customer: customerId,
