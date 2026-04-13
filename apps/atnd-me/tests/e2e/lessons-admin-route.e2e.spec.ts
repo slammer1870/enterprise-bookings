@@ -48,12 +48,14 @@ test.describe('Timeslots admin route (admin/collections/timeslots)', () => {
       page.getByRole('link', { name: /create new/i }).or(page.getByRole('button', { name: /create new/i })).first()
     ).toBeVisible({ timeout: 5000 })
 
-    // List view: empty state, loading, or table (avoid matching hidden "Start Time" field labels)
-    await expect(
-      page
-        .getByText(/no classes for (today|selected date)|loading timeslots/i)
-        .first()
-        .or(page.getByRole('columnheader', { name: /^Start Time$/i }))
-    ).toBeVisible({ timeout: 10000 })
+    // List view: @repo/ui Table wraps the timeslots grid (loading skeleton, empty row, or rows).
+    // Both TimeslotLoading and TimeslotsListWithSelection render the same thead "Start Time" th.
+    // Prefer this over getByRole('columnheader') + getByText().or() — CI Chromium sometimes
+    // exposes th text before stable columnheader a11y, and union locators can flake under RSC.
+    const listReadyTimeout = process.env.CI ? 30_000 : 15_000
+    const timeslotsListTable = page.locator('div.relative.w-full.overflow-auto').filter({
+      has: page.locator('th', { hasText: /^Start Time$/i }),
+    })
+    await expect(timeslotsListTable.first()).toBeVisible({ timeout: listReadyTimeout })
   })
 })
