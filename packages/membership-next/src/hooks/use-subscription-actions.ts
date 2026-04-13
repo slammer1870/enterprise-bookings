@@ -99,11 +99,15 @@ export function useSubscriptionActions(options: UseSubscriptionActionsOptions = 
     })
   }
 
-  const openCustomerPortal = async (opts?: { returnUrl?: string }) => {
+  const openCustomerPortal = async (opts?: {
+    returnUrl?: string
+    /** Required for Stripe Connect tenants so billing portal uses the connected account + customer mapping. */
+    tenantId?: number | string
+  }) => {
     const returnUrl =
       opts?.returnUrl ??
       (typeof window !== 'undefined' ? `${window.location.origin}/dashboard` : undefined)
-    await portal.mutateAsync({ returnUrl })
+    await portal.mutateAsync({ returnUrl, tenantId: opts?.tenantId })
   }
 
   return {

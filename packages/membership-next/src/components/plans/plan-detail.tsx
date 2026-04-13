@@ -34,6 +34,24 @@ type PlanDetailProps = {
   ) => Promise<void>;
 };
 
+/** Payload plans include `tenant`; shared-types Plan omits it — read at runtime for Connect checkout metadata. */
+function tenantIdMetadataFromPlan(plan: Plan): { tenantId: string } | undefined {
+  const raw = (plan as Plan & { tenant?: unknown }).tenant;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return { tenantId: String(raw) };
+  }
+  if (raw && typeof raw === "object" && "id" in raw) {
+    const id = (raw as { id: unknown }).id;
+    if (typeof id === "number" && Number.isFinite(id)) {
+      return { tenantId: String(id) };
+    }
+    if (typeof id === "string" && /^\d+$/.test(id.trim())) {
+      return { tenantId: id.trim() };
+    }
+  }
+  return undefined;
+}
+
 export const PlanDetail = ({
   plan,
   actionLabel,
@@ -51,9 +69,14 @@ export const PlanDetail = ({
 
   const params = useParams();
 
-  const metadata =
+  const bookingFlowMeta =
     pathname && pathname.split("/")[1] === "bookings" && params?.id
       ? { timeslot_id: params.id as string }
+      : undefined;
+  const tenantMeta = tenantIdMetadataFromPlan(plan);
+  const metadata =
+    bookingFlowMeta || tenantMeta
+      ? { ...bookingFlowMeta, ...tenantMeta }
       : undefined;
 
   const hasPriceId = typeof id === "string" && id.length > 0;
