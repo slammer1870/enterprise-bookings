@@ -72,6 +72,11 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
   return {
     beforeValidate: [
       async ({ req, data, operation, originalDoc }) => {
+        const ctx = req.context as { skipTimeslotCapacityCheck?: boolean } | undefined;
+        if (ctx?.skipTimeslotCapacityCheck) {
+          return data;
+        }
+
         const timeslotIdRaw = data?.timeslot;
         const timeslotId =
           typeof timeslotIdRaw === "object" && timeslotIdRaw !== null

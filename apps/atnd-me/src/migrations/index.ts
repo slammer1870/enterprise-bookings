@@ -83,11 +83,15 @@ import * as migration_20260410_timeslots_staff_member_id from './20260410_timesl
 import * as migration_20260411_analytics_compound_indexes from './20260411_analytics_compound_indexes';
 import * as migration_20260412_001754 from './20260412_001754';
 import * as migration_20260412_users_role_tenant_admin_to_admin from './20260412_users_role_tenant_admin_to_admin';
+import * as migration_20260413_110320 from './20260413_110320';
 import * as migration_20260413_drop_users_roles_merge_into_users_role from './20260413_drop_users_roles_merge_into_users_role';
 import * as migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id from './20260414_ensure_pages_blocks_dh_live_schedule_tenant_id';
 import * as migration_20260415_payload_locked_documents_rels_staff_members_id from './20260415_payload_locked_documents_rels_staff_members_id';
 import * as migration_20260416_repair_timeslots_staff_event_locked_docs_rels from './20260416_repair_timeslots_staff_event_locked_docs_rels';
 import * as migration_20260417_ensure_timeslots_staff_event_type_columns from './20260417_ensure_timeslots_staff_event_type_columns';
+import * as migration_20260418_rename_legacy_staff_hyphen_table from './20260418_rename_legacy_staff_hyphen_table';
+import * as migration_20260420_repair_create_staff_members_table from './20260420_repair_create_staff_members_table';
+import * as migration_20260421_scheduler_time_slot_staff_member_column from './20260421_scheduler_time_slot_staff_member_column';
 
 export const migrations = [
   {
@@ -516,6 +520,11 @@ export const migrations = [
     name: '20260412_users_role_tenant_admin_to_admin',
   },
   {
+    up: migration_20260413_110320.up,
+    down: migration_20260413_110320.down,
+    name: '20260413_110320',
+  },
+  {
     up: migration_20260413_drop_users_roles_merge_into_users_role.up,
     down: migration_20260413_drop_users_roles_merge_into_users_role.down,
     name: '20260413_drop_users_roles_merge_into_users_role',
@@ -528,7 +537,7 @@ export const migrations = [
   {
     up: migration_20260415_payload_locked_documents_rels_staff_members_id.up,
     down: migration_20260415_payload_locked_documents_rels_staff_members_id.down,
-    name: '20260415_payload_locked_documents_rels_staff_members_id'
+    name: '20260415_payload_locked_documents_rels_staff_members_id',
   },
   {
     up: migration_20260416_repair_timeslots_staff_event_locked_docs_rels.up,
@@ -539,5 +548,20 @@ export const migrations = [
     up: migration_20260417_ensure_timeslots_staff_event_type_columns.up,
     down: migration_20260417_ensure_timeslots_staff_event_type_columns.down,
     name: '20260417_ensure_timeslots_staff_event_type_columns',
+  },
+  {
+    up: migration_20260418_rename_legacy_staff_hyphen_table.up,
+    down: migration_20260418_rename_legacy_staff_hyphen_table.down,
+    name: '20260418_rename_legacy_staff_hyphen_table',
+  },
+  {
+    up: migration_20260420_repair_create_staff_members_table.up,
+    down: migration_20260420_repair_create_staff_members_table.down,
+    name: '20260420_repair_create_staff_members_table',
+  },
+  {
+    up: migration_20260421_scheduler_time_slot_staff_member_column.up,
+    down: migration_20260421_scheduler_time_slot_staff_member_column.down,
+    name: '20260421_scheduler_time_slot_staff_member_column',
   },
 ];

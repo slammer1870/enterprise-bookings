@@ -21,6 +21,21 @@
  * still gets `accounts.password` overwritten from the source when `preservePasswords` is on,
  * so re-runs can align passwords without creating duplicate users.
  *
+ * Timeslots: by default the script **dedupes** against the target `timeslots` table (same tenant,
+ * calendar `date`, `event_type_id`, start/end within 300s) and keeps an in-memory fingerprint for
+ * the same run so Payload-created rows match before commit. Re-run / scheduler overlap duplicates
+ * are reduced. Use `--no-timeslot-dedupe` to always insert (legacy behaviour).
+ *
+ * Subscriptions: by default **dedupe** on target — Stripe id (normalized, any tenant on target),
+ * else fingerprint (tenant + user + plan + status + start/end/cancel within 900s or both null).
+ * In-memory keys apply within the same run. Use `--no-subscription-dedupe` to disable.
+ *
+ * Bookings: by default **dedupe** using `tenant_id` + `user_id` + `timeslot_id` + status (case-insensitive)
+ * plus source `created_at` within 900s when present (Payload may not preserve exact `createdAt`).
+ * Without `created_at`, falls back to the four-field key only (can collapse multiple same-status
+ * rows). Same-run in-memory key matches before SQL sees uncommitted inserts. Use `--no-booking-dedupe`
+ * to disable. `skipTimeslotCapacityCheck` only bypasses capacity validation.
+ *
  * This script is intentionally conservative:
  * - Supports --dry-run
  * - Requires an explicit tenant id or slug
@@ -42,6 +57,15 @@
  *     --future-timeslots-only \
  *     --skip-pages --skip-forms --skip-media --skip-navbar-footer \
  *     --dry-run
+ *
+ * **Last N UTC days of lessons + all future + matching bookings** (typical Darkhorse → atnd-me):
+ *   NODE_ENV=development DATABASE_URI=... PAYLOAD_SECRET=... DH_SOURCE_DATABASE_URI=... \
+ *   pnpm exec tsx scripts/migrate-bru-grappling.ts \
+ *     --from darkhorse-strength --tenant-slug YOUR_TENANT_SLUG \
+ *     --timeslots-from-days-ago 7 \
+ *     --skip-pages --skip-forms --skip-media --skip-navbar-footer \
+ *     --dry-run
+ *   (`NODE_ENV` must not be `production` — this script refuses prod NODE_ENV by default.)
  *
  * `--timeslots-from-date YYYY-MM-DD` overrides the cutoff (inclusive). Bookings only import rows
  * whose source timeslot/lesson id was migrated (past slots omitted when using future-only).
@@ -100,6 +124,21 @@ type Args = {
   timeslotsToDate?: string
   /** Add this many calendar days to each migrated timeslot’s `date` (UTC date math). */
   shiftTimeslotDatesByDays?: number
+  /**
+   * When a timeslot `from` date is set, default is to also migrate any slot row whose id appears on a
+   * source booking with `created_at`/`updated_at` (UTC calendar day) on or after that same `from` date.
+   * Use `--timeslots-strict-date-only` to use only `slot.date >= from` (old behaviour; often skips bookings).
+   */
+  timeslotsStrictDateOnly: boolean
+  /** When true (default), skip creating a timeslot if target already has a matching row (re-runs / scheduler overlap). */
+  timeslotDedupe: boolean
+  /** When true (default), skip creating a subscription if target already matches Stripe id or natural key. */
+  subscriptionDedupe: boolean
+  /**
+   * When true (default), skip creating a booking if target already matches the same migration
+   * fingerprint (tenant/user/timeslot/status, plus source `created_at` when available).
+   */
+  bookingDedupe: boolean
 }
 
 function parseArgs(argv: string[]): Args {
@@ -116,6 +155,10 @@ function parseArgs(argv: string[]): Args {
     skipNavbarFooter: false,
     skipBookingData: false,
     preservePasswords: true,
+    timeslotsStrictDateOnly: false,
+    timeslotDedupe: true,
+    subscriptionDedupe: true,
+    bookingDedupe: true,
   }
 
   for (let i = 0; i < argv.length; i++) {
@@ -142,10 +185,24 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--skip-navbar-footer') out.skipNavbarFooter = true
     else if (a === '--skip-booking-data') out.skipBookingData = true
     else if (a === '--no-preserve-passwords') out.preservePasswords = false
+    else if (a === '--timeslots-strict-date-only') out.timeslotsStrictDateOnly = true
+    else if (a === '--no-timeslot-dedupe') out.timeslotDedupe = false
+    else if (a === '--no-subscription-dedupe') out.subscriptionDedupe = false
+    else if (a === '--no-booking-dedupe') out.bookingDedupe = false
     else if (a === '--future-timeslots-only') {
       out.timeslotsFromDate = new Date().toISOString().slice(0, 10)
     } else if (a === '--timeslots-from-previous-week-onwards') {
       out.timeslotsFromDate = getPreviousUtcMondaySundayWeekBounds().from
+    } else if (a === '--timeslots-from-days-ago') {
+      const raw = argv[++i]
+      const n = raw != null ? Number(raw) : NaN
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+        console.error('❌ --timeslots-from-days-ago expects a non-negative integer (e.g. 7)')
+        process.exit(1)
+      }
+      const d = new Date()
+      d.setUTCDate(d.getUTCDate() - n)
+      out.timeslotsFromDate = d.toISOString().slice(0, 10)
     } else if (a === '--timeslots-from-date') {
       const d = argv[++i]
       if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) {
@@ -1381,6 +1438,232 @@ function formatIsoDateFromRowValue(val: unknown): string | null {
   return cap ?? null
 }
 
+function toIsoTimestamp(value: unknown): string | null {
+  if (value == null) return null
+  if (value instanceof Date) return value.toISOString()
+  const d = new Date(String(value))
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString()
+}
+
+/** Same-run dedupe: wall-clock minute + calendar day (stable across Payload vs raw SQL). */
+function timeslotDedupeRuntimeKey(
+  tenantNum: number,
+  calendarYmd: string,
+  eventTypeNum: number,
+  startIso: string,
+  endIso: string,
+): string {
+  const startMin = startIso.length >= 16 ? startIso.slice(0, 16) : startIso
+  const endMin = endIso.length >= 16 ? endIso.slice(0, 16) : endIso
+  return `${tenantNum}|${calendarYmd}|${eventTypeNum}|${startMin}|${endMin}`
+}
+
+function subscriptionDedupeRuntimeKeyStripe(stripeNorm: string): string {
+  return `stripe:${stripeNorm.toLowerCase()}`
+}
+
+function subscriptionDedupeRuntimeKeyFingerprint(
+  tenantNum: number,
+  userNum: number,
+  planNum: number,
+  statusNorm: string,
+  startIso: string | null,
+  endIso: string | null,
+  cancelIso: string | null,
+): string {
+  const s = startIso && startIso.length >= 16 ? startIso.slice(0, 16) : startIso ?? ''
+  const e = endIso && endIso.length >= 16 ? endIso.slice(0, 16) : endIso ?? ''
+  const c = cancelIso && cancelIso.length >= 16 ? cancelIso.slice(0, 16) : cancelIso ?? ''
+  return `fp:${tenantNum}|${userNum}|${planNum}|${statusNorm}|${s}|${e}|${c}`
+}
+
+function bookingDedupeRuntimeKey(
+  tenantNum: number,
+  userNum: number,
+  timeslotNum: number,
+  statusNorm: string,
+  sourceCreatedAtIso: string | null,
+): string {
+  const t =
+    sourceCreatedAtIso && sourceCreatedAtIso.length >= 16
+      ? sourceCreatedAtIso.slice(0, 16)
+      : sourceCreatedAtIso ?? 'no-ct'
+  return `${tenantNum}|${userNum}|${timeslotNum}|${statusNorm}|${t}`
+}
+
+/**
+ * If the target DB already has a timeslot for this tenant / calendar day / class / wall time,
+ * return its id so re-runs and scheduler-generated rows do not stack duplicates.
+ */
+async function findExistingTimeslotIdOnTarget(
+  targetPool: Pool,
+  timeslotsTable: string,
+  tenantIdNum: number,
+  calendarDateYmd: string,
+  eventTypeId: number,
+  startIso: string,
+  endIso: string,
+): Promise<number | null> {
+  const res = await targetPool.query(
+    `
+    select id
+    from ${timeslotsTable}
+    where tenant_id = $1::integer
+      and (date at time zone 'utc')::date = $2::date
+      and event_type_id = $3::integer
+      and abs(extract(epoch from (start_time - $4::timestamptz))) <= 300
+      and abs(extract(epoch from (end_time - $5::timestamptz))) <= 300
+    order by id asc
+    limit 1
+    `,
+    [tenantIdNum, calendarDateYmd, eventTypeId, startIso, endIso],
+  )
+  const id = res.rows?.[0]?.id
+  if (id == null) return null
+  const n = typeof id === 'number' ? id : Number(id)
+  return Number.isFinite(n) ? n : null
+}
+
+function normalizeStripeSubscriptionId(value: unknown): string {
+  if (value == null) return ''
+  const s = String(value).trim()
+  return s
+}
+
+/**
+ * Reuse an existing target subscription when re-running the migration.
+ *
+ * - **Stripe id:** match on normalized `stripe_subscription_id` only (globally unique for a Stripe
+ *   account); do not require `tenant_id`, so rows imported earlier with a null tenant still dedupe.
+ * - **Fingerprint:** tenant + user + plan + status (case-insensitive) + timestamps within ±900s
+ *   or both sides null for each date field. Payload/normalization often changes sub-second values,
+ *   so `IS NOT DISTINCT FROM` alone failed to match after the first import.
+ */
+async function findExistingSubscriptionIdOnTarget(
+  targetPool: Pool,
+  subscriptionsTable: string,
+  tenantIdNum: number,
+  userId: number,
+  planId: number,
+  stripeSubscriptionId: string,
+  startIso: string | null,
+  endIso: string | null,
+  cancelIso: string | null,
+  status: string,
+): Promise<number | null> {
+  if (stripeSubscriptionId) {
+    const res = await targetPool.query(
+      `
+      select id
+      from ${subscriptionsTable}
+      where stripe_subscription_id is not null
+        and btrim(stripe_subscription_id) <> ''
+        and lower(btrim(stripe_subscription_id)) = lower(btrim($1::text))
+      order by id asc
+      limit 1
+      `,
+      [stripeSubscriptionId],
+    )
+    const id = res.rows?.[0]?.id
+    if (id != null) {
+      const n = typeof id === 'number' ? id : Number(id)
+      if (Number.isFinite(n)) return n
+    }
+  }
+
+  const statusNorm = status.trim().toLowerCase()
+
+  const res2 = await targetPool.query(
+    `
+    select id
+    from ${subscriptionsTable}
+    where tenant_id = $1::integer
+      and user_id = $2::integer
+      and plan_id = $3::integer
+      and lower(btrim(status::text)) = $4::text
+      and (
+        ($5::timestamptz is null and start_date is null)
+        or ($5::timestamptz is not null and start_date is not null
+            and abs(extract(epoch from (start_date - $5::timestamptz))) <= 900)
+      )
+      and (
+        ($6::timestamptz is null and end_date is null)
+        or ($6::timestamptz is not null and end_date is not null
+            and abs(extract(epoch from (end_date - $6::timestamptz))) <= 900)
+      )
+      and (
+        ($7::timestamptz is null and cancel_at is null)
+        or ($7::timestamptz is not null and cancel_at is not null
+            and abs(extract(epoch from (cancel_at - $7::timestamptz))) <= 900)
+      )
+    order by id asc
+    limit 1
+    `,
+    [tenantIdNum, userId, planId, statusNorm, startIso, endIso, cancelIso],
+  )
+  const id2 = res2.rows?.[0]?.id
+  if (id2 == null) return null
+  const n2 = typeof id2 === 'number' ? id2 : Number(id2)
+  return Number.isFinite(n2) ? n2 : null
+}
+
+/**
+ * Reuse an existing target booking on migration re-run.
+ * When `sourceCreatedAtIso` is set, require `created_at` within ±900s (Payload often ignores or
+ * normalizes `createdAt` on create, so a tight window missed re-run matches).
+ */
+async function findExistingBookingIdOnTarget(
+  targetPool: Pool,
+  bookingsTable: string,
+  tenantIdNum: number,
+  userId: number,
+  timeslotId: number,
+  status: string,
+  sourceCreatedAtIso: string | null,
+): Promise<number | null> {
+  if (sourceCreatedAtIso) {
+    const res = await targetPool.query(
+      `
+      select id
+      from ${bookingsTable}
+      where tenant_id = $1::integer
+        and user_id = $2::integer
+        and timeslot_id = $3::integer
+        and lower(btrim(status::text)) = $4
+        and abs(extract(epoch from (created_at - $5::timestamptz))) <= 900
+      order by id asc
+      limit 1
+      `,
+      [tenantIdNum, userId, timeslotId, status, sourceCreatedAtIso],
+    )
+    const id = res.rows?.[0]?.id
+    if (id != null) {
+      const n = typeof id === 'number' ? id : Number(id)
+      return Number.isFinite(n) ? n : null
+    }
+    return null
+  }
+
+  const res = await targetPool.query(
+    `
+    select id
+    from ${bookingsTable}
+      where tenant_id = $1::integer
+        and user_id = $2::integer
+        and timeslot_id = $3::integer
+        and lower(btrim(status::text)) = $4
+    order by id asc
+    limit 1
+    `,
+    [tenantIdNum, userId, timeslotId, status],
+  )
+  const id = res.rows?.[0]?.id
+  if (id == null) return null
+  const n = typeof id === 'number' ? id : Number(id)
+  return Number.isFinite(n) ? n : null
+}
+
 function addCalendarDaysToIsoDate(isoYmd: string, days: number): string {
   const parts = isoYmd.split('-')
   const y = Number(parts[0])
@@ -1422,6 +1705,7 @@ function buildTimeslotsSourceQuery(
 
 async function migrateTimeslots(
   pool: Pool,
+  targetPool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
   tenantId: string,
@@ -1448,9 +1732,24 @@ async function migrateTimeslots(
     `Timeslots: source table=${table}, rows=${rows.length}` +
       (filterParts.length ? ` (${filterParts.join(', ')})` : ''),
   )
+  const targetTimeslotsTable = args.timeslotDedupe ? await resolveTableName(targetPool, 'timeslots') : null
+  const timeslotRuntimeSeen = new Map<string, Id>()
+  if (args.timeslotDedupe) {
+    if (!targetTimeslotsTable) {
+      console.error(
+        'Timeslots: dedupe was requested but target has no resolvable `timeslots` table — dedupe is OFF; duplicates are likely. Fix schema or use correct DATABASE_URI.',
+      )
+    } else {
+      console.log(
+        `Timeslots: dedupe on (tenant, date, event_type_id, start/end ±300s) vs ${targetTimeslotsTable}; same-run in-memory fingerprint also applied; use --no-timeslot-dedupe to disable.`,
+      )
+    }
+  }
   if (args.shiftTimeslotDatesByDays != null && args.shiftTimeslotDatesByDays !== 0) {
     console.log(`Timeslots: shifting each migrated date by ${args.shiftTimeslotDatesByDays} day(s) (UTC)`)
   }
+  const tenantNum = Number(tenantId)
+  let deduped = 0
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceEventType = getRowValueAny<Id>(row, [
@@ -1510,6 +1809,50 @@ async function migrateTimeslots(
       active: getRowValue(row, 'active') ?? true,
     })
 
+    const calendarYmd = formatIsoDateFromRowValue(dateForCreate)
+    const startIso = toIsoTimestamp(data.startTime)
+    const endIso = toIsoTimestamp(data.endTime)
+    const eventTypeNum =
+      typeof mappedEventType === 'number' && !Number.isNaN(mappedEventType)
+        ? mappedEventType
+        : Number(mappedEventType)
+
+    let timeslotRtKey: string | null = null
+    if (
+      args.timeslotDedupe &&
+      targetTimeslotsTable &&
+      calendarYmd &&
+      startIso &&
+      endIso &&
+      Number.isFinite(tenantNum) &&
+      !Number.isNaN(tenantNum) &&
+      Number.isFinite(eventTypeNum) &&
+      !Number.isNaN(eventTypeNum)
+    ) {
+      timeslotRtKey = timeslotDedupeRuntimeKey(tenantNum, calendarYmd, eventTypeNum, startIso, endIso)
+      const runtimeHit = timeslotRuntimeSeen.get(timeslotRtKey)
+      if (runtimeHit != null) {
+        maps.lessonIdMap.set(sourceId, runtimeHit)
+        deduped++
+        continue
+      }
+      const existingId = await findExistingTimeslotIdOnTarget(
+        targetPool,
+        targetTimeslotsTable,
+        tenantNum,
+        calendarYmd,
+        eventTypeNum,
+        startIso,
+        endIso,
+      )
+      if (existingId != null) {
+        timeslotRuntimeSeen.set(timeslotRtKey, existingId as Id)
+        maps.lessonIdMap.set(sourceId, existingId as Id)
+        deduped++
+        continue
+      }
+    }
+
     if (args.dryRun) {
       maps.lessonIdMap.set(sourceId, sourceId)
       continue
@@ -1522,14 +1865,19 @@ async function migrateTimeslots(
       overrideAccess: true,
     } as any)
     maps.lessonIdMap.set(sourceId, created.id as Id)
+    if (timeslotRtKey != null) {
+      timeslotRuntimeSeen.set(timeslotRtKey, created.id as Id)
+    }
   }
   console.log(
-    `Timeslots: lessonIdMap size=${maps.lessonIdMap.size} (source lesson ids that were migrated; bookings need this)`,
+    `Timeslots: lessonIdMap size=${maps.lessonIdMap.size} (source lesson ids that were migrated; bookings need this)` +
+      (deduped > 0 ? `; deduped ${deduped} row(s) (reused existing target timeslots)` : ''),
   )
 }
 
 async function migrateSubscriptions(
   pool: Pool,
+  targetPool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
   tenantId: string,
@@ -1544,6 +1892,23 @@ async function migrateSubscriptions(
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
   console.log(`Subscriptions: source rows=${rows.length}`)
+  const targetSubscriptionsTable = args.subscriptionDedupe
+    ? await resolveTableName(targetPool, 'subscriptions')
+    : null
+  const subscriptionRuntimeSeen = new Map<string, Id>()
+  if (args.subscriptionDedupe) {
+    if (!targetSubscriptionsTable) {
+      console.error(
+        'Subscriptions: dedupe was requested but target has no resolvable `subscriptions` table — dedupe is OFF.',
+      )
+    } else {
+      console.log(
+        `Subscriptions: dedupe — stripe id (any tenant) or fingerprint (tenant,user,plan,status, dates±900s) vs ${targetSubscriptionsTable}; same-run in-memory keys; use --no-subscription-dedupe to disable.`,
+      )
+    }
+  }
+  const tenantNum = Number(tenantId)
+  let deduped = 0
   for (const row of rows) {
     const sourceId = row.id as Id
     const sourceUser = getRowValueAny<Id>(row, ['user', 'userId', 'user_id'])
@@ -1563,9 +1928,85 @@ async function migrateSubscriptions(
       startDate: getRowValue(row, 'startDate') ?? null,
       endDate: getRowValue(row, 'endDate') ?? null,
       cancelAt: getRowValue(row, 'cancelAt') ?? null,
-      stripeSubscriptionId: getRowValue(row, 'stripeSubscriptionId') ?? null,
+      stripeSubscriptionId:
+        getRowValue(row, 'stripeSubscriptionId') ?? getRowValue(row, 'stripe_subscription_id') ?? null,
       skipSync: true,
     })
+
+    const stripeNorm = normalizeStripeSubscriptionId(
+      getRowValue(row, 'stripeSubscriptionId') ?? getRowValue(row, 'stripe_subscription_id'),
+    )
+    const statusStr = String(data.status ?? 'active')
+    const statusNorm = statusStr.trim().toLowerCase()
+    const startIso = toIsoTimestamp(data.startDate)
+    const endIso = toIsoTimestamp(data.endDate)
+    const cancelIso = toIsoTimestamp(data.cancelAt)
+    const userNum =
+      typeof mappedUser === 'number' && !Number.isNaN(mappedUser) ? mappedUser : Number(mappedUser)
+    const planNum =
+      typeof mappedPlan === 'number' && !Number.isNaN(mappedPlan) ? mappedPlan : Number(mappedPlan)
+
+    const subFpKey = subscriptionDedupeRuntimeKeyFingerprint(
+      tenantNum,
+      userNum,
+      planNum,
+      statusNorm,
+      startIso,
+      endIso,
+      cancelIso,
+    )
+
+    if (
+      args.subscriptionDedupe &&
+      targetSubscriptionsTable &&
+      Number.isFinite(tenantNum) &&
+      !Number.isNaN(tenantNum) &&
+      Number.isFinite(userNum) &&
+      !Number.isNaN(userNum) &&
+      Number.isFinite(planNum) &&
+      !Number.isNaN(planNum)
+    ) {
+      if (stripeNorm) {
+        const stripeKey = subscriptionDedupeRuntimeKeyStripe(stripeNorm)
+        const stripeHit = subscriptionRuntimeSeen.get(stripeKey)
+        if (stripeHit != null) {
+          maps.subscriptionIdMap.set(sourceId, stripeHit)
+          subscriptionRuntimeSeen.set(subFpKey, stripeHit)
+          deduped++
+          continue
+        }
+      }
+      const fpHit = subscriptionRuntimeSeen.get(subFpKey)
+      if (fpHit != null) {
+        maps.subscriptionIdMap.set(sourceId, fpHit)
+        if (stripeNorm) {
+          subscriptionRuntimeSeen.set(subscriptionDedupeRuntimeKeyStripe(stripeNorm), fpHit)
+        }
+        deduped++
+        continue
+      }
+      const existingId = await findExistingSubscriptionIdOnTarget(
+        targetPool,
+        targetSubscriptionsTable,
+        tenantNum,
+        userNum,
+        planNum,
+        stripeNorm,
+        startIso,
+        endIso,
+        cancelIso,
+        statusStr,
+      )
+      if (existingId != null) {
+        if (stripeNorm) {
+          subscriptionRuntimeSeen.set(subscriptionDedupeRuntimeKeyStripe(stripeNorm), existingId as Id)
+        }
+        subscriptionRuntimeSeen.set(subFpKey, existingId as Id)
+        maps.subscriptionIdMap.set(sourceId, existingId as Id)
+        deduped++
+        continue
+      }
+    }
 
     if (args.dryRun) {
       maps.subscriptionIdMap.set(sourceId, sourceId)
@@ -1579,11 +2020,21 @@ async function migrateSubscriptions(
       overrideAccess: true,
     } as any)
     maps.subscriptionIdMap.set(sourceId, created.id as Id)
+    if (args.subscriptionDedupe && targetSubscriptionsTable) {
+      if (stripeNorm) {
+        subscriptionRuntimeSeen.set(subscriptionDedupeRuntimeKeyStripe(stripeNorm), created.id as Id)
+      }
+      subscriptionRuntimeSeen.set(subFpKey, created.id as Id)
+    }
+  }
+  if (deduped > 0) {
+    console.log(`Subscriptions: deduped ${deduped} row(s) (reused existing target subscriptions)`)
   }
 }
 
 async function migrateBookings(
   pool: Pool,
+  targetPool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
   req: Awaited<ReturnType<typeof createLocalReq>>,
   tenantId: string,
@@ -1598,6 +2049,21 @@ async function migrateBookings(
   const limit = args.limit ?? null
   const rows = await queryAll(pool, `select * from ${table} order by id asc${limit ? ' limit $1' : ''}`, limit ? [limit] : [])
   console.log(`Bookings: source rows=${rows.length}`)
+  const targetBookingsTable = args.bookingDedupe ? await resolveTableName(targetPool, 'bookings') : null
+  const bookingRuntimeSeen = new Map<string, Id>()
+  if (args.bookingDedupe) {
+    if (!targetBookingsTable) {
+      console.error(
+        'Bookings: dedupe was requested but target has no resolvable `bookings` table — dedupe is OFF.',
+      )
+    } else {
+      console.log(
+        `Bookings: dedupe vs ${targetBookingsTable} — tenant+user+timeslot+status (case-insensitive), plus source created_at (±900s) when present; same-run in-memory key; use --no-booking-dedupe to disable.`,
+      )
+    }
+  }
+  const tenantNum = Number(tenantId)
+  let deduped = 0
   if (args.timeslotsFromDate || args.timeslotsToDate) {
     console.log(
       'Bookings: only source lessons/timeslots that were migrated (same date window as timeslots phase) exist in lessonIdMap. ' +
@@ -1639,12 +2105,69 @@ async function migrateBookings(
       continue
     }
 
+    const sourceCreatedAtIso = toIsoTimestamp(
+      getRowValue(row, 'createdAt') ?? getRowValue(row, 'created_at'),
+    )
+    const sourceUpdatedAtIso =
+      toIsoTimestamp(getRowValue(row, 'updatedAt') ?? getRowValue(row, 'updated_at')) ??
+      sourceCreatedAtIso
+
     const data = omitNil({
       tenant: Number(tenantId),
       user: mappedUser,
       timeslot: mappedTimeslot,
       status: getRowValue(row, 'status') ?? 'confirmed',
+      ...(sourceCreatedAtIso
+        ? { createdAt: sourceCreatedAtIso, updatedAt: sourceUpdatedAtIso ?? sourceCreatedAtIso }
+        : {}),
     })
+
+    const statusStr = String(data.status ?? 'confirmed')
+    const statusNorm = statusStr.trim().toLowerCase()
+    const userNum =
+      typeof mappedUser === 'number' && !Number.isNaN(mappedUser) ? mappedUser : Number(mappedUser)
+    const timeslotNum =
+      typeof mappedTimeslot === 'number' && !Number.isNaN(mappedTimeslot)
+        ? mappedTimeslot
+        : Number(mappedTimeslot)
+
+    const bookingRtKey =
+      Number.isFinite(tenantNum) &&
+      !Number.isNaN(tenantNum) &&
+      Number.isFinite(userNum) &&
+      !Number.isNaN(userNum) &&
+      Number.isFinite(timeslotNum) &&
+      !Number.isNaN(timeslotNum)
+        ? bookingDedupeRuntimeKey(tenantNum, userNum, timeslotNum, statusNorm, sourceCreatedAtIso)
+        : null
+
+    if (
+      args.bookingDedupe &&
+      targetBookingsTable &&
+      bookingRtKey != null
+    ) {
+      const runtimeHit = bookingRuntimeSeen.get(bookingRtKey)
+      if (runtimeHit != null) {
+        maps.bookingIdMap.set(sourceId, runtimeHit)
+        deduped++
+        continue
+      }
+      const existingId = await findExistingBookingIdOnTarget(
+        targetPool,
+        targetBookingsTable,
+        tenantNum,
+        userNum,
+        timeslotNum,
+        statusNorm,
+        sourceCreatedAtIso,
+      )
+      if (existingId != null) {
+        bookingRuntimeSeen.set(bookingRtKey, existingId as Id)
+        maps.bookingIdMap.set(sourceId, existingId as Id)
+        deduped++
+        continue
+      }
+    }
 
     if (args.dryRun) {
       maps.bookingIdMap.set(sourceId, sourceId)
@@ -1652,14 +2175,32 @@ async function migrateBookings(
       continue
     }
 
-    const created = await payload.create({
-      collection: 'bookings',
-      data,
-      req,
-      overrideAccess: true,
-    } as any)
+    // Collection hooks receive `context: req.context` (see Payload createOperation); the
+    // `context` option on `payload.create` is not guaranteed to be that same reference, so set
+    // the flag on `req.context` and restore after each booking.
+    const reqCtx = req as { context?: Record<string, unknown> }
+    const prevCtx = reqCtx.context
+    reqCtx.context = { ...(prevCtx ?? {}), skipTimeslotCapacityCheck: true }
+    let created: { id: Id }
+    try {
+      created = (await payload.create({
+        collection: 'bookings',
+        data,
+        req,
+        overrideAccess: true,
+      } as any)) as { id: Id }
+    } finally {
+      reqCtx.context = prevCtx
+    }
     maps.bookingIdMap.set(sourceId, created.id as Id)
+    if (args.bookingDedupe && targetBookingsTable && bookingRtKey != null) {
+      bookingRuntimeSeen.set(bookingRtKey, created.id as Id)
+    }
     importedOrDryRun++
+  }
+
+  if (deduped > 0) {
+    console.log(`Bookings: deduped ${deduped} row(s) (reused existing target bookings)`)
   }
 
   if (skippedRows > maxSkipDetailLogs) {
@@ -1916,6 +2457,9 @@ async function main() {
   console.log(`Source app: ${args.from}`)
   console.log(`Dry run: ${args.dryRun ? 'yes' : 'no'}`)
   console.log(`Upsert: ${args.upsertByNaturalKey ? 'yes' : 'no'}`)
+  console.log(`Timeslot dedupe: ${args.timeslotDedupe ? 'yes' : 'no'}`)
+  console.log(`Subscription dedupe: ${args.subscriptionDedupe ? 'yes' : 'no'}`)
+  console.log(`Booking dedupe: ${args.bookingDedupe ? 'yes' : 'no'}`)
   console.log(`Exclude child data: ${args.excludeChildData ? 'yes' : 'no'}`)
   console.log(`Include payment methods: ${args.includePaymentMethods ? 'yes' : 'no'}`)
   console.log(`Preserve passwords: ${args.preservePasswords ? 'yes' : 'no'}`)
@@ -1966,9 +2510,9 @@ async function main() {
       await migrateDropIns(sourcePool, payload, req, tenantId, maps, args)
       await migrateEventTypes(sourcePool, payload, req, tenantId, maps, args)
       await migrateStaffMembers(sourcePool, payload, req, tenantId, maps, args)
-      await migrateTimeslots(sourcePool, payload, req, tenantId, maps, args)
-      await migrateSubscriptions(sourcePool, payload, req, tenantId, maps, args)
-      await migrateBookings(sourcePool, payload, req, tenantId, maps, args)
+      await migrateTimeslots(sourcePool, targetPool, payload, req, tenantId, maps, args)
+      await migrateSubscriptions(sourcePool, targetPool, payload, req, tenantId, maps, args)
+      await migrateBookings(sourcePool, targetPool, payload, req, tenantId, maps, args)
       await migrateTransactions(sourcePool, payload, req, tenantId, maps, args)
     }
 
