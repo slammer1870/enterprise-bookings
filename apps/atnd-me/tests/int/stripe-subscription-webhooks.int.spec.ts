@@ -68,7 +68,9 @@ describe('Stripe subscription webhooks (Connect)', () => {
         password: 'test',
         role: ['user'],
         emailVerified: true,
+        // Connect webhooks match stripeCustomers; platform webhooks (no event.account) match top-level stripeCustomerId.
         stripeCustomerId,
+        stripeCustomers: [{ stripeAccountId: accountId, stripeCustomerId }],
       },
       draft: false,
       overrideAccess: true,
