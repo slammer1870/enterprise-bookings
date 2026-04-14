@@ -2,7 +2,9 @@ import type { Access, Payload, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
+import { getPlatformHostname } from '@/utilities/getURL'
 import {
+  collectTenantLookupHostnames,
   getPayloadTenantIdFromRequest,
   isBaseHostRequest,
   getTenantSlugFromHost,
@@ -191,37 +193,56 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
     return cachedHostTenant
   }
 
-  const hostHeader = req.headers?.get?.('x-forwarded-host') ?? req.headers?.get?.('host') ?? ''
-  const hostname = String(hostHeader).split(':')[0] ?? ''
-  if (!hostname) return null
-
   const slugFromSubdomain = getTenantSlugFromHost(req.headers as Headers | undefined)
 
-  const where =
-    slugFromSubdomain
-      ? { slug: { equals: slugFromSubdomain } }
-      : (() => {
-          const normalized = normalizeCustomDomain(hostname)
-          return normalized ? { domain: { equals: normalized } } : null
-        })()
+  if (slugFromSubdomain && /^[a-z0-9-]+$/i.test(slugFromSubdomain)) {
+    const result = (await req.payload
+      .find({
+        collection: 'tenants',
+        where: { slug: { equals: slugFromSubdomain } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        select: { id: true } as any,
+      })
+      .catch(() => null)) as TenantsFindResult | null
 
-  if (!where) return null
+    const id = result?.docs?.[0]?.id
+    if (typeof id === 'number') {
+      ctx.__resolvedTenantIdFromHost = id
+      return id
+    }
+  }
 
-  const result = (await req.payload
-    .find({
-      collection: 'tenants',
-      where,
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: { id: true } as any,
-    })
-    .catch(() => null)) as TenantsFindResult | null
+  const platformHostname = getPlatformHostname()?.toLowerCase() ?? null
 
-  const id = result?.docs?.[0]?.id
-  if (typeof id === 'number') {
-    ctx.__resolvedTenantIdFromHost = id
-    return id
+  for (const hostRaw of collectTenantLookupHostnames(req.headers as Headers | undefined)) {
+    const hostname = (hostRaw.split(':')[0] ?? '').trim().toLowerCase()
+    if (!hostname) continue
+    if (hostname.includes('localhost')) continue
+    if (platformHostname && (hostname === platformHostname || hostname.endsWith(`.${platformHostname}`))) {
+      continue
+    }
+
+    const normalized = normalizeCustomDomain(hostname)
+    if (!normalized) continue
+
+    const result = (await req.payload
+      .find({
+        collection: 'tenants',
+        where: { domain: { equals: normalized } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        select: { id: true } as any,
+      })
+      .catch(() => null)) as TenantsFindResult | null
+
+    const id = result?.docs?.[0]?.id
+    if (typeof id === 'number') {
+      ctx.__resolvedTenantIdFromHost = id
+      return id
+    }
   }
 
   return null

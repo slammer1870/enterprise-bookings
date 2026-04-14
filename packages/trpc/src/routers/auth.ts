@@ -94,22 +94,34 @@ export const authRouter = {
         password: randomPassword,
       });
 
+      let registrationTenantId: number | string | null = null;
+      if (ctx.resolveRegistrationTenantId) {
+        registrationTenantId = await ctx.resolveRegistrationTenantId({
+          payload: ctx.payload,
+          headers: ctx.headers,
+          hostOverride: ctx.hostOverride,
+        });
+      }
+
+      const userData: Record<string, unknown> = {
+        name: input.name,
+        email: input.email.toLowerCase(),
+        hash: hash,
+        salt: salt,
+        password: randomPassword,
+      };
+      if (
+        registrationTenantId != null &&
+        registrationTenantId !== ""
+      ) {
+        userData.registrationTenant = registrationTenantId;
+      }
+
       // Create the user
-      const user = await createSafe(
-        ctx.payload,
-        "users",
-        {
-          name: input.name,
-          email: input.email.toLowerCase(),
-          hash: hash,
-          salt: salt,
-          password: randomPassword,
-        },
-        {
-          overrideAccess: true, // Allow creating users without authentication
-          depth: 0, // Don't populate relationships to avoid processing join fields
-        }
-      );
+      const user = await createSafe(ctx.payload, "users", userData, {
+        overrideAccess: true, // Allow creating users without authentication
+        depth: 0, // Don't populate relationships to avoid processing join fields
+      });
 
       return user;
     }),

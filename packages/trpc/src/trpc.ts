@@ -55,6 +55,12 @@ export type GetSubscriptionBookingFeeCents = (_params: {
   metadata?: Record<string, string>;
 }) => Promise<number>;
 
+export type ResolveRegistrationTenantId = (_args: {
+  payload: Payload;
+  headers: Headers;
+  hostOverride?: string;
+}) => Promise<number | string | null>;
+
 export const createTRPCContext = async (opts: {
   headers: Headers;
   payload: Payload;
@@ -74,6 +80,11 @@ export const createTRPCContext = async (opts: {
    * Use when the request host is needed for tenant resolution and headers might not carry it.
    */
   hostOverride?: string;
+  /**
+   * Multi-tenant apps: resolve `users.registrationTenant` during passwordless self-registration
+   * from the incoming request (Host, cookies, etc.).
+   */
+  resolveRegistrationTenantId?: ResolveRegistrationTenantId;
 }) => {
   const payload = opts.payload;
   const betterAuth = (payload as PayloadWithBetterAuth).betterAuth;
@@ -88,6 +99,7 @@ export const createTRPCContext = async (opts: {
     stripe: opts.stripe,
     betterAuth,
     hostOverride: opts.hostOverride,
+    resolveRegistrationTenantId: opts.resolveRegistrationTenantId,
     bookingsSlugs: mergeTRPCBookingCollectionSlugs(opts.bookingsCollectionSlugs),
     // Only allow user injection in test runs to avoid accidental auth bypass in production.
     user: isTestEnv ? (opts.user ?? null) : null,
