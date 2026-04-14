@@ -2,6 +2,8 @@ import type { Access, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
+import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
+import { getPayloadTenantIdFromRequest } from '../utilities/tenantRequest'
 import { getTenantMembershipIdsFromUserDoc, getUserTenantIds } from './tenant-scoped'
 
 /** Platform super-admin (full system access). */
@@ -98,6 +100,42 @@ function getContextTenantId(req: { context?: { tenant?: unknown } }): number | n
   return null
 }
 
+type TenantScopedReq = {
+  context?: { tenant?: unknown }
+  cookies?: { get?: (name: string) => { value?: string } | undefined }
+  headers?: { get?: (name: string) => string | null }
+}
+
+/**
+ * When the admin tenant selector sets `payload-tenant` on the platform root host, Payload list
+ * requests may omit `req.context.tenant`. Narrow scope to that tenant only if it is one of the
+ * portal user's assigned tenants (ignore arbitrary cookie values).
+ */
+function resolvePortalUserScopedTenantId(req: TenantScopedReq, assignedTenantIds: number[]): number | null {
+  const fromContext = getContextTenantId(req)
+  if (fromContext != null && assignedTenantIds.includes(fromContext)) {
+    return fromContext
+  }
+
+  let fromCookie = getPayloadTenantIdFromRequest({
+    cookies: req.cookies,
+    headers: req.headers as Headers | undefined,
+  })
+  // Admin list / RSC often omit `req.cookies`; the browser still sends `Cookie`.
+  if (fromCookie == null && req.headers && typeof (req.headers as Headers).get === 'function') {
+    const headers = req.headers as Headers
+    fromCookie = getPayloadTenantIdFromRequest({
+      cookies: cookiesFromHeaders(headers),
+      headers,
+    })
+  }
+  if (fromCookie != null && assignedTenantIds.includes(fromCookie)) {
+    return fromCookie
+  }
+
+  return null
+}
+
 /**
  * User read access for multi-tenant apps.
  *
@@ -106,7 +144,7 @@ function getContextTenantId(req: { context?: { tenant?: unknown } }): number | n
  *   - Users who registered at their domain (registrationTenant in tenant IDs)
  *   - Users who have a booking at their domain
  *   - The tenant portal user themselves
- *   When req.context.tenant is set (e.g. tenant selected in admin), scope to that domain only.
+ *   When req.context.tenant or the admin `payload-tenant` cookie selects a tenant, scope to that domain only.
  * - Regular user: can only read themselves
  */
 export const userTenantRead: Access = async ({ req }) => {
@@ -139,12 +177,9 @@ export const userTenantRead: Access = async ({ req }) => {
     }
     if (tenantIds === null || tenantIds.length === 0) return false
 
-    // When a specific tenant (domain) is selected in context, scope to that domain only
-    const contextTenantId = getContextTenantId(req as { context?: { tenant?: unknown } })
-    const effectiveTenantIds =
-      contextTenantId != null && tenantIds.includes(contextTenantId)
-        ? [contextTenantId]
-        : tenantIds
+    const assigned = tenantIds
+    const scopedTenantId = resolvePortalUserScopedTenantId(req as TenantScopedReq, assigned)
+    const effectiveTenantIds = scopedTenantId != null ? [scopedTenantId] : assigned
 
     const userId = toUserId(user)
     if (userId == null) return false
@@ -219,11 +254,9 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
     }
     if (tenantIds === null || tenantIds.length === 0) return false
 
-    const contextTenantId = getContextTenantId(req as { context?: { tenant?: unknown } })
-    const effectiveTenantIds =
-      contextTenantId != null && tenantIds.includes(contextTenantId)
-        ? [contextTenantId]
-        : tenantIds
+    const assigned = tenantIds
+    const scopedTenantId = resolvePortalUserScopedTenantId(req as TenantScopedReq, assigned)
+    const effectiveTenantIds = scopedTenantId != null ? [scopedTenantId] : assigned
 
     const userId = toUserId(user)
     if (userId == null) return false
