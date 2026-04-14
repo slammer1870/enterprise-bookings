@@ -1,8 +1,7 @@
 import React from 'react'
-import { Schedule } from '@repo/bookings-next'
+
+import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 
 export const ScheduleBlock: React.FC = () => {
-  return (
-    <Schedule />
-  )
+  return <ScheduleLazy />
 }

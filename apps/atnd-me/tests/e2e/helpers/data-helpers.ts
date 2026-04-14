@@ -475,14 +475,20 @@ export async function createTestSubscription(params: {
  * @param tenantId - Tenant ID
  * @param slug - Page slug
  * @param title - Page title
+ * @param opts - Optional `requireAuth` (CMS “Require sign-in”) and/or custom `layout`
  */
 export async function createTestPage(
   tenantId: string | number,
   slug: string,
-  title: string
+  title: string,
+  opts?: {
+    requireAuth?: boolean
+    layout?: Record<string, unknown>[]
+  }
 ): Promise<any> {
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
+  const layout = opts?.layout ?? [{ blockType: 'content', columns: [] }]
   return await payload.create({
     collection: 'pages',
     data: {
@@ -490,8 +496,8 @@ export async function createTestPage(
       title,
       tenant: tenantIdNumber,
       _status: 'published',
-      // Pages.layout is required; provide a minimal valid block.
-      layout: [{ blockType: 'content', columns: [] }],
+      ...(opts?.requireAuth === true ? { requireAuth: true } : {}),
+      layout,
     },
     draft: false,
     overrideAccess: true,

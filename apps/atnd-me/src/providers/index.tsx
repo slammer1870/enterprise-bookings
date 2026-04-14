@@ -4,7 +4,6 @@ import { HeaderThemeProvider } from './HeaderTheme'
 import { ThemeProvider } from './Theme'
 import { TRPCReactProvider } from '@repo/trpc'
 import { BetterAuthProvider } from '@/lib/auth/context'
-import { BetterAuthUIProvider } from '@/lib/auth/provider'
 import { getContextProps } from '@/lib/auth/context/get-context-props'
 
 export const Providers: React.FC<{
@@ -16,9 +15,7 @@ export const Providers: React.FC<{
     <BetterAuthProvider {...contextProps}>
       <TRPCReactProvider>
         <ThemeProvider>
-          <HeaderThemeProvider>
-            <BetterAuthUIProvider>{children}</BetterAuthUIProvider>
-          </HeaderThemeProvider>
+          <HeaderThemeProvider>{children}</HeaderThemeProvider>
         </ThemeProvider>
       </TRPCReactProvider>
     </BetterAuthProvider>

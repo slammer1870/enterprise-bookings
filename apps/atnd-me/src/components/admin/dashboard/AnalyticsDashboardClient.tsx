@@ -4,9 +4,23 @@
  * Phase 4 – Analytics dashboard (client): fetches /api/analytics and renders summary + trend chart.
  */
 import React, { useEffect, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Banner, Gutter } from '@payloadcms/ui'
 import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
-import { BookingsTrendChart } from './BookingsTrendChart'
+
+const BookingsTrendChart = dynamic(
+  () => import('./BookingsTrendChart').then((mod) => mod.BookingsTrendChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        style={{ height: 280, minHeight: 280 }}
+        aria-busy="true"
+        aria-label="Loading chart"
+      />
+    ),
+  },
+)
 
 type Summary = {
   totalBookings: number
