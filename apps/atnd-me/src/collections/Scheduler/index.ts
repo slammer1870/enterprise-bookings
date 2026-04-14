@@ -1,12 +1,12 @@
 import type { CollectionConfig, Field, Payload } from 'payload'
-import { checkRole, extractUtcWallClock } from '@repo/shared-utils'
-import type { User as SharedUser } from '@repo/shared-types'
+import { extractUtcWallClock } from '@repo/shared-utils'
 import {
     tenantScopedCreate,
     tenantScopedUpdate,
     tenantScopedDelete,
     tenantScopedReadFiltered,
 } from '../../access/tenant-scoped'
+import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
 
 // Multi-tenant Scheduler collection (converted from scheduler global)
 // Each tenant has one scheduler document
@@ -135,14 +135,20 @@ export const Scheduler: CollectionConfig = {
         description: 'Create recurring timeslots across your weekly schedule for each tenant',
     },
     access: {
-        admin: ({ req: { user } }) => {
-            if (!user) return false
-            return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
-        },
+        admin: tenantOrgPayloadAdminAccess,
         read: tenantScopedReadFiltered,
-        create: tenantScopedCreate,
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        create: async (args) => {
+            if (isStaffOnlyUser(args.req.user)) return false
+            return tenantScopedCreate(args)
+        },
+        update: async (args) => {
+            if (isStaffOnlyUser(args.req.user)) return false
+            return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+            if (isStaffOnlyUser(args.req.user)) return false
+            return tenantScopedDelete(args)
+        },
     },
     hooks: {
         beforeValidate: [

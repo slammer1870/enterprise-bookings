@@ -93,6 +93,7 @@ import * as migration_20260418_rename_legacy_staff_hyphen_table from './20260418
 import * as migration_20260420_repair_create_staff_members_table from './20260420_repair_create_staff_members_table';
 import * as migration_20260421_scheduler_time_slot_staff_member_column from './20260421_scheduler_time_slot_staff_member_column';
 import * as migration_20260422_pages_require_auth from './20260422_pages_require_auth';
+import * as migration_20260423_class_pass_types_days_until_expiration from './20260423_class_pass_types_days_until_expiration';
 
 export const migrations = [
   {
@@ -569,5 +570,10 @@ export const migrations = [
     up: migration_20260422_pages_require_auth.up,
     down: migration_20260422_pages_require_auth.down,
     name: '20260422_pages_require_auth',
+  },
+  {
+    up: migration_20260423_class_pass_types_days_until_expiration.up,
+    down: migration_20260423_class_pass_types_days_until_expiration.down,
+    name: '20260423_class_pass_types_days_until_expiration',
   },
 ];

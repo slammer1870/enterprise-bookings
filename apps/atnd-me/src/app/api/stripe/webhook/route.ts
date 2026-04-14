@@ -39,6 +39,7 @@ import {
 } from '@/lib/stripe-connect/webhook/sync-products'
 import { syncDiscountFromWebhookEvent } from '@/lib/stripe-connect/webhook/sync-discount-codes'
 import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
+import { resolveDaysUntilExpiration, classPassExpirationDateOnly } from '@repo/bookings-payments'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -94,7 +95,6 @@ export async function POST(request: NextRequest) {
     ) {
       const userId = meta.userId
       const classPassTypeId = meta.classPassTypeId ? parseInt(meta.classPassTypeId, 10) : NaN
-      const expirationDays = meta.expirationDays ? parseInt(meta.expirationDays, 10) : 365
       const totalCents = meta.totalCents ? parseInt(meta.totalCents, 10) : 0
       const transactionId = obj?.id ?? null
       if (userId && Number.isFinite(classPassTypeId) && classPassTypeId > 0) {
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
           id: classPassTypeId,
           depth: 0,
           overrideAccess: true,
-        }).catch(() => null)) as { quantity?: number } | null
+        }).catch(() => null)) as { quantity?: number; daysUntilExpiration?: number } | null
         const passCredits =
           classPassType && typeof classPassType.quantity === 'number'
             ? classPassType.quantity
@@ -115,8 +115,8 @@ export async function POST(request: NextRequest) {
         }
 
         const now = new Date()
-        const expirationDate = new Date(now)
-        expirationDate.setDate(expirationDate.getDate() + expirationDays)
+        const daysUntilExpiration = resolveDaysUntilExpiration(classPassType ?? {})
+        const expirationDateOnly = classPassExpirationDateOnly(now, daysUntilExpiration)
         await payload.create({
           collection: 'class-passes' as import('payload').CollectionSlug,
           draft: false,
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
             tenant: tenant.id,
             type: classPassTypeId,
             quantity: passCredits,
-            expirationDate: expirationDate.toISOString().slice(0, 10),
+            expirationDate: expirationDateOnly,
             purchasedAt: now.toISOString().slice(0, 10),
             price: totalCents,
             status: 'active',

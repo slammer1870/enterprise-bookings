@@ -11,6 +11,7 @@ import {
   tenantScopedUpdate,
   type RequestLike,
 } from './tenant-scoped'
+import { isStaffOnlyUser } from './userTenantAccess'
 
 async function publishedVisibilityForPublic(req: RequestLike): Promise<Where> {
   const published: Where = { _status: { equals: 'published' } }
@@ -28,7 +29,7 @@ async function publishedVisibilityForPublic(req: RequestLike): Promise<Where> {
 /**
  * Blog posts: published content is scoped by site tenant (subdomain / host).
  * Platform root shows only posts with no tenant; tenant sites see only that tenant's posts.
- * Staff/super-admin rules align with other tenant-scoped collections.
+ * Org admins + super-admin see drafts in admin; staff use published rules only.
  */
 export const postsRead: Access = async ({ req }) => {
   const user = req.user
@@ -45,7 +46,7 @@ export const postsRead: Access = async ({ req }) => {
     return true
   }
 
-  if (user && checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
+  if (user && checkRole(['admin'], user as unknown as SharedUser)) {
     return await resolveTenantAdminReadConstraint({ req })
   }
 
@@ -61,11 +62,13 @@ export const postsCreate: Access = async (args) => {
   const user = req.user
   if (!user) return false
 
+  if (isStaffOnlyUser(user)) return false
+
   if (checkRole(['super-admin'], user as unknown as SharedUser)) {
     return tenantScopedCreate(args)
   }
 
-  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
+  if (checkRole(['admin'], user as unknown as SharedUser)) {
     if (data && Object.prototype.hasOwnProperty.call(data as object, 'tenant')) {
       const t = (data as { tenant?: unknown }).tenant
       if (t === null || t === undefined || t === '') {
@@ -77,5 +80,12 @@ export const postsCreate: Access = async (args) => {
   return tenantScopedCreate(args)
 }
 
-export const postsUpdate = tenantScopedUpdate
-export const postsDelete = tenantScopedDelete
+export const postsUpdate: Access = async (args) => {
+  if (isStaffOnlyUser(args.req.user)) return false
+  return tenantScopedUpdate(args)
+}
+
+export const postsDelete: Access = async (args) => {
+  if (isStaffOnlyUser(args.req.user)) return false
+  return tenantScopedDelete(args)
+}

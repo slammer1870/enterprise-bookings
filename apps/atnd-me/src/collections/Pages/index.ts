@@ -1,13 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
 import type { User as SharedUser } from '@repo/shared-types'
-import { checkRole } from '@repo/shared-utils'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
   tenantScopedDelete,
   tenantScopedReadFiltered,
 } from '../../access/tenant-scoped'
+import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
 import { defaultBlockSlugs } from '../../blocks/registry'
 import { getBlocksForTenant } from '../../utilities/getBlocksForTenant'
 import {
@@ -265,14 +265,20 @@ export const Pages: CollectionConfig<'pages'> = {
   access: {
     // Ensure tenant-admins can access the Pages collection in the Admin UI.
     // Without this, Payload can render a 404 Not Found for /admin/collections/pages/*.
-    admin: ({ req: { user } }) => {
-      if (!user) return false
-      return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
-    },
+    admin: tenantOrgPayloadAdminAccess,
     read: tenantScopedReadFiltered,
-    create: tenantScopedCreate,
-    update: tenantScopedUpdate,
-    delete: tenantScopedDelete,
+    create: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedCreate(args)
+    },
+    update: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedUpdate(args)
+    },
+    delete: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedDelete(args)
+    },
   },
   // This config controls what's populated by default when a page is referenced
   // https://payloadcms.com/docs/queries/select#defaultpopulate-collection-config-property

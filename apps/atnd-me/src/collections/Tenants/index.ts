@@ -2,6 +2,7 @@ import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
+import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
 import { isValidTimeZone } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
 import {
@@ -73,16 +74,13 @@ export const Tenants: CollectionConfig = {
     defaultColumns: ['name', 'slug', 'createdAt'],
   },
   access: {
-    admin: ({ req: { user } }) => {
-      if (!user) return false
-      return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
-    },
+    admin: tenantOrgPayloadAdminAccess,
     read: (args) => {
       const { req: { user } } = args
       if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
         return true
       }
-      if (user && checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
+      if (user && checkRole(['admin'], user as unknown as SharedUser)) {
         const tenantIds = getUserTenantIds(user as unknown as SharedUser)
         if (tenantIds === null || tenantIds.length === 0) return false
         return { id: { in: tenantIds } }

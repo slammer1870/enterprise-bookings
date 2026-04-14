@@ -1,4 +1,4 @@
-import type { Access, Where } from 'payload'
+import type { Access, AccessArgs, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
@@ -36,6 +36,27 @@ export function isStaff(u: unknown): boolean {
 /** Tenant-scoped roles that use the tenant selector / cookie rules (org admin or staff). */
 export function isTenantPortalUser(u: unknown): boolean {
   return isTenantAdmin(u) || isStaff(u)
+}
+
+/**
+ * Payload `access.admin`: show the collection in the admin sidebar.
+ * Excludes staff-only users (org `admin` / platform `super-admin` only) for a minimal staff dashboard.
+ */
+export const tenantOrgPayloadAdminAccess = ({ req: { user } }: AccessArgs): boolean => {
+  if (!user) return false
+  return isAdmin(user) || isTenantAdmin(user)
+}
+
+/** Users collection: super-admin, org admin, and staff (minimal roster in admin). */
+export const usersPayloadAdminAccess = ({ req: { user } }: AccessArgs): boolean => {
+  if (!user) return false
+  return isAdmin(user) || isTenantAdmin(user) || isStaff(user)
+}
+
+/** Staff role without org `admin` — operational access only (no CMS / schedule configuration). */
+export function isStaffOnlyUser(user: unknown): boolean {
+  if (!user) return false
+  return isStaff(user) && !isTenantAdmin(user)
 }
 
 /**
@@ -229,6 +250,10 @@ export const userTenantRead: Access = async ({ req }) => {
 export const userTenantUpdate: Access = async ({ req, id }) => {
   const { user, payload } = req
   if (!user) return false
+
+  if (isStaffOnlyUser(user)) {
+    return false
+  }
 
   if (isAdmin(user)) {
     return true

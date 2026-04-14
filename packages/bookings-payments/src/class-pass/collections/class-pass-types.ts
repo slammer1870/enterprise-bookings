@@ -62,6 +62,18 @@ const defaultFields: Field[] = [
     },
   },
   {
+    name: "daysUntilExpiration",
+    label: "Days until expiration",
+    type: "number",
+    required: true,
+    min: 1,
+    defaultValue: 365,
+    admin: {
+      description:
+        "When a pass is purchased, it expires this many calendar days after the purchase date.",
+    },
+  },
+  {
     name: "allowMultipleBookingsPerTimeslot",
     label: "Allow multiple bookings per timeslot",
     type: "checkbox",
@@ -152,7 +164,7 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
     labels: { singular: "Class Pass Type", plural: "Class Pass Types" },
     admin: {
       useAsTitle: "name",
-      defaultColumns: ["name", "slug", "quantity", "priceInformation.price", "status"],
+      defaultColumns: ["name", "slug", "quantity", "daysUntilExpiration", "priceInformation.price", "status"],
       group: adminGroup,
       description:
         "Defines pass types (e.g. Fitness Only, Sauna Only). Class options can restrict which types are accepted.",

@@ -23,6 +23,8 @@
     "lint": "turbo lint",
     "syncpack": "syncpack",
     "test": "turbo run test",
+    "test:packages": "turbo run test --filter='./packages/*'",
+    "test:bookings-payments": "turbo run test --filter=@repo/bookings-payments",
     "test:e2e": "turbo run test:e2e",
     "test:e2e:ci": "turbo run test:e2e:ci",
     "test:int": "turbo run test:int",

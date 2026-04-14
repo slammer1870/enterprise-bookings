@@ -944,6 +944,10 @@ export interface ClassPassType {
    */
   quantity: number;
   /**
+   * When a pass is purchased, it expires this many calendar days after the purchase date.
+   */
+  daysUntilExpiration: number;
+  /**
    * When enabled, users can use multiple credits from this pass type on the same timeslot (e.g. book 3 spots using 3 credits). When disabled, only one spot per timeslot per user.
    */
   allowMultipleBookingsPerTimeslot: boolean;
@@ -4883,6 +4887,7 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   slug?: T;
   description?: T;
   quantity?: T;
+  daysUntilExpiration?: T;
   allowMultipleBookingsPerTimeslot?: T;
   stripeProductId?: T;
   priceInformation?:
