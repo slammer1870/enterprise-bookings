@@ -1,9 +1,11 @@
 import type { Payload } from 'payload'
 import {
+  collectTenantLookupHostnames,
   getPayloadTenantIdFromRequest,
   getTenantSlugFromRequest,
   isBaseHostRequest,
 } from './tenantRequest'
+import { normalizeCustomDomain } from './validateCustomDomain'
 
 /**
  * Source for extracting tenant slug (cookies, headers, URL params).
@@ -31,43 +33,49 @@ export async function getTenantSlug(
 }
 
 async function findTenantByHost(payload: Payload, headers?: Headers | null) {
-  const host = headers?.get('x-forwarded-host')?.split(',')[0]?.trim() || headers?.get('host')?.trim()
-  if (!host) return null
-
-  const hostname = host.split(':')[0] ?? host
   const platformHostname = (() => {
     const url = process.env.NEXT_PUBLIC_SERVER_URL
     if (!url) return null
     try {
-      return new URL(url).hostname
+      return new URL(url).hostname.toLowerCase()
     } catch {
       return null
     }
   })()
 
-  if (!hostname || hostname.includes('localhost')) return null
-  if (platformHostname && (hostname === platformHostname || hostname.endsWith(`.${platformHostname}`))) {
-    return null
+  const candidates = collectTenantLookupHostnames(headers)
+
+  for (const hostnameRaw of candidates) {
+    const hostname = hostnameRaw.toLowerCase()
+    if (!hostname || hostname.includes('localhost')) continue
+    if (platformHostname && (hostname === platformHostname || hostname.endsWith(`.${platformHostname}`))) {
+      continue
+    }
+
+    const normalized = normalizeCustomDomain(hostname)
+    if (!normalized) continue
+
+    const result = await payload.find({
+      collection: 'tenants',
+      where: { domain: { equals: normalized } },
+      limit: 1,
+      depth: 1,
+      overrideAccess: true,
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        domain: true,
+        logo: true,
+        description: true,
+      } as any,
+    })
+
+    const doc = result.docs[0]
+    if (doc) return doc
   }
 
-  const result = await payload.find({
-    collection: 'tenants',
-    where: { domain: { equals: hostname } },
-    limit: 1,
-    depth: 1,
-    overrideAccess: true,
-    // Restrict fields; callers may only need id/slug/name/branding.
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      domain: true,
-      logo: true,
-      description: true,
-    } as any,
-  })
-
-  return result.docs[0] ?? null
+  return null
 }
 
 export type TenantContext = {

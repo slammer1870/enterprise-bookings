@@ -25,8 +25,21 @@ export function getRequestHostname(headers?: HeadersLike | Headers | null): stri
   return host.split(':')[0] ?? host
 }
 
+/**
+ * Hostname for "is this the platform root site?" checks.
+ * Prefer `Host` over `x-forwarded-host` so a mis-set forwarded header (e.g. platform apex)
+ * does not hide a tenant custom domain on `Host` (common behind some proxies).
+ */
+function getHostnameForBaseHostCheck(headers?: HeadersLike | Headers | null): string | null {
+  const fromHost = headers?.get?.('host')?.trim() || ''
+  const fromForwarded = headers?.get?.('x-forwarded-host')?.split(',')[0]?.trim() || ''
+  const raw = fromHost || fromForwarded
+  if (!raw) return null
+  return raw.split(':')[0] ?? raw
+}
+
 export function isBaseHostRequest(headers?: HeadersLike | Headers | null): boolean {
-  const hostname = getRequestHostname(headers)
+  const hostname = getHostnameForBaseHostCheck(headers)
   if (!hostname) return false
 
   if (hostname === 'localhost' || hostname === '127.0.0.1') return true
@@ -84,6 +97,25 @@ export function getPayloadTenantIdFromRequest(source?: TenantRequestSource | nul
 
   const id = parseInt(raw, 10)
   return Number.isFinite(id) ? id : null
+}
+
+/**
+ * Ordered hostnames to try for custom-domain tenant lookup (forwarded + Host).
+ * Helps when `x-forwarded-host` points at the platform but `Host` is the tenant custom domain.
+ */
+export function collectTenantLookupHostnames(headers?: HeadersLike | Headers | null): string[] {
+  if (!headers || typeof headers.get !== 'function') return []
+  const forwarded = headers.get('x-forwarded-host')?.split(',')[0]?.trim()
+  const host = headers.get('host')?.trim()
+  const out: string[] = []
+  for (const h of [forwarded, host]) {
+    if (!h) continue
+    const hostname = h.split(':')[0]?.trim()
+    if (hostname && !out.includes(hostname)) {
+      out.push(hostname)
+    }
+  }
+  return out
 }
 
 export function getTenantIdentifierFromRequest(
