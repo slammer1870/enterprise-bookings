@@ -10,9 +10,9 @@ export const stripeCustomerId: Field = {
   label: "Stripe Customer",
   defaultValue: "",
   access: {
-    read: ({ req: { user } }) => checkRole(["super-admin", "admin"], user as User | null),
-    update: ({ req: { user } }) => checkRole(["super-admin", "admin"], user as User | null),
-    create: ({ req: { user } }) => checkRole(["super-admin", "admin"], user as User | null),
+    read: ({ req: { user } }) => checkRole(["super-admin"], user as User | null),
+    update: ({ req: { user } }) => checkRole(["super-admin"], user as User | null),
+    create: ({ req: { user } }) => checkRole(["super-admin"], user as User | null),
   },
   admin: {
     components: {

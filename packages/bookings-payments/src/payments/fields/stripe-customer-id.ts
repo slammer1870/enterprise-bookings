@@ -9,11 +9,11 @@ export const stripeCustomerId: Field = {
   defaultValue: "",
   access: {
     read: ({ req: { user } }) =>
-      checkRole(["super-admin", "admin"], user as unknown as User | null),
+      checkRole(["super-admin"], user as unknown as User | null),
     update: ({ req: { user } }) =>
-      checkRole(["super-admin", "admin"], user as unknown as User | null),
+      checkRole(["super-admin"], user as unknown as User | null),
     create: ({ req: { user } }) =>
-      checkRole(["super-admin", "admin"], user as unknown as User | null),
+      checkRole(["super-admin"], user as unknown as User | null),
   },
   admin: {
     components: {
