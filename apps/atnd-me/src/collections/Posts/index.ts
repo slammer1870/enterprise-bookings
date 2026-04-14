@@ -13,7 +13,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
 
 import { postsCreate, postsDelete, postsRead, postsUpdate } from '../../access/postsAccess'
-import { isAdmin } from '../../access/userTenantAccess'
+import { isAdmin, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { tenantScopedSlugField } from '../../fields/tenant-scoped-slug-field'
 import { Banner } from '../../blocks/Banner/config'
@@ -37,10 +37,7 @@ import {
 export const Posts: CollectionConfig<'posts'> = {
   slug: 'posts',
   access: {
-    admin: ({ req: { user } }) => {
-      if (!user) return false
-      return checkRole(['super-admin', 'admin', 'staff'], user as unknown as SharedUser)
-    },
+    admin: tenantOrgPayloadAdminAccess,
     create: postsCreate,
     delete: postsDelete,
     read: postsRead,

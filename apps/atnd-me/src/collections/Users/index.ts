@@ -4,7 +4,15 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { authenticated } from '../../access/authenticated'
 import { getUserTenantIds } from '../../access/tenant-scoped'
-import { userTenantRead, userTenantUpdate, isAdmin, isTenantAdmin, isStaff } from '../../access/userTenantAccess'
+import { userSensitiveFieldReadForStaffRoster } from '../../access/staffRosterUserFieldAccess'
+import {
+  userTenantRead,
+  userTenantUpdate,
+  isAdmin,
+  isTenantAdmin,
+  isStaff,
+  usersPayloadAdminAccess,
+} from '../../access/userTenantAccess'
 
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
 
@@ -13,7 +21,7 @@ const FIRST_USER_CREATE_CTX = '__atndFirstUserCreate' as const
 export const Users: CollectionConfig = {
   slug: 'users',
   access: {
-    admin: ({ req: { user } }) => Boolean(user && (isAdmin(user) || isTenantAdmin(user) || isStaff(user))),
+    admin: usersPayloadAdminAccess,
     create: () => true,
     delete: (args) => {
       // Admin can delete any user
@@ -137,7 +145,7 @@ export const Users: CollectionConfig = {
     ],
   },
   admin: {
-    defaultColumns: ['name', 'email'],
+    defaultColumns: ['name', 'email', 'createdAt'],
     useAsTitle: 'name',
   },
   // Auth fields (email/name/etc) are provided by the Better Auth plugin in this repo.
@@ -158,7 +166,7 @@ export const Users: CollectionConfig = {
       // The relationship dropdown is automatically filtered by the Tenants collection's read access control.
       // The beforeValidate hook will automatically set this field for tenant-admin users.
       access: {
-        read: () => true, // Always allow reading the field value
+        read: userSensitiveFieldReadForStaffRoster,
         update: ({ req: { user } }) => {
           // Admin can always update
           if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {

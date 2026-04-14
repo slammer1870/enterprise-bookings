@@ -11,6 +11,7 @@ import {
   tenantScopedUpdate,
   tenantScopedDelete,
 } from '../../access/tenant-scoped'
+import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
 
 // Multi-tenant Footer collection (converted from Footer global)
 // Each tenant has one footer document. One document with no tenant is used as the root site footer (when no tenant is assigned, e.g. root domain).
@@ -24,10 +25,20 @@ export const Footer: CollectionConfig = {
       'Footer per tenant. To show a footer when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).',
   },
   access: {
+    admin: tenantOrgPayloadAdminAccess,
     read: () => true, // Public read for frontend rendering
-    create: tenantScopedCreate,
-    update: tenantScopedUpdate,
-    delete: tenantScopedDelete,
+    create: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedCreate(args)
+    },
+    update: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedUpdate(args)
+    },
+    delete: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedDelete(args)
+    },
   },
   fields: [
     {

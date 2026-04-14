@@ -14,6 +14,7 @@ import {
   tenantScopedMediaRead,
   tenantScopedUpdate,
 } from '../access/tenant-scoped'
+import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../access/userTenantAccess'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -39,10 +40,20 @@ export const Media: CollectionConfig = {
     sizes: true,
   },
   access: {
+    admin: tenantOrgPayloadAdminAccess,
     read: tenantScopedMediaRead,
-    create: tenantScopedCreate,
-    update: tenantScopedUpdate,
-    delete: tenantScopedDelete,
+    create: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedCreate(args)
+    },
+    update: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedUpdate(args)
+    },
+    delete: async (args) => {
+      if (isStaffOnlyUser(args.req.user)) return false
+      return tenantScopedDelete(args)
+    },
   },
   hooks: {
     beforeValidate: [

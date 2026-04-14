@@ -34,7 +34,7 @@ async function getConnectedTenantIds(args: AccessArgs): Promise<number[] | null>
     return null
   }
 
-  // Staff do not manage Stripe products or billing collections.
+  // Staff do not manage Stripe products or billing collections (sidebar + Local API: no tenant IDs here).
   if (user && checkRole(['staff'], user as unknown as SharedUser) && !checkRole(['admin'], user as unknown as SharedUser)) {
     return []
   }
