@@ -178,10 +178,16 @@ export async function seedBookings({
 
   payload.logger.info('  Creating tenants...')
   const tenants: Tenant[] = []
+  /** Defaults + Croí Lán–style blocks (packages/website/src/blocks/croi-lan-sauna) for seeded sauna home pages. */
   const defaultAllowedBlocks: NonNullable<Tenant['allowedBlocks']> = [
     'threeColumnLayout',
     'location',
     'faqs',
+    'clHeroLoc',
+    'clFindSanctuary',
+    'clMission',
+    'clPillars',
+    'clSaunaBenefits',
   ]
   const tenantDataWithBlocks = SAUNA_TENANTS.map((t) => ({
     ...t,

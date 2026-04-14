@@ -36,6 +36,8 @@ interface HeroWithLocationBlockProps {
   links?: LinkItem[] | null
   socialFollowLabel?: string | null
   socialFollowUrl?: string | null
+  /** Croí Lán hero: paragraph below primary CTAs */
+  introTagline?: string | null
   disableInnerContainer?: boolean
 }
 
@@ -129,6 +131,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   links,
   socialFollowLabel,
   socialFollowUrl,
+  introTagline,
 }) => {
   const bgUrl = resolveMediaUrl(backgroundImage)
   const logoUrl = resolveMediaUrl(logo)
@@ -244,6 +247,10 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
               })}
             </div>
           )}
+
+          {introTagline ? (
+            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 md:text-lg">{introTagline}</p>
+          ) : null}
         </div>
 
         {hasSocialFollow && (

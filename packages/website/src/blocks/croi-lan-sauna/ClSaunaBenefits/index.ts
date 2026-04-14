@@ -1,0 +1,1 @@
+export { ClSaunaBenefitsBlock } from './Component'

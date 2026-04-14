@@ -45,6 +45,10 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   dhLiveSchedule: 'Live class schedule (Dark Horse)',
   dhLiveMembership: 'Membership — subscribe / manage (tenant)',
   clHeroLoc: 'Croí Lán – Hero with Location',
+  clFindSanctuary: 'Croí Lán – Find Your Sanctuary',
+  clMission: 'Croí Lán – Mission / Story',
+  clPillars: 'Croí Lán – Pillars (Release / Relax / Recover)',
+  clSaunaBenefits: 'Croí Lán – Sauna health benefits',
 }
 
 /** Stripe Connect onboarding status (step 2.1). */

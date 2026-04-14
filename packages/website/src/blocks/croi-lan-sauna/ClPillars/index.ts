@@ -1,0 +1,1 @@
+export { ClPillarsBlock } from './Component'

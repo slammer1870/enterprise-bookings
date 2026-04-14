@@ -10,13 +10,11 @@ import { FormBlock } from './Form/config'
 import { MediaBlock } from './MediaBlock/config'
 import { HealthBenefits } from './HealthBenefits/config'
 import { HeroSchedule } from './HeroSchedule/config'
-import { HeroScheduleSanctuary } from './HeroScheduleSanctuary/config'
 import { Schedule } from './Schedule/config'
 import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
 import { HeroWithLocation } from './HeroWithLocation/config'
 import { MissionElements } from './MissionElements/config'
-import { CroiLanHeroWithLocation } from './CroiLanHeroWithLocation/config'
 import {
   Hero,
   About,
@@ -42,6 +40,12 @@ import {
   DhPricing,
   DhContact,
   DhGroups,
+  ClHeroScheduleSanctuary,
+  CroiLanHeroWithLocation,
+  ClFindSanctuary,
+  ClMission,
+  ClPillars,
+  ClSaunaBenefits,
   createTwoColumnLayout,
 } from '@repo/website'
 
@@ -50,7 +54,6 @@ import { DhLiveMembership } from './DhLiveMembership/config'
 
 const allBlocks: Block[] = [
   HeroSchedule,
-  HeroScheduleSanctuary,
   HeroWithLocation,
   Hero,
   MarketingHero,
@@ -89,8 +92,13 @@ const allBlocks: Block[] = [
   DhGroups,
   DhLiveSchedule,
   DhLiveMembership,
-  // Croí Lán (tenant-scoped extras)
+  // Croí Lán Sauna (tenant-scoped extras; croilan.com)
+  ClHeroScheduleSanctuary,
   CroiLanHeroWithLocation,
+  ClFindSanctuary,
+  ClMission,
+  ClPillars,
+  ClSaunaBenefits,
 ]
 
 const ThreeColumnLayout = createThreeColumnLayout(allBlocks)

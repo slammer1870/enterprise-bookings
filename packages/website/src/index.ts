@@ -45,6 +45,14 @@ export {
   DhContact,
   DhGroups,
 } from "./blocks/darkhorse-strength";
+export {
+  CroiLanHeroWithLocation,
+  ClHeroScheduleSanctuary,
+  ClFindSanctuary,
+  ClMission,
+  ClPillars,
+  ClSaunaBenefits,
+} from "./blocks/croi-lan-sauna";
 
 // Export hooks
 export { revalidatePage, revalidateDelete } from "./hooks/revalidate-page"; 
