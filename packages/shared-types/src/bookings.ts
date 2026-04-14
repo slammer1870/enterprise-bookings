@@ -168,6 +168,7 @@ export interface ClassPassType {
   name?: string | null;
   slug?: string | null;
   quantity?: number | null;
+  daysUntilExpiration?: number | null;
   allowMultipleBookingsPerTimeslot?: boolean;
   status?: "active" | "inactive" | null;
   priceInformation?: {

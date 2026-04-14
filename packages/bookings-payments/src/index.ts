@@ -14,6 +14,11 @@ export { createDecrementClassPassHook } from "./class-pass/hooks/decrementClassP
 export type { DecrementClassPassHookOptions } from "./class-pass/hooks/decrementClassPassOnBookingConfirmed";
 export { createBookingTransactionOnCreate } from "./class-pass/hooks/createBookingTransactionOnCreate";
 export { getClassPassIdFromBookingTransaction } from "./class-pass/utilities/getClassPassIdFromBookingTransaction";
+export {
+  DEFAULT_CLASS_PASS_EXPIRATION_DAYS,
+  resolveDaysUntilExpiration,
+  classPassExpirationDateOnly,
+} from "./class-pass/utilities/class-pass-expiration";
 export { paymentIntentSucceeded } from "./payments/webhooks/payment-intent-succeeded";
 export type { PaymentIntentSucceededArgs } from "./payments/webhooks/payment-intent-succeeded";
 // Payments endpoints

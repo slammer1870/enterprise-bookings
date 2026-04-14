@@ -1,6 +1,7 @@
 /**
  * Class pass purchase: create PaymentIntent for class pass.
- * Accepts quantity, optional expirationDays; tenant from context (slug/header).
+ * Accepts quantity; tenant from context (slug/header).
+ * Pass expiry after payment is set from the class pass type's daysUntilExpiration (webhook), not client input.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -15,7 +16,6 @@ import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
 
 const DEFAULT_PRICE_CENTS = 1000
-const DEFAULT_EXPIRATION_DAYS = 365
 
 export async function POST(request: NextRequest) {
   const payload = await getPayload()
@@ -54,8 +54,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
   }
 
-  const expirationDays =
-    typeof body.expirationDays === 'number' ? body.expirationDays : DEFAULT_EXPIRATION_DAYS
   const totalCents = DEFAULT_PRICE_CENTS * quantity
 
   const placeholderAccount =
@@ -94,7 +92,6 @@ export async function POST(request: NextRequest) {
         userId: String(user.id),
         tenantId: String(tenant.id),
         quantity: String(quantity),
-        expirationDays: String(expirationDays),
         totalCents: String(totalCents),
       },
     })

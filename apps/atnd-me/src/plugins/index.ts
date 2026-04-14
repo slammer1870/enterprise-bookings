@@ -51,7 +51,12 @@ import {
   bookingCreateAccessWithPaymentValidation,
   bookingUpdateAccessWithPaymentValidation,
 } from '../access/bookingAccess'
-import { isStaff, userTenantRead, userTenantUpdate, isTenantAdmin } from '../access/userTenantAccess'
+import {
+  isStaffOnlyUser,
+  userTenantRead,
+  userTenantUpdate,
+  tenantOrgPayloadAdminAccess,
+} from '../access/userTenantAccess'
 import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
 import {
   bookingsPaymentsPlugin,
@@ -64,6 +69,7 @@ import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-aut
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
 import { hideWebsiteCollectionsFromTenantAdmins } from './hide-website-collections-from-tenant-admins'
+import { staffRosterUsersFieldAccessPlugin } from './staff-roster-users-field-access'
 import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { getActiveR2Config } from '@/lib/storage/config'
@@ -280,19 +286,36 @@ export const plugins: Plugin[] = [
         })
       },
       access: {
+        admin: tenantOrgPayloadAdminAccess,
         read: tenantScopedReadFiltered,
-        create: tenantScopedCreate,
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        create: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedCreate(args)
+        },
+        update: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedDelete(args)
+        },
       },
     },
     formSubmissionOverrides: {
       admin: { group: 'Website' },
       access: {
+        admin: tenantOrgPayloadAdminAccess,
         read: tenantScopedReadFiltered,
         create: () => true, // Allow public form submissions
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        update: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedDelete(args)
+        },
       },
     },
   }),
@@ -348,9 +371,18 @@ export const plugins: Plugin[] = [
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: timeslotsRead, // Preserve tenant scoping while hiding past/inactive timeslots from public schedule
-        create: tenantScopedCreate,
-        update: tenantScopedUpdate,
-        delete: tenantScopedDelete,
+        create: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedCreate(args)
+        },
+        update: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedUpdate(args)
+        },
+        delete: async (args) => {
+          if (isStaffOnlyUser(args.req.user)) return false
+          return tenantScopedDelete(args)
+        },
       }),
     },
     eventTypesOverrides: {
@@ -362,15 +394,15 @@ export const plugins: Plugin[] = [
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
         create: async (args) => {
-          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          if (isStaffOnlyUser(args.req.user)) return false
           return tenantScopedCreate(args)
         },
         update: async (args) => {
-          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          if (isStaffOnlyUser(args.req.user)) return false
           return tenantScopedUpdate(args)
         },
         delete: async (args) => {
-          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          if (isStaffOnlyUser(args.req.user)) return false
           return tenantScopedDelete(args)
         },
       }),
@@ -428,15 +460,15 @@ export const plugins: Plugin[] = [
         ...defaultAccess,
         read: tenantScopedPublicReadStrict,
         create: async (args) => {
-          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          if (isStaffOnlyUser(args.req.user)) return false
           return tenantScopedCreate(args)
         },
         update: async (args) => {
-          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          if (isStaffOnlyUser(args.req.user)) return false
           return tenantScopedUpdate(args)
         },
         delete: async (args) => {
-          if (args.req.user && isStaff(args.req.user) && !isTenantAdmin(args.req.user)) return false
+          if (isStaffOnlyUser(args.req.user)) return false
           return tenantScopedDelete(args)
         },
       }),
@@ -864,4 +896,5 @@ export const plugins: Plugin[] = [
       }),
     ]
   })(),
+  staffRosterUsersFieldAccessPlugin(),
 ]
