@@ -16,7 +16,8 @@ import { ScheduleBlock } from '@/blocks/Schedule/Component'
 import { TenantScopedScheduleBlock } from '@/blocks/TenantScopedSchedule/Component'
 import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
 import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
-import { HeroScheduleSanctuaryBlock } from '@/blocks/HeroScheduleSanctuary/Component'
+import { ClHeroScheduleSanctuaryBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClHeroScheduleSanctuary'
+import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
 import { MissionElementsBlock } from '@/blocks/MissionElements/Component'
@@ -37,8 +38,21 @@ import { DhTestimonialsBlock } from '@repo/website/src/blocks/darkhorse-strength
 import { DhPricingBlock } from '@repo/website/src/blocks/darkhorse-strength/DhPricing'
 import { DhContactBlock } from '@repo/website/src/blocks/darkhorse-strength/DhContact'
 import { DhGroupsBlock } from '@repo/website/src/blocks/darkhorse-strength/DhGroups'
+import { ClFindSanctuaryBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClFindSanctuary'
+import { ClMissionBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClMission'
+import { ClPillarsBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClPillars'
+import { ClSaunaBenefitsBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClSaunaBenefits'
 import { DhLiveScheduleBlock } from '@/blocks/DhLiveSchedule/Component'
 import { DhLiveMembershipBlock } from '@/blocks/DhLiveMembership/Component'
+
+function HeroScheduleSanctuaryBlock(
+  props: Omit<React.ComponentProps<typeof ClHeroScheduleSanctuaryBlock>, 'schedulePanel'>,
+) {
+  return React.createElement(ClHeroScheduleSanctuaryBlock, {
+    ...props,
+    schedulePanel: React.createElement(ScheduleLazy),
+  })
+}
 
 // Export the block components registry — heterogeneous block props, so typed loosely
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,4 +98,8 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   dhGroups: DhGroupsBlock,
   dhLiveSchedule: DhLiveScheduleBlock,
   dhLiveMembership: DhLiveMembershipBlock,
+  clFindSanctuary: ClFindSanctuaryBlock,
+  clMission: ClMissionBlock,
+  clPillars: ClPillarsBlock,
+  clSaunaBenefits: ClSaunaBenefitsBlock,
 }

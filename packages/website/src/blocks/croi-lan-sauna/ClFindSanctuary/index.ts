@@ -1,0 +1,1 @@
+export { ClFindSanctuaryBlock } from './Component'

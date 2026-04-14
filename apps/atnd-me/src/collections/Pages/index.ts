@@ -39,6 +39,12 @@ import {
   DhPricing,
   DhContact,
   DhGroups,
+  ClHeroScheduleSanctuary,
+  CroiLanHeroWithLocation,
+  ClFindSanctuary,
+  ClMission,
+  ClPillars,
+  ClSaunaBenefits,
   createTwoColumnLayout,
 } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
@@ -48,9 +54,7 @@ import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
 import { HealthBenefits } from '@/blocks/HealthBenefits/config'
 import { HeroSchedule } from '@/blocks/HeroSchedule/config'
-import { HeroScheduleSanctuary } from '@/blocks/HeroScheduleSanctuary/config'
 import { HeroWithLocation } from '@/blocks/HeroWithLocation/config'
-import { CroiLanHeroWithLocation } from '@/blocks/CroiLanHeroWithLocation/config'
 import { Schedule } from '@/blocks/Schedule/config'
 import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
 import { DhLiveSchedule } from '@/blocks/DhLiveSchedule/config'
@@ -74,7 +78,6 @@ import {
 // Define all available blocks for the pages collection (used for block schemas + filterOptions)
 const availableBlocks = [
   HeroSchedule,
-  HeroScheduleSanctuary,
   HeroWithLocation,
   Hero,
   MarketingHero,
@@ -112,8 +115,13 @@ const availableBlocks = [
   DhGroups,
   DhLiveSchedule,
   DhLiveMembership,
-  // Croí Lán (tenant-scoped extras)
+  // Croí Lán Sauna (tenant-scoped extras)
+  ClHeroScheduleSanctuary,
   CroiLanHeroWithLocation,
+  ClFindSanctuary,
+  ClMission,
+  ClPillars,
+  ClSaunaBenefits,
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config
@@ -122,7 +130,7 @@ const TwoColumnLayout = createTwoColumnLayout(availableBlocks)
 
 const pageBlocks = [
   HeroSchedule,
-  HeroScheduleSanctuary,
+  ClHeroScheduleSanctuary,
   HeroWithLocation,
   Hero,
   MarketingHero,

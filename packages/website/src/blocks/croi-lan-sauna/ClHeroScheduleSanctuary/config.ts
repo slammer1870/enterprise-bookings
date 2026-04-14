@@ -1,12 +1,11 @@
 import type { Block } from 'payload'
-import { linkGroup } from '@repo/website'
+import { linkGroup } from '../../../fields/linkGroup'
 
 /**
- * Custom Hero + Schedule block that retains a warm, sanctuary-style design
- * (inspired by Croí Lán). Same layout as HeroSchedule but with distinct styling
- * so tenants can match their brand. Assign via Tenants → allowedBlocks.
+ * Hero + schedule panel with warm “sanctuary” styling (Croí Lán / croilan.com).
+ * Slug stays `heroScheduleSanctuary` for existing DB rows and enums.
  */
-export const HeroScheduleSanctuary: Block = {
+export const ClHeroScheduleSanctuary: Block = {
   slug: 'heroScheduleSanctuary',
   /** Short name for DB identifiers (Postgres 63-char limit: enum__pages_v_blocks_..._links_link_appearance) */
   dbName: 'hero_sched_sanc',

@@ -85,6 +85,7 @@ import * as migration_20260412_001754 from './20260412_001754';
 import * as migration_20260412_users_role_tenant_admin_to_admin from './20260412_users_role_tenant_admin_to_admin';
 import * as migration_20260413_110320 from './20260413_110320';
 import * as migration_20260413_drop_users_roles_merge_into_users_role from './20260413_drop_users_roles_merge_into_users_role';
+import * as migration_20260414_155751_croi_lan_sauna_blocks from './20260414_155751_croi_lan_sauna_blocks';
 import * as migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id from './20260414_ensure_pages_blocks_dh_live_schedule_tenant_id';
 import * as migration_20260415_payload_locked_documents_rels_staff_members_id from './20260415_payload_locked_documents_rels_staff_members_id';
 import * as migration_20260416_repair_timeslots_staff_event_locked_docs_rels from './20260416_repair_timeslots_staff_event_locked_docs_rels';
@@ -532,6 +533,11 @@ export const migrations = [
     name: '20260413_drop_users_roles_merge_into_users_role',
   },
   {
+    up: migration_20260414_155751_croi_lan_sauna_blocks.up,
+    down: migration_20260414_155751_croi_lan_sauna_blocks.down,
+    name: '20260414_155751_croi_lan_sauna_blocks',
+  },
+  {
     up: migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id.up,
     down: migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id.down,
     name: '20260414_ensure_pages_blocks_dh_live_schedule_tenant_id',
@@ -574,6 +580,6 @@ export const migrations = [
   {
     up: migration_20260423_class_pass_types_days_until_expiration.up,
     down: migration_20260423_class_pass_types_days_until_expiration.down,
-    name: '20260423_class_pass_types_days_until_expiration',
+    name: '20260423_class_pass_types_days_until_expiration'
   },
 ];

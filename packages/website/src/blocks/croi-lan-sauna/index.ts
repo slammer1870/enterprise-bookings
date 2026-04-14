@@ -1,0 +1,6 @@
+export { CroiLanHeroWithLocation } from './CroiLanHeroWithLocation/config'
+export { ClHeroScheduleSanctuary } from './ClHeroScheduleSanctuary/config'
+export { ClFindSanctuary } from './ClFindSanctuary/config'
+export { ClMission } from './ClMission/config'
+export { ClPillars } from './ClPillars/config'
+export { ClSaunaBenefits } from './ClSaunaBenefits/config'

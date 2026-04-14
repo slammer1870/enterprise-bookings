@@ -286,6 +286,10 @@ export interface Page {
         blockType: 'dhLiveMembership';
       }
     | CroiLanHeroWithLocationBlock
+    | ClFindSanctuaryBlock
+    | ClMissionBlock
+    | ClPillarsBlock
+    | ClSaunaBenefitsBlock
   )[];
   meta?: {
     title?: string | null;
@@ -358,6 +362,10 @@ export interface Tenant {
         | 'dhLiveSchedule'
         | 'dhLiveMembership'
         | 'clHeroLoc'
+        | 'clFindSanctuary'
+        | 'clMission'
+        | 'clPillars'
+        | 'clSaunaBenefits'
         | 'threeColumnLayout'
         | 'twoColumnLayout'
       )[]
@@ -1205,7 +1213,6 @@ export interface ThreeColumnLayoutBlock {
   blocks?:
     | (
         | HeroScheduleBlock
-        | HeroScheduleSanctuaryBlock
         | HeroWithLocationBlock
         | HeroBlock
         | MarketingHeroBlock
@@ -1264,7 +1271,12 @@ export interface ThreeColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
+        | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
+        | ClFindSanctuaryBlock
+        | ClMissionBlock
+        | ClPillarsBlock
+        | ClSaunaBenefitsBlock
       )[]
     | null;
   id?: string | null;
@@ -2276,17 +2288,21 @@ export interface CroiLanHeroWithLocationBlock {
    */
   titleLine1Accent?: boolean | null;
   /**
-   * e.g. The Bog Meadow, Enniskerry Village
+   * Primary location line
    */
   locationText?: string | null;
   /**
-   * e.g. 30 minutes outside Dublin
+   * Secondary location line
    */
   locationSubtext?: string | null;
   /**
    * Show map pin icon before location
    */
   showLocationIcon?: boolean | null;
+  /**
+   * Short paragraph below the CTAs (croilan.com hero tagline)
+   */
+  introTagline?: string | null;
   links?:
     | {
         link: {
@@ -2325,6 +2341,82 @@ export interface CroiLanHeroWithLocationBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClFindSanctuaryBlock".
+ */
+export interface ClFindSanctuaryBlock {
+  heading: string;
+  address: string;
+  /**
+   * e.g. parking, access tips
+   */
+  note?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'clFindSanctuary';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClMissionBlock".
+ */
+export interface ClMissionBlock {
+  heading: string;
+  /**
+   * Short line above the main body
+   */
+  lede?: string | null;
+  body?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'clMission';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClPillarsBlock".
+ */
+export interface ClPillarsBlock {
+  items?:
+    | {
+        label: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'clPillars';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClSaunaBenefitsBlock".
+ */
+export interface ClSaunaBenefitsBlock {
+  sectionTitle: string;
+  items?:
+    | {
+        title: string;
+        description: string;
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'clSaunaBenefits';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TwoColumnLayoutBlock".
  */
 export interface TwoColumnLayoutBlock {
@@ -2333,7 +2425,6 @@ export interface TwoColumnLayoutBlock {
   leftBlocks?:
     | (
         | HeroScheduleBlock
-        | HeroScheduleSanctuaryBlock
         | HeroWithLocationBlock
         | HeroBlock
         | MarketingHeroBlock
@@ -2392,13 +2483,17 @@ export interface TwoColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
+        | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
+        | ClFindSanctuaryBlock
+        | ClMissionBlock
+        | ClPillarsBlock
+        | ClSaunaBenefitsBlock
       )[]
     | null;
   rightBlocks?:
     | (
         | HeroScheduleBlock
-        | HeroScheduleSanctuaryBlock
         | HeroWithLocationBlock
         | HeroBlock
         | MarketingHeroBlock
@@ -2457,7 +2552,12 @@ export interface TwoColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
+        | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
+        | ClFindSanctuaryBlock
+        | ClMissionBlock
+        | ClPillarsBlock
+        | ClSaunaBenefitsBlock
       )[]
     | null;
   id?: string | null;
@@ -3340,6 +3440,10 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+        clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
+        clMission?: T | ClMissionBlockSelect<T>;
+        clPillars?: T | ClPillarsBlockSelect<T>;
+        clSaunaBenefits?: T | ClSaunaBenefitsBlockSelect<T>;
       };
   meta?:
     | T
@@ -3508,7 +3612,6 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
     | T
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
-        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
@@ -3567,7 +3670,12 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+        clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
+        clMission?: T | ClMissionBlockSelect<T>;
+        clPillars?: T | ClPillarsBlockSelect<T>;
+        clSaunaBenefits?: T | ClSaunaBenefitsBlockSelect<T>;
       };
   id?: T;
   blockName?: T;
@@ -4111,6 +4219,7 @@ export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
   locationText?: T;
   locationSubtext?: T;
   showLocationIcon?: T;
+  introTagline?: T;
   links?:
     | T
     | {
@@ -4133,6 +4242,58 @@ export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClFindSanctuaryBlock_select".
+ */
+export interface ClFindSanctuaryBlockSelect<T extends boolean = true> {
+  heading?: T;
+  address?: T;
+  note?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClMissionBlock_select".
+ */
+export interface ClMissionBlockSelect<T extends boolean = true> {
+  heading?: T;
+  lede?: T;
+  body?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClPillarsBlock_select".
+ */
+export interface ClPillarsBlockSelect<T extends boolean = true> {
+  items?:
+    | T
+    | {
+        label?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "ClSaunaBenefitsBlock_select".
+ */
+export interface ClSaunaBenefitsBlockSelect<T extends boolean = true> {
+  sectionTitle?: T;
+  items?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TwoColumnLayoutBlock_select".
  */
 export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
@@ -4142,7 +4303,6 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
     | T
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
-        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
@@ -4201,13 +4361,17 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+        clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
+        clMission?: T | ClMissionBlockSelect<T>;
+        clPillars?: T | ClPillarsBlockSelect<T>;
+        clSaunaBenefits?: T | ClSaunaBenefitsBlockSelect<T>;
       };
   rightBlocks?:
     | T
     | {
         heroSchedule?: T | HeroScheduleBlockSelect<T>;
-        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
@@ -4266,7 +4430,12 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
+        clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
+        clMission?: T | ClMissionBlockSelect<T>;
+        clPillars?: T | ClPillarsBlockSelect<T>;
+        clSaunaBenefits?: T | ClSaunaBenefitsBlockSelect<T>;
       };
   id?: T;
   blockName?: T;

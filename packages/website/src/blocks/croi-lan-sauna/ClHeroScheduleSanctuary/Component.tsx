@@ -3,10 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import { Button } from '@repo/ui/components/ui/button'
-import type { Media } from '@/payload-types'
-import { getMediaUrl } from '@/utilities/getMediaUrl'
 
 type LinkItem = {
   link: {
@@ -22,26 +19,29 @@ type LinkItem = {
   }
 }
 
-interface HeroScheduleSanctuaryBlockProps {
-  backgroundImage?: number | Media | { url?: string; alt?: string } | string | null
-  logo?: (number | null) | Media | { url?: string; alt?: string } | string | null
-  title?: string | null
-  subtitle?: string | null
-  tagline?: string | null
-  links?: LinkItem[] | null
-}
+type MediaLike =
+  | number
+  | string
+  | null
+  | undefined
+  | {
+      url?: string | null
+      updatedAt?: string | null
+      alt?: string | null
+    }
 
-function resolveMediaUrl(
-  media: number | Media | { url?: string; updatedAt?: string; alt?: string } | string | null | undefined,
-): string | undefined {
+function resolveMediaUrl(media: MediaLike): string | undefined {
   if (media == null) return undefined
   if (typeof media === 'string') return media
   if (typeof media === 'number') return undefined
-  const m = media as { url?: string; updatedAt?: string; alt?: string }
-  if (m.url && typeof m.url === 'string') {
-    return getMediaUrl(m.url, m.updatedAt) || undefined
+  const url = media.url
+  if (!url || typeof url !== 'string') return undefined
+  const tag = media.updatedAt
+  if (tag) {
+    const q = encodeURIComponent(tag)
+    return url.includes('?') ? `${url}&${q}` : `${url}?${q}`
   }
-  return undefined
+  return url
 }
 
 function getHref(link: LinkItem['link']): string {
@@ -55,32 +55,46 @@ function getHref(link: LinkItem['link']): string {
   return link.url || '#'
 }
 
-export const HeroScheduleSanctuaryBlock: React.FC<HeroScheduleSanctuaryBlockProps> = ({
+export type ClHeroScheduleSanctuaryBlockProps = {
+  backgroundImage?: MediaLike
+  logo?: MediaLike
+  title?: string | null
+  subtitle?: string | null
+  tagline?: string | null
+  links?: LinkItem[] | null
+  /** Injected by the app (e.g. tenant schedule widget). */
+  schedulePanel: React.ReactNode
+}
+
+export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlockProps> = ({
   backgroundImage,
   logo,
   title,
   subtitle,
   tagline,
   links,
+  schedulePanel,
 }) => {
   const bgUrl = resolveMediaUrl(backgroundImage)
   const logoUrl = resolveMediaUrl(logo)
 
   return (
     <div className="flex flex-col md:flex-row w-full">
-      {/* Hero – same layout as HeroSchedule, sanctuary styling */}
       <div className="relative w-full md:w-1/2 lg:w-2/3 flex-shrink-0 min-h-[500px] md:min-h-[700px] flex items-center justify-center overflow-hidden">
         {bgUrl && (
           <>
             <Image
               src={bgUrl}
-              alt={typeof backgroundImage === 'object' && backgroundImage && 'alt' in backgroundImage ? (backgroundImage.alt as string) || '' : ''}
+              alt={
+                typeof backgroundImage === 'object' && backgroundImage && 'alt' in backgroundImage
+                  ? (backgroundImage.alt as string) || ''
+                  : ''
+              }
               fill
               sizes="(max-width: 768px) 100vw, 66vw"
               className="object-cover"
               priority
             />
-            {/* Warm overlay to match Croí Lán / sanctuary feel */}
             <div className="absolute inset-0 bg-stone-900/40" aria-hidden />
           </>
         )}
@@ -102,15 +116,9 @@ export const HeroScheduleSanctuaryBlock: React.FC<HeroScheduleSanctuaryBlockProp
             </h1>
           )}
           {subtitle && (
-            <p className="text-white/95 text-lg md:text-xl font-medium drop-shadow">
-              {subtitle}
-            </p>
+            <p className="text-white/95 text-lg md:text-xl font-medium drop-shadow">{subtitle}</p>
           )}
-          {tagline && (
-            <p className="text-white/80 text-sm md:text-base">
-              {tagline}
-            </p>
-          )}
+          {tagline && <p className="text-white/80 text-sm md:text-base">{tagline}</p>}
           {links && links.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-3 w-full justify-center mt-2">
               {links.map((linkItem, index) => {
@@ -141,11 +149,10 @@ export const HeroScheduleSanctuaryBlock: React.FC<HeroScheduleSanctuaryBlockProp
         </div>
       </div>
 
-      {/* Schedule panel – warm background to match site */}
       <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center bg-card p-8 text-card-foreground lg:p-12">
         <div className="w-full max-w-lg">
           <h2 className="mb-6 text-center text-2xl font-semibold text-card-foreground">Schedule</h2>
-          <ScheduleLazy />
+          {schedulePanel}
         </div>
       </div>
     </div>
