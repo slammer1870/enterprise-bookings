@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Schedule } from '@repo/bookings-next'
+import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import {
   Select,
   SelectContent,
@@ -109,7 +109,7 @@ export function TenantScopedScheduleClient({
         </Select>
       </div>
       {effectiveTenantId != null ? (
-        <Schedule tenantId={effectiveTenantId} />
+        <ScheduleLazy tenantId={effectiveTenantId} />
       ) : (
         <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
           Select a tenant above to view their schedule.

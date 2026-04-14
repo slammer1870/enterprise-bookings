@@ -3,7 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Schedule } from '@repo/bookings-next'
+import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import { Button } from '@repo/ui/components/ui/button'
 import type { Media } from '@/payload-types'
 import { getMediaUrl } from '@/utilities/getMediaUrl'
@@ -145,7 +145,7 @@ export const HeroScheduleSanctuaryBlock: React.FC<HeroScheduleSanctuaryBlockProp
       <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center bg-card p-8 text-card-foreground lg:p-12">
         <div className="w-full max-w-lg">
           <h2 className="mb-6 text-center text-2xl font-semibold text-card-foreground">Schedule</h2>
-          <Schedule />
+          <ScheduleLazy />
         </div>
       </div>
     </div>

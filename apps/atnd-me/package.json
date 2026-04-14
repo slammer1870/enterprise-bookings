@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
+    "analyze": "cross-env ANALYZE=true DISABLE_SENTRY=true NODE_OPTIONS=--no-deprecation next build",
+    "analyze:open": "cross-env ANALYZE=true ANALYZE_OPEN=true DISABLE_SENTRY=true NODE_OPTIONS=--no-deprecation next build",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs",
     "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
     "dev:e2e": "cross-env NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" next dev",
@@ -30,11 +32,11 @@
     "ci": "pnpm run payload migrate:fresh --force-accept-warning && sleep 2 && pnpm run build"
   },
   "dependencies": {
-    "@daveyplate/better-auth-ui": "^3.2.11",
     "@date-fns/tz": "^1.4.1",
+    "@daveyplate/better-auth-ui": "^3.2.11",
     "@payloadcms/admin-bar": "workspace:*",
-    "@payloadcms/email-resend": "3.70.0",
     "@payloadcms/db-postgres": "workspace:*",
+    "@payloadcms/email-resend": "3.70.0",
     "@payloadcms/live-preview-react": "workspace:*",
     "@payloadcms/next": "workspace:*",
     "@payloadcms/plugin-form-builder": "workspace:*",
@@ -54,9 +56,9 @@
     "@repo/auth-next": "workspace:*",
     "@repo/better-auth-config": "workspace:*",
     "@repo/bookings-next": "workspace:*",
-    "@repo/membership-next": "workspace:*",
     "@repo/bookings-payments": "workspace:*",
     "@repo/bookings-plugin": "workspace:*",
+    "@repo/membership-next": "workspace:*",
     "@repo/payments-next": "workspace:*",
     "@repo/plugin-clearable-tenant": "workspace:*",
     "@repo/shared-services": "workspace:*",
@@ -97,6 +99,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
+    "webpack-bundle-analyzer": "^4.10.2",
     "@playwright/test": "1.56.1",
     "@repo/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.17",

@@ -5,7 +5,7 @@
 import { redirect } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
 import { getSession } from '@/lib/auth/context/get-context-props'
-import { ClassPassPurchaseForm } from '@/components/class-pass/ClassPassPurchaseForm'
+import { ClassPassPurchaseFormLazy } from '@/components/class-pass/ClassPassPurchaseFormLazy'
 import Link from 'next/link'
 import { getTenantSlug } from '@/utilities/getTenantContext'
 
@@ -54,7 +54,7 @@ export default async function ClassPassPurchasePage({
 
   return (
     <div className="container max-w-md py-8">
-      <ClassPassPurchaseForm defaultQuantity={1} />
+      <ClassPassPurchaseFormLazy defaultQuantity={1} />
     </div>
   )
 }

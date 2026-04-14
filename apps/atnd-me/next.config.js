@@ -1,8 +1,12 @@
+import { createRequire } from 'node:module'
+
 import { withSentryConfig } from '@sentry/nextjs'
 import { withPayload } from '@payloadcms/next/withPayload'
 import { getPayloadUIAliases } from '../../scripts/payload-ui-aliases.mjs'
 
 import redirects from './redirects.js'
+
+const require = createRequire(import.meta.url)
 
 const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
@@ -42,7 +46,7 @@ const nextConfig = {
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
-  webpack: (webpackConfig) => {
+  webpack: (webpackConfig, options) => {
     webpackConfig.resolve.extensionAlias = {
       '.cjs': ['.cts', '.cjs'],
       '.js': ['.ts', '.tsx', '.js', '.jsx'],
@@ -52,6 +56,19 @@ const nextConfig = {
     webpackConfig.resolve.alias = {
       ...(webpackConfig.resolve.alias || {}),
       ...getPayloadUIAliases({ from: import.meta.url, cwd: process.cwd() }),
+    }
+
+    // Client compile only: analyzing server bundles with `output: 'standalone'` yields missing-file
+    // warnings after traces move chunks. Report: `.next/analyze/client.html`.
+    if (process.env.ANALYZE === 'true' && !options.isServer) {
+      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
+      webpackConfig.plugins.push(
+        new BundleAnalyzerPlugin({
+          analyzerMode: 'static',
+          openAnalyzer: process.env.ANALYZE_OPEN === 'true',
+          reportFilename: './analyze/client.html',
+        }),
+      )
     }
 
     return webpackConfig
@@ -67,7 +84,7 @@ const payloadWrapped = withPayload(nextConfig, { devBundleServerPackages: true }
 const enableSentryWebpack =
   process.env.DISABLE_SENTRY !== 'true' && Boolean(process.env.SENTRY_AUTH_TOKEN)
 
-export default enableSentryWebpack
+const nextConfigFinal = enableSentryWebpack
   ? withSentryConfig(payloadWrapped, {
       // For all available options, see:
       // https://www.npmjs.com/package/@sentry/webpack-plugin#options
@@ -95,3 +112,5 @@ export default enableSentryWebpack
       },
     })
   : payloadWrapped
+
+export default nextConfigFinal

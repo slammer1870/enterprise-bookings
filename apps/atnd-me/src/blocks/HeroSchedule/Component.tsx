@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { HeroBlock } from '@repo/website/src/blocks/hero/Component'
-import { Schedule } from '@repo/bookings-next'
+import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import type { Media } from '@/payload-types'
 import { getMediaUrl } from '@/utilities/getMediaUrl'
 
@@ -41,11 +41,6 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
     // Payload Media objects have a url property when populated
     let transformedBackgroundImage: string | number | { url?: string; alt?: string } | undefined
 
-    // Debug: log the backgroundImage to see what we're receiving
-    if (typeof window !== 'undefined') {
-        console.log('HeroScheduleBlock - backgroundImage:', backgroundImage)
-    }
-
     if (typeof backgroundImage === 'object' && backgroundImage !== null) {
         const media = backgroundImage as { url?: string; updatedAt?: string; alt?: string }
         // Check if it's a populated Media object with url property
@@ -58,32 +53,13 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
                     url: mediaUrl,
                     alt: media.alt || undefined
                 }
-                if (typeof window !== 'undefined') {
-                    console.log('HeroScheduleBlock - transformed backgroundImage URL:', mediaUrl)
-                }
             } else {
-                if (typeof window !== 'undefined') {
-                    console.warn('HeroScheduleBlock - getMediaUrl returned empty string for:', media.url)
-                }
                 transformedBackgroundImage = undefined
             }
         } else {
-            // Media object but no url - might be unpopulated
-            if (typeof window !== 'undefined') {
-                console.warn('HeroScheduleBlock - backgroundImage is object but has no valid url property:', {
-                    hasUrl: 'url' in media,
-                    urlValue: media.url,
-                    mediaKeys: Object.keys(media),
-                    fullMedia: media
-                })
-            }
             transformedBackgroundImage = undefined
         }
     } else if (typeof backgroundImage === 'number') {
-        // It's just an ID - media wasn't populated (need depth in query)
-        if (typeof window !== 'undefined') {
-            console.warn('HeroScheduleBlock - backgroundImage is a number (ID), not populated:', backgroundImage)
-        }
         transformedBackgroundImage = backgroundImage
     } else if (typeof backgroundImage === 'string') {
         transformedBackgroundImage = backgroundImage
@@ -107,11 +83,6 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
         transformedLogo = undefined
     }
 
-    // Debug: log final transformed value
-    if (typeof window !== 'undefined') {
-        console.log('HeroScheduleBlock - Final transformedBackgroundImage:', transformedBackgroundImage)
-    }
-
     return (
         <div className="flex flex-col md:flex-row w-full">
             {/* Hero Section - Full width on mobile, half width on desktop */}
@@ -133,7 +104,7 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
             <div className="w-full md:w-1/2 lg:w-1/3 flex items-center justify-center bg-background p-8 text-foreground lg:p-12">
                 <div className="w-full max-w-lg">
                     <h2 className="mb-8 text-center text-3xl font-bold">Schedule</h2>
-                    <Schedule />
+                    <ScheduleLazy />
                 </div>
             </div>
         </div>
