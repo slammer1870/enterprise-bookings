@@ -33,6 +33,7 @@ Streamlined suite (~23 tests) covering critical user flows. **Turborepo-optimize
 - **stripe-connect-onboarding.e2e.spec.ts** (3 tests) – Connect CTA, OAuth redirect, connected state
 - **admin-payment-methods-gated-by-connect.e2e.spec.ts** (2 tests) – Payment controls gated by Stripe Connect
 - **admin-panel-access.e2e.spec.ts** (1 test) – Role-based admin access (super-admin, tenant-admin, regular user)
+- **staff-admin-custom-domain.e2e.spec.ts** (3 tests) – Staff role reaches admin on tenant custom-domain host (`*.nip.io`) and subdomain; cross-tenant admin blocked
 - **tenant-routing.e2e.spec.ts** (3 tests) – Root domain, subdomain routing, invalid subdomain handling
 - **tenant-scoped-page-slugs.e2e.spec.ts** (1 test) – Identical slugs across tenants route correctly
 
@@ -58,10 +59,14 @@ Streamlined suite (~23 tests) covering critical user flows. **Turborepo-optimize
 
 ```bash
 # Run e2e tests with Turbo (uses cached build, runs against production)
-turbo run test:e2e --filter=atnd-me
+pnpm test:e2e:atnd-me
+# equivalent: turbo run test:e2e --filter=atnd-me
 
-# Run e2e tests in CI (optimized)
-turbo run test:e2e:ci --filter=atnd-me
+# Run a single spec (Playwright matches the argument as a regex; avoid raw `.spec.ts` paths)
+pnpm test:e2e:atnd-me -- staff-admin-custom-domain
+
+# Run e2e tests in CI (optimized, atnd-me only)
+pnpm test:e2e:ci:atnd-me
 
 # Run all tests (integration + e2e)
 turbo run test --filter=atnd-me

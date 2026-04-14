@@ -16,12 +16,13 @@ function tenantBaseUrl(tenantSlug: string): string {
 
 /**
  * Node's DNS often does not resolve `*.localhost` (getaddrinfo ENOTFOUND), while browsers usually do.
- * For API calls, connect to the same TCP origin as `BASE_URL` and send the tenant virtual host.
+ * For custom domains in dev (e.g. *.nip.io →127.0.0.1), the browser uses a different Host than `BASE_URL`.
+ * Connect to the same TCP origin as `BASE_URL` and send the logical `Host` header.
  *
- * @param logicalOrigin - e.g. `http://slug.localhost:3000`
+ * @param logicalOrigin - e.g. `http://slug.localhost:3000` or `http://tenant.example.127.0.0.1.nip.io:3000`
  * @param apiPath - path starting with `/`, e.g. `/api/users/login`
  */
-function resolveLocalhostTenantApiRequest(
+function resolveLoopbackTenantApiRequest(
   logicalOrigin: string,
   apiPath: string
 ): { url: string; extraHeaders?: Record<string, string> } {
@@ -29,40 +30,32 @@ function resolveLocalhostTenantApiRequest(
   try {
     const logical = new URL(logicalOrigin)
     const root = new URL(BASE_URL)
-    const isTenantSubdomainLocalhost =
-      logical.hostname.includes('localhost') &&
-      logical.hostname !== 'localhost' &&
-      logical.hostname.endsWith('.localhost')
-    if (isTenantSubdomainLocalhost) {
-      return {
-        url: `${root.origin}${path}`,
-        extraHeaders: { Host: logical.host },
-      }
+    if (logical.origin === root.origin) {
+      return { url: `${logical.origin}${path}` }
     }
-    return { url: `${logicalOrigin.replace(/\/$/, '')}${path}` }
+    return {
+      url: `${root.origin}${path}`,
+      extraHeaders: { Host: logical.host },
+    }
   } catch {
     return { url: `${logicalOrigin.replace(/\/$/, '')}${path}` }
   }
 }
 
-/** Worker `request` + POST to loopback with `Host: slug.localhost` can file cookies under localhost; remap for tenant navigation. */
-function remapCookiesForTenantAdminOrigin(
+/** Worker `request` + POST to loopback with a virtual `Host` stores cookies under localhost; remap for real navigation host. */
+function remapCookiesForAdminOrigin(
   cookies: { name: string; value: string; domain: string; path: string; expires: number; httpOnly: boolean; secure: boolean; sameSite: 'Strict' | 'Lax' | 'None' }[],
   adminOrigin: string
 ): typeof cookies {
   try {
     const u = new URL(adminOrigin)
-    if (!u.hostname.endsWith('.localhost') || u.hostname === 'localhost') {
-      return cookies
-    }
-    const tenantHost = u.hostname
+    const targetHost = u.hostname
     return cookies.map((c) => {
       const raw = c.domain || ''
       const dom = raw.replace(/^\./, '')
-      if (dom === tenantHost) return c
-      // Loopback connection host / missing domain → wrong host for `*.localhost` navigation
+      if (dom === targetHost) return c
       if (dom === 'localhost' || dom === '127.0.0.1' || dom === '') {
-        return { ...c, domain: tenantHost }
+        return { ...c, domain: targetHost }
       }
       return c
     })
@@ -168,7 +161,7 @@ export async function loginToAdminPanel(
   const origin = opts?.adminOrigin ?? BASE_URL
   const apiRequest = opts?.request ?? page.request
   const { url: apiLoginUrl, extraHeaders } = opts?.adminOrigin
-    ? resolveLocalhostTenantApiRequest(opts.adminOrigin, '/api/users/login')
+    ? resolveLoopbackTenantApiRequest(opts.adminOrigin, '/api/users/login')
     : { url: `${BASE_URL}/api/users/login`, extraHeaders: undefined }
   const apiLogin = await apiRequest.post(apiLoginUrl, {
     data: { email, password },
@@ -179,9 +172,7 @@ export async function loginToAdminPanel(
     // After API login, ensure session cookies exist in the browser context.
     // `apiRequest` cookie jar isn't guaranteed to be synced to `page.context()` automatically.
     const state = await apiRequest.storageState()
-    const cookies = opts?.adminOrigin
-      ? remapCookiesForTenantAdminOrigin(state.cookies, opts.adminOrigin)
-      : state.cookies
+    const cookies = opts?.adminOrigin ? remapCookiesForAdminOrigin(state.cookies, opts.adminOrigin) : state.cookies
     if (cookies.length) {
       await page.context().addCookies(cookies)
     }
@@ -268,6 +259,33 @@ export async function loginAsTenantAdmin(
   await loginToAdminPanel(page, adminEmail, password, {
     ...(request != null ? { request } : {}),
     ...(adminOrigin != null ? { adminOrigin } : {}),
+  })
+}
+
+/**
+ * Log in as a staff user (Payload admin role `staff`) on a specific admin origin.
+ * Use `adminOrigin` when the session must be scoped to a tenant subdomain or custom domain host.
+ */
+export async function loginAsStaff(
+  page: Page,
+  email: string,
+  passwordOrOpts:
+    | string
+    | { request?: APIRequestContext; password?: string; adminOrigin: string } = 'password'
+): Promise<void> {
+  const password =
+    typeof passwordOrOpts === 'string'
+      ? passwordOrOpts
+      : passwordOrOpts.password ?? 'password'
+  const optsObj = typeof passwordOrOpts === 'object' ? passwordOrOpts : undefined
+  const request = optsObj?.request
+  const adminOrigin = optsObj?.adminOrigin
+  if (!adminOrigin) {
+    throw new Error('loginAsStaff requires adminOrigin (tenant subdomain or custom domain URL)')
+  }
+  await loginToAdminPanel(page, email, password, {
+    ...(request != null ? { request } : {}),
+    adminOrigin,
   })
 }
 
@@ -370,7 +388,7 @@ export async function loginAsRegularUserViaApi(
   // Decorrelated jitter backoff (prevents thundering herd).
   let backoffMs = 250
 
-  const { url: signInUrl, extraHeaders: signInHeaders } = resolveLocalhostTenantApiRequest(
+  const { url: signInUrl, extraHeaders: signInHeaders } = resolveLoopbackTenantApiRequest(
     baseURL,
     '/api/auth/sign-in/email'
   )

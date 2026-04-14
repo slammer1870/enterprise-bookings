@@ -4,10 +4,59 @@ import { getPayload } from '@/lib/payload'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
-import { getPayloadTenantIdFromRequest, getTenantSlugFromRequest } from '@/utilities/tenantRequest'
+import { getPlatformHostname } from '@/utilities/getURL'
+import {
+  collectTenantLookupHostnames,
+  getPayloadTenantIdFromRequest,
+  getTenantSlugFromRequest,
+} from '@/utilities/tenantRequest'
+import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 function parsePayloadTenantId(request: NextRequest): number | null {
   return getPayloadTenantIdFromRequest({ cookies: request.cookies })
+}
+
+/**
+ * Resolve tenant id from Host / X-Forwarded-Host when the site is on a custom domain
+ * (same rules as middleware + `resolveTenantIdFromRequest` in tenant-scoped).
+ * Without this, `tenant-slug` may be skipped (proxy Host = platform) and slug-from-host is null for custom domains → wrong403/redirect loops.
+ */
+async function resolveTenantIdFromRequestHosts(args: {
+  payload: Awaited<ReturnType<typeof getPayload>>
+  request: NextRequest
+}): Promise<number | null> {
+  const { payload, request } = args
+  const platformHostname = getPlatformHostname()?.toLowerCase() ?? null
+
+  for (const hostRaw of collectTenantLookupHostnames(request.headers)) {
+    const hostname = (hostRaw.split(':')[0] ?? '').trim().toLowerCase()
+    if (!hostname) continue
+    if (hostname.includes('localhost')) continue
+    if (platformHostname && (hostname === platformHostname || hostname.endsWith(`.${platformHostname}`))) {
+      continue
+    }
+
+    const normalized = normalizeCustomDomain(hostname)
+    if (!normalized) continue
+
+    const result = await payload
+      .find({
+        collection: 'tenants',
+        where: { domain: { equals: normalized } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        select: { id: true } as any,
+      })
+      .catch(() => null)
+
+    const tenantDoc = result?.docs?.[0] as { id?: unknown } | undefined
+    const raw = tenantDoc?.id
+    if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+    if (typeof raw === 'string' && /^\d+$/.test(raw)) return parseInt(raw, 10)
+  }
+
+  return null
 }
 
 async function resolveRequestedTenantId(args: {
@@ -19,24 +68,27 @@ async function resolveRequestedTenantId(args: {
   // Fallback: first-load of `/admin/login` on a tenant host may not yet have `payload-tenant`.
   // Use the host-scoped `tenant-slug` cookie (set by middleware) to resolve the tenant id.
   const tenantSlug = getTenantSlugFromRequest({ cookies: request.cookies, headers: request.headers })?.toLowerCase()
-  if (!tenantSlug || !/^[a-z0-9-]+$/.test(tenantSlug)) return null
+  if (tenantSlug && /^[a-z0-9-]+$/.test(tenantSlug)) {
+    const result = await payload
+      .find({
+        collection: 'tenants',
+        where: { slug: { equals: tenantSlug } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        // Only need id (avoid leaking tenant fields).
+        select: { id: true } as any,
+      })
+      .catch(() => null)
 
-  const result = await payload
-    .find({
-      collection: 'tenants',
-      where: { slug: { equals: tenantSlug } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      // Only need id (avoid leaking tenant fields).
-      select: { id: true } as any,
-    })
-    .catch(() => null)
+    const tenant = result?.docs?.[0] as { id?: unknown } | undefined
+    const id = tenant?.id
+    if (typeof id === 'number' && Number.isFinite(id)) return id
+    if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  }
 
-  const tenant = result?.docs?.[0] as { id?: unknown } | undefined
-  const id = tenant?.id
-  if (typeof id === 'number' && Number.isFinite(id)) return id
-  if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  const fromHost = await resolveTenantIdFromRequestHosts({ payload, request })
+  if (fromHost != null) return fromHost
 
   return parsePayloadTenantId(request)
 }

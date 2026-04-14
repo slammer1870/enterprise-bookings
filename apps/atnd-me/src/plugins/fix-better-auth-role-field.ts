@@ -23,13 +23,14 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
       const access = {
         // Local API / seeds / `overrideAccess` creates often have no session user. Without this,
         // `role` is stripped and the first-user bootstrap hook + integration tests cannot persist RBAC.
-        // Abuse surface is bounded by the Users collection `create` access (still open today — tighten there if exposing REST).
+        // Only platform super-admins and tenant org admins may set roles in the admin UI; staff cannot
+        // assign admin or super-admin. (Hooks enforce the same for API/local edge cases.)
         create: ({ req }: { req: PayloadRequest }) =>
-          !req.user || isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
+          !req.user || isAdmin(req.user) || isTenantAdmin(req.user),
         read: ({ req }: { req: PayloadRequest }) =>
           isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
         update: ({ req }: { req: PayloadRequest }) =>
-          !req.user || isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
+          !req.user || isAdmin(req.user) || isTenantAdmin(req.user),
       }
       return { ...field, access } as typeof field
     }

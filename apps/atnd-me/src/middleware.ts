@@ -417,47 +417,53 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
 
   if (res.status !== 403) return null
 
-  // Forbidden: clear tenant cookies and send user to platform root admin.
+  const appendTenantCookieClears = (redirectResponse: NextResponse) => {
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/'))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin'))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/'))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections'))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/'))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/'))
+    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/'))
+
+    if (rootHostname && !rootHostname.includes('localhost')) {
+      const domain = `.${rootHostname}`
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/', domain))
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin', domain))
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/', domain))
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections', domain))
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/', domain))
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/', domain))
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/', domain))
+    }
+  }
+
+  // On login, stay on this URL: a redirect to the same path loops. Clear stale tenant cookies and
+  // render the login page so the next navigation gets a consistent401/204 from authorize-tenant.
+  if (isLoginRoute) {
+    const res = NextResponse.next()
+    appendTenantCookieClears(res)
+    return res
+  }
+
+  // Forbidden on other admin routes: clear tenant cookies and send user to platform root admin.
   const redirectUrl = request.nextUrl.clone()
   redirectUrl.pathname = '/admin'
   redirectUrl.search = ''
 
   if (rootHostname) {
     redirectUrl.hostname = rootHostname
-    // Preserve port for local dev.
     if (rootHostname.includes('localhost')) {
       redirectUrl.port = request.nextUrl.port || redirectUrl.port
     } else {
       redirectUrl.port = ''
     }
   }
-  // Prevent loops (e.g. tenant-admin on root /admin with no tenant context):
-  // if redirect target equals current URL, send to login on root host.
   if (redirectUrl.toString() === request.nextUrl.toString()) {
     redirectUrl.pathname = '/admin/login'
   }
 
   const redirectResponse = NextResponse.redirect(redirectUrl)
-
-  // Clear both host-scoped and domain-scoped cookies.
-  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/'))
-  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin'))
-  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/'))
-  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections'))
-  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/'))
-  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/'))
-  redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/'))
-
-  if (rootHostname && !rootHostname.includes('localhost')) {
-    const domain = `.${rootHostname}`
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/', domain))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin', domain))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/', domain))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections', domain))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/', domain))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/', domain))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/', domain))
-  }
-
+  appendTenantCookieClears(redirectResponse)
   return redirectResponse
 }
