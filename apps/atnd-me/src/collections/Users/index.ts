@@ -44,7 +44,7 @@ export const Users: CollectionConfig = {
         }
         return data
       },
-      // Prevent non–super-admins from granting super-admin. Tenant org admins may toggle org `admin` for users they manage.
+      // Prevent non–super-admins from granting super-admin. Tenant org admins may assign `user`, `admin`, and `staff` only.
       ({ data, req, originalDoc, operation }) => {
         if (!data) return data
         if (req.user && isAdmin(req.user)) return data
@@ -52,20 +52,31 @@ export const Users: CollectionConfig = {
         const skipSuperAdminStrip =
           (req.context as Record<string, unknown> | undefined)?.[FIRST_USER_CREATE_CTX] === true
 
+        // Staff cannot assign org admin or platform super-admin (defense in depth beside field access).
+        if (req.user && isStaff(req.user) && !isTenantAdmin(req.user) && d.role !== undefined) {
+          if (operation === 'update' && originalDoc) {
+            d.role = getEffectiveUserRoles(originalDoc as SharedUser) as typeof d.role
+          } else if (operation === 'create') {
+            const raw = Array.isArray(d.role) ? d.role : [d.role]
+            const cleaned = [
+              ...new Set(
+                raw.filter(
+                  (r): r is string =>
+                    typeof r === 'string' && r !== 'admin' && r !== 'super-admin',
+                ),
+              ),
+            ]
+            d.role = cleaned.length > 0 ? cleaned : ['user']
+          }
+        }
+
+        const TENANT_ASSIGNABLE_ROLES = new Set(['user', 'admin', 'staff'])
+
         if (req.user && isTenantAdmin(req.user) && d.role !== undefined) {
-          const existing = getEffectiveUserRoles(originalDoc as SharedUser)
-
-          const desired = Array.isArray(d.role) ? d.role : d.role !== undefined ? [d.role] : []
-
-          const wantsOrgAdmin = desired.includes('admin')
-
-          const next = wantsOrgAdmin
-            ? Array.from(new Set([...existing.filter((r) => r !== 'super-admin'), 'admin']))
-            : existing.filter((r) => r !== 'admin')
-
-          const nextWithUser = next.length > 0 ? next : ['user']
-
-          d.role = nextWithUser
+          const desiredRaw = Array.isArray(d.role) ? d.role : [d.role]
+          const desired = desiredRaw.filter((r): r is string => typeof r === 'string' && r.length > 0)
+          const allowedOnly = [...new Set(desired.filter((r) => TENANT_ASSIGNABLE_ROLES.has(r)))]
+          d.role = allowedOnly.length > 0 ? allowedOnly : ['user']
         }
 
         // Only enforce super-admin add/remove rules on updates. On creates, stripping here removed
@@ -78,7 +89,11 @@ export const Users: CollectionConfig = {
             const arr = Array.isArray(d.role) ? d.role : [d.role]
             if (arr.includes('super-admin') && !existingHasSuperAdmin) {
               d.role = arr.filter((r) => r !== 'super-admin') as typeof d.role
-            } else if (!arr.includes('super-admin') && existingHasSuperAdmin) {
+            } else if (
+              !isTenantAdmin(req.user) &&
+              !arr.includes('super-admin') &&
+              existingHasSuperAdmin
+            ) {
               // Do not re-inject super-admin when the row mixes org/staff with super-admin (invalid);
               // otherwise a tenant org admin could not clear a mistaken super-admin assignment.
               const invalidSuperAdminCombo =

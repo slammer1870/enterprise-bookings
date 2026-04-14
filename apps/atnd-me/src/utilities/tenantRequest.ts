@@ -80,7 +80,23 @@ export function getTenantSlugFromRequest(source?: TenantRequestSource | null): s
   const cookieValue = source.cookies?.get?.('tenant-slug')?.value?.trim()
   // Ignore stale tenant-slug cookies on the platform root host. Root-host requests should only
   // derive tenant context from explicit headers/params or the actual request hostname.
-  if (cookieValue && !isBaseHostRequest(source.headers)) return cookieValue
+  //
+  // Proxies sometimes send `Host: <platform apex>` while `X-Forwarded-Host` is the tenant
+  // custom domain. In that case isBaseHostRequest is true but the browser is still on a tenant
+  // host — use the cookie so authorize-tenant matches middleware.
+  if (cookieValue) {
+    const baseByHost = isBaseHostRequest(source.headers)
+    const forwarded = source.headers?.get?.('x-forwarded-host')?.split(',')[0]?.trim() ?? ''
+    const forwardedHostname = (forwarded.split(':')[0] ?? '').toLowerCase()
+    const platformHostname = getPlatformHostname()?.toLowerCase() ?? null
+    const forwardedIsNonPlatformTenant =
+      Boolean(forwardedHostname) &&
+      Boolean(platformHostname) &&
+      forwardedHostname !== platformHostname &&
+      !forwardedHostname.endsWith(`.${platformHostname}`)
+
+    if (!baseByHost || forwardedIsNonPlatformTenant) return cookieValue
+  }
 
   const headerValue = source.headers?.get?.('x-tenant-slug')?.trim()
   if (headerValue) return headerValue

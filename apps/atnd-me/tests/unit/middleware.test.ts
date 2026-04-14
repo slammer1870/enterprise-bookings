@@ -303,7 +303,7 @@ describe('Middleware', () => {
       expect(res.headers.get('location')).toBe('http://croilan.atnd-me.com/admin')
     })
 
-    it('redirects forbidden /admin/login to platform root admin', async () => {
+    it('on forbidden /admin/login clears tenant cookies and continues (no redirect loop to platform root)', async () => {
       globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
         if (String(url).includes('/api/admin/authorize-tenant')) {
@@ -320,8 +320,11 @@ describe('Middleware', () => {
       })
 
       const res = await middleware(req)
-      expect(res.status).toBe(307)
-      expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
+      expect(res.status).toBe(200)
+      expect(res.headers.get('location')).toBeNull()
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).toContain('payload-tenant=; Path=/; Max-Age=0')
+      expect(setCookie).toContain('tenant-slug=; Path=/; Max-Age=0')
     })
 
     it('redirects tenant subdomain /admin to platform root when tenant auth returns forbidden', async () => {
