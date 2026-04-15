@@ -7,12 +7,14 @@ import { useQuery } from "@tanstack/react-query";
 
 import { ToggleDate } from "@repo/ui/components/toggle-date";
 
+import type { LoginToBookUrlResolver } from "./timeslots/checkin-button";
 import { TimeslotList } from "./timeslots/timeslot-list";
 import { Loader2 } from "lucide-react";
 
 export function Schedule({
   manageHref,
   tenantId,
+  loginToBookUrl,
 }: {
   /**
    * Optional function or string to generate the manage booking URL.
@@ -24,6 +26,11 @@ export function Schedule({
    * When provided (e.g. on root home page), filter timeslots to this tenant only.
    */
   tenantId?: number;
+  /**
+   * Override where anonymous users go when tapping Book/Check-in on the schedule
+   * (`loginToBook` action). Defaults to `/complete-booking` with a booking callback.
+   */
+  loginToBookUrl?: LoginToBookUrlResolver;
 }) {
   const trpc = useTRPC();
 
@@ -55,7 +62,11 @@ export function Schedule({
           <span className="text-sm">Loading schedule...</span>
         </div>
       ) : (
-        <TimeslotList timeslots={Array.isArray(timeslots) ? timeslots : []} manageHref={manageHref} />
+        <TimeslotList
+          timeslots={Array.isArray(timeslots) ? timeslots : []}
+          manageHref={manageHref}
+          loginToBookUrl={loginToBookUrl}
+        />
       )}
     </div>
   );

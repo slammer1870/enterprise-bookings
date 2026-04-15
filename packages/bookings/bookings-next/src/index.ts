@@ -3,6 +3,7 @@ export { Schedule } from './components/schedule'
 export { TimeslotList } from './components/timeslots/timeslot-list'
 export { TimeslotDetail } from './components/timeslots/timeslot-detail'
 export { CheckInButton } from './components/timeslots/checkin-button'
+export type { LoginToBookUrlResolver } from './components/timeslots/checkin-button'
 
 // Booking components
 export { BookingSummary } from './components/bookings/booking-summary'

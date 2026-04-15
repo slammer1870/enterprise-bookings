@@ -1,9 +1,12 @@
 import { ScheduleTimeslot } from '@repo/shared-types'
+
+import type { LoginToBookUrlResolver } from './checkin-button'
 import { TimeslotDetail } from './timeslot-detail'
 
 export function TimeslotList({ 
   timeslots,
   manageHref,
+  loginToBookUrl,
 }: { 
   timeslots: ScheduleTimeslot[];
   /**
@@ -12,12 +15,18 @@ export function TimeslotList({
    * Passed through to TimeslotDetail components.
    */
   manageHref?: string | ((timeslotId: number) => string);
+  loginToBookUrl?: LoginToBookUrlResolver;
 }) {
   return (
     <div className="flex flex-col gap-4 md:gap-8 w-full">
       {timeslots && timeslots?.length > 0 ? (
         timeslots?.map((timeslot) => (
-          <TimeslotDetail key={timeslot.id} timeslot={timeslot} manageHref={manageHref} />
+          <TimeslotDetail
+            key={timeslot.id}
+            timeslot={timeslot}
+            manageHref={manageHref}
+            loginToBookUrl={loginToBookUrl}
+          />
         ))
       ) : (
         <p className="text-muted-foreground">No timeslots scheduled for today</p>

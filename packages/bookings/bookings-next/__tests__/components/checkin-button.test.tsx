@@ -6,8 +6,9 @@ import userEvent from '@testing-library/user-event'
 import { CheckInButton } from '../../src/components/timeslots/checkin-button'
 import { toast } from 'sonner'
 
+const routerPush = vi.fn()
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: routerPush }),
 }))
 
 vi.mock('@repo/trpc/client', () => ({
@@ -56,6 +57,7 @@ describe('CheckInButton (schedule single-slot shortcut)', () => {
   beforeEach(() => {
     invalidateQueriesMock.mockClear()
     ;(toast.success as any).mockClear?.()
+    routerPush.mockClear()
     nextRedirectUrl = null
   })
 
@@ -104,6 +106,32 @@ describe('CheckInButton (schedule single-slot shortcut)', () => {
 
     expect(invalidateQueriesMock).toHaveBeenCalled()
     expect(toast.success).not.toHaveBeenCalledWith('Booked')
+  })
+
+  it('uses loginToBookUrl when action is loginToBook', async () => {
+    const user = userEvent.setup()
+    const resolver = vi.fn(() => '/auth/sign-in?callbackUrl=%2Fbookings%2F99')
+
+    render(
+      <CheckInButton
+        timeslotId={99}
+        type="adult"
+        loginToBookUrl={resolver}
+        scheduleState={{
+          availability: 'open',
+          viewer: { confirmedIds: [], confirmedCount: 0, waitingIds: [], waitingCount: 0 },
+          action: 'loginToBook',
+          label: 'Book',
+        }}
+      />
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Book' }))
+
+    expect(resolver).toHaveBeenCalledWith(99, { isTrial: false })
+    expect(routerPush).toHaveBeenCalledWith('/auth/sign-in?callbackUrl=%2Fbookings%2F99', {
+      scroll: false,
+    })
   })
 })
 
