@@ -99,6 +99,7 @@ import * as migration_20260423_class_pass_types_days_until_expiration from './20
 import * as migration_20260424_cl_find_sanctuary_map_embed_url from './20260424_cl_find_sanctuary_map_embed_url';
 import * as migration_20260425_cl_sauna_benefits_background_image_id from './20260425_cl_sauna_benefits_background_image_id';
 import * as migration_20260425_bookings_tenant_user_id_idx from './20260425_bookings_tenant_user_id_idx';
+import * as migration_20260425_cl_sauna_benefits_tagline from './20260425_cl_sauna_benefits_tagline';
 
 export const migrations = [
   {
@@ -605,5 +606,10 @@ export const migrations = [
     up: migration_20260425_bookings_tenant_user_id_idx.up,
     down: migration_20260425_bookings_tenant_user_id_idx.down,
     name: '20260425_bookings_tenant_user_id_idx',
+  },
+  {
+    up: migration_20260425_cl_sauna_benefits_tagline.up,
+    down: migration_20260425_cl_sauna_benefits_tagline.down,
+    name: '20260425_cl_sauna_benefits_tagline',
   },
 ];

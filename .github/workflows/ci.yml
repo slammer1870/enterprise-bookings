@@ -303,11 +303,25 @@ jobs:
         env:
           E2E_USE_PROD: "true"
 
+      # Int tests mutate the shared DB; reset once here so Playwright can start the server without
+      # running migrate:fresh again in webServer (PW_E2E_SKIP_WEBSERVER_MIGRATE).
+      - name: Reset database for E2E (${{ matrix.app.name }})
+        env:
+          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
+          NODE_ENV: test
+          CI: true
+        run: |
+          pnpm run payload migrate:fresh --force-accept-warning
+          sleep 2
+        working-directory: ${{ matrix.app.app_path }}
+
       - name: Run E2E tests for ${{ matrix.app.name }}
         run: pnpm run test:e2e:ci
         working-directory: ${{ matrix.app.app_path }}
         env:
           E2E_USE_PROD: "true"
+          PW_E2E_SKIP_WEBSERVER_MIGRATE: "true"
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
