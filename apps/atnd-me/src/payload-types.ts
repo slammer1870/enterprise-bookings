@@ -2350,6 +2350,10 @@ export interface ClFindSanctuaryBlock {
    * e.g. parking, access tips
    */
   note?: string | null;
+  /**
+   * Full iframe src from Google Maps (Share → Embed a map). Omit to use the default Wicklow location.
+   */
+  mapEmbedUrl?: string | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'clFindSanctuary';
@@ -4248,6 +4252,7 @@ export interface ClFindSanctuaryBlockSelect<T extends boolean = true> {
   heading?: T;
   address?: T;
   note?: T;
+  mapEmbedUrl?: T;
   id?: T;
   blockName?: T;
 }

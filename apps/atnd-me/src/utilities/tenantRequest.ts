@@ -123,14 +123,33 @@ export function collectTenantLookupHostnames(headers?: HeadersLike | Headers | n
   if (!headers || typeof headers.get !== 'function') return []
   const forwarded = headers.get('x-forwarded-host')?.split(',')[0]?.trim()
   const host = headers.get('host')?.trim()
+  const origin = headers.get('origin')?.trim()
+  const referer = headers.get('referer')?.trim()
+
+  const hostnameFromUrl = (value: string | undefined): string | null => {
+    if (!value) return null
+    try {
+      const hostname = new URL(value).hostname?.trim().toLowerCase()
+      return hostname || null
+    } catch {
+      return null
+    }
+  }
+
   const out: string[] = []
-  for (const h of [forwarded, host]) {
-    if (!h) continue
-    const hostname = h.split(':')[0]?.trim()
+  const pushHostname = (raw: string | null | undefined) => {
+    if (!raw) return
+    const hostname = raw.split(':')[0]?.trim().toLowerCase()
     if (hostname && !out.includes(hostname)) {
       out.push(hostname)
     }
   }
+
+  for (const h of [forwarded, host]) {
+    pushHostname(h)
+  }
+  pushHostname(hostnameFromUrl(origin))
+  pushHostname(hostnameFromUrl(referer))
   return out
 }
 
