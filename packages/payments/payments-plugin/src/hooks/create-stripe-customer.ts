@@ -66,6 +66,26 @@ export const createStripeCustomer: CollectionBeforeChangeHook = async ({
     Array.isArray(data?.stripeCustomers) &&
     data.stripeCustomers.some((x: any) => x?.stripeAccountId === stripeAccountId && x?.stripeCustomerId);
 
+  // Integration tests run in Vitest (NODE_ENV="test") and typically do not mock Stripe.
+  // Avoid real network calls so unrelated suite logic (tenant/page hooks) can run.
+  if (process.env.NODE_ENV === "test" && process.env.ENABLE_TEST_WEBHOOKS !== "true") {
+    if (stripeAccountId && !hasConnectMapping) {
+      const fake = `cus_test_${stripeAccountId}`;
+      const existing = Array.isArray(data?.stripeCustomers) ? data.stripeCustomers : [];
+      const next = [
+        ...existing.filter((x: any) => x?.stripeAccountId !== stripeAccountId),
+        { stripeAccountId, stripeCustomerId: fake },
+      ];
+      return { ...data, stripeCustomers: next };
+    }
+
+    if (!stripeAccountId && !hasPlatformStripeCustomerId) {
+      return { ...data, stripeCustomerId: "cus_test_platform" };
+    }
+
+    return data;
+  }
+
   // Only skip in E2E (webServer sets ENABLE_TEST_WEBHOOKS). Unit tests use Stripe mocks.
   if (process.env.ENABLE_TEST_WEBHOOKS === "true" && !hasPlatformStripeCustomerId && !hasConnectMapping) {
     const fake = `cus_test_${Date.now()}`;

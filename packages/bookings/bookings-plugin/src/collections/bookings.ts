@@ -323,10 +323,15 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
               context: { triggerAfterChange: false },
             });
           } else {
+            const originalLockOutTimeRaw = (timeslot as any).originalLockOutTime
+            const originalLockOutTime =
+              typeof originalLockOutTimeRaw === 'number' && Number.isFinite(originalLockOutTimeRaw)
+                ? originalLockOutTimeRaw
+                : 0
             await req.payload.update({
               collection: timeslotsSlug as CollectionSlug,
               id: timeslotId,
-              data: { lockOutTime: (timeslot as any).originalLockOutTime },
+              data: { lockOutTime: originalLockOutTime },
               context: { triggerAfterChange: false },
             });
           }
@@ -335,6 +340,16 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
             error?.status === 404 ||
             error?.name === "NotFound" ||
             error?.message?.includes("Cannot use 'in' operator")
+          ) {
+            return doc;
+          }
+
+          // Non-fatal: if lockout restore/update fails (e.g. legacy rows missing
+          // originalLockOutTime or schema validation rejects the value), don't
+          // fail booking cancellation. We only use lockout for capacity UX.
+          if (
+            error?.name === "ValidationError" ||
+            error?.message?.toLowerCase?.().includes("lockout")
           ) {
             return doc;
           }

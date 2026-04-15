@@ -120,7 +120,10 @@ export async function POST(request: NextRequest) {
 
         const now = new Date()
         const daysUntilExpiration = resolveDaysUntilExpiration(classPassType ?? {})
-        const expirationDateOnly = classPassExpirationDateOnly(now, daysUntilExpiration)
+        const expirationDate = new Date(now)
+        expirationDate.setDate(expirationDate.getDate() + daysUntilExpiration)
+        const expirationDateISO = expirationDate.toISOString()
+        const expirationDateOnly = expirationDateISO.slice(0, 10)
         await payload.create({
           collection: 'class-passes' as import('payload').CollectionSlug,
           draft: false,
@@ -129,7 +132,10 @@ export async function POST(request: NextRequest) {
             tenant: tenant.id,
             type: classPassTypeId,
             quantity: passCredits,
-            expirationDate: expirationDateOnly,
+            // Payload `date` fields treat string inputs as date-only in local time
+            // and can shift the resulting stored UTC day. Use a full ISO timestamp
+            // so integration tests (and real clients) get stable YYYY-MM-DD.
+            expirationDate: expirationDateISO,
             purchasedAt: now.toISOString().slice(0, 10),
             price: totalCents,
             status: 'active',

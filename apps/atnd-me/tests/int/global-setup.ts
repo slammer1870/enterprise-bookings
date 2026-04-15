@@ -1,4 +1,7 @@
 import { execSync } from 'child_process'
+// Vitest `setupFiles` run after `globalSetup`, but our global setup needs env vars
+// (like DATABASE_URI) to decide whether to start a container.
+import 'dotenv/config'
 import { createDbString } from '@repo/testing-config/src/utils/db'
 
 /**
@@ -10,6 +13,24 @@ import { createDbString } from '@repo/testing-config/src/utils/db'
  */
 export async function globalSetup() {
   console.log('[Vitest Global Setup] Starting...')
+
+  // Integration tests run in offline/sandboxed environments.
+  // Disable cloud storage (R2/S3) for Media uploads so tests don't attempt
+  // network calls (which can fail with `fetch failed` from the AWS SDK).
+  if (process.env.NODE_ENV === 'test') {
+    for (const k of [
+      'R2_WORKER_URL',
+      'R2_WORKER_SECRET',
+      'R2_BUCKET_NAME',
+      'R2_PUBLIC_URL',
+      'R2_ACCESS_KEY_ID',
+      'R2_ACCOUNT_ID',
+      'R2_SECRET_ACCESS_KEY',
+      'R2_USE_DEFAULT_CLIENT',
+    ]) {
+      delete process.env[k]
+    }
+  }
 
   if (!process.env.PAYLOAD_SECRET) {
     process.env.PAYLOAD_SECRET = 'test-secret-key-for-ci-builds-only'
@@ -36,7 +57,11 @@ export async function globalSetup() {
 
   // If we created the container, we must run migrations (CI or not). When DATABASE_URI is
   // pre-set by a workflow, the workflow runs migrate:fresh before test:int, so we skip here.
-  if (weCreatedDb && process.env.DATABASE_URI) {
+  const shouldRunMigrations =
+    Boolean(process.env.DATABASE_URI) &&
+    (weCreatedDb || process.env.FORCE_EXISTING_DB !== 'true')
+
+  if (shouldRunMigrations) {
     console.log('[Vitest Global Setup] Running payload migrate:fresh on new test DB...')
     const payloadAuthLoaderImport = '--import ./scripts/register-payload-auth-loader.mjs'
     const currentNodeOptions = process.env.NODE_OPTIONS ?? ''

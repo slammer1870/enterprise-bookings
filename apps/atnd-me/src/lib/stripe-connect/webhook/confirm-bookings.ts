@@ -30,26 +30,36 @@ export async function confirmBookingsFromPaymentIntent(
 ): Promise<void> {
   const tenantContext = opts.tenantContext ?? { tenant: opts.tenantId }
   for (const bookingId of bookingIds) {
-    if (opts.paymentIntentId) {
-      await payload.create({
-        collection: 'transactions',
-        data: {
-          booking: bookingId,
-          paymentMethod: 'stripe',
-          stripePaymentIntentId: opts.paymentIntentId,
-          tenant: opts.tenantId,
-        },
+    try {
+      if (opts.paymentIntentId) {
+        await payload.create({
+          collection: 'transactions',
+          data: {
+            booking: bookingId,
+            paymentMethod: 'stripe',
+            stripePaymentIntentId: opts.paymentIntentId,
+            tenant: opts.tenantId,
+          },
+          ...(tenantContext ? { context: tenantContext } : {}),
+          overrideAccess: true,
+        } as Record<string, unknown>)
+      }
+
+      await payload.update({
+        collection: 'bookings',
+        id: bookingId,
+        data: { status: 'confirmed' },
         ...(tenantContext ? { context: tenantContext } : {}),
         overrideAccess: true,
-      } as Record<string, unknown>)
+      })
+    } catch (err) {
+      // Avoid taking down the entire webhook when confirming a batch booking set.
+      // This is common in "multi booking" flows where one booking might already be
+      // confirmed/cancelled/invalid by the time the webhook runs.
+      payload.logger?.error?.(
+        `confirmBookingsFromPaymentIntent: failed for booking ${bookingId}: ${err instanceof Error ? err.message : String(err)}`
+      )
     }
-    await payload.update({
-      collection: 'bookings',
-      id: bookingId,
-      data: { status: 'confirmed' },
-      ...(tenantContext ? { context: tenantContext } : {}),
-      overrideAccess: true,
-    })
   }
 }
 

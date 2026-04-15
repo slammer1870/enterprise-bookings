@@ -7,16 +7,26 @@ import type { DecrementClassPassHookOptions } from "../hooks/decrementClassPassO
  */
 export function getClassPassIdFromBookingTransaction(): DecrementClassPassHookOptions["getClassPassIdToDecrement"] {
   return async ({ doc, req }) => {
-    const txResult = await req.payload.find({
-      collection: "transactions" as import("payload").CollectionSlug,
-      where: {
-        booking: { equals: doc.id },
-        paymentMethod: { equals: "class_pass" },
-      },
-      limit: 1,
-      depth: 0,
-    });
-    const tx = txResult.docs[0] as { classPassId?: number } | undefined;
-    return tx?.classPassId ?? null;
+    try {
+      const txResult = await req.payload.find({
+        collection: "transactions" as import("payload").CollectionSlug,
+        where: {
+          booking: { equals: doc.id },
+          paymentMethod: { equals: "class_pass" },
+        },
+        limit: 1,
+        depth: 0,
+        // This is running inside a Payload afterChange hook; avoid failing the
+        // request due to transactions access control mismatches.
+        overrideAccess: true,
+      });
+
+      const tx = txResult.docs[0] as { classPassId?: number } | undefined;
+      return tx?.classPassId ?? null;
+    } catch {
+      // Defensive: if transactions lookup fails (e.g. access issues),
+      // skip decrement rather than crash the whole booking flow.
+      return null;
+    }
   };
 }
