@@ -15,6 +15,8 @@ import {
 } from '../../access/userTenantAccess'
 
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
+import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
+import { cookiesFromHeaders } from '@/utilities/cookiesFromHeaders'
 
 const FIRST_USER_CREATE_CTX = '__atndFirstUserCreate' as const
 
@@ -137,6 +139,17 @@ export const Users: CollectionConfig = {
               if (tenantIds && tenantIds.length > 0) {
                 data.registrationTenant = tenantIds[0]
               }
+            }
+          } else if (!user && req.headers && typeof (req.headers as Headers).get === 'function') {
+            // Self-service signup (e.g. Better Auth): same host/cookie resolution as passwordless register.
+            const headers = req.headers as Headers
+            const fromRequest = await getTenantIdForCreateRequest(req.payload, {
+              headers,
+              cookies: cookiesFromHeaders(headers),
+              context: req.context as { tenant?: unknown } | undefined,
+            })
+            if (fromRequest != null && fromRequest !== '') {
+              data.registrationTenant = fromRequest
             }
           }
         }

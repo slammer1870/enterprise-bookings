@@ -1,9 +1,9 @@
 /**
  * E2E: passwordless registration from a tenant subdomain sets users.registrationTenant.
  *
- * Custom domains behind proxies (X-Forwarded-Host vs Host) are covered in
- * tests/int/registration-tenant-custom-domain.int.spec.ts — local Playwright uses
- * *.localhost, where middleware does not run the external custom-domain branch.
+ * Custom-domain browser flow: register-registration-tenant-custom-domain.e2e.spec.ts (nip.io).
+ * Proxy header ordering (X-Forwarded-Host vs Host) is covered in
+ * tests/int/registration-tenant-custom-domain.int.spec.ts.
  */
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
