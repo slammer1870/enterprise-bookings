@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
+import { findTenantByDomainNormalized } from '@/lib/tenantDbResolve'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
@@ -38,20 +39,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const payload = await getPayload()
-    const result = await payload.find({
-      collection: 'tenants',
-      where: { domain: { equals: normalized } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-    })
-
-    const tenant = result.docs[0]
-    if (!tenant || !tenant.slug) {
+    const tenant = await findTenantByDomainNormalized(payload, normalized)
+    if (!tenant) {
       return NextResponse.json(null, { status: 404 })
     }
 
-    return NextResponse.json({ slug: tenant.slug as string, id: (tenant as { id?: unknown }).id })
+    return NextResponse.json({ slug: tenant.slug, id: tenant.id })
   } catch (err) {
     console.error('[api/tenant-by-host]', err)
     return NextResponse.json(
