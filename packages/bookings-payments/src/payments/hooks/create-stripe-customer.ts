@@ -135,7 +135,15 @@ export const createStripeCustomer: CollectionBeforeChangeHook = async ({
       };
     } catch (error: unknown) {
       req.payload.logger?.error?.(`Error creating Stripe customer: ${error}`);
+      // Do not create a platform customer when this user belongs to a Connect tenant.
+      return data;
     }
+  }
+
+  // Tenant known but Connect not ready / not active: defer customer creation to checkout
+  // (e.g. ensureStripeCustomerIdForAccount) instead of the platform account.
+  if (tenantId != null) {
+    return data;
   }
 
   // Fallback: platform-level customer (legacy / non-tenant context).

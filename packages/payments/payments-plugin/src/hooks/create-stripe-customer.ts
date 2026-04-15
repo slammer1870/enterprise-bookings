@@ -115,7 +115,12 @@ export const createStripeCustomer: CollectionBeforeChangeHook = async ({
       };
     } catch (error: unknown) {
       req.payload.logger.error(`Error creating Stripe customer: ${error}`);
+      return data;
     }
+  }
+
+  if (tenantId != null) {
+    return data;
   }
 
   if (!hasPlatformStripeCustomerId) {
