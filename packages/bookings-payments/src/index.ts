@@ -24,6 +24,7 @@ export type { PaymentIntentSucceededArgs } from "./payments/webhooks/payment-int
 // Payments endpoints
 export { createCustomersProxy } from "./payments/endpoints/customers";
 export { ensureStripeCustomerIdForAccount } from "./payments/lib/ensure-stripe-customer";
+export { findUserByCustomer } from "./membership/webhooks/find-user-by-customer";
 // Membership webhooks (in-tree)
 export { subscriptionCreated } from "./membership/webhooks/subscription-created";
 export { subscriptionUpdated } from "./membership/webhooks/subscription-updated";

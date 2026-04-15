@@ -15,7 +15,24 @@ export async function findUserByCustomer(
       ? options.stripeAccountId.trim()
       : null;
 
-  // 1) Fast path: platform customer id match
+  // 1) Connect: user already has this account+customer in stripeCustomers (see ensureStripeCustomerIdForAccount)
+  if (stripeAccountId) {
+    const userByConnectMapping = await payload.find({
+      collection: "users" as const,
+      where: {
+        and: [
+          { "stripeCustomers.stripeAccountId": { equals: stripeAccountId } },
+          { "stripeCustomers.stripeCustomerId": { equals: customerIdString } },
+        ],
+      },
+      limit: 1,
+    });
+    if (userByConnectMapping.totalDocs > 0) {
+      return userByConnectMapping.docs[0] as User;
+    }
+  }
+
+  // 2) Fast path: platform customer id match
   if (!stripeAccountId) {
     const userByCustomerId = await payload.find({
       collection: "users" as const,

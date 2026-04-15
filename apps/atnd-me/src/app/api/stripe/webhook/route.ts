@@ -39,7 +39,11 @@ import {
 } from '@/lib/stripe-connect/webhook/sync-products'
 import { syncDiscountFromWebhookEvent } from '@/lib/stripe-connect/webhook/sync-discount-codes'
 import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
-import { resolveDaysUntilExpiration, classPassExpirationDateOnly } from '@repo/bookings-payments'
+import {
+  resolveDaysUntilExpiration,
+  classPassExpirationDateOnly,
+  findUserByCustomer,
+} from '@repo/bookings-payments'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -180,9 +184,9 @@ export async function POST(request: NextRequest) {
     event.type === 'customer.subscription.paused' ||
     event.type === 'customer.subscription.resumed'
 
-  // Subscription checkouts are created on the platform (tRPC uses platform Stripe), so
-  // customer.subscription.* arrives with no event.account. Resolve tenant from subscription
-  // metadata.tenantId when accountId is missing.
+  // Subscriptions may be on the platform (no event.account) or on a Connect account
+  // (event.account set). Connected-account customers map via users.stripeCustomers[], not
+  // only top-level stripeCustomerId. When accountId is missing, resolve tenant from metadata.tenantId.
   let tenant: Awaited<ReturnType<typeof resolveTenant>> = null
   if (isSubscriptionEvent && !accountId) {
     const subObj = event.data?.object as { metadata?: { tenantId?: string } } | undefined
@@ -329,17 +333,14 @@ export async function POST(request: NextRequest) {
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }
-      const userResult = await payload.find({
-        collection: 'users',
-        where: { stripeCustomerId: { equals: customerId } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
+      const userDoc = await findUserByCustomer(payload, customerId, {
+        stripeAccountId: accountId ?? null,
       })
-      const user = userResult.docs[0] as { id: number } | undefined
+      const user = userDoc ? { id: userDoc.id as number } : undefined
       if (!user) {
-        payload.logger?.info?.(`subscription.created skipped: no user with stripeCustomerId=${customerId} (sub=${obj.id})`)
+        payload.logger?.info?.(
+          `subscription.created skipped: no user for customer=${customerId} (sub=${obj.id}, stripeAccount=${accountId ?? 'platform'})`,
+        )
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }
@@ -481,15 +482,10 @@ export async function POST(request: NextRequest) {
       } else {
         // subscription.updated can arrive before subscription.created; create record so status/dates are correct
         if (customerId && planProductId) {
-          const userResult = await payload.find({
-            collection: 'users',
-            where: { stripeCustomerId: { equals: customerId } },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-            select: { id: true } as any,
+          const userDoc = await findUserByCustomer(payload, customerId, {
+            stripeAccountId: accountId ?? null,
           })
-          const user = userResult.docs[0] as { id: number } | undefined
+          const user = userDoc ? { id: userDoc.id as number } : undefined
           const planResult = await payload.find({
             collection: 'plans',
             where: {

@@ -1,6 +1,7 @@
 import { getPayload, type Payload } from 'payload'
 import config from '../../../src/payload.config'
 import type { Tenant, User, Timeslot, EventType, Booking, Plan, Subscription } from '@repo/shared-types'
+import { formatInTimeZone, resolveTimeZone } from '@repo/shared-utils'
 
 /**
  * Helper functions for creating test data via Payload API
@@ -290,8 +291,16 @@ export async function createTestTimeslot(
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
   const classOptionIdNumber = typeof classOptionId === 'string' ? Number(classOptionId) : classOptionId
-  // Extract date from startTime (YYYY-MM-DD format)
-  const date = startTime.toISOString().split('T')[0] as string
+
+  const tenantDoc = (await payload.findByID({
+    collection: 'tenants',
+    id: tenantIdNumber,
+    depth: 0,
+    overrideAccess: true,
+  })) as Tenant | null
+  const timeZone = resolveTimeZone(tenantDoc?.timeZone)
+  // Timeslot validation combines sibling `date` with wall-clock times in tenant TZ; UTC YYYY-MM-DD can disagree.
+  const date = formatInTimeZone(startTime, 'yyyy-MM-dd', timeZone)
 
   return (await payload.create({
     collection: 'timeslots',
