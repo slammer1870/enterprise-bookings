@@ -70,7 +70,7 @@ describe("createStripeCustomer hook (tenant connect scoping)", () => {
     ]);
   });
 
-  it("falls back to platform customer when no tenant connect account is resolved", async () => {
+  it("does not create a platform customer when tenant is known but Connect is not active", async () => {
     const { createStripeCustomer } = await import(
       "../src/payments/hooks/create-stripe-customer"
     );
@@ -93,10 +93,33 @@ describe("createStripeCustomer hook (tenant connect scoping)", () => {
       data: { email: "user@example.com", name: "User", stripeCustomerId: "" } as any,
     } as any);
 
+    expect(stripeCustomersCreateCalls.length).toBe(0);
+    expect(stripeCustomersListCalls.length).toBe(0);
+    expect(res.stripeCustomerId).toBe("");
+  });
+
+  it("creates a platform customer only when there is no tenant signup context", async () => {
+    const { createStripeCustomer } = await import(
+      "../src/payments/hooks/create-stripe-customer"
+    );
+
+    const req = {
+      context: {},
+      payload: {
+        logger: { error: vi.fn() },
+        findByID: vi.fn(async () => null),
+      },
+    };
+
+    const res = await createStripeCustomer({
+      operation: "create",
+      req: req as any,
+      data: { email: "user@example.com", name: "User", stripeCustomerId: "" } as any,
+    } as any);
+
     expect(stripeCustomersCreateCalls.length).toBe(1);
     const [_createParams, createOpts] = stripeCustomersCreateCalls[0]!.args;
     expect(createOpts).toBeUndefined();
-
     expect(res.stripeCustomerId).toBe("cus_platform_1");
   });
 });
