@@ -1,6 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { getPayload } from '@/lib/payload'
+import { findTenantByDomainNormalized, findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
@@ -14,6 +15,12 @@ import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 function parsePayloadTenantId(request: NextRequest): number | null {
   return getPayloadTenantIdFromRequest({ cookies: request.cookies })
+}
+
+function coerceTenantId(id: unknown): number | null {
+  if (typeof id === 'number' && Number.isFinite(id)) return id
+  if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  return null
 }
 
 /**
@@ -39,21 +46,9 @@ async function resolveTenantIdFromRequestHosts(args: {
     const normalized = normalizeCustomDomain(hostname)
     if (!normalized) continue
 
-    const result = await payload
-      .find({
-        collection: 'tenants',
-        where: { domain: { equals: normalized } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
-      })
-      .catch(() => null)
-
-    const tenantDoc = result?.docs?.[0] as { id?: unknown } | undefined
-    const raw = tenantDoc?.id
-    if (typeof raw === 'number' && Number.isFinite(raw)) return raw
-    if (typeof raw === 'string' && /^\d+$/.test(raw)) return parseInt(raw, 10)
+    const tenant = await findTenantByDomainNormalized(payload, normalized).catch(() => null)
+    const tid = tenant ? coerceTenantId(tenant.id) : null
+    if (tid != null) return tid
   }
 
   return null
@@ -69,22 +64,9 @@ async function resolveRequestedTenantId(args: {
   // Use the host-scoped `tenant-slug` cookie (set by middleware) to resolve the tenant id.
   const tenantSlug = getTenantSlugFromRequest({ cookies: request.cookies, headers: request.headers })?.toLowerCase()
   if (tenantSlug && /^[a-z0-9-]+$/.test(tenantSlug)) {
-    const result = await payload
-      .find({
-        collection: 'tenants',
-        where: { slug: { equals: tenantSlug } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        // Only need id (avoid leaking tenant fields).
-        select: { id: true } as any,
-      })
-      .catch(() => null)
-
-    const tenant = result?.docs?.[0] as { id?: unknown } | undefined
-    const id = tenant?.id
-    if (typeof id === 'number' && Number.isFinite(id)) return id
-    if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+    const tenant = await findTenantBySlugNormalized(payload, tenantSlug).catch(() => null)
+    const tid = tenant ? coerceTenantId(tenant.id) : null
+    if (tid != null) return tid
   }
 
   const fromHost = await resolveTenantIdFromRequestHosts({ payload, request })
@@ -108,13 +90,13 @@ async function resolveTenantIdsForUser(args: {
     typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' && /^\d+$/.test(idRaw) ? parseInt(idRaw, 10) : NaN
   if (!Number.isFinite(id)) return direct
 
+  // depth: 1 — enough to populate tenant relationships in the multi-tenant `tenants` array; depth 2 was redundant hot-path work on every /admin hit.
   const fullUser = await payload
     .findByID({
       collection: 'users',
       id,
-      depth: 2,
+      depth: 1,
       overrideAccess: true,
-      // Keep this tight; we only need tenant relationships + role.
       select: { id: true, role: true, tenants: true },
     })
     .catch(() => null)
@@ -173,4 +155,3 @@ export async function GET(request: NextRequest) {
 
   return new NextResponse(null, { status: 204 })
 }
-

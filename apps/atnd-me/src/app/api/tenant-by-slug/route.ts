@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
+import { findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
 
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
 
@@ -37,16 +38,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const payload = await getPayload()
-    const result = await payload.find({
-      collection: 'tenants',
-      where: { slug: { equals: normalized } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-    })
-
-    const tenant = result.docs[0] as { id?: unknown; slug?: unknown } | undefined
-    if (!tenant || !tenant.id) {
+    const tenant = await findTenantBySlugNormalized(payload, normalized)
+    if (!tenant) {
       return NextResponse.json(null, { status: 404 })
     }
 
@@ -56,4 +49,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to resolve tenant' }, { status: 500 })
   }
 }
-
