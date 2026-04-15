@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { findTenantByDomainNormalized, findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
-import { getUserTenantIds } from '@/access/tenant-scoped'
+import { getUserTenantIds, loadUserDocForTenantMembership } from '@/access/tenant-scoped'
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
 import { getPlatformHostname } from '@/utilities/getURL'
@@ -60,9 +60,35 @@ async function resolveRequestedTenantId(args: {
 }): Promise<number | null> {
   const { payload, request } = args
 
+  const tidFromCookie = parsePayloadTenantId(request)
+  const tenantSlug = getTenantSlugFromRequest({ cookies: request.cookies, headers: request.headers })?.toLowerCase()
+
+  // Fast path: `payload-tenant` + `tenant-slug` agree (PK lookup only; skips slug-normalized query).
+  if (
+    tidFromCookie != null &&
+    tenantSlug &&
+    /^[a-z0-9-]+$/.test(tenantSlug)
+  ) {
+    const tenant = await payload
+      .findByID({
+        collection: 'tenants',
+        id: tidFromCookie,
+        depth: 0,
+        overrideAccess: true,
+        select: { slug: true },
+      })
+      .catch(() => null)
+    const docSlug =
+      tenant && typeof tenant === 'object' && tenant !== null && 'slug' in tenant
+        ? String((tenant as { slug?: string }).slug ?? '')
+            .trim()
+            .toLowerCase()
+        : null
+    if (docSlug === tenantSlug) return tidFromCookie
+  }
+
   // Fallback: first-load of `/admin/login` on a tenant host may not yet have `payload-tenant`.
   // Use the host-scoped `tenant-slug` cookie (set by middleware) to resolve the tenant id.
-  const tenantSlug = getTenantSlugFromRequest({ cookies: request.cookies, headers: request.headers })?.toLowerCase()
   if (tenantSlug && /^[a-z0-9-]+$/.test(tenantSlug)) {
     const tenant = await findTenantBySlugNormalized(payload, tenantSlug).catch(() => null)
     const tid = tenant ? coerceTenantId(tenant.id) : null
@@ -72,7 +98,7 @@ async function resolveRequestedTenantId(args: {
   const fromHost = await resolveTenantIdFromRequestHosts({ payload, request })
   if (fromHost != null) return fromHost
 
-  return parsePayloadTenantId(request)
+  return tidFromCookie
 }
 
 async function resolveTenantIdsForUser(args: {
@@ -90,16 +116,7 @@ async function resolveTenantIdsForUser(args: {
     typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' && /^\d+$/.test(idRaw) ? parseInt(idRaw, 10) : NaN
   if (!Number.isFinite(id)) return direct
 
-  // depth: 1 — enough to populate tenant relationships in the multi-tenant `tenants` array; depth 2 was redundant hot-path work on every /admin hit.
-  const fullUser = await payload
-    .findByID({
-      collection: 'users',
-      id,
-      depth: 1,
-      overrideAccess: true,
-      select: { id: true, role: true, tenants: true },
-    })
-    .catch(() => null)
+  const fullUser = await loadUserDocForTenantMembership(payload, id)
 
   const fromDb = fullUser ? getUserTenantIds(fullUser as unknown as SharedUser) : direct
   return fromDb === null ? null : fromDb

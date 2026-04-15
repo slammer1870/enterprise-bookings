@@ -168,12 +168,6 @@ jobs:
       fail-fast: false
       matrix:
         app:
-          - name: bru-grappling
-            db: e2e_bru_grappling
-            app_path: apps/bru-grappling
-          - name: darkhorse-strength
-            db: e2e_darkhorse_strength
-            app_path: apps/darkhorse-strength
           - name: atnd-me
             db: e2e_atnd_me
             app_path: apps/atnd-me

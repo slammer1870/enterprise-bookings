@@ -2,6 +2,10 @@
  * Phase 4 – Analytics API for admin dashboard.
  * GET /api/analytics?dateFrom=YYYY-MM-DD&dateTo=YYYY-MM-DD&tenantId=...
  * Requires admin or tenant-admin. Tenant-admin can only request their tenant.
+ *
+ * - `comparePrevious=true` — single response including current + previous period (legacy).
+ * - `previousPeriodOnly=true` — response is only `summaryPrevious` + `bookingsOverTimePrevious`
+ *   for the window immediately before [dateFrom, dateTo]; use with a normal request for split loading.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -20,6 +24,36 @@ function jsonStringifySafe(data: unknown): string {
     }
     return value
   })
+}
+
+function buildPreviousPeriodParams(args: {
+  dateFrom: string
+  dateTo: string
+  effectiveTenantId: number | null
+  granularity: 'day' | 'week'
+  limitTopCustomers: number | undefined
+}): {
+  dateFrom: string
+  dateTo: string
+  tenantId?: number
+  granularity: 'day' | 'week'
+  limitTopCustomers?: number
+} {
+  const { dateFrom, dateTo, effectiveTenantId, granularity, limitTopCustomers } = args
+  const from = new Date(dateFrom)
+  const to = new Date(dateTo)
+  const days = Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)) + 1
+  const prevEnd = new Date(from)
+  prevEnd.setUTCDate(prevEnd.getUTCDate() - 1)
+  const prevStart = new Date(prevEnd)
+  prevStart.setUTCDate(prevStart.getUTCDate() - days + 1)
+  return {
+    dateFrom: prevStart.toISOString().slice(0, 10),
+    dateTo: prevEnd.toISOString().slice(0, 10),
+    tenantId: effectiveTenantId ?? undefined,
+    granularity,
+    limitTopCustomers,
+  }
 }
 
 export async function GET(request: NextRequest) {
@@ -41,6 +75,8 @@ export async function GET(request: NextRequest) {
     const tenantIdParam = searchParams.get('tenantId')
     const viewAll = searchParams.get('viewAll') === '1'
     const comparePrevious = searchParams.get('comparePrevious') === 'true'
+    /** Second request: previous window only (avoids recomputing the current period on the server). */
+    const previousPeriodOnly = searchParams.get('previousPeriodOnly') === 'true'
     const granularity: 'day' | 'week' =
       searchParams.get('granularity') === 'week' ? 'week' : 'day'
     const limitTopCustomers = searchParams.get('limitTopCustomers')
@@ -101,6 +137,27 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    if (previousPeriodOnly) {
+      const previousParams = buildPreviousPeriodParams({
+        dateFrom,
+        dateTo,
+        effectiveTenantId,
+        granularity,
+        limitTopCustomers,
+      })
+      const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousParams)
+      const previousWithTimeslots = { ...previousParams, preResolvedTimeslotIds: previousTimeslotIds }
+      const { summary: summaryPrevious, bookingsOverTime: bookingsOverTimePrevious } =
+        await getAnalyticsDashboardBundle(payload, previousWithTimeslots, { includeTopCustomers: false })
+      return new NextResponse(
+        jsonStringifySafe({ summaryPrevious, bookingsOverTimePrevious }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
     const params = {
       dateFrom,
       dateTo,
@@ -118,23 +175,15 @@ export async function GET(request: NextRequest) {
       { includeTopCustomers: true },
     )
 
-    let previousParams: { dateFrom: string; dateTo: string; tenantId?: number; granularity: 'day' | 'week'; limitTopCustomers?: number } | null = null
-    if (comparePrevious) {
-      const from = new Date(dateFrom)
-      const to = new Date(dateTo)
-      const days = Math.round((to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000)) + 1
-      const prevEnd = new Date(from)
-      prevEnd.setUTCDate(prevEnd.getUTCDate() - 1)
-      const prevStart = new Date(prevEnd)
-      prevStart.setUTCDate(prevStart.getUTCDate() - days + 1)
-      previousParams = {
-        dateFrom: prevStart.toISOString().slice(0, 10),
-        dateTo: prevEnd.toISOString().slice(0, 10),
-        tenantId: effectiveTenantId ?? undefined,
-        granularity,
-        limitTopCustomers,
-      }
-    }
+    const previousParams = comparePrevious
+      ? buildPreviousPeriodParams({
+          dateFrom,
+          dateTo,
+          effectiveTenantId,
+          granularity,
+          limitTopCustomers,
+        })
+      : null
 
     const body: Record<string, unknown> = {
       summary,

@@ -75,6 +75,30 @@ type TenantsFindResult = {
   }>
 }
 
+/**
+ * Single round-trip to hydrate `tenants` / `registrationTenant` when the session user omits them.
+ * depth1 is enough for the multi-tenant join; depth 2 was redundant work on hot paths.
+ */
+export async function loadUserDocForTenantMembership(
+  payload: Payload,
+  userId: number,
+): Promise<unknown | null> {
+  return payload
+    .findByID({
+      collection: 'users',
+      id: userId,
+      depth: 1,
+      overrideAccess: true,
+      select: {
+        id: true,
+        role: true,
+        tenants: true,
+        registrationTenant: true,
+      },
+    })
+    .catch(() => null)
+}
+
 export type RequestLike = {
   user?: unknown
   context?: Record<string, unknown>
@@ -101,14 +125,7 @@ export async function resolveTenantAdminTenantIds(args: {
   const id = typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
   if (!Number.isFinite(id)) return []
 
-  const fullUser = await payload
-    .findByID({
-      collection: 'users',
-      id,
-      depth: 2,
-      overrideAccess: true,
-    })
-    .catch(() => null)
+  const fullUser = await loadUserDocForTenantMembership(payload, id)
 
   let fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
   if (fromDb === null && fullUser && !checkRole(['super-admin'], user as SharedUser)) {

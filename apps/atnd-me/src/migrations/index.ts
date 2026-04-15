@@ -96,6 +96,7 @@ import * as migration_20260421_scheduler_time_slot_staff_member_column from './2
 import * as migration_20260422_pages_require_auth from './20260422_pages_require_auth';
 import * as migration_20260423_class_pass_types_days_until_expiration from './20260423_class_pass_types_days_until_expiration';
 import * as migration_20260424_cl_find_sanctuary_map_embed_url from './20260424_cl_find_sanctuary_map_embed_url';
+import * as migration_20260425_bookings_tenant_user_id_idx from './20260425_bookings_tenant_user_id_idx';
 
 export const migrations = [
   {
@@ -587,5 +588,10 @@ export const migrations = [
     up: migration_20260424_cl_find_sanctuary_map_embed_url.up,
     down: migration_20260424_cl_find_sanctuary_map_embed_url.down,
     name: '20260424_cl_find_sanctuary_map_embed_url',
+  },
+  {
+    up: migration_20260425_bookings_tenant_user_id_idx.up,
+    down: migration_20260425_bookings_tenant_user_id_idx.down,
+    name: '20260425_bookings_tenant_user_id_idx',
   },
 ];

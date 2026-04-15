@@ -3,6 +3,7 @@
  * Replaces the default Payload dashboard when registered in payload.config admin.components.views.dashboard.
  * Reads payload-tenant cookie (sidebar selection) on the server so the client can pass it to the API;
  * the cookie is often path-scoped to /admin and not sent to /api/analytics.
+ * The client defaults to a 7-day range and loads “previous period” via a separate request when comparison is enabled.
  */
 import React from 'react'
 import { cookies } from 'next/headers'

@@ -1,6 +1,6 @@
 /**
- * Single pass over confirmed bookings per timeslot chunk: count + one populated find
- * feeds summary, bookings-over-time, and top customers (avoids 3–4x redundant DB work).
+ * Per timeslot chunk: parallel timeslot date map + booking count + booking find (depth 0).
+ * Calendar bucketing uses one timeslot `find` per chunk instead of depth:1 joins on every row.
  */
 import type { Payload } from 'payload'
 import type {
@@ -30,6 +30,30 @@ function bookingUserId(doc: { user?: number | { id: number } }): number | null {
   const u = doc.user
   const uid = typeof u === 'object' && u !== null ? u.id : u
   return typeof uid === 'number' ? uid : null
+}
+
+/** One query per timeslot chunk: avoids depth:1 on every booking row for calendar bucketing. */
+async function loadTimeslotCalendarYmdById(
+  payload: Payload,
+  timeslotIds: number[],
+): Promise<Map<number, string | null>> {
+  const map = new Map<number, string | null>()
+  if (timeslotIds.length === 0) return map
+
+  const res = await payload.find({
+    collection: 'timeslots',
+    where: { id: { in: timeslotIds } },
+    limit: timeslotIds.length,
+    depth: 0,
+    select: { id: true, date: true },
+    overrideAccess: true,
+  })
+
+  for (const d of res.docs) {
+    const row = d as { id: number; date?: unknown }
+    map.set(row.id, normalizeTimeslotCalendarYmd(row.date))
+  }
+  return map
 }
 
 async function resolveTopCustomerRows(
@@ -101,8 +125,8 @@ export async function getAnalyticsDashboardBundle(
 
   for (const idChunk of chunkIds(timeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
     const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
-
-    const [countResult, docsResult] = await Promise.all([
+    const [timeslotYmdById, countResult, docsResult] = await Promise.all([
+      loadTimeslotCalendarYmdById(payload, idChunk),
       payload.count({
         collection: 'bookings',
         where,
@@ -112,7 +136,7 @@ export async function getAnalyticsDashboardBundle(
         collection: 'bookings',
         where,
         limit: MAX_BOOKINGS_PER_CHUNK,
-        depth: 1,
+        depth: 0,
         select: { user: true, timeslot: true },
         overrideAccess: true,
       }),
@@ -121,7 +145,7 @@ export async function getAnalyticsDashboardBundle(
     totalBookings += countResult.totalDocs ?? 0
 
     for (const doc of docsResult.docs) {
-      const d = doc as { user?: number | { id: number }; timeslot?: number | { date?: unknown } }
+      const d = doc as { user?: number | { id: number }; timeslot?: number | { id?: number } }
 
       const uid = bookingUserId(d)
       if (uid !== null) {
@@ -132,8 +156,9 @@ export async function getAnalyticsDashboardBundle(
       }
 
       const ts = d.timeslot
-      const rawDate = typeof ts === 'object' && ts !== null ? ts.date : undefined
-      const ymd = normalizeTimeslotCalendarYmd(rawDate)
+      const tsId = typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : ts
+      const ymd =
+        typeof tsId === 'number' ? timeslotYmdById.get(tsId) ?? null : null
       if (ymd) {
         const key = toDateKey(`${ymd}T12:00:00.000Z`, granularity)
         timeBucket.set(key, (timeBucket.get(key) ?? 0) + 1)
