@@ -9,6 +9,21 @@ export const ClSaunaBenefits: Block = {
   },
   fields: [
     {
+      name: 'backgroundImage',
+      type: 'upload',
+      relationTo: 'media',
+      required: false,
+      admin: { description: 'Full-bleed background image (croilan.com style)' },
+    },
+    {
+      name: 'tagline',
+      type: 'text',
+      required: false,
+      defaultValue: 'RELEASE, RELAX, RECOVER.',
+      label: 'Tagline',
+      admin: { description: 'Small line above the heading' },
+    },
+    {
       name: 'sectionTitle',
       type: 'text',
       required: true,

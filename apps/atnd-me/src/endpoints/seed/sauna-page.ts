@@ -109,6 +109,7 @@ export const saunaPage: (args: SaunaPageArgs) => RequiredDataFromCollectionSlug<
       blockName: 'Sauna benefits',
       blockType: 'clSaunaBenefits',
       sectionTitle: 'Health Benefits of Sauna',
+      backgroundImage: aboutImage.id,
       items: [
         {
           title: 'Reduced inflammation & muscle soreness',

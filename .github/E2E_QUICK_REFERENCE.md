@@ -7,7 +7,7 @@
 turbo run test:e2e --filter=<app-name>
 
 # Examples:
-turbo run test:e2e --filter=atnd-me        # ~8-12 min (3 workers)
+turbo run test:e2e --filter=atnd-me        # ~8-12 min (2 workers locally when E2E_USE_PROD≠false)
 
 # Run all e2e tests across all apps
 turbo run test:e2e
@@ -17,7 +17,7 @@ turbo run test:e2e
 
 | Mode | Workers | Runtime | Use Case |
 |------|---------|---------|----------|
-| **Production (Turbo)** | 3-4 | ~8-12min | ✅ Default, CI/CD |
+| **Production (Turbo)** | 2 (override `PW_E2E_WORKERS`) | ~8-12min | ✅ Default, CI/CD |
 | Dev Mode | 1 | ~20-25min | Debugging only |
 | Before optimization | Unstable | 1h+ (failures) | ❌ Legacy |
 
@@ -29,6 +29,9 @@ turbo run test:e2e --filter=atnd-me
 
 # CI mode
 turbo run test:e2e:ci --filter=atnd-me
+
+# Serialize Playwright workers if multi-worker flakes (local or CI)
+# PW_E2E_WORKERS=1 pnpm test:e2e:ci
 
 # Dev mode (debugging only)
 cd apps/atnd-me
