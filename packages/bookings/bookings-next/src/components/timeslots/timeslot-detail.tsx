@@ -5,11 +5,12 @@ import Image from "next/image"
 import { ScheduleTimeslot } from '@repo/shared-types'
 import { formatInTimeZone, resolveTimeslotTimeZone } from '@repo/shared-utils/timezone'
 
-import { CheckInButton } from './checkin-button'
+import { CheckInButton, type LoginToBookUrlResolver } from './checkin-button'
 
 export function TimeslotDetail({ 
   timeslot,
   manageHref,
+  loginToBookUrl,
 }: { 
   timeslot: ScheduleTimeslot;
   /**
@@ -18,6 +19,8 @@ export function TimeslotDetail({
    * Passed through to CheckInButton component.
    */
   manageHref?: string | ((timeslotId: number) => string);
+  /** Passed through to CheckInButton — see `CheckInButton` `loginToBookUrl`. */
+  loginToBookUrl?: LoginToBookUrlResolver;
 }) {
   const timeZone = resolveTimeslotTimeZone(timeslot)
 
@@ -79,6 +82,7 @@ export function TimeslotDetail({
           type={timeslot.eventType.type}
           scheduleState={timeslot.scheduleState}
           manageHref={manageHref}
+          loginToBookUrl={loginToBookUrl}
         />
       </div>
     </div>

@@ -31,6 +31,12 @@ const labelByAction: Record<TimeslotScheduleState["action"], string> = {
   manageChildren: "Manage Children",
 };
 
+/** Build the URL when the user must sign in before booking (schedule `loginToBook` action). */
+export type LoginToBookUrlResolver = (
+  timeslotId: number,
+  context: { isTrial: boolean }
+) => string;
+
 const classNameByAction: Record<TimeslotScheduleState["action"], string> = {
   book: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
   cancel: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
@@ -47,6 +53,7 @@ export const CheckInButton = ({
   type,
   scheduleState,
   manageHref,
+  loginToBookUrl,
 }: {
   timeslotId: number;
   type: ScheduleTimeslot["eventType"]["type"];
@@ -56,6 +63,12 @@ export const CheckInButton = ({
    * Defaults to `/bookings/[id]/manage` if not provided.
    */
   manageHref?: string | ((_timeslotId: number) => string);
+  /**
+   * When the viewer is anonymous, the schedule uses action `loginToBook`. By default that
+   * sends them to `/complete-booking` with `callbackUrl=/bookings/[id]`. Override this to use
+   * a tenant-specific sign-in route (e.g. `/auth/sign-in?callbackUrl=...`).
+   */
+  loginToBookUrl?: LoginToBookUrlResolver;
 }) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -111,10 +124,10 @@ export const CheckInButton = ({
     if (action === "loginToBook") {
       const isTrial = (label || "").toLowerCase().includes("trial");
       toast.info("Please sign in to continue");
-      router.push(
-        `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=/bookings/${timeslotId}`,
-        { scroll: false }
-      );
+      const url =
+        loginToBookUrl?.(timeslotId, { isTrial }) ??
+        `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=/bookings/${timeslotId}`;
+      router.push(url, { scroll: false });
       return;
     }
 
