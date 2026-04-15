@@ -2407,6 +2407,14 @@ export interface ClPillarsBlock {
  * via the `definition` "ClSaunaBenefitsBlock".
  */
 export interface ClSaunaBenefitsBlock {
+  /**
+   * Full-bleed background image (croilan.com style)
+   */
+  backgroundImage?: (number | null) | Media;
+  /**
+   * Small line above the heading
+   */
+  tagline?: string | null;
   sectionTitle: string;
   items?:
     | {
@@ -4286,6 +4294,8 @@ export interface ClPillarsBlockSelect<T extends boolean = true> {
  * via the `definition` "ClSaunaBenefitsBlock_select".
  */
 export interface ClSaunaBenefitsBlockSelect<T extends boolean = true> {
+  backgroundImage?: T;
+  tagline?: T;
   sectionTitle?: T;
   items?:
     | T

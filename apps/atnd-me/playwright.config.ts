@@ -27,13 +27,36 @@ process.env.ENABLE_TEST_MAGIC_LINKS ??= 'true'
 // Use production build for e2e tests (faster, more stable, cacheable by Turbo)
 const useProductionBuild = process.env.E2E_USE_PROD !== 'false'
 
+const truthyEnv = (v: string | undefined) =>
+  ['1', 'true', 'yes'].includes((v ?? '').toLowerCase())
+
+/** When set (e.g. CI after `payload migrate:fresh`), webServer only starts the app — no second migrate in the same shell. */
+const skipWebserverMigrate = truthyEnv(process.env.PW_E2E_SKIP_WEBSERVER_MIGRATE)
+
+function resolveWorkers(): number {
+  const fromEnv = process.env.PW_E2E_WORKERS
+  if (fromEnv !== undefined && fromEnv !== '') {
+    const n = parseInt(fromEnv, 10)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+  if (process.env.CI) return 2
+  return useProductionBuild ? 2 : 1
+}
+
+const prodWebCommand = skipWebserverMigrate
+  ? 'pnpm start:e2e'
+  : 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e'
+
+const devWebCommand = skipWebserverMigrate
+  ? 'pnpm dev:e2e'
+  : 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev:e2e'
+
 export default defineConfig({
   testDir: './tests/e2e',
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  // CI has been flaky with multiple workers against the shared multi-tenant test DB.
-  // Keep local prod runs fast, but serialize CI to reduce transient booking/form failures.
-  workers: process.env.CI ? 1 : useProductionBuild ? 2 : 1,
+  // Override with PW_E2E_WORKERS=1 if multi-worker runs flake on shared DB state.
+  workers: resolveWorkers(),
   timeout: 60_000,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list'], ['html']],
   use: {
@@ -52,7 +75,7 @@ export default defineConfig({
   webServer: useProductionBuild
     ? {
         // Production mode: reuse the existing build, then launch it.
-        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e',
+        command: prodWebCommand,
         url: 'http://localhost:3000/admin',
         // Building the standalone app can exceed 2 minutes on cold or uncached runs.
         timeout: 600000,
@@ -72,7 +95,7 @@ export default defineConfig({
       }
     : {
         // Dev mode fallback: `next dev` with payload-auth loader (no build required, slower)
-        command: 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev:e2e',
+        command: devWebCommand,
         url: 'http://localhost:3000/admin',
         // Admin route compilation can be slow on fresh builds / CI
         timeout: 600000,

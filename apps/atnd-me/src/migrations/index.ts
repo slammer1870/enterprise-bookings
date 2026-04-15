@@ -88,6 +88,7 @@ import * as migration_20260413_drop_users_roles_merge_into_users_role from './20
 import * as migration_20260414_155751_croi_lan_sauna_blocks from './20260414_155751_croi_lan_sauna_blocks';
 import * as migration_20260414_ensure_pages_blocks_dh_live_schedule_tenant_id from './20260414_ensure_pages_blocks_dh_live_schedule_tenant_id';
 import * as migration_20260415_payload_locked_documents_rels_staff_members_id from './20260415_payload_locked_documents_rels_staff_members_id';
+import * as migration_20260415_ensure_payload_jobs_task_slug_enum_values from './20260415_ensure_payload_jobs_task_slug_enum_values';
 import * as migration_20260416_repair_timeslots_staff_event_locked_docs_rels from './20260416_repair_timeslots_staff_event_locked_docs_rels';
 import * as migration_20260417_ensure_timeslots_staff_event_type_columns from './20260417_ensure_timeslots_staff_event_type_columns';
 import * as migration_20260418_rename_legacy_staff_hyphen_table from './20260418_rename_legacy_staff_hyphen_table';
@@ -96,6 +97,7 @@ import * as migration_20260421_scheduler_time_slot_staff_member_column from './2
 import * as migration_20260422_pages_require_auth from './20260422_pages_require_auth';
 import * as migration_20260423_class_pass_types_days_until_expiration from './20260423_class_pass_types_days_until_expiration';
 import * as migration_20260424_cl_find_sanctuary_map_embed_url from './20260424_cl_find_sanctuary_map_embed_url';
+import * as migration_20260425_cl_sauna_benefits_background_image_id from './20260425_cl_sauna_benefits_background_image_id';
 import * as migration_20260425_bookings_tenant_user_id_idx from './20260425_bookings_tenant_user_id_idx';
 
 export const migrations = [
@@ -550,6 +552,11 @@ export const migrations = [
     name: '20260415_payload_locked_documents_rels_staff_members_id',
   },
   {
+    up: migration_20260415_ensure_payload_jobs_task_slug_enum_values.up,
+    down: migration_20260415_ensure_payload_jobs_task_slug_enum_values.down,
+    name: '20260415_ensure_payload_jobs_task_slug_enum_values',
+  },
+  {
     up: migration_20260416_repair_timeslots_staff_event_locked_docs_rels.up,
     down: migration_20260416_repair_timeslots_staff_event_locked_docs_rels.down,
     name: '20260416_repair_timeslots_staff_event_locked_docs_rels',
@@ -588,6 +595,11 @@ export const migrations = [
     up: migration_20260424_cl_find_sanctuary_map_embed_url.up,
     down: migration_20260424_cl_find_sanctuary_map_embed_url.down,
     name: '20260424_cl_find_sanctuary_map_embed_url',
+  },
+  {
+    up: migration_20260425_cl_sauna_benefits_background_image_id.up,
+    down: migration_20260425_cl_sauna_benefits_background_image_id.down,
+    name: '20260425_cl_sauna_benefits_background_image_id',
   },
   {
     up: migration_20260425_bookings_tenant_user_id_idx.up,
