@@ -1,7 +1,8 @@
 /**
  * E2E: passwordless registration from a tenant subdomain sets users.registrationTenant.
  *
- * Custom-domain browser flow: register-registration-tenant-custom-domain.e2e.spec.ts (nip.io).
+ * Custom-domain passwordless: register-registration-tenant-custom-domain.e2e.spec.ts (nip.io).
+ * Better Auth `/auth/sign-up` custom domain: auth-sign-up-registration-tenant-custom-domain.e2e.spec.ts.
  * Proxy header ordering (X-Forwarded-Host vs Host) is covered in
  * tests/int/registration-tenant-custom-domain.int.spec.ts.
  */

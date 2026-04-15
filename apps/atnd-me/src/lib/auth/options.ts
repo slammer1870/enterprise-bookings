@@ -1,6 +1,7 @@
 import { createBetterAuthPluginOptions } from '@repo/better-auth-config/server'
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
+import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
 
 /**
  * Generate trusted origins for Better Auth, including wildcard patterns for tenant subdomains.
@@ -34,10 +35,14 @@ export function getTrustedOriginsWithCustomDomains(
   customDomains: string[]
 ): string[] {
   const base = getTrustedOrigins()
+  // Playwright custom-domain tests use http://*.nip.io:3000; DB stores hostnames as https-only otherwise.
+  // Match payload.config.ts: any truthy PW_E2E_PROFILE (not only the string "true").
+  const e2eHttpPort = process.env.PW_E2E_PROFILE ? (process.env.PORT || '3000').trim() : null
+
   const extra = customDomains
     .filter((d) => d && typeof d === 'string' && d.trim() !== '')
-    .map((d) => d.trim())
-    .map((value) => {
+    .flatMap((d) => {
+      const value = d.trim()
       const lower = value.toLowerCase()
       // Support either:
       // - hostnames (e.g. "studio.example.com") -> "https://studio.example.com"
@@ -45,12 +50,18 @@ export function getTrustedOriginsWithCustomDomains(
       if (lower.startsWith('http://') || lower.startsWith('https://')) {
         try {
           const u = new URL(lower)
-          if (u.protocol === 'http:' || u.protocol === 'https:') return u.origin
+          if (u.protocol === 'http:' || u.protocol === 'https:') return [u.origin]
         } catch {
-          // fall through
+          return []
         }
+        return []
       }
-      return `https://${lower}`
+      const host = lower.split('/')[0]?.split(':')[0] ?? lower
+      const out = [`https://${host}`]
+      if (e2eHttpPort && /^\d+$/.test(e2eHttpPort)) {
+        out.push(`http://${host}:${e2eHttpPort}`)
+      }
+      return out
     })
   return [...base, ...extra]
 }
@@ -153,17 +164,23 @@ async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
     return base
   }
 
-  // Enforce https origins only (we redirect http->https at the edge/app).
-  if (origin.protocol !== 'https:') return base
-
   const hostname = normalizeCustomDomain(origin.hostname)
   if (!hostname) return base
 
-  if (!(await isTenantCustomDomain(hostname))) return base
+  const isTenant = await isTenantCustomDomain(hostname)
+  if (!isTenant) return base
+
+  // Production: only https tenant origins beyond `base`. E2E / Playwright uses http://host:3000.
+  if (origin.protocol === 'http:' && process.env.PW_E2E_PROFILE) {
+    return [...new Set([...base, origin.origin])]
+  }
+
+  // Enforce https origins only (we redirect http->https at the edge/app).
+  if (origin.protocol !== 'https:') return base
 
   // Return platform origins + the specific tenant origin that made the request.
   // (Better Auth validates Origin exactly; we do not wildcard custom domains.)
-  return [...base, origin.origin]
+  return [...new Set([...base, origin.origin])]
 }
 
 async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ name: string; domain?: string | null } | null> {
@@ -249,6 +266,7 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
   cookieDomainStrategy: 'host',
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
+  databaseHooks: registrationTenantDatabaseHooks,
   trustedOrigins: trustedOriginsFromRequest,
   resolveMagicLinkAppName: async ({ url }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
   resolveMagicLinkFrom: async ({ url }) => {

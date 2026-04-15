@@ -5,6 +5,8 @@
  * exercising middleware tenant-by-host resolution like production custom domains.
  * Requires outbound DNS (nip.io) — same as staff-admin-custom-domain.e2e.spec.ts.
  *
+ * Better Auth `/auth/sign-up` on custom domain: auth-sign-up-registration-tenant-custom-domain.e2e.spec.ts.
+ *
  * Run from monorepo root:
  *   pnpm test:e2e:atnd-me -- register-registration-tenant-custom-domain
  */

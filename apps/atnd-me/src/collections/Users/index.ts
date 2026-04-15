@@ -36,6 +36,40 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     beforeChange: [
+      // Must run in beforeChange (not beforeValidate): payload-auth's Better Auth merge replaces
+      // `hooks` and drops `beforeValidate`. Better Auth user creates also omit `req` on `payload.create`
+      // — those flows set `registrationTenant` via Better Auth `databaseHooks` (see atnd-me auth options).
+      async ({ data, operation, req }) => {
+        if (operation === 'create' && data && !data.registrationTenant) {
+          const user = req.user
+          if (user && checkRole(['admin'], user as unknown as SharedUser)) {
+            const rawTenant = req.context?.tenant as unknown
+            if (rawTenant) {
+              ;(data as { registrationTenant?: string | number }).registrationTenant =
+                typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
+                  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (rawTenant as any).id
+                  : (rawTenant as string | number)
+            } else {
+              const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+              if (tenantIds && tenantIds.length > 0) {
+                ;(data as { registrationTenant?: string | number }).registrationTenant = tenantIds[0]
+              }
+            }
+          } else if (!user && req.headers && typeof (req.headers as Headers).get === 'function') {
+            const headers = req.headers as Headers
+            const fromRequest = await getTenantIdForCreateRequest(req.payload, {
+              headers,
+              cookies: cookiesFromHeaders(headers),
+              context: req.context as { tenant?: unknown } | undefined,
+            })
+            if (fromRequest != null && fromRequest !== '') {
+              ;(data as { registrationTenant?: string | number }).registrationTenant = fromRequest
+            }
+          }
+        }
+        return data
+      },
       async ({ data, operation, req }) => {
         if (!data || operation !== 'create') return data
         const { totalDocs } = await req.payload.find({
@@ -117,45 +151,6 @@ export const Users: CollectionConfig = {
         return data
       },
     ],
-    beforeValidate: [
-      async ({ data, operation, req }) => {
-        // When tenant-admin creates a user, automatically set registrationTenant from context
-        // This ensures the tenant relationship is valid and the tenant-admin can create users
-        if (operation === 'create' && data && !data.registrationTenant) {
-          const user = req.user
-          if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-            // Try to get tenant from context (set by multi-tenant plugin's tenant selector)
-            const rawTenant = req.context?.tenant as unknown
-            if (rawTenant) {
-              // `tenant` may be a primitive ID or an object with an `id` field
-              data.registrationTenant =
-                typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
-                  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (rawTenant as any).id
-                  : (rawTenant as string | number)
-            } else {
-              // Fallback: use the first tenant from the tenant-admin's tenants array
-              const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-              if (tenantIds && tenantIds.length > 0) {
-                data.registrationTenant = tenantIds[0]
-              }
-            }
-          } else if (!user && req.headers && typeof (req.headers as Headers).get === 'function') {
-            // Self-service signup (e.g. Better Auth): same host/cookie resolution as passwordless register.
-            const headers = req.headers as Headers
-            const fromRequest = await getTenantIdForCreateRequest(req.payload, {
-              headers,
-              cookies: cookiesFromHeaders(headers),
-              context: req.context as { tenant?: unknown } | undefined,
-            })
-            if (fromRequest != null && fromRequest !== '') {
-              data.registrationTenant = fromRequest
-            }
-          }
-        }
-        return data
-      },
-    ],
   },
   admin: {
     defaultColumns: ['name', 'email', 'createdAt'],
@@ -177,7 +172,7 @@ export const Users: CollectionConfig = {
       },
       // Note: Field-level access control can only return boolean values.
       // The relationship dropdown is automatically filtered by the Tenants collection's read access control.
-      // The beforeValidate hook will automatically set this field for tenant-admin users.
+      // A beforeChange hook sets this for tenant-admin creates and public sign-up (host/cookies).
       access: {
         read: userSensitiveFieldReadForStaffRoster,
         update: ({ req: { user } }) => {

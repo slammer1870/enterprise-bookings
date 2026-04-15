@@ -4,6 +4,7 @@ import {
   openAPI,
 } from "better-auth/plugins";
 import { nextCookies } from "better-auth/next-js";
+import type { BetterAuthOptions } from "better-auth";
 import type { BetterAuthPlugin as BetterAuthPluginType } from "better-auth/types";
 import { hashPassword, verifyPassword } from "@repo/auth-next/server";
 
@@ -110,6 +111,11 @@ export type BetterAuthServerConfig = {
   sessionExpiresInSeconds?: number;
   /** Refresh session every N seconds of activity; extends expiration. */
   sessionUpdateAgeSeconds?: number;
+  /**
+   * Optional Better Auth database hooks (run in the auth request context, before adapter writes).
+   * Use for fields that are not set by the Payload adapter because it calls `payload.create` without `req`.
+   */
+  databaseHooks?: NonNullable<BetterAuthOptions["databaseHooks"]>;
 
   /**
    * Shared Better Auth email configuration.
@@ -375,6 +381,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
       ([process.env.NEXT_PUBLIC_SERVER_URL || "http://localhost:3000"].filter(
         Boolean
       ) as string[]),
+    ...(config.databaseHooks ? { databaseHooks: config.databaseHooks } : {}),
     // Ensure auth cookies are available to the whole app, not just the auth route.
     // Without this, cookies can be scoped too narrowly (e.g. /api/auth) and `getSession()`
     // will appear to work only on auth endpoints.
