@@ -433,6 +433,32 @@ describe('Analytics API (Phase 4)', () => {
     )
 
     it(
+      'when previousPeriodOnly=true returns only previous-period fields (no main summary)',
+      async () => {
+        const res = await GET(
+          request({
+            headers: { 'x-test-user-id': String(adminUser.id) },
+            url:
+              'http://localhost/api/analytics?dateFrom=2025-02-01&dateTo=2025-02-28&previousPeriodOnly=true',
+          }),
+        )
+        expect(res.status).toBe(200)
+        const data = await res.json()
+        expect(data).toHaveProperty('summaryPrevious')
+        expect(data.summaryPrevious).toMatchObject({
+          totalBookings: expect.any(Number),
+          uniqueCustomers: expect.any(Number),
+        })
+        expect(data).toHaveProperty('bookingsOverTimePrevious')
+        expect(Array.isArray(data.bookingsOverTimePrevious)).toBe(true)
+        expect(data).not.toHaveProperty('summary')
+        expect(data).not.toHaveProperty('bookingsOverTime')
+        expect(data).not.toHaveProperty('topCustomers')
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'when comparePrevious=false does not include summaryPrevious',
       async () => {
         const res = await GET(

@@ -8,8 +8,6 @@ turbo run test:e2e --filter=<app-name>
 
 # Examples:
 turbo run test:e2e --filter=atnd-me        # ~8-12 min (3 workers)
-turbo run test:e2e --filter=kyuzo          # ~10-15 min (3 workers)
-turbo run test:e2e --filter=bru-grappling  # ~6-8 min (4 workers)
 
 # Run all e2e tests across all apps
 turbo run test:e2e

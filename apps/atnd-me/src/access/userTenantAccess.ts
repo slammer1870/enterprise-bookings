@@ -1,10 +1,31 @@
-import type { Access, AccessArgs, Where } from 'payload'
+import type { Access, AccessArgs, Payload, Where } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
 import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
 import { getPayloadTenantIdFromRequest } from '../utilities/tenantRequest'
-import { getTenantMembershipIdsFromUserDoc, getUserTenantIds } from './tenant-scoped'
+import {
+  getTenantMembershipIdsFromUserDoc,
+  getUserTenantIds,
+  loadUserDocForTenantMembership,
+} from './tenant-scoped'
+import { getDistinctBookingUserIdsForTenants } from './getDistinctBookingUserIdsForTenants'
+
+/** Keep `id in (...)` lists bounded for Postgres / query planners. */
+const BOOKING_USER_IDS_IN_CHUNK = 2000
+
+function appendBookingUserOrClauses(
+  orClauses: NonNullable<Where['or']>,
+  userIdsWithBookings: number[],
+): void {
+  if (userIdsWithBookings.length === 0) return
+  for (let i = 0; i < userIdsWithBookings.length; i += BOOKING_USER_IDS_IN_CHUNK) {
+    const chunk = userIdsWithBookings.slice(i, i + BOOKING_USER_IDS_IN_CHUNK)
+    if (chunk.length > 0) {
+      orClauses.push({ id: { in: chunk } })
+    }
+  }
+}
 
 /** Platform super-admin (full system access). */
 export function isAdmin(u: unknown): boolean {
@@ -78,23 +99,15 @@ function toUserId(user: unknown): number | null {
 
 /**
  * For tenant portal users, req.user may come from the session without the `tenants`
- * relationship populated. Fetch the full user from the database so we can resolve
- * their tenant IDs and show users who belong to them or have bookings with them.
+ * relationship populated. Load membership fields only (same query as other hot paths).
  */
 async function getTenantPortalUserWithTenants(
   user: unknown,
-  payload: { findByID: (args: { collection: 'users'; id: number; depth?: number; overrideAccess?: boolean }) => Promise<unknown> },
+  payload: Payload,
 ): Promise<SharedUser | null> {
   const userId = toUserId(user)
   if (userId == null) return null
-  const full = await payload
-    .findByID({
-      collection: 'users',
-      id: userId,
-      depth: 1,
-      overrideAccess: true,
-    })
-    .catch(() => null)
+  const full = await loadUserDocForTenantMembership(payload, userId)
   return full as SharedUser | null
 }
 
@@ -205,29 +218,17 @@ export const userTenantRead: Access = async ({ req }) => {
     const userId = toUserId(user)
     if (userId == null) return false
 
-    const orClauses: Where['or'] = [
+    const orClauses: NonNullable<Where['or']> = [
       { registrationTenant: { in: effectiveTenantIds } },
       { id: { equals: userId } },
     ]
 
-    const bookingsWithTenant = await payload.find({
-      collection: 'bookings',
-      where: { tenant: { in: effectiveTenantIds } },
-      limit: 5000,
-      depth: 0,
-      overrideAccess: true,
-      select: { user: true } as any,
-    })
-    const userIdsWithBookings = [
-      ...new Set(
-        bookingsWithTenant.docs
-          .map((b) => (typeof b.user === 'object' && b.user != null && 'id' in b.user ? (b.user as { id: number }).id : b.user))
-          .filter((id): id is number => typeof id === 'number')
-      ),
-    ]
-    if (userIdsWithBookings.length > 0) {
-      orClauses.push({ id: { in: userIdsWithBookings } })
-    }
+    const userIdsWithBookings = await getDistinctBookingUserIdsForTenants(
+      payload,
+      effectiveTenantIds,
+      req,
+    )
+    appendBookingUserOrClauses(orClauses, userIdsWithBookings)
 
     const where: Where = { or: orClauses }
     return where
@@ -286,29 +287,17 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
     const userId = toUserId(user)
     if (userId == null) return false
 
-    const orClauses: Where['or'] = [
+    const orClauses: NonNullable<Where['or']> = [
       { registrationTenant: { in: effectiveTenantIds } },
       { id: { equals: userId } },
     ]
 
-    const bookingsWithTenant = await payload.find({
-      collection: 'bookings',
-      where: { tenant: { in: effectiveTenantIds } },
-      limit: 5000,
-      depth: 0,
-      overrideAccess: true,
-      select: { user: true } as any,
-    })
-    const userIdsWithBookings = [
-      ...new Set(
-        bookingsWithTenant.docs
-          .map((b) => (typeof b.user === 'object' && b.user != null && 'id' in b.user ? (b.user as { id: number }).id : b.user))
-          .filter((id): id is number => typeof id === 'number')
-      ),
-    ]
-    if (userIdsWithBookings.length > 0) {
-      orClauses.push({ id: { in: userIdsWithBookings } })
-    }
+    const userIdsWithBookings = await getDistinctBookingUserIdsForTenants(
+      payload,
+      effectiveTenantIds,
+      req,
+    )
+    appendBookingUserOrClauses(orClauses, userIdsWithBookings)
 
     const where: Where = { or: orClauses }
     return where

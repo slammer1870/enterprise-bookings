@@ -58,7 +58,8 @@ export const AnalyticsDashboardClient: React.FC<{
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [presetIndex, setPresetIndex] = useState(1)
+  /** Default:7 days — lighter first load than 30/91 day windows. */
+  const [presetIndex, setPresetIndex] = useState(0)
   const [comparePrevious, setComparePrevious] = useState(false)
   const [stripeNotice] = useState(() =>
     typeof window !== 'undefined' ? getStripeConnectNoticeFromSearch(window.location.search) : null,
@@ -85,38 +86,63 @@ export const AnalyticsDashboardClient: React.FC<{
     let cancelled = false
     setLoading(true)
     setError(null)
-    const params = new URLSearchParams({
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+    const common = new URLSearchParams({
       dateFrom: dateFromStr,
       dateTo: dateToStr,
     })
-    if (comparePrevious) params.set('comparePrevious', 'true')
-    if (selectedTenantId != null) params.set('tenantId', String(selectedTenantId))
-    fetch(`${typeof window !== 'undefined' ? window.location.origin : ''}/api/analytics?${params}`, {
-      credentials: 'include',
-    })
-      .then(async (res) => {
-        if (!res.ok) {
-          let message =
-            res.status === 401 ? 'Unauthorized' : res.status === 403 ? 'Forbidden' : 'Failed to load analytics'
-          try {
-            const body = (await res.json()) as { error?: string }
-            if (typeof body?.error === 'string' && body.error) message = body.error
-          } catch {
-            /* non-JSON error response */
-          }
-          throw new Error(message)
+    if (selectedTenantId != null) common.set('tenantId', String(selectedTenantId))
+
+    const loadJson = async (url: string): Promise<unknown> => {
+      const res = await fetch(url, { credentials: 'include' })
+      if (!res.ok) {
+        let message =
+          res.status === 401 ? 'Unauthorized' : res.status === 403 ? 'Forbidden' : 'Failed to load analytics'
+        try {
+          const body = (await res.json()) as { error?: string }
+          if (typeof body?.error === 'string' && body.error) message = body.error
+        } catch {
+          /* non-JSON error response */
         }
-        return res.json()
-      })
-      .then((body: AnalyticsData) => {
-        if (!cancelled) setData(body)
-      })
-      .catch((e: Error) => {
-        if (!cancelled) setError(e.message)
-      })
-      .finally(() => {
+        throw new Error(message)
+      }
+      return res.json()
+    }
+
+    const run = async () => {
+      try {
+        const mainUrl = `${origin}/api/analytics?${common}`
+        if (comparePrevious) {
+          const prevParams = new URLSearchParams(common)
+          prevParams.set('previousPeriodOnly', 'true')
+          const prevUrl = `${origin}/api/analytics?${prevParams}`
+          const [mainRaw, prevRaw] = await Promise.all([loadJson(mainUrl), loadJson(prevUrl)])
+          if (cancelled) return
+          const mainBody = mainRaw as AnalyticsData
+          const prevBody = prevRaw as Pick<AnalyticsData, 'summaryPrevious' | 'bookingsOverTimePrevious'>
+          setData({
+            ...mainBody,
+            summaryPrevious: prevBody.summaryPrevious,
+            bookingsOverTimePrevious: prevBody.bookingsOverTimePrevious,
+          })
+        } else {
+          const mainBody = (await loadJson(mainUrl)) as AnalyticsData
+          if (cancelled) return
+          setData({
+            ...mainBody,
+            summaryPrevious: undefined,
+            bookingsOverTimePrevious: undefined,
+          })
+        }
+      } catch (e: unknown) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load analytics')
+      } finally {
         if (!cancelled) setLoading(false)
-      })
+      }
+    }
+
+    void run()
     return () => {
       cancelled = true
     }
