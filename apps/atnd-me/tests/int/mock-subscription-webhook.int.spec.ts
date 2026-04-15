@@ -58,6 +58,8 @@ describe('mock-subscription-created-webhook', () => {
         role: ['user'],
         emailVerified: true,
         stripeCustomerId,
+        // Connect webhooks resolve via stripeCustomers; top-level stripeCustomerId alone is not used when event.account is set.
+        stripeCustomers: [{ stripeAccountId: accountId, stripeCustomerId }],
       },
       draft: false,
       overrideAccess: true,

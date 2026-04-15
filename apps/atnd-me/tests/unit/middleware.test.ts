@@ -153,6 +153,29 @@ describe('Middleware', () => {
       const setCookie = res.headers.get('set-cookie')
       expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
     })
+
+    it('skips tenant-by-host when host-scoped tenant cookies are already set', async () => {
+      let tenantByHostCalled = false
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-host')) {
+          tenantByHostCalled = true
+          return new Response(null, { status: 500 })
+        }
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://studio.example.com/', {
+        headers: {
+          host: 'studio.example.com',
+          cookie: 'tenant-slug=acme; payload-tenant=42',
+        },
+      })
+
+      const res = await middleware(req)
+      expect(tenantByHostCalled).toBe(false)
+      expect(res.headers.get('x-middleware-rewrite')).toBe('http://studio.example.com/home')
+    })
   })
 
   describe('admin cookie synchronization', () => {
