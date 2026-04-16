@@ -306,8 +306,10 @@ export default function CheckoutForm({
           setError("Network error - please check your connection and try again");
         }
       } finally {
-        if (controller.signal.aborted) return
-        if (paymentIntentRequestIdRef.current === requestId) setIsLoading(false);
+        // Avoid `return` in `finally` (no-unsafe-finally). Just gate the side effect.
+        if (!controller.signal.aborted && paymentIntentRequestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
       }
     };
 
