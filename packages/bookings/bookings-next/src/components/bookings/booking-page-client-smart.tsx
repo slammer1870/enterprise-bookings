@@ -89,6 +89,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   const trpc = useTRPC()
   const [quantity, setQuantity] = useState<number>(1)
   const paymentRedirectInProgressRef = useRef(false)
+  const hasCancelledOnLeaveRef = useRef(false)
 
   if (!timeslot?.id) {
     return (
@@ -105,10 +106,13 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   // When user leaves the booking page, cancel any pending bookings for this timeslot
   useEffect(() => {
     const timeslotId = timeslot.id
+    hasCancelledOnLeaveRef.current = false
 
     const cancelViaApi = () => {
       if (paymentRedirectInProgressRef.current) return
       if (!cancelPendingApiUrl) return
+      if (hasCancelledOnLeaveRef.current) return
+      hasCancelledOnLeaveRef.current = true
 
       // Use keepalive so the request has a chance to reach the server during navigation/unmount.
       fetch(cancelPendingApiUrl, {
@@ -127,6 +131,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
       if (paymentRedirectInProgressRef.current) return
       // Prefer the API approach first (it doesn't depend on TRPC client state).
       cancelViaApi()
@@ -138,14 +143,13 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
       window.setTimeout(() => {
         if (paymentRedirectInProgressRef.current) return
         cancelViaApi()
-      }, 500)
-      window.setTimeout(() => {
-        if (paymentRedirectInProgressRef.current) return
-        cancelViaApi()
       }, 1500)
 
-      // Also trigger TRPC mutation as a fallback when the component unmounts normally.
-      cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+      // Also trigger TRPC mutation as a fallback when we don't have an API url
+      // for keepalive cancellation.
+      if (!cancelPendingApiUrl) {
+        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+      }
     }
   }, [timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
 
