@@ -17,8 +17,8 @@ export type TenantContext = {
  */
 export function getTenantSlug(ctx: TenantContext): string | null {
   const cookieHeader = ctx.headers.get("cookie") ?? "";
-  const match = cookieHeader.match(/tenant-slug=([^;]+)/);
-  if (match?.[1]) return match[1];
+  const cookieMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
+  const cookieTenantSlug = cookieMatch?.[1] ?? null;
 
   const host =
     ctx.hostOverride ??
@@ -29,13 +29,20 @@ export function getTenantSlug(ctx: TenantContext): string | null {
   const parts = hostWithoutPort.split(".");
   const isLocalhost = hostWithoutPort.includes("localhost");
 
+  let hostTenantSlug: string | null = null;
   if (isLocalhost && parts.length > 1 && parts[0] && parts[0] !== "localhost") {
-    return parts[0];
+    hostTenantSlug = parts[0];
+  } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
+    hostTenantSlug = parts[0];
   }
-  if (!isLocalhost && parts.length >= 3 && parts[0]) {
-    return parts[0];
+
+  // If the cookie is stale (e.g. user previously visited tenant A, then navigates to tenant B),
+  // prefer the tenant implied by the request host.
+  if (hostTenantSlug && cookieTenantSlug && hostTenantSlug !== cookieTenantSlug) {
+    return hostTenantSlug;
   }
-  return null;
+
+  return cookieTenantSlug ?? hostTenantSlug;
 }
 
 /**
