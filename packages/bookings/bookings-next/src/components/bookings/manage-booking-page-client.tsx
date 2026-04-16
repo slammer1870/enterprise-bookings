@@ -204,31 +204,50 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     setDesiredPendingQuantity((q) => (q > cap ? cap : q))
   }, [isInPaymentFlow, timeslot.remainingCapacity])
 
-  // When user leaves the checkout page (navigate away or close tab), cancel their pending bookings
-  // so capacity is released. Skip if they started a payment redirect (e.g. to Stripe).
+  // When the user leaves the booking/checkout page, cancel any pending bookings for this timeslot
+  // so capacity is released.
+  //
+  // IMPORTANT: The E2E suite can navigate away quickly after creating pending bookings, before the
+  // React state (`isInPaymentFlow` / `pendingBookings`) fully hydrates. So this cleanup must not be
+  // gated on `isInPaymentFlow`; it should instead be gated only by whether a payment redirect
+  // is currently in progress.
   useEffect(() => {
-    if (!isInPaymentFlow) return
     const timeslotId = timeslot.id
+
     const handleBeforeUnload = () => {
-      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
+      // If cancelPendingApiUrl is provided, prefer the API call for beforeunload
+      // (it supports keepalive and does not depend on React unmount timing).
       if (cancelPendingApiUrl) {
         fetch(cancelPendingApiUrl, {
           method: 'POST',
           body: JSON.stringify({ timeslotId }),
           headers: { 'Content-Type': 'application/json' },
           keepalive: true,
+          credentials: 'include',
         }).catch(() => {})
       }
     }
+
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
+      // Initial cancel
       cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+
+      // Race: pending reservations can finish slightly after unmount.
+      // Attempt a second/third cancel after short delays to settle.
+      window.setTimeout(() => {
+        if (paymentRedirectInProgressRef.current) return
+        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+      }, 500)
+      window.setTimeout(() => {
+        if (paymentRedirectInProgressRef.current) return
+        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+      }, 1500)
     }
-  }, [isInPaymentFlow, timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
+  }, [timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
 
   // Keep the UI in sync with the server-backed booking count.
   // This prevents the quantity control from getting stuck at 0 before the query resolves.

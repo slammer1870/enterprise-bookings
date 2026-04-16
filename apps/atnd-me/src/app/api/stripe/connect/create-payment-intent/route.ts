@@ -132,7 +132,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
   }
 
-  if (bookingIds.length === 0 && !isTestMode) {
+  // Even in test mode we reserve pending bookings. Some UI flows (and E2E tests)
+  // increase quantity and expect `status: "pending"` bookings to exist before payment
+  // is completed (payment confirmation happens later via mock webhooks).
+  if (bookingIds.length === 0) {
     try {
       bookingIds = await reservePendingBookings(payload, {
         timeslotId,
@@ -140,6 +143,7 @@ export async function POST(request: NextRequest) {
         user,
         tenantId,
         quantity,
+        trustedServerReservation: isTestMode,
       })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Capacity exceeded'

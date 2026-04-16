@@ -1186,8 +1186,6 @@ export const bookingsRouter = {
     .use(requireCollections("bookings"))
     .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }): Promise<{ cancelled: number }> => {
-      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
-
       const pending = await findSafe(ctx.payload, "bookings", {
         where: {
           and: [
@@ -1198,7 +1196,10 @@ export const bookingsRouter = {
         },
         limit: 100,
         depth: 0,
-        overrideAccess: tenantId ? true : false,
+        // This endpoint is explicitly used to release reserved capacity when a user
+        // leaves checkout, so we must cancel *all* of the user's pending bookings for
+        // this timeslot regardless of tenant-scoped access controls.
+        overrideAccess: true,
         user: ctx.user,
       });
 
@@ -1207,7 +1208,7 @@ export const bookingsRouter = {
         const id = doc.id as number;
         if (id == null) continue;
         await updateSafe(ctx.payload, "bookings", id, { status: "cancelled" }, {
-          overrideAccess: tenantId ? true : false,
+          overrideAccess: true,
           user: ctx.user,
         });
         cancelled += 1;
