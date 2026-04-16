@@ -157,6 +157,35 @@ export async function reservePendingBookings(
   const need = quantity - existingIds.length
 
   if (need > 0) {
+    // If the user just cancelled pending bookings for this timeslot, a concurrent
+    // `create-payment-intent` request might still be completing and attempting to
+    // reserve more `status: "pending"` bookings after we've cancelled.
+    //
+    // Guard against that race by skipping new pending reservations when there
+    // are recently-cancelled bookings updated within a short window.
+    const CANCEL_RACE_GUARD_MS = 30_000
+    const recentlyCancelledCutoff = new Date(Date.now() - CANCEL_RACE_GUARD_MS).toISOString()
+    const recentlyCancelled = await payload.find({
+      collection: 'bookings',
+      where: {
+        and: [
+          { timeslot: { equals: timeslotId } },
+          { user: { equals: userId } },
+          { status: { equals: 'cancelled' } },
+          // Some Payload configurations/hooks may not update `updatedAt` as expected for status-only changes.
+          // Using `createdAt` still reliably detects "we just created pending and cancelled it".
+          { createdAt: { greater_than: recentlyCancelledCutoff } },
+        ],
+      },
+      limit: 1,
+      depth: 0,
+      overrideAccess: trusted,
+      user: opts.user,
+    })
+    if (recentlyCancelled.totalDocs > 0) {
+      return existingIds.slice(0, quantity)
+    }
+
     const timeslot = (await payload.findByID({
       collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       id: timeslotId,

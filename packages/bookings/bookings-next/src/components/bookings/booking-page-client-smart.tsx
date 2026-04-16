@@ -72,16 +72,24 @@ interface BookingPageClientSmartProps {
     /** URL to redirect to after successful payment (Stripe Elements, Checkout Session). */
     successUrl?: string
   }>
+
+  /**
+   * Optional API used to cancel pending bookings when the user leaves the booking page.
+   * If not provided, defaults to `/api/bookings/cancel-pending`.
+   */
+  cancelPendingApiUrl?: string
 }
 
 export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   timeslot,
   onSuccessRedirect,
   PaymentMethodsComponent,
+  cancelPendingApiUrl = '/api/bookings/cancel-pending',
 }) => {
   const trpc = useTRPC()
   const [quantity, setQuantity] = useState<number>(1)
   const paymentRedirectInProgressRef = useRef(false)
+  const hasCancelledOnLeaveRef = useRef(false)
 
   if (!timeslot?.id) {
     return (
@@ -97,11 +105,53 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
 
   // When user leaves the booking page, cancel any pending bookings for this timeslot
   useEffect(() => {
-    return () => {
+    const timeslotId = timeslot.id
+    hasCancelledOnLeaveRef.current = false
+
+    const cancelViaApi = () => {
       if (paymentRedirectInProgressRef.current) return
-      cancelPendingForTimeslot({ timeslotId: timeslot.id }).catch(() => {})
+      if (!cancelPendingApiUrl) return
+      if (hasCancelledOnLeaveRef.current) return
+      hasCancelledOnLeaveRef.current = true
+
+      // Use keepalive so the request has a chance to reach the server during navigation/unmount.
+      fetch(cancelPendingApiUrl, {
+        method: 'POST',
+        body: JSON.stringify({ timeslotId }),
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        credentials: 'include',
+      }).catch(() => {})
     }
-  }, [timeslot.id, cancelPendingForTimeslot])
+
+    const handleBeforeUnload = () => {
+      cancelViaApi()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      if (paymentRedirectInProgressRef.current) return
+      // Prefer the API approach first (it doesn't depend on TRPC client state).
+      cancelViaApi()
+
+      // Race: the UI can still be in the middle of reserving pending bookings (via
+      // `create-payment-intent`) when we unmount. Reserving might complete after the
+      // initial cancel request, leaving a small number of pending bookings.
+      // Fire a couple of additional cancels after a short delay to settle the state.
+      window.setTimeout(() => {
+        if (paymentRedirectInProgressRef.current) return
+        cancelViaApi()
+      }, 1500)
+
+      // Also trigger TRPC mutation as a fallback when we don't have an API url
+      // for keepalive cancellation.
+      if (!cancelPendingApiUrl) {
+        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+      }
+    }
+  }, [timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
 
   // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the timeslot data from the server
   // is used; there is no client-side Stripe Connect or tenant check. If the server returns a timeslot without

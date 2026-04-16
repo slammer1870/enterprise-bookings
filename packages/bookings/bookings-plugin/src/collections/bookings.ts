@@ -72,8 +72,11 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
   return {
     beforeValidate: [
       async ({ req, data, operation, originalDoc }) => {
-        const ctx = req.context as { skipTimeslotCapacityCheck?: boolean } | undefined;
-        if (ctx?.skipTimeslotCapacityCheck) {
+        const ctx = req.context as {
+          skipTimeslotCapacityCheck?: boolean
+          skipBookingSideEffects?: boolean
+        } | undefined;
+        if (ctx?.skipTimeslotCapacityCheck || ctx?.skipBookingSideEffects) {
           return data;
         }
 
@@ -114,6 +117,17 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
 
         if (places == null) return data;
 
+        const isBecomingConfirmed =
+          data?.status === "confirmed" &&
+          !(
+            operation === "update" &&
+            (originalDoc as any)?.status === "confirmed"
+          );
+
+        // Only do the expensive capacity check if we're transitioning into `confirmed`.
+        // Pending/waiting updates should not block on counts.
+        if (!isBecomingConfirmed) return data;
+
         const confirmedCount = await req.payload
           .find({
             collection: bookingsSlug as CollectionSlug,
@@ -130,13 +144,6 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
           })
           .then((res) => res.totalDocs)
           .catch(() => 0);
-
-        const isBecomingConfirmed =
-          data?.status === "confirmed" &&
-          !(
-            operation === "update" &&
-            (originalDoc as any)?.status === "confirmed"
-          );
 
         const closed = confirmedCount >= places;
 
@@ -190,6 +197,17 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
               : null;
           if (places == null) return;
 
+          // When doing bulk quantity changes, we may cancel/create multiple bookings in a loop.
+          // The hook's capacity/notification logic is not needed for intermediate steps, and it
+          // can block the request if DB/email work is slow. Skip it when requested.
+          if (
+            context?.skipBookingSideEffects &&
+            doc.status === "cancelled" &&
+            previousDoc?.status === "confirmed"
+          ) {
+            return;
+          }
+
           const confirmedAndRecentPending = await req.payload
             .find({
               collection: bookingsSlug as CollectionSlug,
@@ -230,6 +248,16 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
             remainingCapacity === 0 &&
             previousDoc.status === "confirmed"
           ) {
+            if (context?.skipWaitlistEmails) {
+              return
+            }
+
+            // Keep this side-effect bounded so booking management updates can't hang.
+            const WAITLIST_EMAIL_MAX_RECIPIENTS = 50
+            // This hook can run inline during booking management updates.
+            // If the email provider is slow/unresponsive, it can block the request,
+            // so we must keep this side-effect non-blocking.
+            const waitlistEmailStart = Date.now();
             const bookingsQuery = await req.payload.find({
               collection: bookingsSlug as CollectionSlug,
               where: {
@@ -237,7 +265,10 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
                 status: { equals: "waiting" },
               },
               depth: 1,
+              limit: WAITLIST_EMAIL_MAX_RECIPIENTS,
+              sort: "createdAt",
             });
+            const bookingsQueryMs = Date.now() - waitlistEmailStart;
 
             const bookings = bookingsQuery.docs as Booking[];
 
@@ -248,7 +279,18 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
               }),
             );
 
-            await Promise.all(
+            // Instrument via payload logger/console since `PayloadRequest` doesn't expose `logger`.
+            console.info({
+              msg: "[bookings] waitlist email send start",
+              timeslotId: timeslot.id,
+              waitingCount: bookings.length,
+              remainingCapacity,
+              cancelledBookingId: doc.id,
+              queryMs: bookingsQueryMs,
+              totalMsSoFar: Date.now() - waitlistEmailStart,
+            });
+
+            const emailSendPromise = Promise.allSettled(
               bookings.map((booking) =>
                 req.payload.sendEmail({
                   to: booking.user.email,
@@ -256,7 +298,23 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
                   html: emailTemplate,
                 }),
               ),
-            );
+            )
+            void emailSendPromise.then(() => {
+              // If the provider is slow/hanging, this log may not appear, but the request should.
+              console.info({
+                msg: "[bookings] waitlist email send complete",
+                timeslotId: timeslot.id,
+                waitingCount: bookings.length,
+                totalMs: Date.now() - waitlistEmailStart,
+              })
+            }).catch((err) => {
+              console.error("[bookings] waitlist email send failed", {
+                timeslotId: timeslot.id,
+                waitingCount: bookings.length,
+                error: err instanceof Error ? err.message : err,
+                totalMs: Date.now() - waitlistEmailStart,
+              })
+            })
           }
         } catch (error: any) {
           if (
@@ -272,6 +330,11 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
       async ({ req, doc, context }) => {
         if (context.triggerAfterChange === false) {
           return;
+        }
+
+        if (context?.skipBookingSideEffects) {
+          // Skip lockout/count side-effects during intermediate bulk updates.
+          return doc;
         }
 
         const timeslotId =
@@ -323,10 +386,15 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
               context: { triggerAfterChange: false },
             });
           } else {
+            const originalLockOutTimeRaw = (timeslot as any).originalLockOutTime
+            const originalLockOutTime =
+              typeof originalLockOutTimeRaw === 'number' && Number.isFinite(originalLockOutTimeRaw)
+                ? originalLockOutTimeRaw
+                : 0
             await req.payload.update({
               collection: timeslotsSlug as CollectionSlug,
               id: timeslotId,
-              data: { lockOutTime: (timeslot as any).originalLockOutTime },
+              data: { lockOutTime: originalLockOutTime },
               context: { triggerAfterChange: false },
             });
           }
@@ -335,6 +403,16 @@ function createBookingDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
             error?.status === 404 ||
             error?.name === "NotFound" ||
             error?.message?.includes("Cannot use 'in' operator")
+          ) {
+            return doc;
+          }
+
+          // Non-fatal: if lockout restore/update fails (e.g. legacy rows missing
+          // originalLockOutTime or schema validation rejects the value), don't
+          // fail booking cancellation. We only use lockout for capacity UX.
+          if (
+            error?.name === "ValidationError" ||
+            error?.message?.toLowerCase?.().includes("lockout")
           ) {
             return doc;
           }

@@ -311,4 +311,22 @@ describe("decrement via booking-transaction", () => {
     expect((passAfter as { quantity?: number }).quantity).toBe(1);
     expect((passAfter as { status?: string }).status).toBe("active");
   });
+
+  it("returns null (does not throw) when transactions lookup fails", async () => {
+    const getClassPassId = getClassPassIdFromBookingTransaction();
+
+    const classPassId = await getClassPassId({
+      doc: { id: 123 } as any,
+      req: {
+        payload: {
+          // Simulate transactions find failing due to access mismatch
+          find: async () => {
+            throw new Error("transactions lookup failed");
+          },
+        },
+      },
+    } as any);
+
+    expect(classPassId).toBeNull();
+  });
 });

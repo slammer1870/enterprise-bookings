@@ -215,9 +215,12 @@ export default function CheckoutForm({
   };
 
   useEffect(() => {
+    const controller = new AbortController()
+
     const createCheckoutSession = async () => {
       const requestId = ++paymentIntentRequestIdRef.current;
       try {
+        if (controller.signal.aborted) return
         setIsLoading(true);
         setError(null);
         setClientSecret(null);
@@ -235,6 +238,7 @@ export default function CheckoutForm({
             "Content-Type": "application/json",
           },
           credentials: "include",
+          signal: controller.signal,
           body: JSON.stringify({
             price,
             metadata: stableMetadata,
@@ -293,18 +297,27 @@ export default function CheckoutForm({
             : null
         );
       } catch (err) {
+        // If we're leaving/unmounting, don't surface/retain errors.
+        if (controller.signal.aborted) return
+        if (err instanceof DOMException && err.name === "AbortError") return
+
         console.error("Error creating payment intent:", err);
         if (paymentIntentRequestIdRef.current === requestId) {
           setError("Network error - please check your connection and try again");
         }
       } finally {
-        if (paymentIntentRequestIdRef.current === requestId) {
+        // Avoid `return` in `finally` (no-unsafe-finally). Just gate the side effect.
+        if (!controller.signal.aborted && paymentIntentRequestIdRef.current === requestId) {
           setIsLoading(false);
         }
       }
     };
 
     createCheckoutSession();
+
+    return () => {
+      controller.abort()
+    }
   }, [price, metadataKey, createPaymentIntentUrl]);
 
   if (error) {

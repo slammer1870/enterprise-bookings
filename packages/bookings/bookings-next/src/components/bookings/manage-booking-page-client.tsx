@@ -154,6 +154,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [isInPaymentFlow, setIsInPaymentFlow] = useState(false)
   /** In payment flow: desired number of new (pending) bookings to pay for. Controls the payment-flow quantity selector. */
   const [desiredPendingQuantity, setDesiredPendingQuantity] = useState<number>(0)
+  // When the user changes pending quantity (via +/-), prevent server-driven
+  // pending sync from overwriting local state while the update is in flight.
+  const [isAdjustingPendingQuantity, setIsAdjustingPendingQuantity] = useState(false)
   // When true, user has started a payment redirect (e.g. to Stripe) — don't cancel pending on unmount
   const paymentRedirectInProgressRef = useRef(false)
   const hasPendingBookingsRef = useRef(false)
@@ -182,10 +185,11 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // booking IDs and trigger the "cancel on leave" cleanup effect prematurely.
   useEffect(() => {
     if (!isInPaymentFlow) return
+    if (isAdjustingPendingQuantity) return
     if (pendingFromServer.length > 0) {
       setPendingBookings(pendingFromServer)
     }
-  }, [isInPaymentFlow, pendingFromServer])
+  }, [isInPaymentFlow, isAdjustingPendingQuantity, pendingFromServer])
 
   useEffect(() => {
     hasPendingBookingsRef.current = pendingBookings.length > 0
@@ -204,31 +208,50 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     setDesiredPendingQuantity((q) => (q > cap ? cap : q))
   }, [isInPaymentFlow, timeslot.remainingCapacity])
 
-  // When user leaves the checkout page (navigate away or close tab), cancel their pending bookings
-  // so capacity is released. Skip if they started a payment redirect (e.g. to Stripe).
+  // When the user leaves the booking/checkout page, cancel any pending bookings for this timeslot
+  // so capacity is released.
+  //
+  // IMPORTANT: The E2E suite can navigate away quickly after creating pending bookings, before the
+  // React state (`isInPaymentFlow` / `pendingBookings`) fully hydrates. So this cleanup must not be
+  // gated on `isInPaymentFlow`; it should instead be gated only by whether a payment redirect
+  // is currently in progress.
   useEffect(() => {
-    if (!isInPaymentFlow) return
     const timeslotId = timeslot.id
+
     const handleBeforeUnload = () => {
-      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
+      // If cancelPendingApiUrl is provided, prefer the API call for beforeunload
+      // (it supports keepalive and does not depend on React unmount timing).
       if (cancelPendingApiUrl) {
         fetch(cancelPendingApiUrl, {
           method: 'POST',
           body: JSON.stringify({ timeslotId }),
           headers: { 'Content-Type': 'application/json' },
           keepalive: true,
+          credentials: 'include',
         }).catch(() => {})
       }
     }
+
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
-      if (!hasPendingBookingsRef.current) return
       if (paymentRedirectInProgressRef.current) return
+      // Initial cancel
       cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+
+      // Race: pending reservations can finish slightly after unmount.
+      // Attempt a second/third cancel after short delays to settle.
+      window.setTimeout(() => {
+        if (paymentRedirectInProgressRef.current) return
+        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+      }, 500)
+      window.setTimeout(() => {
+        if (paymentRedirectInProgressRef.current) return
+        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+      }, 1500)
     }
-  }, [isInPaymentFlow, timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
+  }, [timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
 
   // Keep the UI in sync with the server-backed booking count.
   // This prevents the quantity control from getting stuck at 0 before the query resolves.
@@ -485,65 +508,69 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     const target = Math.min(Math.max(requestedQuantity, 0), maxPendingQuantity)
 
     if (target === current) return
-
-    setDesiredPendingQuantity(target)
-
-    if (target === 0) {
-      setIsAbandoningCheckout(true)
-      try {
-        await cancelPendingForTimeslot({ timeslotId: timeslot.id })
-        setIsInPaymentFlow(false)
-        setPendingBookings([])
-        setDesiredPendingQuantity(0)
-        setDesiredQuantity(confirmedBookings.length)
-        await queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
-        })
-      } catch (err: any) {
-        setDesiredPendingQuantity(current)
-        toast.error(err?.message ?? 'Failed to cancel pending bookings')
-      } finally {
-        setIsAbandoningCheckout(false)
-      }
-      return
-    }
-
-    if (target < current) {
-      const toCancel = current - target
-      const pendingToCancel = [...pendingBookings]
-        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-        .slice(0, toCancel)
-      try {
-        for (const booking of pendingToCancel) {
-          if (booking.id != null) await cancelBookingAsync({ id: booking.id })
-        }
-        setPendingBookings((prev) =>
-          prev.filter((booking) => !pendingToCancel.some((pending) => pending.id === booking.id))
-        )
-        await queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
-        })
-        toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
-      } catch (err: any) {
-        setDesiredPendingQuantity(current)
-        toast.error(err?.message ?? 'Failed to update pending bookings')
-      }
-      return
-    }
-
-    // target > current: create more pending
-    const toCreate = target - current
+    setIsAdjustingPendingQuantity(true)
     try {
-      const newPending = await createBookings({
-        timeslotId: timeslot.id,
-        quantity: toCreate,
-        status: 'pending',
-      })
-      setPendingBookings((prev) => [...prev, ...newPending])
-      toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
-    } catch (err: any) {
-      setDesiredPendingQuantity(current)
-      toast.error(err?.message ?? 'Failed to add pending bookings')
+      setDesiredPendingQuantity(target)
+
+      if (target === 0) {
+        setIsAbandoningCheckout(true)
+        try {
+          await cancelPendingForTimeslot({ timeslotId: timeslot.id })
+          setIsInPaymentFlow(false)
+          setPendingBookings([])
+          setDesiredPendingQuantity(0)
+          setDesiredQuantity(confirmedBookings.length)
+          await queryClient.invalidateQueries({
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
+          })
+        } catch (err: any) {
+          setDesiredPendingQuantity(current)
+          toast.error(err?.message ?? 'Failed to cancel pending bookings')
+        } finally {
+          setIsAbandoningCheckout(false)
+        }
+        return
+      }
+
+      if (target < current) {
+        const toCancel = current - target
+        const pendingToCancel = [...pendingBookings]
+          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+          .slice(0, toCancel)
+        try {
+          for (const booking of pendingToCancel) {
+            if (booking.id != null) await cancelBookingAsync({ id: booking.id })
+          }
+          setPendingBookings((prev) =>
+            prev.filter((booking) => !pendingToCancel.some((pending) => pending.id === booking.id))
+          )
+          await queryClient.invalidateQueries({
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
+          })
+          toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
+        } catch (err: any) {
+          setDesiredPendingQuantity(current)
+          toast.error(err?.message ?? 'Failed to update pending bookings')
+        }
+        return
+      }
+
+      // target > current: create more pending
+      const toCreate = target - current
+      try {
+        const newPending = await createBookings({
+          timeslotId: timeslot.id,
+          quantity: toCreate,
+          status: 'pending',
+        })
+        setPendingBookings((prev) => [...prev, ...newPending])
+        toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
+      } catch (err: any) {
+        setDesiredPendingQuantity(current)
+        toast.error(err?.message ?? 'Failed to add pending bookings')
+      }
+    } finally {
+      setIsAdjustingPendingQuantity(false)
     }
   }
 

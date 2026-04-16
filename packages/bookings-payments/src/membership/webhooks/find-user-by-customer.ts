@@ -26,6 +26,9 @@ export async function findUserByCustomer(
         ],
       },
       limit: 1,
+      // Webhooks run server-side; we must not let collection read access control
+      // prevent mapping lookups of Stripe identities to internal users.
+      overrideAccess: true,
     });
     if (userByConnectMapping.totalDocs > 0) {
       return userByConnectMapping.docs[0] as User;
@@ -38,6 +41,7 @@ export async function findUserByCustomer(
       collection: "users" as const,
       where: { stripeCustomerId: { equals: customerIdString } },
       limit: 1,
+      overrideAccess: true,
     });
     if (userByCustomerId.totalDocs > 0) {
       return userByCustomerId.docs[0] as User;
@@ -68,6 +72,7 @@ export async function findUserByCustomer(
     collection: "users" as const,
     where: { email: { equals: customerEmail } },
     limit: 1,
+    overrideAccess: true,
   });
 
   if (userByEmail.totalDocs > 0) {
@@ -85,6 +90,7 @@ export async function findUserByCustomer(
           collection: "users" as const,
           id: user.id as number,
           data: { stripeCustomers: next } as Record<string, unknown>,
+          overrideAccess: true,
         });
       } else if (!(user as any).stripeCustomerId) {
         // Backwards-compatible: platform stripe customer id
@@ -92,6 +98,7 @@ export async function findUserByCustomer(
           collection: "users" as const,
           id: user.id as number,
           data: { stripeCustomerId: customerIdString } as Record<string, unknown>,
+          overrideAccess: true,
         });
       }
     } catch (error) {
