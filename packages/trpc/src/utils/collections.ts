@@ -158,6 +158,7 @@ export async function createSafe<T = any>(
     depth?: number;
     overrideAccess?: boolean;
     user?: any;
+    context?: Record<string, unknown>;
   } = {}
 ): Promise<T> {
   if (!hasCollection(payload, collectionSlug)) {
@@ -174,6 +175,7 @@ export async function createSafe<T = any>(
       depth: options.depth ?? 0,
       overrideAccess: options.overrideAccess ?? false,
       user: options.user,
+      ...(options.context ? { context: options.context } : {}),
       showHiddenFields: false,
     })) as T;
   } catch (error: any) {
@@ -226,6 +228,7 @@ export async function updateSafe<T = any>(
     depth?: number;
     overrideAccess?: boolean;
     user?: any;
+    context?: Record<string, unknown>;
   } = {}
 ): Promise<T> {
   if (!hasCollection(payload, collectionSlug)) {
@@ -242,5 +245,6 @@ export async function updateSafe<T = any>(
     depth: options.depth ?? 0,
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
+    ...(options.context ? { context: options.context } : {}),
   })) as T;
 }

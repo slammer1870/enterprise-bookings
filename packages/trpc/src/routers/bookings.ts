@@ -789,6 +789,7 @@ export const bookingsRouter = {
       if (subscriptionIdUsed != null) (baseData as any).subscriptionIdUsed = subscriptionIdUsed;
       if (classPassIdUsed != null) (baseData as any).classPassIdUsed = classPassIdUsed;
 
+      const shouldSkipSideEffects = status === "pending";
       for (let i = 0; i < createCount; i++) {
         const booking = await createSafe<Booking>(
           ctx.payload,
@@ -800,6 +801,7 @@ export const bookingsRouter = {
             // elevated access so pending manage-flow bookings are not rejected by
             // collection access during this server-side operation.
             overrideAccess: true,
+            context: shouldSkipSideEffects ? { skipBookingSideEffects: true } : undefined,
           }
         );
         confirmedBookings.push(booking as Booking);
@@ -1168,11 +1170,16 @@ export const bookingsRouter = {
         }
       }
 
+      const previousStatus = booking.docs[0]?.status;
+      const shouldSkipSideEffects =
+        previousStatus === "pending" || previousStatus === "waiting";
+
       const updatedBooking = await updateSafe(ctx.payload, "bookings", id, {
         status: "cancelled",
       }, {
         overrideAccess: tenantId ? true : false,
         user: ctx.user,
+        context: shouldSkipSideEffects ? { skipBookingSideEffects: true } : undefined,
       });
 
       return updatedBooking as Booking;
@@ -1210,6 +1217,7 @@ export const bookingsRouter = {
         await updateSafe(ctx.payload, "bookings", id, { status: "cancelled" }, {
           overrideAccess: true,
           user: ctx.user,
+          context: { skipBookingSideEffects: true },
         });
         cancelled += 1;
       }
@@ -1991,6 +1999,7 @@ export const bookingsRouter = {
 
         // Create additional bookings
         const newBookings: Booking[] = [];
+        const lastCreationIndex = additional - 1;
         for (let i = 0; i < additional; i++) {
           const booking = await createSafe<Booking>(
             ctx.payload,
@@ -2003,6 +2012,7 @@ export const bookingsRouter = {
             {
               // Same as createBookings: access and capacity already validated in this mutation.
               overrideAccess: true,
+              context: { skipBookingSideEffects: i < lastCreationIndex },
             }
           );
           newBookings.push(booking as Booking);
@@ -2040,6 +2050,7 @@ export const bookingsRouter = {
         });
 
         // Cancel the newest bookings
+        const lastCancellationIndex = Math.min(toCancel, sortedBookings.length) - 1;
         for (let i = 0; i < toCancel && i < sortedBookings.length; i++) {
           const bookingToCancel = sortedBookings[i];
           if (!bookingToCancel) continue;
@@ -2057,6 +2068,12 @@ export const bookingsRouter = {
             {
               overrideAccess: tenantId ? true : false,
               user: ctx.user,
+              // Avoid sending waitlist emails for intermediate cancellations inside a bulk
+              // quantity update, which otherwise runs the hook multiple times and can block.
+              context: {
+                skipWaitlistEmails: i < lastCancellationIndex,
+                skipBookingSideEffects: i < lastCancellationIndex,
+              },
             }
           );
         }
