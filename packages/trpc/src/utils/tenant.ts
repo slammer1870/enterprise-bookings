@@ -18,7 +18,7 @@ export type TenantContext = {
 export function getTenantSlug(ctx: TenantContext): string | null {
   const cookieHeader = ctx.headers.get("cookie") ?? "";
   const cookieMatch = cookieHeader.match(/tenant-slug=([^;]+)/);
-  const cookieTenantSlug = cookieMatch?.[1] ?? null;
+  const cookieTenantSlug = cookieMatch?.[1]?.trim()?.toLowerCase() ?? null;
 
   const host =
     ctx.hostOverride ??
@@ -34,6 +34,19 @@ export function getTenantSlug(ctx: TenantContext): string | null {
     hostTenantSlug = parts[0];
   } else if (!isLocalhost && parts.length >= 3 && parts[0]) {
     hostTenantSlug = parts[0];
+  }
+
+  // Some tenants are served behind an additional label like:
+  // - www.<tenant>.<tld> (www is not the tenant slug)
+  // - new.<tenant>.<tld>
+  // These prefixes are common for marketing/staging domains, so we strip them
+  // before attempting to resolve the tenant in the `tenants` collection.
+  if (hostTenantSlug != null) {
+    const prefix = hostTenantSlug;
+    if ((prefix === "www") && parts.length >= 3 && parts[1]) {
+      hostTenantSlug = parts[1];
+    }
+    hostTenantSlug = hostTenantSlug.trim().toLowerCase();
   }
 
   // If the cookie is stale (e.g. user previously visited tenant A, then navigates to tenant B),
