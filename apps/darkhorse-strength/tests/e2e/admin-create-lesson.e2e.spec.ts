@@ -42,10 +42,13 @@ test.describe('Darkhorse Strength: admin lesson creation', () => {
     await setTimeslotDateAndTime(page, targetDate)
     await saveTimeslot(page)
 
-    await page.goto(`/admin/collections/timeslots${getTimeslotsQuery(targetDate)}`, {
-      waitUntil: 'domcontentloaded',
-      timeout: process.env.CI ? 120000 : 60000,
-    })
+    await page.goto(
+      `/admin/collections/timeslots${getTimeslotsQuery(targetDate, undefined, { depth: 0 })}`,
+      {
+        waitUntil: 'domcontentloaded',
+        timeout: process.env.CI ? 120000 : 60000,
+      },
+    )
 
     await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
       timeout: process.env.CI ? 120000 : 60000,

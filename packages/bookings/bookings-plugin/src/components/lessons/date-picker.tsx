@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import { Calendar } from "@repo/ui/components/ui/calendar";
 
@@ -35,9 +35,10 @@ function isSameCalendarDay(left?: Date, right?: Date) {
   );
 }
 
-export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) => {
+function DatePickerInner({ selectedDateISO }: { selectedDateISO?: string }) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const selectedDateFromUrl = useMemo(
     () => parseSelectedDate(selectedDateISO),
@@ -55,11 +56,34 @@ export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) =>
     setMonth(selectedDateFromUrl);
   }, [selectedDateFromUrl]);
 
+  /**
+   * When the day filter is already in the URL, `selectedDateISO` is set and the effect below
+   * that applies the default query never runs—so bookmarks / old links can keep `depth=3`.
+   * Payload’s ListQueryProvider and the Next RSC segment key both mirror that param; normalize
+   * it without touching `where`, `limit`, or `sort`.
+   */
+  useEffect(() => {
+    // When there is no day filter yet, the effect below replaces the whole query with
+    // `getTimeslotsQuery(..., { depth: 0 })`—skip this to avoid two navigations.
+    if (!selectedDateISO) return;
+    if (searchParams.get("depth") === "0") return;
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("depth", "0");
+    const qs = params.toString();
+
+    startTransition(() => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname);
+    });
+  }, [pathname, router, searchParams, selectedDateISO]);
+
   useEffect(() => {
     if (selectedDateISO) return;
 
     startTransition(() => {
-      router.replace(pathname + getTimeslotsQuery(selectedDateFromUrl));
+      router.replace(
+        pathname + getTimeslotsQuery(selectedDateFromUrl, undefined, { depth: 0 }),
+      );
     });
   }, [pathname, router, selectedDateFromUrl, selectedDateISO]);
 
@@ -68,7 +92,7 @@ export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) =>
     setDate(nextDate);
     setMonth(nextDate);
     startTransition(() => {
-      router.push(pathname + getTimeslotsQuery(nextDate));
+      router.push(pathname + getTimeslotsQuery(nextDate, undefined, { depth: 0 }));
     });
   };
 
@@ -117,4 +141,10 @@ export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) =>
       </div>
     </>
   );
-};
+}
+
+export const DatePicker = (props: { selectedDateISO?: string }) => (
+  <Suspense fallback={null}>
+    <DatePickerInner {...props} />
+  </Suspense>
+);

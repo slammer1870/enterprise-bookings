@@ -81,6 +81,7 @@ export function createBookingAccess(slugs: BookingCollectionSlugs) {
   const bookingUpdateAccess = async ({
     req,
     id,
+    data,
   }: AccessArgs<Booking>) => {
     const searchParams = req.searchParams;
 
@@ -126,7 +127,9 @@ export function createBookingAccess(slugs: BookingCollectionSlugs) {
       if (!bookingUserId) return false;
       if (bookingUserId !== requesterId) return false;
 
-      if (req.data?.status === "cancelled") return true;
+      // Payload passes patch data as `data`; do not rely on `req.data` here.
+      const nextStatus = data?.status ?? (req as { data?: { status?: string } }).data?.status;
+      if (nextStatus === "cancelled") return true;
 
       if (
         (booking as any)?.timeslot?.bookingStatus === "closed" ||

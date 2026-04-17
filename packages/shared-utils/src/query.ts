@@ -2,14 +2,25 @@ import * as qs from "qs";
 
 import { getDayBoundsInTimeZone } from "./timezone";
 
+export type GetTimeslotsQueryOptions = {
+  /**
+   * REST / admin URL population depth.
+   * Use `0` for Payload admin timeslots list URLs so the query string matches the shallow
+   * list path (custom list + ListQuery). Default `3` keeps `/api/timeslots` and schedule
+   * fetches populated for public UI.
+   */
+  depth?: number;
+};
+
 export const getTimeslotsQuery = (
   date: Date,
   timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone,
+  options?: GetTimeslotsQueryOptions,
 ) => {
   const { startOfDay, endOfDay } = getDayBoundsInTimeZone(date, timeZone);
 
   const query = {
-    depth: 3,
+    depth: options?.depth ?? 3,
     limit: "100",
     where: {
       or: [
