@@ -1,5 +1,6 @@
 import type { Access, Where } from 'payload'
 import type { User as SharedUser } from '@repo/shared-types'
+import { checkRole } from '@repo/shared-utils'
 import { tenantScopedPublicReadStrict } from './tenant-scoped'
 
 /**
@@ -16,10 +17,13 @@ import { tenantScopedPublicReadStrict } from './tenant-scoped'
  * hide timeslots that started earlier today, breaking the full-day schedule view.
  */
 export const timeslotsRead: Access = async (args) => {
-  const base = await tenantScopedPublicReadStrict(args)
+  const user = args.req.user as unknown as SharedUser | undefined | null
+
+  // Tenant admins/staff should be able to load timeslots for booking across tenants.
+  // The booking workflow itself enforces additional business rules (payment + booking access).
+  const base = user && checkRole(['admin', 'staff'], user as any) ? true : await tenantScopedPublicReadStrict(args)
   if (base === false) return false
 
-  const user = args.req.user as unknown as SharedUser | undefined | null
   if (user) {
     return base
   }
