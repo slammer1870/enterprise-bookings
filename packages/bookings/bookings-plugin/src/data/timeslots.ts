@@ -14,6 +14,10 @@ export const getTimeslots = async (
   const startTimeFilter = getTimeslotStartTimeFilter(searchParams);
   const effectiveSearchParams = startTimeFilter ? searchParams : getTimeslotsQuery(new Date()).replace(/^\?/, "");
   const ps = normalizeTimeslotSearchParams(effectiveSearchParams);
+  // Admin timeslots list can become very expensive if Payload eagerly populates
+  // relationship joins (and virtual fields) for every timeslot. We keep the list
+  // shallow and lazy-load bookings docs when a row is expanded.
+  ps.depth = 2;
 
   // segments: ['admin', 'collections', 'timeslots'] -> use 'timeslots'
   const collection =
@@ -40,6 +44,19 @@ export const getTimeslots = async (
     ...ps,
     ...(tenantId != null ? { where: searchQuery.where } : {}),
     ...(req ? { req, overrideAccess: false } : {}),
+    // Only select fields needed for the admin list UI.
+    // This avoids executing expensive virtual fields like:
+    // - `remainingCapacity` (afterRead hook queries bookings)
+    // - `bookingStatus` (afterRead hook queries bookings + eventType)
+    select: {
+      id: true,
+      startTime: true,
+      endTime: true,
+      active: true,
+      tenant: { slug: true, timeZone: true } as any,
+      eventType: { name: true, id: true } as any,
+      bookings: true,
+    } as any,
   } as Parameters<BasePayload["find"]>[0]);
 
   const timeslots = timeslotList.docs as Timeslot[];
