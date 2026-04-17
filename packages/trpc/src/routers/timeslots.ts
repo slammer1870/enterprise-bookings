@@ -92,6 +92,17 @@ export const timeslotsRouter = {
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      // Match getById: when host/cookie cannot resolve a tenant (e.g. custom domain without
+      // tenant-slug, or slug mismatch), derive tenant from the timeslot before findByID.
+      // Otherwise req.context.tenant is empty, tenantScopedPublicReadStrict cannot scope the read,
+      // and Payload returns 403 "You are not allowed to perform this action."
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromTimeslotId(
+          ctx.payload,
+          input.id,
+          ctx.bookingsSlugs.timeslots
+        );
+      }
 
       const timeslot = (await ctx.payload
         .findByID({
@@ -105,6 +116,7 @@ export const timeslotsRouter = {
           req: {
             user: ctx.user,
             payload: ctx.payload,
+            headers: ctx.headers,
             context: tenantId ? { tenant: tenantId } : {},
           } as any,
         })
