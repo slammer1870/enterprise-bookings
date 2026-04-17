@@ -140,8 +140,12 @@ export const TimeslotAdmin: React.FC<{
           const full = await payload.findByID({
             collection: "users",
             id: uid,
-            depth: 1,
+            depth: 0,
             overrideAccess: true,
+            select: {
+              tenants: true,
+              registrationTenant: true,
+            } as any,
           });
           const ids = tenantMembershipIdsFromUserDoc(full);
           if (ids.length > 0) {
