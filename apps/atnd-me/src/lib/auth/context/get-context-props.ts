@@ -1,5 +1,6 @@
 import type { Account, DeviceSession, Session } from '@/lib/auth/types'
 import { getPayload } from '@/lib/payload'
+import { sanitizeBetterAuthSession } from '@repo/shared-utils'
 import type { TypedUser } from 'payload'
 import { headers as requestHeaders } from 'next/headers'
 
@@ -7,8 +8,8 @@ export const getSession = async (): Promise<Session | null> => {
   try {
     const payload = await getPayload()
     const headers = await requestHeaders()
-    const session = await payload.betterAuth.api.getSession({ headers })
-    return session
+    const raw = await payload.betterAuth.api.getSession({ headers })
+    return sanitizeBetterAuthSession(raw)
   } catch (error) {
     // Avoid error boundary on auth/session failures (e.g. cookie missing on subdomain, CI timing).
     // Callers should treat null as unauthenticated and redirect to sign-in.

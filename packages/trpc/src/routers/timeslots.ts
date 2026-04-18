@@ -25,6 +25,8 @@ import {
   getDayRange,
   getDayBoundsInTimeZone,
   resolveTimeZone,
+  sanitizeBetterAuthSession,
+  sanitizeBetterAuthUser,
 } from "@repo/shared-utils";
 
 export const timeslotsRouter = {
@@ -256,18 +258,23 @@ export const timeslotsRouter = {
         // but degrade to a logged-out viewer when auth lookup throws (e.g. "No User").
       let user: any = ctx.user ?? null;
       if (!user && ctx.betterAuth?.api?.getSession) {
-          try {
-            user = (await ctx.betterAuth.api.getSession({ headers: ctx.headers }))?.user ?? null;
-          } catch {
-            user = null;
-          }
-      } else if (!user) {
-          try {
-            user = (await ctx.payload.auth({ headers: ctx.headers, canSetHeaders: false }))?.user ?? null;
-          } catch {
-            user = null;
-          }
+        try {
+          const raw = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
+          user = sanitizeBetterAuthSession(raw)?.user ?? null;
+        } catch {
+          user = null;
         }
+      } else if (!user) {
+        try {
+          const auth = await ctx.payload.auth({
+            headers: ctx.headers,
+            canSetHeaders: false,
+          });
+          user = sanitizeBetterAuthUser(auth.user);
+        } catch {
+          user = null;
+        }
+      }
 
         const tenantSlug = getTenantSlug(ctx);
         let tenantId: number | null = input.tenantId ?? null;

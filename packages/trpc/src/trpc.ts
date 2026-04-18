@@ -15,6 +15,10 @@ import {
   mergeTRPCBookingCollectionSlugs,
   type TRPCBookingCollectionSlugs,
 } from "./bookings-slugs";
+import {
+  sanitizeBetterAuthSession,
+  sanitizeBetterAuthUser,
+} from "@repo/shared-utils";
 type BetterAuthInstance = {
   api: {
     getSession: (_args: { headers: Headers }) => Promise<{ user?: any } | null>;
@@ -161,8 +165,9 @@ async function getRequestUser(ctx: Context) {
   // for apps that haven't enabled Better Auth yet.
   if (ctx.betterAuth?.api?.getSession) {
     try {
-      const session = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
-      if (session?.user) return session.user;
+      const raw = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
+      const slim = sanitizeBetterAuthSession(raw);
+      if (slim?.user) return slim.user;
     } catch {
       // If Better Auth fails for any reason, fall back to Payload auth.
     }
@@ -173,7 +178,7 @@ async function getRequestUser(ctx: Context) {
       headers: ctx.headers,
       canSetHeaders: false,
     });
-    return auth.user ?? null;
+    return sanitizeBetterAuthUser(auth.user);
   } catch {
     // Some Payload setups throw (e.g. "No User") instead of returning { user: null }.
     return null;

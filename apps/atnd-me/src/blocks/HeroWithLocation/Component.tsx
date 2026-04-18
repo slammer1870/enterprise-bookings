@@ -132,6 +132,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   socialFollowLabel,
   socialFollowUrl,
   introTagline,
+  disableInnerContainer: _disableInnerContainer,
 }) => {
   const bgUrl = resolveMediaUrl(backgroundImage)
   const logoUrl = resolveMediaUrl(logo)
@@ -141,10 +142,13 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   const overlayOpacity = (imageOverlayOpacity ?? DEFAULT_OVERLAY_OPACITY) / 100
 
   return (
-    <div className="flex w-full">
-      {/* Hero Section - Full width on mobile, half width on desktop (same layout as Hero with Schedule) */}
-      <div className="relative w-full flex-shrink-0 min-h-[600px] md:min-h-[750px] flex flex-col md:flex-row items-start md:items-start justify-center md:justify-between overflow-hidden p-8">
-        {bgUrl && (
+    <section className="relative w-full min-h-[500px] overflow-hidden md:min-h-[700px]">
+      {/* Full-bleed image + overlay across the entire hero (schedule card sits on top in the foreground) */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 min-h-full bg-stone-900"
+        aria-hidden
+      >
+        {bgUrl ? (
           <>
             <Image
               src={bgUrl}
@@ -154,7 +158,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
                   : ''
               }
               fill
-              sizes="(max-width: 768px) 100vw, 66vw"
+              sizes="100vw"
               className="object-cover"
               priority
             />
@@ -164,135 +168,141 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
                 backgroundColor: overlayColor,
                 opacity: overlayOpacity,
               }}
-              aria-hidden
             />
           </>
-        )}
+        ) : null}
+      </div>
 
-        <div className="relative z-10 flex flex-col justify-center gap-4 px-6 pt-16 pb-16 md:px-12 lg:px-16 lg:pt-40 max-w-3xl">
-          {logoUrl && (
-            <div className="flex-shrink-0 mb-2">
-              <Image
-                src={logoUrl}
-                alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
-                width={80}
-                height={80}
-                className="object-contain"
-              />
-            </div>
-          )}
+      {/* Align with HeaderClient: `container mx-auto` + inner padding; pt clears absolute header; items align to top */}
+      <div className="relative z-10 flex min-h-[500px] w-full flex-col md:min-h-[700px]">
+        <div className="container mx-auto flex w-full flex-1 flex-col md:min-h-[700px]">
+          <div className="flex min-h-[500px] flex-1 flex-col gap-8 px-8 pb-10 pt-32 md:min-h-[700px] md:flex-row md:items-start md:gap-8 md:px-8 md:pb-8 md:pt-36 lg:gap-12 lg:pt-40">
+            <div className="flex min-h-[300px] flex-1 flex-col justify-center md:justify-start md:min-h-[700px] lg:basis-0 lg:flex-[2]">
+              <div className="mx-auto flex w-full max-w-xl flex-col items-start gap-4 text-left lg:mx-0 lg:max-w-lg lg:gap-5">
+                {logoUrl && (
+                  <div className="mb-1 flex-shrink-0">
+                    <Image
+                      src={logoUrl}
+                      alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
+                      width={80}
+                      height={80}
+                      className="object-contain"
+                    />
+                  </div>
+                )}
 
-          {title && (
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight drop-shadow-md">
-              <span
-                className={
-                  titleLine1Accent
-                    ? 'text-orange-400'
-                    : 'text-white'
-                }
-              >
-                {title}
-              </span>
-              {titleLine2 && (
-                <>
-                  <br />
-                  <span className="text-white">{titleLine2}</span>
-                </>
-              )}
-            </h1>
-          )}
+                {title && (
+                  <h1 className="text-5xl font-bold tracking-tight drop-shadow-md md:text-6xl lg:text-7xl">
+                    <span className={titleLine1Accent ? 'text-orange-400' : 'text-white'}>{title}</span>
+                    {titleLine2 && (
+                      <>
+                        <br />
+                        <span className="text-white">{titleLine2}</span>
+                      </>
+                    )}
+                  </h1>
+                )}
 
-          {(locationText || locationSubtext) && (
-            <div className="flex flex-col gap-0.5 text-white/95">
-              {locationText && (
-                <div className="flex items-center gap-2">
-                  {showLocationIcon && (
-                    <span className="text-orange-400 flex-shrink-0" aria-hidden>
-                      <MapPinIcon />
-                    </span>
-                  )}
-                  <span className="text-base md:text-lg">{locationText}</span>
-                </div>
-              )}
-              {locationSubtext && (
-                <p className="text-sm md:text-base text-white/80 pl-7">{locationSubtext}</p>
-              )}
-            </div>
-          )}
+                {(locationText || locationSubtext) && (
+                  <div className="flex flex-col gap-0.5 text-white/95">
+                    {locationText && (
+                      <div className="flex items-center gap-2">                      {showLocationIcon && (
+                        <span className="flex-shrink-0 text-orange-400" aria-hidden>
+                          <MapPinIcon />
+                        </span>
+                      )}
+                        <span className="text-base md:text-lg">{locationText}</span>
+                      </div>
+                    )}
+                    {locationSubtext && (
+                      <p
+                        className={`text-sm text-white/80 md:text-base ${showLocationIcon ? 'pl-7' : ''}`}
+                      >
+                        {locationSubtext}
+                      </p>
+                    )}
+                  </div>
+                )}
 
-          {links && links.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-3 mt-2">
-              {links.map((linkItem, index) => {
-                if (!linkItem?.link) return null
-                const { link } = linkItem
-                const href = getHref(link)
-                const isOutline = link.appearance === 'outline'
-                const newTabProps = link.newTab ? { rel: 'noopener noreferrer', target: '_blank' } : {}
-                return (
-                  <Button
-                    key={index}
-                    asChild
-                    variant={isOutline ? 'outline' : 'default'}
-                    className={
-                      isOutline
-                        ? 'border-2 border-white text-white hover:bg-white hover:text-stone-900 bg-transparent'
-                        : 'bg-orange-500 hover:bg-orange-600 text-white border-0'
-                    }
-                  >
-                    <Link href={href} {...newTabProps}>
-                      {link.label || 'Book Your Session'}
+                {links && links.length > 0 && (
+                  <div className="mt-2 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap">
+                    {links.map((linkItem, index) => {
+                      if (!linkItem?.link) return null
+                      const { link } = linkItem
+                      const href = getHref(link)
+                      const isOutline = link.appearance === 'outline'
+                      const newTabProps = link.newTab ? { rel: 'noopener noreferrer', target: '_blank' } : {}
+                      return (
+                        <Button
+                          key={index}
+                          asChild
+                          variant={isOutline ? 'outline' : 'default'}
+                          className={
+                            isOutline
+                              ? 'border-2 border-white bg-transparent text-white hover:bg-white hover:text-stone-900'
+                              : 'border-0 bg-orange-500 text-white hover:bg-orange-600'
+                          }
+                        >
+                          <Link href={href} {...newTabProps}>
+                            {link.label || 'Book Your Session'}
+                          </Link>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                )}
+
+                {introTagline ? (
+                  <p className="mt-2 max-w-xl text-base leading-relaxed text-white/90 md:text-lg">{introTagline}</p>
+                ) : null}
+
+                {hasSocialFollow && (
+                  <div className="mt-8">
+                    <Link
+                      href={socialFollowUrl!}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-white/95 transition-colors hover:text-white"
+                    >
+                      {isInstagram ? (
+                        <InstagramIcon className="flex-shrink-0" />
+                      ) : (
+                        <span className="flex h-5 w-5 items-center justify-center" aria-hidden>
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            aria-hidden
+                          >
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                          </svg>
+                        </span>
+                      )}
+                      <span className="text-sm font-medium">{socialFollowLabel}</span>
                     </Link>
-                  </Button>
-                )
-              })}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
 
-          {introTagline ? (
-            <p className="mt-6 max-w-xl text-base leading-relaxed text-white/90 md:text-lg">{introTagline}</p>
-          ) : null}
-        </div>
-
-        {hasSocialFollow && (
-          <div className="absolute bottom-6 left-6 md:left-12 z-10">
-            <Link
-              href={socialFollowUrl!}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-white/95 hover:text-white transition-colors"
-            >
-              {isInstagram ? (
-                <InstagramIcon className="flex-shrink-0" />
-              ) : (
-                <span className="w-5 h-5 flex items-center justify-center" aria-hidden>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    aria-hidden
-                  >
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
-                </span>
-              )}
-              <span className="text-sm font-medium">{socialFollowLabel}</span>
-            </Link>
-          </div>
-        )}
-
-        {/* Schedule Section - Card inside container width */}
-        <div className="w-full max-w-2xl z-20 md:self-start md:pt-16 lg:pt-24">
-          <div className="rounded-sm bg-background shadow-md p-6 md:p-8 w-full">
-            <h2 className="text-3xl font-medium mb-6 text-center text-foreground uppercase">Schedule</h2>
-            <ScheduleLazy />
+            <div className="flex w-full flex-1 flex-col justify-start md:min-h-[700px] lg:basis-0 lg:flex-1">
+              <div className="w-full text-card-foreground md:ml-auto md:max-w-[20rem] lg:max-w-[24rem] xl:max-w-[26rem]">
+                <div className="w-full rounded-sm bg-background p-6 shadow-md md:p-8">
+                  <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-foreground">
+                    Schedule
+                  </h2>
+                  <ScheduleLazy />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   )
 }
