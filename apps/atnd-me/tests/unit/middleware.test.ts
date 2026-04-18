@@ -154,13 +154,16 @@ describe('Middleware', () => {
       expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
     })
 
-    it('skips tenant-by-host when host-scoped tenant cookies are already set', async () => {
-      let tenantByHostCalled = false
+    it('calls tenant-by-host on custom domain even when tenant cookies are already set', async () => {
+      let tenantByHostCalls = 0
       globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
         if (String(url).includes('/api/tenant-by-host')) {
-          tenantByHostCalled = true
-          return new Response(null, { status: 500 })
+          tenantByHostCalls += 1
+          return new Response(JSON.stringify({ slug: 'acme', id: 42 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
         }
         return new Response(null, { status: 404 })
       }
@@ -173,8 +176,61 @@ describe('Middleware', () => {
       })
 
       const res = await middleware(req)
-      expect(tenantByHostCalled).toBe(false)
+      expect(tenantByHostCalls).toBe(1)
       expect(res.headers.get('x-middleware-rewrite')).toBe('http://studio.example.com/home')
+    })
+
+    it('overwrites stale tenant-slug on custom domain when it does not match host resolution', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-host') && String(url).includes('host=studio.example.com')) {
+          return new Response(JSON.stringify({ slug: 'acme', id: 42 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://studio.example.com/', {
+        headers: {
+          host: 'studio.example.com',
+          cookie: 'tenant-slug=wrong-slug; payload-tenant=99',
+        },
+      })
+
+      const res = await middleware(req)
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).toContain('tenant-slug=acme')
+      expect(setCookie).toContain('payload-tenant=42')
+    })
+
+    it('uses x-forwarded-host for custom domain tenant-by-host when Host is internal', async () => {
+      let sawStudioHost = false
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('host=studio.example.com')) {
+          sawStudioHost = true
+        }
+        if (String(url).includes('/api/tenant-by-host') && String(url).includes('host=studio.example.com')) {
+          return new Response(JSON.stringify({ slug: 'acme', id: 1 }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://127.0.0.1:3000/', {
+        headers: {
+          host: '127.0.0.1:3000',
+          'x-forwarded-host': 'studio.example.com',
+        },
+      })
+
+      const res = await middleware(req)
+      expect(sawStudioHost).toBe(true)
+      expect(res.headers.get('x-middleware-rewrite') ?? '').toMatch(/\/home$/)
     })
   })
 
