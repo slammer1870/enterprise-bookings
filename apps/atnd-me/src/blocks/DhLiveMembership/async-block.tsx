@@ -4,6 +4,7 @@ import type { Plan, Subscription } from '@repo/shared-types'
 
 import { resolveTenantIdFromServerContext } from '@/access/tenant-scoped'
 import { DashboardMembershipPanel } from '@/components/membership/DashboardMembershipPanel'
+import { findActiveMembershipSubscriptionForTenant } from '@/blocks/DhLiveMembership/subscription-tenant-context'
 
 import { currentUser, getSession } from '@/lib/auth/context/get-context-props'
 import { getPayload } from '@/lib/payload'
@@ -47,25 +48,7 @@ export async function DhLiveMembershipAsync() {
 
   const userId = membershipUserId(user)
   if (userId != null) {
-    const subscription = await payload.find({
-      collection: 'subscriptions',
-      where: {
-        and: [
-          { user: { equals: userId } },
-          { tenant: { equals: tenantId } },
-          { status: { not_in: ['canceled', 'unpaid', 'incomplete_expired', 'incomplete'] } },
-          {
-            or: [
-              { endDate: { greater_than: new Date() } },
-              { endDate: { equals: null } },
-            ],
-          },
-        ],
-      },
-      depth: 3,
-      overrideAccess: true,
-    })
-    activeSubscription = (subscription.docs[0] as Subscription | undefined) ?? null
+    activeSubscription = await findActiveMembershipSubscriptionForTenant(payload, userId, tenantId)
   }
 
   return (
