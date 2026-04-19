@@ -1,43 +1,23 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { signOut, useSession } from '@/lib/auth/client'
+import { signOut } from '@/lib/auth/client'
+import { useBetterAuth } from '@/lib/auth/context'
+import type { User } from '@/lib/auth/types'
 import { cn } from '@/utilities/ui'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import React, { useMemo, useRef, useState } from 'react'
+import React, { use, useMemo, useRef, useState } from 'react'
 
-function getUserInitial(user: SessionUser | null): string {
+function getUserInitial(user: Pick<User, 'name' | 'email'> | null): string {
   const name = typeof user?.name === 'string' ? user.name.trim() : ''
   const email = typeof user?.email === 'string' ? user.email.trim() : ''
   const source = name || email
   return source ? source[0]!.toUpperCase() : '?'
 }
 
-type SessionUser = { name?: unknown; email?: unknown }
-type SessionResult =
-  | { user?: SessionUser }
-  | {
-      data?: {
-        user?: SessionUser
-      }
-  }
-  | null
-  | undefined
-
-function getSessionUser(value: SessionResult): SessionUser | null {
-  if (!value || typeof value !== 'object') return null
-
-  const withData = value as { data?: { user?: SessionUser } }
-  if (withData.data && typeof withData.data.user !== 'undefined') {
-    return withData.data.user ?? null
-  }
-
-  return (value as { user?: SessionUser }).user ?? null
-}
-
-function describeUserLabel(user: SessionUser): string {
-  return (typeof user?.name === 'string' && user.name.trim()) || (typeof user?.email === 'string' && user.email.trim()) || 'Account'
+function describeUserLabel(user: Pick<User, 'name' | 'email'>): string {
+  return (typeof user.name === 'string' && user.name.trim()) || (typeof user.email === 'string' && user.email.trim()) || 'Account'
 }
 
 export function HeaderAuthMenu({
@@ -52,8 +32,10 @@ export function HeaderAuthMenu({
   const detailsRef = useRef<HTMLDetailsElement | null>(null)
   const [billingLoading, setBillingLoading] = useState(false)
 
-  const sessionResult = useSession() as SessionResult
-  const user = getSessionUser(sessionResult)
+  const { sessionPromise } = useBetterAuth()
+  /** Same source as server `getSession()` so the nav matches protected pages (avoids stale client-only session). */
+  const session = use(sessionPromise)
+  const user = session?.user ?? null
 
   const redirectTo = useMemo(() => pathname || '/', [pathname])
 
