@@ -127,7 +127,7 @@ const WAITLIST_EMAIL_QUERY_TIMEOUT_MS = 10_000;
 
 function scheduleOnNextEventLoop(fn: () => void): void {
   const g = globalThis as typeof globalThis & {
-    setImmediate?: (cb: () => void) => void;
+    setImmediate?: (_cb: () => void) => void;
   };
   if (typeof g.setImmediate === "function") {
     g.setImmediate(fn);
