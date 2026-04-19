@@ -6,7 +6,7 @@ import { createTestPage } from './helpers/data-helpers'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 
 test.describe('Page requireAuth (CMS)', () => {
-  test('anonymous visitor is redirected to sign-in with callbackUrl to the page', async ({
+  test('anonymous visitor is redirected to sign-in with redirectTo to the page', async ({
     page,
     testData,
   }) => {
@@ -32,9 +32,9 @@ test.describe('Page requireAuth (CMS)', () => {
 
     const url = new URL(page.url())
     expect(url.pathname).toContain('/auth/sign-in')
-    const rawCallback = url.searchParams.get('callbackUrl')
-    expect(rawCallback, 'callbackUrl should be present').toBeTruthy()
-    expect(decodeURIComponent(rawCallback!)).toContain(`/${slug}`)
+    const rawRedirect = url.searchParams.get('redirectTo')
+    expect(rawRedirect, 'redirectTo should be present').toBeTruthy()
+    expect(decodeURIComponent(rawRedirect!)).toContain(`/${slug}`)
   })
 
   test('signed-in user can view the protected page', async ({ page, testData }) => {

@@ -4,8 +4,6 @@ import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { User } from "@repo/shared-types";
-import type { Where } from "payload";
-import { stringify } from "qs-esm";
 import { Button, SelectInput } from "@payloadcms/ui";
 
 const statusOptions = [
@@ -14,40 +12,6 @@ const statusOptions = [
   { label: "Waiting List", value: "waiting" },
   { label: "Cancelled", value: "cancelled" },
 ] as { label: string; value: string }[];
-
-const RECENT_USERS_LIMIT = 50;
-const SEARCH_USERS_LIMIT = 50;
-const SEARCH_DEBOUNCE_MS = 300;
-const MIN_SEARCH_CHARS = 2;
-
-function buildUsersListQuery(debouncedSearch: string): string {
-  const q = debouncedSearch.trim();
-  if (q.length >= MIN_SEARCH_CHARS) {
-    const where: Where = {
-      or: [
-        { email: { contains: q } },
-        { name: { contains: q } },
-      ],
-    };
-    return stringify(
-      {
-        where,
-        limit: SEARCH_USERS_LIMIT,
-        depth: 0,
-        sort: "-updatedAt",
-      },
-      { addQueryPrefix: true },
-    );
-  }
-  return stringify(
-    {
-      limit: RECENT_USERS_LIMIT,
-      depth: 0,
-      sort: "-updatedAt",
-    },
-    { addQueryPrefix: true },
-  );
-}
 
 export const AddBooking = ({
   timeslotId,
@@ -60,27 +24,16 @@ export const AddBooking = ({
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [status, setStatus] = useState<string>("pending");
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
-
-  useEffect(() => {
-    const t = window.setTimeout(
-      () => setDebouncedSearch(search),
-      SEARCH_DEBOUNCE_MS,
-    );
-    return () => window.clearTimeout(t);
-  }, [search]);
 
   useEffect(() => {
     let cancelled = false;
     const fetchUsers = async () => {
       try {
         setIsLoading(true);
-        const qs = buildUsersListQuery(debouncedSearch);
-        const res = await fetch(`/api/users${qs}`, {
+        const res = await fetch(`/api/users?limit=0`, {
           credentials: "include",
         });
         const data = await res.json();
@@ -102,7 +55,7 @@ export const AddBooking = ({
     return () => {
       cancelled = true;
     };
-  }, [debouncedSearch]);
+  }, []);
 
   const userOptions = [
     { label: "Select user", value: "" },
@@ -163,24 +116,6 @@ export const AddBooking = ({
       >
         <div className="min-w-0 w-full flex-1 flex flex-col justify-end sm:min-w-[180px] sm:flex-initial sm:max-w-[220px]">
           <label className="text-xs mb-1 block font-medium text-foreground">
-            Search users
-          </label>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Name or email (optional)"
-            className="w-full rounded border border-border bg-background px-2 py-1.5 text-sm min-h-7"
-            autoComplete="off"
-          />
-          <p className="text-[11px] text-muted-foreground mt-1">
-            {debouncedSearch.trim().length >= MIN_SEARCH_CHARS
-              ? "Matching users"
-              : "Showing most recently updated users"}
-          </p>
-        </div>
-        <div className="min-w-0 w-full flex-1 flex flex-col justify-end sm:min-w-[180px] sm:flex-initial sm:max-w-[220px]">
-          <label className="text-xs mb-1 block font-medium text-foreground">
             User
           </label>
           <div className="add-booking-input-wrapper flex min-w-0 max-w-full flex-col gap-1 [&_.field-label]:!hidden [&_.input]:!min-h-7 [&_.input]:!py-0.5 [&_input]:!min-h-7 [&_[role=combobox]]:!min-h-7 [&_[role=combobox]]:!py-0.5 [&_[role=combobox]]:!max-w-full [&_.input]:!min-w-0">
@@ -191,7 +126,9 @@ export const AddBooking = ({
               onChange={(opt) => {
                 const o = Array.isArray(opt) ? opt[0] : opt;
                 setSelectedUserId(
-                  o && typeof o === "object" && "value" in o ? String(o.value) : ""
+                  o && typeof o === "object" && "value" in o
+                    ? String(o.value)
+                    : ""
                 );
               }}
               options={userOptions}

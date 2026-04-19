@@ -44,7 +44,7 @@ export async function requireAuthForBooking(
   const user = session?.user
   if (!user) {
     const path = callbackPath ?? `/bookings/${timeslotId}`
-    redirect(`/auth/sign-in?callbackUrl=${path}`)
+    redirect(`/auth/sign-in?redirectTo=${encodeURIComponent(path)}`)
   }
   return user
 }

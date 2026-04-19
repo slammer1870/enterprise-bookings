@@ -13,6 +13,8 @@ export async function redirectIfPageRequiresAuth(args: {
 
   const session = await getSession()
   if (!session?.user) {
-    redirect(`/auth/sign-in?callbackUrl=${encodeURIComponent(callbackPath)}`)
+    // better-auth-ui reads `redirectTo` after sign-in (not `callbackUrl`).
+    const q = encodeURIComponent(callbackPath)
+    redirect(`/auth/sign-in?redirectTo=${q}`)
   }
 }

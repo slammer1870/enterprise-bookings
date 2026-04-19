@@ -65,7 +65,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
         await page.waitForTimeout(1500)
         await navigateToTenant(page, tenant.slug, managePath)
       }
-      // Don't match callbackUrl query params from /auth/sign-in.
+      // Don't match redirectTo / callbackUrl query params from /auth/sign-in.
       await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
         timeout: 20000,
       })
@@ -146,7 +146,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
         await page.waitForTimeout(1500)
         await navigateToTenant(page, tenant.slug, managePath)
       }
-      // Don't match callbackUrl query params from /auth/sign-in.
+      // Don't match redirectTo / callbackUrl query params from /auth/sign-in.
       await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
         timeout: 20000,
       })
