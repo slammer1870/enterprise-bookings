@@ -1,4 +1,5 @@
 export * from "./query";
+export * from "./better-auth-session";
 export * from "./date";
 export * from "./check-role";
 export * from "./effective-user-roles";

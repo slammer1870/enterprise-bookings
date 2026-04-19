@@ -1,13 +1,13 @@
 import { getPayload } from '@/lib/payload'
+import type { BetterAuthAccount, BetterAuthDeviceSession } from '@repo/shared-types'
 import type {
-  BetterAuthAccount,
-  BetterAuthDeviceSession,
-  BetterAuthSession,
-  BetterAuthUser,
-} from '@repo/shared-types'
+  SanitizedBetterAuthSession,
+  SanitizedBetterAuthUser,
+} from '@repo/shared-utils'
 
 // Match conventions used in other apps (bru-grappling/kyuzo/etc).
-export type Session = BetterAuthSession<typeof getPayload>
-export type User = BetterAuthUser<typeof getPayload>
+/** Returned by `getSession()` after stripping Payload joins / relations. */
+export type Session = SanitizedBetterAuthSession
+export type User = SanitizedBetterAuthUser
 export type Account = BetterAuthAccount<typeof getPayload>
 export type DeviceSession = BetterAuthDeviceSession<typeof getPayload>

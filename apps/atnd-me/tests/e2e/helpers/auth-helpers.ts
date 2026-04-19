@@ -297,7 +297,7 @@ const SESSION_COOKIE_NAMES = /^(better-auth\.|session_token|session_data|dont_re
  * sent when navigating to tenantSlug.localhost (auth often sets cookies for the
  * request host, which can be the main domain when the form posts there).
  */
-function copySessionCookiesToTenantDomain(
+export function copySessionCookiesToTenantDomain(
   cookies: Awaited<ReturnType<BrowserContext['cookies']>>,
   tenantSlug: string
 ): Parameters<BrowserContext['addCookies']>[0] {

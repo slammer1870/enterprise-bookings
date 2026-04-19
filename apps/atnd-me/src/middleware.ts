@@ -31,13 +31,23 @@ function getPlatformOrigin(): string | null {
   }
 }
 
+/**
+ * Public hostname for the page (customer-facing). Prefer `x-forwarded-host` so reverse proxies
+ * that set `Host` to an internal address still resolve the correct tenant / custom domain.
+ */
+function getPublicHostname(request: NextRequest): string {
+  const forwarded = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || ''
+  const host = request.headers.get('host')?.trim() || ''
+  const raw = forwarded || host
+  return (raw.split(':')[0] ?? raw).toLowerCase()
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPayloadAdmin = pathname.startsWith('/admin')
-  const hostHeader = request.headers.get('host') || ''
-  const hostname = hostHeader.split(':')[0] ?? hostHeader
+  const hostname = getPublicHostname(request)
   const isLocalhost = hostname.includes('localhost')
-  const rootHostname = getRootHostname()
+  const rootHostname = getRootHostname()?.toLowerCase() ?? null
   const platformOrigin = getPlatformOrigin()
 
   const clearTenantContextCookies = (response: NextResponse) => {
@@ -109,37 +119,43 @@ export async function middleware(request: NextRequest) {
     hostname !== rootHostname &&
     !hostname.endsWith('.' + rootHostname)
   ) {
-    // Custom domains: first visit resolves host → slug via /api/tenant-by-host (Payload + DB).
-    // Steady-state visits already have host-scoped tenant-slug (+ payload-tenant); re-fetching
-    // on every navigation adds a full internal HTTP round-trip and dominates TTFB for tenant sites.
+    // Resolve host → tenant via /api/tenant-by-host on every navigation so cookies stay aligned
+    // with the public Host (stale `tenant-slug` would otherwise win on the first paint).
     const slugFromCookie = request.cookies.get('tenant-slug')?.value?.trim()
     const payloadTenantRaw = request.cookies.get(PAYLOAD_TENANT_COOKIE)?.value?.trim()
     const slugLooksValid = Boolean(slugFromCookie && /^[a-z0-9-]+$/i.test(slugFromCookie))
     const idFromCookie =
       payloadTenantRaw && /^\d+$/.test(payloadTenantRaw) ? parseInt(payloadTenantRaw, 10) : null
 
-    if (slugLooksValid && slugFromCookie) {
+    // Always resolve custom domain from the public Host first. `tenant-slug` may be stale
+    // (e.g. another tenant from a prior session or platform subdomain cookie copied incorrectly).
+    let resolvedFromHost: { slug: string; id: string | number } | null = null
+    try {
+      const origin = platformOrigin ?? request.nextUrl.origin
+      const url = `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
+      const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
+      if (res.ok) {
+        const data = (await res.json()) as { slug?: string; id?: string | number }
+        if (data?.slug && typeof data.slug === 'string') {
+          resolvedFromHost = { slug: data.slug, id: data.id as string | number }
+        }
+      }
+    } catch {
+      // Fall through to cookie-only path
+    }
+
+    if (resolvedFromHost) {
+      subdomain = resolvedFromHost.slug
+      isCustomDomain = true
+      resolvedTenantId =
+        typeof resolvedFromHost.id === 'string' || typeof resolvedFromHost.id === 'number'
+          ? resolvedFromHost.id
+          : null
+    } else if (slugLooksValid && slugFromCookie) {
       subdomain = slugFromCookie
       isCustomDomain = true
       resolvedTenantId =
         idFromCookie !== null && Number.isFinite(idFromCookie) ? idFromCookie : null
-    } else {
-      try {
-        const origin = platformOrigin ?? request.nextUrl.origin
-        const url = `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
-        const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
-        if (res.ok) {
-          const data = (await res.json()) as { slug?: string; id?: string | number }
-          if (data?.slug && typeof data.slug === 'string') {
-            subdomain = data.slug
-            isCustomDomain = true
-            resolvedTenantId =
-              typeof data.id === 'string' || typeof data.id === 'number' ? data.id : null
-          }
-        }
-      } catch {
-        // Leave subdomain null on fetch error
-      }
     }
   }
 

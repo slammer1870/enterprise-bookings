@@ -173,19 +173,18 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
     return null
   }
 
-  const tenantSlug =
-    getTenantSlugFromRequest({
-      cookies: req.cookies,
-      headers: req.headers as Headers | undefined,
-    }) ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
-  if (tenantSlug && /^[a-z0-9-]+$/i.test(tenantSlug)) {
-    const cached = ctx.__resolvedTenantIdFromSlug
-    if (typeof cached === 'number' && Number.isFinite(cached)) return cached
-
+  // Tenant sites (non-platform host): resolve from the request Host before cookies.
+  //
+  // `tenant-slug` / `payload-tenant` are often scoped to the whole platform parent domain
+  // (e.g. Domain=.atnd.example.com). Middleware fixes them on the *response*, but this request
+  // may still carry the *previous* subdomain's values. Preferring Host avoids showing the wrong
+  // tenant's data (e.g. membership for registration tenant vs the site being viewed).
+  const headerSlug = req.headers?.get?.('x-tenant-slug')?.trim() ?? null
+  if (headerSlug && /^[a-z0-9-]+$/i.test(headerSlug)) {
     const result = (await req.payload
       .find({
         collection: 'tenants',
-        where: { slug: { equals: tenantSlug } },
+        where: { slug: { equals: headerSlug } },
         limit: 1,
         depth: 0,
         overrideAccess: true,
@@ -193,16 +192,11 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
       })
       .catch(() => null)) as TenantsFindResult | null
 
-    const id = result?.docs?.[0]?.id
-    if (typeof id === 'number') {
-      ctx.__resolvedTenantIdFromSlug = id
-      return id
+    const headerId = result?.docs?.[0]?.id
+    if (typeof headerId === 'number') {
+      ctx.__resolvedTenantIdFromSlug = headerId
+      return headerId
     }
-  }
-
-  if (payloadTenant) {
-    ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
-    return payloadTenant
   }
 
   const cachedHostTenant = ctx.__resolvedTenantIdFromHost
@@ -260,6 +254,38 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
       ctx.__resolvedTenantIdFromHost = id
       return id
     }
+  }
+
+  const tenantSlugFromCookie =
+    getTenantSlugFromRequest({
+      cookies: req.cookies,
+      headers: req.headers as Headers | undefined,
+    }) ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
+  if (tenantSlugFromCookie && /^[a-z0-9-]+$/i.test(tenantSlugFromCookie)) {
+    const cached = ctx.__resolvedTenantIdFromSlug
+    if (typeof cached === 'number' && Number.isFinite(cached)) return cached
+
+    const result = (await req.payload
+      .find({
+        collection: 'tenants',
+        where: { slug: { equals: tenantSlugFromCookie } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+        select: { id: true } as any,
+      })
+      .catch(() => null)) as TenantsFindResult | null
+
+    const id = result?.docs?.[0]?.id
+    if (typeof id === 'number') {
+      ctx.__resolvedTenantIdFromSlug = id
+      return id
+    }
+  }
+
+  if (payloadTenant) {
+    ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+    return payloadTenant
   }
 
   return null

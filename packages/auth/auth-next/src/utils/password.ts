@@ -6,8 +6,8 @@
  * and stores passwords in the accounts table.
  *
  * Solution: Custom verify function that:
- * 1. First tries scrypt verification (new format)
- * 2. Falls back to PBKDF2 verification (legacy format)
+ * 1. Tries PBKDF2 first when the stored value matches Payload's legacy shape (avoids scrypt work / edge cases)
+ * 2. Otherwise tries scrypt (Better Auth), then PBKDF2 as fallback
  *
  * This allows seamless login for both old and new users without password resets.
  *
@@ -29,32 +29,47 @@ function pbkdf2Promisified(password: string, salt: string): Promise<Buffer> {
   )
 }
 
+/** Split only on the first ':' so a malformed or future format cannot truncate the hash segment. */
+function splitSaltHashPrefix(value: string): { salt: string; hashHex: string } | null {
+  const i = value.indexOf(':')
+  if (i <= 0 || i >= value.length - 1) return null
+  const salt = value.slice(0, i)
+  const hashHex = value.slice(i + 1)
+  if (!salt || !hashHex) return null
+  return { salt, hashHex }
+}
+
+/**
+ * Payload default PBKDF2 migration format: 32-byte salt as 64 hex chars, 512-byte hash as 1024 hex chars.
+ * Better Auth scrypt uses a 16-byte salt (32 hex) and 64-byte key (128 hex) after the colon.
+ */
+function looksLikePayloadLegacyPbkdf2SaltHash(value: string): boolean {
+  const parts = splitSaltHashPrefix(value)
+  if (!parts) return false
+  const { salt, hashHex } = parts
+  if (salt.length !== 64 || hashHex.length !== 1024) return false
+  return /^[0-9a-f]+$/i.test(salt) && /^[0-9a-f]+$/i.test(hashHex)
+}
+
 /**
  * Verify a password against a legacy Payload PBKDF2 hash.
  * Legacy hashes are stored as "salt:hash" format in the accounts table.
  */
 async function verifyLegacyPassword(password: string, legacyHash: string): Promise<boolean> {
-  // Legacy hashes are stored as "salt:hash" format
-  // Payload stores salt and hash separately in the users table, but we migrate
-  // them to the accounts table as "salt:hash"
-  
-  if (legacyHash.includes(':')) {
-    const [salt, hash] = legacyHash.split(':')
-    if (salt && hash) {
-      try {
-        const computedHashRaw = await pbkdf2Promisified(password, salt)
-        const computedHash = computedHashRaw.toString('hex')
-        return crypto.timingSafeEqual(
-          new Uint8Array(Buffer.from(computedHash, 'hex')),
-          new Uint8Array(Buffer.from(hash, 'hex')),
-        )
-      } catch {
-        return false
-      }
-    }
+  const parts = splitSaltHashPrefix(legacyHash)
+  if (!parts) return false
+
+  const { salt, hashHex } = parts
+  try {
+    const computedHashRaw = await pbkdf2Promisified(password, salt)
+    const computedHash = computedHashRaw.toString('hex')
+    const a = Buffer.from(computedHash, 'hex')
+    const b = Buffer.from(hashHex, 'hex')
+    if (a.length !== b.length) return false
+    return crypto.timingSafeEqual(new Uint8Array(a), new Uint8Array(b))
+  } catch {
+    return false
   }
-  
-  return false
 }
 
 /**
@@ -76,26 +91,24 @@ export async function hashPassword(password: string): Promise<string> {
 export async function verifyPassword(data: { password: string; hash: string }): Promise<boolean> {
   const { password, hash } = data
 
-  // First, try Better Auth's native scrypt verification
-  try {
-    const isValidScrypt = await betterAuthVerify(data)
-    if (isValidScrypt) {
-      return true
+  const tryScrypt = async (): Promise<boolean> => {
+    try {
+      return await betterAuthVerify(data)
+    } catch {
+      return false
     }
-  } catch {
-    // Scrypt verification failed, try legacy format
   }
 
-  // Fall back to legacy PBKDF2 verification
-  try {
-    const isValidLegacy = await verifyLegacyPassword(password, hash)
-    if (isValidLegacy) {
-      return true
-    }
-  } catch {
-    // Legacy verification also failed
+  const tryLegacy = (): Promise<boolean> => verifyLegacyPassword(password, hash)
+
+  if (looksLikePayloadLegacyPbkdf2SaltHash(hash)) {
+    if (await tryLegacy()) return true
+    if (await tryScrypt()) return true
+    return false
   }
 
+  if (await tryScrypt()) return true
+  if (await tryLegacy()) return true
   return false
 }
 

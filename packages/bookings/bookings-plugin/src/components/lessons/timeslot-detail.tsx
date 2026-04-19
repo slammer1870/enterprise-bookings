@@ -7,7 +7,8 @@ import { Button, SelectRow } from "@payloadcms/ui";
 import { TableRow, TableCell } from "@repo/ui/components/ui/table";
 import { cn } from "@repo/ui/lib/utils";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AddBooking } from "../bookings/add-booking";
 import { formatInTimeZone, resolveTimeslotTimeZone } from "@repo/shared-utils/timezone";
 
@@ -21,9 +22,11 @@ export const TimeslotDetail = ({
   onToggleSelection?: (_checked: boolean) => void;
 }) => {
   const eventType = timeslot.eventType as EventType;
+  const router = useRouter();
   const [expandedTimeslots, setExpandedTimeslots] = useState<Set<number>>(new Set());
   const [expandedBookings, setExpandedBookings] = useState<Booking[] | null>(null);
   const [isLoadingExpandedBookings, setIsLoadingExpandedBookings] = useState(false);
+  const [localBookingTotal, setLocalBookingTotal] = useState<number | null>(null);
   const timeZone = resolveTimeslotTimeZone(timeslot);
 
   const isActive = (timeslot as Timeslot & { active?: boolean }).active !== false;
@@ -45,12 +48,40 @@ export const TimeslotDetail = ({
   const bookingsContainer = timeslot.bookings as unknown as
     | { docs?: Booking[]; totalDocs?: number }
     | undefined;
-  const bookingCount =
+  useEffect(() => {
+    setLocalBookingTotal(null);
+  }, [timeslot.id]);
+
+  const bookingCountFromProps =
     typeof bookingsContainer?.totalDocs === "number"
       ? bookingsContainer.totalDocs
       : Array.isArray(bookingsContainer?.docs)
         ? bookingsContainer.docs.length
         : 0;
+  const bookingCount = localBookingTotal ?? bookingCountFromProps;
+
+  const handleBookingCreated = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        router.refresh();
+        return;
+      }
+      const data = await res.json();
+      const docs = (data?.bookings?.docs ?? []) as Booking[];
+      setExpandedBookings(docs);
+      const total =
+        typeof data?.bookings?.totalDocs === "number"
+          ? data.bookings.totalDocs
+          : docs.length;
+      setLocalBookingTotal(total);
+    } catch {
+      router.refresh();
+    }
+  }, [timeslot.id, router]);
 
   useEffect(() => {
     if (!isExpanded) return;
@@ -72,12 +103,10 @@ export const TimeslotDetail = ({
     (async () => {
       try {
         // Fetch the selected timeslot with bookings populated.
-        const res = await fetch(
-          `/api/timeslots/${timeslot.id}?depth=3`,
-          {
-            method: "GET",
-          }
-        );
+        const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
+          method: "GET",
+          credentials: "include",
+        });
         if (!res.ok) return;
         const data = await res.json();
         const docs = (data?.bookings?.docs ?? []) as Booking[];
@@ -161,7 +190,10 @@ export const TimeslotDetail = ({
               ) : (
                 <BookingList bookings={(expandedBookings ?? bookingsContainer?.docs ?? []) as Booking[]} />
               )}
-              <AddBooking timeslotId={timeslot.id} />
+              <AddBooking
+                timeslotId={timeslot.id}
+                onBookingCreated={handleBookingCreated}
+              />
             </div>
           </TableCell>
         </TableRow>
