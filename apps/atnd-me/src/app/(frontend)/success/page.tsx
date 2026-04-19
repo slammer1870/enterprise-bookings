@@ -21,11 +21,11 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
   const user = session?.user
 
   if (!user?.id) {
-    redirect('/auth/sign-in?callbackUrl=/success')
+    redirect('/auth/sign-in?redirectTo=%2Fsuccess')
   }
 
   const userId = typeof user.id === 'number' ? user.id : parseInt(String(user.id), 10)
-  if (Number.isNaN(userId)) redirect('/auth/sign-in?callbackUrl=/success')
+  if (Number.isNaN(userId)) redirect('/auth/sign-in?redirectTo=%2Fsuccess')
   const payload = await getPayload()
 
   const paymentIntent = typeof params.payment_intent === 'string' ? params.payment_intent : null
