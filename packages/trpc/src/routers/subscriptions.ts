@@ -28,6 +28,8 @@ export const subscriptionsRouter = {
     .query(async ({ ctx }) => {
       const { user, payload } = ctx;
 
+      const tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
+
       const userSubscription = await findSafe<Subscription>(
         payload,
         "subscriptions",
@@ -37,11 +39,11 @@ export const subscriptionsRouter = {
             status: { equals: "active" },
             startDate: { less_than_equal: new Date() },
             endDate: { greater_than_equal: new Date() },
+            ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
           },
           limit: 1,
           depth: 2,
-          overrideAccess: false,
-          user: user,
+          overrideAccess: true,
         }
       );
 
@@ -62,6 +64,8 @@ export const subscriptionsRouter = {
       }
 
       try {
+        const tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
+
         const userSubscription = await findSafe<Subscription>(
           payload,
           "subscriptions",
@@ -79,11 +83,11 @@ export const subscriptionsRouter = {
               startDate: { less_than: new Date() },
               endDate: { greater_than: new Date() },
               plan: { in: input.plans },
+              ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
             },
             limit: 1,
             depth: 2,
-            overrideAccess: false,
-            user: user,
+            overrideAccess: true,
           }
         );
 
@@ -145,6 +149,8 @@ export const subscriptionsRouter = {
       // if it is not, then we need to check the sessions limit
 
       try {
+        const tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
+
         const bookings = await findSafe(payload, "bookings", {
           depth: 5,
           where: {
@@ -157,9 +163,9 @@ export const subscriptionsRouter = {
               less_than: endDate,
             },
             status: { equals: "confirmed" },
+            ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
           },
-          overrideAccess: false,
-          user: user,
+          overrideAccess: true,
         });
 
         payload.logger.info(
@@ -262,11 +268,11 @@ export const subscriptionsRouter = {
             plan: {
               in: allowedPlans.map((plan: any) => plan.id || plan),
             },
+            ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
           },
           limit: 1,
           depth: 2,
-          overrideAccess: false,
-          user,
+          overrideAccess: true,
         }
       );
 

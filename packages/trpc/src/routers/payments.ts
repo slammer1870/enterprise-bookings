@@ -788,27 +788,6 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid planId" });
         }
 
-        // Enforce doc-level access for the caller.
-        try {
-          await ctx.payload.findByID({
-            collection: "plans" as any,
-            id,
-            depth: 0,
-            overrideAccess: false,
-            user: ctx.user,
-          });
-        } catch (err: any) {
-          const status = err?.statusCode;
-          if (status === 403) {
-            throw new TRPCError({ code: "FORBIDDEN", message: "Not allowed" });
-          }
-          if (status === 404 || err?.message?.includes("not found")) {
-            throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
-          }
-          throw err;
-        }
-
-        // Privileged read for protected fields (stripeProductId / priceJSON).
         plan = await ctx.payload
           .findByID({
             collection: "plans" as any,
@@ -828,28 +807,6 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         });
 
         plan = found?.docs?.[0] ?? null;
-
-        if (plan?.id != null) {
-          try {
-            await ctx.payload.findByID({
-              collection: "plans" as any,
-              id: plan.id,
-              depth: 0,
-              overrideAccess: false,
-              user: ctx.user,
-            });
-          } catch (err: any) {
-            const status = err?.statusCode;
-            if (status === 403) {
-              throw new TRPCError({ code: "FORBIDDEN", message: "Not allowed" });
-            }
-            // If access is denied for other reasons, don't leak existence.
-            if (status === 404 || err?.message?.includes("not found")) {
-              throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
-            }
-            throw err;
-          }
-        }
       }
 
       if (!plan) {
@@ -889,8 +846,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         },
         limit: 1,
         depth: 0,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
         sort: "-createdAt",
       });
 
@@ -903,8 +859,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           },
           limit: 1,
           depth: 0,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
           sort: "-createdAt",
         });
         return past?.docs?.[0] ?? null;
@@ -1130,8 +1085,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           id: { equals: user.id },
         },
         limit: 1,
-        overrideAccess: false,
-        user: user,
+        overrideAccess: true,
       });
 
       if (userDoc.docs.length === 0) {

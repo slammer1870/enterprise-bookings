@@ -188,17 +188,19 @@ export const timeslotsRouter = {
         if (hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
           const userId = typeof ctx.user?.id === "string" ? parseInt(ctx.user.id, 10) : ctx.user?.id;
           if (userId && !Number.isNaN(userId)) {
+            const timeslotTenantId = tenantId ?? deriveTenantIdFromTimeslot(timeslot);
             const userPending = await findSafe(ctx.payload, ctx.bookingsSlugs.bookings, {
               where: {
                 and: [
                   { timeslot: { equals: input.id } },
                   { user: { equals: userId } },
                   { status: { equals: "pending" } },
+                  ...(timeslotTenantId != null ? [{ tenant: { equals: timeslotTenantId } }] : []),
                 ],
               },
               limit: 1,
               depth: 0,
-              overrideAccess: false,
+              overrideAccess: true,
               user: ctx.user,
             });
             if (userPending.docs.length > 0) {
@@ -220,10 +222,21 @@ export const timeslotsRouter = {
     .use(requireBookingCollections("timeslots"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, input.id, ctx.bookingsSlugs.timeslots);
+      }
+
       const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, input.id, {
         depth: 2,
         overrideAccess: false,
         user: ctx.user,
+        req: {
+          user: ctx.user,
+          payload: ctx.payload,
+          headers: ctx.headers,
+          context: tenantId ? { tenant: tenantId } : {},
+        } as any,
       });
 
       if (!timeslot) {
