@@ -13,7 +13,20 @@ import {
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 import { resolveTenantPromotionCodeId } from '@/lib/stripe-connect/discountCodes'
-import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
+import {
+  ensureStripeCustomerIdForAccount,
+  removeConnectCustomerMappingForAccount,
+} from '@repo/bookings-payments'
+
+function isStripeMissingConnectCustomerError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false
+  const err = e as { code?: string; param?: string; type?: string; message?: string }
+  if (err.code !== 'resource_missing' || err.param !== 'customer') return false
+  if (typeof err.message === 'string' && err.message.toLowerCase().includes('no such customer')) {
+    return true
+  }
+  return err.type === 'StripeInvalidRequestError'
+}
 
 type CheckoutSessionBody = {
   priceId?: string
@@ -198,8 +211,8 @@ export async function POST(request: NextRequest) {
   const successUrl = body.successUrl ? String(body.successUrl) : `${origin}/`
   const cancelUrl = body.cancelUrl ? String(body.cancelUrl) : `${origin}/`
 
-  try {
-    const session = await createTenantCheckoutSession({
+  const createSession = async (custId: string) =>
+    createTenantCheckoutSession({
       tenant: {
         id: tenant.id,
         stripeConnectAccountId: tenant.stripeConnectAccountId,
@@ -211,7 +224,7 @@ export async function POST(request: NextRequest) {
       metadata,
       successUrl,
       cancelUrl,
-      customerId,
+      customerId: custId,
       promotionCodeId,
       payload,
       bookingFeeAmount,
@@ -219,7 +232,25 @@ export async function POST(request: NextRequest) {
       subscriptionApplicationFeePercent,
     })
 
-    return NextResponse.json(session)
+  try {
+    try {
+      const session = await createSession(customerId)
+      return NextResponse.json(session)
+    } catch (first) {
+      const acct = tenant.stripeConnectAccountId?.trim()
+      if (!acct || !isStripeMissingConnectCustomerError(first)) throw first
+
+      await removeConnectCustomerMappingForAccount(payload, userId, acct)
+      const repaired = await ensureStripeCustomerIdForAccount({
+        payload,
+        userId,
+        email: user.email,
+        name: userName,
+        stripeAccountId: acct,
+      })
+      const session = await createSession(repaired.stripeCustomerId)
+      return NextResponse.json(session)
+    }
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Failed to create checkout session'
     return NextResponse.json({ error: message }, { status: 500 })
