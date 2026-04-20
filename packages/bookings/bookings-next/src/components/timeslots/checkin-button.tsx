@@ -37,6 +37,11 @@ export type LoginToBookUrlResolver = (
   context: { isTrial: boolean }
 ) => string;
 
+function trpcErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return "Something went wrong. Please try again.";
+}
+
 const classNameByAction: Record<TimeslotScheduleState["action"], string> = {
   book: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
   cancel: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
@@ -96,6 +101,9 @@ export const CheckInButton = ({
           router.push(result.redirectUrl);
         }
       },
+      onError: (error: unknown) => {
+        toast.error(trpcErrorMessage(error));
+      },
     })
   );
 
@@ -108,6 +116,9 @@ export const CheckInButton = ({
         if (result?.redirectUrl) {
           router.push(result.redirectUrl);
         }
+      },
+      onError: (error: unknown) => {
+        toast.error(trpcErrorMessage(error));
       },
     })
   );
@@ -145,37 +156,54 @@ export const CheckInButton = ({
     if (action === "book") {
       const singleSlotOnly = scheduleState?.singleSlotOnly === true;
       if (singleSlotOnly) {
-        const result = await bookSingleSlotOrRedirect({ timeslotId });
-        // Only show "Booked" when the server actually booked immediately.
-        // If we got a redirectUrl, the user is being sent to a booking/manage page (payment/portal),
-        // so showing a success toast is misleading.
-        if (result?.redirectUrl == null) {
-          toast.success("Booked");
+        try {
+          const result = await bookSingleSlotOrRedirect({ timeslotId });
+          // Only show "Booked" when the server actually booked immediately.
+          // If we got a redirectUrl, the user is being sent to a booking/manage page (payment/portal),
+          // so showing a success toast is misleading.
+          if (result?.redirectUrl == null) {
+            toast.success("Booked");
+          }
+          trackEvent("Booking Initiated");
+        } catch {
+          // Error toast is shown by mutation onError
         }
       } else {
         router.push(`/bookings/${timeslotId}`);
+        trackEvent("Booking Initiated");
       }
-      trackEvent("Booking Initiated");
       return;
     }
 
     if (action === "cancel") {
       const ok = await confirm();
       if (!ok) return;
-      await setMyBooking({ timeslotId, intent: "cancel" });
-      toast.success("Booking cancelled");
+      try {
+        await setMyBooking({ timeslotId, intent: "cancel" });
+        toast.success("Booking cancelled");
+      } catch {
+        // Error toast is shown by mutation onError
+      }
       return;
     }
 
     if (action === "joinWaitlist") {
-      await setMyBooking({ timeslotId, intent: "joinWaitlist" });
-      toast.success("Joined waitlist");
+      try {
+        await setMyBooking({ timeslotId, intent: "joinWaitlist" });
+        toast.success("Joined waitlist");
+      } catch {
+        // Error toast is shown by mutation onError
+      }
       return;
     }
 
     if (action === "leaveWaitlist") {
-      await setMyBooking({ timeslotId, intent: "leaveWaitlist" });
-      toast.success("Left waitlist");
+      try {
+        await setMyBooking({ timeslotId, intent: "leaveWaitlist" });
+        toast.success("Left waitlist");
+      } catch {
+        // Error toast is shown by mutation onError
+      }
       return;
     }
   };
