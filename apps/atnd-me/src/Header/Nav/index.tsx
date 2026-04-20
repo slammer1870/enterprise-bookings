@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 
 import { CMSLink } from '@/components/Link'
 import type { NavbarData } from '@/utilities/getNavbarFooterForRequest'
+import { useTheme } from '@/providers/Theme'
 import { cn } from '@/utilities/ui'
 import { HeaderAuthMenu } from './AuthMenu'
 
@@ -117,6 +118,7 @@ function NavIcon({
 }
 
 export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
+  const { theme: siteTheme } = useTheme()
   const navItems = data?.navItems || []
   const hasNavLinks = navItems.length > 0
   const pathname = usePathname()
@@ -129,6 +131,13 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
   React.useLayoutEffect(() => {
     setMobilePortalEl(document.getElementById('modal-root') ?? document.body)
   }, [])
+
+  const portalDataTheme = React.useMemo((): 'light' | 'dark' | undefined => {
+    if (siteTheme === 'dark' || siteTheme === 'light') return siteTheme
+    if (typeof document === 'undefined') return undefined
+    const t = document.documentElement.getAttribute('data-theme')
+    return t === 'dark' || t === 'light' ? t : undefined
+  }, [siteTheme])
 
   React.useEffect(() => {
     setMobileOpen(false)
@@ -272,7 +281,12 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
 
       {mobileMounted && mobilePortalEl
         ? createPortal(
-            <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+            <div
+              className="fixed inset-0 z-50 md:hidden"
+              role="dialog"
+              aria-modal="true"
+              {...(portalDataTheme ? { 'data-theme': portalDataTheme } : {})}
+            >
               <button
                 type="button"
                 className={[
@@ -293,7 +307,7 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
                 ].join(' ')}
               >
                 <div className="px-6 pb-10 pt-24 overflow-auto h-screen">
-                  <div className="flex flex-col gap-5">
+                  <div className="flex flex-col gap-5 text-foreground">
                     {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
                       const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
                         | 'inline'
@@ -312,7 +326,11 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
                           key={i}
                           {...linkProps}
                           appearance={appearance}
-                          className="w-full justify-start"
+                          className={cn(
+                            'w-full justify-start',
+                            appearance === 'link' &&
+                              '!text-foreground hover:!text-foreground underline-offset-4 hover:underline',
+                          )}
                           {...(displayIcon != null
                             ? {
                                 label: undefined,
