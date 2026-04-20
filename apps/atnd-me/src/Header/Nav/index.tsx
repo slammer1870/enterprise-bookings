@@ -1,10 +1,12 @@
 'use client'
 
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { usePathname } from 'next/navigation'
 
 import { CMSLink } from '@/components/Link'
 import type { NavbarData } from '@/utilities/getNavbarFooterForRequest'
+import { useTheme } from '@/providers/Theme'
 import { cn } from '@/utilities/ui'
 import { HeaderAuthMenu } from './AuthMenu'
 
@@ -115,19 +117,41 @@ function NavIcon({
   return null
 }
 
-export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
+export const HeaderNav: React.FC<{
+  data: NavbarData
+  /** While true, header z-index is raised so the menu control stays above the portaled z-50 overlay. */
+  onMobileNavLayerChange?: (active: boolean) => void
+}> = ({ data, onMobileNavLayerChange }) => {
+  const { theme: siteTheme } = useTheme()
   const navItems = data?.navItems || []
   const hasNavLinks = navItems.length > 0
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [mobileMounted, setMobileMounted] = React.useState(false)
+  const [mobilePortalEl, setMobilePortalEl] = React.useState<HTMLElement | null>(null)
   const closeTimerRef = React.useRef<number | null>(null)
   const openRafRef = React.useRef<number | null>(null)
+
+  React.useLayoutEffect(() => {
+    setMobilePortalEl(document.getElementById('modal-root') ?? document.body)
+  }, [])
+
+  const portalDataTheme = React.useMemo((): 'light' | 'dark' | undefined => {
+    if (siteTheme === 'dark' || siteTheme === 'light') return siteTheme
+    if (typeof document === 'undefined') return undefined
+    const t = document.documentElement.getAttribute('data-theme')
+    return t === 'dark' || t === 'light' ? t : undefined
+  }, [siteTheme])
 
   React.useEffect(() => {
     setMobileOpen(false)
     setMobileMounted(false)
   }, [pathname])
+
+  React.useEffect(() => {
+    onMobileNavLayerChange?.(mobileMounted)
+    return () => onMobileNavLayerChange?.(false)
+  }, [mobileMounted, onMobileNavLayerChange])
 
   React.useEffect(() => {
     if (!mobileMounted) return
@@ -252,9 +276,9 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
 
       <button
         type="button"
+        {...(portalDataTheme ? { 'data-theme': portalDataTheme } : {})}
         className={[
-          'md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
-          mobileMounted ? 'relative z-[60]' : '',
+          'md:hidden relative z-10 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
         ].join(' ')}
         aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         aria-expanded={mobileOpen}
@@ -264,70 +288,83 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
         <BurgerIcon open={mobileOpen} />
       </button>
 
-      {mobileMounted ? (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
-          <button
-            type="button"
-            className={[
-              'absolute inset-0 bg-black/40 transition-opacity duration-200 ease-out',
-              mobileOpen ? 'opacity-100' : 'opacity-0',
-            ].join(' ')}
-            aria-label="Close menu"
-            onClick={closeMobileMenu}
-          />
+      {mobileMounted && mobilePortalEl
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-50 md:hidden"
+              role="dialog"
+              aria-modal="true"
+              {...(portalDataTheme ? { 'data-theme': portalDataTheme } : {})}
+            >
+              <button
+                type="button"
+                className={[
+                  'absolute inset-0 bg-black/40 transition-opacity duration-200 ease-out',
+                  mobileOpen ? 'opacity-100' : 'opacity-0',
+                ].join(' ')}
+                aria-label="Close menu"
+                onClick={closeMobileMenu}
+              />
 
-          <div
-            id="mobile-header-nav"
-            className={[
-              'absolute right-0 top-0 h-screen w-1/2 max-w-[50vw] bg-background text-foreground border-l border-border shadow-lg',
-              'transition-transform duration-200 ease-out will-change-transform',
-              mobileOpen ? 'translate-x-0' : 'translate-x-full',
-            ].join(' ')}
-          >
-            <div className="px-6 pb-10 pt-24 overflow-auto h-screen">
-              <div className="flex flex-col gap-5">
-                {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
-                  const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
-                    | 'inline'
-                    | 'default'
-                    | 'outline'
-                    | 'secondary'
-                    | 'ghost'
-                    | 'link'
-                  const displayIcon =
-                    icon === 'instagram' || icon === 'facebook' || icon === 'x'
-                      ? icon
-                      : null
-                  const linkProps = link as React.ComponentProps<typeof CMSLink>
-                  return (
-                    <CMSLink
-                      key={i}
-                      {...linkProps}
-                      appearance={appearance}
-                      className="w-full justify-start"
-                      {...(displayIcon != null
-                        ? {
-                            label: undefined,
-                            children: (
-                              <>
-                                <NavIcon icon={displayIcon} />
-                                <span className="ml-2">{linkProps.label ?? ''}</span>
-                              </>
-                            ),
-                          }
-                        : {})}
-                    />
-                  )
-                })}
-              </div>
+              <div
+                id="mobile-header-nav"
+                className={[
+                  'absolute right-0 top-0 h-screen w-1/2 max-w-[50vw] border-l border-border shadow-lg',
+                  'bg-background text-foreground',
+                  'transition-transform duration-200 ease-out will-change-transform',
+                  mobileOpen ? 'translate-x-0' : 'translate-x-full',
+                ].join(' ')}
+              >
+                <div className="px-6 pb-10 pt-24 overflow-auto h-screen">
+                  <div className="flex flex-col gap-5 text-foreground">
+                    {navItems.map(({ link, icon, renderAsButton, buttonVariant }, i) => {
+                      const appearance = (renderAsButton ? (buttonVariant || 'default') : 'link') as
+                        | 'inline'
+                        | 'default'
+                        | 'outline'
+                        | 'secondary'
+                        | 'ghost'
+                        | 'link'
+                      const displayIcon =
+                        icon === 'instagram' || icon === 'facebook' || icon === 'x'
+                          ? icon
+                          : null
+                      const linkProps = link as React.ComponentProps<typeof CMSLink>
+                      return (
+                        <CMSLink
+                          key={i}
+                          {...linkProps}
+                          appearance={appearance}
+                          className={cn(
+                            'w-full justify-start',
+                            appearance === 'link' &&
+                              '!text-foreground hover:!text-foreground underline-offset-4 hover:underline',
+                          )}
+                          {...(displayIcon != null
+                            ? {
+                                label: undefined,
+                                children: (
+                                  <>
+                                    <NavIcon icon={displayIcon} />
+                                    <span className="ml-2">{linkProps.label ?? ''}</span>
+                                  </>
+                                ),
+                              }
+                            : {})}
+                        />
+                      )
+                    })}
+                  </div>
 
-              <div className="mt-8 pt-6 border-t border-border">
-                <HeaderAuthMenu mode="inline" />
+                  <div className="mt-8 pt-6 border-t border-border">
+                    <HeaderAuthMenu mode="inline" />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            mobilePortalEl,
+          )
+        : null}
     </nav>
   )
 }

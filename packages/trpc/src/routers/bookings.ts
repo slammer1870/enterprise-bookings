@@ -206,6 +206,8 @@ export const bookingsRouter = {
       }
       if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
+      const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
+
       // Business Logic: Handle children's timeslots differently
       if (timeslot.eventType.type === "child") {
         throw new TRPCError({
@@ -222,11 +224,11 @@ export const bookingsRouter = {
           where: {
             timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
+            ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
           },
           depth: 2,
           limit: 1,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         });
 
         if (existingBooking.docs.length === 0) {
@@ -236,7 +238,7 @@ export const bookingsRouter = {
             user: Number(ctx.user.id),
             status: "confirmed",
           }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         } else {
@@ -244,7 +246,7 @@ export const bookingsRouter = {
           return await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
             status: "confirmed",
           }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         }
@@ -261,6 +263,7 @@ export const bookingsRouter = {
       }
     }),
   kioskCreateOrConfirmBooking: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
     .use(requireCollections("bookings", "users"))
     .input(z.object({ timeslotId: z.number(), userId: z.number() }))
     .mutation(async ({ ctx, input }): Promise<Booking> => {
@@ -275,8 +278,7 @@ export const bookingsRouter = {
         input.userId,
         {
           depth: 2,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         }
       );
 
@@ -287,16 +289,24 @@ export const bookingsRouter = {
         });
       }
 
+      const kioskTimeslot = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        { depth: 0, overrideAccess: true }
+      );
+      const kioskTenantId = kioskTimeslot ? deriveTenantIdFromTimeslot(kioskTimeslot) : null;
+
       // Look up an existing booking using the admin context (read access).
       const existingBooking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
           timeslot: { equals: input.timeslotId },
           user: { equals: input.userId },
+          ...(kioskTenantId != null ? { tenant: { equals: kioskTenantId } } : {}),
         },
         depth: 2,
         limit: 1,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       // Create/update using the selected user context so existing access controls run
@@ -305,7 +315,7 @@ export const bookingsRouter = {
         const updated = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
           status: "confirmed",
         }, {
-          overrideAccess: false,
+          overrideAccess: true,
           user: selectedUser,
         });
         return updated as Booking;
@@ -316,7 +326,7 @@ export const bookingsRouter = {
         user: Number(input.userId),
         status: "confirmed",
       }, {
-        overrideAccess: false,
+        overrideAccess: true,
         user: selectedUser,
       });
 
@@ -348,7 +358,7 @@ export const bookingsRouter = {
         user: Number(ctx.user.id),
         status: "confirmed",
       }, {
-        overrideAccess: false,
+        overrideAccess: true,
         user: ctx.user,
       });
 
@@ -392,6 +402,8 @@ export const bookingsRouter = {
         });
       }
       if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
+
+      const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
 
       // Only load a fully populated eventType if we need its payment method config.
       if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)) {
@@ -458,11 +470,11 @@ export const bookingsRouter = {
               id: { equals: subscriptionId },
               user: { equals: ctx.user.id },
               plan: { in: allowedPlanIds },
+              ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
             },
             limit: 1,
             depth: 2,
-            overrideAccess: false,
-            user: ctx.user,
+            overrideAccess: true,
           }
         );
         const subscription = subResult.docs[0];
@@ -532,11 +544,7 @@ export const bookingsRouter = {
             message: "This timeslot does not allow class pass booking.",
           });
         }
-        const timeslotTenantIdForPass =
-          typeof timeslot.tenant === "object" && timeslot.tenant != null
-            ? (timeslot.tenant as { id: number }).id
-            : (timeslot.tenant as number | undefined) ?? null;
-        if (timeslotTenantIdForPass == null) {
+        if (timeslotTenantId == null) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Timeslot has no tenant.",
@@ -549,7 +557,7 @@ export const bookingsRouter = {
             where: {
               id: { equals: classPassId },
               user: { equals: ctx.user.id },
-              tenant: { equals: timeslotTenantIdForPass },
+              tenant: { equals: timeslotTenantId },
               type: { in: allowedTypeIds },
               status: { equals: "active" },
               quantity: { greater_than: 0 },
@@ -557,8 +565,7 @@ export const bookingsRouter = {
             },
             limit: 1,
             depth: 2,
-            overrideAccess: false,
-            user: ctx.user,
+            overrideAccess: true,
           }
         );
         const passDoc = passResult.docs[0] as
@@ -624,10 +631,6 @@ export const bookingsRouter = {
         }
       }
 
-      const timeslotTenantId =
-        typeof timeslot.tenant === "object" && timeslot.tenant != null
-          ? (timeslot.tenant as { id: number }).id
-          : (timeslot.tenant as number | undefined) ?? null;
       const decrementClassPassCredits = async (count: number) => {
         if (classPassIdUsed == null || count <= 0) return;
         const pass = (await ctx.payload.findByID({
@@ -678,11 +681,11 @@ export const bookingsRouter = {
             timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
             status: { equals: "pending" },
+            ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
           },
           limit: pendingBookingIds.length + 1,
           depth: 1,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         });
         if (pendingResult.docs.length !== pendingBookingIds.length) {
           throw new TRPCError({
@@ -742,11 +745,11 @@ export const bookingsRouter = {
             timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
             status: { equals: "pending" },
+            ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
           },
           limit: pendingBookingIds!.length + 1,
           depth: 1,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         });
         if (pendingResult.docs.length !== pendingBookingIds!.length) {
           throw new TRPCError({
@@ -901,6 +904,7 @@ export const bookingsRouter = {
       if (timeslotTenantId == null) return [];
 
       const now = new Date().toISOString();
+      // Same `withTenantAccess` / empty session tenants issue as getPurchasableClassPassTypesForTimeslot.
       const result = await findSafe(
         ctx.payload,
         "class-passes",
@@ -916,8 +920,7 @@ export const bookingsRouter = {
           limit: 50,
           depth: 1,
           sort: "expirationDate",
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         }
       );
       return filterValidClassPassesForTimeslot(
@@ -971,17 +974,19 @@ export const bookingsRouter = {
         typeof timeslot.tenant === "object" && timeslot.tenant != null
           ? (timeslot.tenant as { id: number }).id
           : (timeslot.tenant as number | undefined) ?? null;
-      const tenantDoc =
-        timeslotTenantId != null && hasCollection(ctx.payload, "tenants")
-          ? await ctx.payload
-              .findByID({
-                collection: "tenants" as any,
-                id: timeslotTenantId,
-                depth: 0,
-                overrideAccess: true,
-              })
-              .catch(() => null)
-          : null;
+      if (timeslotTenantId == null) {
+        return [];
+      }
+      const tenantDoc = hasCollection(ctx.payload, "tenants")
+        ? await ctx.payload
+            .findByID({
+              collection: "tenants" as any,
+              id: timeslotTenantId,
+              depth: 0,
+              overrideAccess: true,
+            })
+            .catch(() => null)
+        : null;
       const tenantStripeAccountId =
         tenantDoc &&
         typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
@@ -993,16 +998,18 @@ export const bookingsRouter = {
         ? ({ stripeAccount: tenantStripeAccountId } satisfies Stripe.RequestOptions)
         : undefined;
 
+      // `withTenantAccess` on class-pass-types adds tenant { in: sessionUser.tenants }.
+      // Better Auth sessions often omit populated tenants, yielding `in: []` and a 403 from Payload.
+      // Allowed IDs and tenant come from the timeslot's event type; scope is enforced in `where` below.
       const accessible = await findSafe(ctx.payload, "class-pass-types", {
         where: {
           id: { in: allowedTypeIds },
           status: { equals: "active" },
-          ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
+          tenant: { equals: timeslotTenantId },
         },
         limit: allowedTypeIds.length,
         depth: 0,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       const requiredQuantity = Math.max(1, input.quantity ?? 1);
@@ -1121,15 +1128,21 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }): Promise<Booking> => {
       const { id, status = "confirmed" } = input;
 
+      const tsForTenant = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, id, {
+        depth: 0,
+        overrideAccess: true,
+      });
+      const timeslotTenantId = tsForTenant ? deriveTenantIdFromTimeslot(tsForTenant) : null;
+
       const booking = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
           timeslot: { equals: id },
           user: { equals: ctx.user.id },
+          ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
         },
         depth: 2,
         limit: 1,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       if (booking.docs.length === 0) {
@@ -1138,7 +1151,7 @@ export const bookingsRouter = {
           user: Number(ctx.user.id),
           status,
         }, {
-          overrideAccess: false,
+          overrideAccess: true,
           user: ctx.user,
         });
       }
@@ -1146,7 +1159,7 @@ export const bookingsRouter = {
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
         status,
       }, {
-        overrideAccess: false,
+        overrideAccess: true,
         user: ctx.user,
       });
 
@@ -1163,11 +1176,11 @@ export const bookingsRouter = {
         where: {
           id: { equals: id },
           user: { equals: ctx.user.id },
+          ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
         },
         depth: 2,
         limit: 1,
-        overrideAccess: Boolean(tenantId),
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       if (booking.docs.length === 0) {
@@ -1242,25 +1255,32 @@ export const bookingsRouter = {
     }),
 
   joinWaitlist: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
     .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const ts = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, input.id, {
+        depth: 0,
+        overrideAccess: true,
+      });
+      const timeslotTenantId = ts ? deriveTenantIdFromTimeslot(ts) : null;
+
       const existingBooking = await findSafe(ctx.payload, "bookings", {
         where: {
           timeslot: { equals: input.id },
           user: { equals: ctx.user.id },
+          ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
         },
         depth: 2,
         limit: 1,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
           status: "waiting",
         }, {
-          overrideAccess: false,
+          overrideAccess: true,
           user: ctx.user,
         });
 
@@ -1272,26 +1292,33 @@ export const bookingsRouter = {
         user: Number(ctx.user.id),
         status: "waiting",
       }, {
-        overrideAccess: false,
+        overrideAccess: true,
         user: ctx.user,
       });
 
       return booking as Booking;
     }),
   leaveWaitlist: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
     .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const ts = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, input.id, {
+        depth: 0,
+        overrideAccess: true,
+      });
+      const timeslotTenantId = ts ? deriveTenantIdFromTimeslot(ts) : null;
+
       const booking = await findSafe(ctx.payload, "bookings", {
         where: {
           timeslot: { equals: input.id },
           user: { equals: ctx.user.id },
           status: { equals: "waiting" },
+          ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
         },
         depth: 2,
         limit: 1,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       if (booking.docs.length === 0) {
@@ -1304,7 +1331,7 @@ export const bookingsRouter = {
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
         status: "cancelled",
       }, {
-        overrideAccess: false,
+        overrideAccess: true,
         user: ctx.user,
       });
 
@@ -1320,8 +1347,7 @@ export const bookingsRouter = {
         input.id,
         {
           depth: 3,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         }
       );
 
@@ -1342,6 +1368,7 @@ export const bookingsRouter = {
       }
 
       const plans = eventType.paymentMethods?.allowedPlans;
+      const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
 
       if (plans && plans.length > 0) {
         const subscription = await findSafe(ctx.payload, "subscriptions", {
@@ -1361,6 +1388,7 @@ export const bookingsRouter = {
             status: {
               equals: "active",
             },
+            ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
             and: [
               {
                 or: [
@@ -1372,8 +1400,7 @@ export const bookingsRouter = {
           },
           depth: 2,
           limit: 1,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         });
 
         if (subscription.docs.length === 0) {
@@ -1390,8 +1417,7 @@ export const bookingsRouter = {
             parentUser: { equals: ctx.user.id },
           },
           depth: 1,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         });
 
         const childrenIds = childrenQuery.docs.map((child: any) => child.id);
@@ -1402,10 +1428,10 @@ export const bookingsRouter = {
               equals: timeslot.id,
             },
             user: { in: childrenIds },
+            ...(timeslotTenantId != null ? { tenant: { equals: timeslotTenantId } } : {}),
           },
           depth: 2,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         });
 
         const bookedSessionsCount = bookedSessions.docs.length;
@@ -1435,8 +1461,7 @@ export const bookingsRouter = {
         input.childId,
         {
           depth: 4,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         }
       );
 
@@ -1447,22 +1472,30 @@ export const bookingsRouter = {
         });
       }
 
+      const childTs = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        { depth: 0, overrideAccess: true }
+      );
+      const childTimeslotTenantId = childTs ? deriveTenantIdFromTimeslot(childTs) : null;
+
       const existingBooking = await findSafe(ctx.payload, "bookings", {
         where: {
           timeslot: { equals: input.timeslotId },
           user: { equals: child.id },
+          ...(childTimeslotTenantId != null ? { tenant: { equals: childTimeslotTenantId } } : {}),
         },
         depth: 2,
         limit: 1,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       if (existingBooking.docs.length > 0) {
         const updatedBooking = await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
           status: status,
         }, {
-          overrideAccess: false,
+          overrideAccess: true,
           user: child,
         });
 
@@ -1474,24 +1507,33 @@ export const bookingsRouter = {
         user: Number(child.id),
         status: status,
       }, {
-        overrideAccess: false,
+        overrideAccess: true,
         user: child,
       });
       return booking as Booking;
     }),
   cancelChildBooking: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
     .use(requireCollections("bookings"))
     .input(z.object({ timeslotId: z.number(), childId: z.number() }))
     .mutation(async ({ ctx, input }) => {
+      const cancelTs = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        { depth: 0, overrideAccess: true }
+      );
+      const cancelTimeslotTenantId = cancelTs ? deriveTenantIdFromTimeslot(cancelTs) : null;
+
       const booking = await findSafe(ctx.payload, "bookings", {
         where: {
           timeslot: { equals: input.timeslotId },
           user: { equals: input.childId },
+          ...(cancelTimeslotTenantId != null ? { tenant: { equals: cancelTimeslotTenantId } } : {}),
         },
         depth: 2,
         limit: 1,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       if (booking.docs.length === 0) {
@@ -1507,8 +1549,7 @@ export const bookingsRouter = {
         input.childId,
         {
           depth: 4,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         }
       );
 
@@ -1522,25 +1563,32 @@ export const bookingsRouter = {
       const updatedBooking = await updateSafe(ctx.payload, "bookings", booking.docs[0]?.id as number, {
         status: "cancelled",
       }, {
-        overrideAccess: false,
+        overrideAccess: true,
         user: child,
       });
 
       return updatedBooking as Booking;
     }),
   getChildrensBookings: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
     .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
+      const gcbTs = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, input.id, {
+        depth: 0,
+        overrideAccess: true,
+      });
+      const gcbTenantId = gcbTs ? deriveTenantIdFromTimeslot(gcbTs) : null;
+
       const bookings = await findSafe(ctx.payload, "bookings", {
         where: {
           timeslot: { equals: input.id },
           "user.parentUser": { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
+          ...(gcbTenantId != null ? { tenant: { equals: gcbTenantId } } : {}),
         },
         depth: 2,
-        overrideAccess: false,
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       return bookings.docs.map((booking: any) => booking as Booking);
@@ -1559,10 +1607,10 @@ export const bookingsRouter = {
           timeslot: { equals: input.timeslotId },
           user: { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
+          ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
         },
         depth: 2,
-        overrideAccess: Boolean(tenantId),
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       const filteredBookings = tenantId
@@ -1615,6 +1663,8 @@ export const bookingsRouter = {
       }
       if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
+      const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
+
       const eventTypeId =
         typeof timeslot.eventType === "object" && timeslot.eventType !== null
           ? (timeslot.eventType as any).id
@@ -1649,12 +1699,15 @@ export const bookingsRouter = {
 
         const confirmedCountResult = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
-            and: [{ timeslot: { equals: timeslotId } }, { status: { equals: "confirmed" } }],
+            and: [
+              { timeslot: { equals: timeslotId } },
+              { status: { equals: "confirmed" } },
+              ...(timeslotTenantId != null ? [{ tenant: { equals: timeslotTenantId } }] : []),
+            ],
           },
           depth: 0,
           limit: 0,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
+          overrideAccess: true,
         });
         const totalConfirmedCount = confirmedCountResult.totalDocs;
         const isFull = typeof places === "number" ? totalConfirmedCount >= places : false;
@@ -1665,12 +1718,12 @@ export const bookingsRouter = {
               { timeslot: { equals: timeslotId } },
               { status: { in: ["confirmed", "waiting"] } },
               isChildClass ? { "user.parentUser": { equals: viewerId } } : { user: { equals: viewerId } },
+              ...(timeslotTenantId != null ? [{ tenant: { equals: timeslotTenantId } }] : []),
             ],
           },
           depth: 0,
           limit: 0,
-          overrideAccess: tenantId ? true : false,
-          user: ctx.user,
+          overrideAccess: true,
         });
 
         const viewerConfirmedIds = (viewerBookingsResult.docs as any[])
@@ -1738,7 +1791,7 @@ export const bookingsRouter = {
             user: Number(viewerId),
             status: "confirmed",
           }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         }
@@ -1752,7 +1805,7 @@ export const bookingsRouter = {
         const bookingId = currentState.viewer.confirmedIds[0];
         if (bookingId) {
           await updateSafe(ctx.payload, "bookings", bookingId, { status: "cancelled" }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         }
@@ -1766,14 +1819,14 @@ export const bookingsRouter = {
             user: Number(viewerId),
             status: "waiting",
           }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         }
       } else if (intent === "leaveWaitlist") {
         for (const bookingId of currentState.viewer.waitingIds) {
           await updateSafe(ctx.payload, "bookings", bookingId, { status: "cancelled" }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         }
@@ -1809,6 +1862,8 @@ export const bookingsRouter = {
         });
       }
       if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
+
+      const checkInTimeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
 
       // Check if timeslot status allows immediate check-in
       if (!['active', 'trialable'].includes(timeslot.bookingStatus || '')) {
@@ -1853,11 +1908,11 @@ export const bookingsRouter = {
           where: {
             timeslot: { equals: timeslotId },
             user: { equals: ctx.user.id },
+            ...(checkInTimeslotTenantId != null ? { tenant: { equals: checkInTimeslotTenantId } } : {}),
           },
           depth: 2,
           limit: 1,
-          overrideAccess: false,
-          user: ctx.user,
+          overrideAccess: true,
         });
 
         if (existingBooking.docs.length === 0) {
@@ -1877,7 +1932,7 @@ export const bookingsRouter = {
             user: Number(userId),
             status: "confirmed",
           }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         } else {
@@ -1885,7 +1940,7 @@ export const bookingsRouter = {
           await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
             status: "confirmed",
           }, {
-            overrideAccess: false,
+            overrideAccess: true,
             user: ctx.user,
           });
         }
@@ -1933,6 +1988,8 @@ export const bookingsRouter = {
       }
       if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
+      const qtyTimeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
+
       // Ensure eventType has paymentMethods if we need subscription-based quantity rules.
       if (hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)) {
         const co = timeslot.eventType as any;
@@ -1958,10 +2015,10 @@ export const bookingsRouter = {
           timeslot: { equals: timeslotId },
           user: { equals: ctx.user.id },
           status: { not_equals: "cancelled" },
+          ...(qtyTimeslotTenantId != null ? { tenant: { equals: qtyTimeslotTenantId } } : {}),
         },
         depth: 1,
-        overrideAccess: Boolean(tenantId),
-        user: ctx.user,
+        overrideAccess: true,
       });
 
       const filteredBookings = tenantId
@@ -2041,10 +2098,10 @@ export const bookingsRouter = {
           const fetchedNewBookings = await findSafe<Booking>(ctx.payload, "bookings", {
             where: {
               id: { in: newBookingIds },
+              ...(qtyTimeslotTenantId != null ? { tenant: { equals: qtyTimeslotTenantId } } : {}),
             },
             depth: 1,
-            overrideAccess: tenantId ? true : false,
-            user: ctx.user,
+            overrideAccess: true,
           });
 
           // Return all confirmed bookings (existing + newly fetched with consistent depth)
@@ -2083,7 +2140,7 @@ export const bookingsRouter = {
               status: "cancelled",
             },
             {
-              overrideAccess: tenantId ? true : false,
+              overrideAccess: true,
               user: ctx.user,
               // Avoid sending waitlist emails for intermediate cancellations inside a bulk
               // quantity update, which otherwise runs the hook multiple times and can block.

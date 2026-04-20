@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react'
 import { Logo } from '@/components/Logo/Logo'
 import { HeaderNav } from './Nav'
 import type { NavbarData } from '@/utilities/getNavbarFooterForRequest'
+import { cn } from '@/utilities/ui'
 
 interface HeaderClientProps {
   data: NavbarData
@@ -16,6 +17,7 @@ interface HeaderClientProps {
 export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
   /* Storing the value in a useState to avoid hydration errors */
   const [theme, setTheme] = useState<string | null>(null)
+  const [mobileNavLayerOpen, setMobileNavLayerOpen] = useState(false)
   const { headerTheme, setHeaderTheme } = useHeaderTheme()
   const pathname = usePathname()
 
@@ -49,7 +51,11 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
 
   return (
     <header
-      className="absolute top-0 left-0 right-0 z-40"
+      className={cn(
+        'absolute top-0 left-0 right-0 z-40',
+        /* Portaled mobile menu uses z-50; without this, the whole header (incl. menu button) stays under the overlay. */
+        mobileNavLayerOpen && 'z-[100]',
+      )}
       {...(theme ? { 'data-theme': theme } : {})}
       style={{
         backgroundColor,
@@ -77,7 +83,7 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
               />
             )}
           </Link>
-          <HeaderNav data={data} />
+          <HeaderNav data={data} onMobileNavLayerChange={setMobileNavLayerOpen} />
         </div>
       </div>
     </header>

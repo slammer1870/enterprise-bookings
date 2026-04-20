@@ -39,6 +39,23 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     return appRouter.createCaller(ctx)
   }
 
+  /** Simulates Better Auth slim JWT: no `tenants` relation on the session user. */
+  const createSlimSessionCaller = async () => {
+    const headers = new Headers()
+    headers.set('cookie', `tenant-slug=cp-ui-tenant`)
+    const ctx = await createTRPCContext({
+      headers,
+      payload,
+      user: {
+        id: user.id,
+        email: user.email,
+        collection: 'users',
+      },
+      bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+    })
+    return appRouter.createCaller(ctx)
+  }
+
   beforeAll(async () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
@@ -97,6 +114,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
         status: 'active',
         allowMultipleBookingsPerTimeslot: true,
         priceInformation: { price: 29.99 },
+        priceJSON: JSON.stringify({ id: `price_cp_ui_slim_${Date.now()}` }),
       },
       draft: false,
       overrideAccess: true,
@@ -185,6 +203,35 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       await payload.db.destroy?.()
     }
   })
+
+  it(
+    'slim session user: getPurchasableClassPassTypesForTimeslot and getValidClassPassesForTimeslot do not 403',
+    async () => {
+      const caller = await createSlimSessionCaller()
+      const purchasable = (caller as any).bookings?.getPurchasableClassPassTypesForTimeslot
+      const getValid = (caller as any).bookings?.getValidClassPassesForTimeslot
+      expect(typeof purchasable).toBe('function')
+      expect(typeof getValid).toBe('function')
+
+      const types = await purchasable({ timeslotId: lessonId, quantity: 1 })
+      expect(Array.isArray(types)).toBe(true)
+      expect(types.some((t: { id?: number }) => t.id === classPassTypeId)).toBe(true)
+
+      const passes = await getValid({ timeslotId: lessonId })
+      expect(Array.isArray(passes)).toBe(true)
+      expect(passes.some((p: { id?: number }) => p.id === classPassId)).toBe(true)
+
+      const sub = await (caller as any).subscriptions.getSubscription()
+      expect(sub === null || typeof sub === 'object').toBe(true)
+
+      const forTimeslot = await (caller as any).subscriptions.getSubscriptionForTimeslot({
+        timeslotId: lessonId,
+      })
+      expect(forTimeslot).toBeDefined()
+      expect(forTimeslot.subscription === null || typeof forTimeslot.subscription === 'object').toBe(true)
+    },
+    TEST_TIMEOUT,
+  )
 
   it(
     'getValidClassPassesForTimeslot returns only passes for lesson tenant and allowed types',
