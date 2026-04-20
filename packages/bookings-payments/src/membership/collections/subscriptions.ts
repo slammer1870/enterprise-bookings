@@ -124,6 +124,9 @@ function getDefaultAdmin(config: MembershipBranchConfig): CollectionAdminOptions
   return {
     group: "Billing",
     useAsTitle: "stripeSubscriptionId",
+    // List search: nested paths on the `user` relationship (see Payload listSearchableFields docs).
+    // Omit Stripe audit IDs (stripeCustomerId, stripeAccountId, stripeSubscriptionId) from search.
+    listSearchableFields: ["id", "user.email", "user.name", "status"],
     components: {
       beforeListTable,
     },
@@ -148,6 +151,7 @@ export function generateSubscriptionCollection(
       admin: {
         position: "sidebar",
         readOnly: true,
+        disableListFilter: true,
         condition: (_, siblingData) => Boolean((siblingData as any)?.stripeAccountId),
       },
     },
@@ -164,6 +168,7 @@ export function generateSubscriptionCollection(
       admin: {
         position: "sidebar",
         readOnly: true,
+        disableListFilter: true,
         condition: (_, siblingData) => Boolean((siblingData as any)?.stripeCustomerId),
       },
     },
