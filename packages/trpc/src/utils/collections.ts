@@ -86,6 +86,8 @@ export async function findByIdSafe<T>(
     depth?: number;
     overrideAccess?: boolean;
     user?: any;
+    /** When set, tenant-scoped access can resolve host/cookies/context (same pattern as REST/tRPC handlers). */
+    req?: unknown;
   } = {}
 ): Promise<T | null> {
   if (!hasCollection(payload, collectionSlug)) {
@@ -102,6 +104,7 @@ export async function findByIdSafe<T>(
       depth: options.depth ?? 0,
       overrideAccess: options.overrideAccess ?? false,
       user: options.user,
+      ...(options.req != null ? { req: options.req as any } : {}),
     })) as unknown as T | null;
   } catch (error: any) {
     // If it's a not found error, return null
@@ -126,6 +129,8 @@ export async function findSafe<T = JsonObject & TypeWithID>(
     overrideAccess?: boolean;
     user?: any;
     sort?: string;
+    /** When set, tenant-scoped access can resolve host/cookies/context (same pattern as REST/tRPC handlers). */
+    req?: unknown;
   } = {}
 ): Promise<PaginatedDocs<T>> {
   if (!hasCollection(payload, collectionSlug)) {
@@ -143,6 +148,7 @@ export async function findSafe<T = JsonObject & TypeWithID>(
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
     ...(options.sort && { sort: options.sort }),
+    ...(options.req != null ? { req: options.req as any } : {}),
   })) as PaginatedDocs<T>;
 }
 
