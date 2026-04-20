@@ -117,7 +117,11 @@ function NavIcon({
   return null
 }
 
-export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
+export const HeaderNav: React.FC<{
+  data: NavbarData
+  /** While true, header z-index is raised so the menu control stays above the portaled z-50 overlay. */
+  onMobileNavLayerChange?: (active: boolean) => void
+}> = ({ data, onMobileNavLayerChange }) => {
   const { theme: siteTheme } = useTheme()
   const navItems = data?.navItems || []
   const hasNavLinks = navItems.length > 0
@@ -143,6 +147,11 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
     setMobileOpen(false)
     setMobileMounted(false)
   }, [pathname])
+
+  React.useEffect(() => {
+    onMobileNavLayerChange?.(mobileMounted)
+    return () => onMobileNavLayerChange?.(false)
+  }, [mobileMounted, onMobileNavLayerChange])
 
   React.useEffect(() => {
     if (!mobileMounted) return
@@ -267,9 +276,9 @@ export const HeaderNav: React.FC<{ data: NavbarData }> = ({ data }) => {
 
       <button
         type="button"
+        {...(portalDataTheme ? { 'data-theme': portalDataTheme } : {})}
         className={[
-          'md:hidden inline-flex h-10 w-10 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
-          mobileMounted ? 'relative z-[60]' : '',
+          'md:hidden relative z-10 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
         ].join(' ')}
         aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         aria-expanded={mobileOpen}
