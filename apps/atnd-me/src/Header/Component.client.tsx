@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react'
 import { Logo } from '@/components/Logo/Logo'
 import { HeaderNav } from './Nav'
 import type { NavbarData } from '@/utilities/getNavbarFooterForRequest'
+import { useTheme } from '@/providers/Theme'
 import { cn } from '@/utilities/ui'
 
 interface HeaderClientProps {
@@ -18,6 +19,7 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
   /* Storing the value in a useState to avoid hydration errors */
   const [theme, setTheme] = useState<string | null>(null)
   const [mobileNavLayerOpen, setMobileNavLayerOpen] = useState(false)
+  const { theme: siteTheme } = useTheme()
   const { headerTheme, setHeaderTheme } = useHeaderTheme()
   const pathname = usePathname()
 
@@ -49,16 +51,28 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
   const backgroundColor = styling?.backgroundColor ?? 'transparent'
   const textColor = styling?.textColor
 
+  /** When the mobile sheet is open the header sits above it (z-100); match drawer tokens so tenant bar colour ≠ semantic bg. */
+  const headerDataTheme = React.useMemo((): 'light' | 'dark' | undefined => {
+    if (mobileNavLayerOpen) {
+      if (siteTheme === 'dark' || siteTheme === 'light') return siteTheme
+      if (typeof document === 'undefined') return undefined
+      const t = document.documentElement.getAttribute('data-theme')
+      return t === 'dark' || t === 'light' ? t : undefined
+    }
+    if (theme === 'dark' || theme === 'light') return theme
+    return undefined
+  }, [mobileNavLayerOpen, siteTheme, theme])
+
   return (
     <header
       className={cn(
         'absolute top-0 left-0 right-0 z-40',
         /* Portaled mobile menu uses z-50; without this, the whole header (incl. menu button) stays under the overlay. */
-        mobileNavLayerOpen && 'z-[100]',
+        mobileNavLayerOpen && 'z-[100] bg-background',
       )}
-      {...(theme ? { 'data-theme': theme } : {})}
+      {...(headerDataTheme ? { 'data-theme': headerDataTheme } : {})}
       style={{
-        backgroundColor,
+        ...(!mobileNavLayerOpen ? { backgroundColor } : {}),
         ...(textColor ? { color: textColor } : {}),
       }}
     >
