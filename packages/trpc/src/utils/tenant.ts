@@ -12,6 +12,25 @@ export type TenantContext = {
 };
 
 /**
+ * Minimal Payload `req` for Local API calls from tRPC so tenant-scoped collection access
+ * can resolve the active tenant (host, cookies, `context.tenant`).
+ * Same shape as `timeslots.getByIdForBooking` (passes headers + optional `context.tenant`).
+ */
+export function createPayloadLocalReqFromTrpc(args: {
+  payload: Payload;
+  user: unknown;
+  headers: Headers;
+  tenantId: number | null;
+}): { payload: Payload; user: unknown; headers: Headers; context: Record<string, unknown> } {
+  return {
+    payload: args.payload,
+    user: args.user,
+    headers: args.headers,
+    context: args.tenantId != null ? { tenant: args.tenantId } : {},
+  };
+}
+
+/**
  * Extract tenant slug from cookie (tenant-slug=...) or from host (subdomain).
  * e.g. "acme" from "acme.example.com" or "acme.localhost".
  */

@@ -12,6 +12,7 @@ import {
   assertTimeslotBelongsToTenant,
   getDocTenantId,
   populateTimeslotEventType,
+  createPayloadLocalReqFromTrpc,
 } from "../utils/tenant";
 
 import { Booking, EventType, Timeslot, TimeslotScheduleState, Subscription } from "@repo/shared-types";
@@ -47,10 +48,18 @@ export const bookingsRouter = {
         tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, timeslotId, ctx.bookingsSlugs.timeslots);
       }
 
+      const payloadReq = createPayloadLocalReqFromTrpc({
+        payload: ctx.payload,
+        user: ctx.user,
+        headers: ctx.headers,
+        tenantId,
+      });
+
       const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
         depth: 2,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
+        req: payloadReq,
       });
       if (!timeslot) {
         throw new TRPCError({ code: "NOT_FOUND", message: `Timeslot with id ${timeslotId} not found` });
@@ -69,6 +78,7 @@ export const bookingsRouter = {
                 depth: 2,
                 overrideAccess: Boolean(tenantId),
                 user: ctx.user,
+                req: payloadReq,
               })
             : null;
 
@@ -111,6 +121,7 @@ export const bookingsRouter = {
         limit: 1,
         overrideAccess: Boolean(tenantId),
         user: ctx.user,
+        req: payloadReq,
       });
       if (existingConfirmed.docs.length > 0) {
         return { redirectUrl: null };
@@ -138,6 +149,7 @@ export const bookingsRouter = {
         limit: 25,
         overrideAccess: false,
         user: ctx.user,
+        req: payloadReq,
       });
 
       const timeslotStart = new Date(timeslot.startTime);
