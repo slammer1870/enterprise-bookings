@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { signOut } from '@/lib/auth/client'
+import { signOut, useSession } from '@/lib/auth/client'
 import { useBetterAuth } from '@/lib/auth/context'
 import type { User } from '@/lib/auth/types'
 import { cn } from '@/utilities/ui'
@@ -33,8 +33,14 @@ export function HeaderAuthMenu({
   const [billingLoading, setBillingLoading] = useState(false)
 
   const { sessionPromise } = useBetterAuth()
-  /** Same source as server `getSession()` so the nav matches protected pages (avoids stale client-only session). */
-  const session = use(sessionPromise)
+  /** Server session from RSC — matches protected pages on first paint. */
+  const serverSession = use(sessionPromise)
+  /**
+   * Client session from Better Auth — updates immediately on sign-out/sign-in. `use(sessionPromise)` alone
+   * stays stale after `signOut()` until a full reload because React has already resolved the server promise.
+   */
+  const { data: clientSession, isPending: clientSessionPending } = useSession()
+  const session = clientSessionPending ? serverSession : (clientSession ?? null)
   const user = session?.user ?? null
 
   const redirectTo = useMemo(() => pathname || '/', [pathname])
