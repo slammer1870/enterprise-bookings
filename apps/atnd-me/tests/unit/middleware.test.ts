@@ -406,6 +406,29 @@ describe('Middleware', () => {
       expect(setCookie).toContain('tenant-slug=; Path=/; Max-Age=0')
     })
 
+    it('redirects forbidden root /admin to site home (not /admin/login) to avoid Payload client redirect loop', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(JSON.stringify({ error: 'Forbidden' }), {
+            status: 403,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://atnd-me.com/admin', {
+        headers: { host: 'atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      expect(res.status).toBe(307)
+      expect(res.headers.get('location')).toBe('http://atnd-me.com/')
+    })
+
     it('redirects tenant subdomain /admin to platform root when tenant auth returns forbidden', async () => {
       globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
