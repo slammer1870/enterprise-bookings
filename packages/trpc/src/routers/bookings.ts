@@ -13,6 +13,7 @@ import {
   getDocTenantId,
   populateTimeslotEventType,
   createPayloadLocalReqFromTrpc,
+  deriveTenantIdFromTimeslot,
 } from "../utils/tenant";
 
 import { Booking, EventType, Timeslot, TimeslotScheduleState, Subscription } from "@repo/shared-types";
@@ -43,9 +44,22 @@ export const bookingsRouter = {
     .mutation(async ({ ctx, input }) => {
       const { timeslotId } = input;
 
+      // Load timeslot with overrideAccess first: production hosts (custom domains, proxies) often
+      // omit tenant cookies / Host-derived slug, so tenantScopedPublicReadStrict would deny reads
+      // when overrideAccess is false. This procedure is authenticated and user-scoped; we derive
+      // tenant from the document and assert against host tenant when both exist.
+      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
+        depth: 2,
+        overrideAccess: true,
+        user: ctx.user,
+      });
+      if (!timeslot) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Timeslot with id ${timeslotId} not found` });
+      }
+
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
-        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, timeslotId, ctx.bookingsSlugs.timeslots);
+        tenantId = deriveTenantIdFromTimeslot(timeslot);
       }
 
       const payloadReq = createPayloadLocalReqFromTrpc({
@@ -55,15 +69,6 @@ export const bookingsRouter = {
         tenantId,
       });
 
-      const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
-        depth: 2,
-        overrideAccess: Boolean(tenantId),
-        user: ctx.user,
-        req: payloadReq,
-      });
-      if (!timeslot) {
-        throw new TRPCError({ code: "NOT_FOUND", message: `Timeslot with id ${timeslotId} not found` });
-      }
       if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
       const eventTypeId =
@@ -76,7 +81,7 @@ export const bookingsRouter = {
           : eventTypeId != null
             ? await findByIdSafe<EventType>(ctx.payload, ctx.bookingsSlugs.eventTypes, eventTypeId, {
                 depth: 2,
-                overrideAccess: Boolean(tenantId),
+                overrideAccess: true,
                 user: ctx.user,
                 req: payloadReq,
               })
@@ -119,7 +124,7 @@ export const bookingsRouter = {
         },
         depth: 0,
         limit: 1,
-        overrideAccess: Boolean(tenantId),
+        overrideAccess: true,
         user: ctx.user,
         req: payloadReq,
       });
@@ -147,7 +152,7 @@ export const bookingsRouter = {
         },
         depth: 2,
         limit: 25,
-        overrideAccess: false,
+        overrideAccess: true,
         user: ctx.user,
         req: payloadReq,
       });
