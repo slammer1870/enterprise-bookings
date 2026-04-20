@@ -96,29 +96,18 @@ test.describe('Two pending bookings: access booking route and make booking', () 
         page.getByText(/update booking quantity|complete payment|pending booking|booking/i).first()
       ).toBeVisible({ timeout: 10000 })
 
-      // "Make a booking": Cancel the 2 pending, then book fresh (pay-at-door = confirmed)
-      // Payment flow has a Cancel button; after cancelling we see "Book Now"
-      const cancelButton = page.getByRole('button', { name: /^cancel$/i }).first()
-      if (await cancelButton.isVisible().catch(() => false)) {
-        await cancelButton.click()
-        await page.waitForTimeout(2000)
+      // "Make a booking": Cancel the 2 pending, then book fresh (pay-at-door = confirmed).
+      // Wait for checkout abandon control — the manage client used to mount quantity view first and only
+      // switch to payment UI after an effect, so an immediate isVisible() check raced and hit the wrong
+      // "Decrease" control.
+      const cancelButton = page.getByRole('button', { name: /^cancel$/i })
+      await expect(cancelButton).toBeVisible({ timeout: 15000 })
+      await cancelButton.click()
+      await page.waitForTimeout(2000)
 
-        // After cancelling, we see "You have no bookings" and "Book Now"
-        const bookNowButton = page.getByRole('button', { name: /book now/i })
-        await expect(bookNowButton).toBeVisible({ timeout: 10000 })
-        await bookNowButton.click()
-      } else {
-        // Fallback: quantity control to decrease to 0
-        const quantityDisplay = page.getByTestId('booking-quantity').or(page.getByTestId('pending-booking-quantity'))
-        const decreaseButton = page.getByLabel(/decrease/i).first()
-        await expect(quantityDisplay).toBeVisible({ timeout: 5000 })
-        await decreaseButton.click()
-        await page.waitForTimeout(500)
-        await decreaseButton.click()
-        await page.getByRole('button', { name: /update quantity|update bookings/i }).click()
-        await page.waitForTimeout(2000)
-        await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)
-      }
+      const bookNowButton = page.getByRole('button', { name: /book now/i })
+      await expect(bookNowButton).toBeVisible({ timeout: 10000 })
+      await bookNowButton.click()
 
       // Now on booking page: make a fresh booking (pay-at-door = confirmed directly)
       await expect(
