@@ -11,7 +11,11 @@ import type { BasePayload, CollectionSlug } from "payload";
 import { headers } from "next/headers";
 import { createLocalReq } from "payload";
 import { cookies } from "next/headers";
-import { checkRole } from "@repo/shared-utils";
+import {
+  checkRole,
+  PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS,
+  rememberTenantSlugResolution,
+} from "@repo/shared-utils";
 import type { User as SharedUser } from "@repo/shared-types";
 
 import { TimeslotLoading } from "./timeslot-loading";
@@ -103,6 +107,7 @@ export const TimeslotAdmin: React.FC<{
           const tenantId = typeof tid === 'number' ? tid : parseInt(String(tid), 10);
           if (!req.context) req.context = {};
           req.context.tenant = tenantId;
+          rememberTenantSlugResolution(req.context, tenantSlug, tenantId);
         }
       } catch (error) {
         console.error('Error looking up tenant in admin view:', error);
@@ -151,6 +156,7 @@ export const TimeslotAdmin: React.FC<{
           if (ids.length > 0) {
             if (!req.context) req.context = {};
             req.context.tenant = ids[0]!;
+            req.context[PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS] = ids;
           }
         }
       } catch (error) {

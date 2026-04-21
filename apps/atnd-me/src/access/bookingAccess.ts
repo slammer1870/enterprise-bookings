@@ -63,7 +63,11 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
 
   // Tenant org admins and staff manage bookings for their venues (admin UI).
   if (user && checkRole(['admin', 'staff'], user) && data?.timeslot) {
-    const tenantIds = await resolveTenantAdminTenantIds({ user, payload: req.payload })
+    const tenantIds = await resolveTenantAdminTenantIds({
+      user,
+      payload: req.payload,
+      context: req.context as Record<string, unknown> | undefined,
+    })
     if (tenantIds.length > 0) {
       const timeslotId = typeof data.timeslot === 'object' ? data.timeslot.id : data.timeslot
       if (timeslotId != null) {
@@ -134,7 +138,11 @@ export const bookingUpdateAccessWithPaymentValidation: Access = async (args: Acc
   const { req } = args
   const requester = req.user as SharedUser | null
   if (requester && checkRole(['admin', 'staff'], requester)) {
-    const tenantIds = await resolveTenantAdminTenantIds({ user: requester, payload: req.payload })
+    const tenantIds = await resolveTenantAdminTenantIds({
+      user: requester,
+      payload: req.payload,
+      context: req.context as Record<string, unknown> | undefined,
+    })
     if (tenantIds.length === 0) return false
     return { tenant: { in: tenantIds } }
   }

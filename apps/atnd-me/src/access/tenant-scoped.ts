@@ -1,5 +1,12 @@
 import type { Access, Payload, Where } from 'payload'
-import { checkRole } from '@repo/shared-utils'
+import {
+  checkRole,
+  getCachedTenantIdForDomain,
+  getCachedTenantIdForSlug,
+  PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS,
+  rememberTenantDomainResolution,
+  rememberTenantSlugResolution,
+} from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { getPlatformHostname } from '@/utilities/getURL'
@@ -111,19 +118,87 @@ export type RequestLike = {
   }
 }
 
+/** Cross-request cache for tenant membership used by admin/staff (e.g. repeated GET /api/analytics). */
+const TENANT_ADMIN_IDS_TTL_MS = 60_000
+
+type TenantAdminIdsTtlEntry = { ids: number[]; expiresAt: number }
+const tenantAdminIdsTtlCache = new Map<string, TenantAdminIdsTtlEntry>()
+
+function tenantAdminIdsTtlKey(user: unknown): string | null {
+  if (!user || typeof user !== 'object') return null
+  const o = user as { id?: unknown; role?: unknown }
+  const idRaw = o.id
+  const id = typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
+  if (!Number.isFinite(id)) return null
+  const role = typeof o.role === 'string' ? o.role : ''
+  return `${id}:${role}`
+}
+
+function readTenantAdminIdsTtl(cacheKey: string): number[] | null {
+  const e = tenantAdminIdsTtlCache.get(cacheKey)
+  if (!e) return null
+  if (Date.now() > e.expiresAt) {
+    tenantAdminIdsTtlCache.delete(cacheKey)
+    return null
+  }
+  return e.ids
+}
+
+function writeTenantAdminIdsTtl(cacheKey: string, ids: number[]): void {
+  tenantAdminIdsTtlCache.set(cacheKey, { ids, expiresAt: Date.now() + TENANT_ADMIN_IDS_TTL_MS })
+}
+
+/** Clears the in-process TTL cache (e.g. integration tests). */
+export function clearTenantAdminTenantIdsTtlCache(): void {
+  tenantAdminIdsTtlCache.clear()
+}
+
 export async function resolveTenantAdminTenantIds(args: {
   user: unknown
   payload: Payload
+  /** When set (e.g. `req.context`), results are cached for the rest of the request. */
+  context?: Record<string, unknown> | null | undefined
+  /** When true, skip the cross-request TTL cache (tests / explicit refresh). */
+  skipTtlCache?: boolean
 }): Promise<number[]> {
+  const ctx = args.context
+  if (ctx) {
+    const hit = ctx[PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS]
+    if (Array.isArray(hit) && hit.every((n) => typeof n === 'number')) {
+      return hit as number[]
+    }
+  }
+
   const { user, payload } = args
+  const ttlKey = !args.skipTtlCache ? tenantAdminIdsTtlKey(user) : null
+  if (ttlKey) {
+    const ttlHit = readTenantAdminIdsTtl(ttlKey)
+    if (ttlHit !== null) {
+      if (ctx) ctx[PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS] = ttlHit
+      return ttlHit
+    }
+  }
+
+  const finish = (result: number[]) => {
+    if (ctx) ctx[PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS] = result
+    if (ttlKey) writeTenantAdminIdsTtl(ttlKey, result)
+    return result
+  }
+
   const direct = getUserTenantIds(user as SharedUser)
-  if (direct === null) return []
-  if (direct.length > 0) return direct
+  if (direct === null) {
+    return finish([])
+  }
+  if (direct.length > 0) {
+    return finish(direct)
+  }
 
   // Session/JWT user often lacks relationships like `tenants` — fetch full user and retry.
   const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
   const id = typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
-  if (!Number.isFinite(id)) return []
+  if (!Number.isFinite(id)) {
+    return finish([])
+  }
 
   const fullUser = await loadUserDocForTenantMembership(payload, id)
 
@@ -131,7 +206,8 @@ export async function resolveTenantAdminTenantIds(args: {
   if (fromDb === null && fullUser && !checkRole(['super-admin'], user as SharedUser)) {
     fromDb = getTenantMembershipIdsFromUserDoc(fullUser)
   }
-  return fromDb === null ? [] : fromDb
+  const result = fromDb === null ? [] : fromDb
+  return finish(result)
 }
 
 function getCookieFromRequestHeader(req: RequestLike, name: string): string | null {
@@ -153,6 +229,65 @@ function normalizeContextTenantId(contextTenant: unknown): number | null {
     const id = (contextTenant as { id?: unknown }).id
     if (typeof id === 'number' && Number.isFinite(id)) return id
     if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  }
+  return null
+}
+
+async function lookupTenantIdBySlug(
+  req: RequestLike,
+  ctx: Record<string, unknown>,
+  slug: string,
+): Promise<number | null> {
+  const s = slug?.trim()
+  if (!s) return null
+  const cached = getCachedTenantIdForSlug(ctx, s)
+  if (typeof cached === 'number' && Number.isFinite(cached)) {
+    return cached
+  }
+  const result = (await req.payload
+    .find({
+      collection: 'tenants',
+      where: { slug: { equals: s } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      select: { id: true } as any,
+    })
+    .catch(() => null)) as TenantsFindResult | null
+
+  const id = result?.docs?.[0]?.id
+  if (typeof id === 'number') {
+    rememberTenantSlugResolution(ctx, s, id)
+    return id
+  }
+  return null
+}
+
+async function lookupTenantIdByDomain(
+  req: RequestLike,
+  ctx: Record<string, unknown>,
+  normalizedDomain: string,
+): Promise<number | null> {
+  if (!normalizedDomain) return null
+  const cached = getCachedTenantIdForDomain(ctx, normalizedDomain)
+  if (typeof cached === 'number' && Number.isFinite(cached)) {
+    return cached
+  }
+  const result = (await req.payload
+    .find({
+      collection: 'tenants',
+      where: { domain: { equals: normalizedDomain } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      select: { id: true } as any,
+    })
+    .catch(() => null)) as TenantsFindResult | null
+
+  const id = result?.docs?.[0]?.id
+  if (typeof id === 'number') {
+    rememberTenantDomainResolution(ctx, normalizedDomain, id)
+    return id
   }
   return null
 }
@@ -181,18 +316,7 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
   // tenant's data (e.g. membership for registration tenant vs the site being viewed).
   const headerSlug = req.headers?.get?.('x-tenant-slug')?.trim() ?? null
   if (headerSlug && /^[a-z0-9-]+$/i.test(headerSlug)) {
-    const result = (await req.payload
-      .find({
-        collection: 'tenants',
-        where: { slug: { equals: headerSlug } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
-      })
-      .catch(() => null)) as TenantsFindResult | null
-
-    const headerId = result?.docs?.[0]?.id
+    const headerId = await lookupTenantIdBySlug(req, ctx, headerSlug)
     if (typeof headerId === 'number') {
       ctx.__resolvedTenantIdFromSlug = headerId
       return headerId
@@ -207,18 +331,7 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
   const slugFromSubdomain = getTenantSlugFromHost(req.headers as Headers | undefined)
 
   if (slugFromSubdomain && /^[a-z0-9-]+$/i.test(slugFromSubdomain)) {
-    const result = (await req.payload
-      .find({
-        collection: 'tenants',
-        where: { slug: { equals: slugFromSubdomain } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
-      })
-      .catch(() => null)) as TenantsFindResult | null
-
-    const id = result?.docs?.[0]?.id
+    const id = await lookupTenantIdBySlug(req, ctx, slugFromSubdomain)
     if (typeof id === 'number') {
       ctx.__resolvedTenantIdFromHost = id
       return id
@@ -238,18 +351,7 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
     const normalized = normalizeCustomDomain(hostname)
     if (!normalized) continue
 
-    const result = (await req.payload
-      .find({
-        collection: 'tenants',
-        where: { domain: { equals: normalized } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
-      })
-      .catch(() => null)) as TenantsFindResult | null
-
-    const id = result?.docs?.[0]?.id
+    const id = await lookupTenantIdByDomain(req, ctx, normalized)
     if (typeof id === 'number') {
       ctx.__resolvedTenantIdFromHost = id
       return id
@@ -265,18 +367,7 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
     const cached = ctx.__resolvedTenantIdFromSlug
     if (typeof cached === 'number' && Number.isFinite(cached)) return cached
 
-    const result = (await req.payload
-      .find({
-        collection: 'tenants',
-        where: { slug: { equals: tenantSlugFromCookie } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        select: { id: true } as any,
-      })
-      .catch(() => null)) as TenantsFindResult | null
-
-    const id = result?.docs?.[0]?.id
+    const id = await lookupTenantIdBySlug(req, ctx, tenantSlugFromCookie)
     if (typeof id === 'number') {
       ctx.__resolvedTenantIdFromSlug = id
       return id
@@ -323,7 +414,11 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
   
   // Tenant-admin can only create for their assigned tenants
   if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
-    const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    const tenantIds = await resolveTenantAdminTenantIds({
+      user,
+      payload,
+      context: context as Record<string, unknown> | undefined,
+    })
     if (tenantIds.length === 0) return false
     
     // If data.tenant is set, it must be one of the user's tenants (otherwise deny)
@@ -375,7 +470,7 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
  * - Tenant-admin: can only update documents from their assigned tenants
  * - Regular users: cannot update configuration documents
  */
-export const tenantScopedUpdate: Access = async ({ req: { user, payload }, id: _id }) => {
+export const tenantScopedUpdate: Access = async ({ req: { user, payload, context }, id: _id }) => {
   if (!user) return false
   
   // Admin can update any document
@@ -387,7 +482,11 @@ export const tenantScopedUpdate: Access = async ({ req: { user, payload }, id: _
   if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     // We need to check the document's tenant
     // This will be handled by query constraints in the access control
-    const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    const tenantIds = await resolveTenantAdminTenantIds({
+      user,
+      payload,
+      context: context as Record<string, unknown> | undefined,
+    })
     if (tenantIds.length === 0) return false
 
     // Return query constraint to filter by tenant
@@ -404,7 +503,7 @@ export const tenantScopedUpdate: Access = async ({ req: { user, payload }, id: _
  * - Tenant-admin: can only delete documents from their assigned tenants
  * - Regular users: cannot delete configuration documents
  */
-export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => {
+export const tenantScopedDelete: Access = async ({ req: { user, payload, context } }) => {
   if (!user) return false
   
   // Admin can delete any document
@@ -415,7 +514,11 @@ export const tenantScopedDelete: Access = async ({ req: { user, payload } }) => 
   // Tenant-admin can delete documents from their assigned tenants
   // (query constraint will be applied automatically by update access)
   if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
-    const tenantIds = await resolveTenantAdminTenantIds({ user, payload })
+    const tenantIds = await resolveTenantAdminTenantIds({
+      user,
+      payload,
+      context: context as Record<string, unknown> | undefined,
+    })
     if (tenantIds.length === 0) return false
     return { tenant: { in: tenantIds } }
   }
@@ -438,7 +541,11 @@ export async function resolveTenantAdminReadConstraint(args: {
   }
 }): Promise<Where | false> {
   const { req } = args
-  const tenantIds = await resolveTenantAdminTenantIds({ user: req.user, payload: req.payload })
+  const tenantIds = await resolveTenantAdminTenantIds({
+    user: req.user,
+    payload: req.payload,
+    context: req.context as Record<string, unknown> | undefined,
+  })
   if (tenantIds.length === 0) return false
 
   const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
