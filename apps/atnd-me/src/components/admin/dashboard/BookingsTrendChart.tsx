@@ -51,8 +51,10 @@ export const BookingsTrendChart: React.FC<{
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="var(--theme-elevation-300, #eee)" />
+        {/* category: YYYY-MM-DD must not be parsed as UTC midnight (time scale shifts labels by TZ). */}
         <XAxis
           dataKey="date"
+          type="category"
           tick={{ fontSize: 12 }}
           tickFormatter={(v) => (typeof v === 'string' ? v.slice(0, 10) : String(v))}
         />
