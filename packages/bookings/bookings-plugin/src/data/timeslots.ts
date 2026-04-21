@@ -145,12 +145,25 @@ async function attachShallowTenantAndEventType(
   }
 }
 
+function timeslotFkFromBookingDoc(doc: { timeslot?: unknown }): number | null {
+  const raw = doc.timeslot;
+  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+  if (raw && typeof raw === "object" && raw !== null && "id" in raw) {
+    const id = (raw as { id: unknown }).id;
+    if (typeof id === "number" && Number.isFinite(id)) return id;
+    if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
+  }
+  return null;
+}
+
 /**
  * Populate `bookings.totalDocs` without using the timeslot join field (which resolves
  * per-document in Payload and can mean hundreds of queries for a single day view).
  *
- * Uses `payload.count` per timeslot (indexed `timeslot` equality) instead of paginating
- * through every booking row — the old approach could take 10s+ when many bookings exist.
+ * Loads only the `timeslot` FK in pages (one query per page) and aggregates counts in
+ * memory. This is typically far fewer round-trips than one `payload.count` per timeslot
+ * (e.g. ~100 counts for a full day) while still honoring `overrideAccess: false` /
+ * booking read rules when `req` is passed.
  */
 async function attachBookingCountsForTimeslots(
   payload: BasePayload,
@@ -166,25 +179,43 @@ async function attachBookingCountsForTimeslots(
   const bookingsSlug = resolveBookingsCollectionSlug(payload, timeslotsSlug);
   const access = req ? { req, overrideAccess: false } : { overrideAccess: true };
 
-  /** Bounded parallelism so we do not open dozens of DB calls at once. */
-  const concurrency = 12;
   const countByTimeslot = new Map<number, number>();
+  for (const id of ids) {
+    countByTimeslot.set(id, 0);
+  }
 
-  for (let i = 0; i < ids.length; i += concurrency) {
-    const slice = ids.slice(i, i + concurrency);
-    const results = await Promise.all(
-      slice.map(async (timeslotId) => {
-        const { totalDocs } = await payload.count({
-          collection: bookingsSlug as CollectionSlug,
-          where: { timeslot: { equals: timeslotId } },
-          ...(access as object),
-        });
-        return [timeslotId, totalDocs] as const;
-      }),
-    );
-    for (const [timeslotId, totalDocs] of results) {
-      countByTimeslot.set(timeslotId, totalDocs);
+  const pageSize = 3000;
+  let page = 1;
+  let processed = 0;
+  let totalMatching = 0;
+
+  for (;;) {
+    const result = await payload.find({
+      collection: bookingsSlug as CollectionSlug,
+      where: { timeslot: { in: ids } },
+      select: { timeslot: true } as any,
+      depth: 0,
+      limit: pageSize,
+      page,
+      ...(access as object),
+    } as Parameters<BasePayload["find"]>[0]);
+
+    if (page === 1) {
+      totalMatching = result.totalDocs;
     }
+
+    for (const doc of result.docs) {
+      const tid = timeslotFkFromBookingDoc(doc as { timeslot?: unknown });
+      if (tid != null && countByTimeslot.has(tid)) {
+        countByTimeslot.set(tid, (countByTimeslot.get(tid) ?? 0) + 1);
+      }
+    }
+
+    processed += result.docs.length;
+    if (processed >= totalMatching || result.docs.length === 0) {
+      break;
+    }
+    page += 1;
   }
 
   for (const t of timeslots) {
