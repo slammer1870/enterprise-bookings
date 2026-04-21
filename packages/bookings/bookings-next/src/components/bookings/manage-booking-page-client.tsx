@@ -45,6 +45,15 @@ function asPaymentMethodsLike(value: unknown): PaymentMethodsLike {
   return value as PaymentMethodsLike
 }
 
+/** Server snapshot of pending bookings — used for useState init so checkout mounts on first paint (no effect delay). */
+function getInitialPendingFromBookings(bookings: Booking[] | undefined): Booking[] {
+  if (!bookings?.length) return []
+  return bookings.filter((b) => {
+    const st = String(b.status).toLowerCase()
+    return st !== 'cancelled' && st === 'pending'
+  })
+}
+
 interface ManageBookingPageClientProps {
   timeslot: Timeslot
   /**
@@ -149,11 +158,20 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // IMPORTANT: `activeBookings` starts as `[]` until the query resolves.
   const [desiredQuantity, setDesiredQuantity] = useState<number>(initialQuantity)
 
-  // Track pending bookings created for payment flow (or hydrated from server when user returns)
-  const [pendingBookings, setPendingBookings] = useState<Booking[]>([])
-  const [isInPaymentFlow, setIsInPaymentFlow] = useState(false)
+  // Track pending bookings created for payment flow (or hydrated from server when user returns).
+  // Initialize from `initialBookings` so SSR + React Query initialData show checkout immediately; relying only
+  // on useEffect caused a first-paint flash of the quantity view and flaky E2E (Cancel not mounted yet).
+  const [pendingBookings, setPendingBookings] = useState<Booking[]>(() =>
+    getInitialPendingFromBookings(initialBookings)
+  )
+  const [isInPaymentFlow, setIsInPaymentFlow] = useState(
+    () => getInitialPendingFromBookings(initialBookings).length > 0
+  )
   /** In payment flow: desired number of new (pending) bookings to pay for. Controls the payment-flow quantity selector. */
-  const [desiredPendingQuantity, setDesiredPendingQuantity] = useState<number>(0)
+  const [desiredPendingQuantity, setDesiredPendingQuantity] = useState<number>(() => {
+    const initialPending = getInitialPendingFromBookings(initialBookings)
+    return initialPending.length > 0 ? initialPending.length : 0
+  })
   // When the user changes pending quantity (via +/-), prevent server-driven
   // pending sync from overwriting local state while the update is in flight.
   const [isAdjustingPendingQuantity, setIsAdjustingPendingQuantity] = useState(false)
@@ -166,7 +184,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   )
 
   // When user returns to the page after leaving checkout: show checkout again with server pending
-  const hasHydratedCheckoutRef = useRef(false)
+  const hasHydratedCheckoutRef = useRef(
+    getInitialPendingFromBookings(initialBookings).length > 0
+  )
   useEffect(() => {
     if (pendingFromServer.length > 0 && !hasHydratedCheckoutRef.current) {
       hasHydratedCheckoutRef.current = true

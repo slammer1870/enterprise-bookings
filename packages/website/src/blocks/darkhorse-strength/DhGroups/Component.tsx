@@ -62,21 +62,21 @@ export const DhGroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits,
   const heroImageUrl = getImageUrl(heroImage)
 
   return (
-    <div className="container mx-auto p-4 pt-28">
+    <div className="container mx-auto min-w-0 p-4 pt-28">
       <h1 className="mb-4 text-2xl font-medium md:mb-8 md:text-3xl">Personal Training</h1>
-      <div className="grid gap-4 md:grid-cols-2 md:gap-x-40 md:gap-y-12">
-        <div className="relative mb-6 aspect-video md:mb-0">
+      <div className="grid min-w-0 gap-4 md:grid-cols-2 md:gap-x-40 md:gap-y-12">
+        <div className="relative mb-6 aspect-video min-w-0 overflow-hidden rounded md:mb-0">
           {heroImageUrl ? (
             <Image
-              className="rounded object-cover"
+              className="object-cover"
               src={heroImageUrl}
               alt={getImageAlt(heroImage, 'Hero image')}
               fill
-              sizes="100vw"
+              sizes="(max-width: 768px) 100vw, 50vw"
             />
           ) : null}
         </div>
-        <div className="md:text-xl">
+        <div className="min-w-0 md:text-xl">
           <h3 className="mb-4 text-xl font-medium md:text-2xl">Who is this for?</h3>
           <div className="mb-6 md:pr-12 lg:pr-24">
             {benefits?.map((benefit, index) => {
@@ -113,16 +113,16 @@ export const DhGroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits,
           </div>
         </div>
       </div>
-      <div className="mt-12 grid gap-4 md:grid-cols-3">
+      <div className="mt-12 grid min-w-0 gap-4 md:grid-cols-3">
         {features?.map((feature, index) => {
           const imageUrl = getImageUrl(feature.image)
 
           return (
-            <div key={index} className="flex flex-col items-start gap-4">
-              <div className="relative w-full aspect-square">
+            <div key={index} className="flex min-w-0 flex-col items-start gap-4">
+              <div className="relative aspect-square w-full min-w-0 overflow-hidden rounded">
                 {imageUrl ? (
                   <Image
-                    className="rounded object-cover"
+                    className="object-cover"
                     src={imageUrl}
                     alt={getImageAlt(feature.image, feature.title)}
                     fill

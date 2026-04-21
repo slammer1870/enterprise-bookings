@@ -36,6 +36,38 @@ function getConnectStripeCustomerId(user: any, stripeAccountId: string): string 
   return found ? String(found.stripeCustomerId).trim() : null;
 }
 
+/**
+ * Drops the stored Connect customer id for one connected account (e.g. after Stripe returns
+ * `resource_missing` for that customer on that account — stale mapping from platform/wrong account).
+ */
+export async function removeConnectCustomerMappingForAccount(
+  payload: Payload,
+  userId: number,
+  stripeAccountId: string,
+): Promise<void> {
+  const id = normalizeAccountId(stripeAccountId);
+  if (!id) return;
+
+  const user = (await payload.findByID({
+    collection: "users" as any,
+    id: userId,
+    depth: 0,
+    overrideAccess: true,
+  })) as any;
+  if (!user) return;
+
+  const existing = Array.isArray(user.stripeCustomers) ? user.stripeCustomers : [];
+  const next = existing.filter((x: any) => x?.stripeAccountId !== id);
+  if (next.length === existing.length) return;
+
+  await payload.update({
+    collection: "users" as any,
+    id: userId,
+    data: { stripeCustomers: next } as Record<string, unknown>,
+    overrideAccess: true,
+  });
+}
+
 async function upsertConnectMapping(payload: Payload, userId: number, mapping: StripeCustomerMapping) {
   const user = (await payload.findByID({
     collection: "users" as any,

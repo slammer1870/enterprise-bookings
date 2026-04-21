@@ -23,7 +23,10 @@ export { paymentIntentSucceeded } from "./payments/webhooks/payment-intent-succe
 export type { PaymentIntentSucceededArgs } from "./payments/webhooks/payment-intent-succeeded";
 // Payments endpoints
 export { createCustomersProxy } from "./payments/endpoints/customers";
-export { ensureStripeCustomerIdForAccount } from "./payments/lib/ensure-stripe-customer";
+export {
+  ensureStripeCustomerIdForAccount,
+  removeConnectCustomerMappingForAccount,
+} from "./payments/lib/ensure-stripe-customer";
 export { findUserByCustomer } from "./membership/webhooks/find-user-by-customer";
 // Membership webhooks (in-tree)
 export { subscriptionCreated } from "./membership/webhooks/subscription-created";

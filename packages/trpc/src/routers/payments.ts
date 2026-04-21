@@ -315,6 +315,47 @@ async function ensureStripeCustomerIdForAccount(params: {
   return { stripeCustomerId: customerId, stripeAccountId: null };
 }
 
+async function removeConnectCustomerMappingForAccount(
+  payload: any,
+  userId: number,
+  stripeAccountId: string
+): Promise<void> {
+  const acct =
+    typeof stripeAccountId === "string" ? stripeAccountId.trim() : "";
+  if (!acct) return;
+  const userDoc = await payload.findByID({
+    collection: "users",
+    id: userId,
+    depth: 0,
+    overrideAccess: true,
+  });
+  if (!userDoc) return;
+  const existing = Array.isArray((userDoc as any).stripeCustomers)
+    ? (userDoc as any).stripeCustomers
+    : [];
+  const next = existing.filter((x: any) => x?.stripeAccountId !== acct);
+  if (next.length === existing.length) return;
+  await payload.update({
+    collection: "users",
+    id: userId,
+    data: { stripeCustomers: next },
+    overrideAccess: true,
+  });
+}
+
+function isStripeMissingConnectCustomerError(e: unknown): boolean {
+  if (!e || typeof e !== "object") return false;
+  const err = e as { code?: string; param?: string; type?: string; message?: string };
+  if (err.code !== "resource_missing" || err.param !== "customer") return false;
+  if (
+    typeof err.message === "string" &&
+    err.message.toLowerCase().includes("no such customer")
+  ) {
+    return true;
+  }
+  return err.type === "StripeInvalidRequestError";
+}
+
 export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
   const getFee = deps?.getSubscriptionBookingFeeCents;
   const getDropInFeeBreakdown = deps?.getDropInFeeBreakdown;
@@ -525,7 +566,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         sessionUser: ctx.user,
       });
 
-      const { stripeCustomerId: customerId } =
+      let { stripeCustomerId: customerId } =
         await ensureStripeCustomerIdForAccount({
           payload: ctx.payload,
           stripe: ctx.stripe,
@@ -666,12 +707,36 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
             : {}),
         };
       }
-      const session = await ctx.stripe.checkout.sessions.create(
-        sessionParams,
-        stripeOpts
-      );
 
-      return session;
+      const createCheckoutSession = () =>
+        ctx.stripe.checkout.sessions.create(sessionParams, stripeOpts);
+
+      try {
+        return await createCheckoutSession();
+      } catch (first) {
+        if (
+          !stripeAccountId ||
+          !isStripeMissingConnectCustomerError(first)
+        ) {
+          throw first;
+        }
+        await removeConnectCustomerMappingForAccount(
+          ctx.payload,
+          payloadUser.id,
+          stripeAccountId
+        );
+        const repaired = await ensureStripeCustomerIdForAccount({
+          payload: ctx.payload,
+          stripe: ctx.stripe,
+          userId: payloadUser.id,
+          email: payloadUser.email ?? null,
+          name: payloadUser.name ?? null,
+          stripeAccountId,
+        });
+        customerId = repaired.stripeCustomerId;
+        sessionParams.customer = customerId;
+        return await createCheckoutSession();
+      }
     }),
   createCustomerPortal: stripeProtectedProcedure
     .input(

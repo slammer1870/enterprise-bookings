@@ -84,7 +84,7 @@ const defaultFields: Field[] = [
     type: "text",
     label: "Stripe Subscription ID",
     access: {
-      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      read: ({ req: { user } }) => checkRole(["super-admin", "admin"], user as User | null),
     },
     unique: false,
     required: false,
@@ -128,6 +128,7 @@ const defaultAccess: AccessControls = {
 const defaultAdmin: CollectionAdminOptions = {
   group: "Billing",
   useAsTitle: "stripeSubscriptionId",
+  listSearchableFields: ["id", "user.email", "user.name", "status"],
   components: {
     beforeListTable: [
       "@repo/memberships/src/components/sync/sync-stripe#SyncStripe",

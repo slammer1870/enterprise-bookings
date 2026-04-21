@@ -492,7 +492,11 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     }
   }
   if (redirectUrl.toString() === request.nextUrl.toString()) {
-    redirectUrl.pathname = '/admin/login'
+    // 403 means the user is authenticated but not allowed in the admin UI. Sending them to
+    // /admin/login causes Payload to redirect logged-in users back to /admin, which re-triggers
+    // this 403 redirect and loops until the browser exhausts resources.
+    redirectUrl.pathname = '/'
+    redirectUrl.search = ''
   }
 
   const redirectResponse = NextResponse.redirect(redirectUrl)
