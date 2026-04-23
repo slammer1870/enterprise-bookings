@@ -12,11 +12,18 @@ import type {
 import {
   buildConfirmedBookingsWhereForTimeslots,
   chunkIds,
+  getDefaultTimeZoneForAnalytics,
+  loadTenantIanaById,
   normalizeTimeslotCalendarYmd,
   resolveTimeslotIdsForAnalytics,
+  timeslotDocumentTenantId,
   TIMESLOT_ID_IN_CHUNK_SIZE,
 } from './analyticsBookingsWhere'
 import { densifyBookingsOverTime, toDateKey } from './bookingsOverTimeDense'
+
+type TimeslotYmdIanaMode =
+  | { kind: 'scoped'; iana: string }
+  | { kind: 'per-tenant'; defaultIana: string }
 
 const MAX_BOOKINGS_PER_CHUNK = 50_000
 const DEFAULT_TOP_LIMIT = 10
@@ -36,6 +43,7 @@ function bookingUserId(doc: { user?: number | { id: number } }): number | null {
 async function loadTimeslotCalendarYmdById(
   payload: Payload,
   timeslotIds: number[],
+  ianaMode: TimeslotYmdIanaMode,
 ): Promise<Map<number, string | null>> {
   const map = new Map<number, string | null>()
   if (timeslotIds.length === 0) return map
@@ -45,13 +53,30 @@ async function loadTimeslotCalendarYmdById(
     where: { id: { in: timeslotIds } },
     limit: timeslotIds.length,
     depth: 0,
-    select: { id: true, date: true },
+    select: { id: true, date: true, tenant: true },
     overrideAccess: true,
   })
 
+  if (ianaMode.kind === 'scoped') {
+    for (const d of res.docs) {
+      const row = d as { id: number; date?: unknown }
+      map.set(row.id, normalizeTimeslotCalendarYmd(row.date, ianaMode.iana))
+    }
+    return map
+  }
+
+  const tids: number[] = []
   for (const d of res.docs) {
-    const row = d as { id: number; date?: unknown }
-    map.set(row.id, normalizeTimeslotCalendarYmd(row.date))
+    const tid = timeslotDocumentTenantId(d as { tenant?: unknown })
+    if (tid != null) tids.push(tid)
+  }
+  const byTenant = await loadTenantIanaById(payload, tids)
+  const defaultIana = ianaMode.defaultIana
+  for (const d of res.docs) {
+    const row = d as { id: number; date?: unknown; tenant?: unknown }
+    const tid = timeslotDocumentTenantId(row)
+    const iana = (tid != null ? byTenant.get(tid) : undefined) ?? defaultIana
+    map.set(row.id, normalizeTimeslotCalendarYmd(row.date, iana))
   }
   return map
 }
@@ -118,6 +143,25 @@ export async function getAnalyticsDashboardBundle(
     }
   }
 
+  const defaultTz = getDefaultTimeZoneForAnalytics(payload)
+  let ymdIanaMode: TimeslotYmdIanaMode
+  if (params.tenantId != null) {
+    const tdoc = await payload.findByID({
+      collection: 'tenants',
+      id: params.tenantId,
+      depth: 0,
+      select: { timeZone: true },
+      overrideAccess: true,
+    })
+    const tz =
+      tdoc && typeof (tdoc as { timeZone?: unknown }).timeZone === 'string'
+        ? (tdoc as { timeZone: string }).timeZone.trim()
+        : ''
+    ymdIanaMode = { kind: 'scoped', iana: tz || defaultTz }
+  } else {
+    ymdIanaMode = { kind: 'per-tenant', defaultIana: defaultTz }
+  }
+
   let totalBookings = 0
   const uniqueUserIds = new Set<number>()
   const timeBucket = new Map<string, number>()
@@ -126,7 +170,7 @@ export async function getAnalyticsDashboardBundle(
   for (const idChunk of chunkIds(timeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
     const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
     const [timeslotYmdById, countResult, docsResult] = await Promise.all([
-      loadTimeslotCalendarYmdById(payload, idChunk),
+      loadTimeslotCalendarYmdById(payload, idChunk, ymdIanaMode),
       payload.count({
         collection: 'bookings',
         where,

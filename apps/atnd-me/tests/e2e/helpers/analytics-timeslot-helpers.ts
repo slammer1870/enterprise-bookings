@@ -2,11 +2,15 @@
  * Mirrors analytics timeslot resolution for e2e assertions.
  * Keep aligned with src/lib/analytics/analyticsBookingsWhere.ts (no src/ imports here — Playwright loader).
  */
+import { TZDate } from '@date-fns/tz'
 import type { Payload } from 'payload'
 import type { Where } from 'payload'
 
 const TIMESLOT_PAGE_SIZE = 500
 const TIMESLOT_ID_IN_CHUNK_SIZE = 1000
+const YMD_ONLY = /^\d{4}-\d{2}-\d{2}$/
+/** atnd-me payload.config defaultTimezone — fallback for e2e when tenant has no timeZone. */
+const DEFAULT_IANA = 'Europe/Dublin'
 
 function padIsoDateYmd(ymd: string, deltaDays: number): string {
   const parts = ymd.split('-').map((x) => parseInt(x, 10))
@@ -21,19 +25,42 @@ function padIsoDateYmd(ymd: string, deltaDays: number): string {
   return dt.toISOString().slice(0, 10)
 }
 
-export function normalizeTimeslotCalendarYmd(raw: unknown, depth = 0): string | null {
+function ymdFromInstantInIana(instant: Date, iana: string): string {
+  const tz = (iana && iana.trim()) || 'UTC'
+  try {
+    const z = new TZDate(instant, tz)
+    const y = z.getFullYear()
+    const m = String(z.getMonth() + 1).padStart(2, '0')
+    const d = String(z.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  } catch {
+    return instant.toISOString().slice(0, 10)
+  }
+}
+
+export function normalizeTimeslotCalendarYmd(raw: unknown, iana: string, depth = 0): string | null {
   if (depth > 6) return null
-  if (typeof raw === 'string') return raw.slice(0, 10)
-  if (raw instanceof Date) return raw.toISOString().slice(0, 10)
+  if (typeof raw === 'string') {
+    const t = raw.trim()
+    if (YMD_ONLY.test(t)) return t
+    const inst = new Date(t)
+    if (!Number.isNaN(inst.getTime())) return ymdFromInstantInIana(inst, iana)
+    return t.slice(0, 10)
+  }
+  if (raw instanceof Date) return ymdFromInstantInIana(raw, iana)
   if (raw && typeof raw === 'object' && 'value' in raw) {
     const v = (raw as { value: unknown }).value
-    if (typeof v === 'string') return v.slice(0, 10)
-    if (v instanceof Date) return v.toISOString().slice(0, 10)
-    return normalizeTimeslotCalendarYmd(v, depth + 1)
+    if (typeof v === 'string' && YMD_ONLY.test(v.trim())) return v.trim()
+    if (typeof v === 'string') {
+      const inst = new Date(v)
+      if (!Number.isNaN(inst.getTime())) return ymdFromInstantInIana(inst, iana)
+    }
+    if (v instanceof Date) return ymdFromInstantInIana(v, iana)
+    return normalizeTimeslotCalendarYmd(v, iana, depth + 1)
   }
   if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
     for (const v of Object.values(raw)) {
-      const ymd = normalizeTimeslotCalendarYmd(v, depth + 1)
+      const ymd = normalizeTimeslotCalendarYmd(v, iana, depth + 1)
       if (ymd) return ymd
     }
   }
@@ -65,6 +92,18 @@ export async function resolveTimeslotIdsForAnalyticsE2E(
   params: AnalyticsRangeParams,
 ): Promise<number[]> {
   const { dateFrom, dateTo, tenantId } = params
+  const tdoc = await payload.findByID({
+    collection: 'tenants',
+    id: tenantId,
+    depth: 0,
+    select: { timeZone: true },
+    overrideAccess: true,
+  })
+  const tz =
+    tdoc && typeof (tdoc as { timeZone?: string }).timeZone === 'string'
+      ? (tdoc as { timeZone: string }).timeZone.trim()
+      : ''
+  const iana = tz || DEFAULT_IANA
   const ids: number[] = []
   const paddedFrom = padIsoDateYmd(dateFrom, -1)
   const paddedTo = padIsoDateYmd(dateTo, 1)
@@ -88,7 +127,7 @@ export async function resolveTimeslotIdsForAnalyticsE2E(
       overrideAccess: true,
     })
     for (const d of res.docs) {
-      const cal = normalizeTimeslotCalendarYmd((d as { date?: unknown }).date)
+      const cal = normalizeTimeslotCalendarYmd((d as { date?: unknown }).date, iana)
       if (calendarYmdInRange(cal, dateFrom, dateTo)) {
         ids.push((d as { id: number }).id)
       }
@@ -103,6 +142,19 @@ export async function getCalendarDatesWithTimeslotsInRangeE2E(
   payload: Payload,
   params: AnalyticsRangeParams,
 ): Promise<Set<string>> {
+  const { tenantId } = params
+  const tdoc = await payload.findByID({
+    collection: 'tenants',
+    id: tenantId,
+    depth: 0,
+    select: { timeZone: true },
+    overrideAccess: true,
+  })
+  const tz =
+    tdoc && typeof (tdoc as { timeZone?: string }).timeZone === 'string'
+      ? (tdoc as { timeZone: string }).timeZone.trim()
+      : ''
+  const iana = tz || DEFAULT_IANA
   const ids = await resolveTimeslotIdsForAnalyticsE2E(payload, params)
   const dates = new Set<string>()
   for (const id of ids) {
@@ -112,7 +164,7 @@ export async function getCalendarDatesWithTimeslotsInRangeE2E(
       depth: 0,
       overrideAccess: true,
     })
-    const ymd = normalizeTimeslotCalendarYmd((ts as { date?: unknown } | null)?.date)
+    const ymd = normalizeTimeslotCalendarYmd((ts as { date?: unknown } | null)?.date, iana)
     if (ymd) dates.add(ymd)
   }
   return dates
@@ -149,3 +201,5 @@ export async function countConfirmedBookingsForResolvedTimeslotsE2E(
   }
   return n
 }
+
+export { chunkIds, TIMESLOT_ID_IN_CHUNK_SIZE, buildConfirmedBookingsWhereForTimeslots }
