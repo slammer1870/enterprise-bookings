@@ -17,6 +17,26 @@ import {
 
 export type BookingsOverTimeRow = { date: string; count: number }
 
+/** Calendar day from API (YYYY-MM-DD) or ISO prefix — display as dd-mm-yyyy. */
+function ymdToDdMmYyyy(ymd: string): string {
+  const part = ymd.slice(0, 10)
+  const m = part.match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!m) return part
+  return `${m[3]}-${m[2]}-${m[1]}`
+}
+
+/** Recharts may pass a Date; use local calendar day as dd-mm-yyyy. */
+function formatDateAxisLabel(v: unknown): string {
+  if (typeof v === 'string') return ymdToDdMmYyyy(v)
+  if (v instanceof Date) {
+    const d = String(v.getDate()).padStart(2, '0')
+    const m = String(v.getMonth() + 1).padStart(2, '0')
+    const y = v.getFullYear()
+    return `${d}-${m}-${y}`
+  }
+  return String(v)
+}
+
 /** Merge current + previous by date for dual-line chart; fill 0 for missing. */
 function mergeSeries(
   current: BookingsOverTimeRow[],
@@ -55,12 +75,13 @@ export const BookingsTrendChart: React.FC<{
         <XAxis
           dataKey="date"
           type="category"
+          scale="point"
           tick={{ fontSize: 12 }}
-          tickFormatter={(v) => (typeof v === 'string' ? v.slice(0, 10) : String(v))}
+          tickFormatter={formatDateAxisLabel}
         />
         <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
         <Tooltip
-          labelFormatter={(v) => (typeof v === 'string' ? v.slice(0, 10) : String(v))}
+          labelFormatter={formatDateAxisLabel}
           contentStyle={{
             backgroundColor: 'var(--theme-elevation-50)',
             border: '1px solid var(--theme-elevation-200, #ddd)',
