@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import type { CollectionSlug, SelectType } from "payload";
+import type { CollectionSlug, SelectType, Where } from "payload";
 
 import { TRPCRouterRecord } from "@trpc/server";
 import {
@@ -543,17 +543,33 @@ export const timeslotsRouter = {
 
         // Populate staffMembers in one query so public schedule cards can still show
         // staffMember names and avatars without exposing extra staffMember fields.
+        //
+        // Use overrideAccess + explicit tenant/id filters (same trust model as timeslots above):
+        // collection read access (e.g. tenantScopedPublicReadStrict on staff-members) can deny
+        // admin/staff users when they view another tenant's public schedule (cross-tenant
+        // booking / subdomain mismatch with JWT tenant list). Timeslots are loaded with
+        // overrideAccess, so lessons would appear without instructors. We only request IDs
+        // already present on timeslots returned for this tenant/day.
         const staffMemberIds = Array.from(
           new Set(timeslotDocs.map((l) => relationId(l.staffMember)).filter(Boolean) as number[])
         );
         const staffMembersById: Map<number, any> = new Map();
         if (staffMemberIds.length > 0 && hasCollection(ctx.payload, ctx.bookingsSlugs.staffMembers)) {
+          const staffMemberWhere: Where =
+            tenantId != null
+              ? {
+                  and: [
+                    { id: { in: staffMemberIds } },
+                    { tenant: { equals: tenantId } },
+                  ],
+                }
+              : { id: { in: staffMemberIds } };
           const staffMembers = await ctx.payload.find({
             collection: ctx.bookingsSlugs.staffMembers as CollectionSlug,
-            where: { id: { in: staffMemberIds } },
+            where: staffMemberWhere,
             depth: 2,
             limit: 0,
-            overrideAccess: false,
+            overrideAccess: true,
             req: queryOptions.req,
           });
           (staffMembers.docs as any[]).forEach((staffMember) => {

@@ -25,9 +25,8 @@ test.describe('Admin analytics dashboard', () => {
     if (!tenantId) throw new Error('Tenant required')
 
     const co = await createTestEventType(tenantId, 'E2E Analytics Dashboard', 10, undefined, w)
-    // Default dashboard range is last N days through "today" where dates come from
-    // AnalyticsDashboardClient.toYYYYMMDD (= UTC YYYY-MM-DD). A timeslot on local "tomorrow"
-    // often maps to the next UTC calendar day and falls outside [dateFrom, dateTo] on CI (UTC).
+    // Default dashboard range uses local calendar YYYY-MM-DD. Use a UTC wall-time window on
+    // "today" so the timeslot falls in range on both CI (UTC) and local dev.
     const now = new Date()
     const y = now.getUTCFullYear()
     const m = now.getUTCMonth()

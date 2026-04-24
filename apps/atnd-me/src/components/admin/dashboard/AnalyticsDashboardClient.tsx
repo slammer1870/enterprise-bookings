@@ -45,8 +45,12 @@ const PRESETS = [
   { label: 'Last 91 days', days: 91 },
 ] as const
 
-function toYYYYMMDD(d: Date): string {
-  return d.toISOString().slice(0, 10)
+/** Local calendar YYYY-MM-DD (not UTC) so “today” and “last N days” match the admin’s timezone. */
+function formatLocalYmd(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
 }
 
 export const AnalyticsDashboardClient: React.FC<{
@@ -70,8 +74,8 @@ export const AnalyticsDashboardClient: React.FC<{
   const dateTo = new Date()
   const dateFrom = new Date()
   dateFrom.setDate(dateFrom.getDate() - days)
-  const dateFromStr = toYYYYMMDD(dateFrom)
-  const dateToStr = toYYYYMMDD(dateTo)
+  const dateFromStr = formatLocalYmd(dateFrom)
+  const dateToStr = formatLocalYmd(dateTo)
 
   useEffect(() => {
     if (!stripeNotice || typeof window === 'undefined') return

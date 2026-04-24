@@ -99,9 +99,17 @@ export async function GET(request: NextRequest) {
       tenantId = id
     }
 
+    // Shared context for this request; TTL cache inside resolveTenantAdminTenantIds helps
+    // repeated GET /api/analytics (split loads, refreshes) across separate requests.
+    const routeContext: Record<string, unknown> = {}
+
     let allowedTenantIds: number[] | null = null
     if (!isAdmin(user)) {
-      allowedTenantIds = await resolveTenantAdminTenantIds({ user, payload })
+      allowedTenantIds = await resolveTenantAdminTenantIds({
+        user,
+        payload,
+        context: routeContext,
+      })
     }
     if (allowedTenantIds !== null && allowedTenantIds.length === 0) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
