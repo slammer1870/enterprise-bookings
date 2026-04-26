@@ -216,6 +216,13 @@ export default function CheckoutForm({
 
   useEffect(() => {
     const controller = new AbortController()
+    // Debounce PaymentIntent creation because quantity/multi-book selection can change
+    // rapidly (e.g. user clicks "+" multiple times). Without debouncing we can spam the
+    // backend with many PaymentIntent fetches and cause the UI to become unresponsive.
+    const DEBOUNCE_MS = 250
+    const timeoutId = window.setTimeout(() => {
+      createCheckoutSession()
+    }, DEBOUNCE_MS)
 
     const createCheckoutSession = async () => {
       const requestId = ++paymentIntentRequestIdRef.current;
@@ -313,9 +320,8 @@ export default function CheckoutForm({
       }
     };
 
-    createCheckoutSession();
-
     return () => {
+      window.clearTimeout(timeoutId)
       controller.abort()
     }
   }, [price, metadataKey, createPaymentIntentUrl]);
