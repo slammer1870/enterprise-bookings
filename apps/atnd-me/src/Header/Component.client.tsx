@@ -53,22 +53,17 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
 
   /** When the mobile sheet is open, match drawer tokens so tenant bar colour != semantic bg. */
   const headerDataTheme = React.useMemo((): 'light' | 'dark' | undefined => {
-    if (mobileNavLayerOpen) {
-      if (siteTheme === 'dark' || siteTheme === 'light') return siteTheme
-      if (typeof document === 'undefined') return undefined
-      const t = document.documentElement.getAttribute('data-theme')
-      return t === 'dark' || t === 'light' ? t : undefined
-    }
+    // Don't change the header/nav colors based on whether the mobile portal is open.
+    // The portal itself controls its own (white) styling.
     if (theme === 'dark' || theme === 'light') return theme
     return undefined
-  }, [mobileNavLayerOpen, siteTheme, theme])
+  }, [theme])
 
   return (
     <header
       className={cn(
         'absolute top-0 left-0 right-0 z-40',
-        /* Portal mobile menu uses z-50; keep header under it so it doesn't cut off menu text. */
-        mobileNavLayerOpen && 'bg-background',
+        /* Keep header styling stable while the portal is open. */
       )}
       {...(headerDataTheme ? { 'data-theme': headerDataTheme } : {})}
       style={{
