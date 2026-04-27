@@ -119,12 +119,13 @@ function NavIcon({
 
 export const HeaderNav: React.FC<{
   data: NavbarData
-  /** While true, header z-index is raised so the menu control stays above the portaled z-50 overlay. */
+  /** Signals to the header that the mobile portal is mounted/open (used for theme/background). */
   onMobileNavLayerChange?: (active: boolean) => void
 }> = ({ data, onMobileNavLayerChange }) => {
   const { theme: siteTheme } = useTheme()
   const navItems = data?.navItems || []
   const hasNavLinks = navItems.length > 0
+  const mobilePadding = data?.styling?.padding || 'medium'
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [mobileMounted, setMobileMounted] = React.useState(false)
@@ -277,9 +278,10 @@ export const HeaderNav: React.FC<{
       <button
         type="button"
         {...(portalDataTheme ? { 'data-theme': portalDataTheme } : {})}
-        className={[
+        className={cn(
           'md:hidden relative z-10 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
-        ].join(' ')}
+          mobileMounted && 'hidden',
+        )}
         aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
         aria-expanded={mobileOpen}
         aria-controls="mobile-header-nav"
@@ -296,6 +298,18 @@ export const HeaderNav: React.FC<{
               aria-modal="true"
               {...(portalDataTheme ? { 'data-theme': portalDataTheme } : {})}
             >
+            <button
+              type="button"
+              className={cn(
+                'absolute z-20 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
+                mobilePadding === 'small' ? 'top-4 right-4' : 'top-8 right-8',
+              )}
+              aria-label="Close menu"
+              onClick={closeMobileMenu}
+            >
+              <BurgerIcon open />
+            </button>
+
               <button
                 type="button"
                 className={[
