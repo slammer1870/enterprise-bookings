@@ -27,7 +27,7 @@ export const ClFindSanctuaryBlock: React.FC<{
 
   return (
     <section className="w-full bg-[#1a110e] py-16 md:py-28">
-      <div className="container mx-auto flex max-w-5xl flex-col items-center px-4 md:px-6">
+      <div className="container mx-auto flex max-w-5xl flex-col items-center px-8 md:px-8">
         <h2 className="text-center text-3xl font-bold tracking-tight text-white md:text-4xl lg:text-[2.75rem]">
           {heading}
         </h2>
