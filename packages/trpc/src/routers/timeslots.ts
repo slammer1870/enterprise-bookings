@@ -396,6 +396,10 @@ export const timeslotsRouter = {
           where: queryOptions.where,
           depth: queryOptions.depth,
           sort: queryOptions.sort,
+          // Explicitly request all timeslots for the day.
+          // Payload defaults to a small page size when `limit` is omitted, which
+          // makes the public schedule appear to cap at ~10 timeslots/day.
+          limit: 0,
           overrideAccess: queryOptions.overrideAccess,
           req: queryOptions.req,
           // Avoid expensive per-viewer virtual fields (bookingStatus/remainingCapacity/bookings join)
