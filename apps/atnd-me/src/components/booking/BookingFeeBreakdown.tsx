@@ -37,7 +37,7 @@ export function BookingFeeBreakdown({
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span>Class price</span>
+          <span>Price</span>
           <span data-testid="class-price">{formatCentsToCurrency(displayClassPriceCents)}</span>
         </div>
         {hasPromoDiscount && (

@@ -405,6 +405,24 @@ export const bookingsRouter = {
 
       const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
 
+      // Business eligibility for booking creation (including "pending" bookings for checkout).
+      // UI may mark the timeslot as closed after startTime, but we still allow users to
+      // create bookings until endTime so late arrivals can complete booking via link.
+      const now = new Date();
+      const end = new Date(timeslot.endTime);
+      const endMs = end.getTime();
+      const lockOutTime =
+        typeof (timeslot as any).lockOutTime === "number" ? (timeslot as any).lockOutTime : 0;
+
+      const creationClosed =
+        Number.isFinite(endMs) &&
+        (now.getTime() >= endMs ||
+          (lockOutTime > 0 && now.getTime() >= endMs - lockOutTime * 60_000));
+
+      if (creationClosed) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is closed" });
+      }
+
       // Only load a fully populated eventType if we need its payment method config.
       if ((subscriptionId != null || classPassId != null) && hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)) {
         const co = timeslot.eventType as any;
@@ -1686,16 +1704,28 @@ export const bookingsRouter = {
           : null;
       const isChildClass = eventType && (eventType as any).type === "child";
 
-      const computeScheduleState = async (): Promise<TimeslotScheduleState> => {
+      const computeScheduleState = async (): Promise<
+        TimeslotScheduleState & { creationClosed: boolean; isFull: boolean }
+      > => {
         const now = new Date();
         const start = new Date(timeslot.startTime);
         const startMs = start.getTime();
+        const end = new Date(timeslot.endTime);
+        const endMs = end.getTime();
         const lockOutTime = typeof (timeslot as any).lockOutTime === "number" ? (timeslot as any).lockOutTime : 0;
 
-        const closed =
+        // UI "closed" state: show closed once the session start time has passed.
+        const startClosed =
           Number.isFinite(startMs) &&
           (now.getTime() >= startMs ||
             (lockOutTime > 0 && now.getTime() >= startMs - lockOutTime * 60_000));
+
+        // Eligibility cutoff for bookings: allow booking until the session end time.
+        // lockOutTime is interpreted as "minutes before the end" for booking eligibility.
+        const creationClosed =
+          Number.isFinite(endMs) &&
+          (now.getTime() >= endMs ||
+            (lockOutTime > 0 && now.getTime() >= endMs - lockOutTime * 60_000));
 
         const confirmedCountResult = await findSafe<Booking>(ctx.payload, "bookings", {
           where: {
@@ -1735,7 +1765,7 @@ export const bookingsRouter = {
           .map((b) => Number(b.id))
           .filter((n) => Number.isFinite(n));
 
-        const availability: TimeslotScheduleState["availability"] = closed ? "closed" : isFull ? "full" : "open";
+        const availability: TimeslotScheduleState["availability"] = startClosed ? "closed" : isFull ? "full" : "open";
 
         let action: TimeslotScheduleState["action"] = "book";
         if (availability === "closed") action = "closed";
@@ -1759,6 +1789,9 @@ export const bookingsRouter = {
 
         return {
           availability,
+          // Additional fields for intent gating (UI and eligibility can differ).
+          creationClosed,
+          isFull,
           viewer: {
             confirmedIds: viewerConfirmedIds,
             confirmedCount: viewerConfirmedIds.length,
@@ -1782,7 +1815,8 @@ export const bookingsRouter = {
 
       // Execute intent
       if (intent === "confirm") {
-        if (currentState.availability === "closed") {
+        // Keep UI "closed" after start, but allow booking until end-time cutoff.
+        if (currentState.creationClosed) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is closed" });
         }
         if (currentState.viewer.confirmedCount === 0) {
@@ -1810,8 +1844,12 @@ export const bookingsRouter = {
           });
         }
       } else if (intent === "joinWaitlist") {
-        if (currentState.availability !== "full") {
+        // Keep "closed" UI visible, but still allow join-waitlist while eligible.
+        if (!currentState.isFull) {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is not full" });
+        }
+        if (currentState.creationClosed) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is closed" });
         }
         if (currentState.viewer.waitingCount === 0 && currentState.viewer.confirmedCount === 0) {
           await createSafe(ctx.payload, "bookings", {

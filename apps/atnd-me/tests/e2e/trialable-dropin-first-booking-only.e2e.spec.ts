@@ -90,7 +90,7 @@ test.describe('Trialable drop-in pricing', () => {
     await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
 
     const expectClassPrice = async (expected: string) => {
-      const row = page.getByText('Class price').first().locator('..')
+      const row = page.getByText('Price').first().locator('..')
       await expect(row.getByText(expected)).toBeVisible({ timeout: 15_000 })
     }
 

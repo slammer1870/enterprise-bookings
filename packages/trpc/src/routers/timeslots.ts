@@ -155,12 +155,8 @@ export const timeslotsRouter = {
       // NOTE: `bookingStatus` is computed per-viewer:
       // - "booked"/"multipleBooked"/"childrenBooked" means *this user* already has a booking.
       // - "waitlist" means the class is full (for users who are not booked).
-      if (timeslot.bookingStatus === "closed") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This timeslot is no longer available for booking",
-        });
-      }
+        // Allow direct booking-page links to load even when a timeslot is "closed".
+        // The UI (and booking mutation eligibility) will decide what actions are still allowed.
 
       // Allow "multipleBooked" to pass through without error
       // The booking page's postValidation will redirect to the manage page

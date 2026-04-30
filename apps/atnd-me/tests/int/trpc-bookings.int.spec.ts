@@ -46,14 +46,14 @@ describe('tRPC Bookings Integration Tests', () => {
     payload = await getPayload({ config: payloadConfig })
 
     // Create a test tenant for multi-tenant scoping
-    testTenant = await payload.create({
+    testTenant = (await payload.create({
       collection: 'tenants',
       data: {
         name: 'Test Tenant',
         slug: `test-tenant-${Date.now()}`,
       },
       overrideAccess: true,
-    })
+    })) as { id: number | string; slug: string }
 
     // Create test user with user role (needed for booking access)
     // Better Auth requires specific fields - use unique email to avoid conflicts
@@ -402,6 +402,115 @@ describe('tRPC Bookings Integration Tests', () => {
       await payload.delete({
         collection: 'bookings',
         where: { id: { equals: result[0]?.id } },
+      })
+      await payload.delete({
+        collection: 'timeslots',
+        where: { id: { equals: testTimeslot.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should show UI closed after start, but allow booking until end', async () => {
+      // Simulate "now" between start and end:
+      // - UI should mark the timeslot as "closed" (start-time based)
+      // - Booking confirmation should still be allowed until endTime (end-time based)
+      const nowMs = Date.now()
+      const startTime = new Date(nowMs - 30 * 60 * 1000)
+      const endTime = new Date(nowMs + 30 * 60 * 1000)
+
+      const testTimeslot = (await createWithTenant<Timeslot>(
+        'timeslots',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          eventType: eventType.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0, // Required field with default value
+        },
+        {
+          draft: false,
+          overrideAccess: true, // Bypass access controls for test setup
+        }
+      ))
+
+      const caller = await createCaller()
+
+      const result = await caller.bookings.setMyBookingForTimeslot({
+        timeslotId: testTimeslot.id,
+        intent: 'confirm',
+      })
+
+      // UI closed after start
+      expect(result?.scheduleState?.availability).toBe('closed')
+
+      // Still create the booking
+      const createdBookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          and: [
+            { timeslot: { equals: testTimeslot.id } },
+            { user: { equals: user.id } },
+            { status: { equals: 'confirmed' } },
+          ],
+        },
+        depth: 0,
+        limit: 1,
+        overrideAccess: true,
+      })
+
+      expect(createdBookings.docs.length).toBe(1)
+
+      // Cleanup
+      await payload.delete({
+        collection: 'bookings',
+        where: { timeslot: { equals: testTimeslot.id }, user: { equals: user.id } },
+      })
+      await payload.delete({
+        collection: 'timeslots',
+        where: { id: { equals: testTimeslot.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should allow creating pending checkout bookings until endTime', async () => {
+      // Use the same "now between start and end" scenario, but create a pending booking
+      // (this is the checkout path).
+      const nowMs = Date.now()
+      const startTime = new Date(nowMs - 30 * 60 * 1000)
+      const endTime = new Date(nowMs + 30 * 60 * 1000)
+
+      const testTimeslot = (await createWithTenant<Timeslot>(
+        'timeslots',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          eventType: eventType.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      )) as Timeslot
+
+      const caller = await createCaller()
+
+      const pending = await caller.bookings.createBookings({
+        timeslotId: testTimeslot.id,
+        quantity: 1,
+        status: 'pending',
+      })
+
+      expect(pending.length).toBe(1)
+      expect(pending[0]?.status).toBe('pending')
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { and: [{ timeslot: { equals: testTimeslot.id } }, { user: { equals: user.id } }] },
+        overrideAccess: true,
       })
       await payload.delete({
         collection: 'timeslots',
