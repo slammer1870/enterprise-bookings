@@ -20,6 +20,12 @@ export function timeslotsForStaffBookingsExcludingPending(
     return timeslots
   }
 
+  // In the admin list view, `getTimeslots()` populates `bookings` with `docs: []`
+  // and only uses `totalDocs` for counts. In that case, filtering `docs` is
+  // redundant, but the `.map()` still allocates new timeslot objects.
+  const hasAnyBookingDocs = timeslots.some((ts) => (ts.bookings?.docs ?? []).length > 0)
+  if (!hasAnyBookingDocs) return timeslots
+
   return timeslots.map((ts) => {
     const docs = (ts.bookings?.docs ?? []) as Booking[]
 
