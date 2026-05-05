@@ -120,40 +120,17 @@ export const AddBooking = ({
         return null;
       };
 
-      const createdBookingId = extractBookingId((data as any)?.id ?? (data as any)?.docs?.[0]?.id ?? null);
-      const offerLateMagicLink = status === "pending" && createdBookingId != null;
+      // Payload create response is typically `{ doc: { id } }` (v3) but some setups may return
+      // `{ id }` or `{ docs: [ { id } ] }`. Support all shapes so follow-up UX works.
+      const createdBookingId = extractBookingId(
+        (data as any)?.id ?? (data as any)?.doc?.id ?? (data as any)?.docs?.[0]?.id ?? null,
+      );
+      const offerMagicLink = status === "pending" && createdBookingId != null;
 
-      if (offerLateMagicLink) {
-        try {
-          const tsRes = await fetch(`/api/timeslots/${encodeURIComponent(timeslotId)}?depth=0`, {
-            credentials: "include",
-          });
-
-          if (!tsRes.ok) {
-            // If the request fails, err on the side of offering the confirmation.
-            setLateMagicBookingId(createdBookingId);
-            setLateMagicDialogOpen(true);
-          } else {
-            const tsData = await tsRes.json();
-            const endTimeRaw = tsData?.endTime;
-            const endTimeMs =
-              typeof endTimeRaw === "string" ? new Date(endTimeRaw).getTime() : null;
-
-            const ended =
-              typeof endTimeMs === "number" && Number.isFinite(endTimeMs)
-                ? Date.now() >= endTimeMs
-                : true; // If we can't resolve endTime, err on the side of offering.
-
-            if (ended) {
-              setLateMagicBookingId(createdBookingId);
-              setLateMagicDialogOpen(true);
-            }
-          }
-        } catch {
-          // If timeslot fetch fails entirely, err on the side of offering.
-          setLateMagicBookingId(createdBookingId);
-          setLateMagicDialogOpen(true);
-        }
+      if (offerMagicLink) {
+        // Always offer the completion email for pending bookings, regardless of timeslot end time.
+        setLateMagicBookingId(createdBookingId);
+        setLateMagicDialogOpen(true);
       }
 
       setSelectedUserId("");
@@ -188,10 +165,10 @@ export const AddBooking = ({
         throw new Error(text || `Failed with status ${res.status}`)
       }
 
-      toast.success("Late booking magic link sent")
+      toast.success("Booking magic link sent")
       setLateMagicDialogOpen(false)
     } catch (err) {
-      toast.error((err as Error).message ?? "Failed to send late booking magic link")
+      toast.error((err as Error).message ?? "Failed to send booking magic link")
     } finally {
       setLateMagicSending(false)
     }
@@ -268,9 +245,9 @@ export const AddBooking = ({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send late completion magic link?</DialogTitle>
+            <DialogTitle>Send completion magic link?</DialogTitle>
             <DialogDescription>
-              This booking was created after the timeslot end time. Send the email now so the user can manage the booking.
+              Send the email now so the user can manage the booking.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="pt-2">

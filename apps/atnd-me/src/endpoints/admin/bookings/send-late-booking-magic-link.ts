@@ -18,18 +18,6 @@ function coerceNumericId(input: unknown): number | null {
   return null
 }
 
-function extractEndTimeMs(input: unknown): number | null {
-  if (typeof input === 'string') {
-    const ms = new Date(input).getTime()
-    return Number.isFinite(ms) ? ms : null
-  }
-  if (input instanceof Date) {
-    const ms = input.getTime()
-    return Number.isFinite(ms) ? ms : null
-  }
-  return null
-}
-
 function getServerUrl(): string | undefined {
   return process.env.NEXT_PUBLIC_SERVER_URL || process.env.SERVER_URL
 }
@@ -85,11 +73,6 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
 
     if (!timeslot) throw new APIError('Timeslot not found', 404)
 
-    const endTimeMs = extractEndTimeMs(timeslot.endTime)
-    // If we can't resolve endTime, we err on the side of sending (feature completeness),
-    // matching the original hook's behavior.
-    if (endTimeMs != null && Date.now() < endTimeMs) throw new APIError('Timeslot has not ended', 400)
-
     // Tenant isolation for org admins/staff.
     // Some schemas may not expose `tenant` directly on the timeslot doc; booking usually has it,
     // so we fall back to `booking.tenant` for the access check.
@@ -135,25 +118,27 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
     const callbackPath = `/bookings/${timeslotId}/manage`
     if (!callbackPath.startsWith('/')) throw new APIError('Invalid callback', 400)
 
-    const res = await fetch(`${serverUrl}/api/users/send-magic-link`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email: userEmail.toLowerCase(),
-        callbackUrl: callbackPath,
-        utmParams: '',
-      }),
-    })
+    // Magic link sending is implemented in tRPC (`auth.signInMagicLink`) which calls
+    // `ctx.betterAuth.api.signInMagicLink`. We can invoke the same Better Auth API directly here.
+    // This avoids brittle REST-path assumptions (magic-link is not necessarily mounted at /api/users/*).
+    const payloadWithBetterAuth = req.payload as any
+    const signInMagicLink = payloadWithBetterAuth?.betterAuth?.api?.signInMagicLink as
+      | undefined
+      | ((
+          args: {
+            body: { email: string; callbackURL?: string }
+            headers: Headers
+          },
+        ) => Promise<unknown>)
 
-    if (!res.ok) {
-      const text = await res.text().catch(() => '')
-      throw new APIError(
-        `Failed to send late booking magic link: ${res.status}${text ? `: ${text}` : ''}`,
-        500,
-      )
+    if (!signInMagicLink) {
+      throw new APIError('Better Auth is not configured for magic link sending', 500)
     }
+
+    await signInMagicLink({
+      body: { email: userEmail.toLowerCase(), callbackURL: callbackPath },
+      headers: req.headers as unknown as Headers,
+    })
 
     return Response.json({ ok: true })
   },
