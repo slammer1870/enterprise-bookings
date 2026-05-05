@@ -261,7 +261,7 @@ export const AddBooking = ({
             </UiButton>
             <UiButton
               type="button"
-              variant="destructive"
+              variant="secondary"
               disabled={lateMagicSending}
               onClick={() => void confirmSendLateMagicLink()}
             >
