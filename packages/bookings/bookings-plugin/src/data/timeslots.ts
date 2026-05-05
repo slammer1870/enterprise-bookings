@@ -87,40 +87,48 @@ async function attachShallowTenantAndEventType(
   const access = req ? { req, overrideAccess: false } : { overrideAccess: true };
 
   const tenantIdList = [...tenantIds];
-  for (let i = 0; i < tenantIdList.length; i += chunkSize) {
-    const slice = tenantIdList.slice(i, i + chunkSize);
-    const batch = await payload.find({
-      collection: tenantsSlug,
-      where: { id: { in: slice } },
-      depth: 0,
-      limit: slice.length,
-      select: { id: true, slug: true, timeZone: true } as any,
-      ...(access as object),
-    } as Parameters<BasePayload["find"]>[0]);
-    for (const doc of batch.docs as TenantListStub[]) {
-      tenantById.set(doc.id, {
-        id: doc.id,
-        slug: doc.slug,
-        timeZone: doc.timeZone ?? null,
-      });
-    }
-  }
-
   const eventTypeIdList = [...eventTypeIds];
-  for (let i = 0; i < eventTypeIdList.length; i += chunkSize) {
-    const slice = eventTypeIdList.slice(i, i + chunkSize);
-    const batch = await payload.find({
-      collection: eventTypesSlug,
-      where: { id: { in: slice } },
-      depth: 0,
-      limit: slice.length,
-      select: { id: true, name: true } as any,
-      ...(access as object),
-    } as Parameters<BasePayload["find"]>[0]);
-    for (const doc of batch.docs as EventTypeListStub[]) {
-      eventTypeById.set(doc.id, { id: doc.id, name: doc.name });
-    }
-  }
+
+  // Run tenant and eventType attachment in parallel:
+  // they don't depend on each other and both are chunked payload.find() calls.
+  await Promise.all([
+    (async () => {
+      for (let i = 0; i < tenantIdList.length; i += chunkSize) {
+        const slice = tenantIdList.slice(i, i + chunkSize);
+        const batch = await payload.find({
+          collection: tenantsSlug,
+          where: { id: { in: slice } },
+          depth: 0,
+          limit: slice.length,
+          select: { id: true, slug: true, timeZone: true } as any,
+          ...(access as object),
+        } as Parameters<BasePayload["find"]>[0]);
+        for (const doc of batch.docs as TenantListStub[]) {
+          tenantById.set(doc.id, {
+            id: doc.id,
+            slug: doc.slug,
+            timeZone: doc.timeZone ?? null,
+          });
+        }
+      }
+    })(),
+    (async () => {
+      for (let i = 0; i < eventTypeIdList.length; i += chunkSize) {
+        const slice = eventTypeIdList.slice(i, i + chunkSize);
+        const batch = await payload.find({
+          collection: eventTypesSlug,
+          where: { id: { in: slice } },
+          depth: 0,
+          limit: slice.length,
+          select: { id: true, name: true } as any,
+          ...(access as object),
+        } as Parameters<BasePayload["find"]>[0]);
+        for (const doc of batch.docs as EventTypeListStub[]) {
+          eventTypeById.set(doc.id, { id: doc.id, name: doc.name });
+        }
+      }
+    })(),
+  ]);
 
   for (const t of timeslots) {
     const tid =
