@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, Payload } from 'payload'
-import config from '@/payload.config'
+import config from '../../src/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
 import type { User, Timeslot, EventType } from '@repo/shared-types'
-import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '../../src/constants/bookings-collection-slugs'
+import { formatInTimeZone, resolveTimeZone } from '@repo/shared-utils'
 
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
@@ -71,6 +72,15 @@ describe('tRPC Bookings Integration Tests', () => {
       overrideAccess: true, // Bypass access controls for test setup
     } as Parameters<typeof payload.create>[0])) as User
 
+    // Resolve tenant timezone once so our timeslot date calculations are consistent.
+    const testTenantDoc = (await payload.findByID({
+      collection: 'tenants',
+      id: testTenant.id,
+      depth: 0,
+      overrideAccess: true,
+    })) as { timeZone?: string } | null
+    const timeZone = resolveTimeZone(testTenantDoc?.timeZone)
+
     // Create class option with tenant
     // Use overrideAccess to bypass access controls for test setup
     // Use unique name with timestamp to avoid conflicts
@@ -87,18 +97,18 @@ describe('tRPC Bookings Integration Tests', () => {
       }
     ))
 
-    // Create lesson with tenant
-    const startTime = new Date()
-    startTime.setHours(10, 0, 0, 0) // 10 AM
-    const endTime = new Date(startTime)
-    endTime.setHours(11, 0, 0, 0) // 11 AM
+    // Create lesson with tenant.
+    // `timeslots` hooks combine `date` with *wall-clock* `startTime`/`endTime`.
+    // Use time-only strings so we don't accidentally double-apply timezone/day shifts.
+    const baseDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+    const date = formatInTimeZone(baseDate, 'yyyy-MM-dd', timeZone)
 
     lesson = (await createWithTenant<Timeslot>(
       'timeslots',
       {
-        date: startTime.toISOString(),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        date,
+        startTime: '10:00',
+        endTime: '11:00',
         eventType: eventType.id,
         location: 'Test Location',
         active: true,
@@ -363,10 +373,8 @@ describe('tRPC Bookings Integration Tests', () => {
   describe('bookings.createBookings', () => {
     it('should create a single booking', async () => {
       // Create a fresh lesson for this test to avoid capacity issues
-      const startTime = new Date()
-      startTime.setHours(12, 0, 0, 0)
-      const endTime = new Date(startTime)
-      endTime.setHours(13, 0, 0, 0)
+      const startTime = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // far enough in future
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
       const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
@@ -587,10 +595,8 @@ describe('tRPC Bookings Integration Tests', () => {
 
     it('should create multiple bookings', async () => {
       // Create a fresh lesson for this test
-      const startTime = new Date()
-      startTime.setHours(14, 0, 0, 0)
-      const endTime = new Date(startTime)
-      endTime.setHours(15, 0, 0, 0)
+      const startTime = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // far enough in future
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
       const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',

@@ -67,6 +67,7 @@ describe('ManageBookingPageClient', () => {
   let mockCreateBookings: ReturnType<typeof vi.fn>
   let mockSetBookingQuantity: ReturnType<typeof vi.fn>
   let mockCancelPendingBookingsForTimeslot: ReturnType<typeof vi.fn>
+  let mockCancelNewestPendingBookingsForTimeslot: ReturnType<typeof vi.fn>
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -79,6 +80,9 @@ describe('ManageBookingPageClient', () => {
     mockCreateBookings = vi.fn().mockResolvedValue([])
     mockSetBookingQuantity = vi.fn().mockResolvedValue([])
     mockCancelPendingBookingsForTimeslot = vi.fn().mockResolvedValue({ cancelled: 0 })
+    mockCancelNewestPendingBookingsForTimeslot = vi
+      .fn()
+      .mockResolvedValue({ cancelled: 0, cancelledIds: [] })
 
     const mockConfirm = vi.fn().mockResolvedValue(true)
     ;(useTRPC as any).mockReturnValue({
@@ -110,6 +114,11 @@ describe('ManageBookingPageClient', () => {
             mutationFn: mockSetBookingQuantity,
             onSuccess: opts?.onSuccess,
             onError: opts?.onError,
+          }),
+        },
+        cancelNewestPendingBookingsForTimeslot: {
+          mutationOptions: () => ({
+            mutationFn: mockCancelNewestPendingBookingsForTimeslot,
           }),
         },
         cancelPendingBookingsForTimeslot: {
@@ -144,6 +153,9 @@ describe('ManageBookingPageClient', () => {
         cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
         createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
         setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
+        cancelNewestPendingBookingsForTimeslot: {
+          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
+        },
         cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
       },
       timeslots: {
@@ -189,6 +201,9 @@ describe('ManageBookingPageClient', () => {
         cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
         createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
         setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
+        cancelNewestPendingBookingsForTimeslot: {
+          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
+        },
         cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
       },
       timeslots: {
@@ -240,6 +255,9 @@ describe('ManageBookingPageClient', () => {
         createBookings: { mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({ mutationFn: mockCreateBookings, onSuccess: opts?.onSuccess, onError: opts?.onError }) },
         setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
         cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
+        cancelNewestPendingBookingsForTimeslot: {
+          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
+        },
       },
       timeslots: {
         getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
@@ -292,6 +310,13 @@ describe('ManageBookingPageClient', () => {
       serverBookings = serverBookings.filter((booking) => booking.id !== id)
       return {}
     })
+    mockCancelNewestPendingBookingsForTimeslot.mockImplementation(async ({ count }: { count: number }) => {
+      const pending = serverBookings.filter((b) => b.status === 'pending')
+      const toCancel = pending.slice(-count)
+      const cancelledIds = toCancel.map((b) => b.id)
+      serverBookings = serverBookings.filter((booking) => !cancelledIds.includes(booking.id as number))
+      return { cancelled: cancelledIds.length, cancelledIds }
+    })
 
     ;(useTRPC as any).mockReturnValue({
       bookings: {
@@ -319,6 +344,9 @@ describe('ManageBookingPageClient', () => {
         },
         setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
         cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
+        cancelNewestPendingBookingsForTimeslot: {
+          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
+        },
       },
       timeslots: {
         getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
@@ -359,7 +387,7 @@ describe('ManageBookingPageClient', () => {
     fireEvent.click(screen.getByLabelText('Decrease new bookings'))
 
     await waitFor(() => {
-      expect(mockCancelBooking).toHaveBeenCalled()
+      expect(mockCancelNewestPendingBookingsForTimeslot).toHaveBeenCalled()
     })
     await waitFor(() => {
       expect(screen.getByTestId('pending-booking-quantity')).toHaveTextContent('1')

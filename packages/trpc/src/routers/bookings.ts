@@ -1299,6 +1299,55 @@ export const bookingsRouter = {
       return { cancelled };
     }),
 
+  /**
+   * Cancel the newest `count` pending bookings for the current user + timeslot.
+   * Used by the checkout "autosave quantity" control to avoid N sequential cancellations
+   * from the client.
+   */
+  cancelNewestPendingBookingsForTimeslot: protectedProcedure
+    .use(requireCollections("bookings"))
+    .input(z.object({ timeslotId: z.number(), count: z.number().min(1) }))
+    .mutation(async ({ ctx, input }): Promise<{ cancelled: number; cancelledIds: number[] }> => {
+      const pending = await findSafe(ctx.payload, "bookings", {
+        where: {
+          and: [
+            { timeslot: { equals: input.timeslotId } },
+            { user: { equals: ctx.user.id } },
+            { status: { equals: "pending" } },
+          ],
+        },
+        limit: Math.min(100, input.count),
+        depth: 0,
+        overrideAccess: true,
+        sort: "-createdAt",
+        // System operation: releasing reserved capacity when user changes checkout quantity.
+        // We must cancel for this timeslot regardless of tenant-scoped access controls.
+        user: ctx.user,
+      });
+
+      const cancelledIds: number[] = [];
+      for (const doc of pending.docs) {
+        const id = doc.id as number | undefined;
+        if (id == null) continue;
+
+        await updateSafe(
+          ctx.payload,
+          "bookings",
+          id,
+          { status: "cancelled" },
+          {
+            overrideAccess: true,
+            user: ctx.user,
+            context: { skipBookingSideEffects: true },
+          }
+        );
+
+        cancelledIds.push(id);
+      }
+
+      return { cancelled: cancelledIds.length, cancelledIds };
+    }),
+
   joinWaitlist: protectedProcedure
     .use(requireBookingCollections("timeslots"))
     .use(requireCollections("bookings"))

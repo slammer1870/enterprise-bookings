@@ -4,6 +4,7 @@ import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import type { User as SharedUser } from '@repo/shared-types'
+import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
 
 function coerceNumericId(input: unknown): number | null {
   if (typeof input === 'number' && Number.isFinite(input)) return input
@@ -20,6 +21,31 @@ function coerceNumericId(input: unknown): number | null {
 
 function getServerUrl(): string | undefined {
   return process.env.NEXT_PUBLIC_SERVER_URL || process.env.SERVER_URL
+}
+
+function buildTenantScopedCallbackURL(args: {
+  callbackPath: string
+  tenant:
+    | {
+        slug?: string | null
+        domain?: string | null
+      }
+    | null
+  headers: Headers
+  serverUrlFallback?: string | undefined
+}): string {
+  const base =
+    args.tenant != null && (args.tenant.domain != null || args.tenant.slug != null)
+      ? getTenantSiteURL(args.tenant, args.headers)
+      : getRequestOrigin(args.headers) || args.serverUrlFallback
+
+  if (!base) {
+    // Better-auth will accept relative callbackURLs, but we require tenant scoping.
+    // If we can't determine an origin at all, fail closed rather than sending the global URL.
+    throw new APIError('Missing request origin for magic link callbackURL', 500)
+  }
+
+  return getAbsoluteURL(args.callbackPath, base)
 }
 
 export const sendLateBookingMagicLinkEndpoint: Endpoint = {
@@ -73,13 +99,15 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
 
     if (!timeslot) throw new APIError('Timeslot not found', 404)
 
+    const bookingTenantId = coerceNumericId((booking as any)?.tenant)
+    const timeslotTenantId = coerceNumericId((timeslot as any)?.tenant)
+    const tenantIdForCallback = bookingTenantId ?? timeslotTenantId ?? null
+
     // Tenant isolation for org admins/staff.
     // Some schemas may not expose `tenant` directly on the timeslot doc; booking usually has it,
     // so we fall back to `booking.tenant` for the access check.
     const tenantIds = getUserTenantIds(actor as unknown as SharedUser | null)
     if (tenantIds !== null) {
-      const bookingTenantId = coerceNumericId((booking as any)?.tenant)
-      const timeslotTenantId = coerceNumericId((timeslot as any)?.tenant)
       const tenantIdToCheck = bookingTenantId ?? timeslotTenantId
       if (tenantIdToCheck != null && !tenantIds.includes(tenantIdToCheck)) {
         throw new APIError('Forbidden', 403)
@@ -135,9 +163,47 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
       throw new APIError('Better Auth is not configured for magic link sending', 500)
     }
 
-    await signInMagicLink({
-      body: { email: userEmail.toLowerCase(), callbackURL: callbackPath },
+    // Always scope callbackURL to the tenant's custom domain (if configured) or subdomain.
+    // This ensures Better Auth redirects the user back to the correct tenant host.
+    const tenantForCallback =
+      tenantIdForCallback != null
+        ? ((await req.payload.findByID({
+            collection: 'tenants',
+            id: tenantIdForCallback as any,
+            depth: 0,
+            select: { slug: true, domain: true } as any,
+          })) as unknown as { slug?: string | null; domain?: string | null } | null)
+        : null
+
+    const callbackURL = buildTenantScopedCallbackURL({
+      callbackPath,
+      tenant: tenantForCallback,
       headers: req.headers as unknown as Headers,
+      serverUrlFallback: serverUrl,
+    })
+
+    // Better Auth appears to build the magic-link verify URL using the request host.
+    // Since this endpoint is called from the admin panel (often on the platform host),
+    // override headers so the verify link is generated on the tenant host.
+    let headersForMagicLink: Headers = req.headers as unknown as Headers
+    try {
+      const tenantOrigin = new URL(callbackURL).origin
+      const tenantUrl = new URL(tenantOrigin)
+      const tenantHost = tenantUrl.host
+      const tenantProtocol = tenantUrl.protocol.replace(':', '')
+
+      headersForMagicLink = new Headers(req.headers as unknown as Headers)
+      headersForMagicLink.set('host', tenantHost)
+      headersForMagicLink.set('x-forwarded-host', tenantHost)
+      headersForMagicLink.set('origin', tenantOrigin)
+      headersForMagicLink.set('x-forwarded-proto', tenantProtocol)
+    } catch {
+      // If callbackURL isn't parseable as an absolute URL, fall back to original headers.
+    }
+
+    await signInMagicLink({
+      body: { email: userEmail.toLowerCase(), callbackURL },
+      headers: headersForMagicLink,
     })
 
     return Response.json({ ok: true })

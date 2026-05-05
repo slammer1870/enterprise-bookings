@@ -349,16 +349,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   const { mutateAsync: createBookings, isPending: isCreating } = useMutation(
     trpc.bookings.createBookings.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({
-            timeslotId: timeslot.id,
-          }),
-        })
-        queryClient.invalidateQueries({
-          queryKey: trpc.timeslots.getByDate.queryKey(),
-        })
-      },
+      // Payment-flow quantity autosave will explicitly refetch as needed.
+      // Keeping this mutation "quiet" avoids extra round trips per +/- click.
+      onSuccess: () => {},
       onError: (error: { message?: string }) => {
         toast.error(error.message || 'Failed to update bookings')
       },
@@ -400,6 +393,17 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       },
       onError: (error: { message?: string }) => {
         toast.error(error.message || 'Failed to update bookings')
+      },
+    })
+  )
+
+  const {
+    mutateAsync: cancelNewestPendingBookingsForTimeslot,
+    isPending: isCancellingNewestPending,
+  } = useMutation(
+    trpc.bookings.cancelNewestPendingBookingsForTimeslot.mutationOptions({
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || 'Failed to update pending bookings')
       },
     })
   )
@@ -519,7 +523,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     )
   }
 
-  const isUpdatingPendingQuantity = isCreating || isCancelling || isAbandoningCheckout
+  const isUpdatingPendingQuantity =
+    isCreating || isCancelling || isAbandoningCheckout || isCancellingNewestPending
 
   /** In payment flow, +/- applies immediately so checkout stays in sync with the selected quantity. */
   const handlePendingQuantityChange = async (requestedQuantity: number) => {
@@ -540,9 +545,6 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           setPendingBookings([])
           setDesiredPendingQuantity(0)
           setDesiredQuantity(confirmedBookings.length)
-          await queryClient.invalidateQueries({
-            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
-          })
           await queryClient.refetchQueries({
             queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
           })
@@ -557,19 +559,16 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
       if (target < current) {
         const toCancel = current - target
-        const pendingToCancel = [...pendingBookings]
-          .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-          .slice(0, toCancel)
         try {
-          for (const booking of pendingToCancel) {
-            if (booking.id != null) await cancelBookingAsync({ id: booking.id })
-          }
-          setPendingBookings((prev) =>
-            prev.filter((booking) => !pendingToCancel.some((pending) => pending.id === booking.id))
-          )
-          await queryClient.invalidateQueries({
-            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
+          const { cancelledIds } = await cancelNewestPendingBookingsForTimeslot({
+            timeslotId: timeslot.id,
+            count: toCancel,
           })
+
+          // Apply cancellation immediately for responsive checkout UI.
+          setPendingBookings((prev) =>
+            prev.filter((booking) => !cancelledIds.includes(booking.id))
+          )
           // Refetch before releasing the "adjusting" guard.
           // Without this, React Query can temporarily overwrite local pending state with stale results,
           // which can make the pending count jump back up (failing E2E decrement-after-redirect).
@@ -594,9 +593,6 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         })
         setPendingBookings((prev) => [...prev, ...newPending])
         toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
-        await queryClient.invalidateQueries({
-          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
-        })
         await queryClient.refetchQueries({
           queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
         })
