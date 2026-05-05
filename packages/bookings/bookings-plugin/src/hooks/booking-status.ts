@@ -46,7 +46,7 @@ const isTimeslotClosed = (
     return false;
   }
 
-  // If timeslot has already started, it's closed
+  // If timeslot has started, it's closed
   if (currentTime.getTime() >= startTimeMs) {
     return true;
   }
@@ -61,7 +61,8 @@ const isTimeslotClosed = (
     return false;
   }
 
-  // Check if we're past the lock-out deadline
+  // Check if we're past the lock-out deadline.
+  // lockOutTime is minutes before the timeslot starts.
   const lockOutDeadline = startTimeMs - lockOutTime * MILLISECONDS_PER_MINUTE;
   return currentTime.getTime() >= lockOutDeadline;
 };

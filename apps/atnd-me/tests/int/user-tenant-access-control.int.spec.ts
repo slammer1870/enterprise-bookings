@@ -399,6 +399,94 @@ describe('User Tenant Access Control', () => {
     )
 
     it(
+      'does not allow tenant-admin to read other tenants via payload-tenant cookie tampering',
+      async () => {
+        const testTenantEventType = (await createWithTenantContext<EventType>(
+          'event-types',
+          {
+            name: `Tenant Admin Cookie Test Class ${Date.now()}`,
+            places: 10,
+            description: 'Test description',
+          },
+          testTenant.id,
+          { overrideAccess: true }
+        )) as EventType
+
+        const testTenantTimeslot = (await createWithTenantContext<Timeslot>(
+          'timeslots',
+          {
+            date: new Date().toISOString(),
+            startTime: new Date().toISOString(),
+            endTime: new Date().toISOString(),
+            eventType: testTenantEventType.id,
+            active: true,
+          },
+          testTenant.id,
+          { overrideAccess: true }
+        )) as Timeslot
+
+        const secondTenantEventType = (await createWithTenantContext<EventType>(
+          'event-types',
+          {
+            name: `Unauthorized Cookie Test Class ${Date.now()}`,
+            places: 10,
+            description: 'Test description',
+          },
+          secondTenant.id,
+          { overrideAccess: true }
+        )) as EventType
+
+        const secondTenantTimeslot = (await createWithTenantContext<Timeslot>(
+          'timeslots',
+          {
+            date: new Date().toISOString(),
+            startTime: new Date().toISOString(),
+            endTime: new Date().toISOString(),
+            eventType: secondTenantEventType.id,
+            active: true,
+          },
+          secondTenant.id,
+          { overrideAccess: true }
+        )) as Timeslot
+
+        // Simulate a tenant-admin setting the admin tenant selector cookie to another tenant.
+        const tenantAdminReqWithTamperedCookie = {
+          ...payload,
+          user: tenantAdminUser,
+          context: { tenant: testTenant.id },
+          cookies: {
+            get: (name: string) =>
+              name === 'payload-tenant' ? { value: String(secondTenant.id) } : undefined,
+          },
+        } as any
+
+        let result: Awaited<ReturnType<typeof payload.find>> | null = null
+        let caughtError: unknown = null
+        try {
+          result = await payload.find({
+            collection: 'timeslots',
+            where: {},
+            limit: 100,
+            req: tenantAdminReqWithTamperedCookie,
+            overrideAccess: false,
+          })
+        } catch (e) {
+          caughtError = e
+        }
+
+        // Expected: either forbidden/throw, or at minimum no leak of other tenant timeslots.
+        if (result) {
+          const ids = result.docs.map((d: any) => d.id)
+          expect(ids).not.toContain(secondTenantTimeslot.id)
+          // Do not assert inclusion/exclusion of the authorized tenant timeslot; implementations may deny entirely.
+        } else {
+          expect(caughtError).toBeTruthy()
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'can create documents for their assigned tenant',
       async () => {
         // Create class option first with tenant context

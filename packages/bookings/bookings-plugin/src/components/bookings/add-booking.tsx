@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { User } from "@repo/shared-types";
 import { Button, SelectInput } from "@payloadcms/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/ui/dialog";
+import { Button as UiButton } from "@repo/ui/components/ui/button";
 
 const statusOptions = [
   { label: "Pending", value: "pending" },
@@ -27,6 +36,10 @@ export const AddBooking = ({
   const [isLoading, setIsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+
+  const [lateMagicDialogOpen, setLateMagicDialogOpen] = useState(false);
+  const [lateMagicSending, setLateMagicSending] = useState(false);
+  const [lateMagicBookingId, setLateMagicBookingId] = useState<number | string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +105,34 @@ export const AddBooking = ({
       }
 
       toast.success("Booking added successfully");
+
+      const extractBookingId = (raw: unknown): number | string | null => {
+        if (!raw) return null;
+        if (typeof raw === "number" || typeof raw === "string") return raw;
+        if (typeof raw === "object") {
+          const r = raw as { id?: unknown; docs?: unknown };
+          if (typeof r.id === "number" || typeof r.id === "string") return r.id;
+          if (Array.isArray(r.docs) && r.docs[0] && typeof r.docs[0] === "object") {
+            const first = r.docs[0] as { id?: unknown };
+            if (typeof first.id === "number" || typeof first.id === "string") return first.id;
+          }
+        }
+        return null;
+      };
+
+      // Payload create response is typically `{ doc: { id } }` (v3) but some setups may return
+      // `{ id }` or `{ docs: [ { id } ] }`. Support all shapes so follow-up UX works.
+      const createdBookingId = extractBookingId(
+        (data as any)?.id ?? (data as any)?.doc?.id ?? (data as any)?.docs?.[0]?.id ?? null,
+      );
+      const offerMagicLink = status === "pending" && createdBookingId != null;
+
+      if (offerMagicLink) {
+        // Always offer the completion email for pending bookings, regardless of timeslot end time.
+        setLateMagicBookingId(createdBookingId);
+        setLateMagicDialogOpen(true);
+      }
+
       setSelectedUserId("");
       setStatus("pending");
       if (onBookingCreated) {
@@ -107,6 +148,31 @@ export const AddBooking = ({
       setSubmitting(false);
     }
   };
+
+  const confirmSendLateMagicLink = async () => {
+    if (lateMagicBookingId == null) return
+    setLateMagicSending(true)
+    try {
+      const res = await fetch(`/api/admin/bookings/late-magic-link/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: lateMagicBookingId }),
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "")
+        throw new Error(text || `Failed with status ${res.status}`)
+      }
+
+      toast.success("Booking magic link sent")
+      setLateMagicDialogOpen(false)
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to send booking magic link")
+    } finally {
+      setLateMagicSending(false)
+    }
+  }
 
   return (
     <div className="my-4 text-sm add-booking-form min-w-0 max-w-full">
@@ -169,6 +235,41 @@ export const AddBooking = ({
           </Button>
         </div>
       </form>
+
+      <Dialog
+        open={lateMagicDialogOpen}
+        onOpenChange={(open) => {
+          setLateMagicDialogOpen(open);
+          if (!open) setLateMagicSending(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send completion magic link?</DialogTitle>
+            <DialogDescription>
+              Send the email now so the user can manage the booking.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <UiButton
+              type="button"
+              variant="outline"
+              disabled={lateMagicSending}
+              onClick={() => setLateMagicDialogOpen(false)}
+            >
+              Deny
+            </UiButton>
+            <UiButton
+              type="button"
+              variant="secondary"
+              disabled={lateMagicSending}
+              onClick={() => void confirmSendLateMagicLink()}
+            >
+              {lateMagicSending ? "Sending..." : "Confirm & Send"}
+            </UiButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

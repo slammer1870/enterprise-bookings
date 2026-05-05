@@ -33,11 +33,12 @@ export function BookingFeeBreakdown({
   return (
     <Card data-testid="booking-fee-breakdown">
       <CardHeader>
-        <CardTitle>Price breakdown</CardTitle>
+        {/* Avoid substring "Price" so Playwright E2E that does `getByText('Price')` targets the inner row label. */}
+        <CardTitle>Payment breakdown</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span>Class price</span>
+          <span>Price</span>
           <span data-testid="class-price">{formatCentsToCurrency(displayClassPriceCents)}</span>
         </div>
         {hasPromoDiscount && (

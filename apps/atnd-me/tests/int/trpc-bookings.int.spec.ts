@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, Payload } from 'payload'
-import config from '@/payload.config'
+import config from '../../src/payload.config'
 import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
 import type { User, Timeslot, EventType } from '@repo/shared-types'
-import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '../../src/constants/bookings-collection-slugs'
+import { formatInTimeZone, resolveTimeZone } from '@repo/shared-utils'
 
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
@@ -46,14 +47,14 @@ describe('tRPC Bookings Integration Tests', () => {
     payload = await getPayload({ config: payloadConfig })
 
     // Create a test tenant for multi-tenant scoping
-    testTenant = await payload.create({
+    testTenant = (await payload.create({
       collection: 'tenants',
       data: {
         name: 'Test Tenant',
         slug: `test-tenant-${Date.now()}`,
       },
       overrideAccess: true,
-    })
+    })) as { id: number | string; slug: string }
 
     // Create test user with user role (needed for booking access)
     // Better Auth requires specific fields - use unique email to avoid conflicts
@@ -71,6 +72,15 @@ describe('tRPC Bookings Integration Tests', () => {
       overrideAccess: true, // Bypass access controls for test setup
     } as Parameters<typeof payload.create>[0])) as User
 
+    // Resolve tenant timezone once so our timeslot date calculations are consistent.
+    const testTenantDoc = (await payload.findByID({
+      collection: 'tenants',
+      id: testTenant.id,
+      depth: 0,
+      overrideAccess: true,
+    })) as { timeZone?: string } | null
+    const timeZone = resolveTimeZone(testTenantDoc?.timeZone)
+
     // Create class option with tenant
     // Use overrideAccess to bypass access controls for test setup
     // Use unique name with timestamp to avoid conflicts
@@ -87,18 +97,18 @@ describe('tRPC Bookings Integration Tests', () => {
       }
     ))
 
-    // Create lesson with tenant
-    const startTime = new Date()
-    startTime.setHours(10, 0, 0, 0) // 10 AM
-    const endTime = new Date(startTime)
-    endTime.setHours(11, 0, 0, 0) // 11 AM
+    // Create lesson with tenant.
+    // `timeslots` hooks combine `date` with *wall-clock* `startTime`/`endTime`.
+    // Use time-only strings so we don't accidentally double-apply timezone/day shifts.
+    const baseDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+    const date = formatInTimeZone(baseDate, 'yyyy-MM-dd', timeZone)
 
     lesson = (await createWithTenant<Timeslot>(
       'timeslots',
       {
-        date: startTime.toISOString(),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        date,
+        startTime: '10:00',
+        endTime: '11:00',
         eventType: eventType.id,
         location: 'Test Location',
         active: true,
@@ -363,10 +373,8 @@ describe('tRPC Bookings Integration Tests', () => {
   describe('bookings.createBookings', () => {
     it('should create a single booking', async () => {
       // Create a fresh lesson for this test to avoid capacity issues
-      const startTime = new Date()
-      startTime.setHours(12, 0, 0, 0)
-      const endTime = new Date(startTime)
-      endTime.setHours(13, 0, 0, 0)
+      const startTime = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // far enough in future
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
       const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',
@@ -409,12 +417,186 @@ describe('tRPC Bookings Integration Tests', () => {
       })
     }, TEST_TIMEOUT)
 
+    it('should show UI closed after start, but allow booking until end', async () => {
+      // Simulate "now" between start and end:
+      // - UI should mark the timeslot as "closed" (start-time based)
+      // - Booking confirmation should still be allowed until endTime (end-time based)
+      const nowMs = Date.now()
+      const startTime = new Date(nowMs - 30 * 60 * 1000)
+      const endTime = new Date(nowMs + 30 * 60 * 1000)
+
+      const testTimeslot = (await createWithTenant<Timeslot>(
+        'timeslots',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          eventType: eventType.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0, // Required field with default value
+        },
+        {
+          draft: false,
+          overrideAccess: true, // Bypass access controls for test setup
+        }
+      ))
+
+      const caller = await createCaller()
+
+      const result = await caller.bookings.setMyBookingForTimeslot({
+        timeslotId: testTimeslot.id,
+        intent: 'confirm',
+      })
+
+      // UI closed after start
+      expect(result?.scheduleState?.availability).toBe('closed')
+
+      // Still create the booking
+      const createdBookings = await payload.find({
+        collection: 'bookings',
+        where: {
+          and: [
+            { timeslot: { equals: testTimeslot.id } },
+            { user: { equals: user.id } },
+            { status: { equals: 'confirmed' } },
+          ],
+        },
+        depth: 0,
+        limit: 1,
+        overrideAccess: true,
+      })
+
+      expect(createdBookings.docs.length).toBe(1)
+
+      // Cleanup
+      await payload.delete({
+        collection: 'bookings',
+        where: { timeslot: { equals: testTimeslot.id }, user: { equals: user.id } },
+      })
+      await payload.delete({
+        collection: 'timeslots',
+        where: { id: { equals: testTimeslot.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should allow creating pending checkout bookings until endTime', async () => {
+      // Use the same "now between start and end" scenario, but create a pending booking
+      // (this is the checkout path).
+      const nowMs = Date.now()
+      const startTime = new Date(nowMs - 30 * 60 * 1000)
+      const endTime = new Date(nowMs + 30 * 60 * 1000)
+
+      const testTimeslot = (await createWithTenant<Timeslot>(
+        'timeslots',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          eventType: eventType.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      )) as Timeslot
+
+      const caller = await createCaller()
+
+      const pending = await caller.bookings.createBookings({
+        timeslotId: testTimeslot.id,
+        quantity: 1,
+        status: 'pending',
+      })
+
+      expect(pending.length).toBe(1)
+      expect(pending[0]?.status).toBe('pending')
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { and: [{ timeslot: { equals: testTimeslot.id } }, { user: { equals: user.id } }] },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'timeslots',
+        where: { id: { equals: testTimeslot.id } },
+      })
+    }, TEST_TIMEOUT)
+
+    it('should allow creating bookings after endTime when user has pending booking', async () => {
+      // Late completion scenario:
+      // The user already has a pending/waiting booking for this timeslot (created earlier),
+      // so we should allow them to complete the booking even after endTime.
+      const nowMs = Date.now()
+      const startTime = new Date(nowMs - 2 * 60 * 60 * 1000)
+      const endTime = new Date(nowMs - 60 * 60 * 1000)
+
+      const testTimeslot = (await createWithTenant<Timeslot>(
+        'timeslots',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          eventType: eventType.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      )) as Timeslot
+
+      const caller = await createCaller()
+      // Without an existing pending/waiting booking, this should be rejected.
+      await expect(
+        caller.bookings.createBookings({
+          timeslotId: testTimeslot.id,
+          quantity: 1,
+        })
+      ).rejects.toThrow('Timeslot is closed')
+
+      // Create the pending booking that the link recipient would already have.
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          timeslot: testTimeslot.id,
+          user: user.id,
+          status: 'pending',
+          tenant: testTenant.id,
+        },
+        overrideAccess: true,
+      })
+
+      // Now it should be allowed to complete (create confirmed booking).
+      const created = await caller.bookings.createBookings({
+        timeslotId: testTimeslot.id,
+        quantity: 1,
+      })
+
+      expect(created.length).toBe(1)
+      expect(created[0]?.timeslot).toBe(testTimeslot.id)
+      expect(created[0]?.status).toBe('confirmed')
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { and: [{ timeslot: { equals: testTimeslot.id } }, { user: { equals: user.id } }] },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'timeslots',
+        where: { id: { equals: testTimeslot.id } },
+      })
+    }, TEST_TIMEOUT)
+
     it('should create multiple bookings', async () => {
       // Create a fresh lesson for this test
-      const startTime = new Date()
-      startTime.setHours(14, 0, 0, 0)
-      const endTime = new Date(startTime)
-      endTime.setHours(15, 0, 0, 0)
+      const startTime = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // far enough in future
+      const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
 
       const testTimeslot = (await createWithTenant<Timeslot>(
         'timeslots',

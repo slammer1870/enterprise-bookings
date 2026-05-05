@@ -70,9 +70,9 @@ const defaultFields: Field[] = [
     type: "text",
     label: "Stripe Subscription ID",
     access: {
-      read: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      create: ({ req: { user } }) => checkRole(["admin"], user as User | null),
-      update: ({ req: { user } }) => checkRole(["admin"], user as User | null),
+      read: ({ req: { user } }) => checkRole(["super-admin", "admin"], user as User | null),
+      create: ({ req: { user } }) => checkRole(["super-admin", "admin"], user as User | null),
+      update: ({ req: { user } }) => checkRole(["super-admin", "admin"], user as User | null),
     },
     unique: false,
     required: false,

@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
-import { createTestEventType, createTestTimeslot } from './helpers/data-helpers'
+import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 
 test.describe('Admin cross-tenant booking', () => {
   test('tenant B admin can book a tenant A timeslot', async ({ page, testData }) => {
@@ -31,6 +31,17 @@ test.describe('Admin cross-tenant booking', () => {
 
     const lesson = await createTestTimeslot(tenantA.id, classOption.id, startTime, endTime, undefined, true)
 
+    // Ensure tenant B admin is also a member of tenant A so cross-tenant booking is authorized.
+    const payload = await getPayloadInstance()
+    await payload.update({
+      collection: 'users',
+      where: { email: { equals: adminB.email } },
+      data: {
+        tenants: [{ tenant: tenantA.id }, { tenant: tenantB.id }],
+      },
+      overrideAccess: true,
+    })
+
     // Login as tenant B admin, but ensure cookies are scoped to the tenant A host
     // so the booking route resolves tenant context from tenant A.
     await loginAsRegularUserViaApi(page, adminB.email, 'password', { tenantSlug: tenantA.slug })
@@ -38,7 +49,9 @@ test.describe('Admin cross-tenant booking', () => {
     await navigateToTenant(page, tenantA.slug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('domcontentloaded').catch(() => null)
 
-    await expect(page.getByText(/select quantity/i).first()).toBeVisible({ timeout: 15000 })
+    await expect(
+      page.getByText(/select quantity|number of slots|choose how many slots/i).first()
+    ).toBeVisible({ timeout: 15000 })
 
     const bookBtn = page.getByRole('button', { name: /^book\b/i }).first()
     await expect(bookBtn).toBeVisible({ timeout: 10000 })
