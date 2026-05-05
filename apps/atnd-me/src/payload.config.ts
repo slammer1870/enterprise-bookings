@@ -26,6 +26,7 @@ import { resolvePayloadEmailConfig } from './utilities/emailConfig'
 import { createSubscriptionInStripeEndpoint } from './endpoints/admin/stripe/create-subscription'
 import { stripeDashboardLinkEndpoint } from './endpoints/admin/stripe/dashboard-link'
 import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/update-subscription'
+import { sendLateBookingMagicLinkEndpoint } from './endpoints/admin/bookings/send-late-booking-magic-link'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -148,6 +149,7 @@ export default buildConfig({
     createSubscriptionInStripeEndpoint,
     updateStripeSubscriptionEndpoint,
     stripeDashboardLinkEndpoint,
+    sendLateBookingMagicLinkEndpoint,
   ],
   plugins,
   secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),

@@ -518,6 +518,73 @@ describe('tRPC Bookings Integration Tests', () => {
       })
     }, TEST_TIMEOUT)
 
+    it('should allow creating bookings after endTime when user has pending booking', async () => {
+      // Late completion scenario:
+      // The user already has a pending/waiting booking for this timeslot (created earlier),
+      // so we should allow them to complete the booking even after endTime.
+      const nowMs = Date.now()
+      const startTime = new Date(nowMs - 2 * 60 * 60 * 1000)
+      const endTime = new Date(nowMs - 60 * 60 * 1000)
+
+      const testTimeslot = (await createWithTenant<Timeslot>(
+        'timeslots',
+        {
+          date: startTime.toISOString(),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          eventType: eventType.id,
+          location: 'Test Location',
+          active: true,
+          lockOutTime: 0,
+        },
+        {
+          draft: false,
+          overrideAccess: true,
+        }
+      )) as Timeslot
+
+      const caller = await createCaller()
+      // Without an existing pending/waiting booking, this should be rejected.
+      await expect(
+        caller.bookings.createBookings({
+          timeslotId: testTimeslot.id,
+          quantity: 1,
+        })
+      ).rejects.toThrow('Timeslot is closed')
+
+      // Create the pending booking that the link recipient would already have.
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          timeslot: testTimeslot.id,
+          user: user.id,
+          status: 'pending',
+          tenant: testTenant.id,
+        },
+        overrideAccess: true,
+      })
+
+      // Now it should be allowed to complete (create confirmed booking).
+      const created = await caller.bookings.createBookings({
+        timeslotId: testTimeslot.id,
+        quantity: 1,
+      })
+
+      expect(created.length).toBe(1)
+      expect(created[0]?.timeslot).toBe(testTimeslot.id)
+      expect(created[0]?.status).toBe('confirmed')
+
+      await payload.delete({
+        collection: 'bookings',
+        where: { and: [{ timeslot: { equals: testTimeslot.id } }, { user: { equals: user.id } }] },
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'timeslots',
+        where: { id: { equals: testTimeslot.id } },
+      })
+    }, TEST_TIMEOUT)
+
     it('should create multiple bookings', async () => {
       // Create a fresh lesson for this test
       const startTime = new Date()

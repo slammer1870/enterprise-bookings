@@ -543,6 +543,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           await queryClient.invalidateQueries({
             queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
           })
+          await queryClient.refetchQueries({
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
+          })
         } catch (err: any) {
           setDesiredPendingQuantity(current)
           toast.error(err?.message ?? 'Failed to cancel pending bookings')
@@ -567,6 +570,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           await queryClient.invalidateQueries({
             queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
           })
+          // Refetch before releasing the "adjusting" guard.
+          // Without this, React Query can temporarily overwrite local pending state with stale results,
+          // which can make the pending count jump back up (failing E2E decrement-after-redirect).
+          await queryClient.refetchQueries({
+            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
+          })
           toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
         } catch (err: any) {
           setDesiredPendingQuantity(current)
@@ -585,6 +594,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         })
         setPendingBookings((prev) => [...prev, ...newPending])
         toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
+        await queryClient.invalidateQueries({
+          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
+        })
+        await queryClient.refetchQueries({
+          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
+        })
       } catch (err: any) {
         setDesiredPendingQuantity(current)
         toast.error(err?.message ?? 'Failed to add pending bookings')

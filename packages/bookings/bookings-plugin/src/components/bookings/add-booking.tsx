@@ -5,6 +5,15 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { User } from "@repo/shared-types";
 import { Button, SelectInput } from "@payloadcms/ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/ui/dialog";
+import { Button as UiButton } from "@repo/ui/components/ui/button";
 
 const statusOptions = [
   { label: "Pending", value: "pending" },
@@ -27,6 +36,10 @@ export const AddBooking = ({
   const [isLoading, setIsLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const router = useRouter();
+
+  const [lateMagicDialogOpen, setLateMagicDialogOpen] = useState(false);
+  const [lateMagicSending, setLateMagicSending] = useState(false);
+  const [lateMagicBookingId, setLateMagicBookingId] = useState<number | string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +105,57 @@ export const AddBooking = ({
       }
 
       toast.success("Booking added successfully");
+
+      const extractBookingId = (raw: unknown): number | string | null => {
+        if (!raw) return null;
+        if (typeof raw === "number" || typeof raw === "string") return raw;
+        if (typeof raw === "object") {
+          const r = raw as { id?: unknown; docs?: unknown };
+          if (typeof r.id === "number" || typeof r.id === "string") return r.id;
+          if (Array.isArray(r.docs) && r.docs[0] && typeof r.docs[0] === "object") {
+            const first = r.docs[0] as { id?: unknown };
+            if (typeof first.id === "number" || typeof first.id === "string") return first.id;
+          }
+        }
+        return null;
+      };
+
+      const createdBookingId = extractBookingId((data as any)?.id ?? (data as any)?.docs?.[0]?.id ?? null);
+      const offerLateMagicLink = status === "pending" && createdBookingId != null;
+
+      if (offerLateMagicLink) {
+        try {
+          const tsRes = await fetch(`/api/timeslots/${encodeURIComponent(timeslotId)}?depth=0`, {
+            credentials: "include",
+          });
+
+          if (!tsRes.ok) {
+            // If the request fails, err on the side of offering the confirmation.
+            setLateMagicBookingId(createdBookingId);
+            setLateMagicDialogOpen(true);
+          } else {
+            const tsData = await tsRes.json();
+            const endTimeRaw = tsData?.endTime;
+            const endTimeMs =
+              typeof endTimeRaw === "string" ? new Date(endTimeRaw).getTime() : null;
+
+            const ended =
+              typeof endTimeMs === "number" && Number.isFinite(endTimeMs)
+                ? Date.now() >= endTimeMs
+                : true; // If we can't resolve endTime, err on the side of offering.
+
+            if (ended) {
+              setLateMagicBookingId(createdBookingId);
+              setLateMagicDialogOpen(true);
+            }
+          }
+        } catch {
+          // If timeslot fetch fails entirely, err on the side of offering.
+          setLateMagicBookingId(createdBookingId);
+          setLateMagicDialogOpen(true);
+        }
+      }
+
       setSelectedUserId("");
       setStatus("pending");
       if (onBookingCreated) {
@@ -107,6 +171,31 @@ export const AddBooking = ({
       setSubmitting(false);
     }
   };
+
+  const confirmSendLateMagicLink = async () => {
+    if (lateMagicBookingId == null) return
+    setLateMagicSending(true)
+    try {
+      const res = await fetch(`/api/admin/bookings/late-magic-link/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: lateMagicBookingId }),
+        credentials: "include",
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "")
+        throw new Error(text || `Failed with status ${res.status}`)
+      }
+
+      toast.success("Late booking magic link sent")
+      setLateMagicDialogOpen(false)
+    } catch (err) {
+      toast.error((err as Error).message ?? "Failed to send late booking magic link")
+    } finally {
+      setLateMagicSending(false)
+    }
+  }
 
   return (
     <div className="my-4 text-sm add-booking-form min-w-0 max-w-full">
@@ -169,6 +258,41 @@ export const AddBooking = ({
           </Button>
         </div>
       </form>
+
+      <Dialog
+        open={lateMagicDialogOpen}
+        onOpenChange={(open) => {
+          setLateMagicDialogOpen(open);
+          if (!open) setLateMagicSending(false);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send late completion magic link?</DialogTitle>
+            <DialogDescription>
+              This booking was created after the timeslot end time. Send the email now so the user can manage the booking.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <UiButton
+              type="button"
+              variant="outline"
+              disabled={lateMagicSending}
+              onClick={() => setLateMagicDialogOpen(false)}
+            >
+              Deny
+            </UiButton>
+            <UiButton
+              type="button"
+              variant="destructive"
+              disabled={lateMagicSending}
+              onClick={() => void confirmSendLateMagicLink()}
+            >
+              {lateMagicSending ? "Sending..." : "Confirm & Send"}
+            </UiButton>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

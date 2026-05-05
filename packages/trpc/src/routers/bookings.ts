@@ -420,7 +420,34 @@ export const bookingsRouter = {
           (lockOutTime > 0 && now.getTime() >= endMs - lockOutTime * 60_000));
 
       if (creationClosed) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is closed" });
+        // Late-completion bypass:
+        // If the user already has a pending/waiting booking for this timeslot,
+        // allow them to complete their booking even if the timeslot endTime has passed.
+        const viewerIdRaw: any = (ctx.user as any)?.id;
+        const viewerId =
+          typeof viewerIdRaw === "string" ? parseInt(viewerIdRaw, 10) : viewerIdRaw;
+        const hasPendingOrWaiting = Number.isFinite(viewerId)
+          ? (
+              await ctx.payload.find({
+                collection: ctx.bookingsSlugs.bookings as any,
+                where: {
+                  and: [
+                    { timeslot: { equals: timeslotId } },
+                    { user: { equals: viewerId } },
+                    { status: { in: ["pending", "waiting"] } },
+                    ...(timeslotTenantId != null ? [{ tenant: { equals: timeslotTenantId } }] : []),
+                  ],
+                },
+                depth: 0,
+                limit: 1,
+                overrideAccess: true,
+              })
+            ).totalDocs > 0
+          : false;
+
+        if (!hasPendingOrWaiting) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Timeslot is closed" });
+        }
       }
 
       // Only load a fully populated eventType if we need its payment method config.
@@ -1713,6 +1740,22 @@ export const bookingsRouter = {
         const end = new Date(timeslot.endTime);
         const endMs = end.getTime();
         const lockOutTime = typeof (timeslot as any).lockOutTime === "number" ? (timeslot as any).lockOutTime : 0;
+        const hasPendingOrWaiting = (
+          await ctx.payload.find({
+            collection: ctx.bookingsSlugs.bookings as any,
+            where: {
+              and: [
+                { timeslot: { equals: timeslotId } },
+                { user: { equals: viewerId } },
+                { status: { in: ["pending", "waiting"] } },
+                ...(timeslotTenantId != null ? [{ tenant: { equals: timeslotTenantId } }] : []),
+              ],
+            },
+            depth: 0,
+            limit: 1,
+            overrideAccess: true,
+          })
+        ).totalDocs > 0;
 
         // UI "closed" state: show closed once the session start time has passed.
         const startClosed =
@@ -1724,6 +1767,7 @@ export const bookingsRouter = {
         // lockOutTime is interpreted as "minutes before the end" for booking eligibility.
         const creationClosed =
           Number.isFinite(endMs) &&
+          !hasPendingOrWaiting &&
           (now.getTime() >= endMs ||
             (lockOutTime > 0 && now.getTime() >= endMs - lockOutTime * 60_000));
 
