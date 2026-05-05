@@ -147,7 +147,6 @@ export const Tenants: CollectionConfig = {
       name: 'domain',
       type: 'text',
       required: false,
-      unique: true,
       index: true,
       admin: {
         description:
@@ -257,17 +256,17 @@ export const Tenants: CollectionConfig = {
       async ({ data, operation, req, originalDoc }) => {
         if (!data) return data
 
-        // Payload's `unique: true` field validation can treat `null` as a real value.
-        // Normalize "removed custom domain" to `undefined` so uniqueness/DNS checks are skipped.
+        // Normalize "removed custom domain" to `null` so Payload actually persists
+        // the cleared value. (Using `undefined` typically means "don't update this field".)
         if (data?.domain == null) {
-          data.domain = undefined
+          data.domain = null
           return data
         }
 
         if (typeof data.domain !== 'string') return data
 
         const normalized = normalizeCustomDomain(data.domain)
-        data.domain = normalized === '' ? undefined : normalized
+        data.domain = normalized === '' ? null : normalized
         if (!data.domain) return data
 
         const currentId = operation === 'update' && originalDoc?.id ? originalDoc.id : null
