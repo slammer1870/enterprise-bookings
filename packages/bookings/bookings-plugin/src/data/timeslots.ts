@@ -155,17 +155,6 @@ async function attachShallowTenantAndEventType(
   }
 }
 
-function timeslotFkFromBookingDoc(doc: { timeslot?: unknown }): number | null {
-  const raw = doc.timeslot;
-  if (typeof raw === "number" && Number.isFinite(raw)) return raw;
-  if (raw && typeof raw === "object" && raw !== null && "id" in raw) {
-    const id = (raw as { id: unknown }).id;
-    if (typeof id === "number" && Number.isFinite(id)) return id;
-    if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
-  }
-  return null;
-}
-
 /**
  * Populate `bookings.totalDocs` without using the timeslot join field (which resolves
  * per-document in Payload and can mean hundreds of queries for a single day view).
