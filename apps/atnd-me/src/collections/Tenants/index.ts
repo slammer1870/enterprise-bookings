@@ -255,7 +255,17 @@ export const Tenants: CollectionConfig = {
   hooks: {
     beforeValidate: [
       async ({ data, operation, req, originalDoc }) => {
-        if (!data?.domain || typeof data.domain !== 'string') return data
+        if (!data) return data
+
+        // Payload's `unique: true` field validation can treat `null` as a real value.
+        // Normalize "removed custom domain" to `undefined` so uniqueness/DNS checks are skipped.
+        if (data?.domain == null) {
+          data.domain = undefined
+          return data
+        }
+
+        if (typeof data.domain !== 'string') return data
+
         const normalized = normalizeCustomDomain(data.domain)
         data.domain = normalized === '' ? undefined : normalized
         if (!data.domain) return data
