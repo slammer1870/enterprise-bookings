@@ -548,6 +548,19 @@ export async function resolveTenantAdminReadConstraint(args: {
   })
   if (tenantIds.length === 0) return false
 
+  // Fast path for admin dashboard list queries:
+  // If the TenantSelector sets `payload-tenant`, prefer it and skip host/domain resolution.
+  const selectedTenantId = getPayloadTenantIdFromRequest({ cookies: req.cookies })
+  if (selectedTenantId != null) {
+    if (!tenantIds.includes(selectedTenantId)) return false
+    return {
+      tenant: {
+        equals: selectedTenantId,
+      },
+    }
+  }
+
+  // Fallback: resolve tenant from request context/host/cookies.
   const resolvedTenantId = await resolveTenantIdFromRequest(req as RequestLike)
   if (resolvedTenantId != null) {
     if (!tenantIds.includes(resolvedTenantId)) return false
