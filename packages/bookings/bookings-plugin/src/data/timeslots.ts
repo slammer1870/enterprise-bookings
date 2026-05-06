@@ -233,6 +233,7 @@ export const getTimeslots = async (
   params: any,
   req?: PayloadRequest
 ) => {
+  const t0 = Date.now();
   const startTimeFilter = getTimeslotStartTimeFilter(searchParams);
   const effectiveSearchParams = startTimeFilter
     ? searchParams
@@ -259,20 +260,26 @@ export const getTimeslots = async (
     searchQuery.where = { and: [baseWhere, { tenant: { equals: tenantId } }] };
   }
 
-  // Pass req to payload.find() so multi-tenant plugin can filter by tenant
-  // If req is provided, it will include user context and tenant filtering will be applied
-  // IMPORTANT: Set overrideAccess: false when req is provided to enforce access control
-  // This ensures tenant filtering and user permissions are respected
+  // Prevent the `remainingCapacity` and `bookingStatus` virtual field afterRead hooks
+  // from firing for this list query. Those hooks each make 2–5 DB round-trips per
+  // timeslot; the admin list doesn't display those fields, so the work is wasted.
+  // Setting `triggerAfterChange: false` on req.context is the hook's own opt-out
+  // convention (see getRemainingCapacity / getBookingStatus). We set it directly on
+  // req.context (rather than the `context` arg) so the existing cache entries stored
+  // there are still visible to the access-control functions that run inside this find.
+  if (req?.context != null) {
+    (req.context as Record<string, unknown>).triggerAfterChange = false;
+  }
+
+  const t1 = Date.now();
   const timeslotList = await payload.find({
     collection,
     ...ps,
     ...(tenantId != null ? { where: searchQuery.where } : {}),
     ...(req ? { req, overrideAccess: false } : {}),
-    // Only select fields needed for the admin list UI.
-    // This avoids executing expensive virtual fields like:
-    // - `remainingCapacity` (afterRead hook queries bookings)
-    // - `bookingStatus` (afterRead hook queries bookings + eventType)
-    // Omit `bookings` join — counts are attached in one batched pass (see below).
+    // Only select fields needed for the admin list UI — limits the DB columns fetched.
+    // Combined with `triggerAfterChange: false` above this avoids the expensive virtual
+    // field hooks (`remainingCapacity`, `bookingStatus`) and the `bookings` join.
     select: {
       id: true,
       startTime: true,
@@ -282,13 +289,17 @@ export const getTimeslots = async (
       eventType: true,
     } as any,
   } as Parameters<BasePayload["find"]>[0]);
+  console.log(`[getTimeslots] payload.find(timeslots) returned ${timeslotList.docs.length} docs in ${Date.now() - t1}ms`);
 
   const timeslots = timeslotList.docs as Timeslot[];
 
+  const t2 = Date.now();
   await Promise.all([
     attachShallowTenantAndEventType(payload, timeslots, collection, req),
     attachBookingCountsForTimeslots(payload, timeslots, collection, req),
   ]);
+  console.log(`[getTimeslots] attachShallowTenantAndEventType + attachBookingCountsForTimeslots in ${Date.now() - t2}ms`);
+  console.log(`[getTimeslots] total in ${Date.now() - t0}ms`);
 
   return timeslots;
 };

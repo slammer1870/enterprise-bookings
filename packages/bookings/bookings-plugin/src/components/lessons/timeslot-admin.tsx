@@ -57,6 +57,7 @@ export const TimeslotAdmin: React.FC<{
   searchParams: { [key: string]: string | string[] | undefined };
   payload: BasePayload;
 }> = async ({ searchParams, payload, params }) => {
+  const _t0 = Date.now();
   const collectionSlug =
     typeof params?.collection === "string"
       ? params.collection
@@ -69,7 +70,9 @@ export const TimeslotAdmin: React.FC<{
   // Get headers to authenticate user and create req object
   // This allows the multi-tenant plugin to filter timeslots by tenant
   const requestHeaders = await headers();
+  const _tAuth = Date.now();
   const { user } = await payload.auth({ headers: requestHeaders });
+  console.log(`[TimeslotAdmin] payload.auth() in ${Date.now() - _tAuth}ms`);
   
   // Create a Payload request object with user context
   // The multi-tenant plugin will use this to filter by tenant
@@ -142,6 +145,7 @@ export const TimeslotAdmin: React.FC<{
               ? parseInt(idRaw, 10)
               : NaN;
         if (Number.isFinite(uid)) {
+          const _tUser = Date.now();
           const full = await payload.findByID({
             collection: "users",
             id: uid,
@@ -152,6 +156,7 @@ export const TimeslotAdmin: React.FC<{
               registrationTenant: true,
             } as any,
           });
+          console.log(`[TimeslotAdmin] payload.findByID(users) fallback in ${Date.now() - _tUser}ms`);
           const ids = tenantMembershipIdsFromUserDoc(full);
           if (ids.length > 0) {
             if (!req.context) req.context = {};
@@ -164,6 +169,7 @@ export const TimeslotAdmin: React.FC<{
       }
     }
   }
+  console.log(`[TimeslotAdmin] server component setup in ${Date.now() - _t0}ms`);
 
   const selectedDateISO = getTimeslotStartTimeFilter(searchParams);
 

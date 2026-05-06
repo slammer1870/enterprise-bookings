@@ -15,7 +15,9 @@ export const FetchTimeslots: React.FC<{
   payload: BasePayload;
   req?: PayloadRequest;
 }> = async ({ searchParams, payload, params, req }) => {
+  const _t = Date.now();
   const raw = await getTimeslots(payload, searchParams, params, req);
+  console.log(`[FetchTimeslots] getTimeslots total: ${Date.now() - _t}ms, ${raw.length} timeslots`);
   const timeslots = timeslotsForStaffBookingsExcludingPending(raw, req?.user);
   const listKey = getTimeslotStartTimeFilter(searchParams) || "default";
 
