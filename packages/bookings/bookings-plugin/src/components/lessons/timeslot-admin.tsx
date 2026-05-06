@@ -70,6 +70,7 @@ export const TimeslotAdmin = async (props: {
   searchParams?: { [key: string]: string | string[] | undefined };
   [key: string]: unknown;
 }) => {
+  const t0 = Date.now();
   const payload = props.payload;
   const user = props.user;
   const params = props.params;
@@ -185,6 +186,7 @@ export const TimeslotAdmin = async (props: {
   }
 
   const selectedDateISO = getTimeslotStartTimeFilter(searchParams);
+  console.log(`[TimeslotAdmin] shell ready in ${Date.now() - t0}ms`);
 
   return (
     <Gutter className="!pt-0">
