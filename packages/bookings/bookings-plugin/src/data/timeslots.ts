@@ -159,10 +159,9 @@ async function attachShallowTenantAndEventType(
  * Populate `bookings.totalDocs` without using the timeslot join field (which resolves
  * per-document in Payload and can mean hundreds of queries for a single day view).
  *
- * Loads only the `timeslot` FK in pages (one query per page) and aggregates counts in
- * memory. This is typically far fewer round-trips than one `payload.count` per timeslot
- * (e.g. ~100 counts for a full day) while still honoring `overrideAccess: false` /
- * booking read rules when `req` is passed.
+ * Issues a single `payload.find()` across all timeslot IDs (selecting only the timeslot
+ * FK), then aggregates counts in memory. This replaces the previous approach of one
+ * `payload.count()` per timeslot (e.g. 100 DB round-trips for a full-day page).
  */
 async function attachBookingCountsForTimeslots(
   payload: BasePayload,
@@ -191,31 +190,35 @@ async function attachBookingCountsForTimeslots(
   const countByTimeslot = new Map<number, number>();
   for (const id of ids) countByTimeslot.set(id, 0);
 
-  // Payload doesn't expose "GROUP BY" across collections, so the previous approach
-  // paged through all matching bookings and aggregated in JS.
-  //
-  // For the admin dashboard, switching to DB-side `COUNT(*)` per timeslot via
-  // Payload API typically cuts work dramatically because each call can use indexes
-  // and avoids transferring/iterating booking rows.
-  const bookingWhereForCount = (timeslotId: number) => ({
-    timeslot: { equals: timeslotId },
-    ...(excludePendingForStaffOnly ? { status: { not_equals: "pending" } } : {}),
-  });
+  // Single query: fetch only the timeslot FK for all bookings across all timeslot IDs at
+  // once, then tally counts in JS. One round-trip regardless of how many timeslots are on
+  // the page — far cheaper than the previous approach of one COUNT per timeslot.
+  const allBookings = await payload.find({
+    collection: bookingsSlug as CollectionSlug,
+    where: {
+      and: [
+        { timeslot: { in: ids } },
+        ...(excludePendingForStaffOnly ? [{ status: { not_equals: "pending" } }] : []),
+      ],
+    },
+    select: { timeslot: true } as any,
+    depth: 0,
+    limit: 0,
+    ...(access as object),
+    context: { triggerAfterChange: false },
+  } as Parameters<BasePayload["find"]>[0]);
 
-  const concurrency = 10;
-  for (let i = 0; i < ids.length; i += concurrency) {
-    const batch = ids.slice(i, i + concurrency);
-    await Promise.all(
-      batch.map(async (timeslotId) => {
-        const result = await payload.count({
-          collection: bookingsSlug as CollectionSlug,
-          where: bookingWhereForCount(timeslotId),
-          depth: 0,
-          ...(access as object),
-        } as Parameters<BasePayload["count"]>[0]);
-        countByTimeslot.set(timeslotId, typeof result?.totalDocs === "number" ? result.totalDocs : 0);
-      }),
-    );
+  for (const booking of allBookings.docs) {
+    const rawTimeslot = (booking as any).timeslot;
+    const timeslotId =
+      typeof rawTimeslot === "number"
+        ? rawTimeslot
+        : rawTimeslot && typeof rawTimeslot === "object"
+          ? (rawTimeslot as { id: number }).id
+          : null;
+    if (timeslotId != null && countByTimeslot.has(timeslotId)) {
+      countByTimeslot.set(timeslotId, (countByTimeslot.get(timeslotId) ?? 0) + 1);
+    }
   }
 
   for (const t of timeslots) {
