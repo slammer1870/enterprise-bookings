@@ -14,6 +14,15 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@repo/ui/components/ui/sheet";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@repo/ui/components/ui/dialog";
+import { Button as UiButton } from "@repo/ui/components/ui/button";
 
 const statusOptions = [
   { label: "Confirmed", value: "confirmed" },
@@ -26,6 +35,8 @@ export function EditBooking({ booking }: { booking: Booking }) {
   const [status, setStatus] = useState<string>(booking.status);
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendingMagicLink, setSendingMagicLink] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -53,6 +64,34 @@ export function EditBooking({ booking }: { booking: Booking }) {
       toast.error("An error occurred");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function confirmSendLateMagicLink() {
+    if (booking.status !== "pending") return;
+
+    setSendingMagicLink(true);
+    try {
+      const res = await fetch(`/api/admin/bookings/late-magic-link/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: booking.id }),
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text || `Failed with status ${res.status}`);
+      }
+
+      toast.success("Booking email sent");
+      setSendDialogOpen(false);
+    } catch (err) {
+      toast.error(
+        (err as Error).message ?? "Failed to send booking email"
+      );
+    } finally {
+      setSendingMagicLink(false);
     }
   }
 
@@ -112,6 +151,57 @@ export function EditBooking({ booking }: { booking: Booking }) {
                   View Transaction
                 </Link>
               )}
+
+              {booking.status === "pending" && (
+                <>
+                  <UiButton
+                    type="button"
+                    variant="secondary"
+                    disabled={sendingMagicLink}
+                    onClick={() => setSendDialogOpen(true)}
+                  >
+                    {sendingMagicLink
+                      ? "Sending..."
+                      : "Send completion email"}
+                  </UiButton>
+
+                  <Dialog
+                    open={sendDialogOpen}
+                    onOpenChange={(next) => {
+                      setSendDialogOpen(next);
+                      if (!next) setSendingMagicLink(false);
+                    }}
+                  >
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Send completion email?</DialogTitle>
+                        <DialogDescription>
+                          Send the email now so the user can manage the booking.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter className="pt-2">
+                        <UiButton
+                          type="button"
+                          variant="outline"
+                          disabled={sendingMagicLink}
+                          onClick={() => setSendDialogOpen(false)}
+                        >
+                          Deny
+                        </UiButton>
+                        <UiButton
+                          type="button"
+                          variant="secondary"
+                          disabled={sendingMagicLink}
+                          onClick={() => void confirmSendLateMagicLink()}
+                        >
+                          {sendingMagicLink ? "Sending..." : "Confirm & Send"}
+                        </UiButton>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </>
+              )}
+
               <Button type="submit" size="small" disabled={submitting}>
                 Save
               </Button>
