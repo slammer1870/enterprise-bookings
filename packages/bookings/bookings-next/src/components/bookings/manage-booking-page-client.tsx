@@ -534,6 +534,14 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
     if (target === current) return
     setIsAdjustingPendingQuantity(true)
+
+    // Avoid a slow per-click `refetchQueries(...)` by updating the query cache
+    // with mutation results. This keeps `pendingFromServer` consistent with
+    // our local optimistic `pendingBookings` state.
+    const userBookingsQueryKey = trpc.bookings.getUserBookingsForTimeslot.queryKey({
+      timeslotId: timeslot.id,
+    })
+
     try {
       setDesiredPendingQuantity(target)
 
@@ -569,12 +577,16 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           setPendingBookings((prev) =>
             prev.filter((booking) => !cancelledIds.includes(booking.id))
           )
-          // Refetch before releasing the "adjusting" guard.
-          // Without this, React Query can temporarily overwrite local pending state with stale results,
-          // which can make the pending count jump back up (failing E2E decrement-after-redirect).
-          await queryClient.refetchQueries({
-            queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
-          })
+
+          // Keep server-backed query data in sync so the sync-effects don't revert UI.
+          const prevBookings = queryClient.getQueryData<Booking[]>(userBookingsQueryKey)
+          if (prevBookings?.length) {
+            queryClient.setQueryData<Booking[]>(
+              userBookingsQueryKey,
+              prevBookings.filter((b) => !cancelledIds.includes(b.id))
+            )
+          }
+
           toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
         } catch (err: any) {
           setDesiredPendingQuantity(current)
@@ -592,10 +604,17 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           status: 'pending',
         })
         setPendingBookings((prev) => [...prev, ...newPending])
+
+        // Keep server-backed query data in sync so the sync-effects don't revert UI.
+        const prevBookings = queryClient.getQueryData<Booking[]>(userBookingsQueryKey)
+        if (prevBookings?.length) {
+          queryClient.setQueryData<Booking[]>(
+            userBookingsQueryKey,
+            [...prevBookings, ...newPending]
+          )
+        }
+
         toast.success(`Added ${toCreate} booking${toCreate !== 1 ? 's' : ''}. Complete payment below.`)
-        await queryClient.refetchQueries({
-          queryKey: trpc.bookings.getUserBookingsForTimeslot.queryKey({ timeslotId: timeslot.id }),
-        })
       } catch (err: any) {
         setDesiredPendingQuantity(current)
         toast.error(err?.message ?? 'Failed to add pending bookings')
