@@ -7,7 +7,8 @@ import { DatePicker } from "./date-picker";
 import { Button, Gutter } from "@payloadcms/ui";
 import { Toaster } from "sonner";
 
-import type { AdminViewServerProps, CollectionSlug } from "payload";
+import type { BasePayload, CollectionSlug } from "payload";
+import { createLocalReq } from "payload";
 import { cookies } from "next/headers";
 import {
   checkRole,
@@ -53,22 +54,41 @@ function tenantMembershipIdsFromUserDoc(doc: unknown): number[] {
 /**
  * Custom admin list view for timeslots.
  *
- * Uses `AdminViewServerProps` so we read the user from `initPageResult.req.user`
- * (already authenticated by Payload's own middleware) rather than calling
- * `payload.auth()` again. The redundant auth call was the primary source of
- * latency (~800 ms per navigation) because it re-queried the users table.
+ * Payload's collection list view passes `payload` and `user` as direct server
+ * props (already authenticated by Payload's own middleware). We use those
+ * directly rather than calling `payload.auth()` again — the redundant auth
+ * call was the primary source of latency (~800 ms per navigation) because it
+ * re-queried the users/sessions tables.
+ *
+ * `createLocalReq` is used to build a typed `PayloadRequest` from the
+ * pre-authenticated user. It makes no database calls.
  */
-export const TimeslotAdmin = async (props: AdminViewServerProps) => {
-  const { initPageResult } = props;
-  const params = (props as any).params;
+export const TimeslotAdmin = async (props: {
+  payload: BasePayload;
+  user?: unknown;
+  params?: Record<string, unknown> & { segments?: string[]; collection?: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+  [key: string]: unknown;
+}) => {
+  const payload = props.payload;
+  const user = props.user;
+  const params = props.params;
   const searchParams: { [key: string]: string | string[] | undefined } =
-    (props as any).searchParams ?? {};
+    props.searchParams ?? {};
 
-  // `req` is the PayloadRequest that Payload's admin middleware already authenticated.
-  // `req.user` is set — no extra DB call needed.
-  const req = initPageResult?.req;
-  const payload = req?.payload;
-  const user = req?.user;
+  if (!payload || !user) {
+    return (
+      <Gutter className="!pt-0">
+        <div style={{ padding: "2rem" }}>
+          <p>Authentication required.</p>
+        </div>
+      </Gutter>
+    );
+  }
+
+  // Build a PayloadRequest from the pre-authenticated user. createLocalReq makes
+  // no database calls — it just constructs the request object in memory.
+  const req = await createLocalReq({ user: user as any }, payload);
 
   const collectionSlug =
     typeof params?.collection === "string"
@@ -77,26 +97,26 @@ export const TimeslotAdmin = async (props: AdminViewServerProps) => {
         ? params.segments[1]
         : "timeslots";
 
-  const hasTenantsCollection = payload?.config.collections.some(
+  const hasTenantsCollection = payload.config.collections.some(
     (collection) => String(collection.slug) === "tenants",
   );
 
   const cookieStore = await cookies();
-  const isSuperAdmin = user && checkRole(["super-admin"], user as unknown as SharedUser);
+  const isSuperAdmin = checkRole(["super-admin"], user as unknown as SharedUser);
 
   // 1) Respect admin TenantSelector: when user picks a tenant, filter to that tenant.
   // The multi-tenant plugin sets the selected tenant in the 'payload-tenant' cookie.
   const payloadTenant = cookieStore.get("payload-tenant")?.value;
-  if (payloadTenant && req) {
+  if (payloadTenant) {
     const tenantId = /^\d+$/.test(payloadTenant) ? Number(payloadTenant) : payloadTenant;
     if (!req.context) req.context = {};
     req.context.tenant = tenantId;
-  } else if (!isSuperAdmin && req && hasTenantsCollection) {
+  } else if (!isSuperAdmin && hasTenantsCollection) {
     // 2) Fallback: tenant from subdomain (tenant-slug, set by middleware)
     const tenantSlug = cookieStore.get("tenant-slug")?.value;
     if (tenantSlug) {
       try {
-        const tenantResult = await payload!.find({
+        const tenantResult = await payload.find({
           collection: "tenants" as CollectionSlug,
           where: { slug: { equals: tenantSlug } },
           limit: 1,
@@ -118,9 +138,7 @@ export const TimeslotAdmin = async (props: AdminViewServerProps) => {
 
   // 3) Base-host admin sessions often lack `tenant-slug`. Resolve tenant from the user row.
   if (
-    req &&
     hasTenantsCollection &&
-    user &&
     !checkRole(["super-admin"], user as unknown as SharedUser) &&
     checkRole(["admin", "staff"], user as unknown as SharedUser)
   ) {
@@ -143,7 +161,7 @@ export const TimeslotAdmin = async (props: AdminViewServerProps) => {
               ? parseInt(idRaw, 10)
               : NaN;
         if (Number.isFinite(uid)) {
-          const full = await payload!.findByID({
+          const full = await payload.findByID({
             collection: "users",
             id: uid,
             depth: 0,
@@ -193,16 +211,13 @@ export const TimeslotAdmin = async (props: AdminViewServerProps) => {
         </div>
         <div className="flex flex-col w-full">
           <Suspense
-            key={[
-              selectedDateISO,
-              req?.context?.tenant ?? "all",
-            ]
+            key={[selectedDateISO, req.context?.tenant ?? "all"]
               .filter(Boolean)
               .join("|")}
             fallback={<TimeslotLoading />}
           >
             <FetchTimeslots
-              payload={payload!}
+              payload={payload}
               searchParams={searchParams}
               params={params}
               req={req}
