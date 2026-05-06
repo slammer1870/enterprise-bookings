@@ -233,7 +233,6 @@ export const getTimeslots = async (
   params: any,
   req?: PayloadRequest
 ) => {
-  const t0 = Date.now();
   const startTimeFilter = getTimeslotStartTimeFilter(searchParams);
   const effectiveSearchParams = startTimeFilter
     ? searchParams
@@ -271,7 +270,6 @@ export const getTimeslots = async (
     (req.context as Record<string, unknown>).triggerAfterChange = false;
   }
 
-  const t1 = Date.now();
   const timeslotList = await payload.find({
     collection,
     ...ps,
@@ -289,17 +287,13 @@ export const getTimeslots = async (
       eventType: true,
     } as any,
   } as Parameters<BasePayload["find"]>[0]);
-  console.log(`[getTimeslots] payload.find(timeslots) returned ${timeslotList.docs.length} docs in ${Date.now() - t1}ms`);
 
   const timeslots = timeslotList.docs as Timeslot[];
 
-  const t2 = Date.now();
   await Promise.all([
     attachShallowTenantAndEventType(payload, timeslots, collection, req),
     attachBookingCountsForTimeslots(payload, timeslots, collection, req),
   ]);
-  console.log(`[getTimeslots] attachShallowTenantAndEventType + attachBookingCountsForTimeslots in ${Date.now() - t2}ms`);
-  console.log(`[getTimeslots] total in ${Date.now() - t0}ms`);
 
   return timeslots;
 };
