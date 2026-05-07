@@ -509,7 +509,20 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
 
   return {
     beforeOperation: [
-      async ({ args, operation }) => {
+      async ({ args, operation, req }) => {
+        // For admin list views Payload fetches the collection data itself (to populate
+        // `data` in serverProps) before handing off to our custom TimeslotAdmin component.
+        // That fetch triggers the `remainingCapacity` and `bookingStatus` afterRead hooks
+        // for every document — potentially hundreds of extra DB queries.
+        // Those virtual fields are not displayed in the admin list UI, so skip them here.
+        if (operation === "find") {
+          const url = (req as any)?.url ?? "";
+          if (typeof url === "string" && url.includes("/admin/")) {
+            if (!req.context) req.context = {};
+            (req.context as Record<string, unknown>).triggerAfterChange = false;
+          }
+        }
+
         if (
           operation === "create" &&
           args?.data &&
