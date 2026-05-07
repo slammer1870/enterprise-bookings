@@ -4,6 +4,7 @@ import { subscriptionsRouter } from "./routers/subscriptions";
 import { usersRouter } from "./routers/users";
 import { bookingsRouter } from "./routers/bookings";
 import { authRouter } from "./routers/auth";
+import { contentRouter } from "./routers/content";
 
 import {
   createTRPCRouter,
@@ -28,6 +29,7 @@ export function createAppRouter(options?: AppRouterOptions) {
     payments: paymentsRouter,
     users: usersRouter,
     auth: authRouter,
+    content: contentRouter,
   });
 }
 

@@ -315,10 +315,23 @@ export const subscriptionsRouter = {
               const candidates = allowedPlanDocs.filter((p) => p.status === "active");
               const eligible: Plan[] = [];
               for (const plan of candidates) {
-                const allowsMultiple =
-                  plan.sessionsInformation?.allowMultipleBookingsPerTimeslot ===
-                  true;
-                if (!allowsMultiple) continue;
+                const rawMax = (plan.sessionsInformation as any)?.maxBookingsPerTimeslot as
+                  | number
+                  | null
+                  | undefined;
+                // Unbounded (null/undefined) means this plan supports the requested quantity for the per-viewer cap.
+                const maxPerTimeslot =
+                  rawMax == null
+                    ? Infinity
+                    : Math.max(1, Number(rawMax));
+
+                // Legacy fallback for older rows during migration
+                const legacyAllowsMultiple = (plan.sessionsInformation as any)
+                  ?.allowMultipleBookingsPerTimeslot === true;
+                const legacyCap = legacyAllowsMultiple ? Infinity : 1;
+
+                const effectiveMax = rawMax == null ? legacyCap : maxPerTimeslot;
+                if (selectedQuantity > effectiveMax) continue;
 
                 const remainingForPlan = await getRemainingSessionsInPeriodForPlan(
                   subscription as Subscription,

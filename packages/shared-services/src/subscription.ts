@@ -11,19 +11,20 @@ function getPlanCollectionSlug(payload: Payload): CollectionSlug {
 }
 
 /**
- * Returns true if plan explicitly allows multiple bookings per timeslot.
- *
- * IMPORTANT: Plans with no session limit (unlimited) do NOT imply multi-booking.
- * Multi-booking is controlled only by the explicit flag.
+ * Resolve per-user max confirmed bookings allowed for the same timeslot.
+ * - `null`/`undefined` => unbounded (Infinity)
+ * - any number < 1 => treated as 1
  */
-function planAllowsMultipleBookingsPerTimeslot(plan: Plan): boolean {
+function getPlanMaxBookingsPerTimeslot(plan: Plan): number {
   const si = plan?.sessionsInformation as
     | (NonNullable<Plan["sessionsInformation"]> & {
-        allowMultipleBookingsPerTimeslot?: boolean;
+        maxBookingsPerTimeslot?: number | null;
       })
     | null
     | undefined;
-  return si?.allowMultipleBookingsPerTimeslot === true;
+
+  const max = si?.maxBookingsPerTimeslot;
+  return max == null ? Infinity : Math.max(1, max);
 }
 
 function getSubscriptionPeriodStartAndEndDate(opts: {
@@ -338,7 +339,7 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
     }
     if (!plan) return null;
 
-    const maxPerTimeslot = planAllowsMultipleBookingsPerTimeslot(plan) ? Infinity : 1;
+    const maxPerTimeslot = getPlanMaxBookingsPerTimeslot(plan);
 
     const existing = await payload.find({
       collection: "bookings" as CollectionSlug,

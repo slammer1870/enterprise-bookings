@@ -207,6 +207,8 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
         name: cptName,
         slug: `e2e-buy-book-${tenantId}-${w}-${Date.now()}`,
         quantity: 5,
+        // These scenarios expect "unlimited per-user" (buy option should appear for quantity=2).
+        maxBookingsPerTimeslot: null,
         tenant: tenantId,
         priceInformation: { price: 29.99 },
         priceJSON: JSON.stringify({ id: `price_test_buy_book_${tenantId}_${w}_${Date.now()}` }),
@@ -346,6 +348,8 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
         name: `E2E No Pass 5-Pack w${w} ${Date.now()}`,
         slug: `e2e-no-pass-5pack-${tenantId}-${Date.now()}`,
         quantity: 5,
+        // Explicit unlimited cap for "buy allowed class pass" scenarios.
+        maxBookingsPerTimeslot: null,
         tenant: tenantId,
         priceInformation: { price: 29.99 },
         priceJSON: JSON.stringify({ id: `price_test_no_pass_${tenantId}_${w}_${Date.now()}` }),

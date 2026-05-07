@@ -1,4 +1,4 @@
-import type { CollectionConfig, Field } from "payload";
+import type { CollectionBeforeValidateHook, CollectionConfig, Field } from "payload";
 import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types";
 import {
@@ -74,14 +74,30 @@ const defaultFields: Field[] = [
     },
   },
   {
-    name: "allowMultipleBookingsPerTimeslot",
-    label: "Allow multiple bookings per timeslot",
-    type: "checkbox",
-    defaultValue: true,
-    required: true,
-    admin: {
-      description: "When enabled, users can use multiple credits from this pass type on the same timeslot (e.g. book 3 spots using 3 credits). When disabled, only one spot per timeslot per user.",
+    name: "maxBookingsPerTimeslot",
+    label: "Max bookings per timeslot (per user)",
+    type: "number",
+    // Null => no per-user limit (still bounded by event type capacity).
+    required: false,
+    // Allow `null` explicitly; server/client treat `null` as "unlimited".
+    // Avoid `min: 1` because Payload can coerce/validate `null` unexpectedly.
+    validate: (value: unknown) => {
+      if (value == null) return true
+      return typeof value === "number" && value >= 1 ? true : "maxBookingsPerTimeslot must be >= 1 or blank"
     },
+    admin: {
+      description:
+        "Leave blank for no per-user limit. When set, users can book up to this many spots per timeslot using this pass type.",
+    },
+  },
+  // Legacy compatibility: older callers + e2e fixtures use this boolean flag.
+  // We keep it hidden and map it onto `maxBookingsPerTimeslot` in `beforeValidate`.
+  {
+    name: "allowMultipleBookingsPerTimeslot",
+    label: "Allow multiple bookings per timeslot (legacy)",
+    type: "checkbox",
+    required: false,
+    admin: { hidden: true },
   },
   {
     name: "stripeProductId",
@@ -153,6 +169,22 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
     ? overrides.fields({ defaultFields: [...defaultFields] })
     : defaultFields;
   const defaultHooks: NonNullable<CollectionConfig["hooks"]> = {
+    beforeValidate: [
+      (async ({ data }) => {
+        if (!data || typeof data !== "object") return data
+
+        const d = data as {
+          allowMultipleBookingsPerTimeslot?: boolean
+          maxBookingsPerTimeslot?: number | null
+        }
+
+        if (typeof d.allowMultipleBookingsPerTimeslot === "boolean") {
+          d.maxBookingsPerTimeslot = d.allowMultipleBookingsPerTimeslot ? null : 1
+        }
+
+        return d
+      }) satisfies CollectionBeforeValidateHook,
+    ],
     beforeChange: [beforeClassPassTypeChange],
   };
   const hooks = overrides?.hooks

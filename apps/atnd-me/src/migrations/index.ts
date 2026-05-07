@@ -100,6 +100,8 @@ import * as migration_20260424_cl_find_sanctuary_map_embed_url from './20260424_
 import * as migration_20260425_cl_sauna_benefits_background_image_id from './20260425_cl_sauna_benefits_background_image_id';
 import * as migration_20260425_bookings_tenant_user_id_idx from './20260425_bookings_tenant_user_id_idx';
 import * as migration_20260425_cl_sauna_benefits_tagline from './20260425_cl_sauna_benefits_tagline';
+import * as migration_20260507_000001_max_bookings_per_timeslot from './20260507_000001_max_bookings_per_timeslot';
+import * as migration_20260507_000002_class_pass_types_max_bookings_default_null from './20260507_000002_class_pass_types_max_bookings_default_null';
 
 export const migrations = [
   {
@@ -611,5 +613,15 @@ export const migrations = [
     up: migration_20260425_cl_sauna_benefits_tagline.up,
     down: migration_20260425_cl_sauna_benefits_tagline.down,
     name: '20260425_cl_sauna_benefits_tagline',
+  },
+  {
+    up: migration_20260507_000001_max_bookings_per_timeslot.up,
+    down: migration_20260507_000001_max_bookings_per_timeslot.down,
+    name: '20260507_000001_max_bookings_per_timeslot',
+  },
+  {
+    up: migration_20260507_000002_class_pass_types_max_bookings_default_null.up,
+    down: migration_20260507_000002_class_pass_types_max_bookings_default_null.down,
+    name: '20260507_000002_class_pass_types_max_bookings_default_null',
   },
 ];

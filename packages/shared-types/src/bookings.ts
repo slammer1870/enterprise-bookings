@@ -169,7 +169,12 @@ export interface ClassPassType {
   slug?: string | null;
   quantity?: number | null;
   daysUntilExpiration?: number | null;
-  allowMultipleBookingsPerTimeslot?: boolean;
+  /**
+   * Per-viewer max confirmed bookings allowed for the same timeslot when paying with this class pass type.
+   * - `1` => one booking per timeslot
+   * - `null`/`undefined` => no per-viewer limit (still bounded by event type capacity)
+   */
+  maxBookingsPerTimeslot?: number | null;
   status?: "active" | "inactive" | null;
   priceInformation?: {
     price?: number | null;

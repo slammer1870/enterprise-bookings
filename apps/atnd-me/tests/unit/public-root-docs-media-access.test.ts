@@ -37,6 +37,9 @@ describe('public root docs can resolve referenced media', () => {
 
     const payload = {
       find: vi.fn().mockResolvedValue({ docs: [{ id: 1, layout: [] }] }),
+      config: {
+        collections: [{ slug: 'pages' }, { slug: 'posts' }],
+      },
     }
     mockGetPayload.mockResolvedValue(payload)
 
@@ -61,6 +64,9 @@ describe('public root docs can resolve referenced media', () => {
 
     const payload = {
       find: vi.fn().mockResolvedValue({ docs: [{ id: 10, layout: [] }] }),
+      config: {
+        collections: [{ slug: 'pages' }, { slug: 'posts' }],
+      },
     }
     mockGetPayload.mockResolvedValue(payload)
 
@@ -114,6 +120,14 @@ describe('public root docs can resolve referenced media', () => {
           },
         ],
       }),
+      config: {
+        collections: [
+          { slug: 'navbar' },
+          { slug: 'footer' },
+          { slug: 'pages' },
+          { slug: 'posts' },
+        ],
+      },
     } as any
 
     const { getNavbarForRequest, getFooterForRequest } = await import(

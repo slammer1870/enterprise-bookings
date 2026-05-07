@@ -11,16 +11,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo
 
 type PaymentMethodsLike = {
   allowedDropIn?: {
-    adjustable?: boolean
-    /** Legacy/alternate field name used by some older seeds/tests */
-    allowMultipleBookingsPerTimeslot?: boolean
+    maxBookingsPerTimeslot?: number | null
   } | null
   allowedPlans?:
     | Array<{
-        sessionsInformation?: { allowMultipleBookingsPerTimeslot?: boolean } | null
+        sessionsInformation?: { maxBookingsPerTimeslot?: number | null } | null
       }>
     | null
-  allowedClassPasses?: unknown[] | null
+  allowedClassPasses?: Array<{ maxBookingsPerTimeslot?: number | null }> | null
 } | null
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -164,24 +162,56 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   )
 
   const capacityMaxQuantity = Math.max(1, timeslot.remainingCapacity || 1)
-  const dropInAllowsMultiple =
-    // Drop-in multi-quantity is controlled by the DropIn field `adjustable`.
-    // Keep a fallback for legacy data/models that might have used a different name.
-    paymentMethods?.allowedDropIn?.adjustable === true ||
-    paymentMethods?.allowedDropIn?.allowMultipleBookingsPerTimeslot === true
-  const planAllowsMultiple =
-    paymentMethods?.allowedPlans?.some(
-      (p) => p.sessionsInformation?.allowMultipleBookingsPerTimeslot === true
-    ) ?? false
-  const classPassAllowsMultiple =
-    paymentMethods?.allowedClassPasses?.some((pass) => {
-      if (!isObject(pass)) return false
-      return pass.allowMultipleBookingsPerTimeslot === true
-    }) ?? false
-  // Match server-side gating: if payment methods exist, only allow multi-quantity when at least one method supports it.
-  const allowsMultipleBookingsForViewer =
-    !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple || classPassAllowsMultiple
-  const maxQuantity = allowsMultipleBookingsForViewer ? capacityMaxQuantity : 1
+
+  const maxFromMaybeCap = (raw: unknown): number => {
+    if (raw == null) return Infinity
+    const n = Number(raw)
+    return Number.isFinite(n) ? Math.max(1, n) : Infinity
+  }
+
+  // When multiple payment methods exist, allow quantity up to the maximum
+  // per-viewer cap among them. PaymentMethodsComponent will filter tabs/options
+  // when quantity exceeds a specific method's cap.
+  const viewerMaxFromPaymentOptions = (() => {
+    if (!hasPaymentMethods) return Infinity
+
+    const dropInMax = paymentMethods?.allowedDropIn
+      ? (() => {
+          const dropInAny = paymentMethods.allowedDropIn as any
+          const rawMax = dropInAny.maxBookingsPerTimeslot as number | null | undefined
+          if (rawMax == null) {
+            return dropInAny.adjustable === false ? 1 : Infinity
+          }
+          return maxFromMaybeCap(rawMax)
+        })()
+      : 1
+    const planCapsWithLegacy =
+      paymentMethods?.allowedPlans?.map((p) => {
+        const siAny = p.sessionsInformation as any
+        const rawMax = siAny?.maxBookingsPerTimeslot as number | null | undefined
+        if (rawMax == null) {
+          return maxFromMaybeCap(siAny?.allowMultipleBookingsPerTimeslot === false ? 1 : null)
+        }
+        return maxFromMaybeCap(rawMax)
+      }) ?? []
+    const classPassCaps =
+      paymentMethods?.allowedClassPasses?.map((p) => {
+        const passAny = p as any
+        const rawMax = passAny?.maxBookingsPerTimeslot as number | null | undefined
+        if (rawMax == null) {
+          return maxFromMaybeCap(passAny?.allowMultipleBookingsPerTimeslot === false ? 1 : null)
+        }
+        return maxFromMaybeCap(rawMax)
+      }) ?? []
+
+    const caps = [dropInMax, ...planCapsWithLegacy, ...classPassCaps]
+    return caps.some((c) => c === Infinity) ? Infinity : Math.max(1, ...caps)
+  })()
+
+  const maxQuantity =
+    viewerMaxFromPaymentOptions === Infinity
+      ? capacityMaxQuantity
+      : Math.min(capacityMaxQuantity, viewerMaxFromPaymentOptions)
 
   useEffect(() => {
     setQuantity((q) => Math.min(Math.max(1, q), maxQuantity))

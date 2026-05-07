@@ -59,12 +59,12 @@ export async function POST(request: NextRequest) {
   const timeslot = (await payload.findByID({
     collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
     id: timeslotId,
-    depth: 1,
+    depth: 3,
     overrideAccess: true,
   })) as {
     tenant?: number | { id: number }
     remainingCapacity?: number
-    eventType?: number | { id: number } | null
+    eventType?: any
   } | null
 
   if (!timeslot) {
@@ -75,6 +75,64 @@ export async function POST(request: NextRequest) {
     typeof timeslot.remainingCapacity === 'number'
       ? Math.max(0, timeslot.remainingCapacity)
       : await computeRemainingCapacityForTimeslot(payload, timeslotId, timeslot)
+
+  // Per-viewer cap for drop-in multi-booking (confirmed bookings only).
+  // Note: when we confirm existing pending bookings via metadata, cap must still apply.
+  const dropInRaw = timeslot?.eventType?.paymentMethods?.allowedDropIn ?? null
+  let dropInDoc: any = null
+  if (dropInRaw && typeof dropInRaw === 'object') {
+    dropInDoc = dropInRaw
+  } else if (typeof dropInRaw === 'number') {
+    dropInDoc = await payload.findByID({
+      collection: 'drop-ins',
+      id: dropInRaw,
+      depth: 0,
+      overrideAccess: true,
+    }).catch(() => null)
+  }
+
+  const configuredMaxRaw = dropInDoc?.maxBookingsPerTimeslot
+  const maxPerViewer =
+    dropInDoc == null
+      ? 1
+      : configuredMaxRaw == null
+        ? Infinity
+        : Number.isFinite(Number(configuredMaxRaw))
+          ? Math.max(1, Number(configuredMaxRaw))
+          : Infinity
+
+  const requestedForCap = bookingIds.length > 0 ? bookingIds.length : quantity
+
+  if (maxPerViewer !== Infinity) {
+    const existingConfirmedResult = await payload.find({
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
+      depth: 0,
+      limit: 0,
+      overrideAccess: true,
+      where: {
+        and: [
+          { timeslot: { equals: timeslotId } },
+          { user: { equals: user.id } },
+          { status: { equals: 'confirmed' } },
+        ],
+      },
+    })
+
+    const existingConfirmed = existingConfirmedResult.totalDocs ?? 0
+
+    if (existingConfirmed + requestedForCap > maxPerViewer) {
+      const remainingForUser = Math.max(0, maxPerViewer - existingConfirmed)
+      return NextResponse.json(
+        {
+          error:
+            remainingForUser === 0
+              ? 'You already have the maximum confirmed bookings for this timeslot with this payment option.'
+              : `You can book up to ${maxPerViewer} confirmed bookings per timeslot with this payment option. You can add ${remainingForUser} more.`,
+        },
+        { status: 400 },
+      )
+    }
+  }
 
   const classPriceAmountCents = formatAmountForStripe(price, 'eur')
   // €0 bootstrap (e.g. 100% promo): skip capacity precheck so we can return { zeroAmount } before

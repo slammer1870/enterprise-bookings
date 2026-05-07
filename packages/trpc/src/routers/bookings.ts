@@ -93,19 +93,50 @@ export const bookingsRouter = {
       }
 
       const paymentMethods = (eventType as any)?.paymentMethods as
-        | { allowedDropIn?: any; allowedPlans?: any[] }
+        | { allowedDropIn?: any; allowedPlans?: any[]; allowedClassPasses?: any[] }
         | undefined;
       const hasPaymentMethods = Boolean(
-        paymentMethods?.allowedDropIn || (paymentMethods?.allowedPlans?.length ?? 0) > 0
+        paymentMethods?.allowedDropIn ||
+          (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
+          (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
       );
-      const dropInAllowsMultiple =
-        (paymentMethods as any)?.allowedDropIn?.allowMultipleBookingsPerTimeslot === true;
-      const planAllowsMultiple = Array.isArray((paymentMethods as any)?.allowedPlans)
-        ? (paymentMethods as any).allowedPlans.some(
-            (p: any) => p?.sessionsInformation?.allowMultipleBookingsPerTimeslot === true
-          )
-        : false;
-      const allowsMultipleBookingsForViewer = !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple;
+
+      const maxFromCapOrLegacy = (
+        rawMax: any,
+        legacyAllowMultiple: boolean | undefined
+      ): number => {
+        // New semantics: null means unbounded; number means bounded; undefined means "legacy lookup".
+        if (rawMax === null) return Infinity;
+        if (rawMax === undefined) return legacyAllowMultiple === true ? Infinity : 1;
+        const n = Number(rawMax);
+        return Number.isFinite(n) ? Math.max(1, n) : Infinity;
+      };
+
+      const caps: number[] = [];
+      if (paymentMethods?.allowedDropIn) {
+        const d: any = paymentMethods.allowedDropIn;
+        caps.push(maxFromCapOrLegacy(d?.maxBookingsPerTimeslot, d?.adjustable === true));
+      }
+      if (Array.isArray(paymentMethods?.allowedPlans)) {
+        for (const p of paymentMethods.allowedPlans as any[]) {
+          const si = p?.sessionsInformation;
+          caps.push(maxFromCapOrLegacy(si?.maxBookingsPerTimeslot, si?.allowMultipleBookingsPerTimeslot === true));
+        }
+      }
+      if (Array.isArray(paymentMethods?.allowedClassPasses)) {
+        for (const cp of paymentMethods.allowedClassPasses as any[]) {
+          caps.push(maxFromCapOrLegacy(cp?.maxBookingsPerTimeslot, cp?.allowMultipleBookingsPerTimeslot === true));
+        }
+      }
+
+      const viewerMaxPerTimeslot = !hasPaymentMethods
+        ? Infinity
+        : caps.length > 0
+          ? caps.some((c) => c === Infinity)
+            ? Infinity
+            : Math.max(1, ...caps)
+          : 1;
+      const allowsMultipleBookingsForViewer = viewerMaxPerTimeslot > 1;
       const singleSlotOnly = !allowsMultipleBookingsForViewer;
 
       // If this isn't a single-slot timeslot, fall back to the normal booking page flow.
@@ -617,7 +648,7 @@ export const bookingsRouter = {
           | {
               id: number;
               quantity: number;
-              type?: number | { id: number; allowMultipleBookingsPerTimeslot?: boolean };
+              type?: number | { id: number; maxBookingsPerTimeslot?: number | null };
             }
           | undefined;
         if (!passDoc) {
@@ -630,7 +661,7 @@ export const bookingsRouter = {
           typeof passDoc.type === "object" && passDoc.type != null
             ? (passDoc.type as { id: number }).id
             : passDoc.type;
-        let passType: { allowMultipleBookingsPerTimeslot?: boolean } | null = null;
+        let passType: { maxBookingsPerTimeslot?: number | null } | null = null;
         if (passTypeId != null && hasCollection(ctx.payload, "class-pass-types")) {
           const typeDoc = await findByIdSafe(
             ctx.payload,
@@ -638,20 +669,50 @@ export const bookingsRouter = {
             passTypeId,
             { depth: 0, overrideAccess: true }
           );
-          passType = typeDoc as { allowMultipleBookingsPerTimeslot?: boolean } | null;
+          passType = typeDoc as { maxBookingsPerTimeslot?: number | null } | null;
         }
-        const allowMultiple = passType?.allowMultipleBookingsPerTimeslot === true;
-        if (quantity > 1 && !allowMultiple) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message:
-              "This class pass allows only one slot per timeslot. Reduce quantity to 1 or use a different pass.",
-          });
-        }
+
         if (passDoc.quantity < quantity) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: `Not enough credits on this pass. You have ${passDoc.quantity}; need ${quantity}.`,
+          });
+        }
+
+        // Secondary check (per-viewer) for class-pass multi-booking limits:
+        // existing confirmed bookings + requested quantity must not exceed the per-timeslot max.
+        //
+        // Important: when both checks would fail, surface "not enough credits" first
+        // (expected by `class-pass-booking-ui.int.spec.ts`).
+        const existingConfirmedResult = await findSafe<Booking>(ctx.payload, "bookings", {
+          where: {
+            and: [
+              { timeslot: { equals: timeslotId } },
+              { user: { equals: ctx.user.id } },
+              { status: { equals: "confirmed" } },
+              ...(timeslotTenantId != null ? [{ tenant: { equals: timeslotTenantId } }] : []),
+            ],
+          },
+          depth: 0,
+          limit: 0,
+          overrideAccess: true,
+        });
+        const existingConfirmedCount = existingConfirmedResult.totalDocs ?? 0;
+
+        const configuredMax = passType?.maxBookingsPerTimeslot ?? null;
+        const maxPerTimeslot =
+          configuredMax == null ? Infinity : Math.max(1, Number(configuredMax));
+
+        const remainingAllowed =
+          maxPerTimeslot === Infinity ? Infinity : Math.max(0, maxPerTimeslot - existingConfirmedCount);
+
+        if (remainingAllowed !== Infinity && quantity > remainingAllowed) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              remainingAllowed === 0
+                ? "This class pass has reached its per-timeslot booking limit. Reduce quantity or use a different pass."
+                : `This class pass allows at most ${maxPerTimeslot} bookings per timeslot. You can add ${remainingAllowed} more.`,
           });
         }
         paymentMethodUsed = "class_pass";
@@ -670,8 +731,8 @@ export const bookingsRouter = {
             code: "BAD_REQUEST",
             message:
               maxSubQty === 0
-                ? "You already have a booking for this timeslot. Your membership allows one slot per timeslot."
-                : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per timeslot for this plan.`,
+                ? "You already have the maximum bookings for this timeslot with your membership."
+                : `Your membership allows ${maxSubQty} more slot${maxSubQty !== 1 ? "s" : ""} for this timeslot. Reduce quantity or use a different payment method.`,
           });
         }
       }
@@ -963,7 +1024,7 @@ export const bookingsRouter = {
             expirationDate: { greater_than: now },
           },
           limit: 50,
-          depth: 1,
+          depth: 2,
           sort: "expirationDate",
           overrideAccess: true,
         }
@@ -1073,11 +1134,32 @@ export const bookingsRouter = {
             typeof (fullDoc as { quantity?: unknown }).quantity === "number"
               ? ((fullDoc as { quantity: number }).quantity)
               : 0;
-          const allowMultiple =
-            (fullDoc as { allowMultipleBookingsPerTimeslot?: unknown }).allowMultipleBookingsPerTimeslot === true;
+          const rawMax = (fullDoc as any).maxBookingsPerTimeslot as number | null | undefined;
+          const legacyAllowMultiple = (fullDoc as any).allowMultipleBookingsPerTimeslot === true;
+          const legacyAllowMultipleExplicitFalse = (fullDoc as any).allowMultipleBookingsPerTimeslot === false;
+
+          const maxPerTimeslot = (() => {
+            // New numeric semantics should win:
+            // - `maxBookingsPerTimeslot: null` means "no per-user limit" and must stay unlimited,
+            //   even if legacy `allowMultipleBookingsPerTimeslot` defaults to `false` in the DB.
+            if (rawMax === null) return Infinity;
+
+            // If the numeric cap is missing (old row / field not set), fall back to legacy boolean.
+            if (rawMax === undefined) {
+              // If the old boolean is present, use it; otherwise default to single-booking (1).
+              // Tests that need "unlimited" should set `maxBookingsPerTimeslot: null` explicitly.
+              return legacyAllowMultiple ? Infinity : 1;
+            }
+
+            // Numeric cap exists: legacy "allow multiple" can still override stale numeric values.
+            if (legacyAllowMultipleExplicitFalse) return 1;
+            if (legacyAllowMultiple) return Infinity;
+
+            return Math.max(1, Number(rawMax));
+          })();
 
           if (passQuantity < requiredQuantity) return null;
-          if (requiredQuantity > 1 && !allowMultiple) return null;
+          if (requiredQuantity > maxPerTimeslot) return null;
 
           // Extract priceId from priceJSON (may be a JSON string or a stored object)
           const rawPriceJsonField = (fullDoc as { priceJSON?: unknown }).priceJSON;
@@ -1149,7 +1231,7 @@ export const bookingsRouter = {
                 ? (fullDoc as { description: string }).description
                 : null,
             quantity: passQuantity,
-            allowMultipleBookingsPerTimeslot: allowMultiple,
+            maxBookingsPerTimeslot: maxPerTimeslot === Infinity ? null : maxPerTimeslot,
             price:
               typeof (fullDoc as { priceInformation?: { price?: unknown } }).priceInformation?.price === "number"
                 ? ((fullDoc as { priceInformation: { price: number } }).priceInformation.price)
@@ -2190,14 +2272,14 @@ export const bookingsRouter = {
           ctx.payload
         );
         if (maxSubQty != null) {
-          const maxAdditionalFromSub = Math.max(0, maxSubQty - currentConfirmed);
+          const maxAdditionalFromSub = Math.max(0, maxSubQty);
           if (additional > maxAdditionalFromSub) {
             throw new TRPCError({
               code: "BAD_REQUEST",
               message:
                 maxAdditionalFromSub === 0
-                  ? "You already have the maximum bookings for this timeslot. Your membership allows one slot per timeslot."
-                  : `Your membership allows at most ${maxSubQty} slot${maxSubQty !== 1 ? "s" : ""} per timeslot. You can add ${maxAdditionalFromSub} more.`,
+                  ? "You already have the maximum bookings for this timeslot with your membership."
+                  : `Your membership allows ${maxAdditionalFromSub} more slot${maxAdditionalFromSub !== 1 ? "s" : ""} for this timeslot. Reduce quantity.`,
             });
           }
         }

@@ -38,6 +38,13 @@ const dirname = path.dirname(filename)
 const schemaPushExplicitlyAllowedInDev =
   process.env.NODE_ENV === 'development' && process.env.PAYLOAD_PUSH_SCHEMA === '1'
 
+// `payload migrate` runs on a clean DB (e.g. `migrate:fresh`), so it's safer to allow
+// Payload's schema push for the duration of the CLI command. Some of our custom
+// migrations assume base tables exist and otherwise fail with "relation does not exist".
+const isPayloadMigrateCliRun = process.argv.some(
+  (arg) => arg === 'migrate' || arg.startsWith('migrate:') || arg.includes('migrate:'),
+)
+
 const disableSchemaPush =
   process.env.NODE_ENV === 'production' ||
   process.env.NODE_ENV === 'test' ||
@@ -45,6 +52,9 @@ const disableSchemaPush =
   // Playwright webServer sets PW_E2E_PROFILE even when NODE_ENV=development.
   Boolean(process.env.PW_E2E_PROFILE) ||
   !schemaPushExplicitlyAllowedInDev
+
+// Keep schema push enabled for migrations (especially `migrate:fresh`).
+const disableSchemaPushDuringMigrations = disableSchemaPush && !isPayloadMigrateCliRun
 
 export default buildConfig({
   admin: {
@@ -118,14 +128,16 @@ export default buildConfig({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
       // E2E/CI runs start multiple Node processes (Next server + Playwright workers + Payload local API).
-      // Increased from 2 to 5 to prevent connection pool exhaustion and deadlocks during E2E tests.
-      ...(disableSchemaPush || process.env.CI || process.env.NODE_ENV === 'test'
-        ? { max: 5 }
+      // Increased from 2 to 5 previously; some integration suites can still deadlock/time out when
+      // Vitest runs many files in parallel and Payload needs DB connections during initialization.
+      // Bump via PAYLOAD_DB_POOL_MAX if needed.
+      ...(disableSchemaPushDuringMigrations || process.env.CI || process.env.NODE_ENV === 'test'
+        ? { max: Number(process.env.PAYLOAD_DB_POOL_MAX ?? 10) }
         : {}),
     },
     // Ensure CLI migrations (migrate / migrate:fresh) use our repo migrations.
     migrationDir: path.resolve(dirname, 'migrations'),
-    ...(disableSchemaPush
+    ...(disableSchemaPushDuringMigrations
       ? {
         push: false,
       }

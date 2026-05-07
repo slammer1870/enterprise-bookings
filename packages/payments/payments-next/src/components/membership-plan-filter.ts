@@ -1,14 +1,9 @@
 import type { Plan, Subscription } from "@repo/shared-types";
 
 export function planAllowsMultipleBookingsPerTimeslot(plan: unknown): boolean {
-  if (!plan || typeof plan !== "object") return false;
-  const p = plan as {
-    sessionsInformation?: {
-      sessions?: number;
-      allowMultipleBookingsPerTimeslot?: boolean;
-    };
-  };
-  return p.sessionsInformation?.allowMultipleBookingsPerTimeslot === true;
+  // Legacy alias kept for backwards compatibility with older callers.
+  // With numeric caps, "multiple" means "quantity > 1 is allowed".
+  return planCanCoverQuantity(plan, 2) && planMaxAllowsQuantity(plan, 2);
 }
 
 export function planCanCoverQuantity(plan: unknown, requiredQuantity: number): boolean {
@@ -22,6 +17,27 @@ export function planCanCoverQuantity(plan: unknown, requiredQuantity: number): b
   const si = p.sessionsInformation;
   if (!si || si.sessions == null || si.sessions <= 0) return true;
   return si.sessions >= requiredQuantity;
+}
+
+export function planMaxAllowsQuantity(plan: unknown, requiredQuantity: number): boolean {
+  if (requiredQuantity <= 0) return true;
+  if (!plan || typeof plan !== "object") return false;
+
+  const p = plan as {
+    sessionsInformation?: {
+      maxBookingsPerTimeslot?: number | null;
+      allowMultipleBookingsPerTimeslot?: boolean;
+    };
+  };
+
+  const rawMax = p.sessionsInformation?.maxBookingsPerTimeslot;
+  const max =
+    rawMax == null
+      ? p.sessionsInformation?.allowMultipleBookingsPerTimeslot === true
+        ? Infinity
+        : 1
+      : Math.max(1, Number(rawMax));
+  return requiredQuantity <= max;
 }
 
 export function getMembershipPlansForView(args: {
@@ -42,7 +58,7 @@ export function getMembershipPlansForView(args: {
   }
 
   if (quantity > 1) {
-    activePlans = activePlans.filter((plan) => planAllowsMultipleBookingsPerTimeslot(plan));
+    activePlans = activePlans.filter((plan) => planMaxAllowsQuantity(plan, quantity));
   }
 
   const currentSubscriptionPlan =
