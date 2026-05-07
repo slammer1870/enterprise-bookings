@@ -4,6 +4,7 @@ import type { Where } from 'payload'
 import { cookies, draftMode, headers } from 'next/headers'
 import { cache } from 'react'
 import { createCaller } from '@/trpc/server'
+import type { CardPostData } from '@/components/Card'
 
 const DEFAULT_LIMIT = 12
 
@@ -19,11 +20,16 @@ export const queryPostsArchive = cache(
     const tenantId = tenant?.id ?? null
 
     const caller = await createCaller()
-    return caller.content.posts.archive({
+    const result = await caller.content.posts.archive({
       page,
       limit,
       draft,
       tenantId,
     })
+
+    return {
+      ...result,
+      docs: (result.docs ?? []) as CardPostData[],
+    }
   },
 )

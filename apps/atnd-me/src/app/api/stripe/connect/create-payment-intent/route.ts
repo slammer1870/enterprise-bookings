@@ -231,8 +231,8 @@ export async function POST(request: NextRequest) {
     }
 
     const resolvedBookingIds = bookingIds
-      .map((id) => parseInt(id, 10))
-      .filter((id) => Number.isFinite(id))
+      .map((id: string | number) => parseInt(String(id), 10))
+      .filter((id: number) => Number.isFinite(id))
 
     await confirmBookingsFromPaymentIntent(payload, resolvedBookingIds, {
       tenantId,

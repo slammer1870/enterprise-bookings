@@ -84,7 +84,8 @@ export const contentRouter = {
         };
 
         const result = await ctx.payload.find({
-          collection: "posts",
+          // "posts" is app-specific and not present in every generated CollectionSlug union.
+          collection: "posts" as any,
           draft: input.draft,
           depth: 2,
           limit: 1,
@@ -138,7 +139,8 @@ export const contentRouter = {
         };
 
         return ctx.payload.find({
-          collection: "posts",
+          // "posts" is app-specific and not present in every generated CollectionSlug union.
+          collection: "posts" as any,
           draft: input.draft,
           depth: 1,
           limit,

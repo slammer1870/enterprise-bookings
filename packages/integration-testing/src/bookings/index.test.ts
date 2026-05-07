@@ -40,6 +40,7 @@ describe("Booking tests", () => {
       config.db = setDbString(dbString);
       process.env.DATABASE_URI = dbString;
       // Some app payload configs look for DATABASE_URL.
+      // eslint-disable-next-line turbo/no-undeclared-env-vars
       process.env.DATABASE_URL = dbString;
     }
 
@@ -1215,9 +1216,9 @@ describe("Booking tests", () => {
 
       await expect(
         caller.bookings.createBookings({
-          timeslotId: timeslot.id,
+          timeslotId: Number(timeslot.id),
           quantity: 1,
-          subscriptionId: subscription.id,
+          subscriptionId: Number(subscription.id),
         }),
       ).rejects.toThrow(/maximum bookings for this timeslot with your membership/i);
     },
@@ -1323,7 +1324,7 @@ describe("Booking tests", () => {
         const caller = await createCallerFor(user3);
         await expect(
           caller.bookings.createBookings({
-            timeslotId: timeslot.id,
+            timeslotId: Number(timeslot.id),
             quantity: 1,
             classPassId,
           }),
@@ -1341,7 +1342,14 @@ describe("Booking tests", () => {
     "should enforce drop-in maxBookingsPerTimeslot per viewer (confirmed-only)",
     async () => {
       try {
-        const mod = await import("../../../../apps/atnd-me/src/app/api/stripe/connect/create-payment-intent/route");
+        // Avoid static type-resolution of app-local aliases during package typecheck.
+        const loadRouteModule = new Function(
+          "p",
+          "return import(p)"
+        ) as (p: string) => Promise<any>;
+        const mod = await loadRouteModule(
+          "../../../../apps/atnd-me/src/app/api/stripe/connect/create-payment-intent/route"
+        );
         const createPaymentIntentPOST: any = mod.POST;
 
         if (!(payload as any)?.collections?.["drop-ins"]) return;

@@ -173,7 +173,6 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   )
   const viewerMaxPerTimeslot = useMemo(
     () => computeViewerMax(paymentMethods),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 
@@ -189,8 +188,6 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   const initialPending = useMemo(
     () => byStatus(initialBookings ?? [], 'pending'),
-    // intentionally run once on mount only — this is the SSR snapshot
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   )
 

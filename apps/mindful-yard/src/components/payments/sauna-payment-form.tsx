@@ -117,7 +117,11 @@ export const SaunaPaymentForm = ({ timeslot, user }: SaunaPaymentFormProps) => {
             attendees={attendees}
             setAttendees={setAttendees}
             adjustableQuantity={
-              timeslot.eventType.paymentMethods?.allowedDropIn?.adjustable || false
+              (() => {
+                const max = timeslot.eventType.paymentMethods?.allowedDropIn?.maxBookingsPerTimeslot
+                // New semantics: null/undefined => no per-user cap (adjustable), 1 => fixed single slot.
+                return max == null || Number(max) > 1
+              })()
             }
           />
           {/* Attendees and Payment Form */}
