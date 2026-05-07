@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import { Banner, Gutter } from '@payloadcms/ui'
 import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
 
@@ -59,6 +60,7 @@ export const AnalyticsDashboardClient: React.FC<{
   /** Tenant name for display when scoped to one tenant. */
   selectedTenantName?: string | null
 }> = ({ selectedTenantId }) => {
+  const router = useRouter()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +70,10 @@ export const AnalyticsDashboardClient: React.FC<{
   const [stripeNotice] = useState(() =>
     typeof window !== 'undefined' ? getStripeConnectNoticeFromSearch(window.location.search) : null,
   )
+
+  useEffect(() => {
+    router.prefetch('/admin/collections/timeslots')
+  }, [router])
 
   const preset = PRESETS[Math.min(presetIndex, PRESETS.length - 1)] ?? PRESETS[0]
   const days = preset.days
