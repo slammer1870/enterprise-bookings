@@ -834,8 +834,21 @@ export function PaymentMethods({
         return [passType as PurchasableClassPassType];
       })
     : [];
+  // Show the class pass tab only when at least one configured class pass type can
+  // cover the selected quantity (per its `maxBookingsPerTimeslot` cap).  Once the
+  // quantity exceeds every type's cap the tab would only ever show "No valid class
+  // pass", so hiding it keeps the UI focused on methods that actually work.
+  const anyClassPassTypeAllowsQuantity =
+    Array.isArray(allowedClassPasses) &&
+    allowedClassPasses.some((cp: unknown) => {
+      if (typeof cp !== "object" || cp == null) return false;
+      const raw = (cp as { maxBookingsPerTimeslot?: number | null })
+        .maxBookingsPerTimeslot;
+      const effectiveMax = raw == null ? Infinity : Math.max(1, Number(raw));
+      return effectiveMax === Infinity || quantity <= effectiveMax;
+    });
   const hasClassPassTab =
-    Boolean(allowedClassPasses?.length) ||
+    (Boolean(allowedClassPasses?.length) && anyClassPassTypeAllowsQuantity) ||
     classPassesWithEnoughCredits.length > 0 ||
     purchasablePassesForQuantity.length > 0;
 
