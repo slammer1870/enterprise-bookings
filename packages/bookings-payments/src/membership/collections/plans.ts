@@ -196,7 +196,12 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
   const si = d.sessionsInformation;
   if (!si || typeof si !== "object") return data;
 
-  if (typeof si.allowMultipleBookingsPerTimeslot === "boolean") {
+  // Legacy mapping: only apply when numeric maxBookingsPerTimeslot isn't
+  // included in the update payload.
+  if (
+    typeof si.allowMultipleBookingsPerTimeslot === "boolean" &&
+    typeof si.maxBookingsPerTimeslot === "undefined"
+  ) {
     si.maxBookingsPerTimeslot = si.allowMultipleBookingsPerTimeslot ? null : 1;
   }
 

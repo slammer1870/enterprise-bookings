@@ -443,7 +443,7 @@ export function createCustomExpiryMagicLinkSender(config: BetterAuthServerConfig
     expiresInSeconds,
   }: {
     /** Payload instance (available as `req.payload` in endpoints). */
-    payload: { create: (...args: any[]) => Promise<any> };
+    payload: { create: (..._args: any[]) => Promise<any> };
     email: string;
     /** The absolute URL the user should land on after clicking the link. */
     callbackURL: string;

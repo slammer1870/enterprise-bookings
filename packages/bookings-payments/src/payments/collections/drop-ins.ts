@@ -112,9 +112,15 @@ export function dropInsCollection(
             maxBookingsPerTimeslot?: number | null
           }
 
-          if (d.adjustable === true) {
+          // Legacy mapping: only apply the hidden adjustable flag when the
+          // numeric cap isn't present in the update payload. This prevents
+          // saving the numeric value from being overwritten back to null/1.
+          if (d.adjustable === true && typeof d.maxBookingsPerTimeslot === "undefined") {
             d.maxBookingsPerTimeslot = null
-          } else if (d.adjustable === false && d.maxBookingsPerTimeslot == null) {
+          } else if (
+            d.adjustable === false &&
+            typeof d.maxBookingsPerTimeslot === "undefined"
+          ) {
             // If explicitly non-adjustable and caller didn't supply the numeric cap,
             // fall back to the default "1 per user per timeslot".
             d.maxBookingsPerTimeslot = 1

@@ -178,7 +178,13 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
           maxBookingsPerTimeslot?: number | null
         }
 
-        if (typeof d.allowMultipleBookingsPerTimeslot === "boolean") {
+        // Legacy mapping: only apply the hidden boolean flag when the numeric field
+        // isn't present in the update payload. Otherwise, the new numeric semantics
+        // should win (avoids resetting numeric value back to null/1 on save).
+        if (
+          typeof d.allowMultipleBookingsPerTimeslot === "boolean" &&
+          typeof d.maxBookingsPerTimeslot === "undefined"
+        ) {
           d.maxBookingsPerTimeslot = d.allowMultipleBookingsPerTimeslot ? null : 1
         }
 
