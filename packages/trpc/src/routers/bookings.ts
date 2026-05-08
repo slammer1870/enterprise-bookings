@@ -1139,22 +1139,18 @@ export const bookingsRouter = {
           const legacyAllowMultipleExplicitFalse = (fullDoc as any).allowMultipleBookingsPerTimeslot === false;
 
           const maxPerTimeslot = (() => {
-            // New numeric semantics should win:
-            // - `maxBookingsPerTimeslot: null` means "no per-user limit" and must stay unlimited,
-            //   even if legacy `allowMultipleBookingsPerTimeslot` defaults to `false` in the DB.
+            // `null` means explicitly unlimited.
             if (rawMax === null) return Infinity;
 
-            // If the numeric cap is missing (old row / field not set), fall back to legacy boolean.
+            // `undefined` means the numeric field was never set (legacy row): fall back to the
+            // boolean field. Do NOT apply this fallback when rawMax is a real number — the
+            // numeric value is the source of truth and must not be overridden by the legacy
+            // boolean (which defaults to `false` in the DB for all rows, including new ones).
             if (rawMax === undefined) {
-              // If the old boolean is present, use it; otherwise default to single-booking (1).
-              // Tests that need "unlimited" should set `maxBookingsPerTimeslot: null` explicitly.
               return legacyAllowMultiple ? Infinity : 1;
             }
 
-            // Numeric cap exists: legacy "allow multiple" can still override stale numeric values.
-            if (legacyAllowMultipleExplicitFalse) return 1;
-            if (legacyAllowMultiple) return Infinity;
-
+            // Explicit numeric cap: always use it, regardless of the legacy boolean.
             return Math.max(1, Number(rawMax));
           })();
 
