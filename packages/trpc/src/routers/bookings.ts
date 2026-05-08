@@ -1136,7 +1136,6 @@ export const bookingsRouter = {
               : 0;
           const rawMax = (fullDoc as any).maxBookingsPerTimeslot as number | null | undefined;
           const legacyAllowMultiple = (fullDoc as any).allowMultipleBookingsPerTimeslot === true;
-          const legacyAllowMultipleExplicitFalse = (fullDoc as any).allowMultipleBookingsPerTimeslot === false;
 
           const maxPerTimeslot = (() => {
             // `null` means explicitly unlimited.

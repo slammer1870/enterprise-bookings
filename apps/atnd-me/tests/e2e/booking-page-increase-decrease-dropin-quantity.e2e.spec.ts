@@ -107,8 +107,11 @@ test.describe("Booking page: increase/decrease drop-in quantity", () => {
     // Switch to the drop-in tab (quantity selector lives there).
     await page.getByRole("tab", { name: /drop-?in/i }).click()
 
-    const inc = page.getByRole("button", { name: /increase quantity/i })
-    const dec = page.getByRole("button", { name: /decrease quantity/i })
+    // There can be multiple "increase/decrease quantity" buttons in the DOM
+    // (e.g. hidden/alternate payment tabs). Use `.first()` to target the
+    // active one under the selected tab.
+    const inc = page.getByRole("button", { name: /increase quantity/i }).first()
+    const dec = page.getByRole("button", { name: /decrease quantity/i }).first()
 
     await expect(inc).toBeVisible()
     await expect(dec).toBeVisible()
