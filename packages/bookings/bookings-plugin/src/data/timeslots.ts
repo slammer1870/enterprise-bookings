@@ -159,10 +159,9 @@ async function attachShallowTenantAndEventType(
  * Populate `bookings.totalDocs` without using the timeslot join field (which resolves
  * per-document in Payload and can mean hundreds of queries for a single day view).
  *
- * Loads only the `timeslot` FK in pages (one query per page) and aggregates counts in
- * memory. This is typically far fewer round-trips than one `payload.count` per timeslot
- * (e.g. ~100 counts for a full day) while still honoring `overrideAccess: false` /
- * booking read rules when `req` is passed.
+ * Issues a single `payload.find()` across all timeslot IDs (selecting only the timeslot
+ * FK), then aggregates counts in memory. This replaces the previous approach of one
+ * `payload.count()` per timeslot (e.g. 100 DB round-trips for a full-day page).
  */
 async function attachBookingCountsForTimeslots(
   payload: BasePayload,
@@ -191,31 +190,35 @@ async function attachBookingCountsForTimeslots(
   const countByTimeslot = new Map<number, number>();
   for (const id of ids) countByTimeslot.set(id, 0);
 
-  // Payload doesn't expose "GROUP BY" across collections, so the previous approach
-  // paged through all matching bookings and aggregated in JS.
-  //
-  // For the admin dashboard, switching to DB-side `COUNT(*)` per timeslot via
-  // Payload API typically cuts work dramatically because each call can use indexes
-  // and avoids transferring/iterating booking rows.
-  const bookingWhereForCount = (timeslotId: number) => ({
-    timeslot: { equals: timeslotId },
-    ...(excludePendingForStaffOnly ? { status: { not_equals: "pending" } } : {}),
-  });
+  // Single query: fetch only the timeslot FK for all bookings across all timeslot IDs at
+  // once, then tally counts in JS. One round-trip regardless of how many timeslots are on
+  // the page — far cheaper than the previous approach of one COUNT per timeslot.
+  const allBookings = await payload.find({
+    collection: bookingsSlug as CollectionSlug,
+    where: {
+      and: [
+        { timeslot: { in: ids } },
+        ...(excludePendingForStaffOnly ? [{ status: { not_equals: "pending" } }] : []),
+      ],
+    },
+    select: { timeslot: true } as any,
+    depth: 0,
+    limit: 0,
+    ...(access as object),
+    context: { triggerAfterChange: false },
+  } as Parameters<BasePayload["find"]>[0]);
 
-  const concurrency = 10;
-  for (let i = 0; i < ids.length; i += concurrency) {
-    const batch = ids.slice(i, i + concurrency);
-    await Promise.all(
-      batch.map(async (timeslotId) => {
-        const result = await payload.count({
-          collection: bookingsSlug as CollectionSlug,
-          where: bookingWhereForCount(timeslotId),
-          depth: 0,
-          ...(access as object),
-        } as Parameters<BasePayload["count"]>[0]);
-        countByTimeslot.set(timeslotId, typeof result?.totalDocs === "number" ? result.totalDocs : 0);
-      }),
-    );
+  for (const booking of allBookings.docs) {
+    const rawTimeslot = (booking as any).timeslot;
+    const timeslotId =
+      typeof rawTimeslot === "number"
+        ? rawTimeslot
+        : rawTimeslot && typeof rawTimeslot === "object"
+          ? (rawTimeslot as { id: number }).id
+          : null;
+    if (timeslotId != null && countByTimeslot.has(timeslotId)) {
+      countByTimeslot.set(timeslotId, (countByTimeslot.get(timeslotId) ?? 0) + 1);
+    }
   }
 
   for (const t of timeslots) {
@@ -256,20 +259,25 @@ export const getTimeslots = async (
     searchQuery.where = { and: [baseWhere, { tenant: { equals: tenantId } }] };
   }
 
-  // Pass req to payload.find() so multi-tenant plugin can filter by tenant
-  // If req is provided, it will include user context and tenant filtering will be applied
-  // IMPORTANT: Set overrideAccess: false when req is provided to enforce access control
-  // This ensures tenant filtering and user permissions are respected
+  // Prevent the `remainingCapacity` and `bookingStatus` virtual field afterRead hooks
+  // from firing for this list query. Those hooks each make 2–5 DB round-trips per
+  // timeslot; the admin list doesn't display those fields, so the work is wasted.
+  // Setting `triggerAfterChange: false` on req.context is the hook's own opt-out
+  // convention (see getRemainingCapacity / getBookingStatus). We set it directly on
+  // req.context (rather than the `context` arg) so the existing cache entries stored
+  // there are still visible to the access-control functions that run inside this find.
+  if (req?.context != null) {
+    (req.context as Record<string, unknown>).triggerAfterChange = false;
+  }
+
   const timeslotList = await payload.find({
     collection,
     ...ps,
     ...(tenantId != null ? { where: searchQuery.where } : {}),
     ...(req ? { req, overrideAccess: false } : {}),
-    // Only select fields needed for the admin list UI.
-    // This avoids executing expensive virtual fields like:
-    // - `remainingCapacity` (afterRead hook queries bookings)
-    // - `bookingStatus` (afterRead hook queries bookings + eventType)
-    // Omit `bookings` join — counts are attached in one batched pass (see below).
+    // Only select fields needed for the admin list UI — limits the DB columns fetched.
+    // Combined with `triggerAfterChange: false` above this avoids the expensive virtual
+    // field hooks (`remainingCapacity`, `bookingStatus`) and the `bookings` join.
     select: {
       id: true,
       startTime: true,

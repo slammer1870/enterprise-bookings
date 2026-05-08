@@ -11,6 +11,7 @@
     "@repo/bookings-payments": "workspace:*",
     "@repo/payments-plugin": "workspace:*",
     "@repo/roles": "workspace:*",
+    "@repo/trpc": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

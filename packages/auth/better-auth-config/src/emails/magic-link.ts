@@ -3,6 +3,10 @@ export interface MagicLinkEmailTemplateProps {
   userName?: string
   appName?: string
   expiryTime?: string
+  /** Override the instructional paragraph (defaults to sign-in copy). */
+  instructions?: string
+  /** Override the CTA button label (defaults to "Sign in to {appName}"). */
+  ctaText?: string
 }
 
 /**
@@ -14,10 +18,16 @@ export function buildMagicLinkEmailHtml({
   userName = '',
   appName = 'Our App',
   expiryTime = '1 hour',
+  instructions,
+  ctaText,
 }: MagicLinkEmailTemplateProps): string {
   const greeting = userName ? `Hello, ${escapeHtml(userName)}` : 'Hello'
   const safeAppName = escapeHtml(appName)
   const safeLink = escapeHtml(magicLink)
+  const safeInstructions = instructions
+    ? escapeHtml(instructions)
+    : `Someone requested a magic link to sign in to your ${safeAppName} account. Click the button below to sign in. This link expires in ${escapeHtml(expiryTime)}.`
+  const safeCtaText = ctaText ? escapeHtml(ctaText) : `Sign in to ${safeAppName}`
 
   return `<!doctype html>
 <html>
@@ -35,12 +45,11 @@ export function buildMagicLinkEmailHtml({
         <div style="padding:40px 30px;">
           <h2 style="font-size:22px;font-weight:700;margin:0 0 20px;">${greeting}</h2>
           <p style="font-size:16px;line-height:1.5;margin:0 0 20px;color:#444;">
-            Someone requested a magic link to sign in to your ${safeAppName} account. Click the button below to sign in.
-            This link expires in ${escapeHtml(expiryTime)}.
+            ${safeInstructions}
           </p>
           <div style="margin:15px 0 30px;">
             <a href="${safeLink}" style="background-color:#5570f6;border-radius:5px;color:#fff;display:inline-block;font-weight:700;text-decoration:none;text-align:center;padding:10px 20px;">
-              Sign in to ${safeAppName}
+              ${safeCtaText}
             </a>
           </div>
           <p style="font-size:16px;line-height:1.5;margin:0 0 20px;color:#444;">

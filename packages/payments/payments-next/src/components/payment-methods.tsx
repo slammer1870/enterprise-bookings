@@ -19,10 +19,7 @@ import {
   type FeeBreakdownComponentProps,
 } from "./drop-ins";
 import { toast } from "sonner";
-import {
-  getMembershipPlansForView,
-  planAllowsMultipleBookingsPerTimeslot,
-} from "./membership-plan-filter";
+import { getMembershipPlansForView } from "./membership-plan-filter";
 
 type PaymentMethodsProps = {
   timeslot: Timeslot;
@@ -82,7 +79,7 @@ type ClassPassForTimeslot = {
   id: number;
   quantity?: number;
   expirationDate?: string;
-  type?: number | { name?: string };
+  type?: number | { name?: string; maxBookingsPerTimeslot?: number | null };
 };
 
 type PurchasableClassPassType = {
@@ -90,7 +87,7 @@ type PurchasableClassPassType = {
   name: string;
   description?: string | null;
   quantity: number;
-  allowMultipleBookingsPerTimeslot: boolean;
+  maxBookingsPerTimeslot?: number | null;
   price?: number | null;
   priceId: string;
 };
@@ -99,12 +96,14 @@ function ClassPassTabContent({
   passes,
   purchasablePassTypes,
   quantity,
+  isLoading,
   onConfirm,
   onPurchase,
 }: {
   passes: ClassPassForTimeslot[];
   purchasablePassTypes: PurchasableClassPassType[];
   quantity: number;
+  isLoading?: boolean;
   onConfirm: (_classPassId: number) => Promise<void>;
   onPurchase: (_passType: PurchasableClassPassType) => Promise<void>;
 }) {
@@ -130,6 +129,14 @@ function ClassPassTabContent({
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground animate-pulse">
+        <p>Loading class pass options…</p>
+      </div>
+    );
+  }
 
   if (passes.length === 0 && purchasablePassTypes.length === 0) {
     return (
@@ -252,13 +259,24 @@ function ClassPassTabContent({
   );
 }
 
-/**
- * Returns true if the drop-in allows multiple bookings per timeslot.
- */
-function dropInAllowsMultiple(dropIn: unknown): boolean {
-  if (!dropIn || typeof dropIn !== "object") return false;
-  const d = dropIn as { adjustable?: boolean };
-  return d.adjustable === true;
+function dropInMaxBookingsPerTimeslot(dropIn: unknown): number | typeof Infinity {
+  if (!dropIn || typeof dropIn !== "object") return 1;
+  const d = dropIn as any;
+  const raw = d.maxBookingsPerTimeslot as number | null | undefined;
+
+  if (raw == null) {
+    // Legacy fallback while server data is migrating
+    if (d.adjustable === false) return 1;
+    if (d.adjustable === true) return Infinity;
+    return Infinity;
+  }
+
+  return Math.max(1, Number(raw));
+}
+
+function dropInAllowsQuantity(dropIn: unknown, quantity: number): boolean {
+  const max = dropInMaxBookingsPerTimeslot(dropIn);
+  return max === Infinity || quantity <= max;
 }
 
 function getPendingBookingIds(pendingBookings?: Booking[]): number[] {
@@ -379,18 +397,20 @@ export function PaymentMethods({
   );
 
   // Get valid class passes for this timeslot (Phase 4.6)
-  const { data: validClassPasses = [] } = useQuery(
+  const { data: validClassPasses = [], isLoading: isLoadingValidPasses, isFetching: isFetchingValidPasses } = useQuery(
     trpc.bookings.getValidClassPassesForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
     })
   );
-  const { data: purchasableClassPassTypes = [] } = useQuery(
+  const { data: purchasableClassPassTypes = [], isLoading: isLoadingPurchasable, isFetching: isFetchingPurchasable } = useQuery(
     trpc.bookings.getPurchasableClassPassTypesForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
     })
   );
+  const isLoadingClassPassOptions =
+    isLoadingValidPasses || isLoadingPurchasable || isFetchingValidPasses || isFetchingPurchasable;
 
   const subscription = subscriptionData?.subscription ?? null;
   const subscriptionLimitReached = subscriptionData?.subscriptionLimitReached ?? false;
@@ -747,9 +767,19 @@ export function PaymentMethods({
     subscription &&
     allowedPlanDocs.some((plan) => plan.id === subscription?.plan?.id);
 
-  const userPlanAllowsMultiple =
-    subscription?.plan &&
-    planAllowsMultipleBookingsPerTimeslot(subscription.plan);
+  const userPlanMaxPerTimeslot = (() => {
+    const si = subscription?.plan?.sessionsInformation as any;
+    const raw = si?.maxBookingsPerTimeslot as number | null | undefined;
+
+    if (raw == null) {
+      // Legacy fallback while server data is migrating
+      return si?.allowMultipleBookingsPerTimeslot === true ? Infinity : 1;
+    }
+
+    return Math.max(1, Number(raw));
+  })();
+
+  const userPlanAllowsQuantity = userPlanMaxPerTimeslot === Infinity || quantity <= userPlanMaxPerTimeslot;
 
   const subscriptionUsableForBooking =
     subscription &&
@@ -762,7 +792,7 @@ export function PaymentMethods({
     Boolean(subscriptionUsableForBooking) &&
     !subscriptionLimitReached &&
     (remainingSessions === null || remainingSessions >= quantity) &&
-    (quantity <= 1 || Boolean(userPlanAllowsMultiple));
+    userPlanAllowsQuantity;
 
   // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
   const classPassesWithEnoughCredits: ClassPassForTimeslot[] = Array.isArray(validClassPasses)
@@ -776,6 +806,22 @@ export function PaymentMethods({
         ) {
           return [];
         }
+
+        // UI secondary check: only allow quantities supported by the class-pass type cap.
+        const typeDoc = typeof (p as any).type === "object" ? (p as any).type : null;
+        // Treat `null`/`undefined` as "no per-user limit" (Infinity), not "1".
+        // Legacy fallback uses `allowMultipleBookingsPerTimeslot` when maxBookingsPerTimeslot
+        // wasn't migrated/stored yet.
+        const configuredMax = (() => {
+          const raw = typeDoc?.maxBookingsPerTimeslot;
+          if (raw != null) return raw;
+          const legacy = (typeDoc as any)?.allowMultipleBookingsPerTimeslot;
+          // Explicitly false => single-booking; anything else/unknown => unlimited.
+          return legacy === false ? 1 : null;
+        })();
+        const effectiveMax = configuredMax == null ? Infinity : Math.max(1, Number(configuredMax));
+        if (effectiveMax !== Infinity && quantity > effectiveMax) return [];
+
         return [p as ClassPassForTimeslot];
       })
     : [];
@@ -790,11 +836,31 @@ export function PaymentMethods({
         ) {
           return [];
         }
+
+        const rawMax = (passType as any).maxBookingsPerTimeslot as number | null | undefined;
+        // For purchasable class-pass types, treat `null`/missing as unlimited.
+        // Server already enforces/sanitizes caps; this is a UI-side secondary filter.
+        const effectiveMax = rawMax == null ? Infinity : Math.max(1, Number(rawMax));
+        if (effectiveMax !== Infinity && quantity > effectiveMax) return [];
+
         return [passType as PurchasableClassPassType];
       })
     : [];
+  // Show the class pass tab only when at least one configured class pass type can
+  // cover the selected quantity (per its `maxBookingsPerTimeslot` cap).  Once the
+  // quantity exceeds every type's cap the tab would only ever show "No valid class
+  // pass", so hiding it keeps the UI focused on methods that actually work.
+  const anyClassPassTypeAllowsQuantity =
+    Array.isArray(allowedClassPasses) &&
+    allowedClassPasses.some((cp: unknown) => {
+      if (typeof cp !== "object" || cp == null) return false;
+      const raw = (cp as { maxBookingsPerTimeslot?: number | null })
+        .maxBookingsPerTimeslot;
+      const effectiveMax = raw == null ? Infinity : Math.max(1, Number(raw));
+      return effectiveMax === Infinity || quantity <= effectiveMax;
+    });
   const hasClassPassTab =
-    Boolean(allowedClassPasses?.length) ||
+    (Boolean(allowedClassPasses?.length) && anyClassPassTypeAllowsQuantity) ||
     classPassesWithEnoughCredits.length > 0 ||
     purchasablePassesForQuantity.length > 0;
 
@@ -807,14 +873,14 @@ export function PaymentMethods({
   let hasDropInTab =
     Boolean(allowedDropIn) &&
     (!(hasSubscriptionWithPlan && subscriptionUsableForBooking) ||
-      (quantity > 1 && dropInAllowsMultiple(allowedDropIn as DropIn)));
+      (quantity > 1 && dropInAllowsQuantity(allowedDropIn as DropIn, quantity)));
 
   if (quantity > 1) {
     hasMembershipTab =
       activePlans.length > 0 ||
-      Boolean(hasSubscriptionWithPlan && userPlanAllowsMultiple);
+      Boolean(hasSubscriptionWithPlan && userPlanAllowsQuantity);
     hasDropInTab =
-      hasDropInTab && dropInAllowsMultiple(allowedDropIn as DropIn);
+      hasDropInTab && dropInAllowsQuantity(allowedDropIn as DropIn, quantity);
   }
 
   const availableTabs = useMemo(() => {
@@ -882,6 +948,7 @@ export function PaymentMethods({
               passes={classPassesWithEnoughCredits}
               purchasablePassTypes={purchasablePassesForQuantity}
               quantity={quantity}
+              isLoading={isLoadingClassPassOptions}
               onConfirm={async (classPassId: number) => {
                 await createBookingsWithClassPass({
                   timeslotId: timeslot.id,
@@ -904,7 +971,9 @@ export function PaymentMethods({
               remainingSessions={remainingSessions}
               selectedQuantity={quantity}
               canUseSubscriptionForQuantity={Boolean(canUseSubscriptionForQuantity)}
-              subscriptionAllowsMultiplePerTimeslot={Boolean(userPlanAllowsMultiple)}
+                subscriptionAllowsMultiplePerTimeslot={
+                  userPlanMaxPerTimeslot === Infinity ? true : userPlanMaxPerTimeslot >= 2
+                }
               needsCustomerPortal={needsCustomerPortal}
               upgradeOptions={upgradeOptions}
               PlanPriceSummary={PlanPriceSummary}

@@ -39,8 +39,10 @@ function resolveWorkers(): number {
     const n = parseInt(fromEnv, 10)
     if (Number.isFinite(n) && n > 0) return n
   }
-  if (process.env.CI) return 2
-  return useProductionBuild ? 2 : 1
+  // Default to a single worker for stability/memory usage.
+  // Full-suite e2e is heavy (admin flows + Payload), and parallel workers can OOM during
+  // production `next build` + Playwright execution.
+  return 1
 }
 
 const prodWebCommand = skipWebserverMigrate

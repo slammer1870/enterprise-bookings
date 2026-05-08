@@ -5,6 +5,7 @@ import { getUserTenantIds } from '@/access/tenant-scoped'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
+import { sendBookingCompletionMagicLink } from '@/lib/auth/options'
 
 function coerceNumericId(input: unknown): number | null {
   if (typeof input === 'number' && Number.isFinite(input)) return input
@@ -146,25 +147,7 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
     const callbackPath = `/bookings/${timeslotId}/manage`
     if (!callbackPath.startsWith('/')) throw new APIError('Invalid callback', 400)
 
-    // Magic link sending is implemented in tRPC (`auth.signInMagicLink`) which calls
-    // `ctx.betterAuth.api.signInMagicLink`. We can invoke the same Better Auth API directly here.
-    // This avoids brittle REST-path assumptions (magic-link is not necessarily mounted at /api/users/*).
-    const payloadWithBetterAuth = req.payload as any
-    const signInMagicLink = payloadWithBetterAuth?.betterAuth?.api?.signInMagicLink as
-      | undefined
-      | ((
-          args: {
-            body: { email: string; callbackURL?: string }
-            headers: Headers
-          },
-        ) => Promise<unknown>)
-
-    if (!signInMagicLink) {
-      throw new APIError('Better Auth is not configured for magic link sending', 500)
-    }
-
-    // Always scope callbackURL to the tenant's custom domain (if configured) or subdomain.
-    // This ensures Better Auth redirects the user back to the correct tenant host.
+    // Resolve the tenant to scope the callbackURL to the correct domain.
     const tenantForCallback =
       tenantIdForCallback != null
         ? ((await req.payload.findByID({
@@ -182,28 +165,13 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
       serverUrlFallback: serverUrl,
     })
 
-    // Better Auth appears to build the magic-link verify URL using the request host.
-    // Since this endpoint is called from the admin panel (often on the platform host),
-    // override headers so the verify link is generated on the tenant host.
-    let headersForMagicLink: Headers = req.headers as unknown as Headers
-    try {
-      const tenantOrigin = new URL(callbackURL).origin
-      const tenantUrl = new URL(tenantOrigin)
-      const tenantHost = tenantUrl.host
-      const tenantProtocol = tenantUrl.protocol.replace(':', '')
-
-      headersForMagicLink = new Headers(req.headers as unknown as Headers)
-      headersForMagicLink.set('host', tenantHost)
-      headersForMagicLink.set('x-forwarded-host', tenantHost)
-      headersForMagicLink.set('origin', tenantOrigin)
-      headersForMagicLink.set('x-forwarded-proto', tenantProtocol)
-    } catch {
-      // If callbackURL isn't parseable as an absolute URL, fall back to original headers.
-    }
-
-    await signInMagicLink({
-      body: { email: userEmail.toLowerCase(), callbackURL },
-      headers: headersForMagicLink,
+    // Use a custom-expiry sender (36 hours) rather than Better Auth's `signInMagicLink`,
+    // which only supports a single global expiry for all magic links.
+    await sendBookingCompletionMagicLink({
+      payload: req.payload,
+      email: userEmail.toLowerCase(),
+      callbackURL,
+      expiresInSeconds: 36 * 60 * 60,
     })
 
     return Response.json({ ok: true })

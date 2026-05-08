@@ -8,7 +8,6 @@ import { Button, Gutter } from "@payloadcms/ui";
 import { Toaster } from "sonner";
 
 import type { BasePayload, CollectionSlug } from "payload";
-import { headers } from "next/headers";
 import { createLocalReq } from "payload";
 import { cookies } from "next/headers";
 import {
@@ -52,47 +51,69 @@ function tenantMembershipIdsFromUserDoc(doc: unknown): number[] {
   return typeof tid === "number" && Number.isFinite(tid) ? [tid] : [];
 }
 
-export const TimeslotAdmin: React.FC<{
-  params: any;
-  searchParams: { [key: string]: string | string[] | undefined };
+/**
+ * Custom admin list view for timeslots.
+ *
+ * Payload's collection list view passes `payload` and `user` as direct server
+ * props (already authenticated by Payload's own middleware). We use those
+ * directly rather than calling `payload.auth()` again — the redundant auth
+ * call was the primary source of latency (~800 ms per navigation) because it
+ * re-queried the users/sessions tables.
+ *
+ * `createLocalReq` is used to build a typed `PayloadRequest` from the
+ * pre-authenticated user. It makes no database calls.
+ */
+export const TimeslotAdmin = async (props: {
   payload: BasePayload;
-}> = async ({ searchParams, payload, params }) => {
+  user?: unknown;
+  params?: Record<string, unknown> & { segments?: string[]; collection?: string };
+  searchParams?: { [key: string]: string | string[] | undefined };
+  [key: string]: unknown;
+}) => {
+  const payload = props.payload;
+  const user = props.user;
+  const params = props.params;
+  const searchParams: { [key: string]: string | string[] | undefined } =
+    props.searchParams ?? {};
+
+  if (!payload || !user) {
+    return (
+      <Gutter className="!pt-0">
+        <div style={{ padding: "2rem" }}>
+          <p>Authentication required.</p>
+        </div>
+      </Gutter>
+    );
+  }
+
+  // Build a PayloadRequest from the pre-authenticated user. createLocalReq makes
+  // no database calls — it just constructs the request object in memory.
+  const req = await createLocalReq({ user: user as any }, payload);
+
   const collectionSlug =
     typeof params?.collection === "string"
       ? params.collection
       : typeof params?.segments?.[1] === "string"
         ? params.segments[1]
         : "timeslots";
+
   const hasTenantsCollection = payload.config.collections.some(
     (collection) => String(collection.slug) === "tenants",
   );
-  // Get headers to authenticate user and create req object
-  // This allows the multi-tenant plugin to filter timeslots by tenant
-  const requestHeaders = await headers();
-  const { user } = await payload.auth({ headers: requestHeaders });
-  
-  // Create a Payload request object with user context
-  // The multi-tenant plugin will use this to filter by tenant
-  let req = user
-    ? await createLocalReq({ user }, payload)
-    : undefined;
 
   const cookieStore = await cookies();
-  // Only super-admins are "global tenant picker" users. Org admins use role `admin` too after
-  // RBAC renamed `tenant-admin` → `admin`; treating them like super-admin skipped subdomain /
-  // membership fallbacks and broke `/admin/collections/timeslots` on the base host.
-  const isSuperAdmin = user && checkRole(["super-admin"], user as unknown as SharedUser);
+  const isSuperAdmin = checkRole(["super-admin"], user as unknown as SharedUser);
 
   // 1) Respect admin TenantSelector: when user picks a tenant, filter to that tenant.
   // The multi-tenant plugin sets the selected tenant in the 'payload-tenant' cookie.
-  const payloadTenant = cookieStore.get('payload-tenant')?.value;
-  if (payloadTenant && req) {
+  const payloadTenant = cookieStore.get("payload-tenant")?.value;
+  if (payloadTenant) {
     const tenantId = /^\d+$/.test(payloadTenant) ? Number(payloadTenant) : payloadTenant;
     if (!req.context) req.context = {};
     req.context.tenant = tenantId;
-  } else if (!isSuperAdmin && req && hasTenantsCollection) {
+  } else if (!isSuperAdmin && hasTenantsCollection) {
     // 2) Fallback: tenant from subdomain (tenant-slug, set by middleware)
-    const tenantSlug = cookieStore.get('tenant-slug')?.value;
+    const tenantSlug = cookieStore.get("tenant-slug")?.value;
     if (tenantSlug) {
       try {
         const tenantResult = await payload.find({
@@ -104,22 +125,20 @@ export const TimeslotAdmin: React.FC<{
         });
         if (tenantResult.docs[0]) {
           const tid = tenantResult.docs[0].id;
-          const tenantId = typeof tid === 'number' ? tid : parseInt(String(tid), 10);
+          const tenantId = typeof tid === "number" ? tid : parseInt(String(tid), 10);
           if (!req.context) req.context = {};
           req.context.tenant = tenantId;
           rememberTenantSlugResolution(req.context, tenantSlug, tenantId);
         }
       } catch (error) {
-        console.error('Error looking up tenant in admin view:', error);
+        console.error("Error looking up tenant in admin view:", error);
       }
     }
   }
 
   // 3) Base-host admin sessions often lack `tenant-slug`. Resolve tenant from the user row.
   if (
-    req &&
     hasTenantsCollection &&
-    user &&
     !checkRole(["super-admin"], user as unknown as SharedUser) &&
     checkRole(["admin", "staff"], user as unknown as SharedUser)
   ) {
@@ -192,10 +211,7 @@ export const TimeslotAdmin: React.FC<{
         </div>
         <div className="flex flex-col w-full">
           <Suspense
-            key={[
-              selectedDateISO,
-              req?.context?.tenant ?? "all",
-            ]
+            key={[selectedDateISO, req.context?.tenant ?? "all"]
               .filter(Boolean)
               .join("|")}
             fallback={<TimeslotLoading />}

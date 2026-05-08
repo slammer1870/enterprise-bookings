@@ -1,5 +1,6 @@
 import type {
   CollectionAdminOptions,
+  CollectionBeforeValidateHook,
   CollectionConfig,
   Field,
   Labels,
@@ -66,15 +67,29 @@ const defaultFields: Field[] = [
         ],
       },
       {
-        name: "allowMultipleBookingsPerTimeslot",
-        label: "Allow multiple bookings per timeslot",
-        type: "checkbox",
-        defaultValue: false,
-        required: true,
+        name: "maxBookingsPerTimeslot",
+        label: "Max bookings per timeslot (per user)",
+        type: "number",
+        required: false,
+        // Null => no per-user cap (still bounded by event type capacity).
+        // Legacy mapping uses `allowMultipleBookingsPerTimeslot` to set this to `null`.
+        validate: (value: unknown) => {
+          if (value == null) return true;
+          return typeof value === "number" && value >= 1 ? true : "maxBookingsPerTimeslot must be >= 1 or blank";
+        },
         admin: {
           description:
-            "When enabled, subscribers can use multiple session credits on the same timeslot (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per timeslot per user.",
+            "Leave blank for no per-user cap on bookings for the same timeslot (still bounded by event type capacity). When set, subscribers can book up to this many spots per timeslot for the selected plan.",
         },
+      },
+      // Legacy compatibility: older callers/tests set this boolean and expect it to map to numeric semantics.
+      // We keep it hidden and translate to `maxBookingsPerTimeslot` in `beforeValidate`.
+      {
+        name: "allowMultipleBookingsPerTimeslot",
+        label: "Allow multiple bookings per timeslot (legacy)",
+        type: "checkbox",
+        required: false,
+        admin: { hidden: true },
       },
     ],
   },
@@ -168,7 +183,33 @@ const defaultFields: Field[] = [
   },
 ];
 
+const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
+  if (!data || typeof data !== "object") return data;
+
+  const d = data as {
+    sessionsInformation?: {
+      allowMultipleBookingsPerTimeslot?: boolean
+      maxBookingsPerTimeslot?: number | null
+    }
+  };
+
+  const si = d.sessionsInformation;
+  if (!si || typeof si !== "object") return data;
+
+  // Legacy mapping: only apply when numeric maxBookingsPerTimeslot isn't
+  // included in the update payload.
+  if (
+    typeof si.allowMultipleBookingsPerTimeslot === "boolean" &&
+    typeof si.maxBookingsPerTimeslot === "undefined"
+  ) {
+    si.maxBookingsPerTimeslot = si.allowMultipleBookingsPerTimeslot ? null : 1;
+  }
+
+  return data;
+};
+
 const defaultHooks: HooksConfig = {
+  beforeValidate: [beforePlanValidate],
   beforeChange: [beforeProductChange],
 };
 

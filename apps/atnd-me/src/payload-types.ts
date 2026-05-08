@@ -813,14 +813,15 @@ export interface Plan {
   /**
    * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single timeslot when allow multiple bookings per timeslot is enabled.
    */
-  sessionsInformation: {
+  sessionsInformation?: {
     sessions?: number | null;
     intervalCount?: number | null;
     interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
     /**
-     * When enabled, subscribers can use multiple session credits on the same timeslot (e.g. book 10 spots in one class if they have 10 sessions per month). When disabled, only one spot per timeslot per user.
+     * Leave blank for no per-user cap on bookings for the same timeslot (still bounded by event type capacity). When set, subscribers can book up to this many spots per timeslot for the selected plan.
      */
-    allowMultipleBookingsPerTimeslot: boolean;
+    maxBookingsPerTimeslot?: number | null;
+    allowMultipleBookingsPerTimeslot?: boolean | null;
   };
   stripeProductId?: string | null;
   /**
@@ -905,10 +906,11 @@ export interface DropIn {
   description?: string | null;
   isActive: boolean;
   price: number;
+  adjustable?: boolean | null;
   /**
-   * When enabled, users can book more than one spot for the same timeslot when paying drop-in.
+   * Leave blank for no per-user limit (still bounded by the event type capacity). When set, users can book up to this many spots per timeslot for this drop-in.
    */
-  adjustable: boolean;
+  maxBookingsPerTimeslot?: number | null;
   discountTiers?:
     | {
         minQuantity: number;
@@ -956,9 +958,10 @@ export interface ClassPassType {
    */
   daysUntilExpiration: number;
   /**
-   * When enabled, users can use multiple credits from this pass type on the same timeslot (e.g. book 3 spots using 3 credits). When disabled, only one spot per timeslot per user.
+   * Leave blank for no per-user limit. When set, users can book up to this many spots per timeslot using this pass type.
    */
-  allowMultipleBookingsPerTimeslot: boolean;
+  maxBookingsPerTimeslot?: number | null;
+  allowMultipleBookingsPerTimeslot?: boolean | null;
   /**
    * Link to a Stripe product with a one-time default price for purchase/checkout.
    */
@@ -5048,6 +5051,7 @@ export interface DropInsSelect<T extends boolean = true> {
   isActive?: T;
   price?: T;
   adjustable?: T;
+  maxBookingsPerTimeslot?: T;
   discountTiers?:
     | T
     | {
@@ -5072,6 +5076,7 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   description?: T;
   quantity?: T;
   daysUntilExpiration?: T;
+  maxBookingsPerTimeslot?: T;
   allowMultipleBookingsPerTimeslot?: T;
   stripeProductId?: T;
   priceInformation?:
@@ -5142,6 +5147,7 @@ export interface PlansSelect<T extends boolean = true> {
         sessions?: T;
         intervalCount?: T;
         interval?: T;
+        maxBookingsPerTimeslot?: T;
         allowMultipleBookingsPerTimeslot?: T;
       };
   stripeProductId?: T;

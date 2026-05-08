@@ -643,6 +643,7 @@ describe('tRPC Bookings Integration Tests', () => {
     it('should throw error when quantity exceeds remaining capacity', async () => {
       // Create a fresh lesson for this test
       const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
       startTime.setHours(16, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(17, 0, 0, 0)
@@ -720,8 +721,9 @@ describe('tRPC Bookings Integration Tests', () => {
     }, TEST_TIMEOUT)
 
     it('should create bookings with pending status when specified', async () => {
-      // Create a fresh lesson for this test
-      const startTime = new Date()
+      // Create a fresh lesson for this test.
+      // Use tomorrow so the timeslot is never in the past regardless of when the suite runs.
+      const startTime = new Date(Date.now() + 24 * 60 * 60 * 1000)
       startTime.setHours(18, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(19, 0, 0, 0)
@@ -775,6 +777,7 @@ describe('tRPC Bookings Integration Tests', () => {
     it('should fetch user bookings for a lesson', async () => {
       // Create a fresh lesson for this test
       const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
       startTime.setHours(20, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
@@ -2091,6 +2094,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
       startTime.setHours(20, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
@@ -2185,6 +2189,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
       startTime.setHours(20, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(21, 0, 0, 0)
@@ -2316,6 +2321,7 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       const startTime = new Date()
+      startTime.setDate(startTime.getDate() + 1)
       startTime.setHours(21, 0, 0, 0)
       const endTime = new Date(startTime)
       endTime.setHours(22, 0, 0, 0)

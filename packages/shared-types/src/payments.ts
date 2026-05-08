@@ -8,7 +8,12 @@ export interface DropIn {
   isActive: boolean;
   price: number;
   priceType: "trial" | "normal";
-  adjustable?: boolean | null;
+  /**
+   * Per-viewer max confirmed bookings allowed for the same timeslot when paying with this drop-in.
+   * - `1` => one booking per timeslot
+   * - `null`/`undefined` => no per-viewer limit (still bounded by event type capacity)
+   */
+  maxBookingsPerTimeslot?: number | null;
   discountTiers?:
     | {
         minQuantity: number;
@@ -36,8 +41,12 @@ export interface Plan {
     sessions?: number;
     intervalCount?: number;
     interval?: "day" | "week" | "month" | "quarter" | "year";
-    /** When true, subscribers can use multiple credits on the same lesson. */
-    allowMultipleBookingsPerTimeslot?: boolean;
+    /**
+     * Per-viewer max confirmed bookings allowed for the same timeslot when paying with this membership.
+     * - `1` => one booking per timeslot
+     * - `null`/`undefined` => no per-viewer limit (still bounded by event type capacity)
+     */
+    maxBookingsPerTimeslot?: number | null;
   } | null;
   priceInformation?: {
     price: number;

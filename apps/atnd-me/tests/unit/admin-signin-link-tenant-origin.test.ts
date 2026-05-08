@@ -26,9 +26,12 @@ describe('Admin magic-link callbackURL origin', () => {
       getUserTenantIds: () => null,
     }))
 
-    const signInMagicLink = vi.fn(async () => {})
+    const sendBookingCompletionMagicLink = vi.fn(async () => {})
+    vi.doMock('@/lib/auth/options', () => ({
+      sendBookingCompletionMagicLink,
+    }))
 
-    const payloadFindByID = vi.fn(async ({ collection, id }: any) => {
+    const payloadFindByID = vi.fn(async ({ collection }: any) => {
       if (collection === 'bookings') {
         return {
           status: 'pending',
@@ -37,16 +40,10 @@ describe('Admin magic-link callbackURL origin', () => {
           tenant: 100,
         }
       }
-      if (collection === 'timeslots') {
-        return { tenant: 100 }
-      }
-      if (collection === 'tenants') {
-        return { slug: 'acme', domain: null }
-      }
+      if (collection === 'timeslots') return { tenant: 100 }
+      if (collection === 'tenants') return { slug: 'acme', domain: null }
       return null
     })
-
-    vi.doMock('@/lib/payload', () => ({}))
 
     const { sendLateBookingMagicLinkEndpoint } = await import(
       '../../src/endpoints/admin/bookings/send-late-booking-magic-link'
@@ -59,17 +56,13 @@ describe('Admin magic-link callbackURL origin', () => {
     await sendLateBookingMagicLinkEndpoint.handler({
       json: async () => ({ bookingId: 1 }),
       user: { id: 'actor' },
-      payload: {
-        findByID: payloadFindByID,
-        betterAuth: { api: { signInMagicLink } },
-      },
+      payload: { findByID: payloadFindByID },
       headers: reqHeaders,
     } as any)
 
-    expect(signInMagicLink).toHaveBeenCalledTimes(1)
-    const [args] = signInMagicLink.mock.calls[0] as any[]
-    const callbackURL = args.body.callbackURL as string
-    expect(callbackURL).toContain('http://acme.localhost:3000/bookings/200/manage')
+    expect(sendBookingCompletionMagicLink).toHaveBeenCalledTimes(1)
+    const [args] = sendBookingCompletionMagicLink.mock.calls[0] as any[]
+    expect(args.callbackURL).toContain('http://acme.localhost:3000/bookings/200/manage')
   })
 
   it('uses tenant custom domain with request protocol when tenant has a custom domain', async () => {
@@ -83,7 +76,10 @@ describe('Admin magic-link callbackURL origin', () => {
       getUserTenantIds: () => null,
     }))
 
-    const signInMagicLink = vi.fn(async () => {})
+    const sendBookingCompletionMagicLink = vi.fn(async () => {})
+    vi.doMock('@/lib/auth/options', () => ({
+      sendBookingCompletionMagicLink,
+    }))
 
     const payloadFindByID = vi.fn(async ({ collection }: any) => {
       if (collection === 'bookings') {
@@ -94,12 +90,8 @@ describe('Admin magic-link callbackURL origin', () => {
           tenant: 100,
         }
       }
-      if (collection === 'timeslots') {
-        return { tenant: 100 }
-      }
-      if (collection === 'tenants') {
-        return { slug: null, domain: 'studio.example.com' }
-      }
+      if (collection === 'timeslots') return { tenant: 100 }
+      if (collection === 'tenants') return { slug: null, domain: 'studio.example.com' }
       return null
     })
 
@@ -114,19 +106,12 @@ describe('Admin magic-link callbackURL origin', () => {
     await sendLateBookingMagicLinkEndpoint.handler({
       json: async () => ({ bookingId: 1 }),
       user: { id: 'actor' },
-      payload: {
-        findByID: payloadFindByID,
-        betterAuth: { api: { signInMagicLink } },
-      },
+      payload: { findByID: payloadFindByID },
       headers: reqHeaders,
     } as any)
 
-    expect(signInMagicLink).toHaveBeenCalledTimes(1)
-    const [args] = signInMagicLink.mock.calls[0] as any[]
-    const callbackURL = args.body.callbackURL as string
-    expect(callbackURL).toContain(
-      'https://studio.example.com/bookings/200/manage',
-    )
+    expect(sendBookingCompletionMagicLink).toHaveBeenCalledTimes(1)
+    const [args] = sendBookingCompletionMagicLink.mock.calls[0] as any[]
+    expect(args.callbackURL).toContain('https://studio.example.com/bookings/200/manage')
   })
 })
-

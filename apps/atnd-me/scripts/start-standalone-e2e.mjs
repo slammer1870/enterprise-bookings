@@ -46,7 +46,24 @@ if (!fs.existsSync(serverEntrypoint)) {
 }
 
 // Ensure E2E env is passed so Stripe test-account mocking runs (avoids "does not have access to account" in tests).
-const env = { ...process.env, ENABLE_TEST_WEBHOOKS: 'true' }
+const payloadAuthRegister = path.join(__dirname, 'register-payload-auth-loader.mjs')
+const baseNodeOptions = process.env.NODE_OPTIONS ?? ''
+const loaderNodeOptions = `--import ${payloadAuthRegister}`
+
+// Ensure the child process has the payload-auth resolver registered.
+// We set NODE_OPTIONS explicitly here because relative `NODE_OPTIONS=--import ./scripts/...`
+// can break depending on the current working directory used by the parent process.
+const cleanedBaseNodeOptions = baseNodeOptions
+  // Remove any payload-auth loader registration (relative or absolute).
+  .replace(/--import\s+["']?[^"'\s]+register-payload-auth-loader\.mjs["']?\s*/g, '')
+  // Avoid double `--no-deprecation` (we always re-add it below).
+  .replace(/--no-deprecation\s*/g, '')
+
+const env = {
+  ...process.env,
+  ENABLE_TEST_WEBHOOKS: 'true',
+  NODE_OPTIONS: `${cleanedBaseNodeOptions} --no-deprecation ${loaderNodeOptions}`.trim(),
+}
 const child = spawn(process.execPath, [serverEntrypoint], {
   stdio: 'inherit',
   env,

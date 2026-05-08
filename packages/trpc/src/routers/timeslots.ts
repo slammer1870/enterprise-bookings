@@ -456,7 +456,15 @@ export const timeslotsRouter = {
             description: doc.description ?? null,
             isActive: doc.isActive ?? null,
             price: doc.price ?? null,
-            adjustable: doc.adjustable ?? null,
+            // New numeric cap; legacy `adjustable` is mapped for older rows during migration.
+            maxBookingsPerTimeslot:
+              doc.maxBookingsPerTimeslot == null
+                ? doc.adjustable === false
+                  ? 1
+                  : doc.adjustable === true
+                    ? null
+                    : null
+                : doc.maxBookingsPerTimeslot,
             discountTiers: Array.isArray(doc.discountTiers) ? doc.discountTiers : [],
             paymentMethods: Array.isArray(doc.paymentMethods) ? doc.paymentMethods : [],
           };
@@ -478,7 +486,13 @@ export const timeslotsRouter = {
                   sessions: si.sessions ?? null,
                   intervalCount: si.intervalCount ?? null,
                   interval: si.interval ?? null,
-                  allowMultipleBookingsPerTimeslot: si.allowMultipleBookingsPerTimeslot ?? false,
+                  // Legacy `allowMultipleBookingsPerTimeslot` is mapped to numeric semantics.
+                  maxBookingsPerTimeslot:
+                    si.maxBookingsPerTimeslot == null
+                      ? si.allowMultipleBookingsPerTimeslot === true
+                        ? null
+                        : 1
+                      : si.maxBookingsPerTimeslot,
                 }
               : undefined,
             priceInformation: pi
@@ -502,7 +516,16 @@ export const timeslotsRouter = {
             name: doc.name ?? null,
             slug: doc.slug ?? null,
             quantity: doc.quantity ?? null,
-            allowMultipleBookingsPerTimeslot: doc.allowMultipleBookingsPerTimeslot ?? false,
+            // Legacy `allowMultipleBookingsPerTimeslot` is mapped to numeric semantics.
+            maxBookingsPerTimeslot:
+              // Important: `null` means "no per-user limit" and must stay null.
+              typeof doc.maxBookingsPerTimeslot === "number"
+                ? doc.maxBookingsPerTimeslot
+                : doc.maxBookingsPerTimeslot === null
+                  ? null
+                  : doc.allowMultipleBookingsPerTimeslot === true
+                    ? null
+                    : 1,
             priceInformation: pi ? { price: pi.price ?? null } : undefined,
             status: doc.status ?? null,
           };
@@ -757,22 +780,39 @@ export const timeslotsRouter = {
                 eventType.paymentMethods.allowedPlans.length > 0)
           );
 
-          const dropInAllowsMultiple =
-            eventType?.paymentMethods?.allowedDropIn?.allowMultipleBookingsPerTimeslot === true;
+          const maxFromCapOrLegacy = (rawMax: any, legacyAllowMultiple?: boolean): number => {
+            // `null`/explicit "no limit" => unlimited, bounded by eventType.places.
+            if (rawMax === null) return Infinity;
+            if (rawMax == null) return legacyAllowMultiple === true ? Infinity : 1;
+            const n = Number(rawMax);
+            return Number.isFinite(n) ? Math.max(1, n) : Infinity;
+          };
 
-          const planAllowsMultiple = Array.isArray(eventType?.paymentMethods?.allowedPlans)
-            ? eventType.paymentMethods.allowedPlans.some((p: any) => {
-                // Only opt-in to multi-booking for plans that explicitly allow it.
-                // (Safer default: existing apps expecting single-slot bookings keep "Cancel Booking".)
-                const si = p?.sessionsInformation;
-                return si?.allowMultipleBookingsPerTimeslot === true;
-              })
-            : false;
+          const caps: number[] = []
+
+          if (eventType?.paymentMethods?.allowedDropIn) {
+            const d: any = eventType.paymentMethods.allowedDropIn
+            const rawMax = d?.maxBookingsPerTimeslot
+            caps.push(maxFromCapOrLegacy(rawMax, d?.adjustable === true))
+          }
+
+          if (Array.isArray(eventType?.paymentMethods?.allowedPlans)) {
+            for (const p of eventType.paymentMethods.allowedPlans as any[]) {
+              const si = p?.sessionsInformation ?? {}
+              caps.push(maxFromCapOrLegacy(si?.maxBookingsPerTimeslot, si?.allowMultipleBookingsPerTimeslot === true))
+            }
+          }
+
+          if (Array.isArray(eventType?.paymentMethods?.allowedClassPasses)) {
+            for (const cp of eventType.paymentMethods.allowedClassPasses as any[]) {
+              caps.push(maxFromCapOrLegacy(cp?.maxBookingsPerTimeslot, cp?.allowMultipleBookingsPerTimeslot === true))
+            }
+          }
 
           // If there are no payment methods, the flow is "no payment" and multi-booking is allowed
-          // by capacity/booking rules. If there are payment methods, only show "Modify" when at
-          // least one method supports multiple bookings per timeslot.
-          const allowsMultipleBookingsForViewer = !hasPaymentMethods || dropInAllowsMultiple || planAllowsMultiple;
+          // by capacity/booking rules. Otherwise use the per-user max cap across available methods.
+          const viewerMaxPerTimeslot = !hasPaymentMethods ? Infinity : caps.some((c) => c === Infinity) ? Infinity : Math.max(1, ...caps);
+          const allowsMultipleBookingsForViewer = viewerMaxPerTimeslot > 1;
           scheduleState.singleSlotOnly = !allowsMultipleBookingsForViewer;
 
           if (availability === "closed") {
@@ -788,7 +828,8 @@ export const timeslotsRouter = {
             scheduleState.action = "modify";
             scheduleState.label = "Modify Booking";
           } else if (viewerConfirmedCount === 1) {
-            const canIncreaseQuantity = availability === "open" && remainingCapacity > 0 && allowsMultipleBookingsForViewer;
+            const canIncreaseQuantity =
+              availability === "open" && remainingCapacity > 0 && allowsMultipleBookingsForViewer;
             if (canIncreaseQuantity) {
               scheduleState.action = "modify";
               scheduleState.label = "Modify Booking";

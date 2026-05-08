@@ -27,13 +27,27 @@ export function dropInsCollection(
       { name: "description", label: "Description", type: "textarea", required: false },
       { name: "isActive", label: "Active", type: "checkbox", defaultValue: true, required: true },
       { name: "price", label: "Price", type: "number", required: true, min: 0 },
+      // Backwards-compat: legacy flag used by older clients + some tests.
+      // When true, map to "no per-user cap" by setting maxBookingsPerTimeslot=null.
       {
         name: "adjustable",
-        label: "Allow multiple bookings per timeslot",
+        label: "Adjustable (legacy)",
         type: "checkbox",
-        defaultValue: true,
-        required: true,
-        admin: { description: "When enabled, users can book more than one spot for the same timeslot when paying drop-in." },
+        defaultValue: false,
+        required: false,
+        admin: { hidden: true },
+      },
+      {
+        name: "maxBookingsPerTimeslot",
+        label: "Max bookings per timeslot (per user)",
+        type: "number",
+        defaultValue: 1,
+        required: false,
+        min: 1,
+        admin: {
+          description:
+            "Leave blank for no per-user limit (still bounded by the event type capacity). When set, users can book up to this many spots per timeslot for this drop-in.",
+        },
       },
       {
         name: "discountTiers",
@@ -88,6 +102,37 @@ export function dropInsCollection(
     admin: { useAsTitle: "name", group: "Products" },
     access,
     fields,
+    hooks: {
+      beforeValidate: [
+        async ({ data }) => {
+          if (!data || typeof data !== "object") return data
+
+          const d = data as {
+            adjustable?: boolean
+            maxBookingsPerTimeslot?: number | null
+          }
+
+          // Legacy mapping:
+          // - If `adjustable: true` we want "no per-user cap" which maps to
+          //   `maxBookingsPerTimeslot = null`.
+          // - Payload applies field `defaultValue`s before hooks, so in "create"
+          //   flows `maxBookingsPerTimeslot` may already be set to the default
+          //   (1) even when callers omitted it. Treat that default as
+          //   "unspecified" for the purpose of the legacy mapping.
+          if (d.adjustable === true) {
+            if (typeof d.maxBookingsPerTimeslot === 'undefined' || d.maxBookingsPerTimeslot === 1) {
+              d.maxBookingsPerTimeslot = null
+            }
+          } else if (d.adjustable === false) {
+            if (typeof d.maxBookingsPerTimeslot === 'undefined') {
+              d.maxBookingsPerTimeslot = 1
+            }
+          }
+
+          return d
+        },
+      ],
+    },
   };
   if (overrides?.hooks) {
     base.hooks = overrides.hooks({
