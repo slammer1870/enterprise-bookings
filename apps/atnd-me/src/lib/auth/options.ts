@@ -1,4 +1,4 @@
-import { createBetterAuthPluginOptions } from '@repo/better-auth-config/server'
+import { createBetterAuthPluginOptions, createCustomExpiryMagicLinkSender } from '@repo/better-auth-config/server'
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
@@ -257,26 +257,45 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
   return await findTenantByDomain(normalized)
 }
 
-export const betterAuthPluginOptions = createBetterAuthPluginOptions({
+const BOOKING_MAGIC_LINK_EXPIRY_SECONDS = 36 * 60 * 60 // 36 hours
+
+const betterAuthConfig = {
   appName: 'ATND ME',
   adminUserIds: ['1'],
   enableMagicLink: true,
   magicLinkDisableSignUp: true,
   includeMagicLinkOptionConfig: true,
-  cookieDomainStrategy: 'host',
+  cookieDomainStrategy: 'host' as const,
   disableDefaultPayloadAuth: false,
   hidePluginCollections: true,
   databaseHooks: registrationTenantDatabaseHooks,
   trustedOrigins: trustedOriginsFromRequest,
-  resolveMagicLinkAppName: async ({ url }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
-  resolveMagicLinkFrom: async ({ url }) => {
+  resolveMagicLinkAppName: async ({ url }: { url: string }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
+  resolveMagicLinkEmailContent: ({ url }: { url: string }) => {
+    try {
+      const callbackURL = new URL(url).searchParams.get('callbackURL') ?? ''
+      const callbackPath = callbackURL.startsWith('http')
+        ? new URL(callbackURL).pathname
+        : callbackURL
+      if (/^\/bookings\/[^/]+\/manage/.test(callbackPath)) {
+        return {
+          instructions: `You have a pending booking that needs to be completed. Click the button below to complete your booking. This link expires in 36 hours.`,
+          ctaText: 'Complete your booking',
+        }
+      }
+    } catch {
+      // ignore unparseable URLs
+    }
+    return null
+  },
+  resolveMagicLinkFrom: async ({ url }: { url: string }) => {
     const tenant = await resolveTenantForMagicLinkUrl(url)
     const fromName = tenant?.name || 'ATND ME'
     const fromAddress = tenant?.domain ? `auth@${tenant.domain}` : 'auth@atnd.me'
     return { fromName, fromAddress }
   },
-  resolveResetPasswordAppName: async ({ url }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
-  resolveResetPasswordFrom: async ({ url }) => {
+  resolveResetPasswordAppName: async ({ url }: { url: string }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
+  resolveResetPasswordFrom: async ({ url }: { url: string }) => {
     const tenant = await resolveTenantForMagicLinkUrl(url)
     const fromName = tenant?.name || 'ATND ME'
     const fromAddress = tenant?.domain ? `auth@${tenant.domain}` : 'auth@atnd.me'
@@ -301,6 +320,18 @@ export const betterAuthPluginOptions = createBetterAuthPluginOptions({
         },
       }
     : {}),
+}
+
+export const betterAuthPluginOptions = createBetterAuthPluginOptions(betterAuthConfig)
+
+/**
+ * Sends a booking completion magic link with a 36-hour expiry,
+ * bypassing Better Auth's global `signInMagicLink` (which has a fixed global expiry).
+ */
+export const sendBookingCompletionMagicLink = createCustomExpiryMagicLinkSender({
+  ...betterAuthConfig,
+  // Expose the correct expiry so the email display text reflects "36 hours"
+  magicLinkExpiresIn: BOOKING_MAGIC_LINK_EXPIRY_SECONDS,
 })
 
 export type ConstructedBetterAuthPluginOptions = typeof betterAuthPluginOptions

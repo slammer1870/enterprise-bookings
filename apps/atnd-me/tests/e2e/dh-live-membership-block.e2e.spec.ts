@@ -80,7 +80,7 @@ test.describe('DhLiveMembership block', () => {
     await navigateToTenant(page, tenant.slug, `/${slug}`)
     await page.waitForLoadState('load').catch(() => null)
 
-    await expect(page.getByRole('button', { name: /^subscribe$/i })).toBeVisible({
+    await expect(page.getByRole('button', { name: /^subscribe$/i }).first()).toBeVisible({
       timeout: 15000,
     })
     await expect(page.getByRole('button', { name: /manage subscription/i })).toHaveCount(0)

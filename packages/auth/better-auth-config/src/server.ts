@@ -62,6 +62,13 @@ export type BetterAuthServerConfig = {
   magicLinkDisableSignUp?: boolean;
   includeMagicLinkOptionConfig?: boolean;
   /**
+   * Magic link token lifetime in seconds. Defaults to Better Auth's built-in default (300 s / 5 min).
+   * Note: this is a global setting — Better Auth does not support per-token expiry overrides.
+   * Set a longer value (e.g. 72 * 60 * 60 for 72 hours) when links are used for async flows
+   * like booking completion where the user may not act immediately.
+   */
+  magicLinkExpiresIn?: number;
+  /**
    * Cookie domain strategy.
    * - "derived" (default): derive a cookie domain from `baseURL` (e.g. ".atnd-me.com") for subdomain sharing.
    * - "host": omit the Domain attribute (host-only cookies), required for tenant custom domains.
@@ -79,6 +86,30 @@ export type BetterAuthServerConfig = {
     token: string;
     url: string;
   }) => Promise<string | null> | string | null;
+  /**
+   * Optional per-magic-link email content resolver.
+   * Allows customising the email body instructions, CTA button text, and subject line based
+   * on the magic-link URL (e.g. to show "Complete your booking" copy when the callbackURL
+   * points to a booking management page rather than a generic sign-in).
+   *
+   * Returning `null` (or omitting fields) falls back to the default sign-in copy.
+   */
+  resolveMagicLinkEmailContent?: (_args: {
+    email: string;
+    token: string;
+    url: string;
+  }) =>
+    | Promise<{
+        instructions?: string | null;
+        ctaText?: string | null;
+        subject?: string | null;
+      } | null>
+    | {
+        instructions?: string | null;
+        ctaText?: string | null;
+        subject?: string | null;
+      }
+    | null;
   /**
    * Optional per-magic-link email "From" resolver.
    * If it returns a non-empty `fromAddress`, it will be used for the magic-link email's From header.
@@ -164,11 +195,13 @@ function deriveCookieDomainFromBaseURL(baseURL: string): string | undefined {
 export function createBetterAuthPlugins({
   enableMagicLink,
   magicLinkDisableSignUp,
+  magicLinkExpiresIn,
   adminUserIds,
   sendMagicLink,
 }: {
   enableMagicLink: boolean;
   magicLinkDisableSignUp?: boolean;
+  magicLinkExpiresIn?: number;
   adminUserIds: string[];
   sendMagicLink: (_args: {
     email: string;
@@ -192,6 +225,9 @@ export function createBetterAuthPlugins({
         }) => sendMagicLink({ email, token, url }),
         ...(typeof magicLinkDisableSignUp === "boolean"
           ? { disableSignUp: magicLinkDisableSignUp }
+          : {}),
+        ...(typeof magicLinkExpiresIn === "number"
+          ? { expiresIn: magicLinkExpiresIn }
           : {}),
       })
     );
@@ -260,6 +296,16 @@ function formatEmailSubjectTimestamp(date = new Date()): string {
   return `${weekday}, ${day}${ordinalSuffix(day)} of ${month} ${year} ${time} ${timeZone}`
 }
 
+function secondsToHumanDisplay(seconds: number): string {
+  if (seconds < 60) return `${seconds} second${seconds === 1 ? "" : "s"}`
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? "" : "s"}`
+  const hours = Math.round(seconds / 3600)
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"}`
+  const days = Math.round(seconds / 86400)
+  return `${days} day${days === 1 ? "" : "s"}`
+}
+
 function ordinalSuffix(n: number): string {
   const mod100 = n % 100
   if (mod100 >= 11 && mod100 <= 13) return "th"
@@ -273,6 +319,180 @@ function ordinalSuffix(n: number): string {
     default:
       return "th"
   }
+}
+
+/**
+ * Core email-sending logic shared between the Better Auth `sendMagicLink` callback
+ * and the custom-expiry booking magic link sender.
+ *
+ * `expiryDisplayOverride` lets callers supply a pre-computed human-readable expiry
+ * string (e.g. "36 hours") instead of deriving it from `config.magicLinkExpiresIn`.
+ */
+async function executeMagicLinkEmailSend(
+  config: BetterAuthServerConfig,
+  {
+    email,
+    token,
+    url,
+    expiryDisplayOverride,
+  }: {
+    email: string;
+    token: string;
+    url: string;
+    expiryDisplayOverride?: string;
+  }
+): Promise<void> {
+  let magicLinkAppName = config.appName;
+  if (typeof config.resolveMagicLinkAppName === "function") {
+    try {
+      const resolved = await config.resolveMagicLinkAppName({ email, token, url });
+      if (typeof resolved === "string" && resolved.trim()) {
+        magicLinkAppName = resolved.trim();
+      }
+    } catch (err) {
+      console.warn("[better-auth-config] resolveMagicLinkAppName failed; using default appName.", err);
+    }
+  }
+
+  let from: string | undefined = undefined;
+  if (typeof config.resolveMagicLinkFrom === "function") {
+    try {
+      const resolved = await config.resolveMagicLinkFrom({ email, token, url });
+      const fromNameRaw = resolved && typeof resolved === "object" ? resolved.fromName : null;
+      const fromAddressRaw = resolved && typeof resolved === "object" ? resolved.fromAddress : null;
+      const fromAddress =
+        typeof fromAddressRaw === "string" && fromAddressRaw.trim()
+          ? fromAddressRaw.trim()
+          : "";
+      if (fromAddress) {
+        const fromName =
+          typeof fromNameRaw === "string" && fromNameRaw.trim()
+            ? fromNameRaw.trim()
+            : magicLinkAppName;
+        from = formatFrom(fromName, fromAddress);
+      }
+    } catch (err) {
+      console.warn("[better-auth-config] resolveMagicLinkFrom failed; using default From.", err);
+    }
+  }
+
+  let emailInstructions: string | undefined = undefined;
+  let emailCtaText: string | undefined = undefined;
+  let emailSubject: string | undefined = undefined;
+  if (typeof config.resolveMagicLinkEmailContent === "function") {
+    try {
+      const resolved = await config.resolveMagicLinkEmailContent({ email, token, url });
+      if (resolved && typeof resolved === "object") {
+        if (typeof resolved.instructions === "string" && resolved.instructions.trim()) {
+          emailInstructions = resolved.instructions.trim();
+        }
+        if (typeof resolved.ctaText === "string" && resolved.ctaText.trim()) {
+          emailCtaText = resolved.ctaText.trim();
+        }
+        if (typeof resolved.subject === "string" && resolved.subject.trim()) {
+          emailSubject = resolved.subject.trim();
+        }
+      }
+    } catch (err) {
+      console.warn("[better-auth-config] resolveMagicLinkEmailContent failed; using default copy.", err);
+    }
+  }
+
+  const expiryDisplay = expiryDisplayOverride ?? secondsToHumanDisplay(config.magicLinkExpiresIn ?? 300);
+
+  const html = buildMagicLinkEmailHtml({
+    magicLink: url,
+    appName: magicLinkAppName,
+    expiryTime: expiryDisplay,
+    ...(emailInstructions ? { instructions: emailInstructions } : {}),
+    ...(emailCtaText ? { ctaText: emailCtaText } : {}),
+  });
+
+  const defaultSubject = emailCtaText
+    ? `${emailCtaText} – ${formatEmailSubjectTimestamp()}`
+    : `Sign in to ${magicLinkAppName} - ${formatEmailSubjectTimestamp()}`;
+
+  await emailSender.sendEmail({
+    to: email.toLowerCase(),
+    subject: emailSubject ?? defaultSubject,
+    html,
+    ...(from ? { from } : {}),
+  });
+}
+
+/**
+ * Returns a sender function that creates a magic link token directly in the Payload
+ * `verifications` collection with a custom expiry, then sends the email via the
+ * same tenant-aware resolvers used for regular sign-in magic links.
+ *
+ * This exists because Better Auth's `signInMagicLink` only supports a single global
+ * `expiresIn` value, so flows that need a different expiry (e.g. booking completion)
+ * must create the verification record themselves.
+ *
+ * Usage:
+ * ```ts
+ * const sender = createCustomExpiryMagicLinkSender(config)
+ * await sender({ payload, email, callbackURL, expiresInSeconds: 36 * 60 * 60 })
+ * ```
+ */
+export function createCustomExpiryMagicLinkSender(config: BetterAuthServerConfig) {
+  return async function sendMagicLinkWithCustomExpiry({
+    payload,
+    email,
+    callbackURL,
+    expiresInSeconds,
+  }: {
+    /** Payload instance (available as `req.payload` in endpoints). */
+    payload: { create: (...args: any[]) => Promise<any> };
+    email: string;
+    /** The absolute URL the user should land on after clicking the link. */
+    callbackURL: string;
+    /** Token lifetime in seconds. */
+    expiresInSeconds: number;
+  }): Promise<void> {
+    const { randomBytes } = await import("crypto");
+    const token = randomBytes(24).toString("base64url"); // 32-char URL-safe token
+
+    const verificationsSlug = config.collections?.verificationsSlug ?? "verifications";
+    await payload.create({
+      collection: verificationsSlug,
+      data: {
+        identifier: token,
+        value: JSON.stringify({ email }),
+        expiresAt: new Date(Date.now() + expiresInSeconds * 1000).toISOString(),
+      },
+      overrideAccess: true,
+    });
+
+    // Build the verify URL on the same origin as the callbackURL so the
+    // tenant-scoped session cookie is set on the right domain.
+    let verifyUrl: string;
+    try {
+      const origin = new URL(callbackURL).origin;
+      const u = new URL("/api/auth/magic-link/verify", origin);
+      u.searchParams.set("token", token);
+      u.searchParams.set("callbackURL", callbackURL);
+      verifyUrl = u.toString();
+    } catch {
+      throw new Error(`Invalid callbackURL for magic link: ${callbackURL}`);
+    }
+
+    const scopedUrl = scopeUrlToCallbackOrigin(verifyUrl);
+
+    // Test / CI: capture rather than send.
+    saveTestMagicLink({ email, token, url: scopedUrl });
+    if (isTestMagicLinkStoreEnabled() || process.env.CI) {
+      console.log("Magic link captured (test/CI):", email, token, scopedUrl);
+      return;
+    }
+
+    await executeMagicLinkEmailSend(config, {
+      email,
+      token,
+      url: scopedUrl,
+      expiryDisplayOverride: secondsToHumanDisplay(expiresInSeconds),
+    });
+  };
 }
 
 export function createBetterAuthOptions(config: BetterAuthServerConfig) {
@@ -300,7 +520,7 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
     token: string;
     url: string;
   }) => {
-    const scopedUrl = scopeUrlToCallbackOrigin(url)
+    const scopedUrl = scopeUrlToCallbackOrigin(url);
 
     // test harness capture
     saveTestMagicLink({ email, token, url: scopedUrl });
@@ -310,58 +530,13 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
       return;
     }
 
-    let magicLinkAppName = config.appName;
-    if (typeof config.resolveMagicLinkAppName === "function") {
-      try {
-        const resolved = await config.resolveMagicLinkAppName({ email, token, url: scopedUrl });
-        if (typeof resolved === "string" && resolved.trim()) {
-          magicLinkAppName = resolved.trim();
-        }
-      } catch (err) {
-        console.warn("[better-auth-config] resolveMagicLinkAppName failed; using default appName.", err);
-      }
-    }
-
-    // Optional per-tenant From header override
-    let from: string | undefined = undefined;
-    if (typeof config.resolveMagicLinkFrom === "function") {
-      try {
-        const resolved = await config.resolveMagicLinkFrom({ email, token, url: scopedUrl });
-        const fromNameRaw = resolved && typeof resolved === "object" ? resolved.fromName : null;
-        const fromAddressRaw = resolved && typeof resolved === "object" ? resolved.fromAddress : null;
-        const fromAddress =
-          typeof fromAddressRaw === "string" && fromAddressRaw.trim()
-            ? fromAddressRaw.trim()
-            : "";
-        if (fromAddress) {
-          const fromName =
-            typeof fromNameRaw === "string" && fromNameRaw.trim()
-              ? fromNameRaw.trim()
-              : magicLinkAppName;
-          from = formatFrom(fromName, fromAddress);
-        }
-      } catch (err) {
-        console.warn("[better-auth-config] resolveMagicLinkFrom failed; using default From.", err);
-      }
-    }
-
-    const html = buildMagicLinkEmailHtml({
-      magicLink: scopedUrl,
-      appName: magicLinkAppName,
-      expiryTime: "15 minutes",
-    });
-
-    await emailSender.sendEmail({
-      to: email.toLowerCase(),
-      subject: `Sign in to ${magicLinkAppName} - ${formatEmailSubjectTimestamp()}`,
-      html,
-      ...(from ? { from } : {}),
-    });
+    await executeMagicLinkEmailSend(config, { email, token, url: scopedUrl });
   };
 
   const betterAuthPlugins = createBetterAuthPlugins({
     enableMagicLink: config.enableMagicLink,
     magicLinkDisableSignUp: config.magicLinkDisableSignUp,
+    magicLinkExpiresIn: config.magicLinkExpiresIn,
     adminUserIds: config.adminUserIds,
     sendMagicLink: handleSendMagicLink,
   });

@@ -632,8 +632,9 @@ describe('tRPC Tenant Compatibility Tests', () => {
     it(
       'bookings.createBookings: works correctly when no tenant-slug cookie is provided (backward compatibility)',
       async () => {
-        // Create a lesson that's available for booking
-        const today = new Date()
+        // Create a lesson that's available for booking.
+        // Use tomorrow so the timeslot is never in the past regardless of when the suite runs.
+        const today = new Date(Date.now() + 24 * 60 * 60 * 1000)
         today.setHours(18, 0, 0, 0) // Future time
         const endTime = new Date(today)
         endTime.setHours(19, 0, 0, 0)

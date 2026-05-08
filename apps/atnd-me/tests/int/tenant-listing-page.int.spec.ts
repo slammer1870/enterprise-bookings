@@ -155,7 +155,9 @@ describe('Tenant Listing Page Access', () => {
       })
 
       const names = tenantsResult.docs.map((t: any) => t.name)
-      const sortedNames = [...names].sort()
+      // Use localeCompare to match PostgreSQL's locale-aware collation (not JS default
+      // ASCII sort, which disagrees with Postgres on mixed-case strings like "DST" vs "Discount").
+      const sortedNames = [...names].sort((a, b) => a.localeCompare(b))
 
       expect(names).toEqual(sortedNames)
     },
