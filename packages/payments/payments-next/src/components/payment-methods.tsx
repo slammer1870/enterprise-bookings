@@ -96,12 +96,14 @@ function ClassPassTabContent({
   passes,
   purchasablePassTypes,
   quantity,
+  isLoading,
   onConfirm,
   onPurchase,
 }: {
   passes: ClassPassForTimeslot[];
   purchasablePassTypes: PurchasableClassPassType[];
   quantity: number;
+  isLoading?: boolean;
   onConfirm: (_classPassId: number) => Promise<void>;
   onPurchase: (_passType: PurchasableClassPassType) => Promise<void>;
 }) {
@@ -127,6 +129,14 @@ function ClassPassTabContent({
       setIsSubmitting(false);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground animate-pulse">
+        <p>Loading class pass options…</p>
+      </div>
+    );
+  }
 
   if (passes.length === 0 && purchasablePassTypes.length === 0) {
     return (
@@ -387,18 +397,20 @@ export function PaymentMethods({
   );
 
   // Get valid class passes for this timeslot (Phase 4.6)
-  const { data: validClassPasses = [] } = useQuery(
+  const { data: validClassPasses = [], isLoading: isLoadingValidPasses, isFetching: isFetchingValidPasses } = useQuery(
     trpc.bookings.getValidClassPassesForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
     })
   );
-  const { data: purchasableClassPassTypes = [] } = useQuery(
+  const { data: purchasableClassPassTypes = [], isLoading: isLoadingPurchasable, isFetching: isFetchingPurchasable } = useQuery(
     trpc.bookings.getPurchasableClassPassTypesForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
     })
   );
+  const isLoadingClassPassOptions =
+    isLoadingValidPasses || isLoadingPurchasable || isFetchingValidPasses || isFetchingPurchasable;
 
   const subscription = subscriptionData?.subscription ?? null;
   const subscriptionLimitReached = subscriptionData?.subscriptionLimitReached ?? false;
@@ -936,6 +948,7 @@ export function PaymentMethods({
               passes={classPassesWithEnoughCredits}
               purchasablePassTypes={purchasablePassesForQuantity}
               quantity={quantity}
+              isLoading={isLoadingClassPassOptions}
               onConfirm={async (classPassId: number) => {
                 await createBookingsWithClassPass({
                   timeslotId: timeslot.id,

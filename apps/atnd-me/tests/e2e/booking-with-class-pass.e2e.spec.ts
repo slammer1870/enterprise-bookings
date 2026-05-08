@@ -394,6 +394,164 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     await expect(page.getByRole('button', { name: /buy pass/i })).toBeVisible({ timeout: 15000 })
   })
 
+  test('class pass capped at maxBookingsPerTimeslot=2: qty=2 shows buy option pre-purchase, then "use this pass" after purchase + reload', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenantId = testData.tenants[0]?.id
+    const tenantSlug = testData.tenants[0]?.slug
+    const w = testData.workerIndex
+
+    if (!tenantId || !tenantSlug) throw new Error('Tenant required')
+
+    await payload.update({
+      collection: 'tenants',
+      id: tenantId,
+      data: {
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectAccountId: null,
+      },
+      overrideAccess: true,
+    })
+
+    // Class pass type capped at exactly 2 bookings per timeslot — this is the
+    // production scenario where qty=2 is valid for the type but the tab was
+    // incorrectly showing "No valid class pass" instead of the purchase option.
+    const cptName = `E2E Cap2 5-Pack w${w} ${Date.now()}`
+    const co = await createTestEventType(tenantId, 'Cap2 Class Pass', 5, undefined, w)
+    const cpt = await payload.create({
+      collection: 'class-pass-types',
+      data: {
+        name: cptName,
+        slug: `e2e-cap2-${tenantId}-${w}-${Date.now()}`,
+        quantity: 5,
+        maxBookingsPerTimeslot: 2,
+        tenant: tenantId,
+        priceInformation: { price: 29.99 },
+        priceJSON: JSON.stringify({ id: `price_test_cap2_${tenantId}_${w}_${Date.now()}` }),
+        skipSync: true,
+        stripeProductId: `prod_test_cap2_${tenantId}_${w}_${Date.now()}`,
+      },
+      overrideAccess: true,
+    }) as { id: number }
+
+    await payload.update({
+      collection: 'event-types',
+      id: co.id,
+      data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
+      overrideAccess: true,
+    })
+
+    const start = new Date()
+    start.setDate(start.getDate() + 3)
+    start.setHours(10, 0, 0, 0)
+    const end = new Date(start)
+    end.setHours(11, 0, 0, 0)
+    const lesson = await createTestTimeslot(tenantId, co.id, start, end, undefined, true)
+
+    await new Promise((r) => setTimeout(r, 600))
+
+    // ── Step 1: user has NO class pass — navigate to booking page at qty=2 ─────
+    await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
+    await navigateToTenant(page, tenantSlug, '/')
+    await page.waitForLoadState('domcontentloaded').catch(() => null)
+    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+
+    await expect(
+      page.getByText(/select quantity|number of slots|book|payment methods/i).first()
+    ).toBeVisible({ timeout: 15000 })
+
+    // Increase quantity to 2 (within the cap of the class pass type)
+    const increaseBtn = page.getByRole('button', { name: /increase quantity/i }).first()
+    await increaseBtn.click().catch(() => null)
+    await page.waitForTimeout(2000)
+
+    // Class pass tab must still be visible at qty=2 (type cap is 2, qty=2 <= cap)
+    const classPassTab = page.getByRole('tab', { name: /class pass/i })
+    await expect(classPassTab).toBeVisible({ timeout: 15000 })
+    await classPassTab.click()
+
+    // Tab content at qty=2 with no purchased pass should show the purchase option,
+    // NOT "No valid class pass" (regression guard for the production bug).
+    await expect(page.getByText(/no valid class pass/i)).not.toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(/buy a class pass/i)).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(cptName)).toBeVisible({ timeout: 10000 })
+    await expect(page.getByRole('button', { name: /buy pass/i })).toBeVisible({ timeout: 5000 })
+
+    // ── Step 2: simulate Stripe checkout — webhook creates the class pass ───────
+    const future = new Date(Date.now() + 86400000 * 365)
+    const purchasedPass = await payload.create({
+      collection: 'class-passes',
+      data: {
+        user: testData.users.user1.id,
+        tenant: tenantId,
+        type: cpt.id,
+        quantity: 5,
+        expirationDate: future.toISOString().slice(0, 10),
+        purchasedAt: new Date().toISOString().slice(0, 10),
+        price: 2999,
+        status: 'active',
+      },
+      overrideAccess: true,
+    }) as { id: number }
+
+    // ── Step 3: reload booking page (as if Stripe redirected back) ─────────────
+    await navigateToTenant(page, tenantSlug, `/bookings/${lesson.id}`)
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+
+    await expect(
+      page.getByText(/select quantity|number of slots|book|payment methods/i).first()
+    ).toBeVisible({ timeout: 15000 })
+
+    // Re-select qty=2 after reload
+    await increaseBtn.click().catch(() => null)
+    await page.waitForTimeout(2000)
+
+    // ── Step 4: class pass tab should now show the purchased pass at qty=2 ──────
+    await expect(classPassTab).toBeVisible({ timeout: 15000 })
+    await classPassTab.click()
+
+    // Loading state must resolve before asserting content
+    await expect(page.getByText(/loading class pass/i)).not.toBeVisible({ timeout: 8000 })
+
+    // Must NOT show the "No valid class pass" yellow warning
+    await expect(page.getByText(/no valid class pass/i)).not.toBeVisible({ timeout: 5000 })
+
+    // Should show the "Use this pass" / credits UI
+    await expect(
+      page.getByText(/use this pass|remaining|confirm with class pass/i).first()
+    ).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/5 credits? remaining/i).first()).toBeVisible({ timeout: 5000 })
+
+    // ── Step 5: confirm booking with the purchased pass ───────────────────────
+    const usePassBtn = page
+      .getByRole('button', { name: /use this pass|confirm with class pass/i })
+      .first()
+    await expect(usePassBtn).toBeVisible()
+    await usePassBtn.click()
+
+    await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(/your booking has been confirmed/i)).toBeVisible()
+
+    // Verify class pass credits decremented by 2 (5 → 3)
+    await expect
+      .poll(
+        async () => {
+          const passAfter = (await payload.findByID({
+            collection: 'class-passes',
+            id: purchasedPass.id,
+            depth: 0,
+            overrideAccess: true,
+          })) as { quantity: number }
+          return passAfter.quantity
+        },
+        { timeout: 10000 },
+      )
+      .toBe(3)
+  })
+
   test('class pass balance updates for initial booking and manage-booking upgrades', async ({
     page,
     testData,
