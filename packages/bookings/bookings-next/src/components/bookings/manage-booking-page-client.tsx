@@ -69,7 +69,10 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
     const si = plan?.sessionsInformation
     if (!si) continue
     const { maxBookingsPerTimeslot: raw, allowMultipleBookingsPerTimeslot: legacy } = si
-    caps.push(capFromRaw(raw == null ? (legacy === false ? 1 : null) : raw))
+    // Keep this consistent with PaymentMethods' membership-plan rules:
+    // - if `maxBookingsPerTimeslot` is missing, only `allowMultipleBookingsPerTimeslot === true`
+    //   should enable multi-booking; any other/undefined value means a single booking cap.
+    caps.push(raw == null ? (legacy === true ? Infinity : 1) : capFromRaw(raw))
   }
 
   for (const pass of paymentMethods.allowedClassPasses ?? []) {
@@ -166,15 +169,14 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // ── Payment method caps ────────────────────────────────────────────────────
 
   const paymentMethods = asPaymentMethodsLike(timeslot.eventType?.paymentMethods)
-  const hasPaymentMethods = Boolean(
+  const hasPaymentMethodsConfigured = Boolean(
     paymentMethods?.allowedDropIn ||
       (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
       (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
   )
-  const viewerMaxPerTimeslot = useMemo(
-    () => computeViewerMax(paymentMethods),
-    []
-  )
+
+  const viewerMaxPerTimeslot = useMemo(() => computeViewerMax(paymentMethods), [paymentMethods])
+  const hasPaymentMethodsForMulti = hasPaymentMethodsConfigured && viewerMaxPerTimeslot > 1
 
   // ── Checkout state ────────────────────────────────────────────────────────
   //
@@ -377,7 +379,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     }
 
     // ── Increase with payment required → enter checkout ──────────────────
-    if (target > current && hasPaymentMethods && PaymentMethodsComponent) {
+    if (target > current && hasPaymentMethodsForMulti && PaymentMethodsComponent) {
       try {
         const pending = await createBookings({
           timeslotId: timeslot.id,

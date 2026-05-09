@@ -6,6 +6,7 @@ import type { Timeslot, Booking } from '@repo/shared-types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useTRPC } from '@repo/trpc/client'
 import { useRouter } from 'next/navigation'
+import '@testing-library/jest-dom/vitest'
 
 vi.mock('@repo/trpc/client', () => ({
   useTRPC: vi.fn(),
@@ -44,6 +45,37 @@ const createMockTimeslot = (opts?: { hasPaymentMethods?: boolean }): Timeslot =>
       paymentMethods: opts?.hasPaymentMethods
         ? { allowedDropIn: { id: 1 } as any, allowedPlans: [] }
         : undefined,
+    },
+    remainingCapacity: 5,
+    bookingStatus: 'active',
+    location: 'Test',
+    bookings: { docs: [] },
+  }) as unknown as Timeslot
+
+const createMockTimeslotWithMembershipPlan = (): Timeslot =>
+  ({
+    id: 1,
+    date: new Date().toISOString(),
+    startTime: new Date().toISOString(),
+    endTime: new Date().toISOString(),
+    eventType: {
+      id: 1,
+      name: 'Test Class',
+      places: 10,
+      description: 'Test',
+      paymentMethods: {
+        allowedDropIn: null,
+        allowedPlans: [
+          {
+            id: 123,
+            sessionsInformation: {
+              // Both fields intentionally missing/undefined.
+              // This should NOT enable multi-booking.
+              // (PaymentMethods treats undefined allowMultipleBookingsPerTimeslot as single-cap.)
+            },
+          } as any,
+        ],
+      },
     },
     remainingCapacity: 5,
     bookingStatus: 'active',
@@ -392,6 +424,51 @@ describe('ManageBookingPageClient', () => {
     await waitFor(() => {
       expect(screen.getByTestId('pending-booking-quantity')).toHaveTextContent('1')
     })
+  })
+
+  it('caps quantity at 1 when membership plan does not explicitly allow multiple bookings', async () => {
+    const bookings = [createMockBooking(1, 'confirmed')]
+    const lesson = createMockTimeslotWithMembershipPlan()
+    const PaymentMethodsStub = () => <div data-testid="payment-methods-stub">Payment methods</div>
+
+    ;(useTRPC as any).mockReturnValue({
+      bookings: {
+        getUserBookingsForTimeslot: {
+          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
+          queryOptions: (opts: { timeslotId: number }) => ({
+            queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
+            queryFn: () => bookings,
+            initialData: bookings,
+          }),
+        },
+        cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
+        createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
+        setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
+        cancelNewestPendingBookingsForTimeslot: {
+          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
+        },
+        cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
+      },
+      timeslots: {
+        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+      },
+    })
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ManageBookingPageClient
+          timeslot={lesson}
+          initialBookings={bookings}
+          PaymentMethodsComponent={PaymentMethodsStub}
+        />
+      </QueryClientProvider>
+    )
+
+    // Quantity selector should allow only `1` total booking for this timeslot.
+    const increaseBtn = await screen.findByLabelText('Increase quantity')
+    expect(increaseBtn).toBeDisabled()
   })
 
   it('cancels pending bookings when the checkout flow unmounts', async () => {

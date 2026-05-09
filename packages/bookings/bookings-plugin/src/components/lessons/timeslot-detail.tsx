@@ -60,7 +60,7 @@ export const TimeslotDetail = ({
         : 0;
   const bookingCount = localBookingTotal ?? bookingCountFromProps;
 
-  const handleBookingCreated = useCallback(async () => {
+  const refetchExpandedBookings = useCallback(async () => {
     try {
       const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
         method: "GET",
@@ -188,11 +188,14 @@ export const TimeslotDetail = ({
               {isLoadingExpandedBookings ? (
                 <div className="text-sm text-muted-foreground">Loading bookings...</div>
               ) : (
-                <BookingList bookings={(expandedBookings ?? bookingsContainer?.docs ?? []) as Booking[]} />
+                <BookingList
+                  bookings={(expandedBookings ?? bookingsContainer?.docs ?? []) as Booking[]}
+                  onBookingUpdated={refetchExpandedBookings}
+                />
               )}
               <AddBooking
                 timeslotId={timeslot.id}
-                onBookingCreated={handleBookingCreated}
+                onBookingCreated={refetchExpandedBookings}
               />
             </div>
           </TableCell>
