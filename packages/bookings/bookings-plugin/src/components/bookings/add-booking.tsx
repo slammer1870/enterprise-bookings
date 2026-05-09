@@ -250,7 +250,7 @@ export const AddBooking = ({
               Send the email now so the user can manage the booking.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="pt-2">
+          <DialogFooter className="pt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
             <UiButton
               type="button"
               variant="outline"

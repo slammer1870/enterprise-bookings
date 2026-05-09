@@ -21,7 +21,13 @@ function sortBookings(bookings: Booking[]): Booking[] {
   });
 }
 
-export const BookingList = ({ bookings }: { bookings: Booking[] }) => {
+export const BookingList = ({
+  bookings,
+  onBookingUpdated,
+}: {
+  bookings: Booking[];
+  onBookingUpdated?: () => void | Promise<void>;
+}) => {
   if (!bookings || bookings.length === 0) return null;
 
   const sorted = sortBookings(bookings);
@@ -36,7 +42,7 @@ export const BookingList = ({ bookings }: { bookings: Booking[] }) => {
             className="grid grid-cols-[1fr_auto] items-center gap-2"
           >
             <BookingDetail booking={booking} />
-            <EditBooking booking={booking} />
+            <EditBooking booking={booking} onUpdated={onBookingUpdated} />
           </div>
         ))}
       </div>

@@ -31,7 +31,13 @@ const statusOptions = [
   { label: "Waiting List", value: "waiting" },
 ] as { label: string; value: string }[];
 
-export function EditBooking({ booking }: { booking: Booking }) {
+export function EditBooking({
+  booking,
+  onUpdated,
+}: {
+  booking: Booking;
+  onUpdated?: () => void | Promise<void>;
+}) {
   const [status, setStatus] = useState<string>(booking.status);
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
@@ -59,6 +65,7 @@ export function EditBooking({ booking }: { booking: Booking }) {
 
       toast.success("Booking updated successfully");
       setOpen(false);
+      await onUpdated?.();
       router.refresh();
     } catch {
       toast.error("An error occurred");
@@ -179,8 +186,8 @@ export function EditBooking({ booking }: { booking: Booking }) {
                           Send the email now so the user can manage the booking.
                         </DialogDescription>
                       </DialogHeader>
-                      <DialogFooter className="pt-2">
-                        <UiButton
+                      <DialogFooter className="pt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <UiButton
                           type="button"
                           variant="outline"
                           disabled={sendingMagicLink}
