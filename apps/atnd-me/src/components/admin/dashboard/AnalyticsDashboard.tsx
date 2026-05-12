@@ -24,6 +24,7 @@ export async function AnalyticsDashboard(props: AdminViewServerProps) {
 
   let selectedTenantId: number | null = null
   let selectedTenantName: string | null = null
+  let selectedBranchId: number | null = null
   const cookieStore = await cookies()
   const payloadTenant = cookieStore.get('payload-tenant')?.value
   if (payloadTenant && /^\d+$/.test(payloadTenant)) {
@@ -45,10 +46,16 @@ export async function AnalyticsDashboard(props: AdminViewServerProps) {
     }
   }
 
+  const payloadLocation = cookieStore.get('payload-location')?.value
+  if (payloadLocation && /^\d+$/.test(payloadLocation)) {
+    selectedBranchId = parseInt(payloadLocation, 10)
+  }
+
   return (
     <AnalyticsDashboardClient
       selectedTenantId={selectedTenantId}
       selectedTenantName={selectedTenantName}
+      selectedBranchId={selectedBranchId}
     />
   )
 }

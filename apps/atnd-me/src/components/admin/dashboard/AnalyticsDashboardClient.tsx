@@ -57,9 +57,11 @@ function formatLocalYmd(d: Date): string {
 export const AnalyticsDashboardClient: React.FC<{
   /** Tenant ID from sidebar (payload-tenant cookie), passed from server so API receives it. */
   selectedTenantId?: number | null
+  /** Branch/location ID from sidebar (payload-location cookie), passed from server so API can filter charts. */
+  selectedBranchId?: number | null
   /** Tenant name for display when scoped to one tenant. */
   selectedTenantName?: string | null
-}> = ({ selectedTenantId }) => {
+}> = ({ selectedTenantId, selectedBranchId }) => {
   const router = useRouter()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -103,6 +105,7 @@ export const AnalyticsDashboardClient: React.FC<{
       dateTo: dateToStr,
     })
     if (selectedTenantId != null) common.set('tenantId', String(selectedTenantId))
+    if (selectedTenantId != null && selectedBranchId != null) common.set('branchId', String(selectedBranchId))
 
     const loadJson = async (url: string): Promise<unknown> => {
       const res = await fetch(url, { credentials: 'include' })

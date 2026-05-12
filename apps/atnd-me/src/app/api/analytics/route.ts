@@ -73,6 +73,7 @@ export async function GET(request: NextRequest) {
     const dateFrom = searchParams.get('dateFrom')
     const dateTo = searchParams.get('dateTo')
     const tenantIdParam = searchParams.get('tenantId')
+    const branchIdParam = searchParams.get('branchId')
     const viewAll = searchParams.get('viewAll') === '1'
     const comparePrevious = searchParams.get('comparePrevious') === 'true'
     /** Second request: previous window only (avoids recomputing the current period on the server). */
@@ -97,6 +98,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid tenantId' }, { status: 400 })
       }
       tenantId = id
+    }
+
+    let branchId: number | null = null
+    if (branchIdParam != null) {
+      const bid = parseInt(branchIdParam, 10)
+      if (Number.isNaN(bid)) {
+        return NextResponse.json({ error: 'Invalid branchId' }, { status: 400 })
+      }
+      branchId = bid
     }
 
     // Shared context for this request; TTL cache inside resolveTenantAdminTenantIds helps
@@ -145,6 +155,44 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Branch filter hardening:
+    // - Apply only when a tenant scope is active.
+    // - Validate the branch belongs to the effective tenant (prevents cookie tampering).
+    const relationIdFromLocationTenant = (value: unknown): number | null => {
+      if (value == null || value === '') return null
+      if (typeof value === 'number' && Number.isFinite(value)) return value
+      if (typeof value === 'string' && /^\d+$/.test(value)) return parseInt(value, 10)
+      if (typeof value === 'object' && value !== null && 'id' in value) {
+        const id = (value as { id: unknown }).id
+        if (typeof id === 'number' && Number.isFinite(id)) return id
+        if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+      }
+      return null
+    }
+
+    if (effectiveTenantId == null) {
+      branchId = null
+    } else if (branchId != null) {
+      try {
+        const branchDoc = await payload.findByID({
+          collection: 'locations',
+          id: branchId,
+          depth: 0,
+          overrideAccess: true,
+        })
+
+        const locTenantId = relationIdFromLocationTenant(
+          (branchDoc as { tenant?: unknown } | null)?.tenant,
+        )
+
+        if (locTenantId !== effectiveTenantId) {
+          branchId = null
+        }
+      } catch {
+        branchId = null
+      }
+    }
+
     if (previousPeriodOnly) {
       const previousParams = buildPreviousPeriodParams({
         dateFrom,
@@ -153,8 +201,9 @@ export async function GET(request: NextRequest) {
         granularity,
         limitTopCustomers,
       })
-      const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousParams)
-      const previousWithTimeslots = { ...previousParams, preResolvedTimeslotIds: previousTimeslotIds }
+      const previousWithBranch = { ...previousParams, branchId }
+      const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousWithBranch)
+      const previousWithTimeslots = { ...previousWithBranch, preResolvedTimeslotIds: previousTimeslotIds }
       const { summary: summaryPrevious, bookingsOverTime: bookingsOverTimePrevious } =
         await getAnalyticsDashboardBundle(payload, previousWithTimeslots, { includeTopCustomers: false })
       return new NextResponse(
@@ -170,6 +219,7 @@ export async function GET(request: NextRequest) {
       dateFrom,
       dateTo,
       tenantId: effectiveTenantId ?? undefined,
+      branchId: branchId ?? undefined,
       granularity,
       limitTopCustomers,
     }
@@ -200,8 +250,9 @@ export async function GET(request: NextRequest) {
     }
 
     if (comparePrevious && previousParams) {
-      const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousParams)
-      const previousWithTimeslots = { ...previousParams, preResolvedTimeslotIds: previousTimeslotIds }
+      const previousWithBranch = { ...previousParams, branchId }
+      const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousWithBranch)
+      const previousWithTimeslots = { ...previousWithBranch, preResolvedTimeslotIds: previousTimeslotIds }
       const { summary: summaryPrevious, bookingsOverTime: bookingsOverTimePrevious } =
         await getAnalyticsDashboardBundle(payload, previousWithTimeslots, { includeTopCustomers: false })
       body.summaryPrevious = summaryPrevious

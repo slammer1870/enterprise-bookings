@@ -8,6 +8,8 @@ export type AnalyticsDateRange = {
 
 export type AnalyticsQueryParams = AnalyticsDateRange & {
   tenantId?: number | null
+  /** Optional location/branch id to filter timeslots + bookings. */
+  branchId?: number | null
   granularity?: 'day' | 'week'
   limitTopCustomers?: number
   /**

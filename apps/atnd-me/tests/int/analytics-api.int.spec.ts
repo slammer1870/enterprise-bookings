@@ -403,6 +403,157 @@ describe('Analytics API (Phase 4)', () => {
     )
 
     it(
+      'location-filter (branchId) restricts totalBookings on the analytics API',
+      async () => {
+        const from = '2045-03-15'
+        const to = '2045-03-15'
+
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: `Analytics Branch Filter ${Date.now()}`,
+            places: 10,
+            description: 'branch filter analytics int test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+
+        const northLocation = await payload.create({
+          collection: 'locations',
+          data: {
+            name: `North ${Date.now()}`,
+            slug: `north-${Date.now()}`,
+            tenant: testTenantId,
+            active: true,
+          },
+          overrideAccess: true,
+        })
+
+        const southLocation = await payload.create({
+          collection: 'locations',
+          data: {
+            name: `South ${Date.now()}`,
+            slug: `south-${Date.now()}`,
+            tenant: testTenantId,
+            active: true,
+          },
+          overrideAccess: true,
+        })
+
+        const startTime = new Date('2045-03-15T12:00:00.000Z')
+        const endTime = new Date('2045-03-15T13:00:00.000Z')
+
+        const mkTimeslot = async (branchId: number) => {
+          return payload.create({
+            collection: 'timeslots',
+            data: {
+              date: startTime.toISOString(),
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              eventType: eventType.id,
+              tenant: testTenantId,
+              branch: branchId,
+              active: true,
+              lockOutTime: 0,
+            },
+            draft: false,
+            overrideAccess: true,
+          })
+        }
+
+        const northSlot = await mkTimeslot(northLocation.id as number)
+        const southSlot = await mkTimeslot(southLocation.id as number)
+
+        const northBooking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: northSlot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        const southBooking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: southSlot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        try {
+          const baseTenantUrl = `http://localhost/api/analytics?dateFrom=${from}&dateTo=${to}&tenantId=${testTenantId}`
+          const resAll = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: baseTenantUrl,
+            }),
+          )
+          expect(resAll.status).toBe(200)
+          const allJson = (await resAll.json()) as { summary: { totalBookings: number } }
+          expect(allJson.summary.totalBookings).toBe(2)
+
+          const resNorth = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `${baseTenantUrl}&branchId=${northLocation.id}`,
+            }),
+          )
+          expect(resNorth.status).toBe(200)
+          const northJson = (await resNorth.json()) as { summary: { totalBookings: number } }
+          // Should include only northSlot booking(s) for this branch.
+          expect(northJson.summary.totalBookings).toBe(1)
+
+          const resSouth = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `${baseTenantUrl}&branchId=${southLocation.id}`,
+            }),
+          )
+          expect(resSouth.status).toBe(200)
+          const southJson = (await resSouth.json()) as { summary: { totalBookings: number } }
+          expect(southJson.summary.totalBookings).toBe(1)
+        } finally {
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { in: [northBooking.id, southBooking.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { in: [northSlot.id, southSlot.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'locations',
+              where: { id: { in: [northLocation.id, southLocation.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'when comparePrevious=true returns summaryPrevious and bookingsOverTimePrevious with same shape',
       async () => {
         const res = await GET(

@@ -154,7 +154,7 @@ export async function resolveTimeslotIdsForAnalytics(
     return params.preResolvedTimeslotIds
   }
 
-  const { dateFrom, dateTo, tenantId } = params
+  const { dateFrom, dateTo, tenantId, branchId } = params
   const ids: number[] = []
 
   const defaultTz = getDefaultTimeZoneForAnalytics(payload)
@@ -189,6 +189,11 @@ export async function resolveTimeslotIdsForAnalytics(
     ]
     if (tenantId != null) {
       andClause.push({ tenant: { equals: tenantId } })
+    }
+    // Location-filtered analytics: when a tenant scope is active, also filter
+    // to timeslots assigned to the selected branch/location.
+    if (tenantId != null && branchId != null) {
+      andClause.push({ branch: { equals: branchId } })
     }
     const res = await payload.find({
       collection: 'timeslots',

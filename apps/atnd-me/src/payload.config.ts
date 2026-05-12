@@ -84,7 +84,10 @@ export default buildConfig({
       // Feel free to delete this at any time. Simply remove the line below.
       beforeDashboard: ['@/components/BeforeDashboard'],
       // Home link at top of sidebar for quick access to dashboard (analytics).
-      beforeNavLinks: ['@/components/admin/NavHomeLink', '@/components/admin/AdminBranchSiteSelector'],
+      beforeNavLinks: ['@/components/admin/NavHomeLink'],
+      // Render the branch/site selector after the tenant selector so the sidebar hierarchy
+      // matches tenant -> location (multi-tenant -> multi-location).
+      afterNavLinks: ['@/components/admin/AdminBranchSiteSelector'],
       // Phase 4 – Custom analytics dashboard (replaces default dashboard view).
       views: {
         dashboard: {
