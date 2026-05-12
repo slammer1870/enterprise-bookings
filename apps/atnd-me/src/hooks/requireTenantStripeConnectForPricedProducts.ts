@@ -1,6 +1,7 @@
 /**
- * Require an active Stripe Connect account before saving priced plans / class-pass-types
- * (unless skipSync or hook context skipStripeSync is set — imports and internal updates).
+ * Require an active Stripe Connect account before saving priced plans / class-pass-types,
+ * and before creating discount codes or archiving synced discount codes on the tenant Connect account
+ * (unless skipSync or hook context skipStripeSync / stripeWebhookSync is set — imports and internal updates).
  */
 import type { CollectionBeforeValidateHook } from 'payload'
 import { APIError } from 'payload'
@@ -62,10 +63,17 @@ function classPassPriceUnchanged(
   return merged?.price === previous?.price
 }
 
-async function assertTenantConnectedForPricedSave(args: {
+type StripeConnectSaveLabel = 'membership plan' | 'class pass type' | 'discount code'
+
+function saveSubjectPhrase(label: StripeConnectSaveLabel): string {
+  if (label === 'discount code') return 'a discount code'
+  return `a priced ${label}`
+}
+
+async function assertTenantHasActiveStripeConnect(args: {
   payload: import('payload').Payload
   tenantId: number
-  label: 'membership plan' | 'class pass type'
+  label: StripeConnectSaveLabel
 }): Promise<void> {
   const { payload, tenantId, label } = args
   const tenant = await payload.findByID({
@@ -83,8 +91,9 @@ async function assertTenantConnectedForPricedSave(args: {
   const hint = ctx.requiresOnboarding
     ? 'Stripe Connect onboarding is not complete for this tenant.'
     : 'This tenant is not connected to Stripe Connect.'
+  const subject = saveSubjectPhrase(label)
   throw new APIError(
-    `${hint} Complete Stripe Connect (active account) before saving a priced ${label}, or enable "Skip Stripe sync" on this document for imports.`,
+    `${hint} Complete Stripe Connect (active account) before saving ${subject}, or enable "Skip Stripe sync" on this document for imports.`,
     400,
   )
 }
@@ -109,7 +118,7 @@ export const planBeforeValidateStripeConnect: CollectionBeforeValidateHook = asy
 
   if (operation === 'create') {
     if (!priced) return data
-    await assertTenantConnectedForPricedSave({ payload: req.payload, tenantId, label: 'membership plan' })
+    await assertTenantHasActiveStripeConnect({ payload: req.payload, tenantId, label: 'membership plan' })
     return data
   }
 
@@ -117,7 +126,7 @@ export const planBeforeValidateStripeConnect: CollectionBeforeValidateHook = asy
     if (!priced) return data
     const previousPrice = prev?.priceInformation as PlanPriceInformation | undefined
     if (planPriceInformationUnchanged(mergedPrice, previousPrice)) return data
-    await assertTenantConnectedForPricedSave({ payload: req.payload, tenantId, label: 'membership plan' })
+    await assertTenantHasActiveStripeConnect({ payload: req.payload, tenantId, label: 'membership plan' })
   }
 
   return data
@@ -143,7 +152,7 @@ export const classPassTypeBeforeValidateStripeConnect: CollectionBeforeValidateH
 
   if (operation === 'create') {
     if (!priced) return data
-    await assertTenantConnectedForPricedSave({ payload: req.payload, tenantId, label: 'class pass type' })
+    await assertTenantHasActiveStripeConnect({ payload: req.payload, tenantId, label: 'class pass type' })
     return data
   }
 
@@ -151,7 +160,42 @@ export const classPassTypeBeforeValidateStripeConnect: CollectionBeforeValidateH
     if (!priced) return data
     const previousPrice = prev?.priceInformation as { price?: number } | undefined
     if (classPassPriceUnchanged(mergedPrice, previousPrice)) return data
-    await assertTenantConnectedForPricedSave({ payload: req.payload, tenantId, label: 'class pass type' })
+    await assertTenantHasActiveStripeConnect({ payload: req.payload, tenantId, label: 'class pass type' })
+  }
+
+  return data
+}
+
+export const discountCodeBeforeValidateStripeConnect: CollectionBeforeValidateHook = async ({
+  data,
+  operation,
+  originalDoc,
+  req,
+}) => {
+  if (!data || typeof data !== 'object') return data
+  if ((req.context as { skipStripeSync?: boolean } | undefined)?.skipStripeSync) return data
+  if ((req.context as { stripeWebhookSync?: boolean } | undefined)?.stripeWebhookSync) return data
+  if ((data as { skipSync?: boolean }).skipSync === true) return data
+
+  const d = data as Record<string, unknown>
+  const tenantId = resolveTenantId(d, originalDoc as Record<string, unknown> | undefined)
+  if (tenantId == null) return data
+
+  const prev = originalDoc as Record<string, unknown> | undefined
+
+  if (operation === 'create') {
+    await assertTenantHasActiveStripeConnect({ payload: req.payload, tenantId, label: 'discount code' })
+    return data
+  }
+
+  if (operation === 'update') {
+    const prevStatus = prev?.status as string | undefined
+    const nextStatus = (d.status !== undefined ? d.status : prevStatus) as string | undefined
+    const archiving = nextStatus === 'archived' && prevStatus !== 'archived'
+    const promoId = prev?.stripePromotionCodeId
+    if (archiving && typeof promoId === 'string' && promoId.length > 0) {
+      await assertTenantHasActiveStripeConnect({ payload: req.payload, tenantId, label: 'discount code' })
+    }
   }
 
   return data

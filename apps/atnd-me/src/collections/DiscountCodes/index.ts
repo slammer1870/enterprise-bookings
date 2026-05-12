@@ -6,12 +6,14 @@ import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import {
+  adminOnlyFieldAccess,
   productsRequireStripeConnectRead,
   productsRequireStripeConnectCreate,
   productsRequireStripeConnectUpdate,
   productsRequireStripeConnectDelete,
   productsRequireStripeConnectAdmin,
 } from '@/access/productsRequireStripeConnect'
+import { discountCodeBeforeValidateStripeConnect } from '@/hooks/requireTenantStripeConnectForPricedProducts'
 import { createTenantCouponAndPromoCode, deactivateTenantPromotionCode } from '@/lib/stripe-connect/coupons'
 import { getTenantStripeContext, type TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
 
@@ -215,6 +217,16 @@ export const DiscountCodes: CollectionConfig = {
       access: { read: ({ req: { user } }) => checkRole(['super-admin', 'admin'], user as SharedUser) },
     },
     {
+      name: 'skipSync',
+      type: 'checkbox',
+      defaultValue: false,
+      access: adminOnlyFieldAccess,
+      admin: {
+        position: 'sidebar',
+        description: 'Skip Stripe sync (imports only). Requires super-admin to set.',
+      },
+    },
+    {
       name: 'stripePromotionCodeDashboardLink',
       type: 'ui',
       admin: {
@@ -243,6 +255,7 @@ export const DiscountCodes: CollectionConfig = {
     },
   ],
   hooks: {
+    beforeValidate: [discountCodeBeforeValidateStripeConnect],
     beforeChange: [
       async ({ data, operation, originalDoc, req }) => {
         if (!data) return data
