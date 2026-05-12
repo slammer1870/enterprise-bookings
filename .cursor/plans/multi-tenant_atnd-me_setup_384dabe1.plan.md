@@ -164,6 +164,53 @@ isProject: false
 
 # Multi-Tenant Setup for atnd-me App
 
+## Progress at a glance
+
+| Area | Status | Where to read |
+|------|--------|----------------|
+| **Tracked MVP todos** (YAML frontmatter) | All `done` | Lines 5–161 in this file |
+| **Phase 1** – Multi-tenant MVP | **Complete** (per codebase scan) | [Phase 1 Completion Status](#phase-1-completion-status-vs-codebase) |
+| **Phase 2** – Payments / Connect / class passes | **Core built**; verification & test hardening called out | [Phase 2 Completion Status](#phase-2-completion-status-vs-codebase) |
+| **Immediate engineering focus** | **Phase 2.5** – Stripe sync for admin-managed Stripe-backed docs | [Phase 2.5 (Next)](#phase-25-stripe-sync-for-stripe-backed-collections-next) |
+| **Closeout / polish** | Checklist under *Current Implementation To-Do* (access review, tests, class-pass booking UX parity) | [Current Implementation To-Do](#current-implementation-to-do) |
+
+**Where you are on the roadmap:** Phases **1** and **2** are effectively done in code. You are **between Phase 2 and Phase 2.5**: the plan explicitly names **Phase 2.5 (Stripe sync)** as the next implementation milestone, while *Current Implementation To-Do* still lists verification, subscription webhooks, and **class pass booking UX parity** (aligned with [Phase 4.6](#phase-46-class-pass-ui-in-bookings-page)) as work to finish or harden before or alongside that stream.
+
+## Table of contents
+
+**Status & next steps**
+
+- [Progress at a glance](#progress-at-a-glance) (this section)
+- [Phase 1 Completion Status](#phase-1-completion-status-vs-codebase)
+- [Current Implementation To-Do](#current-implementation-to-do)
+- [Phase 2 Completion Status](#phase-2-completion-status-vs-codebase)
+
+**Concepts & reference (read once)**
+
+- [Overview](#overview) · [MVP Scope](#mvp-scope) · [Roadmap](#roadmap-execution-order)
+- [Code Organization](#code-organization-app-vs-packages) · [TDD Approach](#test-driven-development-approach) · [Architecture](#architecture)
+- [Key Files to Modify](#key-files-to-modify) · [Test Files](#test-files-to-create) · [Migration Strategy](#migration-strategy)
+
+**Long-form TDD walkthrough (Phase 1 era; kept as archive)**
+
+- [Implementation Steps (detailed)](#implementation-steps-detailed-phase-1-reference)
+
+**Future phases (by execution order)**
+
+- [Phase 2 – Payments](#phase-2-payment-functionality-future) · [2.5 – Stripe sync](#phase-25-stripe-sync-for-stripe-backed-collections-next)
+- [Phase 3 – Tenant blocks](#phase-3-custom-tenant-scoped-blocks) · [Phase 4 – Admin homepage](#phase-4-custom-admin-dashboard-homepage)
+- [Phase 4.5 – Product sync](#phase-45-stripe-product-sync--discount-codes-pretimeslots-bulk-actions) · [Phase 4.6 – Class pass UI](#phase-46-class-pass-ui-in-bookings-page)
+- [Phase 5 – Bulk ops / timeslots UI](#phase-5-admin-bulk-operations--timeslots-admin-ui-payloadcmsui) · [5.5 – R2 media](#phase-55-image-storage-s3--cloudflare-r2)
+- [Phase 6 – Auth across domains](#phase-6-authentication-across-subdomains-and-custom-domains) · [Phase 7 – Multi-location](#phase-7-multi-location-architecture) · [7.5 – Organisations](#phase-75-organisation-brand-above-tenants-future)
+- [Phase 8 – Self-onboarding](#phase-8-self-onboarding-with-mcp-driven-personalisation) · [Phase 9 – Analytics](#phase-9-dashboard-analytics-future) · [Phase 10 – UTM](#phase-10-event-tracking--marketing-attribution-utm-future)
+- [Phase 11 – App fees (deferred)](#phase-11-application-fee-management--platform-revenue-tracking-future-deferred)
+
+## Document map
+
+1. **Start here:** [Progress at a glance](#progress-at-a-glance) and [Current Implementation To-Do](#current-implementation-to-do).
+2. **Historical / deep detail:** The [Implementation Steps](#implementation-steps-detailed-phase-1-reference) section is a long TDD checklist from the original Phase 1 build; the canonical “what’s built” view is the **Phase 1 / Phase 2 Completion Status** sections later in the file.
+3. **Future work:** Each `Phase N` heading after Phase 2 describes goals and outlines; several phases appear **out of numerical order** in the file body (e.g. Phase 11 before Phase 8)—use the table of contents above, not scroll order, when planning.
+
 ## Overview
 
 Transform the atnd-me app into a multi-tenant application using `@payloadcms/plugin-multi-tenant`. Each tenant will have isolated instances of pages, timeslots, staffMembers, event-types, scheduler, navbar, footer, and users, with subdomain-based tenant identification.
@@ -220,25 +267,26 @@ The MVP will be structured to easily add payment functionality later:
 - Tenant-aware payment validation helpers can be added
 - No breaking changes needed when adding payments
 
-### Roadmap (logical phase order)
+### Roadmap (execution order)
 
-1. **Phase 1** – Multi-tenant MVP (tenant collections, roles, frontend, onboarding)
-2. **Phase 2** – Payment functionality (Stripe Connect, class passes, booking fees)
-
-2.5 **Phase 2.5** – Stripe sync for Stripe-backed collections (admin as source of truth; create/update/archive in Stripe for plans/memberships, class pass types, discount codes, etc.)
-3. **Phase 3** – Custom tenant-scoped blocks
-4. **Phase 4** – Custom admin dashboard homepage (payloadcms/ui, analytics)
-5. **Phase 4.5** – Stripe product sync & discount codes (create/update/archive plans & class pass types on Connect; discount codes collection; precedes timeslots bulk actions)
-6. **Phase 4.6** – Class pass UI in bookings page (parity with drop-in and membership; show Class pass tab, valid passes for lesson, confirm booking with class pass)
-7. **Phase 5** – Admin bulk operations & Timeslots admin UI (bulk actions for bookings/timeslots; replace shadcn with payloadcms/ui at admin/collections/timeslots)
-8. **Phase 5.5** – Image storage (S3/Cloudflare R2) – configure Media uploads to use Cloudflare R2 via S3-compatible API
-9. **Phase 6** – Authentication across subdomains and custom domains (same user on tenant subdomain + custom domain; cross-tenant login; trusted origins; session propagation)
-10. **Phase 7** – Multi-location architecture (sub-subdomain = location; Locations collection; location-manager role; pages tenant-only)
-11. **Phase 7.5** – Organisation (brand) above tenants (Organisations collection; org domain e.g. sauna.com; combined schedule/homepage for unauthenticated users)
-12. **Phase 8** – Self-onboarding with MCP-driven personalisation
-13. **Phase 9** – Dashboard analytics (date-filtered, tenant-scoped metrics)
-14. **Phase 10** – Event tracking & marketing attribution (UTM)
-15. **Phase 11** – Application fee management & platform revenue (deferred)
+| Order | Phase | Summary |
+|------:|-------|---------|
+| 1 | **Phase 1** | Multi-tenant MVP: tenants, roles, scoped collections, middleware, marketing pages, onboarding |
+| 2 | **Phase 2** | Payments: Stripe Connect, booking fees, class passes, `bookingsPaymentsPlugin` |
+| 2.5 | **Phase 2.5** | **Next implementation focus:** Stripe sync—admin is source of truth; create/update/archive Stripe objects for plans, class pass types, discount codes, etc. *(Detailed product/price/coupon behaviour also described under Phase 4.5 below; treat 4.5 as an expanded spec that Phase 2.5 implements.)* |
+| 3 | **Phase 3** | Custom tenant-scoped blocks (per-tenant layout builder allowlist) |
+| 4 | **Phase 4** | Custom admin dashboard homepage (`payloadcms/ui`, analytics entry) |
+| 4.5 | **Phase 4.5** | Stripe product sync & discount codes (see note on 2.5) |
+| 4.6 | **Phase 4.6** | Class pass tab & booking UX parity in bookings UI |
+| 5 | **Phase 5** | Admin bulk operations; Timeslots admin UI on `payloadcms/ui` |
+| 5.5 | **Phase 5.5** | Media uploads → S3-compatible storage (e.g. Cloudflare R2) |
+| 6 | **Phase 6** | Auth across subdomains + custom domains; session propagation |
+| 7 | **Phase 7** | Multi-location (sub-subdomain, Locations, location-manager) |
+| 7.5 | **Phase 7.5** | Organisation (brand) above tenants; org domain & combined schedule |
+| 8 | **Phase 8** | Self-onboarding + MCP-driven personalisation |
+| 9 | **Phase 9** | Tenant-scoped dashboard analytics |
+| 10 | **Phase 10** | Event tracking & UTM attribution |
+| 11 | **Phase 11** | Application fees & platform revenue *(deferred)* |
 
 ## Code Organization: App vs Packages
 
@@ -317,25 +365,15 @@ The MVP will be structured to easily add payment functionality later:
 ### Decision Matrix
 
 | Code Type | Location | Reason |
-
 |-----------|----------|--------|
-
 | Generic tenant utilities | `packages/multi-tenant-utils/` or `shared-services` | Reusable across apps |
-
 | Tenant access patterns | `packages/shared-services/access/` | Reusable access control |
-
 | Role checking helpers | `packages/shared-utils/` | Already used by all apps |
-
 | Collection configs | `apps/atnd-me/src/collections/` | App-specific schema |
-
 | App-specific access control | `apps/atnd-me/src/access/` | App-specific business rules |
-
 | Plugin configuration | `apps/atnd-me/src/plugins/` | App-specific plugin setup |
-
 | Frontend routes | `apps/atnd-me/src/app/` | App-specific UI |
-
 | Middleware | `apps/atnd-me/src/middleware.ts` | App-specific routing |
-
 | Tests | `apps/atnd-me/tests/` | App-specific tests |
 
 ### When to Create New Package vs Extend Existing
@@ -410,7 +448,9 @@ This implementation will follow **Test-Driven Development (TDD)** principles:
 - **Super admins** (`admin` role) can access all tenants and all users
 - **Tenant admins** (`tenant-admin` role) can only access their assigned tenant's data
 
-## Implementation Steps
+## Implementation Steps (detailed; Phase 1 reference)
+
+The checklist below is the **original step-by-step TDD plan** for the Phase 1 multi-tenant MVP. Implementation has largely shipped; use **[Phase 1 Completion Status](#phase-1-completion-status-vs-codebase)** and the YAML `todos` in the frontmatter for “done vs not”, not this section alone.
 
 ### 0. Test-Driven Development Setup
 

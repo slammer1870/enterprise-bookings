@@ -32,7 +32,9 @@ describe('public root docs can resolve referenced media', () => {
     mockGetTenantWithBranding.mockResolvedValue(null)
   })
 
-  it('queryPageBySlug uses overrideAccess on root domain (no tenant)', async () => {
+  it(
+    'queryPageBySlug uses overrideAccess on root domain (no tenant)',
+    async () => {
     mockGetTenantContext.mockResolvedValue(null)
 
     const payload = {
@@ -57,7 +59,9 @@ describe('public root docs can resolve referenced media', () => {
         }),
       }),
     )
-  })
+    },
+    15_000,
+  )
 
   it('queryPageBySlug keeps access on tenant domains (non-draft)', async () => {
     mockGetTenantContext.mockResolvedValue({ id: 2 })

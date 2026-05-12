@@ -109,12 +109,19 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
       const priceCents = Math.round((currPrice.price ?? 0) * 100)
       const interval = (currPrice.interval as 'day' | 'week' | 'month' | 'year') ?? 'month'
       const intervalCount = currPrice.intervalCount ?? 1
-      await createTenantPrice({
+      const { priceId } = await createTenantPrice({
         tenant: tenantLike,
         productId: stripeProductId,
         unit_amount: priceCents,
         currency: 'eur',
         recurring: { interval, interval_count: intervalCount },
+      })
+      await req.payload.update({
+        collection: 'plans',
+        id: doc.id,
+        data: { priceJSON: JSON.stringify({ id: priceId }) },
+        context: { ...req.context, skipStripeSync: true },
+        req,
       })
     }
   }

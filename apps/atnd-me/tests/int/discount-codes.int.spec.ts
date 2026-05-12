@@ -1,8 +1,8 @@
 /**
  * Phase 4.5 – Discount codes: create with tenant Connect → doc has stripeCouponId and stripePromotionCodeId; list/read tenant-scoped.
  */
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { getPayload, type Payload } from 'payload'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
+import { getPayload, type Payload, APIError } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
 
@@ -27,6 +27,7 @@ describe('Discount codes (Phase 4.5)', () => {
   let adminUser: User
   let tenantAdminUser: User
   let tenantWithConnectId: number
+  let tenantWithoutConnectId: number
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -57,6 +58,16 @@ describe('Discount codes (Phase 4.5)', () => {
     })
     tenantWithConnectId = tenant.id as number
 
+    const tenantNoConnect = await payload.create({
+      collection: 'tenants',
+      data: {
+        name: 'Discount Codes Tenant No Stripe',
+        slug: `dc-tenant-no-stripe-${Date.now()}`,
+      },
+      overrideAccess: true,
+    })
+    tenantWithoutConnectId = tenantNoConnect.id as number
+
     tenantAdminUser = (await payload.create({
       collection: 'users',
       data: {
@@ -81,7 +92,7 @@ describe('Discount codes (Phase 4.5)', () => {
         })
         await payload.delete({
           collection: 'tenants',
-          where: { id: { equals: tenantWithConnectId } },
+          where: { id: { in: [tenantWithConnectId, tenantWithoutConnectId] } },
         })
       } catch {
         // ignore
@@ -115,6 +126,73 @@ describe('Discount codes (Phase 4.5)', () => {
       })) as Record<string, unknown>
       expect(doc.stripeCouponId).toBe('coupon_mock_dc')
       expect(doc.stripePromotionCodeId).toBe('promo_mock_dc')
+      await payload.delete({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'rejects create when tenant has no active Stripe Connect',
+    async () => {
+      const code = `NOCO${Date.now()}`.slice(0, 24)
+      await expect(
+        payload.create({
+          collection: 'discount-codes',
+          data: {
+            name: 'No Connect Promo',
+            code,
+            type: 'percentage_off',
+            value: 15,
+            duration: 'once',
+            tenant: tenantWithoutConnectId,
+          },
+          overrideAccess: true,
+          user: adminUser,
+        } as Parameters<typeof payload.create>[0]),
+      ).rejects.toThrow(APIError)
+      await expect(
+        payload.create({
+          collection: 'discount-codes',
+          data: {
+            name: 'No Connect Promo 2',
+            code: `NOC2${Date.now()}`.slice(0, 24),
+            type: 'percentage_off',
+            value: 15,
+            duration: 'once',
+            tenant: tenantWithoutConnectId,
+          },
+          overrideAccess: true,
+          user: adminUser,
+        } as Parameters<typeof payload.create>[0]),
+      ).rejects.toThrow(/Stripe Connect|discount code/i)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'allows create with skipSync when tenant has no Connect (import path)',
+    async () => {
+      const code = `SKIP${Date.now()}`.slice(0, 24)
+      const created = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Import Promo',
+          code,
+          type: 'percentage_off',
+          value: 10,
+          duration: 'once',
+          tenant: tenantWithoutConnectId,
+          skipSync: true,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+      expect(created.stripeCouponId).toBeFalsy()
+      expect(created.stripePromotionCodeId).toBeFalsy()
       await payload.delete({
         collection: 'discount-codes',
         id: created.id,

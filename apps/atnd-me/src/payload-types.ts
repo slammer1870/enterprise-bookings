@@ -2623,6 +2623,10 @@ export interface DiscountCode {
    * Set after sync to Stripe
    */
   stripePromotionCodeId?: string | null;
+  /**
+   * Skip Stripe sync (imports only). Requires super-admin to set.
+   */
+  skipSync?: boolean | null;
   status: 'active' | 'archived';
   updatedAt: string;
   createdAt: string;
@@ -4640,6 +4644,7 @@ export interface DiscountCodesSelect<T extends boolean = true> {
   redeemBy?: T;
   stripeCouponId?: T;
   stripePromotionCodeId?: T;
+  skipSync?: T;
   status?: T;
   updatedAt?: T;
   createdAt?: T;

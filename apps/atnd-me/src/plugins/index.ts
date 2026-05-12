@@ -41,6 +41,10 @@ import {
 } from '../access/productsRequireStripeConnect'
 import { plansReadWithSoftDelete } from '../access/plansWithSoftDelete'
 import { classPassTypesReadWithSoftDelete } from '../access/classPassTypesWithSoftDelete'
+import {
+  planBeforeValidateStripeConnect,
+  classPassTypeBeforeValidateStripeConnect,
+} from '@/hooks/requireTenantStripeConnectForPricedProducts'
 import { planAfterChangeSyncToStripe, planBeforeDeleteArchive } from '@/hooks/plansStripeSync'
 import {
   classPassTypeAfterChangeSyncToStripe,
@@ -623,6 +627,10 @@ export const plugins: Plugin[] = [
           ] as Field[],
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
+          beforeValidate: [
+            ...(defaultHooks.beforeValidate ?? []),
+            classPassTypeBeforeValidateStripeConnect,
+          ],
           afterChange: [classPassTypeAfterChangeSyncToStripe],
           beforeDelete: [classPassTypeBeforeDeleteArchive],
         }),
@@ -705,6 +713,10 @@ export const plugins: Plugin[] = [
           ] as Field[],
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
+          beforeValidate: [
+            ...(defaultHooks.beforeValidate ?? []),
+            planBeforeValidateStripeConnect,
+          ],
           afterChange: [planAfterChangeSyncToStripe],
           beforeDelete: [planBeforeDeleteArchive],
         }),

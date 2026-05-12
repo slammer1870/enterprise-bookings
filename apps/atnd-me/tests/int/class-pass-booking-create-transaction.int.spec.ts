@@ -83,6 +83,7 @@ describe('Class-pass booking create → booking-transaction', () => {
         quantity: 5,
         tenant: tenantId,
         priceInformation: { price: 29.99 },
+        skipSync: true,
       },
       overrideAccess: true,
     })
