@@ -56,6 +56,24 @@ describe('tenant scoped access', () => {
     })
   })
 
+  it('denies pure location-manager tenant-wide filtered reads (e.g. Pages)', async () => {
+    const result = await tenantScopedReadFiltered({
+      req: {
+        user: {
+          id: 42,
+          role: ['location-manager'],
+          tenants: [{ tenant: 1 }],
+        },
+        payload: {},
+        cookies: createCookies({}),
+        headers: new Headers(),
+        context: {},
+      } as any,
+    })
+
+    expect(result).toBe(false)
+  })
+
   it('denies tenant-admin strict reads when the active tenant is outside their scope', async () => {
     const result = await tenantScopedPublicReadStrict({
       req: createTenantAdminReq({ 'payload-tenant': '3' }),

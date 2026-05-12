@@ -99,6 +99,15 @@ function createGenerateTimeslotsTaskInputSchema(slugs: {
       type: "number" as const,
       required: true,
     },
+    {
+      name: "branch",
+      type: "number" as const,
+      required: false,
+      admin: {
+        description:
+          "When the tenant has multiple active sites (locations), set this to the `locations` id for generated timeslots. Optional if there is only one active site.",
+      },
+    },
   ];
 }
 

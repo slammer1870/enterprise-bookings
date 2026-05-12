@@ -19,9 +19,16 @@ import { filterSchedulerGlobal } from './filter-scheduler-global'
 import { clearableTenantPlugin } from '@repo/plugin-clearable-tenant'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
 import { validateEventTypeNameUniqueWithinTenant } from '@/hooks/validateEventTypeNameUniqueWithinTenant'
+import { validateTimeslotBranchMatchesTenant } from '@/hooks/validateTimeslotBranchMatchesTenant'
+import { withTimeslotBranchFields } from '@/fields/timeslotBranchFields'
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { timeslotsRead } from '@/access/timeslotsRead'
+import {
+  timeslotsCreateAccess,
+  timeslotsDeleteAccess,
+  timeslotsUpdateAccess,
+} from '@/access/timeslotsWriteAccess'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
@@ -351,11 +358,15 @@ export const plugins: Plugin[] = [
     slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     timeslotOverrides: {
       versions: false,
-      // Analytics + schedule: range on startTime, often with tenant equality (leading column covers date-only scans too).
-      indexes: [{ fields: ['startTime', 'tenant'] }],
+      indexes: [
+        { fields: ['startTime', 'tenant'] },
+        { fields: ['tenant', 'branch', 'startTime'] },
+      ],
       fields: ({ defaultFields }) =>
-        withExplicitTenantSyncFields(defaultFields).map((f) =>
-          'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
+        withTimeslotBranchFields(
+          withExplicitTenantSyncFields(defaultFields).map((f) =>
+            'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
+          ),
         ),
       hooks: ({ defaultHooks }) => {
         const d = defaultHooks as Record<string, unknown>
@@ -368,6 +379,7 @@ export const plugins: Plugin[] = [
                 operation,
                 req,
               }),
+            validateTimeslotBranchMatchesTenant,
             ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
           ],
         }
@@ -375,18 +387,9 @@ export const plugins: Plugin[] = [
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: timeslotsRead, // Preserve tenant scoping while hiding past/inactive timeslots from public schedule
-        create: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedCreate(args)
-        },
-        update: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedUpdate(args)
-        },
-        delete: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedDelete(args)
-        },
+        create: timeslotsCreateAccess,
+        update: timeslotsUpdateAccess,
+        delete: timeslotsDeleteAccess,
       }),
     },
     eventTypesOverrides: {
@@ -828,6 +831,7 @@ export const plugins: Plugin[] = [
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
       'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
+      locations: {}, // Phase 7: branches/sites per tenant; tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
       media: {}, // Tenant-scoped media uploads
       forms: {}, // Tenant-scoped for forms
@@ -859,6 +863,7 @@ export const plugins: Plugin[] = [
       'drop-ins',
       'plans',
       'discount-codes',
+      'locations',
       'subscriptions',
       'media',
       'forms',
@@ -881,6 +886,7 @@ export const plugins: Plugin[] = [
       'drop-ins',
       'plans',
       'discount-codes',
+      'locations',
       'subscriptions',
       'media',
       'forms',

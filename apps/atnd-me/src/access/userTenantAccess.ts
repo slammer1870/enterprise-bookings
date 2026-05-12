@@ -54,6 +54,15 @@ export function isStaff(u: unknown): boolean {
   return false
 }
 
+/** Branch/site manager: assigned locations only; Payload admin for limited ops (Phase 7+). */
+export function isLocationManager(u: unknown): boolean {
+  if (checkRole(['location-manager'], u as SharedUser)) return true
+  const role = (u as { role?: string | string[] })?.role
+  if (Array.isArray(role) && role.includes('location-manager')) return true
+  if (role === 'location-manager') return true
+  return false
+}
+
 /** Tenant-scoped roles that use the tenant selector / cookie rules (org admin or staff). */
 export function isTenantPortalUser(u: unknown): boolean {
   return isTenantAdmin(u) || isStaff(u)
@@ -71,7 +80,7 @@ export const tenantOrgPayloadAdminAccess = ({ req: { user } }: AccessArgs): bool
 /** Users collection: super-admin, org admin, and staff (minimal roster in admin). */
 export const usersPayloadAdminAccess = ({ req: { user } }: AccessArgs): boolean => {
   if (!user) return false
-  return isAdmin(user) || isTenantAdmin(user) || isStaff(user)
+  return isAdmin(user) || isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
 }
 
 /** Staff role without org `admin` — operational access only (no CMS / schedule configuration). */
@@ -218,8 +227,10 @@ export const userTenantRead: Access = async ({ req }) => {
     const userId = toUserId(user)
     if (userId == null) return false
 
+    // `users_tenants` join: dotted path matches Payload/Drizzle (nested `tenants: { tenant }` does not).
     const orClauses: NonNullable<Where['or']> = [
       { registrationTenant: { in: effectiveTenantIds } },
+      { 'tenants.tenant': { in: effectiveTenantIds } } as Where,
       { id: { equals: userId } },
     ]
 
@@ -287,8 +298,10 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
     const userId = toUserId(user)
     if (userId == null) return false
 
+    // `users_tenants` join: dotted path matches Payload/Drizzle (nested `tenants: { tenant }` does not).
     const orClauses: NonNullable<Where['or']> = [
       { registrationTenant: { in: effectiveTenantIds } },
+      { 'tenants.tenant': { in: effectiveTenantIds } } as Where,
       { id: { equals: userId } },
     ]
 

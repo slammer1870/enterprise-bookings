@@ -302,10 +302,10 @@ const betterAuthConfig = {
     return { fromName, fromAddress }
   },
   roles: {
-    adminRoles: ['super-admin', 'admin', 'staff'],
+    adminRoles: ['super-admin', 'admin', 'staff', 'location-manager'],
     defaultRole: 'user',
     defaultAdminRole: 'super-admin',
-    roles: ['user', 'staff', 'admin', 'super-admin'],
+    roles: ['user', 'staff', 'admin', 'super-admin', 'location-manager'],
     allowedFields: ['name'],
   },
   sessionExpiresInSeconds: 60 * 60 * 24 * 365, // 1 year

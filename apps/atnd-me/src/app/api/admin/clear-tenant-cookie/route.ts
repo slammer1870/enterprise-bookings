@@ -10,10 +10,12 @@ import { getPayload } from '@/lib/payload'
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
 import { checkRole } from '@repo/shared-utils'
 
+import { PAYLOAD_LOCATION_COOKIE } from '@/utilities/tenantRequest'
+
 const COOKIE_NAME = 'payload-tenant'
 const TENANT_SLUG_COOKIE_NAME = 'tenant-slug'
 const TENANT_ID_COOKIE_NAME = 'tenant-id'
-const TENANT_COOKIE_NAMES = [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME]
+const TENANT_COOKIE_NAMES = [COOKIE_NAME, TENANT_SLUG_COOKIE_NAME, TENANT_ID_COOKIE_NAME, PAYLOAD_LOCATION_COOKIE]
 
 function getRootHostname(): string | null {
   const url = process.env.NEXT_PUBLIC_SERVER_URL
@@ -62,7 +64,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    if (!checkRole(['super-admin', 'admin', 'staff'], user as Parameters<typeof checkRole>[1])) {
+    if (!checkRole(['super-admin', 'admin', 'staff', 'location-manager'], user as Parameters<typeof checkRole>[1])) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

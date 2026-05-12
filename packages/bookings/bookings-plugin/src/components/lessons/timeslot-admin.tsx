@@ -140,7 +140,7 @@ export const TimeslotAdmin = async (props: {
   if (
     hasTenantsCollection &&
     !checkRole(["super-admin"], user as unknown as SharedUser) &&
-    checkRole(["admin", "staff"], user as unknown as SharedUser)
+    checkRole(["admin", "staff", "location-manager"], user as unknown as SharedUser)
   ) {
     const rawCtx = req.context?.tenant;
     const missingTenantContext =

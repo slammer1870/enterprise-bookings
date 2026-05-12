@@ -42,6 +42,7 @@ export const STAFF_ROSTER_SENSITIVE_FIELD_NAMES = new Set([
   'banReason',
   'banExpires',
   'registrationTenant',
+  'locations',
   'tenants',
   'stripeCustomerId',
   'stripeCustomers',

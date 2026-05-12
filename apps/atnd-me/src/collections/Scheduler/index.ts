@@ -175,6 +175,18 @@ export const Scheduler: CollectionConfig = {
                 // Extract tenant from scheduler document
                 const tenantId = typeof doc.tenant === 'object' && doc.tenant !== null ? doc.tenant.id : doc.tenant
 
+                const branchRaw = (doc as { branch?: unknown }).branch
+                const branchId =
+                    branchRaw == null
+                        ? undefined
+                        : typeof branchRaw === 'object' && branchRaw !== null && 'id' in branchRaw
+                            ? (branchRaw as { id: number }).id
+                            : typeof branchRaw === 'number'
+                                ? branchRaw
+                                : typeof branchRaw === 'string' && /^\d+$/.test(branchRaw)
+                                    ? parseInt(branchRaw, 10)
+                                    : undefined
+
                 // Set tenant context in req so the job inherits it
                 // This ensures all queries in the job are filtered by tenant
                 if (tenantId) {
@@ -194,6 +206,7 @@ export const Scheduler: CollectionConfig = {
                         defaultEventType: doc.defaultEventType,
                         lockOutTime: doc.lockOutTime,
                         tenant: tenantId,
+                        ...(branchId != null ? { branch: branchId } : {}),
                     } as Parameters<Payload['jobs']['queue']>[0]['input'],
                 })
 
@@ -263,6 +276,35 @@ export const Scheduler: CollectionConfig = {
             required: true,
             admin: {
                 description: 'Default class type to use when creating timeslots (can be overridden per slot)',
+            },
+        },
+        {
+            name: 'branch',
+            label: 'Default branch / site',
+            type: 'relationship',
+            relationTo: 'locations',
+            required: false,
+            admin: {
+                description:
+                    'When this tenant has more than one active site, choose which branch generated timeslots belong to. Leave empty if there is only one active site.',
+            },
+            filterOptions: ({ data }) => {
+                const raw = data?.tenant
+                const tid =
+                    raw == null
+                        ? null
+                        : typeof raw === 'object' && raw !== null && 'id' in raw
+                          ? (raw as { id: number }).id
+                          : typeof raw === 'number'
+                            ? raw
+                            : typeof raw === 'string' && /^\d+$/.test(raw)
+                              ? parseInt(raw, 10)
+                              : null
+                if (tid == null) return false
+                return {
+                    tenant: { equals: tid },
+                    active: { equals: true },
+                }
             },
         },
         {

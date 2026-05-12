@@ -3,6 +3,7 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsTenantAdmin } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
+  selectEventTypeInTimeslotForm,
   setTimeslotDateAndTime,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
@@ -185,30 +186,6 @@ async function advanceScheduleToDate(
   await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
 }
 
-async function selectTimeslotEventType(
-  page: Page,
-  className: string,
-) {
-  const classOptionCombobox = page.getByRole('combobox').nth(1)
-  const classOptionTrigger = classOptionCombobox.locator('xpath=../following-sibling::button[1]')
-  const expectedOption = page.getByRole('option', { name: new RegExp(`^${escapeRegex(className)}$`) }).first()
-
-  await expect(classOptionCombobox).toBeVisible({ timeout: 20000 })
-  await classOptionTrigger.click({ force: true }).catch(() => null)
-  await classOptionCombobox.click({ force: true })
-  await classOptionCombobox.focus()
-  await classOptionCombobox.press('Meta+A').catch(() => null)
-  await classOptionCombobox.press('Control+A').catch(() => null)
-  await classOptionCombobox.press('Backspace').catch(() => null)
-  await classOptionCombobox.fill(className).catch(async () => {
-    await page.keyboard.type(className, { delay: 30 })
-  })
-
-  await expect(expectedOption).toBeVisible({ timeout: 10000 })
-  await expectedOption.click()
-  await expect(page.getByText(className, { exact: true }).first()).toBeVisible({ timeout: 10000 })
-}
-
 test.describe('Tenant admin lesson creation appears on public schedule', () => {
   test.setTimeout(180000)
 
@@ -262,7 +239,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
     )
     await chooseTenantInCreateModal(page, tenant.name)
     await waitForModalOverlayToClear(page)
-    await selectTimeslotEventType(page, className)
+    await selectEventTypeInTimeslotForm(page, className)
     await setTimeslotDateAndTime(page, targetDate)
     await saveObjectWithOverlayBypass(page, {
       apiPath: '/api/timeslots',

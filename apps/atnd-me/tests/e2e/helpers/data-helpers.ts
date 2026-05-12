@@ -286,7 +286,8 @@ export async function createTestTimeslot(
   startTime: Date,
   endTime: Date,
   instructorId?: string | number,
-  active: boolean = true
+  active: boolean = true,
+  branchId?: number,
 ): Promise<Timeslot> {
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
@@ -312,6 +313,7 @@ export async function createTestTimeslot(
       endTime: endTime.toISOString(),
       lockOutTime: 60, // Default: 60 minutes before lesson
       active,
+      ...(branchId != null && Number.isFinite(branchId) ? { branch: branchId } : {}),
       ...(instructorId && {
         staffMember: typeof instructorId === 'string' ? Number(instructorId) : instructorId,
       }),
@@ -560,7 +562,13 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     user1: User
     user2: User
     user3: User
+    locationManager1: User
+    userSingleBranch: User
   }
+  /** Two active sites on `tenants[0]` for multi-branch E2E (US7-F2). */
+  tenant1Locations: { north: { id: number; slug: string; name: string }; south: { id: number; slug: string; name: string } }
+  /** One active site on `tenants[2]` for single-branch flows (US7-C3). */
+  tenant3Location: { id: number; slug: string; name: string }
   workerIndex: number
 }> {
   const payload = await getPayloadInstance()
@@ -638,6 +646,75 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     'User 3',
     ['user']
   )
+
+  const locSlugNorth = `e2e-mtl-north${workerSuffix}`
+  const locSlugSouth = `e2e-mtl-south${workerSuffix}`
+  const locSlugOnly = `e2e-mtl-only${workerSuffix}`
+
+  const findOrCreateLocation = async (
+    slug: string,
+    tenantId: number,
+    name: string,
+  ): Promise<{ id: number; slug?: string; name?: string }> => {
+    const existing = await payload.find({
+      collection: 'locations',
+      where: { and: [{ slug: { equals: slug } }, { tenant: { equals: tenantId } }] },
+      limit: 1,
+      overrideAccess: true,
+    })
+    if (existing.docs[0]) return existing.docs[0] as { id: number; slug?: string; name?: string }
+    return (await payload.create({
+      collection: 'locations',
+      data: { name, slug, tenant: tenantId, active: true },
+      overrideAccess: true,
+    })) as { id: number; slug?: string; name?: string }
+  }
+
+  const branchNorth = await findOrCreateLocation(
+    locSlugNorth,
+    tenant1.id,
+    `E2E Multi North${workerSuffix ? ` ${workerSuffix}` : ''}`,
+  )
+
+  const branchSouth = await findOrCreateLocation(
+    locSlugSouth,
+    tenant1.id,
+    `E2E Multi South${workerSuffix ? ` ${workerSuffix}` : ''}`,
+  )
+
+  const tenant3OnlyLocation = await findOrCreateLocation(
+    locSlugOnly,
+    tenant3.id,
+    `E2E Single Site${workerSuffix ? ` ${workerSuffix}` : ''}`,
+  )
+
+  const locationManager1 = (await createTestUser(
+    `locmgr1${emailSuffix}@test.com`,
+    'password',
+    'E2E Site Manager',
+    ['location-manager'],
+    tenant1.id,
+  )) as User
+
+  await payload.update({
+    collection: 'users',
+    where: { email: { equals: locationManager1.email } },
+    data: {
+      tenants: [{ tenant: tenant1.id }],
+      registrationTenant: tenant1.id,
+      locations: [branchNorth.id],
+    },
+    overrideAccess: true,
+  })
+
+  const userSingleBranch = (await createTestUser(
+    `usersinglebranch${emailSuffix}@test.com`,
+    'password',
+    'Single Branch Customer',
+    ['user'],
+    tenant3.id,
+  )) as User
+
   return {
     tenants: [tenant1, tenant2, tenant3],
     users: {
@@ -647,6 +724,25 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
       user1,
       user2,
       user3,
+      locationManager1,
+      userSingleBranch,
+    },
+    tenant1Locations: {
+      north: {
+        id: branchNorth.id,
+        slug: branchNorth.slug ?? locSlugNorth,
+        name: branchNorth.name ?? `E2E Multi North${workerSuffix ? ` ${workerSuffix}` : ''}`,
+      },
+      south: {
+        id: branchSouth.id,
+        slug: branchSouth.slug ?? locSlugSouth,
+        name: branchSouth.name ?? `E2E Multi South${workerSuffix ? ` ${workerSuffix}` : ''}`,
+      },
+    },
+    tenant3Location: {
+      id: tenant3OnlyLocation.id,
+      slug: tenant3OnlyLocation.slug ?? locSlugOnly,
+      name: tenant3OnlyLocation.name ?? `E2E Single Site${workerSuffix ? ` ${workerSuffix}` : ''}`,
     },
     workerIndex,
   }

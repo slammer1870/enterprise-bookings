@@ -44,6 +44,7 @@ import { GlobalViewRedirectRootAware as GlobalViewRedirectRootAware_66a9b6a7ced1
 import { default as default_1a7510af427896d367a49dbf838d2de6 } from '@/components/BeforeDashboard'
 import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/components/BeforeLogin'
 import { default as default_03c174bc83c57c8b0eee299d05fde10d } from '@/components/admin/NavHomeLink'
+import { default as default_26be24305999939ad53f30926742118b } from '@/components/admin/AdminBranchSiteSelector'
 import { ClearableTenantSelector as ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { AdminErrorBoundary as AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688 } from '@payloadcms/plugin-sentry/client'
 import { TenantSelectionProviderRootAware as TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
@@ -98,6 +99,7 @@ export const importMap = {
   "@/components/BeforeDashboard#default": default_1a7510af427896d367a49dbf838d2de6,
   "@/components/BeforeLogin#default": default_8a7ab0eb7ab5c511aba12e68480bfe5e,
   "@/components/admin/NavHomeLink#default": default_03c174bc83c57c8b0eee299d05fde10d,
+  "@/components/admin/AdminBranchSiteSelector#default": default_26be24305999939ad53f30926742118b,
   "@repo/plugin-clearable-tenant/rsc#ClearableTenantSelector": ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637,
   "@payloadcms/plugin-sentry/client#AdminErrorBoundary": AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688,
   "@repo/plugin-clearable-tenant/rsc#TenantSelectionProviderRootAware": TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637,

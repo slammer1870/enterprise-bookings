@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(null, { status: 204 })
   }
 
-  const isTenantPortalUser = checkRole(['admin', 'staff'], sharedUser)
+  const isTenantPortalUser = checkRole(['admin', 'staff', 'location-manager'], sharedUser)
   if (!isTenantPortalUser) {
     // Non-admin users should not be in the Payload admin UI at all.
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
