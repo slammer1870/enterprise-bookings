@@ -170,6 +170,15 @@ describe('Stripe product sync (Phase 4.5)', () => {
         expect.objectContaining({ stripeAccount: `acct_sync_test_${runId}` }),
       )
 
+      const afterPriceChange = (await payload.findByID({
+        collection: 'plans',
+        id: created.id,
+        overrideAccess: true,
+      })) as Record<string, unknown>
+      const priceJson = afterPriceChange.priceJSON as string | undefined
+      expect(priceJson).toBeDefined()
+      expect(JSON.parse(priceJson as string).id).toBe('price_sync_1')
+
       await expect(
         payload.delete({
           collection: 'plans',
@@ -231,6 +240,15 @@ describe('Stripe product sync (Phase 4.5)', () => {
         { default_price: 'price_sync_1' },
         expect.objectContaining({ stripeAccount: `acct_sync_test_${runId}` }),
       )
+
+      const afterPriceChange = (await payload.findByID({
+        collection: 'class-pass-types',
+        id: created.id,
+        overrideAccess: true,
+      })) as Record<string, unknown>
+      const priceJson = afterPriceChange.priceJSON as string | undefined
+      expect(priceJson).toBeDefined()
+      expect(JSON.parse(priceJson as string).id).toBe('price_sync_1')
 
       await expect(
         payload.delete({
@@ -305,6 +323,70 @@ describe('Stripe product sync (Phase 4.5)', () => {
           overrideAccess: true,
         }),
       ).rejects.toThrow(/archived instead of deleted/i)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'rejects priced plan when tenant has no active Stripe Connect',
+    async () => {
+      await expect(
+        payload.create({
+          collection: 'plans',
+          data: {
+            name: 'No Connect Plan',
+            tenant: tenantWithoutConnectId,
+            priceInformation: { price: 19.99, interval: 'month', intervalCount: 1 },
+          },
+          overrideAccess: true,
+          user: adminUser,
+        } as Parameters<typeof payload.create>[0]),
+      ).rejects.toThrow(/Stripe Connect/i)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'allows priced plan without Connect when skipSync is true (imports)',
+    async () => {
+      const created = await payload.create({
+        collection: 'plans',
+        data: {
+          name: 'Import Plan No Stripe',
+          tenant: tenantWithoutConnectId,
+          priceInformation: { price: 11, interval: 'month', intervalCount: 1 },
+          skipSync: true,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+      expect((created as Record<string, unknown>).stripeProductId).toBeFalsy()
+      await payload.delete({
+        collection: 'plans',
+        id: created.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'rejects priced class-pass-type when tenant has no active Stripe Connect',
+    async () => {
+      await expect(
+        payload.create({
+          collection: 'class-pass-types',
+          data: {
+            name: 'No Connect Pass',
+            slug: `no-connect-pass-${Date.now()}`,
+            quantity: 5,
+            tenant: tenantWithoutConnectId,
+            priceInformation: { price: 25 },
+          },
+          overrideAccess: true,
+          user: adminUser,
+        } as Parameters<typeof payload.create>[0]),
+      ).rejects.toThrow(/Stripe Connect/i)
     },
     TEST_TIMEOUT,
   )

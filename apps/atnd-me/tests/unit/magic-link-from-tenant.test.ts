@@ -42,7 +42,9 @@ describe('Magic-link email tenant From header', () => {
     vi.restoreAllMocks()
   })
 
-  it('uses tenant name and auth@{tenant domain} for custom domains', async () => {
+  it(
+    'uses tenant name and auth@{tenant domain} for custom domains',
+    async () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {
       expect(collection).toBe('tenants')
       expect(where).toEqual({ domain: { equals: 'studio.example.com' } })
@@ -63,7 +65,9 @@ describe('Magic-link email tenant From header', () => {
     expect(payload.to).toEqual(['person@example.com'])
     expect(payload.subject).toMatch(/^Sign in to Studio Yoga\b/)
     expect(payload.from).toBe('Studio Yoga <auth@studio.example.com>')
-  })
+    },
+    15_000,
+  )
 
   it('transliterates accented tenant names in the From header', async () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {

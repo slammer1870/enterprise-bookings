@@ -99,11 +99,18 @@ export const classPassTypeAfterChangeSyncToStripe: CollectionAfterChangeHook = a
     const priceChanged = currPrice?.price !== prevPrice?.price
     if (priceChanged && currPrice?.price != null) {
       const priceCents = Math.round(currPrice.price * 100)
-      await createTenantPrice({
+      const { priceId } = await createTenantPrice({
         tenant: tenantLike,
         productId: stripeProductId,
         unit_amount: priceCents,
         currency: 'eur',
+      })
+      await req.payload.update({
+        collection: 'class-pass-types',
+        id: doc.id,
+        data: { priceJSON: JSON.stringify({ id: priceId }) },
+        context: { ...req.context, skipStripeSync: true },
+        req,
       })
     }
   }

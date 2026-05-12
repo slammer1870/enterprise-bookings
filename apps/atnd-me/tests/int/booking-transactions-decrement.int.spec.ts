@@ -82,6 +82,7 @@ describe('Booking-transactions decrement (class_pass only)', () => {
         quantity: 10,
         tenant: tenantId,
         priceInformation: { price: 19.99 },
+        skipSync: true,
       },
       overrideAccess: true,
     })
