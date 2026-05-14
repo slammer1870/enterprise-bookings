@@ -20,6 +20,9 @@ const timeslotBranchField: Field = {
   label: 'Branch / site',
   index: true,
   admin: {
+    // Location/branch is controlled by the sidebar "Site / branch" selector,
+    // which sets the `payload-location` cookie used by validation/hook logic.
+    hidden: true,
     description:
       'Physical site or branch for this slot (optional). Use “Room or area” for room/studio labels.',
   },
