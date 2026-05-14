@@ -208,6 +208,20 @@ export const Scheduler: CollectionConfig = {
                     }
                 }
 
+                // Auto-set branch from the payload-location cookie on create.
+                // The branch field is hidden in the admin UI; the sidebar selector
+                // controls which location is active, and we read it here so the
+                // newly created scheduler document is automatically linked to the
+                // correct branch without requiring the user to set it manually.
+                if (operation === 'create' && data && !data.branch) {
+                    const typedReq = req as typeof req & { cookies?: { get: (name: string) => { value?: string } | undefined } }
+                    const cookieSrc = typedReq.cookies?.get ? { cookies: typedReq.cookies } : {}
+                    const cookieBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+                    if (cookieBranchId != null) {
+                        data.branch = cookieBranchId
+                    }
+                }
+
                 // Require branch when the tenant has more than one active location.
                 // This ensures each scheduler document maps to a specific site, removing the
                 // need for an ambiguous "default location" fallback.
@@ -354,9 +368,10 @@ export const Scheduler: CollectionConfig = {
             type: 'relationship',
             relationTo: 'locations',
             required: false,
+            // Hidden in the edit form — the sidebar branch selector controls which
+            // location is active, and the beforeValidate hook auto-sets this on create.
             admin: {
-                description:
-                    'The site this schedule applies to. Required when the tenant has more than one active location.',
+                hidden: true,
             },
             filterOptions: ({ data }) => {
                 const raw = data?.tenant
