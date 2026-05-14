@@ -2800,7 +2800,7 @@ export interface Footer {
   createdAt: string;
 }
 /**
- * Create recurring timeslots across your weekly schedule for each tenant
+ * Create recurring timeslots for each location. Select a site in the sidebar to view or edit that location's schedule.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "scheduler".
@@ -2825,7 +2825,7 @@ export interface Scheduler {
    */
   defaultEventType: number | EventType;
   /**
-   * When this tenant has more than one active site, choose which branch generated timeslots belong to. Leave empty if there is only one active site.
+   * The site this schedule applies to. Required when the tenant has more than one active location.
    */
   branch?: (number | null) | Location;
   /**

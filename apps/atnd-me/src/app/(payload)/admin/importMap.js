@@ -44,6 +44,7 @@ import { GlobalViewRedirectRootAware as GlobalViewRedirectRootAware_66a9b6a7ced1
 import { default as default_1a7510af427896d367a49dbf838d2de6 } from '@/components/BeforeDashboard'
 import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/components/BeforeLogin'
 import { default as default_26be24305999939ad53f30926742118b } from '@/components/admin/AdminBranchSiteSelector'
+import { SchedulerListView as SchedulerListView_7f3a2c1e9b4d8f6e0a5c7d2e1f9b3a4c } from '@/components/admin/SchedulerListView'
 import { default as default_03c174bc83c57c8b0eee299d05fde10d } from '@/components/admin/NavHomeLink'
 import { ClearableTenantSelector as ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { AdminErrorBoundary as AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688 } from '@payloadcms/plugin-sentry/client'
@@ -105,5 +106,6 @@ export const importMap = {
   "@repo/plugin-clearable-tenant/rsc#TenantSelectionProviderRootAware": TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@/components/admin/dashboard/AnalyticsDashboard#default": default_0ad30854e46ef600f02c2ce4c97aa864,
-  "@payloadcms/ui/rsc#CollectionCards": CollectionCards_ab83ff7e88da8d3530831f296ec4756a
+  "@payloadcms/ui/rsc#CollectionCards": CollectionCards_ab83ff7e88da8d3530831f296ec4756a,
+  "@/components/admin/SchedulerListView#SchedulerListView": SchedulerListView_7f3a2c1e9b4d8f6e0a5c7d2e1f9b3a4c
 }

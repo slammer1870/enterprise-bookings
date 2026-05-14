@@ -178,17 +178,63 @@ describe('Timeslots branch field (→ locations)', () => {
   )
 
   it(
-    'creates a timeslot without branch (optional)',
+    'creates a timeslot without branch when tenant has only one active location',
     async () => {
+      // tenantT has branchA and branchB (two active locations), so we use a fresh
+      // single-location tenant to confirm branch stays optional when unambiguous.
+      const ts = Date.now()
+      const soloTenant = (await payload.create({
+        collection: 'tenants',
+        data: { name: 'Solo Tenant', slug: `solo-tslot-${ts}` },
+        overrideAccess: true,
+      })) as { id: number }
+      await payload.create({
+        collection: 'locations',
+        data: { tenant: soloTenant.id, name: 'Only Site', slug: `only-site-tslot-${ts}`, active: true },
+        overrideAccess: true,
+      })
+      const soloEt = await payload.create({
+        collection: 'event-types',
+        data: { name: `Solo ET ${ts}`, places: 5, description: 'solo', tenant: soloTenant.id },
+        overrideAccess: true,
+      })
+      const start = new Date()
+      start.setUTCDate(start.getUTCDate() + 3)
+      start.setUTCHours(14, 0, 0, 0)
+      const end = new Date(start.getTime() + 60 * 60 * 1000)
       const doc = await payload.create({
         collection: 'timeslots',
-        data: baseTimeslotData(2),
+        data: {
+          tenant: soloTenant.id,
+          eventType: soloEt.id as number,
+          date: start.toISOString().split('T')[0],
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          lockOutTime: 0,
+          active: true,
+        },
         user: superAdmin,
         overrideAccess: false,
       })
       timeslotIds.push(doc.id as number)
       const bid = typeof doc.branch === 'object' && doc.branch ? (doc.branch as { id: number }).id : doc.branch
       expect(bid == null).toBe(true)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'rejects timeslot create without branch when tenant has multiple active locations',
+    async () => {
+      // tenantT already has branchA and branchB (both active)
+      await expect(
+        payload.create({
+          collection: 'timeslots',
+          data: baseTimeslotData(2),
+          user: superAdmin,
+          overrideAccess: false,
+        }),
+      ).rejects.toThrow(/more than one active site/i)
     },
     TEST_TIMEOUT,
   )

@@ -1,4 +1,4 @@
-import type { CollectionConfig, Field, Payload } from 'payload'
+import type { Access, CollectionConfig, Field, Payload, Where } from 'payload'
 import { extractUtcWallClock } from '@repo/shared-utils'
 import {
     tenantScopedCreate,
@@ -7,9 +7,42 @@ import {
     tenantScopedReadFiltered,
 } from '../../access/tenant-scoped'
 import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
+import { getPayloadLocationIdFromRequest } from '../../utilities/tenantRequest'
+
+function relationId(value: unknown): number | null {
+    if (value == null || value === '') return null
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (typeof value === 'string' && /^\d+$/.test(value)) return parseInt(value, 10)
+    if (typeof value === 'object' && value !== null && 'id' in value) {
+        const id = (value as { id: unknown }).id
+        if (typeof id === 'number' && Number.isFinite(id)) return id
+        if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+    }
+    return null
+}
+
+/**
+ * Read access for Scheduler: extends tenant-scoped filtering with an optional branch
+ * filter when `payload-location` cookie is set. This scopes the list so that each
+ * location's scheduler is shown independently when a branch is selected.
+ */
+const schedulerReadAccess: Access = async (args) => {
+    const { req } = args
+    const base = await tenantScopedReadFiltered(args)
+    if (base === false) return false
+
+    const typedReq = req as typeof req & { cookies?: { get: (name: string) => { value?: string } | undefined } }
+    const cookieSrc = typedReq.cookies?.get ? { cookies: typedReq.cookies } : {}
+    const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+    if (selectedBranchId == null) return base
+
+    const branchFilter: Where = { branch: { equals: selectedBranchId } }
+    if (base === true) return branchFilter
+    return { and: [base as Where, branchFilter] }
+}
 
 // Multi-tenant Scheduler collection (converted from scheduler global)
-// Each tenant has one scheduler document
+// Each location has its own scheduler document when the tenant has multiple sites.
 // Fields are based on the bookings plugin scheduler global
 const days: Field = {
     name: 'days',
@@ -129,14 +162,21 @@ export const Scheduler: CollectionConfig = {
         plural: 'Scheduler',
     },
     admin: {
-        useAsTitle: 'tenant',
-        defaultColumns: ['tenant', 'startDate', 'endDate', 'updatedAt'],
+        useAsTitle: 'branch',
+        defaultColumns: ['branch', 'tenant', 'startDate', 'endDate', 'updatedAt'],
         group: 'Bookings',
-        description: 'Create recurring timeslots across your weekly schedule for each tenant',
+        description: 'Create recurring timeslots for each location. Select a site in the sidebar to view or edit that location\'s schedule.',
+        components: {
+            views: {
+                list: {
+                    Component: '@/components/admin/SchedulerListView',
+                },
+            },
+        },
     },
     access: {
         admin: tenantOrgPayloadAdminAccess,
-        read: tenantScopedReadFiltered,
+        read: schedulerReadAccess,
         create: async (args) => {
             if (isStaffOnlyUser(args.req.user)) return false
             return tenantScopedCreate(args)
@@ -167,6 +207,36 @@ export const Scheduler: CollectionConfig = {
                                 : (rawTenant as string | number)
                     }
                 }
+
+                // Require branch when the tenant has more than one active location.
+                // This ensures each scheduler document maps to a specific site, removing the
+                // need for an ambiguous "default location" fallback.
+                if (data) {
+                    const branchId = relationId(data.branch)
+                    if (branchId == null) {
+                        const tenantId = relationId(data.tenant ?? req.context?.tenant)
+                        if (tenantId != null) {
+                            const locs = await req.payload.find({
+                                collection: 'locations',
+                                where: {
+                                    and: [
+                                        { tenant: { equals: tenantId } },
+                                        { active: { equals: true } },
+                                    ],
+                                },
+                                limit: 2,
+                                depth: 0,
+                                overrideAccess: true,
+                            })
+                            if (locs.totalDocs > 1) {
+                                throw new Error(
+                                    'A branch must be selected when the tenant has more than one active site.',
+                                )
+                            }
+                        }
+                    }
+                }
+
                 return data
             },
         ],
@@ -280,13 +350,13 @@ export const Scheduler: CollectionConfig = {
         },
         {
             name: 'branch',
-            label: 'Default branch / site',
+            label: 'Branch / site',
             type: 'relationship',
             relationTo: 'locations',
             required: false,
             admin: {
                 description:
-                    'When this tenant has more than one active site, choose which branch generated timeslots belong to. Leave empty if there is only one active site.',
+                    'The site this schedule applies to. Required when the tenant has more than one active location.',
             },
             filterOptions: ({ data }) => {
                 const raw = data?.tenant

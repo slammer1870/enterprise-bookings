@@ -845,7 +845,9 @@ export const plugins: Plugin[] = [
       // optional tenant (null = root site navbar/footer) and clear it in the admin form.
       navbar: { isGlobal: true, customTenantField: true },
       footer: { isGlobal: true, customTenantField: true },
-      scheduler: { isGlobal: true },
+      // scheduler is NOT isGlobal — tenants may have one scheduler per branch (location).
+      // The unique index on scheduler.tenant_id was dropped in migration 20260614_scheduler_multi_location.
+      scheduler: {},
       // NOTE: users collection is NOT included here to avoid automatic tenant scoping
       // The plugin will still add a 'tenants' field (array) to users automatically
       // We use:

@@ -3,7 +3,7 @@
 import type { ReactSelectOption } from '@payloadcms/ui'
 import { SelectInput } from '@payloadcms/ui'
 import React from 'react'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   getPayloadLocationCookie,
   setPayloadLocationCookie,
@@ -16,11 +16,24 @@ type ApiResponse = {
 }
 
 /**
+ * Routes where branch filtering is meaningful.
+ * The selector is hidden on all other admin pages to avoid confusion.
+ */
+const BRANCH_RELEVANT_PATHS = [
+  /^\/admin(\/)?$/, // analytics dashboard
+  /^\/admin\/collections\/timeslots(\/|$)/, // timeslots list / detail
+  /^\/admin\/collections\/scheduler(\/|$)/, // scheduler list / detail
+]
+
+function isBranchRelevantPath(pathname: string): boolean {
+  return BRANCH_RELEVANT_PATHS.some((re) => re.test(pathname))
+}
+
+/**
  * Admin sidebar: filter lists by branch (`payload-location`), mirroring tenant cookie paths.
- * Shown only when the selected tenant has two or more active locations (and the user may see them).
+ * Only rendered on routes where branch filtering is meaningful (timeslots, analytics dashboard).
  */
 export default function AdminBranchSiteSelector() {
-  const router = useRouter()
   const pathname = usePathname()
   const { selectedTenantID } = useTenantSelection()
   const [rows, setRows] = React.useState<ApiResponse['locations']>([])
@@ -79,6 +92,10 @@ export default function AdminBranchSiteSelector() {
     return base
   }, [rows])
 
+  if (!isBranchRelevantPath(pathname ?? '')) {
+    return null
+  }
+
   if (loading || rows.length <= 1) {
     return null
   }
@@ -88,10 +105,15 @@ export default function AdminBranchSiteSelector() {
     const raw = single && typeof single === 'object' && 'value' in single ? String(single.value ?? '') : ''
     setPayloadLocationCookie(raw === '' ? undefined : raw)
     setValue(single ?? { label: '', value: '' })
-    // Important: force full reload so Payload list queries (e.g. timeslots table)
-    // re-run with the updated `payload-location` cookie.
-    // `router.refresh()` isn't sufficient in all production setups.
-    window.location.reload()
+    // When on a scheduler page (list or detail), navigate to the list so the
+    // SchedulerListView can redirect to the correct location's scheduler document.
+    // For all other pages (timeslots, dashboard) reload the current URL.
+    if (/^\/admin\/collections\/scheduler(\/|$)/.test(window.location.pathname)) {
+      window.location.href = '/admin/collections/scheduler'
+    } else {
+      // Force full reload so Payload list queries re-run with the updated cookie.
+      window.location.reload()
+    }
   }
 
   return (

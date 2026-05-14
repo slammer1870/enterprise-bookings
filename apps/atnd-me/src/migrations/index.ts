@@ -107,6 +107,7 @@ import * as migration_20260512_120001_locations_branch_collection from './202605
 import * as migration_20260513_000001_timeslots_branch_id from './20260513_000001_timeslots_branch_id';
 import * as migration_20260612_phase7_users_locations_location_manager_role from './20260612_phase7_users_locations_location_manager_role';
 import * as migration_20260613_scheduler_branch_id from './20260613_scheduler_branch_id';
+import * as migration_20260614_scheduler_multi_location from './20260614_scheduler_multi_location';
 
 export const migrations = [
   {
@@ -653,5 +654,10 @@ export const migrations = [
     up: migration_20260613_scheduler_branch_id.up,
     down: migration_20260613_scheduler_branch_id.down,
     name: '20260613_scheduler_branch_id',
+  },
+  {
+    up: migration_20260614_scheduler_multi_location.up,
+    down: migration_20260614_scheduler_multi_location.down,
+    name: '20260614_scheduler_multi_location',
   },
 ];
