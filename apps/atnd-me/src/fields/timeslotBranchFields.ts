@@ -48,6 +48,19 @@ function relationId(value: unknown): number | null {
   return null
 }
 
+const payloadLocationSyncField: Field = {
+  name: '_payloadLocationSyncToBranch',
+  type: 'ui',
+  admin: {
+    // `ui` fields can render a component without needing to be visible.
+    // Our component returns `null`, so this stays unobtrusive even without `admin.hidden`.
+    position: 'sidebar',
+    components: {
+      Field: '@/components/admin/SyncPayloadLocationCookieToBranchField',
+    },
+  },
+}
+
 /**
  * Injects optional `branch` → `locations` and relabels the plugin’s text `location` field (room/area).
  */
@@ -71,7 +84,15 @@ export function withTimeslotBranchFields(fields: Field[]): Field[] {
       },
     } as Field
 
-    const newInner = [...inner.slice(0, locIdx), timeslotBranchField, roomField, ...inner.slice(locIdx + 1)]
+    // Insert a hidden UI component that syncs the `payload-location` cookie into the hidden `branch`
+    // relationship field. This avoids reloading the whole form when the user switches branches.
+    const newInner = [
+      ...inner.slice(0, locIdx),
+      payloadLocationSyncField,
+      timeslotBranchField,
+      roomField,
+      ...inner.slice(locIdx + 1),
+    ]
 
     return { ...field, fields: newInner }
   })

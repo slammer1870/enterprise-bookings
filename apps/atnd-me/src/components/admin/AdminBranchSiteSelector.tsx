@@ -3,7 +3,7 @@
 import type { ReactSelectOption } from '@payloadcms/ui'
 import { SelectInput } from '@payloadcms/ui'
 import React from 'react'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import {
   getPayloadLocationCookie,
   setPayloadLocationCookie,
@@ -29,12 +29,22 @@ function isBranchRelevantPath(pathname: string): boolean {
   return BRANCH_RELEVANT_PATHS.some((re) => re.test(pathname))
 }
 
+const LOCATION_REQUIRED_CREATE_PATHS = [
+  /^\/admin\/collections\/timeslots\/create(\/|$)/,
+  /^\/admin\/collections\/scheduler\/create(\/|$)/,
+]
+
+function isLocationRequiredCreatePath(pathname: string): boolean {
+  return LOCATION_REQUIRED_CREATE_PATHS.some((re) => re.test(pathname))
+}
+
 /**
  * Admin sidebar: filter lists by branch (`payload-location`), mirroring tenant cookie paths.
  * Only rendered on routes where branch filtering is meaningful (timeslots, analytics dashboard).
  */
 export default function AdminBranchSiteSelector() {
   const pathname = usePathname()
+  const router = useRouter()
   const { selectedTenantID } = useTenantSelection()
   const [rows, setRows] = React.useState<ApiResponse['locations']>([])
   const [loading, setLoading] = React.useState(true)
@@ -92,11 +102,62 @@ export default function AdminBranchSiteSelector() {
     return base
   }, [rows])
 
-  if (!isBranchRelevantPath(pathname ?? '')) {
-    return null
+  const rawCookieId = getPayloadLocationCookie()?.trim()
+  const cookieValid = Boolean(rawCookieId && /^\d+$/.test(rawCookieId))
+  const showLocationModal =
+    isLocationRequiredCreatePath(pathname ?? '') && !loading && !cookieValid && rows.length > 1
+
+  // Prevent Enter-submit while the modal is open (mirrors PreventEnterSubmitOnCreatePage UX).
+  React.useEffect(() => {
+    if (!showLocationModal) return
+    const onKeyDownCapture = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return
+      const el = document.activeElement
+      if (!el || !(el instanceof HTMLElement)) return
+      const tagName = el.tagName.toLowerCase()
+      const isInputLike = tagName === 'input' || tagName === 'textarea' || tagName === 'select'
+      if (!isInputLike) return
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    const onSubmitCapture = (e: Event) => {
+      const ev = e as SubmitEvent
+      if (ev.submitter == null) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDownCapture, true)
+    document.addEventListener('submit', onSubmitCapture, true)
+    return () => {
+      document.removeEventListener('keydown', onKeyDownCapture, true)
+      document.removeEventListener('submit', onSubmitCapture, true)
+    }
+  }, [showLocationModal])
+
+  const isBranchSidebarVisible =
+    pathname != null && typeof pathname === 'string' && isBranchRelevantPath(pathname)
+
+  const closeModal = () => {
+    // Route back to the list for the create form collection.
+    const match = (pathname ?? '').match(/\/admin\/collections\/([^/]+)\/create(\/|$)/)
+    const collectionSlug = match?.[1]
+    router.replace(collectionSlug ? `/admin/collections/${collectionSlug}` : '/admin')
   }
 
-  if (loading || rows.length <= 1) {
+  const [selectedLocationId, setSelectedLocationId] = React.useState<string | undefined>(undefined)
+  React.useEffect(() => {
+    if (!showLocationModal) {
+      setSelectedLocationId(undefined)
+      return
+    }
+    if (rows.length === 1) {
+      setSelectedLocationId(String(rows[0]?.id ?? ''))
+    }
+  }, [showLocationModal, rows])
+
+  if (loading) {
     return null
   }
 
@@ -105,38 +166,193 @@ export default function AdminBranchSiteSelector() {
     const raw = single && typeof single === 'object' && 'value' in single ? String(single.value ?? '') : ''
     setPayloadLocationCookie(raw === '' ? undefined : raw)
     setValue(single ?? { label: '', value: '' })
+    // For "create/edit" forms, preserve entered values by avoiding a hard reload.
+    // We instead dispatch a custom event so form field sync components can update.
+    const pathnameNow = window.location.pathname
+    const isTimeslotsCreateOrEdit = /^\/admin\/collections\/timeslots(\/|$)/.test(pathnameNow) &&
+      (/^\/admin\/collections\/timeslots\/create(\/|$)/.test(pathnameNow) ||
+        /^\/admin\/collections\/timeslots\/[^/]+\/edit(\/|$)/.test(pathnameNow))
+
+    const isSchedulerCreateOrEdit = /^\/admin\/collections\/scheduler(\/|$)/.test(pathnameNow) &&
+      (/^\/admin\/collections\/scheduler\/create(\/|$)/.test(pathnameNow) ||
+        /^\/admin\/collections\/scheduler\/[^/]+\/edit(\/|$)/.test(pathnameNow))
+
+    const nextLocationId = raw && /^\d+$/.test(raw) ? Number(raw) : null
+    window.dispatchEvent(
+      new CustomEvent('payload-location-change', {
+        detail: { locationId: nextLocationId },
+      }),
+    )
+
+    if (isTimeslotsCreateOrEdit || isSchedulerCreateOrEdit) return
+
+    // List pages: we can safely reload to ensure list filters + server data update.
     // When on a scheduler page (list or detail), navigate to the list so the
     // SchedulerListView can redirect to the correct location's scheduler document.
-    // For all other pages (timeslots, dashboard) reload the current URL.
-    if (/^\/admin\/collections\/scheduler(\/|$)/.test(window.location.pathname)) {
+    if (/^\/admin\/collections\/scheduler(\/|$)/.test(pathnameNow)) {
       window.location.href = '/admin/collections/scheduler'
     } else {
-      // Force full reload so Payload list queries re-run with the updated cookie.
       window.location.reload()
     }
   }
 
   return (
-    <div
-      className="branch-site-selector"
-      data-testid="branch-site-selector"
-      style={{
-        width: '100%',
-        marginBottom: '1rem',
-      }}
-    >
-      <SelectInput
-        isClearable={false}
-        label="Site / branch"
-        name="branchSiteFilter"
-        onChange={handleChange as (value: unknown) => void}
-        options={options as Parameters<typeof SelectInput>[0]['options']}
-        path="branchSiteFilter"
-        readOnly={false}
-        value={(value?.value === '' || value?.value == null ? undefined : value.value) as Parameters<
-          typeof SelectInput
-        >[0]['value']}
-      />
-    </div>
+    <>
+      {showLocationModal ? (
+        <div
+          role="presentation"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 2147483647,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <div
+            aria-hidden
+            onMouseDown={() => closeModal()}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'rgba(0,0,0,0.55)',
+            }}
+          />
+
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="select-location-for-create-heading"
+            style={{
+              position: 'relative',
+              width: 'min(560px, 92vw)',
+              background: 'var(--theme-elevation-0)',
+              border: '1px solid var(--theme-elevation-100)',
+              borderRadius: 8,
+              padding: 24,
+              boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+            }}
+          >
+            <h2
+              id="select-location-for-create-heading"
+              style={{
+                margin: 0,
+                marginBottom: 8,
+                fontSize: 18,
+                fontWeight: 600,
+              }}
+            >
+              Select site / branch
+            </h2>
+            <p style={{ margin: 0, marginBottom: 16 }}>
+              This tenant has multiple active locations. Choose which site this new document should be created for.
+            </p>
+
+            <div style={{ marginBottom: 24 }}>
+              <label
+                htmlFor="select-location-create"
+                style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}
+              >
+                Filter by location
+              </label>
+              <select
+                id="select-location-create"
+                name="select-location-create"
+                value={selectedLocationId == null ? '' : selectedLocationId}
+                onChange={(event) => {
+                  const nextValue = event.target.value
+                  setSelectedLocationId(nextValue === '' ? undefined : nextValue)
+                }}
+                style={{
+                  width: '100%',
+                  minHeight: 40,
+                  padding: '8px 12px',
+                  borderRadius: 4,
+                  border: '1px solid var(--theme-elevation-200)',
+                  background: 'var(--theme-elevation-0)',
+                  color: 'var(--theme-text)',
+                }}
+              >
+                <option value="">Select a site</option>
+                {rows.map((loc) => (
+                  <option key={String(loc.id)} value={String(loc.id)}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                type="button"
+                onClick={closeModal}
+                style={{
+                  minHeight: 40,
+                  padding: '0 16px',
+                  borderRadius: 4,
+                  border: '1px solid var(--theme-elevation-200)',
+                  background: 'var(--theme-elevation-50)',
+                  color: 'var(--theme-text)',
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={selectedLocationId == null || selectedLocationId === ''}
+                onClick={() => {
+                  if (!selectedLocationId) return
+                  setPayloadLocationCookie(selectedLocationId)
+                  closeModal()
+                  // Reload so create page hooks/access rules re-run with the new cookie.
+                  if (typeof window !== 'undefined') window.location.reload()
+                }}
+                style={{
+                  minHeight: 40,
+                  padding: '0 16px',
+                  borderRadius: 4,
+                  border: '1px solid var(--theme-success-500)',
+                  background: 'var(--theme-success-500)',
+                  color: '#fff',
+                  cursor:
+                    selectedLocationId == null || selectedLocationId === '' ? 'not-allowed' : 'pointer',
+                  opacity:
+                    selectedLocationId == null || selectedLocationId === '' ? 0.7 : 1,
+                }}
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isBranchSidebarVisible && rows.length > 1 ? (
+        <div
+          className="branch-site-selector"
+          data-testid="branch-site-selector"
+          style={{
+            width: '100%',
+            marginBottom: '1rem',
+          }}
+        >
+          <SelectInput
+            isClearable={false}
+            label="Site / branch"
+            name="branchSiteFilter"
+            onChange={handleChange as (value: unknown) => void}
+            options={options as Parameters<typeof SelectInput>[0]['options']}
+            path="branchSiteFilter"
+            readOnly={false}
+            value={(value?.value === '' || value?.value == null ? undefined : value.value) as Parameters<
+              typeof SelectInput
+            >[0]['value']}
+          />
+        </div>
+      ) : null}
+    </>
   )
 }

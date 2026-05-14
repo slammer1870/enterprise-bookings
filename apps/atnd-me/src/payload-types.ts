@@ -710,6 +710,10 @@ export interface Location {
    * Inactive locations can be hidden from scheduling and public UIs later.
    */
   active?: boolean | null;
+  /**
+   * Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.
+   */
+  defaultForSchedule?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4813,6 +4817,7 @@ export interface LocationsSelect<T extends boolean = true> {
   address?: T;
   timeZone?: T;
   active?: T;
+  defaultForSchedule?: T;
   updatedAt?: T;
   createdAt?: T;
 }

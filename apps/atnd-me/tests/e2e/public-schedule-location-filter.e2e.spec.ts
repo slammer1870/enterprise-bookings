@@ -109,12 +109,14 @@ test.describe('Public schedule location picker', () => {
     await navigateToTenant(page, tenant.slug, '/home')
 
     // Wait for schedule to be present and move to the target date.
-    await page.waitForURL((url) => url.pathname === '/' || url.pathname === '/home', { timeout: 15000 }).catch(() => null)
+    await page
+      .waitForURL((url) => url.pathname === '/' || url.pathname === '/home', { timeout: 15000 })
+      .catch(() => null)
     await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
 
     await advanceScheduleToDate(page, startTime)
 
-    // Default view should include both branches (no branch cookie).
+    // Default view should include both branches when no branch cookie is set.
     await expect(page.getByText(classNorth).first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByText(classSouth).first()).toBeVisible({ timeout: 20000 })
 

@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
+import { PAYLOAD_LOCATION_COOKIE } from '@/utilities/tenantRequest'
 import {
   Select,
   SelectContent,
@@ -55,7 +56,29 @@ export function LocationScopedScheduleClient({
 
   const locationSlug = locationFromSearch ?? locationFromHash
 
-  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(defaultLocationId)
+  const coerceLocationId = (v: unknown): number | null => {
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+    if (typeof v === 'bigint') {
+      const n = Number(v)
+      return Number.isFinite(n) ? n : null
+    }
+    if (typeof v === 'string') {
+      const n = Number(v)
+      return Number.isFinite(n) ? n : null
+    }
+    if (typeof v === 'object' && v != null && 'id' in v) {
+      // Some Payload shapes may pass relationship-like objects.
+      return coerceLocationId((v as any).id)
+    }
+    return null
+  }
+
+  const firstLocationId = coerceLocationId(locations[0]?.id)
+  const initialSelectedLocationId = coerceLocationId(defaultLocationId) ?? firstLocationId
+
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(
+    initialSelectedLocationId,
+  )
   const [userHasChosen, setUserHasChosen] = useState(false)
 
   const locationFromSlug = useMemo(() => {
@@ -65,12 +88,18 @@ export function LocationScopedScheduleClient({
 
   useEffect(() => {
     setUserHasChosen(false)
-    setSelectedLocationId(locationFromSlug?.id ?? defaultLocationId)
+    setSelectedLocationId(
+      coerceLocationId(locationFromSlug?.id) ?? coerceLocationId(defaultLocationId) ?? firstLocationId,
+    )
   }, [locationSlug, locationFromSlug?.id, defaultLocationId])
 
-  const effectiveLocationId = userHasChosen
+  const effectiveLocationIdRaw = userHasChosen
     ? (selectedLocationId ?? defaultLocationId)
     : (locationFromSlug?.id ?? selectedLocationId ?? defaultLocationId)
+
+  // Guard against any non-finite values (e.g. `NaN`) so we always trigger strict
+  // branch filtering server-side.
+  const effectiveLocationId = coerceLocationId(effectiveLocationIdRaw) ?? firstLocationId
 
   const value = effectiveLocationId != null ? String(effectiveLocationId) : EMPTY_VALUE
 
@@ -79,6 +108,32 @@ export function LocationScopedScheduleClient({
     setSelectedLocationId(id)
     setUserHasChosen(true)
   }
+
+  // Keep Payload's admin-style `payload-location` cookie aligned with the
+  // currently selected public schedule location.
+  // This prevents "You are not allowed to perform this action" when navigating
+  // to `/bookings/[id]` while a stale `payload-location` cookie is set.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const setCookie = (name: string, value: string | null) => {
+      // Keep it simple: host-only cookie (same host as the current request).
+      // `timeslotsRead` only needs the cookie value to scope reads for admin/staff.
+      const base = `; Path=/; SameSite=Lax`
+      if (value == null) {
+        document.cookie = `${name}=; Max-Age=0${base}`
+        return
+      }
+      document.cookie = `${name}=${encodeURIComponent(value)}${base}`
+    }
+
+    if (effectiveLocationId == null) {
+      setCookie(PAYLOAD_LOCATION_COOKIE, null)
+      return
+    }
+
+    setCookie(PAYLOAD_LOCATION_COOKIE, String(effectiveLocationId))
+  }, [effectiveLocationId])
 
   if (locations.length === 0) {
     return (
@@ -90,28 +145,29 @@ export function LocationScopedScheduleClient({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-foreground">Show schedule for</label>
-        <Select value={value} onValueChange={onValueChange}>
-          <SelectTrigger className="w-full">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {locations.map((l) => (
-              <SelectItem key={l.id} value={String(l.id)}>
-                {l.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {effectiveLocationId != null ? (
-        <ScheduleLazy tenantId={tenantId} branchId={effectiveLocationId} />
-      ) : (
-        <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
-          Select a location above to view the schedule.
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <label className="text-sm font-medium text-foreground sm:whitespace-nowrap">
+          Show schedule for
+        </label>
+        <div className="w-full sm:flex-1">
+          <Select value={value} onValueChange={onValueChange}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {locations.map((l) => (
+                <SelectItem key={l.id} value={String(l.id)}>
+                  {l.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
+      </div>
+      <ScheduleLazy
+        tenantId={tenantId}
+        branchId={effectiveLocationId ?? undefined /* omit branch filter when unknown */}
+      />
     </div>
   )
 }

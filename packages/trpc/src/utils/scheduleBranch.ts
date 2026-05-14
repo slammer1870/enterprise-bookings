@@ -128,9 +128,14 @@ export async function resolveGetByDateBranch(
   }
 
   const ids = await listActiveLocationIds(payload, tenantId);
+  if (ids.length === 0) {
+    return { branchId: null, whereMode: "none" };
+  }
+
   if (ids.length === 1) {
     return { branchId: ids[0]!, whereMode: "singleOrUnassigned" };
   }
 
+  // Multiple active branches with no explicit cookie/branchId => show all branches.
   return { branchId: null, whereMode: "none" };
 }

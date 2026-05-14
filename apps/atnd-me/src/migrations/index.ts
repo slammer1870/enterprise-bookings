@@ -109,6 +109,7 @@ import * as migration_20260612_phase7_users_locations_location_manager_role from
 import * as migration_20260613_scheduler_branch_id from './20260613_scheduler_branch_id';
 import * as migration_20260614_scheduler_multi_location from './20260614_scheduler_multi_location';
 import * as migration_20260614_schedule_block_default_location from './20260614_schedule_block_default_location';
+import * as migration_20260615_locations_default_for_schedule from './20260615_locations_default_for_schedule';
 
 export const migrations = [
   {
@@ -665,5 +666,10 @@ export const migrations = [
     up: migration_20260614_schedule_block_default_location.up,
     down: migration_20260614_schedule_block_default_location.down,
     name: '20260614_schedule_block_default_location',
+  },
+  {
+    up: migration_20260615_locations_default_for_schedule.up,
+    down: migration_20260615_locations_default_for_schedule.down,
+    name: '20260615_locations_default_for_schedule',
   },
 ];
