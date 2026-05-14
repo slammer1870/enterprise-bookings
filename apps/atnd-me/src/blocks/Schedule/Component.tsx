@@ -51,9 +51,7 @@ export const ScheduleBlock = async ({ defaultLocation }: ScheduleBlockProps = {}
   }
 
   // Multi-location — lazy-load the client picker to keep the RSC lightweight
-  const { LocationScopedScheduleClient } = await import(
-    '@/blocks/LocationScopedSchedule/Component.client'
-  )
+  const { LocationScopedScheduleClient } = await import('./Component.client')
 
   const defaultLocationId =
     defaultLocation == null

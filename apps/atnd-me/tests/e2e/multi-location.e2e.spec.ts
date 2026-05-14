@@ -4,7 +4,7 @@
 import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant, getBranchSlugFromCookies } from './helpers/subdomain-helpers'
-import { createTestEventType, createTestTimeslot } from './helpers/data-helpers'
+import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 import { loginAsLocationManager, loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
 
@@ -32,6 +32,37 @@ async function advanceScheduleToDate(page: Page, targetDate: Date) {
 
 test.describe('Multi-location branches', () => {
   test.setTimeout(180_000)
+
+  // Ensure fixture locations are active for this describe block. Other test files
+  // (location-functionality-admin) deactivate them in their afterAll, so we must
+  // re-activate here to guarantee a consistent starting state.
+  test.beforeAll(async ({ testData }) => {
+    const { north, south } = testData.tenant1Locations
+    if (!north?.id && !south?.id) return
+    const payload = await getPayloadInstance()
+    await Promise.all([
+      north?.id
+        ? payload.update({ collection: 'locations', id: north.id, data: { active: true }, overrideAccess: true })
+        : Promise.resolve(),
+      south?.id
+        ? payload.update({ collection: 'locations', id: south.id, data: { active: true }, overrideAccess: true })
+        : Promise.resolve(),
+    ])
+  })
+
+  test.afterAll(async ({ testData }) => {
+    const { north, south } = testData.tenant1Locations
+    if (!north?.id && !south?.id) return
+    const payload = await getPayloadInstance()
+    await Promise.all([
+      north?.id
+        ? payload.update({ collection: 'locations', id: north.id, data: { active: false }, overrideAccess: true })
+        : Promise.resolve(),
+      south?.id
+        ? payload.update({ collection: 'locations', id: south.id, data: { active: false }, overrideAccess: true })
+        : Promise.resolve(),
+    ])
+  })
 
   test('public /home shows both branches without branch cookie; after /locations/{north} only north slot', async ({
     page,

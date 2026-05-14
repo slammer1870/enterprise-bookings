@@ -108,6 +108,7 @@ import * as migration_20260513_000001_timeslots_branch_id from './20260513_00000
 import * as migration_20260612_phase7_users_locations_location_manager_role from './20260612_phase7_users_locations_location_manager_role';
 import * as migration_20260613_scheduler_branch_id from './20260613_scheduler_branch_id';
 import * as migration_20260614_scheduler_multi_location from './20260614_scheduler_multi_location';
+import * as migration_20260614_schedule_block_default_location from './20260614_schedule_block_default_location';
 
 export const migrations = [
   {
@@ -659,5 +660,10 @@ export const migrations = [
     up: migration_20260614_scheduler_multi_location.up,
     down: migration_20260614_scheduler_multi_location.down,
     name: '20260614_scheduler_multi_location',
+  },
+  {
+    up: migration_20260614_schedule_block_default_location.up,
+    down: migration_20260614_schedule_block_default_location.down,
+    name: '20260614_schedule_block_default_location',
   },
 ];

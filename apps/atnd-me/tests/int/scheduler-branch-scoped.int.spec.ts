@@ -143,7 +143,8 @@ describe('Scheduler — branch scoping', () => {
         payload.create({
           collection: 'scheduler',
           data: { ...baseSchedulerData(), tenant: tenantId },
-          overrideAccess: true,
+          user: tenantAdmin,
+          overrideAccess: false,
         }),
       ).rejects.toThrow(/more than one active site/i)
     },

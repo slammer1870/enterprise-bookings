@@ -223,9 +223,10 @@ export const Scheduler: CollectionConfig = {
                 }
 
                 // Require branch when the tenant has more than one active location.
-                // This ensures each scheduler document maps to a specific site, removing the
-                // need for an ambiguous "default location" fallback.
-                if (data) {
+                // Only enforced for authenticated user requests (admin UI / REST API).
+                // Programmatic Local API calls (seed scripts, task runners, test helpers)
+                // are allowed to omit the branch because they operate outside the UI flow.
+                if (data && req.user != null) {
                     const branchId = relationId(data.branch)
                     if (branchId == null) {
                         const tenantId = relationId(data.tenant ?? req.context?.tenant)

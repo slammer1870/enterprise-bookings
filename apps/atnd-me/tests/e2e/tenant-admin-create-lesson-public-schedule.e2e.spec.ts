@@ -196,6 +196,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
   }) => {
     const tenant = testData.tenants[0]
     const tenantAdmin = testData.users.tenantAdmin1
+    const { north } = testData.tenant1Locations
     const tenantOrigin = `http://${tenant.slug}.localhost:3000`
 
     if (!tenant?.id || !tenant?.slug || !tenant?.name || !tenantAdmin?.email) {
@@ -212,6 +213,17 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
       password: 'password',
       tenantSlug: tenant.slug,
     })
+
+    // If the tenant has multiple active locations the timeslot beforeValidate hook requires a
+    // branch. Set payload-location so the hook auto-populates it — mirrors what the admin
+    // sidebar branch selector would do in normal use.
+    if (north?.id) {
+      await page.context().addCookies([
+        { name: 'payload-location', value: String(north.id), url: `${tenantOrigin}/` },
+        { name: 'payload-location', value: String(north.id), url: `${tenantOrigin}/admin/` },
+        { name: 'payload-location', value: String(north.id), url: `${tenantOrigin}/admin/api/` },
+      ])
+    }
 
     await openCreateFromCollectionList(
       page,

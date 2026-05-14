@@ -50,6 +50,33 @@ async function setPayloadLocationCookieAndReload(page: Parameters<typeof test>[0
 test.describe('Location functionality (admin)', () => {
   test.setTimeout(180_000)
 
+  // Deactivate fixture locations after all tests in this describe block.
+  // The tests set tenant1Locations (north/south) to active=true; without cleanup the active
+  // state contaminates later tests (e.g. timeslot creation fails branch-required validation).
+  test.afterAll(async ({ testData }) => {
+    const { north, south } = testData.tenant1Locations
+    if (!north?.id && !south?.id) return
+    const payload = await getPayloadInstance()
+    await Promise.all([
+      north?.id
+        ? payload.update({
+            collection: 'locations',
+            id: north.id,
+            data: { active: false },
+            overrideAccess: true,
+          })
+        : Promise.resolve(),
+      south?.id
+        ? payload.update({
+            collection: 'locations',
+            id: south.id,
+            data: { active: false },
+            overrideAccess: true,
+          })
+        : Promise.resolve(),
+    ])
+  })
+
   test('tenant admin: location selector renders below tenant selector', async ({
     page,
     request,

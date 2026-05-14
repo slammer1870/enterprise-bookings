@@ -1364,6 +1364,10 @@ export interface LocationBlock {
  * via the `definition` "ScheduleBlock".
  */
 export interface ScheduleBlock {
+  /**
+   * Multi-location only: which branch is pre-selected when the page loads. Visitors can still change it via the dropdown.
+   */
+  defaultLocation?: (number | null) | Location;
   id?: string | null;
   blockName?: string | null;
   blockType: 'schedule';
@@ -2824,9 +2828,6 @@ export interface Scheduler {
    * Default class type to use when creating timeslots (can be overridden per slot)
    */
   defaultEventType: number | EventType;
-  /**
-   * The site this schedule applies to. Required when the tenant has more than one active location.
-   */
   branch?: (number | null) | Location;
   /**
    * The days of the week and their time slots
@@ -3773,6 +3774,7 @@ export interface LocationBlockSelect<T extends boolean = true> {
  * via the `definition` "ScheduleBlock_select".
  */
 export interface ScheduleBlockSelect<T extends boolean = true> {
+  defaultLocation?: T;
   id?: T;
   blockName?: T;
 }

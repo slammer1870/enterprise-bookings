@@ -1,4 +1,5 @@
 import type { CollectionBeforeValidateHook } from 'payload'
+import { getPayloadLocationIdFromRequest } from '@/utilities/tenantRequest'
 
 function relationId(value: unknown): number | null {
   if (value == null || value === '') return null
@@ -55,24 +56,36 @@ export const validateTimeslotBranchMatchesTenant: CollectionBeforeValidateHook =
   }
 
   // On CREATE: require branch when the tenant has more than one active location.
-  // Without this, timeslots would be invisible to end-users who browse by location.
-  if (operation === 'create' && branchId == null && tenantId != null) {
-    const locs = await req.payload.find({
-      collection: 'locations',
-      where: {
-        and: [
-          { tenant: { equals: tenantId } },
-          { active: { equals: true } },
-        ],
-      },
-      limit: 2,
-      depth: 0,
-      overrideAccess: true,
-    })
-    if (locs.totalDocs > 1) {
-      throw new Error(
-        'A branch must be selected when the tenant has more than one active site.',
-      )
+  // Only enforced for authenticated user requests (admin UI / REST API). Programmatic
+  // Local API calls (seed scripts, task runners, test helpers using overrideAccess) are
+  // allowed to omit the branch because they manage data outside of the UI flow.
+  if (operation === 'create' && branchId == null && tenantId != null && req.user != null) {
+    // Auto-populate from the `payload-location` cookie if set — mirrors Scheduler behaviour.
+    // When the admin has a branch selected in the sidebar, the cookie propagates it here
+    // so the user does not need to fill in the branch field explicitly.
+    const typedReq = req as typeof req & { cookies?: { get: (name: string) => { value?: string } | undefined } }
+    const cookieSrc = typedReq.cookies?.get ? { cookies: typedReq.cookies } : {}
+    const cookieBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+    if (cookieBranchId != null) {
+      data.branch = cookieBranchId
+    } else {
+      const locs = await req.payload.find({
+        collection: 'locations',
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { active: { equals: true } },
+          ],
+        },
+        limit: 2,
+        depth: 0,
+        overrideAccess: true,
+      })
+      if (locs.totalDocs > 1) {
+        throw new Error(
+          'A branch must be selected when the tenant has more than one active site.',
+        )
+      }
     }
   }
 

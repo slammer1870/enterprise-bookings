@@ -5,7 +5,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import { sentryPlugin } from '@payloadcms/plugin-sentry'
-import type { Field, Payload } from 'payload'
+import type { Config, Field, Payload } from 'payload'
 import { Plugin } from 'payload'
 import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
@@ -921,4 +921,23 @@ export const plugins: Plugin[] = [
     ]
   })(),
   staffRosterUsersFieldAccessPlugin(),
+  // Append the branch/site selector AFTER the tenant selector in beforeNavLinks.
+  // The multi-tenant plugin appends TenantSelector to beforeNavLinks, so anything already in
+  // the base config ends up above it. Running this plugin last guarantees the correct order:
+  // NavHomeLink → TenantSelector → AdminBranchSiteSelector → (nav links).
+  (config: Config): Config => {
+    const admin = config.admin ?? {}
+    const components = admin.components ?? {}
+    const existing = Array.isArray(components.beforeNavLinks) ? components.beforeNavLinks : []
+    return {
+      ...config,
+      admin: {
+        ...admin,
+        components: {
+          ...components,
+          beforeNavLinks: [...existing, '@/components/admin/AdminBranchSiteSelector'],
+        },
+      },
+    }
+  },
 ]
