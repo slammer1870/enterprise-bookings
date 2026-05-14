@@ -559,7 +559,11 @@ export const plugins: Plugin[] = [
       }),
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        read: tenantScopedReadFiltered, // Filter by tenant for tenant-admins
+        // Use tenantScopedPublicReadStrict so location-managers (who need booking counts
+        // in the timeslots admin view) get a tenant-scoped Where clause rather than false.
+        // tenantScopedReadFiltered is intentionally denied for pure location-managers, so
+        // bookings must use this stricter-but-inclusive function instead.
+        read: tenantScopedPublicReadStrict,
         create: bookingCreateAccessWithPaymentValidation, // Step 3: payment validation (Connect required when payments enabled)
         update: bookingUpdateAccessWithPaymentValidation,
       }),

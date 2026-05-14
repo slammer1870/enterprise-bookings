@@ -101,10 +101,6 @@ export default function AdminBranchSiteSelector() {
       style={{
         width: '100%',
         marginBottom: '1rem',
-        // Keep the selector visible when scrolling long admin sidebars.
-        position: 'sticky',
-        top: '4.5rem',
-        zIndex: 10,
       }}
     >
       <SelectInput

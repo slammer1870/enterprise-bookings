@@ -83,11 +83,12 @@ export default buildConfig({
       // The `BeforeDashboard` component renders the 'welcome' block that you see after logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeDashboard: ['@/components/BeforeDashboard'],
-      // Home link at top of sidebar for quick access to dashboard (analytics).
-      beforeNavLinks: ['@/components/admin/NavHomeLink'],
-      // Render the branch/site selector after the tenant selector so the sidebar hierarchy
-      // matches tenant -> location (multi-tenant -> multi-location).
-      afterNavLinks: ['@/components/admin/AdminBranchSiteSelector'],
+      // The multi-tenant plugin prepends TenantSelector; our entries follow in order:
+      // TenantSelector → AdminBranchSiteSelector → NavHomeLink → (nav links)
+      beforeNavLinks: [
+        '@/components/admin/AdminBranchSiteSelector',
+        '@/components/admin/NavHomeLink',
+      ],
       // Phase 4 – Custom analytics dashboard (replaces default dashboard view).
       views: {
         dashboard: {
