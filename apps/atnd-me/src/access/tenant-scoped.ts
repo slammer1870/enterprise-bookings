@@ -671,10 +671,11 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
     return await resolveTenantAdminReadConstraint({ req })
   }
 
-  // Site managers can read documents from their assigned tenant (e.g. bookings needed for
-  // booking counts in the timeslots admin list view). Pages/forms are hidden via admin.access.
+  // Pure location-managers are denied on tenant-wide filtered collections (e.g. Pages, Scheduler).
+  // Collections that location-managers legitimately need (bookings) use tenantScopedPublicReadStrict
+  // which already grants them a tenant-scoped Where via checkRole(['admin','staff','location-manager']).
   if (isPureLocationManager(user)) {
-    return await resolveTenantAdminReadConstraint({ req })
+    return false
   }
 
   // Regular users: Allow read access for booking purposes
