@@ -88,14 +88,24 @@ export default function AdminBranchSiteSelector() {
     const raw = single && typeof single === 'object' && 'value' in single ? String(single.value ?? '') : ''
     setPayloadLocationCookie(raw === '' ? undefined : raw)
     setValue(single ?? { label: '', value: '' })
-    router.refresh()
+    // Important: force full reload so Payload list queries (e.g. timeslots table)
+    // re-run with the updated `payload-location` cookie.
+    // `router.refresh()` isn't sufficient in all production setups.
+    window.location.reload()
   }
 
   return (
     <div
       className="branch-site-selector"
       data-testid="branch-site-selector"
-      style={{ width: '100%', marginBottom: '1rem' }}
+      style={{
+        width: '100%',
+        marginBottom: '1rem',
+        // Keep the selector visible when scrolling long admin sidebars.
+        position: 'sticky',
+        top: '4.5rem',
+        zIndex: 10,
+      }}
     >
       <SelectInput
         isClearable={false}

@@ -268,4 +268,27 @@ describe('timeslotsRead branch filter (payload-location)', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'scopes list to branch A when payload-location is set but payload-tenant is missing',
+    async () => {
+      const req = adminReqWithCookies(payload, orgAdmin, {
+        [PAYLOAD_LOCATION_COOKIE]: String(locA.id),
+      })
+
+      const res = await payload.find({
+        collection: 'timeslots',
+        where: {},
+        limit: 100,
+        req: req as any,
+        overrideAccess: false,
+      })
+
+      const ids = res.docs.map((d) => d.id)
+      expect(ids).toContain(timeslotBranchA)
+      expect(ids).not.toContain(timeslotBranchB)
+      expect(ids).not.toContain(timeslotOtherTenant)
+    },
+    TEST_TIMEOUT,
+  )
 })

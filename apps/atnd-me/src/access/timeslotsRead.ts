@@ -10,6 +10,7 @@ import {
   getPayloadLocationIdFromRequest,
   getPayloadTenantIdFromRequest,
 } from '@/utilities/tenantRequest'
+import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
 import {
   isPureLocationManager,
   resolvePureLocationManagerBranchIds,
@@ -20,7 +21,54 @@ const PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX = 'PAYLOAD_CTX_CACHED_TIMES
 const PAYLOAD_CTX_CACHED_TIMESLOTS_READ_LM_PREFIX = 'PAYLOAD_CTX_CACHED_TIMESLOTS_READ_LM'
 
 function tenantAdminCookieSource(req: PayloadRequest): { cookies?: { get: (name: string) => { value?: string } | undefined } } {
-  return { cookies: (req as PayloadRequest & { cookies?: { get: (name: string) => { value?: string } | undefined } }).cookies }
+  const typedReq = req as PayloadRequest & {
+    cookies?: { get: (name: string) => { value?: string } | undefined }
+    headers?: Headers
+  }
+
+  // Some routes (notably Next.js tRPC entrypoints and Payload local API calls) may not populate
+  // `req.cookies`, so fall back to parsing the `Cookie` header.
+  if (typedReq.cookies) {
+    return { cookies: typedReq.cookies }
+  }
+
+  if (typedReq.headers) {
+    const headersAny = typedReq.headers as any
+    const cookieHeader =
+      typeof headersAny?.get === 'function'
+        ? headersAny.get('cookie')
+        : typeof headersAny?.cookie === 'string'
+          ? headersAny.cookie
+          : undefined
+
+    if (typeof cookieHeader === 'string') {
+      // Minimal `Cookie` parser; returns a Payload-compatible cookie store.
+      const map = new Map<string, string>()
+      for (const segment of cookieHeader.split(';')) {
+        const trimmed = segment.trim()
+        if (!trimmed) continue
+        const eq = trimmed.indexOf('=')
+        const name = (eq === -1 ? trimmed : trimmed.slice(0, eq)).trim()
+        const value = eq === -1 ? '' : trimmed.slice(eq + 1).trim()
+        if (!name) continue
+        map.set(name, value)
+      }
+
+      return {
+        cookies: {
+          get: (name: string) => {
+            const v = map.get(name)
+            return v !== undefined ? { value: v } : undefined
+          },
+        },
+      }
+    }
+
+    // Last resort: if `req.headers` is a real `Headers` instance, use shared parser.
+    return { cookies: cookiesFromHeaders(typedReq.headers) }
+  }
+
+  return { cookies: undefined }
 }
 
 function relationIdFromLocationTenant(value: unknown): number | null {
@@ -51,7 +99,7 @@ async function whereForSelectedTenantAndOptionalBranch(args: {
   payload: PayloadRequest['payload']
   user: SharedUser
   context: Record<string, unknown> | undefined
-  selectedTenantId: number
+  selectedTenantId: number | null
   selectedBranchId: number | null
 }): Promise<Where | false> {
   const { payload, user, context, selectedTenantId, selectedBranchId } = args
@@ -62,10 +110,28 @@ async function whereForSelectedTenantAndOptionalBranch(args: {
     context,
   })
 
-  if (!tenantIds.includes(selectedTenantId)) return false
+  let tenantIdToUse = selectedTenantId
+  if (tenantIdToUse == null) {
+    // Base/root admin pages may only have `payload-location`. Derive the tenant from the
+    // selected location and still enforce tenant membership (prevents cookie tampering).
+    if (selectedBranchId == null) return false
+    const location = await payload.findByID({
+      collection: 'locations',
+      id: selectedBranchId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    if (!location) return false
+    const locTenantId = relationIdFromLocationTenant(location.tenant)
+    if (locTenantId == null) return false
+    if (!tenantIds.includes(locTenantId)) return false
+    tenantIdToUse = locTenantId
+  } else {
+    if (!tenantIds.includes(tenantIdToUse)) return false
+  }
 
   if (selectedBranchId == null) {
-    return { tenant: { equals: selectedTenantId } } as Where
+    return { tenant: { equals: tenantIdToUse } } as Where
   }
 
   const location = await payload.findByID({
@@ -78,13 +144,11 @@ async function whereForSelectedTenantAndOptionalBranch(args: {
   if (!location) return false
 
   const locTenantId = relationIdFromLocationTenant(location.tenant)
-  if (locTenantId !== selectedTenantId) {
-    return false
-  }
+  if (locTenantId !== tenantIdToUse) return false
 
   // Implicit AND on `tenant` + `branch` (same as a single `{ and: [...] }` for Payload).
   return {
-    tenant: { equals: selectedTenantId },
+    tenant: { equals: tenantIdToUse },
     branch: { equals: selectedBranchId },
   } as Where
 }
@@ -180,7 +244,7 @@ export const timeslotsRead: Access = async (args) => {
     }
 
     const constraint = await (async () => {
-      if (selectedTenantId != null) {
+      if (selectedTenantId != null || selectedBranchId != null) {
         return whereForSelectedTenantAndOptionalBranch({
           payload: args.req.payload,
           user,

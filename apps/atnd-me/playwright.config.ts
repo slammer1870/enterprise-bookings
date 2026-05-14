@@ -60,7 +60,8 @@ export default defineConfig({
   // Override with PW_E2E_WORKERS=1 if multi-worker runs flake on shared DB state.
   workers: resolveWorkers(),
   timeout: 60_000,
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : [['list'], ['html']],
+  // Console-first output (no HTML report).
+  reporter: [['list']],
   use: {
     baseURL: 'http://localhost:3000',
     actionTimeout: 30000,
