@@ -189,6 +189,89 @@ describe("Booking tests", () => {
     },
     TEST_TIMEOUT
   );
+
+  it(
+    "should allow creating pending booking when timeslot bookingStatus is 'booked'",
+    async () => {
+      const user1 = await payload.create({
+        collection: "users",
+        data: {
+          email: "user1_pending@test.com",
+          password: "test",
+        },
+      });
+
+      const classOption = await payload.create({
+        collection: "event-types",
+        data: {
+          name: "Test Class Option pending",
+          places: 1,
+          description: "Test Class Option pending",
+        },
+      });
+
+      const lesson = await payload.create({
+        collection: "timeslots",
+        data: {
+          date: new Date(),
+          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
+          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          eventType: classOption.id,
+          location: "Test Location",
+        },
+      });
+
+      // Confirm booking makes the user's derived `timeslot.bookingStatus` become "booked".
+      await payload.create({
+        collection: "bookings",
+        data: {
+          timeslot: lesson.id,
+          user: user1.id,
+          status: "confirmed",
+        },
+      });
+
+      const responsePending = await restClient
+        .login({
+          credentials: {
+            email: user1.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              timeslot: lesson.id,
+              user: user1.id,
+              status: "pending",
+            }),
+          })
+        );
+
+      expect(responsePending.status).toBe(201);
+
+      const responseConfirmed = await restClient
+        .login({
+          credentials: {
+            email: user1.email,
+            password: "test",
+          },
+        })
+        .then(() =>
+          restClient.POST("/bookings", {
+            body: JSON.stringify({
+              timeslot: lesson.id,
+              user: user1.id,
+              status: "confirmed",
+            }),
+          })
+        );
+
+      // Regression guard: "booked" should still block creating confirmed bookings.
+      expect(responseConfirmed.status).toBe(403);
+    },
+    TEST_TIMEOUT
+  );
   it(
     "should be able to create a booking",
     async () => {
