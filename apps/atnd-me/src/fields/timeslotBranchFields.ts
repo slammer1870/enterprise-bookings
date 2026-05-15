@@ -61,6 +61,17 @@ const payloadLocationSyncField: Field = {
   },
 }
 
+const branchToPayloadLocationSyncField: Field = {
+  name: '_branchToPayloadLocationSync',
+  type: 'ui',
+  admin: {
+    position: 'sidebar',
+    components: {
+      Field: '@/components/admin/SyncBranchFieldToPayloadLocationCookie',
+    },
+  },
+}
+
 /**
  * Injects optional `branch` → `locations` and relabels the plugin’s text `location` field (room/area).
  */
@@ -89,6 +100,7 @@ export function withTimeslotBranchFields(fields: Field[]): Field[] {
     const newInner = [
       ...inner.slice(0, locIdx),
       payloadLocationSyncField,
+      branchToPayloadLocationSyncField,
       timeslotBranchField,
       roomField,
       ...inner.slice(locIdx + 1),

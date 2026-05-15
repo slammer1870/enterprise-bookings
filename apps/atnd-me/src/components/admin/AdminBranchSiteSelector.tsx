@@ -3,6 +3,7 @@
 import type { ReactSelectOption } from '@payloadcms/ui'
 import { SelectInput } from '@payloadcms/ui'
 import React from 'react'
+import { createPortal } from 'react-dom'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   getPayloadLocationCookie,
@@ -14,6 +15,8 @@ type ApiResponse = {
   tenantId: number | null
   locations: Array<{ id: number; name: string; slug: string }>
 }
+
+type PayloadLocationChangeEvent = CustomEvent<{ locationId: number | null }>
 
 /**
  * Routes where branch filtering is meaningful.
@@ -36,6 +39,17 @@ const LOCATION_REQUIRED_CREATE_PATHS = [
 
 function isLocationRequiredCreatePath(pathname: string): boolean {
   return LOCATION_REQUIRED_CREATE_PATHS.some((re) => re.test(pathname))
+}
+
+const LOCATION_SELECTOR_NO_ALL_SITES_PATHS = [
+  // Timeslots create/edit
+  /^\/admin\/collections\/timeslots(\/|$)/,
+  // Scheduler create/edit
+  /^\/admin\/collections\/scheduler(\/|$)/,
+]
+
+function isLocationSelectorNoAllSitesPath(pathname: string): boolean {
+  return LOCATION_SELECTOR_NO_ALL_SITES_PATHS.some((re) => re.test(pathname))
 }
 
 /**
@@ -94,13 +108,39 @@ export default function AdminBranchSiteSelector() {
     }
   }, [selectedTenantID, pathname])
 
+  // Keep selector UI in sync if some other form field sync updates the cookie
+  // (e.g. autofilling the location cookie from the current timeslot branch on edit routes).
+  React.useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as PayloadLocationChangeEvent
+      const locationId = ce?.detail?.locationId ?? null
+
+      if (locationId == null) {
+        setValue({ label: '', value: '' })
+        return
+      }
+
+      const loc = rows.find((l) => l.id === locationId)
+      if (loc) {
+        setValue({ label: loc.name, value: String(loc.id) })
+      }
+    }
+
+    window.addEventListener('payload-location-change', handler as EventListener)
+    return () => window.removeEventListener('payload-location-change', handler as EventListener)
+  }, [rows])
+
   const options = React.useMemo((): ReactSelectOption[] => {
-    const base: ReactSelectOption[] = [{ label: 'All sites', value: '' }]
+    const forceScoped = isLocationSelectorNoAllSitesPath(pathname ?? '')
+
+    // On create/edit routes with multiple locations, do not allow selecting an unscoped value.
+    const base: ReactSelectOption[] = forceScoped ? [] : [{ label: 'All sites', value: '' }]
+
     for (const loc of rows) {
       base.push({ label: loc.name, value: String(loc.id) })
     }
     return base
-  }, [rows])
+  }, [rows, pathname])
 
   const rawCookieId = getPayloadLocationCookie()?.trim()
   const cookieValid = Boolean(rawCookieId && /^\d+$/.test(rawCookieId))
@@ -198,137 +238,145 @@ export default function AdminBranchSiteSelector() {
 
   return (
     <>
-      {showLocationModal ? (
-        <div
-          role="presentation"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 2147483647,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            aria-hidden
-            onMouseDown={() => closeModal()}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'rgba(0,0,0,0.55)',
-            }}
-          />
-
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="select-location-for-create-heading"
-            style={{
-              position: 'relative',
-              width: 'min(560px, 92vw)',
-              background: 'var(--theme-elevation-0)',
-              border: '1px solid var(--theme-elevation-100)',
-              borderRadius: 8,
-              padding: 24,
-              boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
-            }}
-          >
-            <h2
-              id="select-location-for-create-heading"
+      {showLocationModal && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="presentation"
               style={{
-                margin: 0,
-                marginBottom: 8,
-                fontSize: 18,
-                fontWeight: 600,
+                position: 'fixed',
+                inset: 0,
+                zIndex: 2147483647,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 16,
               }}
             >
-              Select site / branch
-            </h2>
-            <p style={{ margin: 0, marginBottom: 16 }}>
-              This tenant has multiple active locations. Choose which site this new document should be created for.
-            </p>
-
-            <div style={{ marginBottom: 24 }}>
-              <label
-                htmlFor="select-location-create"
-                style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}
-              >
-                Filter by location
-              </label>
-              <select
-                id="select-location-create"
-                name="select-location-create"
-                value={selectedLocationId == null ? '' : selectedLocationId}
-                onChange={(event) => {
-                  const nextValue = event.target.value
-                  setSelectedLocationId(nextValue === '' ? undefined : nextValue)
-                }}
+              <div
+                aria-hidden
+                onMouseDown={() => closeModal()}
                 style={{
-                  width: '100%',
-                  minHeight: 40,
-                  padding: '8px 12px',
-                  borderRadius: 4,
-                  border: '1px solid var(--theme-elevation-200)',
+                  position: 'absolute',
+                  inset: 0,
+                  background: 'rgba(0,0,0,0.55)',
+                  zIndex: 0,
+                }}
+              />
+
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="select-location-for-create-heading"
+                style={{
+                  position: 'relative',
+                  zIndex: 1,
+                  width: 'min(560px, 92vw)',
                   background: 'var(--theme-elevation-0)',
-                  color: 'var(--theme-text)',
+                  border: '1px solid var(--theme-elevation-100)',
+                  borderRadius: 8,
+                  padding: 24,
+                  boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
                 }}
               >
-                <option value="">Select a site</option>
-                {rows.map((loc) => (
-                  <option key={String(loc.id)} value={String(loc.id)}>
-                    {loc.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <h2
+                  id="select-location-for-create-heading"
+                  style={{
+                    margin: 0,
+                    marginBottom: 8,
+                    fontSize: 18,
+                    fontWeight: 600,
+                  }}
+                >
+                  Select site / branch
+                </h2>
+                <p style={{ margin: 0, marginBottom: 16 }}>
+                  This tenant has multiple active locations. Choose which site this new document should be
+                  created for.
+                </p>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button
-                type="button"
-                onClick={closeModal}
-                style={{
-                  minHeight: 40,
-                  padding: '0 16px',
-                  borderRadius: 4,
-                  border: '1px solid var(--theme-elevation-200)',
-                  background: 'var(--theme-elevation-50)',
-                  color: 'var(--theme-text)',
-                  cursor: 'pointer',
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={selectedLocationId == null || selectedLocationId === ''}
-                onClick={() => {
-                  if (!selectedLocationId) return
-                  setPayloadLocationCookie(selectedLocationId)
-                  closeModal()
-                  // Reload so create page hooks/access rules re-run with the new cookie.
-                  if (typeof window !== 'undefined') window.location.reload()
-                }}
-                style={{
-                  minHeight: 40,
-                  padding: '0 16px',
-                  borderRadius: 4,
-                  border: '1px solid var(--theme-success-500)',
-                  background: 'var(--theme-success-500)',
-                  color: '#fff',
-                  cursor:
-                    selectedLocationId == null || selectedLocationId === '' ? 'not-allowed' : 'pointer',
-                  opacity:
-                    selectedLocationId == null || selectedLocationId === '' ? 0.7 : 1,
-                }}
-              >
-                Continue
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                <div style={{ marginBottom: 24 }}>
+                  <label
+                    htmlFor="select-location-create"
+                    style={{ display: 'block', marginBottom: 8, fontWeight: 600 }}
+                  >
+                    Filter by location
+                  </label>
+                  <select
+                    id="select-location-create"
+                    name="select-location-create"
+                    value={selectedLocationId == null ? '' : selectedLocationId}
+                    onChange={(event) => {
+                      const nextValue = event.target.value
+                      setSelectedLocationId(nextValue === '' ? undefined : nextValue)
+                    }}
+                    style={{
+                      width: '100%',
+                      minHeight: 40,
+                      padding: '8px 12px',
+                      borderRadius: 4,
+                      border: '1px solid var(--theme-elevation-200)',
+                      background: 'var(--theme-elevation-0)',
+                      color: 'var(--theme-text)',
+                    }}
+                  >
+                    <option value="">Select a site</option>
+                    {rows.map((loc) => (
+                      <option key={String(loc.id)} value={String(loc.id)}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    style={{
+                      minHeight: 40,
+                      padding: '0 16px',
+                      borderRadius: 4,
+                      border: '1px solid var(--theme-elevation-200)',
+                      background: 'var(--theme-elevation-50)',
+                      color: 'var(--theme-text)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={selectedLocationId == null || selectedLocationId === ''}
+                    onClick={() => {
+                      if (!selectedLocationId) return
+                      setPayloadLocationCookie(selectedLocationId)
+                      closeModal()
+                      // Reload so create page hooks/access rules re-run with the new cookie.
+                      if (typeof window !== 'undefined') window.location.reload()
+                    }}
+                    style={{
+                      minHeight: 40,
+                      padding: '0 16px',
+                      borderRadius: 4,
+                      border: '1px solid var(--theme-success-500)',
+                      background: 'var(--theme-success-500)',
+                      color: '#fff',
+                      cursor:
+                        selectedLocationId == null || selectedLocationId === ''
+                          ? 'not-allowed'
+                          : 'pointer',
+                      opacity:
+                        selectedLocationId == null || selectedLocationId === '' ? 0.7 : 1,
+                    }}
+                  >
+                    Continue
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {isBranchSidebarVisible && rows.length > 1 ? (
         <div

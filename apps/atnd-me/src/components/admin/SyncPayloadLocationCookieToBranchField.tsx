@@ -15,7 +15,7 @@ function parseLocationIdFromCookie(): number | null {
 }
 
 export default function SyncPayloadLocationCookieToBranchField(): React.ReactElement | null {
-  const { setValue } = useField<number | { id: number } | null>({
+  const { setValue, value: branchValue } = useField<number | { id: number } | null>({
     path: 'branch',
   })
 
@@ -28,8 +28,10 @@ export default function SyncPayloadLocationCookieToBranchField(): React.ReactEle
   )
 
   React.useLayoutEffect(() => {
-    // Initialize from cookie on mount.
-    apply(parseLocationIdFromCookie())
+    // Initialize from cookie on mount, but DO NOT clear the existing field value if the cookie is missing.
+    // This matters on edit routes where the branch relationship is already populated by Payload.
+    const initial = parseLocationIdFromCookie()
+    if (initial != null) apply(initial)
 
     const handler = (e: Event) => {
       const ce = e as PayloadLocationChangeEvent
@@ -38,7 +40,7 @@ export default function SyncPayloadLocationCookieToBranchField(): React.ReactEle
 
     window.addEventListener('payload-location-change', handler as EventListener)
     return () => window.removeEventListener('payload-location-change', handler as EventListener)
-  }, [apply])
+  }, [apply, branchValue])
 
   return null
 }
