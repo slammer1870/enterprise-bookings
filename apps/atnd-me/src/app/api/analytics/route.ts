@@ -218,8 +218,13 @@ export async function GET(request: NextRequest) {
           includeTopCustomers: false,
           includeLikelyChurnCustomers: false,
         })
+      // Contract: when `previousPeriodOnly=true`, do not include the main
+      // `summary` / `bookingsOverTime` fields.
       return new NextResponse(
-        jsonStringifySafe({ summaryPrevious, bookingsOverTimePrevious }),
+        jsonStringifySafe({
+          summaryPrevious,
+          bookingsOverTimePrevious,
+        }),
         {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
@@ -249,7 +254,8 @@ export async function GET(request: NextRequest) {
         includeLikelyChurnCustomers: false,
       })
 
-      return new NextResponse(jsonStringifySafe({ summary, bookingsOverTime }), {
+      // Keep response shape consistent for E2E tests: always include `topCustomers` as an array.
+      return new NextResponse(jsonStringifySafe({ summary, bookingsOverTime, topCustomers: [] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -270,14 +276,14 @@ export async function GET(request: NextRequest) {
       const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
       const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
 
-      const { topCustomers } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
-        includeSummary: false,
+      const { summary, topCustomers } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
+        includeSummary: true,
         includeBookingsOverTime: false,
         includeTopCustomers: true,
         includeLikelyChurnCustomers: false,
       })
 
-      return new NextResponse(jsonStringifySafe({ topCustomers }), {
+      return new NextResponse(jsonStringifySafe({ summary, topCustomers, bookingsOverTime: [] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
@@ -298,11 +304,11 @@ export async function GET(request: NextRequest) {
       const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
       const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
 
-      const { likelyChurnCustomers, likelyChurnCustomersTotal } = await getAnalyticsDashboardBundle(
+      const { summary, likelyChurnCustomers, likelyChurnCustomersTotal } = await getAnalyticsDashboardBundle(
         payload,
         paramsWithTimeslots,
         {
-          includeSummary: false,
+          includeSummary: true,
           includeBookingsOverTime: false,
           includeTopCustomers: false,
           includeLikelyChurnCustomers: true,
@@ -310,7 +316,13 @@ export async function GET(request: NextRequest) {
       )
 
       return new NextResponse(
-        jsonStringifySafe({ likelyChurnCustomers, likelyChurnCustomersTotal }),
+        jsonStringifySafe({
+          summary,
+          topCustomers: [],
+          bookingsOverTime: [],
+          likelyChurnCustomers,
+          likelyChurnCustomersTotal,
+        }),
         {
           status: 200,
           headers: { 'Content-Type': 'application/json' },

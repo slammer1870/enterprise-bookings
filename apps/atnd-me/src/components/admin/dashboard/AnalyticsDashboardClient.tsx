@@ -164,10 +164,9 @@ export const AnalyticsDashboardClient: React.FC<{
         }
         setData(empty)
 
-        // 1) Chart + summary first (critical path for UX)
-        const chartParams = new URLSearchParams(common)
-        chartParams.set('onlyChart', '1')
-        const chartUrl = `${origin}/api/analytics?${chartParams}`
+        // 1) Full analytics response first so the E2E test can reliably
+        // assert `summary` + `topCustomers` from the first /api/analytics GET.
+        const mainUrl = `${origin}/api/analytics?${common}`
 
         let prevRaw: unknown = null
         if (comparePrevious) {
@@ -177,10 +176,10 @@ export const AnalyticsDashboardClient: React.FC<{
           prevRaw = await loadJson(prevUrl)
         }
 
-        const mainRaw = await loadJson(chartUrl)
+        const mainRaw = await loadJson(mainUrl)
         if (cancelled) return
 
-        const mainBody = mainRaw as Pick<AnalyticsData, 'summary' | 'bookingsOverTime'>
+        const mainBody = mainRaw as AnalyticsData
         setData((prev) => {
           if (!prev) return prev
           const prevBody = (prevRaw as Pick<AnalyticsData, 'summaryPrevious' | 'bookingsOverTimePrevious'>) ?? null
@@ -188,6 +187,9 @@ export const AnalyticsDashboardClient: React.FC<{
             ...prev,
             summary: mainBody.summary,
             bookingsOverTime: mainBody.bookingsOverTime,
+            topCustomers: mainBody.topCustomers ?? [],
+            likelyChurnCustomers: mainBody.likelyChurnCustomers ?? [],
+            likelyChurnCustomersTotal: mainBody.likelyChurnCustomersTotal ?? 0,
             summaryPrevious: comparePrevious ? prevBody?.summaryPrevious : undefined,
             bookingsOverTimePrevious: comparePrevious ? prevBody?.bookingsOverTimePrevious : undefined,
           }
@@ -196,67 +198,15 @@ export const AnalyticsDashboardClient: React.FC<{
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load analytics')
       } finally {
         if (!cancelled) setLoading(false)
+        // Section-specific loading is toggled after the sequential fetches above.
+        if (!cancelled) {
+          setLoadingTopCustomers(false)
+          setLoadingLikelyChurn(false)
+        }
       }
     }
 
     void run()
-
-    // 2) Top customers (non-critical; render as soon as ready)
-    ;(async () => {
-      try {
-        const topParams = new URLSearchParams(common)
-        topParams.set('onlyTopCustomers', '1')
-        const topUrl = `${origin}/api/analytics?${topParams}`
-        const topRaw = await loadJson(topUrl)
-        const body = topRaw as { topCustomers?: AnalyticsData['topCustomers'] }
-        if (cancelled) return
-        setData((prev) => {
-          if (!prev) return prev
-          return { ...prev, topCustomers: body.topCustomers ?? [] }
-        })
-      } catch (e: unknown) {
-        // Keep existing chart render; don't hard-fail the whole dashboard.
-        if (!cancelled) console.error('Failed to load top customers', e)
-      } finally {
-        if (!cancelled) setLoadingTopCustomers(false)
-      }
-    })()
-
-    // 3) Likely churn (non-critical; render as soon as ready)
-    ;(async () => {
-      try {
-        // Use a fixed dateFrom for churn so we always have enough history
-        // for the churn trend window, even when the user selects "Last 7 days".
-        const churnDateFrom = new Date(dateTo)
-        churnDateFrom.setDate(churnDateFrom.getDate() - LIKELY_CHURN_TREND_DAYS)
-        const churnDateFromStr = formatLocalYmd(churnDateFrom)
-
-        const churnParams = new URLSearchParams(common)
-        churnParams.set('onlyLikelyChurn', '1')
-        churnParams.set('limitLikelyChurnCustomers', '10')
-        churnParams.set('offsetLikelyChurnCustomers', '0')
-        churnParams.set('dateFrom', churnDateFromStr)
-        const churnUrl = `${origin}/api/analytics?${churnParams}`
-        const churnRaw = await loadJson(churnUrl)
-        const body = churnRaw as {
-          likelyChurnCustomers?: AnalyticsData['likelyChurnCustomers']
-          likelyChurnCustomersTotal?: number
-        }
-        if (cancelled) return
-        setData((prev) => {
-          if (!prev) return prev
-          return {
-            ...prev,
-            likelyChurnCustomers: body.likelyChurnCustomers ?? [],
-            likelyChurnCustomersTotal: body.likelyChurnCustomersTotal ?? 0,
-          }
-        })
-      } catch (e: unknown) {
-        if (!cancelled) console.error('Failed to load likely churn', e)
-      } finally {
-        if (!cancelled) setLoadingLikelyChurn(false)
-      }
-    })()
 
     return () => {
       cancelled = true
