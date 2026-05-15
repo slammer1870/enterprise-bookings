@@ -209,6 +209,8 @@ export async function getAnalyticsDashboardBundle(
   type ChurnAgg = {
     recentBookings: number
     priorBookings: number
+    /** Confirmed bookings per day in the churn trend window (length = CHURN_TREND_WINDOW_DAYS). */
+    dayCounts: number[]
   }
 
   let totalBookings = 0
@@ -296,12 +298,25 @@ export async function getAnalyticsDashboardBundle(
 
         let agg = churnAggByUser.get(uid)
         if (!agg) {
-          agg = { recentBookings: 0, priorBookings: 0 }
+          agg = { recentBookings: 0, priorBookings: 0, dayCounts: Array(CHURN_TREND_WINDOW_DAYS).fill(0) }
           churnAggByUser.set(uid, agg)
         }
 
         if (ymd >= inactivityFromYmd) agg.recentBookings += 1
         else agg.priorBookings += 1
+
+        // Also store daily counts for rolling 7d frequency computations.
+        if (includeLikelyChurnCustomers) {
+          const ymdToDayNumber = (v: string): number => {
+            const [yy, mm, dd] = v.split('-').map((x) => parseInt(x, 10))
+            if (yy == null || mm == null || dd == null) return 0
+            return Math.floor(Date.UTC(yy, mm - 1, dd) / 86400000)
+          }
+          const dayOffset = ymdToDayNumber(ymd) - ymdToDayNumber(churnFromYmd)
+          if (dayOffset >= 0 && dayOffset < CHURN_TREND_WINDOW_DAYS) {
+            agg.dayCounts[dayOffset]! += 1
+          }
+        }
 
         const tenantIdForTimeslot = typeof tsId === 'number' ? timeslotInfo.tenantById.get(tsId) : null
         if (tenantIdForTimeslot != null) {
@@ -382,13 +397,37 @@ export async function getAnalyticsDashboardBundle(
       scoredRowsWithUserNames = Array.from(churnAggByUser.entries())
         .filter(([userId, agg]) => subscribedUserIds.has(userId) && agg.recentBookings === 0)
         .map(([userId, agg]) => {
-          if (agg.priorBookings === 0) {
+          // Rolling 7-day frequency trend:
+          // - recentRolling = bookings in the last 7 days
+          // - avgEarlyRolling = average bookings in rolling 7-day windows ending before that
+          const recentEndIndex = CHURN_TREND_WINDOW_DAYS - 1
+          const recentStartIndex = Math.max(0, recentEndIndex - 6)
+          const recentRolling = agg.dayCounts
+            .slice(recentStartIndex, recentEndIndex + 1)
+            .reduce((a, b) => a + b, 0)
+
+          const prefix: number[] = [0]
+          for (const c of agg.dayCounts) prefix.push(prefix[prefix.length - 1]! + c)
+          const rollingSumForEnd = (endIndex: number): number => prefix[endIndex + 1]! - prefix[endIndex + 1 - 7]!
+
+          const earlyEndMin = 6
+          const earlyEndMax = recentEndIndex - 7 // inclusive
+          let earlyRollingTotal = 0
+          let earlyRollingCount = 0
+          for (let end = earlyEndMin; end <= earlyEndMax; end += 1) {
+            if (end + 1 - 7 < 0) continue
+            earlyRollingTotal += rollingSumForEnd(end)
+            earlyRollingCount += 1
+          }
+          const avgEarlyRolling = earlyRollingCount > 0 ? earlyRollingTotal / earlyRollingCount : 0
+
+          if (avgEarlyRolling <= 0) {
             return { userId, score: 0, recentBookings: agg.recentBookings, priorBookings: agg.priorBookings }
           }
 
-          const declineRatio = (agg.priorBookings - agg.recentBookings) / (agg.priorBookings + 1)
+          const declineRatio = (avgEarlyRolling - recentRolling) / (avgEarlyRolling + 1)
           const declineRatioClamped = clamp(declineRatio, 0, 1)
-          const inactivityBoost = agg.recentBookings === 0 ? 1 : 0.5
+          const inactivityBoost = recentRolling === 0 ? 1 : 0.5
           const score = Math.round(declineRatioClamped * inactivityBoost * 100)
 
           return { userId, score, recentBookings: agg.recentBookings, priorBookings: agg.priorBookings }
