@@ -83,6 +83,8 @@ export const AnalyticsDashboardClient: React.FC<{
   const router = useRouter()
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadingTopCustomers, setLoadingTopCustomers] = useState(true)
+  const [loadingLikelyChurn, setLoadingLikelyChurn] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingMoreChurn, setLoadingMoreChurn] = useState(false)
   const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null)
@@ -117,6 +119,8 @@ export const AnalyticsDashboardClient: React.FC<{
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    setLoadingTopCustomers(true)
+    setLoadingLikelyChurn(true)
     setError(null)
 
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -209,6 +213,8 @@ export const AnalyticsDashboardClient: React.FC<{
       } catch (e: unknown) {
         // Keep existing chart render; don't hard-fail the whole dashboard.
         if (!cancelled) console.error('Failed to load top customers', e)
+      } finally {
+        if (!cancelled) setLoadingTopCustomers(false)
       }
     })()
 
@@ -236,6 +242,8 @@ export const AnalyticsDashboardClient: React.FC<{
         })
       } catch (e: unknown) {
         if (!cancelled) console.error('Failed to load likely churn', e)
+      } finally {
+        if (!cancelled) setLoadingLikelyChurn(false)
       }
     })()
 
@@ -440,7 +448,10 @@ export const AnalyticsDashboardClient: React.FC<{
             </div>
           </section>
 
-          {(data.topCustomers.length > 0 || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
+          {(loadingTopCustomers ||
+            loadingLikelyChurn ||
+            data.topCustomers.length > 0 ||
+            (data.likelyChurnCustomers?.length ?? 0) > 0) && (
             <div
               style={{
                 display: 'grid',
@@ -460,69 +471,44 @@ export const AnalyticsDashboardClient: React.FC<{
                   }}
                 >
                   <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Top customers</h2>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
-                        <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                        <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.topCustomers.map((row) => (
-                        <tr
-                          key={row.userId}
-                          style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
-                        >
-                          <td style={{ padding: '0.5rem 0.75rem' }}>
-                            <button
-                              type="button"
-                              onClick={() => setActiveCustomerId(row.userId)}
-                              style={{
-                                padding: 0,
-                                border: 'none',
-                                background: 'transparent',
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                                color: 'var(--theme-text, #111)',
-                                textDecoration: 'underline',
-                              }}
-                            >
-                              {row.userName ?? `User #${row.userId}`}
-                            </button>
-                          </td>
-                          <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
-                        </tr>
+                  {loadingTopCustomers ? (
+                    <div aria-busy="true" aria-label="Loading top customers">
+                      <div style={{ height: 12, background: 'var(--theme-elevation-100, #f5f5f5)', borderRadius: 4, marginBottom: 10 }} />
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                          <div
+                            style={{
+                              width: '60%',
+                              height: 12,
+                              background: 'var(--theme-elevation-100, #f5f5f5)',
+                              borderRadius: 4,
+                            }}
+                          />
+                          <div
+                            style={{
+                              width: '20%',
+                              height: 12,
+                              marginLeft: 'auto',
+                              background: 'var(--theme-elevation-100, #f5f5f5)',
+                              borderRadius: 4,
+                            }}
+                          />
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
-
-              <section>
-                {(data.likelyChurnCustomers?.length ?? 0) > 0 && (
-                  <div
-                    style={{
-                      border: '1px solid var(--theme-elevation-200, #eee)',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      backgroundColor: 'var(--theme-elevation-0)',
-                      padding: '1rem',
-                    }}
-                  >
-                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Likely to churn</h2>
+                    </div>
+                  ) : data.topCustomers.length === 0 ? (
+                    <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
+                  ) : (
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
                           <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                          <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Last check-in</th>
+                          <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {(data.likelyChurnCustomers ?? []).map((row) => (
-                          <tr
-                            key={row.userId}
-                            style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
-                          >
+                        {data.topCustomers.map((row) => (
+                          <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
                             <td style={{ padding: '0.5rem 0.75rem' }}>
                               <button
                                 type="button"
@@ -540,43 +526,120 @@ export const AnalyticsDashboardClient: React.FC<{
                                 {row.userName ?? `User #${row.userId}`}
                               </button>
                             </td>
-                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
-                              {formatDdMmYyyy(row.lastCheckInDate)}
-                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
                           </tr>
                         ))}
-
-                        {(() => {
-                          const total = data.likelyChurnCustomersTotal ?? 0
-                          const loaded = data.likelyChurnCustomers?.length ?? 0
-                          const hasMore = loaded < total
-                          if (!hasMore) return null
-
-                          return (
-                            <tr style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                              <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => void loadMoreLikelyChurn()}
-                                  disabled={loadingMoreChurn}
-                                  style={{
-                                    width: '100%',
-                                    padding: '0.4rem 0.75rem',
-                                    borderRadius: 6,
-                                    border: '1px solid var(--theme-elevation-300, #ddd)',
-                                    background: 'transparent',
-                                    cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
-                                    opacity: loadingMoreChurn ? 0.6 : 1,
-                                  }}
-                                >
-                                  {loadingMoreChurn ? 'Loading…' : 'Load more'}
-                                </button>
-                              </td>
-                            </tr>
-                          )
-                        })()}
                       </tbody>
                     </table>
+                  )}
+                </div>
+              </section>
+
+              <section>
+                {(loadingLikelyChurn || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
+                  <div
+                    style={{
+                      border: '1px solid var(--theme-elevation-200, #eee)',
+                      borderRadius: '6px',
+                      overflow: 'hidden',
+                      backgroundColor: 'var(--theme-elevation-0)',
+                      padding: '1rem',
+                    }}
+                  >
+                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Likely to churn</h2>
+                    {loadingLikelyChurn ? (
+                      <div aria-busy="true" aria-label="Loading likely to churn customers">
+                        <div style={{ height: 12, background: 'var(--theme-elevation-100, #f5f5f5)', borderRadius: 4, marginBottom: 10 }} />
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                            <div
+                              style={{
+                                width: '60%',
+                                height: 12,
+                                background: 'var(--theme-elevation-100, #f5f5f5)',
+                                borderRadius: 4,
+                              }}
+                            />
+                            <div
+                              style={{
+                                width: '25%',
+                                height: 12,
+                                marginLeft: 'auto',
+                                background: 'var(--theme-elevation-100, #f5f5f5)',
+                                borderRadius: 4,
+                              }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : data.likelyChurnCustomers?.length ? (
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
+                            <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Last check-in</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(data.likelyChurnCustomers ?? []).map((row) => (
+                            <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
+                              <td style={{ padding: '0.5rem 0.75rem' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveCustomerId(row.userId)}
+                                  style={{
+                                    padding: 0,
+                                    border: 'none',
+                                    background: 'transparent',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    color: 'var(--theme-text, #111)',
+                                    textDecoration: 'underline',
+                                  }}
+                                >
+                                  {row.userName ?? `User #${row.userId}`}
+                                </button>
+                              </td>
+                              <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
+                                {formatDdMmYyyy(row.lastCheckInDate)}
+                              </td>
+                            </tr>
+                          ))}
+
+                          {(() => {
+                            const total = data.likelyChurnCustomersTotal ?? 0
+                            const loaded = data.likelyChurnCustomers?.length ?? 0
+                            const hasMore = loaded < total
+                            if (!hasMore) return null
+
+                            return (
+                              <tr style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
+                                <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => void loadMoreLikelyChurn()}
+                                    disabled={loadingMoreChurn}
+                                    style={{
+                                      width: '100%',
+                                      padding: '0.4rem 0.75rem',
+                                      borderRadius: 6,
+                                      border: '1px solid var(--theme-elevation-300, #ddd)',
+                                      background: 'transparent',
+                                      cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
+                                      opacity: loadingMoreChurn ? 0.6 : 1,
+                                    }}
+                                  >
+                                    {loadingMoreChurn ? 'Loading…' : 'Load more'}
+                                  </button>
+                                </td>
+                              </tr>
+                            )
+                          })()}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
+                    )}
                   </div>
                 )}
               </section>
