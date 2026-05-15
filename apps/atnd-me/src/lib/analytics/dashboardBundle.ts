@@ -232,7 +232,6 @@ export async function getAnalyticsDashboardBundle(
   const inactivityFromYmd7 = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
   const pastWednesday = dayOfWeek > 3 // Thu=4 ...
   const cutoffWednesdayYmd = pastWednesday ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3)) : null
-  const cutoffEffectiveYmd = cutoffWednesdayYmd ?? inactivityFromYmd7
   const churnFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_TREND_WINDOW_DAYS - 1))
 
   const needTimeslotYmd = includeBookingsOverTime || includeLikelyChurnCustomers
@@ -495,7 +494,9 @@ export async function getAnalyticsDashboardBundle(
 
         const info = await loadTimeslotCalendarInfoById(payload, [tsId], ymdIanaMode)
         const ymd = info.ymdById.get(tsId) ?? null
-          if (ymd != null && ymd <= cutoffEffectiveYmd) {
+          // Ensure the check-in date shown on the churn table always falls outside
+          // the "previous 7 days" window: earliest possible is dateTo - 6 days.
+          if (ymd != null && ymd <= inactivityFromYmd7) {
           found = ymd
           break
         }
