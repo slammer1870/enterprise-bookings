@@ -42,10 +42,14 @@ function isLocationRequiredCreatePath(pathname: string): boolean {
 }
 
 const LOCATION_SELECTOR_NO_ALL_SITES_PATHS = [
-  // Timeslots create/edit
-  /^\/admin\/collections\/timeslots(\/|$)/,
-  // Scheduler create/edit
-  /^\/admin\/collections\/scheduler(\/|$)/,
+  // Timeslots create
+  /^\/admin\/collections\/timeslots\/create(\/|$)/,
+  // Timeslots edit
+  /^\/admin\/collections\/timeslots\/[^/]+\/edit(\/|$)/,
+  // Scheduler create
+  /^\/admin\/collections\/scheduler\/create(\/|$)/,
+  // Scheduler edit
+  /^\/admin\/collections\/scheduler\/[^/]+\/edit(\/|$)/,
 ]
 
 function isLocationSelectorNoAllSitesPath(pathname: string): boolean {
