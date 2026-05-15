@@ -6,6 +6,7 @@ import { formatAdminURL } from 'payload/shared'
 import React, { createContext } from 'react'
 import { createPathHelpers, getCollectionEditParams, isOptionalTenantCollectionRoute } from '../../shared/pathHelpers'
 import {
+  deletePayloadLocationCookie,
   deleteTenantContextCookies,
   deleteTenantCookie,
   getTenantCookie,
@@ -231,6 +232,10 @@ export function TenantSelectionProviderRootAwareClient({
       const canonicalId = matched?.value ?? id
 
       if (canonicalId !== undefined && canonicalId !== null && canonicalId !== '') {
+        const cookieTenantBefore = getTenantCookie()
+        if (String(cookieTenantBefore ?? '') !== String(canonicalId)) {
+          deletePayloadLocationCookie(getCookieDomain)
+        }
         hasExplicitTenantClear.current = false
         setSelectedTenantID(canonicalId)
         setPayloadTenantCookie(String(canonicalId), getCookieDomain)

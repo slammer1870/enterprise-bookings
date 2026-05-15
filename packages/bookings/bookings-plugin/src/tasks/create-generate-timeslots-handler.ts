@@ -1,4 +1,4 @@
-import type { CollectionSlug, TaskHandler } from "payload";
+import type { CollectionSlug, Payload, PayloadRequest, TaskHandler } from "payload";
 import { addDays } from "date-fns";
 import { TZDate } from "@date-fns/tz";
 import { resolveTimeZone } from "@repo/shared-utils";
@@ -30,6 +30,83 @@ function hasTimeZone(value: unknown): value is { timeZone?: string | null } {
   return typeof value === "object" && value !== null && "timeZone" in value;
 }
 
+function hasLocationsCollection(
+  payload: { collections?: Record<string, unknown> },
+): boolean {
+  return Boolean(payload.collections && "locations" in payload.collections);
+}
+
+const LOCATIONS_COLLECTION_SLUG = "locations" as CollectionSlug;
+
+async function resolveTimeslotBranchId(args: {
+  payload: Payload;
+  req: PayloadRequest;
+  numericTenantId: number | null;
+  inputBranch: unknown;
+}): Promise<{ branchId: number | null; errorMessage?: string }> {
+  const { payload, req, numericTenantId, inputBranch } = args;
+
+  if (!hasLocationsCollection(payload)) {
+    return { branchId: null };
+  }
+
+  const explicit = toId(inputBranch);
+
+  if (numericTenantId == null || Number.isNaN(numericTenantId)) {
+    if (explicit == null) return { branchId: null };
+    const doc = await payload
+      .findByID({
+        collection: LOCATIONS_COLLECTION_SLUG,
+        id: explicit,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })
+      .catch(() => null);
+    if (!doc) {
+      return { branchId: null, errorMessage: `Branch location id ${explicit} was not found.` };
+    }
+    return { branchId: explicit };
+  }
+
+  const locs = await payload.find({
+    collection: LOCATIONS_COLLECTION_SLUG,
+    where: {
+      and: [{ tenant: { equals: numericTenantId } }, { active: { equals: true } }],
+    },
+    limit: 200,
+    depth: 0,
+    overrideAccess: true,
+    req,
+  });
+
+  const activeIds = (locs.docs as { id?: unknown }[])
+    .map((d) => toId(d.id))
+    .filter((id): id is number => id != null);
+
+  if (explicit != null) {
+    if (!activeIds.includes(explicit)) {
+      return {
+        branchId: null,
+        errorMessage: `Branch ${explicit} is not an active location for this tenant (or does not exist).`,
+      };
+    }
+    return { branchId: explicit };
+  }
+
+  if (activeIds.length === 0) {
+    return { branchId: null };
+  }
+  if (activeIds.length === 1) {
+    return { branchId: activeIds[0]! };
+  }
+  return {
+    branchId: null,
+    errorMessage:
+      "This tenant has more than one active site/branch. Set the task input field `branch` to a location id (or add a default branch on the scheduler) before generating timeslots.",
+  };
+}
+
 export function createGenerateTimeslotsFromScheduleHandler(
   slugs: BookingCollectionSlugs,
 ): TaskHandler<"generateTimeslotsFromSchedule"> {
@@ -43,6 +120,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
     clearExisting,
     defaultEventType,
     lockOutTime,
+    branch,
   } = input as TaskGenerateTimeslotsFromSchedule["input"];
 
   const { payload } = req;
@@ -127,16 +205,46 @@ export function createGenerateTimeslotsFromScheduleHandler(
     timeZone
   );
 
+  const rawTenantForBranch = req.context?.tenant as unknown;
+  const tenantIdForBranch =
+    rawTenantForBranch && typeof rawTenantForBranch === "object" && "id" in rawTenantForBranch
+      ? (rawTenantForBranch as { id: string | number }).id
+      : (rawTenantForBranch as string | number | undefined);
+  const numericTenantIdForBranch =
+    tenantIdForBranch == null
+      ? null
+      : typeof tenantIdForBranch === "number"
+        ? tenantIdForBranch
+        : Number(tenantIdForBranch);
+  const hasTenantForBranch =
+    numericTenantIdForBranch != null && !Number.isNaN(numericTenantIdForBranch);
+
+  const branchResolution = await resolveTimeslotBranchId({
+    payload,
+    req,
+    numericTenantId: hasTenantForBranch ? numericTenantIdForBranch : null,
+    inputBranch: branch,
+  });
+  if (branchResolution.errorMessage) {
+    return {
+      output: {
+        success: false,
+        message: branchResolution.errorMessage,
+      },
+    };
+  }
+  const resolvedBranchId = branchResolution.branchId;
+
+  const numericTenantId =
+    hasTenantForBranch && numericTenantIdForBranch != null ? numericTenantIdForBranch : null;
+  const hasTenantContext = hasTenantForBranch;
+
   try {
     if (clearExisting) {
       payload.logger.info("Clearing existing timeslots");
       try {
       // Get tenant from context if available (for multi-tenant support)
-      const rawTenant = req.context?.tenant as unknown
-      const tenantId =
-        rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
-          ? (rawTenant as { id: string | number }).id
-          : (rawTenant as string | number | undefined)
+      const tenantId = tenantIdForBranch;
 
       // Build where clause with tenant filter if available
       const whereConditions: any[] = [
@@ -233,18 +341,6 @@ export function createGenerateTimeslotsFromScheduleHandler(
         console.error("Error clearing existing timeslots:", error);
       }
     }
-
-    // Get tenant from context if available (for multi-tenant support)
-    // Extract once before the loop since it won't change during iteration
-    // `req.context.tenant` may be a primitive ID or an object with an `id` field
-    const rawTenant = req.context?.tenant as unknown
-    const tenantId =
-      rawTenant && typeof rawTenant === 'object' && 'id' in rawTenant
-        ? (rawTenant as { id: string | number }).id
-        : (rawTenant as string | number | undefined)
-    const numericTenantId =
-      tenantId == null ? null : typeof tenantId === 'number' ? tenantId : Number(tenantId)
-    const hasTenantContext = numericTenantId != null && !Number.isNaN(numericTenantId)
 
     // IMPORTANT: Keep `currentDate` as a timezone-aware date.
     // Converting to a plain `Date` and then reading Y/M/D via getters will use the
@@ -402,6 +498,10 @@ export function createGenerateTimeslotsFromScheduleHandler(
 
         if (hasTenantContext) {
           timeslotData.tenant = numericTenantId
+        }
+
+        if (resolvedBranchId != null) {
+          timeslotData.branch = resolvedBranchId
         }
 
         await payload.create({

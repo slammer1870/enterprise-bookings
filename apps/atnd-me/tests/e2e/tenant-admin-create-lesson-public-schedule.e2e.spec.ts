@@ -3,6 +3,7 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsTenantAdmin } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
+  selectEventTypeInTimeslotForm,
   setTimeslotDateAndTime,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
@@ -185,30 +186,6 @@ async function advanceScheduleToDate(
   await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
 }
 
-async function selectTimeslotEventType(
-  page: Page,
-  className: string,
-) {
-  const classOptionCombobox = page.getByRole('combobox').nth(1)
-  const classOptionTrigger = classOptionCombobox.locator('xpath=../following-sibling::button[1]')
-  const expectedOption = page.getByRole('option', { name: new RegExp(`^${escapeRegex(className)}$`) }).first()
-
-  await expect(classOptionCombobox).toBeVisible({ timeout: 20000 })
-  await classOptionTrigger.click({ force: true }).catch(() => null)
-  await classOptionCombobox.click({ force: true })
-  await classOptionCombobox.focus()
-  await classOptionCombobox.press('Meta+A').catch(() => null)
-  await classOptionCombobox.press('Control+A').catch(() => null)
-  await classOptionCombobox.press('Backspace').catch(() => null)
-  await classOptionCombobox.fill(className).catch(async () => {
-    await page.keyboard.type(className, { delay: 30 })
-  })
-
-  await expect(expectedOption).toBeVisible({ timeout: 10000 })
-  await expectedOption.click()
-  await expect(page.getByText(className, { exact: true }).first()).toBeVisible({ timeout: 10000 })
-}
-
 test.describe('Tenant admin lesson creation appears on public schedule', () => {
   test.setTimeout(180000)
 
@@ -219,6 +196,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
   }) => {
     const tenant = testData.tenants[0]
     const tenantAdmin = testData.users.tenantAdmin1
+    const { north } = testData.tenant1Locations
     const tenantOrigin = `http://${tenant.slug}.localhost:3000`
 
     if (!tenant?.id || !tenant?.slug || !tenant?.name || !tenantAdmin?.email) {
@@ -235,6 +213,17 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
       password: 'password',
       tenantSlug: tenant.slug,
     })
+
+    // If the tenant has multiple active locations the timeslot beforeValidate hook requires a
+    // branch. Set payload-location so the hook auto-populates it — mirrors what the admin
+    // sidebar branch selector would do in normal use.
+    if (north?.id) {
+      await page.context().addCookies([
+        { name: 'payload-location', value: String(north.id), url: `${tenantOrigin}/` },
+        { name: 'payload-location', value: String(north.id), url: `${tenantOrigin}/admin/` },
+        { name: 'payload-location', value: String(north.id), url: `${tenantOrigin}/admin/api/` },
+      ])
+    }
 
     await openCreateFromCollectionList(
       page,
@@ -262,7 +251,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
     )
     await chooseTenantInCreateModal(page, tenant.name)
     await waitForModalOverlayToClear(page)
-    await selectTimeslotEventType(page, className)
+    await selectEventTypeInTimeslotForm(page, className)
     await setTimeslotDateAndTime(page, targetDate)
     await saveObjectWithOverlayBypass(page, {
       apiPath: '/api/timeslots',

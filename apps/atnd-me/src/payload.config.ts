@@ -15,6 +15,7 @@ import { DiscountCodes } from './collections/DiscountCodes'
 import { Navbar } from './collections/Navbar'
 import { Footer } from './collections/Footer'
 import { Scheduler } from './collections/Scheduler'
+import { Locations } from './collections/Locations'
 import { PlatformFees } from './globals/PlatformFees'
 import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
@@ -82,8 +83,11 @@ export default buildConfig({
       // The `BeforeDashboard` component renders the 'welcome' block that you see after logging into your admin panel.
       // Feel free to delete this at any time. Simply remove the line below.
       beforeDashboard: ['@/components/BeforeDashboard'],
-      // Home link at top of sidebar for quick access to dashboard (analytics).
-      beforeNavLinks: ['@/components/admin/NavHomeLink'],
+      // AdminBranchSiteSelector is injected by the appendBranchSelectorPlugin (last in plugins array)
+      // so it renders AFTER the tenant selector (which the multi-tenant plugin appends).
+      beforeNavLinks: [
+        '@/components/admin/NavHomeLink',
+      ],
       // Phase 4 – Custom analytics dashboard (replaces default dashboard view).
       views: {
         dashboard: {
@@ -143,7 +147,7 @@ export default buildConfig({
       }
       : {}),
   }),
-  collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler],
+  collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler, Locations],
   // Keep Payload's global CORS restrictive; we selectively allow additional origins
   // for specific public endpoints (e.g. /api/form-submissions) via Next route wrappers.
   cors: [getServerSideURL()].filter(Boolean),

@@ -77,6 +77,7 @@ export interface Config {
     navbar: Navbar;
     footer: Footer;
     scheduler: Scheduler;
+    locations: Location;
     redirects: Redirect;
     forms: Form;
     search: Search;
@@ -128,6 +129,7 @@ export interface Config {
     navbar: NavbarSelect<false> | NavbarSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
+    locations: LocationsSelect<false> | LocationsSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     search: SearchSelect<false> | SearchSelect<true>;
@@ -202,7 +204,7 @@ export interface UserAuthOperations {
  */
 export interface AdminInvitation {
   id: number;
-  role: 'super-admin' | 'admin' | 'staff' | 'user';
+  role: 'super-admin' | 'admin' | 'staff' | 'location-manager' | 'user';
   token: string;
   url?: string | null;
   updatedAt: string;
@@ -607,6 +609,10 @@ export interface User {
    */
   registrationTenant?: (number | null) | Tenant;
   /**
+   * Branches this user manages (location manager). Org admins assign these; managers cannot self-assign.
+   */
+  locations?: (number | Location)[] | null;
+  /**
    * Users chosen display name
    */
   name: string;
@@ -623,7 +629,7 @@ export interface User {
   /**
    * The role/ roles of the user
    */
-  role?: ('super-admin' | 'admin' | 'staff' | 'user')[] | null;
+  role?: ('super-admin' | 'admin' | 'staff' | 'location-manager' | 'user')[] | null;
   /**
    * Whether the user is banned from the platform
    */
@@ -683,6 +689,33 @@ export interface User {
       }[]
     | null;
   password?: string | null;
+}
+/**
+ * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "locations".
+ */
+export interface Location {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  slug: string;
+  address?: string | null;
+  /**
+   * Optional IANA timezone for this branch (e.g. Europe/Dublin). If empty, the tenant default is used.
+   */
+  timeZone?: string | null;
+  /**
+   * Inactive locations can be hidden from scheduling and public UIs later.
+   */
+  active?: boolean | null;
+  /**
+   * Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.
+   */
+  defaultForSchedule?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Accounts are used to store user accounts for authentication providers
@@ -1335,6 +1368,10 @@ export interface LocationBlock {
  * via the `definition` "ScheduleBlock".
  */
 export interface ScheduleBlock {
+  /**
+   * Multi-location only: which branch is pre-selected when the page loads. Visitors can still change it via the dropdown.
+   */
+  defaultLocation?: (number | null) | Location;
   id?: string | null;
   blockName?: string | null;
   blockType: 'schedule';
@@ -2771,7 +2808,7 @@ export interface Footer {
   createdAt: string;
 }
 /**
- * Create recurring timeslots across your weekly schedule for each tenant
+ * Create recurring timeslots for each location. Select a site in the sidebar to view or edit that location's schedule.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "scheduler".
@@ -2795,6 +2832,7 @@ export interface Scheduler {
    * Default class type to use when creating timeslots (can be overridden per slot)
    */
   defaultEventType: number | EventType;
+  branch?: (number | null) | Location;
   /**
    * The days of the week and their time slots
    */
@@ -2958,6 +2996,13 @@ export interface Timeslot {
    */
   lockOutTime: number;
   originalLockOutTime?: number | null;
+  /**
+   * Physical site or branch for this slot (optional). Use “Room or area” for room/studio labels.
+   */
+  branch?: (number | null) | Location;
+  /**
+   * Room or area within the branch (e.g. Sauna 1). Not the branch name.
+   */
   location?: string | null;
   staffMember?: (number | null) | StaffMember;
   eventType: number | EventType;
@@ -3260,6 +3305,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'scheduler';
         value: number | Scheduler;
+      } | null)
+    | ({
+        relationTo: 'locations';
+        value: number | Location;
       } | null)
     | ({
         relationTo: 'redirects';
@@ -3729,6 +3778,7 @@ export interface LocationBlockSelect<T extends boolean = true> {
  * via the `definition` "ScheduleBlock_select".
  */
 export interface ScheduleBlockSelect<T extends boolean = true> {
+  defaultLocation?: T;
   id?: T;
   blockName?: T;
 }
@@ -4730,6 +4780,7 @@ export interface SchedulerSelect<T extends boolean = true> {
   endDate?: T;
   lockOutTime?: T;
   defaultEventType?: T;
+  branch?: T;
   week?:
     | T
     | {
@@ -4752,6 +4803,21 @@ export interface SchedulerSelect<T extends boolean = true> {
             };
       };
   clearExisting?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "locations_select".
+ */
+export interface LocationsSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  slug?: T;
+  address?: T;
+  timeZone?: T;
+  active?: T;
+  defaultForSchedule?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5000,6 +5066,7 @@ export interface TimeslotsSelect<T extends boolean = true> {
   endTime?: T;
   lockOutTime?: T;
   originalLockOutTime?: T;
+  branch?: T;
   location?: T;
   staffMember?: T;
   eventType?: T;
@@ -5191,6 +5258,7 @@ export interface TransactionsSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   registrationTenant?: T;
+  locations?: T;
   name?: T;
   emailVerified?: T;
   image?: T;
@@ -5433,6 +5501,10 @@ export interface TaskGenerateTimeslotsFromSchedule {
     clearExisting: boolean;
     defaultEventType: number | EventType;
     lockOutTime: number;
+    /**
+     * When the tenant has multiple active sites (locations), set this to the `locations` id for generated timeslots. Optional if there is only one active site.
+     */
+    branch?: number | null;
   };
   output: {
     success?: boolean | null;

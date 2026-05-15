@@ -123,6 +123,13 @@ export interface TaskGenerateTimeslotsFromSchedule {
     clearExisting: boolean;
     defaultEventType: number | EventType;
     lockOutTime: number;
+    /**
+     * Optional `locations` document id. When the tenant has multiple active sites, set this
+     * (or ensure only one active location) so generated timeslots get a `branch`.
+     */
+    branch?: number | null;
+    /** Set by some apps when queueing the job (e.g. scheduler); handler also reads `req.context.tenant`. */
+    tenant?: number | string | null;
   };
   output?: unknown;
 }

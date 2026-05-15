@@ -17,6 +17,11 @@ import {
   getTenantSlugFromHost,
   getTenantSlugFromRequest,
 } from '@/utilities/tenantRequest'
+import {
+  isPureLocationManager,
+  relationIdFromPayloadField,
+  resolvePureLocationManagerBranchIds,
+} from '@/access/locationManagerScope'
 
 /**
  * Tenant IDs from `tenants` + `registrationTenant` only (no role-based shortcuts).
@@ -66,8 +71,8 @@ export function getUserTenantIds(user: SharedUser | null): number[] | null {
     return null // null means "all tenants"
   }
 
-  // Tenant org admin or staff: assigned tenants
-  if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
+  // Tenant org admin, staff, or site manager: assigned tenants (membership rows / registration)
+  if (checkRole(['admin', 'staff', 'location-manager'], user as unknown as SharedUser)) {
     return getTenantMembershipIdsFromUserDoc(user)
   }
 
@@ -84,7 +89,8 @@ type TenantsFindResult = {
 
 /**
  * Single round-trip to hydrate `tenants` / `registrationTenant` when the session user omits them.
- * depth1 is enough for the multi-tenant join; depth 2 was redundant work on hot paths.
+ * No `select` — Payload/Drizzle join-table fields (like `tenants`) may be omitted when select
+ * is used, so we fetch the full document at depth 1 to guarantee all membership fields are present.
  */
 export async function loadUserDocForTenantMembership(
   payload: Payload,
@@ -96,12 +102,6 @@ export async function loadUserDocForTenantMembership(
       id: userId,
       depth: 1,
       overrideAccess: true,
-      select: {
-        id: true,
-        role: true,
-        tenants: true,
-        registrationTenant: true,
-      },
     })
     .catch(() => null)
 }
@@ -459,7 +459,63 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
     // For isGlobal: true collections, the multi-tenant plugin should set context.tenant
     return true
   }
-  
+
+  // Site manager (`location-manager` only): same tenant rules as portal roles; when `branch`
+  // is present it must be one of their assigned branches (timeslots use this path via plugin).
+  if (isPureLocationManager(user)) {
+    const tenantIds = await resolveTenantAdminTenantIds({
+      user,
+      payload,
+      context: context as Record<string, unknown> | undefined,
+    })
+    if (tenantIds.length === 0) return false
+
+    const allowedBranches = await resolvePureLocationManagerBranchIds({
+      payload,
+      user,
+      tenantIds,
+    })
+    if (allowedBranches.length === 0) return false
+
+    const dataTenant = data?.tenant
+    if (dataTenant !== undefined && dataTenant !== null && dataTenant !== '') {
+      const raw =
+        typeof dataTenant === 'object' && dataTenant !== null && 'id' in dataTenant
+          ? (dataTenant as { id: unknown }).id
+          : dataTenant
+      const dataTenantId =
+        typeof raw === 'number' && Number.isFinite(raw)
+          ? raw
+          : typeof raw === 'string' && /^\d+$/.test(raw)
+            ? parseInt(raw, 10)
+            : NaN
+
+      if (!Number.isFinite(dataTenantId) || !tenantIds.includes(dataTenantId)) {
+        return false
+      }
+    }
+
+    const contextTenant = context?.tenant
+    if (contextTenant) {
+      const contextTenantId =
+        typeof contextTenant === 'object' && contextTenant !== null && 'id' in contextTenant
+          ? contextTenant.id
+          : contextTenant
+
+      if (contextTenantId && typeof contextTenantId === 'number' && !tenantIds.includes(contextTenantId)) {
+        return false
+      }
+    }
+
+    const branchField = (data as { branch?: unknown } | undefined)?.branch
+    const bid = relationIdFromPayloadField(branchField)
+    if (bid != null && !allowedBranches.includes(bid)) {
+      return false
+    }
+
+    return true
+  }
+
   // Regular users cannot create configuration documents
   return false
 }
@@ -614,7 +670,14 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
   if (checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
     return await resolveTenantAdminReadConstraint({ req })
   }
-  
+
+  // Pure location-managers are denied on tenant-wide filtered collections (e.g. Pages, Scheduler).
+  // Collections that location-managers legitimately need (bookings) use tenantScopedPublicReadStrict
+  // which already grants them a tenant-scoped Where via checkRole(['admin','staff','location-manager']).
+  if (isPureLocationManager(user)) {
+    return false
+  }
+
   // Regular users: Allow read access for booking purposes
   // If context.tenant is set (from subdomain), return true to allow access.
   // The explicit tenant filter in the where clause will handle tenant filtering.
@@ -649,7 +712,7 @@ export const tenantScopedPublicReadStrict: Access = async ({ req }) => {
     return true
   }
 
-  if (user && checkRole(['admin', 'staff'], user as SharedUser)) {
+  if (user && checkRole(['admin', 'staff', 'location-manager'], user as SharedUser)) {
     return await resolveTenantAdminReadConstraint({ req })
   }
 
@@ -689,7 +752,7 @@ export const tenantScopedMediaRead: Access = ({ req }) => {
   }
 
   // Tenant-admin: constrain to their tenants
-  if (user && checkRole(['admin', 'staff'], user as unknown as SharedUser)) {
+  if (user && checkRole(['admin', 'staff', 'location-manager'], user as unknown as SharedUser)) {
     const tenantIds = getUserTenantIds(user as unknown as SharedUser)
     if (tenantIds === null || tenantIds.length === 0) return false
     return whereTenantsOrPublic(tenantIds)

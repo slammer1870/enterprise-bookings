@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+import { parseBranchSlugFromPathname } from '@/utilities/getLocationContext'
+import { PAYLOAD_LOCATION_COOKIE, PUBLIC_BRANCH_SLUG_COOKIE } from '@/utilities/tenantRequest'
+
 /** Root hostname from NEXT_PUBLIC_SERVER_URL (e.g. atnd-me.com) for cookie domain and subdomain logic. */
 function getRootHostname(): string | null {
   const url = process.env.NEXT_PUBLIC_SERVER_URL
@@ -66,6 +69,18 @@ export async function middleware(request: NextRequest) {
     clearCookieEverywhere({
       response,
       name: 'tenant-id',
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
+      domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
+    })
+    clearCookieEverywhere({
+      response,
+      name: PUBLIC_BRANCH_SLUG_COOKIE,
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
+      domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
+    })
+    clearCookieEverywhere({
+      response,
+      name: PAYLOAD_LOCATION_COOKIE,
       paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
       domains: [undefined, rootHostname ? `.${rootHostname}` : undefined],
     })
@@ -255,6 +270,18 @@ export async function middleware(request: NextRequest) {
       paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
       domains: [undefined, domainScoped],
     })
+    clearCookieEverywhere({
+      response,
+      name: PUBLIC_BRANCH_SLUG_COOKIE,
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
+      domains: [undefined, domainScoped],
+    })
+    clearCookieEverywhere({
+      response,
+      name: PAYLOAD_LOCATION_COOKIE,
+      paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
+      domains: [undefined, domainScoped],
+    })
     response.cookies.set('tenant-slug', subdomain, cookieOptions)
   }
 
@@ -304,7 +331,29 @@ export async function middleware(request: NextRequest) {
         paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
         domains: [undefined, domainScoped],
       })
+      clearCookieEverywhere({
+        response,
+        name: PAYLOAD_LOCATION_COOKIE,
+        paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
+        domains: [undefined, domainScoped],
+      })
       response.cookies.set(PAYLOAD_TENANT_COOKIE, String(tenantIdToSet), cookieOptions)
+    }
+  }
+
+  const branchSlugFromPath = parseBranchSlugFromPathname(pathname)
+  if (!isPayloadAdmin && subdomain && branchSlugFromPath) {
+    const existingBranch = request.cookies.get(PUBLIC_BRANCH_SLUG_COOKIE)?.value ?? ''
+    if (existingBranch !== branchSlugFromPath) {
+      const domainScopedBranch =
+        !isCustomDomain && !isLocalhost ? cookieOptions.domain : undefined
+      clearCookieEverywhere({
+        response,
+        name: PUBLIC_BRANCH_SLUG_COOKIE,
+        paths: ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'],
+        domains: [undefined, domainScopedBranch],
+      })
+      response.cookies.set(PUBLIC_BRANCH_SLUG_COOKIE, branchSlugFromPath, cookieOptions)
     }
   }
 
@@ -450,21 +499,20 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
   if (res.status !== 403) return null
 
   const appendTenantCookieClears = (redirectResponse: NextResponse) => {
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/'))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin'))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/'))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections'))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/'))
+    const adminPaths = ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'] as const
+    for (const p of adminPaths) {
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', p))
+      redirectResponse.headers.append('Set-Cookie', clearCookieHeader(PAYLOAD_LOCATION_COOKIE, p))
+    }
     redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/'))
     redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/'))
 
     if (rootHostname && !rootHostname.includes('localhost')) {
       const domain = `.${rootHostname}`
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/', domain))
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin', domain))
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/', domain))
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections', domain))
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', '/admin/collections/', domain))
+      for (const p of adminPaths) {
+        redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', p, domain))
+        redirectResponse.headers.append('Set-Cookie', clearCookieHeader(PAYLOAD_LOCATION_COOKIE, p, domain))
+      }
       redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/', domain))
       redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/', domain))
     }

@@ -135,7 +135,8 @@ export async function resolveTimeslotIdsForAnalyticsE2E(
     if (res.docs.length < TIMESLOT_PAGE_SIZE || page >= (res.totalPages ?? 1)) break
     page += 1
   }
-  return ids
+  // Defensive: de-dupe to avoid double-counting when callers chunk the IN list.
+  return Array.from(new Set(ids))
 }
 
 export async function getCalendarDatesWithTimeslotsInRangeE2E(

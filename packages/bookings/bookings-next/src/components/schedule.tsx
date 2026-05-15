@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 export function Schedule({
   manageHref,
   tenantId,
+  branchId,
   loginToBookUrl,
 }: {
   /**
@@ -26,6 +27,11 @@ export function Schedule({
    * When provided (e.g. on root home page), filter timeslots to this tenant only.
    */
   tenantId?: number;
+  /**
+   * Filter timeslots to a specific branch / location (`locations.id`).
+   * Used by the LocationScopedSchedule block when a visitor picks a branch.
+   */
+  branchId?: number;
   /**
    * Override where anonymous users go when tapping Book/Check-in on the schedule
    * (`loginToBook` action). Defaults to `/complete-booking` with a booking callback.
@@ -42,6 +48,7 @@ export function Schedule({
       // Server will interpret the calendar day in the tenant timezone.
       date: selectedDate.toISOString(),
       ...(tenantId != null && { tenantId }),
+      ...(branchId != null && { branchId }),
     }),
     // Always refetch on mount to ensure fresh data after navigation (e.g., after booking)
     // This ensures bookingStatus is recalculated with the latest booking data

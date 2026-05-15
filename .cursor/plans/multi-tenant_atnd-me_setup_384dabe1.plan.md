@@ -171,10 +171,15 @@ isProject: false
 | **Tracked MVP todos** (YAML frontmatter) | All `done` | Lines 5–161 in this file |
 | **Phase 1** – Multi-tenant MVP | **Complete** (per codebase scan) | [Phase 1 Completion Status](#phase-1-completion-status-vs-codebase) |
 | **Phase 2** – Payments / Connect / class passes | **Core built**; verification & test hardening called out | [Phase 2 Completion Status](#phase-2-completion-status-vs-codebase) |
-| **Immediate engineering focus** | **Phase 2.5** – Stripe sync for admin-managed Stripe-backed docs | [Phase 2.5 (Next)](#phase-25-stripe-sync-for-stripe-backed-collections-next) |
-| **Closeout / polish** | Checklist under *Current Implementation To-Do* (access review, tests, class-pass booking UX parity) | [Current Implementation To-Do](#current-implementation-to-do) |
+| **Phase 2.5** – Stripe sync (admin-managed Stripe-backed docs) | **Shipped** in app code (hooks + webhooks); keep hardening where *Current Implementation To-Do* still applies | [Phase 2.5](#phase-25-stripe-sync-for-stripe-backed-collections-next) |
+| **Phase 4.5** – Product / discount sync | **Shipped** (webhook-driven sync path) | [Phase 4.5](#phase-45-stripe-product-sync--discount-codes) |
+| **Phase 4.6** – Class pass UI in bookings | **Main + manage flows shipped**; children booking route **out of scope**; polish items may remain in *Current Implementation To-Do* | [Phase 4.6](#phase-46-class-pass-ui-in-bookings-page) |
+| **Phase 5** – Bulk admin / Payload timeslots UI | **Not planned** (baseline admin only); numbering kept for 5.5 / 6 | [Phase 5](#phase-5-admin-ux-current-app-not-planned) |
+| **Next infra milestone** | **Phase 5.5** – Media on R2/S3 (plugin + env in code; tests & Media `staticDir` polish per plan) | [Phase 5.5](#phase-55-image-storage-s3--cloudflare-r2) |
+| **Next large product milestone** | **Phase 6** – Auth across subdomain ↔ custom domain (**session propagation** and named E2E gaps remain) | [Phase 6](#phase-6-authentication-across-subdomains-and-custom-domains) |
+| **Closeout / polish** | *Current Implementation To-Do* (access review, webhooks, booking UX parity where listed) | [Current Implementation To-Do](#current-implementation-to-do) |
 
-**Where you are on the roadmap:** Phases **1** and **2** are effectively done in code. You are **between Phase 2 and Phase 2.5**: the plan explicitly names **Phase 2.5 (Stripe sync)** as the next implementation milestone, while *Current Implementation To-Do* still lists verification, subscription webhooks, and **class pass booking UX parity** (aligned with [Phase 4.6](#phase-46-class-pass-ui-in-bookings-page)) as work to finish or harden before or alongside that stream.
+**Where you are on the roadmap:** Phases **1**, **2**, and **2.5** are in place in code, with **4.5** and the scoped **4.6** class-pass surfaces shipped. **Phase 5** is intentionally not a build target. The next **infrastructure** chunk is **Phase 5.5** (object storage for Media). The next **product/security** chunk is **Phase 6**, mainly **single sign-on across a tenant’s platform subdomain and custom domain** (session handoff or equivalent), on top of validation, middleware, and trusted origins that are already largely implemented.
 
 ## Table of contents
 
@@ -199,9 +204,9 @@ isProject: false
 
 - [Phase 2 – Payments](#phase-2-payment-functionality-future) · [2.5 – Stripe sync](#phase-25-stripe-sync-for-stripe-backed-collections-next)
 - [Phase 3 – Tenant blocks](#phase-3-custom-tenant-scoped-blocks) · [Phase 4 – Admin homepage](#phase-4-custom-admin-dashboard-homepage)
-- [Phase 4.5 – Product sync](#phase-45-stripe-product-sync--discount-codes-pretimeslots-bulk-actions) · [Phase 4.6 – Class pass UI](#phase-46-class-pass-ui-in-bookings-page)
-- [Phase 5 – Bulk ops / timeslots UI](#phase-5-admin-bulk-operations--timeslots-admin-ui-payloadcmsui) · [5.5 – R2 media](#phase-55-image-storage-s3--cloudflare-r2)
-- [Phase 6 – Auth across domains](#phase-6-authentication-across-subdomains-and-custom-domains) · [Phase 7 – Multi-location](#phase-7-multi-location-architecture) · [7.5 – Organisations](#phase-75-organisation-brand-above-tenants-future)
+- [Phase 4.5 – Product sync](#phase-45-stripe-product-sync--discount-codes) · [Phase 4.6 – Class pass UI](#phase-46-class-pass-ui-in-bookings-page)
+- [Phase 5 – Admin UX (current app; not planned)](#phase-5-admin-ux-current-app-not-planned) · [5.5 – R2 media](#phase-55-image-storage-s3--cloudflare-r2)
+- [Phase 6 – Auth across domains](#phase-6-authentication-across-subdomains-and-custom-domains) · [Phase 7 – Multi-location](#phase-7-multi-location-architecture) · [Phase 7 TDD chunks](#phase-7-tdd-build-plan-chunks-tests-cadence) · [Phase 7 user stories & tests](#phase-7-user-stories-and-associated-tests) · [Phase 7 implementation context](#phase-7-implementation-context) · [7.5 – Organisations](#phase-75-organisation-brand-above-tenants-future) · [7.5 roadmap / Stripe](#roadmap-and-stripe-hierarchy-decision-record)
 - [Phase 8 – Self-onboarding](#phase-8-self-onboarding-with-mcp-driven-personalisation) · [Phase 9 – Analytics](#phase-9-dashboard-analytics-future) · [Phase 10 – UTM](#phase-10-event-tracking--marketing-attribution-utm-future)
 - [Phase 11 – App fees (deferred)](#phase-11-application-fee-management--platform-revenue-tracking-future-deferred)
 
@@ -209,7 +214,7 @@ isProject: false
 
 1. **Start here:** [Progress at a glance](#progress-at-a-glance) and [Current Implementation To-Do](#current-implementation-to-do).
 2. **Historical / deep detail:** The [Implementation Steps](#implementation-steps-detailed-phase-1-reference) section is a long TDD checklist from the original Phase 1 build; the canonical “what’s built” view is the **Phase 1 / Phase 2 Completion Status** sections later in the file.
-3. **Future work:** Each `Phase N` heading after Phase 2 describes goals and outlines; several phases appear **out of numerical order** in the file body (e.g. Phase 11 before Phase 8)—use the table of contents above, not scroll order, when planning.
+3. **Future work:** Each `Phase N` heading after Phase 2 describes goals and outlines; several phases appear **out of numerical order** in the file body (e.g. Phase 11 before Phase 8)—use the table of contents above, not scroll order, when planning. **Phase 7:** read [implementation context](#phase-7-implementation-context) before coding cookies or admin list filters; use [TDD build plan (chunks)](#phase-7-tdd-build-plan-chunks-tests-cadence) when executing the MVP.
 
 ## Overview
 
@@ -278,7 +283,7 @@ The MVP will be structured to easily add payment functionality later:
 | 4 | **Phase 4** | Custom admin dashboard homepage (`payloadcms/ui`, analytics entry) |
 | 4.5 | **Phase 4.5** | Stripe product sync & discount codes (see note on 2.5) |
 | 4.6 | **Phase 4.6** | Class pass tab & booking UX parity in bookings UI |
-| 5 | **Phase 5** | Admin bulk operations; Timeslots admin UI on `payloadcms/ui` |
+| 5 | **Phase 5** | *(Retained)* Bookings + timeslots **admin as shipped**; no roadmap mandate for dedicated bookings bulk ops/tests or a full timeslots-admin `payloadcms/ui` migration. |
 | 5.5 | **Phase 5.5** | Media uploads → S3-compatible storage (e.g. Cloudflare R2) |
 | 6 | **Phase 6** | Auth across subdomains + custom domains; session propagation |
 | 7 | **Phase 7** | Multi-location (sub-subdomain, Locations, location-manager) |
@@ -1294,7 +1299,7 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 35. **Phase 3**: `apps/atnd-me/src/blocks/registry.ts` - Block registry for tenant-scoped blocks
 36. **Phase 3**: `apps/atnd-me/src/collections/Tenants/index.ts` - Add `allowedBlocks` field
 37. **Phase 4**: `apps/atnd-me/src/app/(payload)/admin/dashboard/` or `components/admin/dashboard/` – Custom dashboard (payloadcms/ui)
-38. **Phase 5**: `packages/bookings/bookings-plugin` – Bookings list view, bulk actions; **Timeslots admin** (`admin/collections/timeslots`): replace shadcn with payloadcms/ui
+38. **Phase 5**: *(Not planned—current app.)* No separate deliverable; timeslots/bookings admin remains as implemented in `packages/bookings/bookings-plugin` unless a future phase explicitly revisits it.
 39. **Phase 6**: `apps/atnd-me/src/middleware.ts`, `getTenantContext.ts`, `lib/auth/options.ts` – Custom domain tenant resolution; trusted origins; session handoff (see Phase 6 section).
 40. **Phase 7**: `apps/atnd-me/src/collections/Locations/index.ts` – Locations collection (tenant-scoped; slug unique per tenant)
 41. **Phase 7**: `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path or cookie for current tenant
@@ -1367,9 +1372,6 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - **Phase 4**: `apps/atnd-me/tests/int/analytics-api.int.spec.ts`, `apps/atnd-me/tests/e2e/admin-dashboard.e2e.spec.ts` - Custom dashboard
 - **Phase 4.5**: `tests/unit/stripe-connect/products.test.ts`, `tests/unit/stripe-connect/coupons.test.ts`, `tests/int/stripe-product-sync.int.spec.ts`, `tests/int/stripe-plans-proxy.int.spec.ts`, `tests/int/stripe-class-pass-products-proxy.int.spec.ts`, `tests/int/discount-codes.int.spec.ts`, `tests/int/plans-soft-delete.int.spec.ts`, `tests/int/class-pass-types-soft-delete.int.spec.ts`, `tests/e2e/stripe-product-sync-admin.e2e.spec.ts` (optional) – Stripe product sync & discount codes (see Phase 4.5 “Tests for Phase 4.5” in plan)
 - **Phase 4.6**: `tests/unit/class-pass-booking.test.ts`, `tests/int/class-pass-booking-ui.int.spec.ts`, `tests/e2e/booking-with-class-pass.e2e.spec.ts` – Class pass UI in bookings page (getValidClassPassesForTimeslot, createBookings with classPassId, Class pass tab and confirm flow)
-- **Phase 5**: `apps/atnd-me/tests/int/bookings-bulk-actions.int.spec.ts` - Bookings bulk status update, bulk delete, tenant scope
-- **Phase 5**: `apps/atnd-me/tests/e2e/bookings-admin-bulk.e2e.spec.ts` - Bookings admin bulk operations E2E (optional)
-- **Phase 5**: `apps/atnd-me/tests/e2e/timeslots-admin-payload-ui.e2e.spec.ts` - Timeslots admin route uses payloadcms/ui (optional smoke)
 - **Phase 6**: `tests/unit/validateCustomDomain.test.ts` (format, normalization, not-platform), `tests/int/tenant-custom-domain-validation.int.spec.ts` (save with invalid/duplicate domain fails), `tests/unit/getTenantSlugFromHost.test.ts`, `tests/int/tenant-resolution-custom-domain.int.spec.ts`, `tests/int/auth-trusted-origins.int.spec.ts`, `tests/e2e/auth-cross-domain-same-tenant.e2e.spec.ts`, `tests/e2e/auth-multi-tenant.e2e.spec.ts`, `tests/e2e/auth-admin-custom-domain.e2e.spec.ts` (optional) – Authentication and custom domain validation
 - **Phase 7**: `apps/atnd-me/tests/int/locations-collection.int.spec.ts` - Locations CRUD, slug uniqueness per tenant, access control
 - **Phase 7**: `apps/atnd-me/tests/int/location-context.int.spec.ts` - getLocationContext from path, cookie, invalid slug
@@ -2072,7 +2074,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (next phases):** Next = Phase 2.5 (Stripe sync for Stripe-backed collections) → Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 5 (Admin Bulk Operations & Timeslots Admin payloadcms/ui) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 7.5 (Organisation / brand above tenants) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
+**Roadmap order (next phases):** Next = Phase 2.5 (Stripe sync for Stripe-backed collections) → Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 4.5 / 4.6 as needed → **Phase 5** (baseline admin only; [see Phase 5](#phase-5-admin-ux-current-app-not-planned)) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 7.5 (Organisation / brand above tenants) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
 
 ---
 
@@ -2332,9 +2334,9 @@ Build a **custom admin dashboard homepage** that replaces or augments the defaul
 
 ---
 
-## Phase 4.5: Stripe Product Sync & Discount Codes (Pre–Timeslots Bulk Actions)
+## Phase 4.5: Stripe Product Sync & Discount Codes
 
-*This phase precedes the refactor of the timeslots area for bulk actions. It enables tenant-admins to create, update, and delete membership plans and class pass types with full sync to the tenant’s Stripe Connect account, and to manage discount codes (Stripe Coupons / Promotion Codes).*
+*Enables tenant-admins to create, update, and delete membership plans and class pass types with full sync to the tenant’s Stripe Connect account, and to manage discount codes (Stripe Coupons / Promotion Codes).*
 
 ### Overview
 
@@ -2537,13 +2539,13 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
 ### Non-goals (this phase)
 
 - Class pass **purchase** flow (already exists at `/class-passes/purchase`); this phase is **consumption** (use pass to book).
-- Manage booking page (children / multi-booking) class pass support can be done in this phase or immediately after; document the contract.
+- **Children / family booking route** (`children-booking.client.tsx` and related children payment UI): **explicitly out of scope** for Phase 4.6—no requirement to mirror the class-pass payment gateway or `allowedClassPasses` gate there.
+- **Multi-pass in one transaction** (e.g. two separate passes each covering one slot in a single `createBookings` with `quantity: 2`): not required unless product rules change; current design uses one `classPassId` with sufficient credits on that pass.
 
 ### Current State (brief)
 
-- **Backend**: `bookingAccess.ts` allows create when user has a valid class pass (`checkClassPass`). Booking has `paymentMethodUsed`, `classPassIdUsed`. Plugin hook decrements pass on confirm.
-- **tRPC**: `createBookings` accepts `subscriptionId` and `pendingBookingIds`; no `classPassId`. No procedure to list valid class passes for a lesson.
-- **UI**: `PaymentMethods` (packages/payments/payments-next) has only **Membership** and **Drop-in** tabs. `BookingPageClientSmart` treats "has payment methods" as `allowedDropIn || allowedPlans.length > 0`; `allowedClassPasses` is ignored.
+- **Shipped (main + manage booking):** `BookingPageClientSmart` and `ManageBookingPageClient` include `allowedClassPasses` in the payment-methods gate. `PaymentMethods` exposes a **Class pass** tab, queries **`getValidClassPassesForTimeslot`** / purchasable types, and confirms via **`createBookings`** with **`classPassId`** (and **`pendingBookingIds`** on manage checkout). tRPC validates pass ownership, credits, allowed types, and per-timeslot caps; Payload hooks handle decrement.
+- **Children route:** intentionally **not** part of Phase 4.6 (see Non-goals).
 
 ### Architecture
 
@@ -2591,85 +2593,33 @@ Today, the **bookings page** shows **Membership** and **Drop-in** tabs when a cl
 
 | Aspect        | Notes                                                                                                |
 | ------------- | ---------------------------------------------------------------------------------------------------- |
-| **Scope**     | Public booking page only (and optionally manage pending with class pass).                            |
+| **Scope**     | Public booking page + manage-booking checkout where `PaymentMethods` is wired; **not** the children/family booking route (see Non-goals).                            |
 | **UI parity** | Class pass appears as a tab alongside Membership and Drop-in when allowed and user has valid passes. |
 | **API**       | getValidClassPassesForTimeslot(lessonId); createBookings(..., classPassId, pendingBookingIds?).        |
 | **Quantity**  | Respect pass type allowMultipleBookingsPerTimeslot and pass.quantity; show credits used.               |
-| **Placement** | After Phase 4.5 (discount codes); before Phase 5 (admin bulk operations).                            |
+| **Placement** | After Phase 4.5 (discount codes); before Phase 5.5 (media / R2) or Phase 6 as you prioritise.                            |
 
 
 ---
 
-## Phase 5: Admin Bulk Operations & Timeslots Admin UI (payloadcms/ui)
+## Phase 5: Admin UX (current app; not planned)
 
-### Overview
+### Status
 
-This phase has two parts: (1) **bulk operations** for admin collections (e.g. Bookings—and optionally Timeslots—with multi-select, bulk update status, bulk delete); (2) **replace shadcn with payloadcms/ui** at the **Timeslots** admin route (`admin/collections/timeslots`) so the timeslots collection admin uses Payload’s UI stack and matches the rest of the admin.
+Earlier versions of this plan described **dedicated bookings bulk operations** (multi-select, bulk status/delete, named int/E2E tests) and a **full migration of the timeslots admin** (`admin/collections/timeslots`) from `@repo/ui` / shadcn to **`payloadcms/ui`**. **Those items are removed:** the product **keeps the admin experience as it is today**—including the hybrid UI in `packages/bookings/bookings-plugin`, the custom timeslots list, and any selection/bulk behaviour already there—without treating them as unfinished roadmap work.
 
-### Goals
+### Explicitly out of scope
 
-- **Bulk operations**: Support multi-select and bulk actions (e.g. bulk status update, bulk delete) for relevant admin collections (Bookings; optionally Timeslots). Tenant-scoped: tenant-admin only affects their tenant’s data.
-- **Timeslots admin UI**: At the **admin/collections/timeslots** route, replace any shadcn / `@repo/ui` usage with **payloadcms/ui** (buttons, modals, dropdowns, tables, etc.) so styling and behaviour match the rest of the Payload admin.
-- **Consistent list UX**: Use Payload’s default list view patterns (table, checkboxes, bulk action bar) where possible; or extend without replacing the whole list.
-- **Tenant-scoped**: All bulk actions respect tenant context and access control.
-- **Timeslots custom list + bulk**: The timeslots admin keeps its custom UX (day picker, per-day table) and adds bulk operations (row checkboxes, select-all, bulk action bar) so behaviour matches other collections while preserving the custom component.
+- No requirement for **bookings-bulk-actions**-style suites or **bookings-admin-bulk** / **timeslots-admin-payload-ui** E2E placeholders.
+- No requirement to **fully** replace `@repo/ui` on the timeslots admin route for consistency alone.
 
-### Non-goals (for this phase)
-
-- Changing access control rules already defined in Phase 1/2.
-- Replacing shadcn in the **Bookings** admin (focus is timeslots admin route).
-- New analytics (covered by Phase 4 / Phase 9).
-- Public-facing UI changes.
-
-### Architecture
-
-1. **Bulk operations**
-  - Bookings: list view with default Payload list (checkboxes, bulk bar); bulk update status and bulk delete with tenant-scoped access (see existing `bookings-bulk-actions.int.spec.ts`).
-  - Optional: Timeslots collection bulk actions (bulk delete, bulk update) with tenant scope.
-2. **Timeslots admin route (`admin/collections/timeslots`)**
-  - Identify all custom components used on the timeslots collection admin (list, detail, edit view, lesson picker, date picker, modals, etc.).
-  - Replace shadcn / `@repo/ui` imports with **payloadcms/ui** equivalents in those components (e.g. in `packages/bookings/bookings-plugin` or atnd-me overrides for timeslots).
-  - If payloadcms/ui does not provide a component, use a minimal alternative that matches Payload admin styling; avoid new shadcn in the timeslots admin.
-3. **Tenant scope**
-  - All bulk operations run with tenant context set so the multi-tenant plugin and access control only touch the correct tenant’s data.
-
-### Implementation outline (TDD-friendly)
-
-- **Step 5.1 – Bookings list view and bulk actions**
-  - Ensure Bookings collection uses Payload’s default list with checkboxes and bulk action toolbar; defaultColumns and access (tenant-scoped update/delete) as needed.
-  - Tests: integration tests for bulk status update and bulk delete with tenant scope (e.g. `bookings-bulk-actions.int.spec.ts`).
-- **Step 5.2 – Optional: Timeslots bulk actions**
-  - If adding bulk operations for Timeslots, add tenant-scoped bulk update/delete and integration tests.
-- **Step 5.3 – Replace shadcn with payloadcms/ui at admin/collections/timeslots**
-  - Audit components used on the **timeslots** admin route (e.g. `packages/bookings/bookings-plugin` lesson list, lesson detail, date picker, manage-lesson, add-booking, edit-booking when used from timeslots context, etc.).
-  - Replace shadcn/`@repo/ui` with payloadcms/ui in those components so the timeslots collection admin is fully on payloadcms/ui.
-  - Tests: visual or E2E smoke test that `admin/collections/timeslots` (list, create, edit, delete) still works; no regressions.
-- **Step 5.4 – Documentation and polish**
-  - Document any custom list/bulk behaviour. Ensure keyboard and screen-reader behaviour is consistent with other collections.
-
-### Files / areas to add or modify
-
-- `packages/bookings/bookings-plugin` – Bookings collection (list view, bulk actions); **Timeslots admin** components used at `admin/collections/timeslots`: replace shadcn with payloadcms/ui (e.g. `src/components/timeslots/`, `src/components/schedule/`, lesson-related UI in `src/components/bookings/` when used from timeslots).
-- `apps/atnd-me/src/plugins/index.ts` – Bookings admin overrides (e.g. defaultColumns, access); optional timeslots overrides for custom components.
-- Tests: `tests/int/bookings-bulk-actions.int.spec.ts`; optional `tests/e2e/bookings-admin-bulk.e2e.spec.ts`, `tests/e2e/timeslots-admin-payload-ui.e2e.spec.ts`.
-
-### Summary
-
-
-| Aspect               | Notes                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| **Bulk operations**  | Bookings (and optionally Timeslots): multi-select, bulk status update, bulk delete.          |
-| **Timeslots admin UI** | Replace shadcn with payloadcms/ui at **admin/collections/timeslots** only.                   |
-| **Bookings admin**   | Keep default list + bulk actions; no requirement to replace shadcn in bookings admin here. |
-| **Tenant scope**     | All bulk actions respect tenant context and access control.                                |
-| **Green gates**      | Int tests for bulk actions; E2E smoke for timeslots admin after UI swap.                     |
-
+**Phase number 5 is kept** so **Phase 5.5 (R2 / S3 media)** and later numbering stay stable.
 
 ---
 
 ## Phase 5.5: Image Storage (S3 / Cloudflare R2)
 
-*This phase follows Phase 5 (Admin Bulk Operations & Timeslots Admin UI). It configures the Media collection to store uploads in **Cloudflare R2** (or any S3-compatible storage) instead of the local filesystem, so media is durable, scalable, and suitable for production and multi-tenant usage.*
+*This phase follows the admin/product phases above (e.g. Phase 4 / 4.5 / 4.6). It configures the Media collection to store uploads in **Cloudflare R2** (or any S3-compatible storage) instead of the local filesystem, so media is durable, scalable, and suitable for production and multi-tenant usage.*
 
 ### Overview
 
@@ -2742,7 +2692,7 @@ Today, the **Media** collection uses `staticDir` (local `public/media`). For pro
 | **Config**       | Env-based: bucket, credentials, optional endpoint and public URL.                                      |
 | **Fallback**     | When R2/S3 env unset, keep local `staticDir` for dev/test.                                             |
 | **Media fields** | imageSizes, adminThumbnail, focalPoint unchanged; only storage backend and URL generation.             |
-| **Placement**    | Immediately after Phase 5 (Admin Bulk Operations & Timeslots Admin UI); before Phase 6 (Authentication). |
+| **Placement**    | After Phase 5 ([baseline admin](#phase-5-admin-ux-current-app-not-planned)); before Phase 6 (Authentication). |
 
 
 ---
@@ -2900,14 +2850,120 @@ Relevant test cases to implement **before** or alongside implementation.
 
 ### Overview
 
-Enable **multi-location** for a single tenant (business): one tenant with multiple physical locations; **subdomain resolution stays one segment only** (e.g. `saunabusiness.atnd.me` = tenant). Location is **not** in the host; customers choose or land on a location via **path** (e.g. `saunabusiness.atnd.me/locations/dublin`) or a **location selector** on the site (cookie/state). **Location-managers** get a location-scoped admin; **pages** stay tenant-wide and are managed only by tenant-admin (no location field on Pages). This phase does **not** introduce organisations or sub-subdomains. See `apps/atnd-me/docs/subdomain-hierarchy-design.md` for an optional future extension (sub-subdomain = location); Phase 7 implements the **one-subdomain** approach only.
+Enable **multi-location** for a single tenant (business): one tenant with multiple physical locations; **subdomain resolution stays one segment only** (e.g. `saunabusiness.atnd.me` = tenant). Location is **not** in the host; customers choose or land on a location via **path** (e.g. `saunabusiness.atnd.me/locations/dublin`) or a **location selector** on the site (cookie/state). **Location-managers** get a location-scoped admin; **pages** stay tenant-wide and are managed only by tenant-admin (no location field on Pages). This phase does **not** introduce organisations or sub-subdomains. See `apps/atnd-me/docs/subdomain-hierarchy-design.md` for an optional future extension (sub-subdomain = location); Phase 7 implements the **one-subdomain** approach only. **Engineering detail, cookies, and file-level extension points:** [Phase 7 implementation context](#phase-7-implementation-context). **Roadmap:** ship this **multi-branch / multi-site MVP** (Phase 7) **now**; **Organisation above tenants** (Phase 7.5) is **optional later**—see [Roadmap and Stripe hierarchy: decision record](#roadmap-and-stripe-hierarchy-decision-record) under Phase 7.5.
+
+### Canonical URL model (this plan vs `subdomain-hierarchy-design.md`)
+
+- **This plan (Phase 7 shipped shape):** **One subdomain = one tenant.** Branch never appears in the hostname. Public context is **`getTenantContext`** (unchanged) + **`getLocationContext`** (returns a **branch** / `locations` doc) from **URL path** (`/locations/[branchSlug]`, optionally nested under marketing routes) and/or a **first-party cookie** (e.g. `branch-slug` or `payload-location` on the public site; admin uses `payload-location` only in Payload admin).
+- **Design doc “Phase 1”:** Describes **`{location}.{tenant}.atnd.me`**, `subdomain-prefix`, and extended middleware. Treat that as a **future optional hardening**, not part of Phase 7 delivery. If you later adopt 2-segment hosts, merge into middleware and extend `getTenantContext` / a renamed “subdomain context” helper—do not block Phase 7 on it.
+
+### Two levels of “where” (glossary — read before data model)
+
+| Concept | Meaning | Example | In data model |
+|--------|---------|---------|-----------------|
+| **Branch / site** (multi-address business) | Different **premises**: Town A gym vs Town B gym; same brand, same tenant; each has its own schedule, staff assignment, and ops. | “Dublin city” vs “Swords” | **New** tenant-scoped collection (this plan still calls it **`locations`** in Payload for slug stability) — think **“sites”** in product language. |
+| **Room / area** (within one branch) | **Where inside the building** the session runs: Room 1, Sauna suite B, Studio upstairs. | “Room 1”, “Sauna bay 2” | Keep as **short free text** on the timeslot. Today the plugin field is named **`location`** (`type: 'text'`); Phase 7 should **rename the admin label** to e.g. **“Room or area”** and/or rename the field to **`room`** / **`area`** in **`timeslotOverrides`** so it is not confused with the **branch** relationship. **Do not** treat existing `timeslot.location` text as branch names: almost all values are intra-site labels, not towns. |
+
+**Who sees what (your requirement):**
+
+- **Owner / org admin** (`admin` role today): One **tenant dashboard** — tenant selector (already) + **branch filter “All sites”**; can CRUD all branches, all timeslots, all staff assignments, consolidated reporting later if needed.
+- **Branch lead / site manager** (new **`location-manager`** or product name **“site manager”**): Assigned to **one or more branch docs** via `users.locations` (relationship). Payload admin and APIs behave like a **standalone mini-business**: default `payload-location` (or equivalent) pinned to their branch; **list/create/update** for timeslots, bookings, roster **scoped to that branch**; **no** Pages/Navbar/Footer (tenant-wide marketing stays owner-only unless you explicitly grant read-only).
+
+### Current codebase touchpoints (atnd-me)
+
+- **Timeslots already have `location` (text = room/area, not branch):** In `@repo/bookings-plugin` (`packages/bookings/bookings-plugin/src/collections/timeslots.ts`), `location` is **`type: 'text'`**, optional — used for **in-venue** labelling. **Payload types** (`Timeslot.location?: string \| null`) reflect that. Phase 7 adds a **separate** relationship from timeslots → **`locations`** collection meaning **branch/site** (Payload field name should be unambiguous, e.g. **`branch`** or **`site`** → `relationTo: 'locations'`). Preserve the **text** concept for room/area via **override** (rename field to `room` if you want a clean schema, with a **DB migration** that renames the column or copies `location` → `room` and drops the old name only after code is deployed).
+- **Bookings plugin wiring:** `bookingsPlugin({ timeslotOverrides: { fields, access, hooks, indexes } })` is already the extension point; **event types / staff / bookings** overrides live alongside timeslots in the same plugin config.
+- **Roles today:** Better Auth config in `apps/atnd-me/src/lib/auth/options.ts` uses `adminRoles: ['super-admin', 'admin', 'staff']` and role strings `user`, `staff`, `admin`, `super-admin`. **Org “tenant-admin”** in access helpers is role **`admin`** (`isTenantAdmin`). **`isStaffOnlyUser`** is staff without org admin—used to deny create/update on timeslots for pure staff. **Location-manager** must be added explicitly to **`roles`**, **`adminRoles`** (if they use Payload admin), and **`@repo/shared-types` / `checkRole`** consumers so access checks stay consistent.
+- **Tenant portal:** `tenantOrgPayloadAdminAccess` currently gates “CMS” collections to **super-admin + org admin** only; **staff** uses `usersPayloadAdminAccess` for a minimal roster. Decide whether **location-manager** sees a **subset** of admin (timeslots/bookings only) similar to staff, or shares staff’s roster UI—document in access matrix below.
+- **Background tasks:** `apps/atnd-me/src/tasks/generate-timeslots-with-tenant.ts` (and any seed/cron that creates timeslots) must accept or infer **branch** (`locations` doc) when a tenant has multiple branches; **room/area** text remains independent.
+- **Public app routes:** Booking flows live under `apps/atnd-me/src/app/(frontend)/bookings/...`; schedule/list queries likely go through **tRPC or Local API**—those layers need an optional **branch filter** (and unchanged **room** label for display).
+
+### Phase 7 implementation context
+
+Covers **existing atnd-me behaviour** and **concrete extension points** for branches (`locations` collection) and admin/public cookies.
+
+#### A. Tenant context today (must compose correctly with branches)
+
+- **Cookie name:** Admin tenant selection uses the literal **`payload-tenant`** (see `PAYLOAD_TENANT_COOKIE` in `apps/atnd-me/src/middleware.ts`). Value is the **numeric tenant id** as a string (same convention as `getPayloadTenantIdFromRequest` in `apps/atnd-me/src/utilities/tenantRequest.ts`).
+- **Middleware (`apps/atnd-me/src/middleware.ts`):** On navigations that carry tenant host, keeps **`tenant-slug`** and **`payload-tenant`** in sync; uses `clearCookieEverywhere` with paths such as `/`, `/admin`, `/admin/`, `/admin/collections/` and domain variants (host-only vs `.${rootHostname}` for platform subdomains). **Phase 7:** when introducing **`payload-location`**, use the **same path/domain strategy** so admin sub-navigation does not drop the branch cookie mid-edit (mirror the tenant cookie bug-avoidance comments in middleware).
+- **Admin authorization:** `isPayloadAdmin` branch calls `enforceAdminTenantAuthorization` — any new admin-only APIs that trust **`payload-location`** should still respect **tenant membership** (same way `authorize-tenant` and access layers block cross-tenant `payload-tenant` tampering). See **`apps/atnd-me/src/app/api/admin/authorize-tenant/route.ts`**, **`apps/atnd-me/src/app/api/admin/current-tenant/route.ts`** (reads `payload-tenant` for sidebar), and **`apps/atnd-me/tests/int/user-tenant-access-control.int.spec.ts`** (tampering cases).
+- **`getTenantContext` / branding (`apps/atnd-me/src/utilities/getTenantContext.ts`):** `getTenantWithBranding` documents priority: **slug / host context first**, **`payload-tenant` as fallback** for admin. Phase 7 branch resolution must use the **tenant id that is already authoritative for the request** (after those rules), then resolve **`payload-location`** **only for docs that belong to that tenant** (never resolve a branch id that belongs to another tenant).
+
+#### B. How Payload admin list scoping works today (pattern for branch filters)
+
+- **`timeslotsRead` (`apps/atnd-me/src/access/timeslotsRead.ts`):** For `admin` / `staff`, access returns a **`Where`** (not just `true`) when **`payload-tenant`** is set and passes **`resolveTenantAdminTenantIds`** membership checks. Comments note **fast path for admin dashboard** and **security: verify selected tenant is within user’s assigned tenants**. **Phase 7 extension:** when `payload-location` is set to a **`locations`** id and the user is **org admin** (`admin`), **AND** that branch row’s `tenant` matches the selected admin tenant, add **`and: [{ branch: { equals: selectedBranchId } }]`** to the returned `Where` (or skip the `branch` clause when cookie empty = “All sites”). For **`location-manager`**, the branch clause should reflect **`user.locations`** (always; cookie is secondary).
+- **Request-scoped cache:** `timeslotsRead` uses `args.req.context` to cache the computed constraint for one Payload render. Any branch-aware constraint should use the **same cache key pattern** (e.g. include branch id in the cache key) to avoid stale mixes across navigations.
+
+#### C. Owner / org admin: switching branches in the admin UI (detailed)
+
+1. **UI control:** A **custom React admin component** mounted in Payload’s admin shell (same general approach as the existing tenant selector UX — discover existing components under `apps/atnd-me/src/components/admin/` and E2E helpers `apps/atnd-me/tests/e2e/helpers/admin-tenant-selector-helpers.ts`). Dropdown entries: **“All sites”** plus each **`locations`** row for the **currently selected tenant** (`payload-tenant`).
+2. **Cookie write:** On change, set **`payload-location`** to **empty string** (delete / max-age 0) for **All sites**, or to the **numeric id** of the chosen **`locations`** doc (recommended: match **`payload-tenant`** style — numeric id only, validate server-side). Write cookies for **`/`**, **`/admin/`**, and **`/admin/collections/`** URLs where Playwright and browsers differ (see `admin-create-lesson.e2e.spec.ts` `ensureTenantSelectedForCreate` and `pages-layout-blocks-access.e2e.spec.ts` `setPayloadTenantCookie` for localhost vs domain patterns).
+3. **Refresh strategy:** After `Set-Cookie`, perform a **full reload** or **`router.refresh()`** so collection list views re-run access hooks with the new cookie — same practical pattern as E2E tests that set `payload-tenant` then `page.reload()`.
+4. **Default on create:** `beforeValidate` / field `defaultValue` / UI default for new **timeslots** should set **`branch`** from **`payload-location`** when the cookie is set; when **All sites**, require explicit branch pick if product rules say so for multi-branch tenants.
+5. **Super-admin on root host:** May switch tenants via existing selector; when tenant changes, **clear or revalidate `payload-location`** so an old branch id cannot apply to a new tenant (either client clears branch cookie on tenant change, or server ignores branch if `locations.tenant` ≠ current admin tenant).
+
+#### D. Site manager (`location-manager`) vs owner
+
+- **Owner (`admin`):** `payload-location` **absent** ⇒ lists show **all branches** for the tenant; present ⇒ filter to one branch.
+- **Site manager:** **No true “All sites”** in UI; either hide the control or reset cookie to an allowed id on load. Access layer must still **enforce `user.locations`** even if cookies are tampered (`tests/int/user-tenant-access-control.int.spec.ts` style tests for branch cookie tampering).
+
+#### E. Public site branch context (customers)
+
+- **Path:** e.g. `(frontend)/locations/[branchSlug]/page.tsx` — must not break tenant resolution from host; branch slug resolves **within** tenant from `getTenantContext` first.
+- **Cookie:** Prefer a **public** name distinct from admin if useful for debugging (**`branch-slug`** on marketing site vs **`payload-location`** in `/admin` only) — document both in `.env.example` / README snippet when added.
+- **tRPC / RSC:** Any router that currently filters timeslots by tenant must accept optional **`branchId`** and compose queries with `{ tenant, branch }` when context demands; align with timezone/date rules already documented in `timeslotsRead` (list access does not filter by `endTime`; date boundaries live in **`getByDate`** style routers — keep that split so Phase 7 does not regress “today’s past slots still visible” behaviour).
+
+#### F. Bookings plugin override surface
+
+- **Entry:** `apps/atnd-me/src/plugins/index.ts` → `bookingsPlugin({ timeslotOverrides: { fields, access, hooks, indexes } })`.
+- **Plugin default:** `packages/bookings/bookings-plugin/src/collections/timeslots.ts` defines **`location` as text** inside a row — keep that field’s **meaning** as **room/area**; add **`branch`** relationship via **override** without reusing the word “location” for two meanings in new UI copy.
+
+#### G. Background generation
+
+- **`apps/atnd-me/src/tasks/generate-timeslots-with-tenant.ts`:** Must thread **`branch`** (or default when exactly one `locations` row). Fail closed or require explicit branch when multiple rows and none provided — document chosen behaviour in task CLI / Payload job UI.
+
+#### H. Suggested new helpers and constants (names are suggestions)
+
+- **`getPayloadLocationIdFromRequest`** next to `getPayloadTenantIdFromRequest` in `apps/atnd-me/src/utilities/tenantRequest.ts` (or a sibling `branchRequest.ts` if you prefer separation): parse numeric id from `payload-location`; return `null` when absent = All sites (owner only semantics in UI; server still validates membership).
+- **Constant** `PAYLOAD_LOCATION_COOKIE = 'payload-location'` colocated with `PAYLOAD_TENANT_COOKIE` in middleware for any server-side clearing when tenant context resets.
+
+#### I. Test assets to mirror
+
+- **E2E:** `apps/atnd-me/tests/e2e/admin-create-lesson.e2e.spec.ts`, `admin-users-list-tenant-filter.e2e.spec.ts`, `admin-tenant-selector-clear-on-list.e2e.spec.ts`, `pages-layout-blocks-access.e2e.spec.ts` (`setPayloadTenantCookie`).
+- **Unit:** `apps/atnd-me/tests/unit/getTenantContext.test.ts`, `cookiesFromHeaders.test.ts`.
+- **Int:** `apps/atnd-me/tests/int/tenant-api-resolution.int.spec.ts`, `user-tenant-access-control.int.spec.ts`.
+
+#### J. Admin request lifecycle (Phase 7 additions in context)
+
+```mermaid
+flowchart LR
+  subgraph client [Browser]
+    A[Branch dropdown]
+    B["Cookies: payload-tenant + payload-location"]
+  end
+  subgraph edge [Next middleware]
+    M[middleware.ts]
+    M --> T[tenant-slug / payload-tenant sync]
+    M --> E[enforceAdminTenantAuthorization on /admin]
+  end
+  subgraph payload [Payload admin]
+    P[timeslotsRead access]
+    P --> W["Where: tenant + optional branch"]
+    P --> DB[(Postgres)]
+  end
+  A -->|"Set-Cookie + reload"| B
+  B --> M
+  M --> P
+```
+
+Sequence in words: **(1)** Owner selects branch in custom admin UI → **(2)** client writes **`payload-location`** on the same path/domain scheme as **`payload-tenant`** → **(3)** reload → **(4)** middleware still establishes tenant → **(5)** `timeslotsRead` (and siblings) build `Where` using **tenant id** + optional **branch id**, validating branch belongs to tenant and user is allowed.
 
 ### Goals
 
-- **Locations collection**: Tenant-scoped collection (slug unique per tenant, name, address?, timezone?); **one subdomain = tenant** — no sub-subdomain for location.
+- **Locations collection**: Tenant-scoped **`locations`** rows = **physical sites / branches** (Town A, Town B); slug unique per tenant; **one subdomain = tenant** — no sub-subdomain for branch in Phase 7.
 - **Subdomain resolution**: Unchanged: **one subdomain** = tenant (middleware sets `tenant-slug`; no 2-segment logic in this phase).
 - **Location context**: From **path** (e.g. `/locations/[locationSlug]`) and/or **frontend location selector** (cookie/state); server resolves location from path or cookie. Admin: `payload-location` cookie.
-- **Location on timeslots/bookings**: Optional `location` relationship on timeslots (and optionally bookings, staffMembers, event-types) so content can be location-scoped.
+- **Branch on timeslots (and related):** Optional **relationship** from timeslots → **`locations`** (branch/site). **Room/area** stays **text** on the timeslot (today’s `location` field, relabelled). Optionally mirror **branch** on bookings for fast filters, or **derive** branch from `timeslot.branch` when querying. **Staff / event-types:** optional **branch** (or `branches` hasMany) so an instructor or class type can be **global to the tenant** or **restricted to certain sites** — enables “Town B manager only manages Town B staff and slots.”
 - **Pages (and Navbar, Footer)**: Remain **tenant-scoped only**; no `location` field. Only **tenant-admin** and super admin manage pages; **location-manager** has no access (or read-only).
 - **Location-manager role**: New role (or `user.locations` relationship); access restricted to docs where location is in their assigned locations; included in `adminRoles`; Pages/Navbar/Footer create/update/delete denied (or read-only).
 - **Admin**: Location selector (e.g. `payload-location` cookie), URL preview on Tenant and Location edit views (e.g. `https://{tenant.slug}.atnd.me/locations/{location.slug}`), Locations in Configuration.
@@ -2921,51 +2977,392 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 ### Architecture
 
 1. **Data model**
-  - **Locations** collection: slug (unique per tenant), tenant (required), name, address?, timezone?; tenant-scoped (multi-tenant plugin or explicit `where: { tenant }`); compound unique `(tenant_id, slug)` or `beforeValidate` check.
-  - **Timeslots**: add `location` (relationship to locations, optional). Optionally bookings, staffMembers, event-types.
-  - **Pages / Navbar / Footer**: do **not** add location; stay tenant-scoped only.
+  - **`locations` collection (branch / site):** slug (unique per tenant), tenant (required), name, address?, timezone?; tenant-scoped; compound unique `(tenant_id, slug)` or `beforeValidate` check. Product language: **site** or **branch**; Payload slug can stay `locations` for stability.
+  - **Timeslots:** add **`branch`** (or **`site`**) — **relationship → `locations`**, optional until you enforce “every slot has a branch” for multi-site tenants. **Keep** intra-venue **room/area** as **text** (plugin field `location` today — relabel admin to “Room or area”, optionally rename field to `room` in overrides + migration). Do **not** repurpose the old text field for branch identity.
+  - **Bookings / staffMembers / event-types (optional):** **branch** relationship (or derived from timeslot) for filters and **site-manager** access; staff may be **global** or **branch-scoped** per product rules.
+  - **Pages / Navbar / Footer**: do **not** add branch; stay tenant-scoped only.
 2. **Middleware**
   - No change in Phase 7: **one subdomain** = tenant only (current behaviour: 1 segment → `tenant-slug`; 0 segments clear). No `subdomain-prefix` or 2-segment handling.
-3. **Location context (server-side)**
-  - **Admin**: From `payload-location` cookie (location ID or slug) when present; resolve to location doc for current tenant.
-  - **Frontend**: From **path** (e.g. route `/locations/[locationSlug]/...`) and/or a **location cookie/header** (e.g. `location-slug`) set when user picks a location. Helper **getLocationContext(payload, source)** returns `{ location }` when path or cookie has a valid location slug for the current tenant; otherwise null. **getTenantContext** unchanged (tenant from `tenant-slug` only).
-4. **Location-manager role and access**
-  - Role `location-manager` (or model via `user.locations`). Access: read/update only docs where `location` in user’s locations and tenant matches. Pages (and Navbar, Footer): create/update/delete only admin and tenant-admin; location-manager `false` (or read-only); optionally hide Pages in sidebar for location-manager. Include `location-manager` in `adminRoles`.
+3. **Branch context (server-side)** *(still often called “location context” in URLs, e.g. `/locations/dublin` — meaning **branch** slug)*
+  - **Admin**: From `payload-location` cookie (branch **ID or slug**) when present; resolve to a **`locations`** doc for current tenant.
+  - **Frontend**: From **path** (e.g. route `/locations/[branchSlug]/...`) and/or a **branch cookie/header** set when the customer picks a site. Helper **`getLocationContext`** (name kept for minimal code churn) returns the **branch** doc when path or cookie matches; otherwise null (“all branches” vs “must pick” is a product flag). **getTenantContext** unchanged (tenant from `tenant-slug` only).
+4. **Site-manager (`location-manager`) role and access**
+  - Role **`location-manager`** + **`user.locations`** (hasMany → **`locations`** = assigned branches). Access: read/update (and create where allowed) only docs whose **`branch`** is in that set and **tenant** matches. **Room/area** text does not affect row-level security. Pages (and Navbar, Footer): org admin / super-admin only; site-manager **denied** (or read-only if you add a rare exception). Include **`location-manager`** in **`adminRoles`** if they use Payload admin.
 5. **Admin dashboard**
-  - Super admin: Configuration → Tenants, Locations; tenant selector + location selector when tenant has locations. Tenant-admin: their tenant; Locations for their tenant; Pages full access; Timeslots/Bookings with optional location filter. Location-manager: no Tenants list, no Pages; only their location(s) and location-scoped Timeslots, Bookings. Location selector: “All locations” + list (super admin / tenant-admin); location-manager only their locations; store in `payload-location` cookie. URL preview: Location edit → `https://{tenant.slug}.atnd.me/locations/{location.slug}`; Tenant edit → `https://{tenant.slug}.atnd.me`.
+  - **Owner / org admin (`admin`):** Tenant selector + **branch filter “All sites”**; full CRUD on **`locations`**, all timeslots (any **branch** + any **room** label), Pages, Stripe, staff assignment across branches.
+  - **Site manager (`location-manager`):** **`payload-location`** defaults to assigned branch(es); list views add implicit `where: { branch: { in: assigned } }` for timeslots/bookings (and staff if branch-scoped). **Standalone ops** UX: same Payload app, narrower data — like running one site of a chain.
+  - **Super admin:** unchanged global access.
+  - URL preview on branch doc: `https://{tenant.slug}.atnd.me/locations/{branch.slug}` (path segment “locations” = **branches** in product copy — consider renaming public path to `/sites/` later for clarity).
+
+### Locations collection (concrete shape) — **branch / site** (Town A, Town B)
+
+| Field | Type | Notes |
+|-------|------|--------|
+| `tenant` | relationship → `tenants` | Required; same pattern as other tenant-scoped collections. |
+| `slug` | text | **Unique per tenant** (compound with `tenant` via `beforeValidate` + DB unique index on `(tenant_id, slug)` or Payload 3 compound unique if supported). Lowercase DNS-like segment (`dublin`, `city-centre`). |
+| `name` | text | Display name (“Dublin”, “City Centre”). |
+| `address` | textarea or group | Optional; can be minimal for MVP (single multiline). |
+| `timezone` | text select or IANA string | Optional but recommended before cross-midnight schedule rules matter. |
+| `active` | checkbox | Optional; default true—hide inactive locations from public selectors without deleting rows. |
+
+**Admin:** group under Configuration or under tenant-scoped nav; **default columns:** name, slug, tenant (for super-admin). **Hooks:** `beforeValidate` normalize slug (trim, lowercase, hyphenate); optional **afterChange** to invalidate any cached tenant location list used by `getLocationContext` / trusted UI.
+
+### `getLocationContext` (contract)
+
+- **Inputs:** `payload`, **current tenant id** (from existing `getTenantContext` / `req.context.tenant`), and a **source** object: optional `pathname`, optional cookie getter (same shape as elsewhere in the app), optional `adminLocationCookie` string when resolving inside Payload admin.
+- **Resolution order (suggested):** (1) Admin: parse `payload-location` cookie if present and valid for tenant. (2) Public: if pathname matches `/locations/:slug` (exact segment—avoid greedy matches on unrelated routes), resolve **branch** `slug` + tenant. (3) Public fallback: **`branch-slug`** cookie (or a single agreed cookie name) set by the site picker. (4) Else **no resolved branch** (**product choice:** treat as “all branches’ timeslots” vs “require explicit branch when tenant has more than one”; document the choice in Step 7.4).
+- **Output:** Return the resolved **`locations`** (branch) document or **null**. Distinguish in UX only: **invalid slug** should behave like no match (either **404** or **redirect** to a branch hub—pick one for E2E).
+
+### Multi-tenant plugin
+
+- Register **`locations`** on `@payloadcms/plugin-multi-tenant` the same way as `staff-members`, `event-types`, etc. (`customTenantField: true` if you keep explicit `tenant` on the collection for parity with overrides).
+- **Onboarding:** When a **new tenant** is created, optionally auto-create one **default** location (`slug: main`, name from tenant) so single-location tenants never see an empty selector; **or** leave zero locations until org admin creates one—state which approach in Step 7.1 acceptance criteria.
+
+### Access control matrix (draft — align with implementation)
+
+| Collection / area | Super-admin | Org admin (`admin`) | Staff (`staff`) | Location-manager (new) |
+|-------------------|-------------|---------------------|-----------------|-------------------------|
+| **Tenants** | full | read/update own org rules as today | no / minimal | **no** |
+| **Locations** | full | CRUD own tenant | **no** (or read-only if staff need roster context—prefer no) | **CRUD only** branch rows whose id is in **`user.locations`** and tenant matches |
+| **Pages / Navbar / Footer** | full | full tenant | **no** (staff) | **no** |
+| **Timeslots** | full | full tenant (all branches, all **room** labels) | operational rules as today (typically **one** branch or global staff — refine when staff gains **branch**) | **CRUD + list** only where **`timeslot.branch`** ∈ assigned branch docs; **room** text unchanged, any string allowed |
+| **Bookings** | full | full tenant | as today | same pattern as timeslots if bookings store or inherit **`branch`** |
+| **Staff members / event types** | full | full tenant | as today | optional: restrict to assigned branches if those collections gain **`branch`** |
+
+**Payload admin sidebar:** mirror the pattern used for staff vs admin: either hide entire groups for location-manager or use **`admin.hidden`** / custom nav filter—match existing `hideWebsiteCollectionsFromTenantAdmins` style plugins if possible.
+
+### Open decisions (resolve early in 7.1)
+
+1. **Collection slug:** `locations` (recommended) vs `tenant-locations`—keep short; ensure no clash with plugin internals.
+2. **Role string:** `location-manager` vs reusing **`staff`** with a **`user.locations`** hasMany filter—the plan prefers a **distinct role** so access rules stay explicit.
+3. **“All locations” in admin:** Does `payload-location` empty mean **all** or **none**? Recommend **empty = all** for super-admin and org admin; **forced single location** for location-manager (cookie ignored or always overwritten to their only location).
+4. **Public UX when `locations.length === 1`:** Auto-set context and skip `/locations` hub vs still show picker—usually **auto** for smoother booking.
+
+### Phase 7 user stories and associated tests
+
+Each story lists **acceptance criteria** and **tests to add** (file names align with the Phase 7 **Files / areas to add or modify** subsection in this document). **Unit** = fast, no DB; **Int** = Payload + DB (Vitest integration); **E2E** = Playwright against running app.
+
+#### Epic A — Branches (`locations` collection)
+
+| ID | User story | Acceptance criteria | Tests |
+|----|------------|---------------------|-------|
+| **US7-A1** | **As an org admin**, I want to create and edit **branches** (sites) for my tenant so that I can represent Town A and Town B separately. | Given tenant T, I can CRUD `locations` rows with `tenant = T`; each has **name**, **slug**, optional address/timezone; slug is normalised (lowercase, stable). | **Int** `locations-collection.int.spec.ts`: create/update/delete branch as org admin; assert persisted fields. |
+| **US7-A2** | **As the system**, I must enforce **slug unique per tenant** so two branches on the same tenant cannot share a slug. | Duplicate slug on same tenant returns validation error (hook or DB unique). | **Int** same file: two branches same slug → second save fails; **two tenants** may each use slug `main`. |
+| **US7-A3** | **As a super-admin**, I want to manage branches for any tenant for support. | Super-admin CRUD on any tenant’s `locations`. | **Int**: super-admin creates branch on tenant they do not “own” as org admin (if applicable) or second tenant fixture. |
+| **US7-A4** | **As a site manager (`location-manager`)**, I want to **view and update only branches assigned to me** so I cannot rename another town’s row. | Read/update allowed only where `locations.id ∈ user.locations`; create/delete other branches denied (exact rules per matrix). | **Int** same file: site manager read assigned branch OK; update unassigned branch 403 or not returned; list filtered. |
+| **US7-A5** | **As a product owner**, I want **inactive** branches hidden from **public** pickers so customers do not book closed sites. | `active: false` excluded from public branch list / `getLocationContext` resolution for “picker” sources; admin may still see inactive for back-office (optional). | **Int** `location-context.int.spec.ts` or locations int: inactive branch not returned by public list helper; **E2E** optional: picker omits inactive. |
+
+#### Epic B — Timeslots: branch + room/area
+
+| ID | User story | Acceptance criteria | Tests |
+|----|------------|---------------------|-------|
+| **US7-B1** | **As an org admin**, I want each timeslot tied to a **branch** and optional **room/area** text so schedules are site-specific but still show “Room 1”. | Timeslot has **`branch`** → `locations` and text **room/area** (field `location` or renamed `room`); dropdown for `branch` only lists branches for current tenant. | **Int** `locations-collection.int.spec.ts` or dedicated `timeslots-branch.int.spec.ts`: create timeslot with `branch` A + room “Sauna 1”; `filterOptions` cannot select other tenant’s branch. |
+| **US7-B2** | **As the system**, I must **not** infer branches from old **room text** (`timeslot.location`). | No migration inserts `locations` from distinct room strings; optional default `branch` only when tenant has exactly one `locations` row. | **Int**: seed timeslots with text “Room 1”; after migration, no new `locations` row from that string unless explicitly scripted in a **non-default** test. |
+| **US7-B3** | **As a site manager**, I want to **only** see and edit timeslots for **my** branch(es). | List/update/create denied for timeslots whose `branch` is not in `user.locations`. | **Int**: site manager assigned branch A cannot update slot on branch B; **E2E** `multi-location.e2e.spec.ts`: same flows in browser. |
+| **US7-B4** | **As an org admin**, I want to see **all branches’** timeslots when no branch filter is applied so I run one dashboard. | With admin “all sites”, timeslot lists include all `branch` values for tenant. | **Int**: org admin list/query returns A + B; with `payload-location` set to A, returns only A (see Epic D). |
+
+#### Epic C — Branch context (public path, cookies, `getLocationContext`)
+
+| ID | User story | Acceptance criteria | Tests |
+|----|------------|---------------------|-------|
+| **US7-C1** | **As a customer**, I want to open **`/locations/{branchSlug}`** on my gym’s subdomain so my session knows which site I mean. | Path `/locations/dublin` + tenant from host resolves to correct `locations` doc for that tenant; invalid slug → 404 **or** redirect to hub (pick one and test it). | **Unit** `getLocationContext.test.ts`: pathname parsing, edge cases (`/locations/`, wrong slug). **Int** `location-context.int.spec.ts`: full resolve with Payload + seeded branches. |
+| **US7-C2** | **As a customer**, after I pick a site in a UI control, I want a **cookie** so the next page load keeps that branch. | Cookie (e.g. `branch-slug`) + tenant resolves same as path; **precedence** documented: e.g. admin `payload-location` > public path > public cookie > null. | **Unit** + **Int**: precedence matrix; cookie for tenant A must not resolve branch of tenant B. |
+| **US7-C3** | **As a customer** on a tenant with **one** branch, I want to **skip** picking a site when the product chooses auto-select. | If `locations.length === 1` and product flag = auto, schedule queries imply that branch without visiting `/locations/...`. | **E2E** `multi-location.e2e.spec.ts`: single-branch tenant booking without branch path. |
+| **US7-C4** | **As a customer** on a tenant with **multiple** branches, I want either a **forced picker** or a **combined schedule** per Open decisions §4. | Behaviour matches chosen flag: “must pick” redirects or empty schedule until branch set; “show all” lists all with branch label. | **E2E** multi-branch: assert chosen behaviour; **Int** API/tRPC filter matches flag. |
+
+#### Epic D — Admin branch selector and URL preview
+
+| ID | User story | Acceptance criteria | Tests |
+|----|------------|---------------------|-------|
+| **US7-D1** | **As an org admin**, I want a **branch filter** in Payload admin so list views scope timeslots/bookings when I pick one site. | Changing `payload-location` (or equivalent) causes list `where` to include `branch` when not “all”; empty cookie = all branches for org admin. | **Int** or **E2E**: list timeslots with filter A vs all; **Unit** optional; **spec:** cookie write + reload per [§C](#phase-7-implementation-context). |
+| **US7-D2** | **As a site manager**, I want my admin filter **pinned** to my site(s) so I cannot accidentally switch to “all”. | `location-manager`: cookie forced or ignored for “all”; only assigned branches selectable. | **Int** + **E2E**: site manager never receives timeslots from unassigned branch in admin list. |
+| **US7-D3** | **As an org admin**, I want a **preview URL** on a branch record pointing to the public site path for marketing/support. | Location edit UI shows `https://{tenant.slug}.{root}/locations/{branch.slug}` (or final URL policy). | **Int** smoke on custom field component or **E2E** assert href in admin (optional). |
+
+#### Epic E — Roles, `Users.locations`, and tenant-wide content
+
+| ID | User story | Acceptance criteria | Tests |
+|----|------------|---------------------|-------|
+| **US7-E1** | **As an org admin**, I want to assign **`user.locations`** to a site manager so they only operate assigned branches. | Only `admin` / super-admin can write `users.locations`; site manager cannot escalate self. | **Int**: org admin assigns locations; site manager update self denied in CI. |
+| **US7-E2** | **As a site manager**, I must **not** edit **Pages / Navbar / Footer** so marketing stays tenant-wide under the owner. | `location-manager` create/update/delete denied (or hidden collections). | **Int**: open Pages as site manager → 403 or empty admin; **E2E** sidebar does not offer Pages (if testable). |
+| **US7-E3** | **As the system**, I register **`location-manager`** in Better Auth **roles** and **`adminRoles`** so Payload admin login works consistently. | Role appears in shared types / `checkRole`; session can access scoped admin routes. | **Unit** `checkRole`-style tests if any; **Int** login fixture as `location-manager`. |
+
+#### Epic F — Background jobs, seeds, regression
+
+| ID | User story | Acceptance criteria | Tests |
+|----|------------|---------------------|-------|
+| **US7-F1** | **As an operator**, I want **generate-timeslots** (or equivalent job) to require or default **branch** when a tenant has multiple sites so generated rows are not ambiguous. | Multi-branch + missing branch → error or explicit default policy; single branch → auto default. | **Int** task test file (e.g. next to `generate-timeslots-with-tenant`) or call task in int spec. |
+| **US7-F2** | **As a developer**, I want **seed data** to include two branches for a demo tenant so multi-branch E2E is reproducible. | Seed creates ≥2 `locations` for chosen tenant. | **Int** seed smoke or **E2E** `beforeAll` relies on seed. |
+| **US7-F3** | **As a tenant with no Phase 7 branches yet**, I want **existing booking flows** unchanged until branches exist (or single default branch). | Zero `locations` rows: behaviour matches agreed baseline (no filter or sole implicit branch per Open decisions). | **E2E** regression: booking on legacy tenant fixture without branches still passes. |
+
+#### Traceability to implementation steps
+
+| Steps | Stories primarily covered |
+|-------|---------------------------|
+| **7.1** | US7-A1–A5 |
+| **7.2** | US7-B1–B4 |
+| **7.3** | Optional extensions (bookings/staff/event-types branch) — add parallel US rows when implemented |
+| **7.4** | US7-C1–C4 |
+| **7.5** | US7-E1–E3 (and reinforces US7-A4, US7-B3) |
+| **7.6** | US7-D1–D3 |
+| **7.7** | US7-F1–F3 |
 
 ### Implementation outline (TDD-friendly)
 
 - **Step 7.1 – Locations collection**
-  - Create Locations collection (slug, tenant, name, address?, timezone?; slug unique per tenant; tenant-scoped). Add to payload.config and multi-tenant plugin if applicable.
-  - Tests: int tests for Locations CRUD, slug uniqueness per tenant, access (tenant-admin their tenant; location-manager their locations).
-- **Step 7.2 – Location on timeslots (and optionally bookings)**
-  - Add `location` relationship to timeslots; optionally to bookings, staffMembers, event-types. Migration.
-  - Tests: timeslots can be scoped to location; list/filter by location.
-- **Step 7.3 – Location context (path / cookie)**
-  - Add **getLocationContext(payload, source)** that resolves location from path (e.g. `locations/[locationSlug]`) or cookie/header (e.g. `location-slug`) for the current tenant; returns `{ location }` or null. No middleware change; getTenantContext unchanged (one subdomain = tenant).
-  - Frontend: route(s) for `/locations/[locationSlug]` (or equivalent) that set location context (cookie or state) and render location-scoped content (e.g. timeslots, booking).
-  - Tests: unit/int for getLocationContext (path, cookie, invalid slug); no 2-segment subdomain tests in Phase 7.
-- **Step 7.4 – Location-manager role and access**
-  - Add `location-manager` to roles (and `user.locations` relationship); add to `adminRoles` in auth options. Access helpers for location-scoped collections. Pages (and Navbar, Footer): deny create/update/delete for location-manager (or read-only); optionally hide in nav.
-  - Tests: location-manager can log in; sees only their location(s); cannot manage Pages.
-- **Step 7.5 – Admin: location selector and URL preview**
-  - Location selector in sidebar/header when tenant has locations; persist `payload-location`; filter lists by location when set. URL preview on Tenant and Location edit views (tenant URL + `/locations/{location.slug}`).
-  - Tests: E2E or int that selector and preview work.
-- **Step 7.6 – Frontend**
-  - When loading page by slug, use **tenant** only (no location) for Pages query. Use location context (from path or cookie) for “Book at this location”, timeslots filter, contact info. E2E: navigate to tenant subdomain + `/locations/dublin` (or location selector), verify tenant + location context and location-manager scope.
+  - **7.1a** Add `apps/atnd-me/src/collections/Locations/index.ts` (or split folder pattern matching other collections), export `Locations`, wire into `payload.config` **before** timeslots need the relationship.
+  - **7.1b** Register on **multi-tenant plugin**; add **migration** for table + compound unique `(tenant_id, slug)` (or equivalent).
+  - **7.1c** **Access:** `read`/`create`/`update`/`delete` per matrix; super-admin override; org admin tenant-scoped; location-manager limited to assigned IDs (use `user.locations` join in access where clauses).
+  - **7.1d** **Tests (int):** create two tenants, each two locations with same slug text different tenants (allowed); duplicate slug same tenant fails; location-manager cannot read other tenant’s location.
+- **Step 7.2 – Timeslots: branch relationship + keep room/area text**
+  - **7.2a** In **`timeslotOverrides.fields`**, **add** a **relationship** **`branch`** (or **`site`**) → collection **`locations`**, optional (or required when `COUNT(locations)` for tenant > 1 — product rule). **Keep** the existing **text** field for **room/area**: either leave plugin field name `location` with **admin label** “Room or area”, or **rename** to `room` / `area` via override + **DB migration** (`ALTER` rename column) so “branch” and “room” are never confused in code.
+  - **7.2b** **No backfill** from `timeslot.location` text into **`locations`** rows — those strings are **not** branch names. Seed **`locations`** from tenant onboarding or admin UI only; existing timeslots get **`branch`** null until staff assigns (or default to sole branch when tenant has exactly one **`locations`** doc).
+  - **7.2c** **`filterOptions`** on timeslot **`branch`**: only **`locations`** rows for **current tenant**.
+  - **7.2d** **Tests:** create branches A/B; timeslot on A with room “Sauna 1”; site-manager assigned A can edit; assigned B cannot; owner sees both; public schedule filtered by branch context cookie/path.
+- **Step 7.3 – Optional branch on bookings / staff / event-types**
+  - **Bookings:** Prefer **derive** branch from `timeslot.branch` for display/reporting; add **`branch`** on booking only if you need filters without joining timeslots.
+  - **Staff / event types:** optional **branch** (or `branches` hasMany) so a site manager only sees staff and class types relevant to their site(s).
+  - **Tests:** only for fields you actually add.
+- **Step 7.4 – `getLocationContext` + public routes**
+  - Implement **`getLocationContext`** (pure-enough logic for unit tests + Payload-backed lookup for int tests).
+  - **Next.js:** Add **`(frontend)/locations/[locationSlug]/page.tsx`** (or under `[tenant]` layout if you use one)—sets **cookie** and/or renders hub with CTA to schedule. Align with existing `(frontend)` layout and **tenant from host** (no middleware change).
+  - **tRPC / RSC:** Thread optional **`branchId`** or branch **slug** into schedule queries; **default behaviour** when tenant has 0 or 1 branch (see Open decisions).
+  - **Tests:** unit (path parsing, cookie precedence); int (seed tenant + locations, call helper with mocked `NextRequest` or headers).
+- **Step 7.5 – Location-manager role + Users.locations**
+  - Add **`location-manager`** to **`betterAuthConfig.roles`** and **`adminRoles`** if they need Payload admin UI; extend **`@repo/shared-types`** `User` / role unions and **`checkRole`** call sites.
+  - **`users` collection:** `locations` relationship (hasMany → `locations`); **field-level access:** only org admin / super-admin can assign locations to a user.
+  - **Access helpers:** e.g. `locationIdsForUser(user)`, `timeslotAccessForLocationManager`—keep next to `apps/atnd-me/src/access/userTenantAccess.ts` / `tenant-scoped.ts` for discoverability.
+  - **Hide collections:** Payload admin nav for location-manager should **not** show Pages, Navbar, Footer, Tenants, Stripe-heavy globals—mirror **`hideWebsiteCollectionsFromTenantAdmins`** with a small plugin or `admin.hidden` callbacks.
+  - **Tests:** int auth as location-manager; assert 403 or empty list on Pages; assert timeslots CRUD only for assigned location.
+- **Step 7.6 – Admin selector + URL preview** *(see [Phase 7 implementation context](#phase-7-implementation-context) §C for owner branch switching detail)*
+  - **Custom admin React** (or reuse patterns from tenant selector): read/write **`payload-location`** cookie client-side in admin only; on change, **soft reload** or update context so list views re-fetch with `where: { branch }` when not “all”.
+  - **Field components** on Tenant and Location: read-only **preview link** `https://{slug}.{root}/locations/{location.slug}` (use `NEXT_PUBLIC_SERVER_URL` / tenant slug helpers already used elsewhere).
+  - **Tests:** Playwright E2E optional; int smoke that preview field renders with expected href pattern.
+- **Step 7.7 – Background jobs, seeds, E2E**
+  - **`generate-timeslots-with-tenant`:** accept **`branchId`** (or `locations` id) or default to tenant’s single branch / fail if multi-branch and unset.
+  - **Seed:** create 1–2 locations for dev tenants used in E2E.
+  - **E2E (`multi-location.e2e.spec.ts`):** (1) Org admin creates two locations, creates timeslots per location, public schedule filters. (2) Location-manager logs in, edits only their slot. (3) Single-location tenant: booking flow still works without visiting `/locations/...`.
+
+### Phase 7 TDD build plan (chunks, tests, cadence)
+
+Use **red → green → refactor** on every chunk: **commit or stash** when green; avoid mixing unrelated chunks in one PR if you want clean bisect.
+
+**Conventions**
+
+- **Red:** new or extended tests **fail** for the right reason (missing collection, wrong `Where`, etc.).
+- **Green:** smallest change that makes **only** that chunk’s tests pass (may temporarily stub access as `true`/`false`—remove stubs next chunk).
+- **Refactor:** names, duplication, performance; **tests stay green**.
+- **Commands** (from `apps/atnd-me/` unless noted):
+  - **Focused int:** `pnpm exec vitest run --config ./vitest.config.mts tests/int/<file>.int.spec.ts`
+  - **Focused unit:** `pnpm exec vitest run --config ./vitest.unit.config.mts tests/unit/<file>.test.ts`
+  - **atnd-me unit+int (no E2E):** `pnpm run test:unit && pnpm run test:int`
+  - **atnd-me including E2E:** `pnpm test` (runs unit → int → e2e per `package.json`)
+  - **E2E subset:** `pnpm test:e2e -- multi-location` (Playwright treats file arg as substring regex)
+  - **Full monorepo guard:** from repo root, your usual `pnpm test` / CI job (cadence checkpoints).
+
+**Cadence checkpoints (run full suite)**
+
+| After chunk | Why |
+|-------------|-----|
+| **Chunk 1** | New collection + migration touches DB shape early. |
+| **Chunk 4** | `timeslotsRead` changes affect many admin/list paths. |
+| **Chunk 7** | `getLocationContext` + cookies risk cross-tenant mistakes. |
+| **Chunk 10** | Admin UI + cookies interact with real browser. |
+| **Chunk 12** | Phase 7 “done” gate: E2E + seeds + regression. |
+
+Between checkpoints, rely on **focused** vitest runs for speed.
+
+---
+
+#### Chunk 1 — `locations` collection + migration + plugin registration
+
+| Step | Work |
+|------|------|
+| **Red** | Add `apps/atnd-me/tests/int/locations-collection.int.spec.ts`: org admin creates two branches for tenant A; **same slug allowed** on tenant B; **duplicate slug on tenant A** fails validation; super-admin can CRUD on support tenant (US7-A1–A3). Tests fail (no collection). |
+| **Green** | Add `Locations` collection, `payload.config` registration, multi-tenant `collections.locations`, migration for table + `(tenant_id, slug)` uniqueness, access rules for super-admin + org admin only first (defer `location-manager` until Chunk 6). |
+| **Refactor** | Extract slug normalisation hook; align labels with plan glossary (“branch / site”). |
+
+**Tests:** int file above. **Checkpoint:** run full suite (cadence 1).
+
+---
+
+#### Chunk 2 — `getPayloadLocationIdFromRequest` (cookie helper)
+
+| Step | Work |
+|------|------|
+| **Red** | Add `apps/atnd-me/tests/unit/payload-location-cookie.test.ts` (or extend `cookiesFromHeaders.test.ts`): valid numeric id; empty; non-numeric rejected; whitespace trimmed. |
+| **Green** | Implement `getPayloadLocationIdFromRequest` (+ optional `PAYLOAD_LOCATION_COOKIE` constant) in `tenantRequest.ts` or sibling module. |
+| **Refactor** | Share `CookiesLike` typing with tenant id parser. |
+
+**Tests:** unit only. **No** full-suite checkpoint unless combined with Chunk 1.
+
+---
+
+#### Chunk 3 — Timeslots: `branch` field + `filterOptions` + indexes
+
+| Step | Work |
+|------|------|
+| **Red** | Int tests (new file or extend locations int): create branches A/B for tenant T; **`branch` dropdown** / Local API create must not allow selecting branch belonging to other tenant; timeslot can set `branch` A + room text “Sauna 1” (US7-B1). |
+| **Green** | `timeslotOverrides.fields`: add relationship `branch` → `locations`; relabel text `location` admin to **“Room or area”** (optional rename column `room` in separate migration chunk if desired); `filterOptions` by tenant; add index `{ tenant, branch, startTime }` (verify order with one EXPLAIN on hot query). |
+| **Refactor** | Keep field map readable; document no backfill from room text (US7-B2). |
+
+**Tests:** int. **Optional checkpoint** if migrations are large.
+
+---
+
+#### Chunk 4 — `timeslotsRead`: admin `Where` + `payload-location` + branch belongs to tenant
+
+| Step | Work |
+|------|------|
+| **Red** | Int tests: with `payload-tenant` + `payload-location` set to branch A, list constraint includes `branch`; with cookie empty, org admin sees A+B; **tamper** cookie to branch of another tenant → denied (mirror `user-tenant-access-control` style) (US7-B4, security). |
+| **Green** | Extend `timeslotsRead` admin branch: parse cookie via Chunk 2 helper; `and` `branch` into `Where` when set; validate `locations.tenant` matches selected admin tenant; new `req.context` cache key including branch id. |
+| **Refactor** | Small helper `branchWhereFromAdminCookies(req)` in `timeslotsRead` or `locationScoped.ts`. |
+
+**Tests:** int + reuse patterns from `tests/int/user-tenant-access-control.int.spec.ts`. **Checkpoint:** full suite (cadence 2).
+
+---
+
+#### Chunk 5 — Role `location-manager` + `users.locations` + Better Auth / shared types
+
+| Step | Work |
+|------|------|
+| **Red** | Int: org admin can set `users.locations`; site manager **cannot** self-assign; `checkRole` / types accept `location-manager` (US7-E1, E3). |
+| **Green** | `betterAuthConfig.roles` / `adminRoles`; `Users` field `locations`; `@repo/shared-types` / `checkRole` updates; `isLocationManager` (name TBD) in `userTenantAccess.ts`. |
+| **Refactor** | Align naming with existing `isTenantAdmin` / `isStaff`. |
+
+**Tests:** int (+ minimal unit for `checkRole` if applicable).  
+
+---
+
+#### Chunk 6 — `location-manager` access: `locations` + timeslots
+
+| Step | Work |
+|------|------|
+| **Red** | Int: site manager reads only assigned `locations` rows; cannot update unassigned branch; timeslot list/update scoped to assigned branches (US7-A4, US7-B3). |
+| **Green** | `Locations` access for `location-manager`; extend `timeslotsRead` (and create/update if separate) for `location-manager` using `user.locations` ids; deny Pages for same role (US7-E2) if Pages access is centralised in one place—else add in Chunk 6b. |
+| **Refactor** | Centralise “allowed branch ids for user” helper. |
+
+**Tests:** int.  
+
+---
+
+#### Chunk 6b — (optional same PR as 6) Hide admin collections for `location-manager`
+
+| Step | Work |
+|------|------|
+| **Red** | E2E or int: `location-manager` does not see Pages collection in nav (if testable). |
+| **Green** | Plugin `admin.hidden` / mirror `hideWebsiteCollectionsFromTenantAdmins`. |
+
+---
+
+#### Chunk 7 — `getLocationContext` (path + public cookie + precedence)
+
+| Step | Work |
+|------|------|
+| **Red** | Unit `getLocationContext.test.ts`: pathname `/locations/dublin` parsing, invalid slug, precedence vs cookie; Int `location-context.int.spec.ts`: seeded tenant + branches, resolve from path/cookie, cross-tenant isolation (US7-C1, C2). |
+| **Green** | Implement `getLocationContext.ts` + pure `parseBranchSlugFromPathname` etc. |
+| **Refactor** | Single source of truth for public cookie name (`branch-slug` vs agreed name). |
+
+**Tests:** unit + int. **Checkpoint:** full suite (cadence 3).
+
+---
+
+#### Chunk 8 — Public Next.js route + set branch cookie
+
+| Step | Work |
+|------|------|
+| **Red** | Minimal E2E or int hitting route handler: visiting `/locations/{slug}` sets cookie and 200 (US7-C1). |
+| **Green** | `(frontend)/locations/[branchSlug]/page.tsx` (or route handler) sets cookie + minimal page. |
+| **Refactor** | Share layout with existing `(frontend)`. |
+
+**Tests:** E2E slice or request-level int.  
+
+---
+
+#### Chunk 9 — Schedule API / tRPC: optional `branchId` filter + single-branch auto behaviour
+
+| Step | Work |
+|------|------|
+| **Red** | Int (or contract test): given two branches, query with `branchId=A` returns only A’s timeslots; **single-branch tenant** auto behaviour per Open decision §4 (US7-C3, C4). |
+| **Green** | Thread branch into existing “by date” / list routers; do **not** move `endTime` filtering into collection `read` (keep `timeslotsRead` contract). |
+| **Refactor** | DRY tenant+branch filter builder for public vs admin. |
+
+**Tests:** int (router-level).  
+
+---
+
+#### Chunk 10 — Admin branch selector UI + `payload-location` write/clear
+
+| Step | Work |
+|------|------|
+| **Red** | E2E: org admin selects branch B → timeslot list only B; “All sites” clears cookie → A+B visible (US7-D1); cookie paths mirror tenant selector (see [Phase 7 implementation context](#phase-7-implementation-context) §C). |
+| **Green** | React admin component; optional `middleware` clear when `payload-tenant` changes. |
+| **Refactor** | Extract cookie writer shared with tests helper if duplicated. |
+
+**Tests:** E2E (primary). **Checkpoint:** full suite (cadence 4).
+
+---
+
+#### Chunk 11 — `generate-timeslots-with-tenant` + branch default / error
+
+| Step | Work |
+|------|------|
+| **Red** | Int: multi-branch tenant without `branch` → error or explicit policy; single branch → defaults (US7-F1). |
+| **Green** | Task accepts `branchId` / infers sole branch. |
+| **Refactor** | CLI messages / job payload docs. |
+
+**Tests:** int.  
+
+---
+
+#### Chunk 12 — Seeds + `multi-location.e2e.spec.ts` + regression
+
+| Step | Work |
+|------|------|
+| **Red** | E2E file with three scenarios from Step 7.7 plan (owner two branches; site manager scope; single-branch no `/locations` visit) (US7-F2, F3). |
+| **Green** | Seed two branches for fixture tenant; fix failures until green. |
+| **Refactor** | Speed up E2E (reuse auth helpers). |
+
+**Tests:** E2E + optional smoke int. **Checkpoint:** full suite (cadence 5).
+
+---
+
+#### Optional / defer (separate PRs)
+
+- **Chunk 13** — Step 7.3 only if product needs: `branch` on bookings / staff / event-types + tests per field.
+- **URL preview** field on Tenant / Location admin (US7-D3).
+- **Inactive branch** hidden from public pickers (US7-A5).
 
 ### Files / areas to add or modify
 
-- `apps/atnd-me/src/collections/Locations/index.ts` – New Locations collection (tenant-scoped; slug unique per tenant).
-- `apps/atnd-me/src/utilities/getLocationContext.ts` – Resolve location from path (e.g. `locations/[locationSlug]`) or cookie/header for current tenant; return `{ location }` or null. No middleware change; getTenantContext unchanged (one subdomain = tenant).
-- `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`.
-- `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (for location-manager assignment).
-- Timeslots (and optionally bookings, staffMembers, event-types) – Add `location` relationship; access/listing filter by location when context set.
-- Pages, Navbar, Footer – Access: location-manager no create/update/delete (or read-only).
-- Admin: location selector component, URL preview on Tenant and Location edit; payload.config collections (Locations).
-- Tests: `tests/int/locations-collection.int.spec.ts`, `tests/int/location-context.int.spec.ts` (getLocationContext from path/cookie), `tests/unit/getLocationContext.test.ts`, `tests/e2e/multi-location.e2e.spec.ts` (tenant subdomain + path or selector).
-- Reference: `apps/atnd-me/docs/subdomain-hierarchy-design.md` (optional future: sub-subdomain = location).
+**New artefacts**
+
+- **New:** `apps/atnd-me/src/collections/Locations/index.ts` – Locations collection config.
+- **New:** `apps/atnd-me/src/utilities/getLocationContext.ts` – Path + cookie resolution; export small **pure** helpers for unit tests (`parseLocationSlugFromPathname`, etc.).
+- **New:** `apps/atnd-me/src/access/locationScoped.ts` (or extend `tenant-scoped.ts`) – Reusable `where` clauses for “location in user’s assigned set”.
+- **`apps/atnd-me/src/payload.config.ts`** – Register `Locations` collection.
+- **New (admin UI):** `apps/atnd-me/src/components/admin/*BranchSelector*` (exact filename TBD) – sets **`payload-location`** using the same URL patterns as tenant selector E2E helpers.
+
+**Existing files to extend (high leverage)**
+
+- **`apps/atnd-me/src/middleware.ts`** – Optionally clear **`payload-location`** when **`payload-tenant`** / host tenant changes; document if branch cookie is client-only cleared. Reuse `clearCookieEverywhere` + path list from tenant cookies for **`payload-location`**.
+- **`apps/atnd-me/src/utilities/tenantRequest.ts`** – Add **`getPayloadLocationIdFromRequest`** (parallel to `getPayloadTenantIdFromRequest`); keep parsing rules strict (numeric id) to avoid injection of arbitrary strings into `where` clauses.
+- **`apps/atnd-me/src/access/timeslotsRead.ts`** – Extend admin/staff `Where` to optionally **`and`** `branch` filter from `payload-location` + validate branch belongs to selected tenant; add **`location-manager`** branch when role support lands.
+- **`apps/atnd-me/src/plugins/index.ts`** – Multi-tenant `collections.locations`; **`timeslotOverrides.fields`**: add **`branch`** (→ `locations`); **retain** text **room/area** (plugin `location` or renamed `room`); **`timeslotOverrides.indexes`**: add `{ tenant, branch, startTime }` (order per query planner once EXPLAIN is checked).
+- **`apps/atnd-me/src/access/userTenantAccess.ts` / `tenant-scoped.ts`** – Helpers for **`location-manager`** tenant + branch membership; mirror comments in `timeslotsRead` about **security verification**, not trusting cookies alone.
+- **`apps/atnd-me/src/app/api/admin/current-tenant/route.ts`** (or sibling route) – If sidebar needs branch label, return resolved **`locations`** name for current **`payload-location`** id (authenticated, tenant-scoped).
+- **`apps/atnd-me/src/lib/auth/options.ts`** – `location-manager` in `roles` / `adminRoles` as decided.
+- **`apps/atnd-me/src/collections/Users/index.ts`** – `locations` relationship (**assigned branches** for site managers) + access.
+- **`packages/shared-types` / `packages/shared-utils`** – Role type + `checkRole` arrays if hard-coded.
+- **`apps/atnd-me/src/tasks/generate-timeslots-with-tenant.ts`** – **`branch`** argument / default to tenant’s only branch when count is 1.
+- **Bookings plugin source (read-only reference):** `packages/bookings/bookings-plugin/src/collections/timeslots.ts` – default **`location`** text field definition; atnd-me overrides live only in **`apps/atnd-me/src/plugins/index.ts`**.
+
+**Frontend & tests**
+
+- **Frontend:** `apps/atnd-me/src/app/(frontend)/locations/[locationSlug]/page.tsx` (exact path may vary with layout); any **schedule** components / **tRPC routers** under `apps/atnd-me/src` that list timeslots — filter by **`branch`**, display **room** text on cards.
+- **Migrations:** `apps/atnd-me/src/migrations/*` — **`locations`** table + timeslot **`branch`** FK; optional **rename** `timeslots.location` column → `room` if you rename the field; **no** auto-insert **`locations`** from old text values.
+- **Tests:** `tests/int/locations-collection.int.spec.ts`, `tests/int/location-context.int.spec.ts`, `tests/unit/getLocationContext.test.ts`, `tests/e2e/multi-location.e2e.spec.ts`; mirror cookie patterns from `tests/e2e/admin-create-lesson.e2e.spec.ts`, `tests/e2e/pages-layout-blocks-access.e2e.spec.ts`, `tests/e2e/helpers/admin-tenant-selector-helpers.ts`.
+- **Docs:** add a short “Multi-location (path model)” subsection to `apps/atnd-me/docs/subdomain-hierarchy-design.md` pointing readers to this plan as **canonical** for shipped behaviour (optional doc edit).
+- **Reference:** `apps/atnd-me/docs/subdomain-hierarchy-design.md` (2-segment host model = **not** Phase 7).
 
 ### Summary
 
@@ -2978,7 +3375,10 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 | **Pages**            | Tenant-scoped only; no location field; managed by tenant-admin only; location-manager no access.      |
 | **Location-manager** | New role; access to their location(s) and location-scoped timeslots/bookings; no Pages.                 |
 | **Resolution**       | getTenantContext unchanged (tenant from tenant-slug); getLocationContext from path/cookie.            |
-| **Green gates**      | Int tests (Locations, getLocationContext, access); E2E (tenant + path or selector, location-manager). |
+| **Green gates**      | Int tests (Locations, `getLocationContext`, access); E2E (tenant + path or selector, location-manager). |
+| **Timeslots today**  | Plugin **`location`** = **room/area** (text). Phase 7 adds **`branch`** → **`locations`** (sites); **keep** room text; **do not** migrate text into branch rows. |
+| **Implementation context** | [Phase 7 implementation context](#phase-7-implementation-context) — tenant cookies, `timeslotsRead` `Where` pattern, owner branch switching, test assets, mermaid lifecycle. |
+| **Steps**            | **7.1** Branch **`locations`** → **7.2** timeslots **`branch`** + **room** text preserved → **7.3** optional booking/staff/event-type **branch** → **7.4** `getLocationContext` (branch) + public routes + API → **7.5** site-manager role + `Users.locations` → **7.6** admin branch selector + preview → **7.7** jobs, seed, E2E. |
 
 
 ---
@@ -2987,9 +3387,28 @@ Enable **multi-location** for a single tenant (business): one tenant with multip
 
 ### Overview
 
-Introduce an **Organisation** (brand) entity that sits **above** tenants. One organisation can own a main domain (e.g. `sauna.com`) and have many tenants (e.g. sauna1, sauna2 = locations/branches). The organisation domain shows a **brand homepage** (e.g. combined schedule across all tenants, or org-level content). Unauthenticated users can view this; no login required.
+Introduce an **Organisation** (brand) entity that sits **above** tenants. One organisation can own a main domain (e.g. `sauna.com`) and have many **tenants** (e.g. `sauna1`, `sauna2` as **separate businesses** in the product sense—not the same as Phase 7 **`locations`** rows, which are sites **within** one tenant). The organisation domain shows a **brand homepage** (e.g. combined schedule across all tenants, or org-level content). Unauthenticated users can view this; no login required.
 
-**Use case:** A sauna company with multiple locations: `sauna.com` is the brand homepage; tenants sauna1, sauna2 are branches; the homepage combines schedules or lists locations.
+**Use case:** A sauna company with multiple **franchise businesses**: `sauna.com` is the brand homepage; **tenants** `sauna1`, `sauna2` are separate sites/businesses (each may have its own Stripe Connect account); the homepage combines schedules or lists **tenants**. For **multiple rooms or towns under one legal business**, prefer **Phase 7 `locations`** on a **single** tenant instead.
+
+### Phase 7 vs 7.5 — products, Stripe, and “who shares what”
+
+| Dimension | **Phase 7 — Branches (`locations`)** under **one tenant** | **Phase 7.5 — Organisation** with **many tenants** |
+|-----------|-----------------------------------------------------------|-----------------------------------------------------|
+| **Business meaning** | One legal/operating **business** (one brand, one billing posture you choose) with **multiple physical sites**. | One **brand / group** with **multiple separate businesses** (often separate legal entities or at least separate Stripe merchants), each modelled as a **tenant**. |
+| **Products (plans, class-pass-types, event-types, etc.)** | **Shared by default** across all branches: Payload collections stay **tenant-scoped** (single `tenant` id); branches are an extra dimension (`branch` / `locations`) on ops data like timeslots, not a second product catalog unless you explicitly add branch-scoped products later. | **Segregated by default** across tenants: each tenant has **its own** product docs and (in atnd-me today) **its own Stripe Connect context** on the **tenant** record. Org layer aggregates **for display** (e.g. combined schedule); it does not merge Stripe or product rows unless you build explicit cross-tenant catalogue features. |
+| **Stripe** | Typically **one Connect connected account per tenant** (your existing model): **all branches share that tenant’s Stripe account** and thus the same product/price IDs on that account. | **One connected account per tenant** is still the natural model: the **organisation** is **not** a Stripe merchant by default—it’s a **grouping + routing + homepage** layer; each **tenant** under the org keeps **separate** Connect onboarding and balances unless you intentionally centralise money movement (see below). |
+
+**Stripe “master account with sub-accounts” (feasibility):** Stripe does not give you **nested merchant accounts inside a single standard Stripe account** the way Connect does for **separate legal recipients**. The supported pattern for a **platform + many businesses** is **[Stripe Connect](https://stripe.com/docs/connect)**: your **platform** Stripe account plus **many connected accounts** (Standard, Express, or Custom), each representing a business that accepts payments and (depending on type) has its own dashboard and KYC. That is the usual “master + subs” shape: **platform = hub**, **connected accounts = per-tenant (or per-org-child) merchants**. You can collect **application fees**, use **destination charges** / **separate charges and transfers**, and (with appropriate setup) centralise parts of payout or reporting—while **product objects and prices still live on the connected account** where the charge is meant to settle. **Accounts v2** is Stripe’s newer Connect account model for platforms building in 2025+; same idea, unified account object. A **single** Stripe account with **multiple isolated “sub-merchants”** and separate settlement **without** Connect is **not** the same product; don’t rely on it for org-level segregation.
+
+**Implication for your roadmap:** Phase 7 = **one Stripe merchant, many sites**. Phase 7.5 = **many Stripe merchants (one per tenant)** under one **org** brand, unless you deliberately build something different (e.g. org-level charges only—unusual for your class of app).
+
+### Roadmap and Stripe hierarchy: decision record
+
+- **What we build first (MVP):** **Phase 7** — **multi-branch / multi-site** under **one tenant** (`locations` + `branch` on timeslots, owner vs site-manager, admin `payload-location`, public path/cookie). This is the **current delivery target**.
+- **What we may add later:** **Phase 7.5** — **Organisation (brand) above multiple tenants** (org domain, `tenant.organisation`, combined schedule across tenants, segregated products/Stripe **per tenant**). Treat as a **follow-on** when franchise / multi-legal-entity requirements justify the extra resolution and data model—not required to ship Phase 7.
+
+**Stripe Connect shape (two levels vs nested):** The **default, well-supported** model is **two levels**: your **platform** account + **direct connected accounts** (`acct_…`) per business/tenant. **Nested Connect** (a connected account acting as **its own** Connect platform with further sub-merchants) is **not** an automatic “sub-accounts under `acct_`” feature; it implies a **separate** Connect integration on that account (often **Standard**-only territory), extra compliance, and Stripe approval for multi-level marketplace patterns. For atnd-me, **prefer** org modelling as **many tenants = many direct connected accounts** under your platform unless a customer explicitly needs **tenant-as-sub-platform**—then validate with [Stripe Connect docs](https://stripe.com/docs/connect) and Stripe support before building.
 
 ### Goals
 
@@ -3095,7 +3514,7 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ## Phase 11: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Admin Bulk Operations & Timeslots Admin UI (Phase 5), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Organisation (Phase 7.5), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Stripe product sync & related admin (Phases 4.5 / 2.5 as applicable), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Organisation (Phase 7.5), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
 
 When implementing flexible application fees:
 

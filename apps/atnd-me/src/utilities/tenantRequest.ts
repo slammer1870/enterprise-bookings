@@ -4,8 +4,22 @@ type HeadersLike = {
   get?: (name: string) => string | null
 }
 
-type CookiesLike = {
+export type CookiesLike = {
   get?: (name: string) => { value?: string } | undefined
+}
+
+/** Admin branch selector cookie (Payload location / branch document id). */
+export const PAYLOAD_LOCATION_COOKIE = 'payload-location' as const
+
+/** Public site: selected branch slug (matches `locations.slug` for the current tenant). */
+export const PUBLIC_BRANCH_SLUG_COOKIE = 'branch-slug' as const
+
+function parsePositiveIntCookieValue(value: string | undefined | null): number | null {
+  const raw = value?.trim()
+  if (!raw || !/^\d+$/.test(raw)) return null
+
+  const id = parseInt(raw, 10)
+  return Number.isFinite(id) ? id : null
 }
 
 type TenantRequestSource = {
@@ -108,11 +122,21 @@ export function getTenantSlugFromRequest(source?: TenantRequestSource | null): s
 }
 
 export function getPayloadTenantIdFromRequest(source?: TenantRequestSource | null): number | null {
-  const raw = source?.cookies?.get?.('payload-tenant')?.value?.trim()
-  if (!raw || !/^\d+$/.test(raw)) return null
+  return parsePositiveIntCookieValue(source?.cookies?.get?.('payload-tenant')?.value)
+}
 
-  const id = parseInt(raw, 10)
-  return Number.isFinite(id) ? id : null
+/** Branch/site selector in Payload admin (`payload-location` cookie). */
+export function getPayloadLocationIdFromRequest(source?: TenantRequestSource | null): number | null {
+  return parsePositiveIntCookieValue(source?.cookies?.get?.(PAYLOAD_LOCATION_COOKIE)?.value)
+}
+
+/** Public branch picker / middleware: slug segment for `locations.slug` (scoped by tenant in {@link getLocationContext}). */
+export function getPublicBranchSlugFromRequest(
+  source?: { cookies?: CookiesLike } | null,
+): string | null {
+  const raw = source?.cookies?.get?.(PUBLIC_BRANCH_SLUG_COOKIE)?.value?.trim()
+  if (!raw) return null
+  return raw
 }
 
 /**

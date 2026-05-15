@@ -35,6 +35,8 @@ export type ScheduleTimeslot = {
   date: string;
   startTime: string;
   endTime: string;
+  /** Physical branch (`locations` id) when set on the timeslot. */
+  branch?: number | null;
   eventType: ScheduleEventType;
   location: string;
   staffMember?: ScheduleStaffMember | null;

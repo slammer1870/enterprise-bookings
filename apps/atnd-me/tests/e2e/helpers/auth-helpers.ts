@@ -42,6 +42,17 @@ function resolveLoopbackTenantApiRequest(
   }
 }
 
+/** Subdomain slug from `http://slug.localhost:3000` (for copying session cookies to the tenant host). */
+function tenantSlugFromLocalhostAdminOrigin(adminOrigin: string): string | null {
+  try {
+    const { hostname } = new URL(adminOrigin)
+    if (!hostname.endsWith('.localhost') || hostname === 'localhost') return null
+    return hostname.split('.')[0] || null
+  } catch {
+    return null
+  }
+}
+
 /** Worker `request` + POST to loopback with a virtual `Host` stores cookies under localhost; remap for real navigation host. */
 function remapCookiesForAdminOrigin(
   cookies: { name: string; value: string; domain: string; path: string; expires: number; httpOnly: boolean; secure: boolean; sameSite: 'Strict' | 'Lax' | 'None' }[],
@@ -176,6 +187,14 @@ export async function loginToAdminPanel(
     if (cookies.length) {
       await page.context().addCookies(cookies)
     }
+    // API login often lands session cookies on loopback; tenant admin UIs run on `slug.localhost`.
+    const tenantSlug = opts?.adminOrigin ? tenantSlugFromLocalhostAdminOrigin(opts.adminOrigin) : null
+    if (tenantSlug && state.cookies.length) {
+      const tenantScoped = copySessionCookiesToTenantDomain(state.cookies, tenantSlug)
+      if (tenantScoped.length) {
+        await page.context().addCookies(tenantScoped)
+      }
+    }
     await page.goto(`${origin}/admin`, { waitUntil: 'domcontentloaded' })
     await page
       .waitForURL((url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'), {
@@ -289,6 +308,32 @@ export async function loginAsStaff(
   })
 }
 
+/**
+ * Log in as a `location-manager` (site-scoped) on the tenant admin host (`slug.localhost:3000`).
+ */
+export async function loginAsLocationManager(
+  page: Page,
+  email: string,
+  passwordOrOpts:
+    | string
+    | { request?: APIRequestContext; password?: string; tenantSlug: string } = 'password'
+): Promise<void> {
+  const password =
+    typeof passwordOrOpts === 'string'
+      ? passwordOrOpts
+      : passwordOrOpts.password ?? 'password'
+  const optsObj = typeof passwordOrOpts === 'object' ? passwordOrOpts : undefined
+  const request = optsObj?.request
+  const tenantSlug = optsObj?.tenantSlug
+  if (!tenantSlug) {
+    throw new Error('loginAsLocationManager requires tenantSlug in options')
+  }
+  await loginToAdminPanel(page, email, password, {
+    ...(request != null ? { request } : {}),
+    adminOrigin: tenantBaseUrl(tenantSlug),
+  })
+}
+
 /** Cookie names that indicate auth/session (Better Auth). */
 const SESSION_COOKIE_NAMES = /^(better-auth\.|session_token|session_data|dont_remember)/
 
@@ -303,7 +348,12 @@ export function copySessionCookiesToTenantDomain(
 ): Parameters<BrowserContext['addCookies']>[0] {
   const tenantDomain = `${tenantSlug}.localhost`
   return cookies
-    .filter((c) => SESSION_COOKIE_NAMES.test(c.name))
+    .filter(
+      (c) =>
+        SESSION_COOKIE_NAMES.test(c.name) ||
+        c.name === 'payload-token' ||
+        c.name.startsWith('payload-'),
+    )
     .map((c) => ({
       name: c.name,
       value: c.value,

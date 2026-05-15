@@ -261,6 +261,165 @@ describe('Analytics API (Phase 4)', () => {
     )
 
     it(
+      'likelyChurn lastCheckInDate is not a future lesson date',
+      async () => {
+        const dateTo = '2026-01-10'
+        const dateFrom = '2025-12-15'
+        const pastYmd = '2026-01-01'
+        const futureYmd = '2026-01-20'
+
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: `Analytics Churn Check-in ${Date.now()}`,
+            places: 10,
+            description: 'last check-in date test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+
+        const mkTimeslot = async (ymd: string) => {
+          const startTime = new Date(`${ymd}T12:00:00.000Z`)
+          const endTime = new Date(startTime)
+          endTime.setUTCHours(13)
+          return payload.create({
+            collection: 'timeslots',
+            data: {
+              date: startTime.toISOString(),
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              eventType: eventType.id,
+              tenant: testTenantId,
+              active: true,
+              lockOutTime: 0,
+            },
+            draft: false,
+            overrideAccess: true,
+          })
+        }
+
+        // Create past booking first, then future booking (so updatedAt on future is later).
+        const slotPast = await mkTimeslot(pastYmd)
+        const slotFuture = await mkTimeslot(futureYmd)
+
+        const bookingPast = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: slotPast.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        const bookingFuture = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: slotFuture.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        const plan = await payload.create({
+          collection: 'plans',
+          data: {
+            name: `Analytics Churn Plan ${Date.now()}`,
+            status: 'active',
+            tenant: testTenantId,
+            stripeProductId: `prod_churn_${Date.now()}`,
+            priceJSON: JSON.stringify({ id: `price_churn_${Date.now()}` }),
+          },
+          overrideAccess: true,
+          context: { skipStripeSync: true },
+        })
+
+        await payload.create({
+          collection: 'subscriptions' as import('payload').CollectionSlug,
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            plan: plan.id,
+            status: 'active',
+          } as Record<string, unknown>,
+          overrideAccess: true,
+          context: { skipStripeSync: true },
+        })
+
+        try {
+          const qs = new URLSearchParams({
+            dateFrom,
+            dateTo,
+            tenantId: String(testTenantId),
+            onlyLikelyChurn: '1',
+            limitLikelyChurnCustomers: '10',
+            offsetLikelyChurnCustomers: '0',
+          })
+
+          const res = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `http://localhost/api/analytics?${qs.toString()}`,
+            }),
+          )
+
+          expect(res.status).toBe(200)
+          const data = await res.json()
+          expect(data).toHaveProperty('likelyChurnCustomers')
+          expect(Array.isArray(data.likelyChurnCustomers)).toBe(true)
+
+          const row = data.likelyChurnCustomers.find((r: any) => r.userId === regularUser.id)
+          expect(row).toBeTruthy()
+          expect(row.lastCheckInDate).toBe(pastYmd)
+        } finally {
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { in: [bookingPast.id, bookingFuture.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { in: [slotPast.id, slotFuture.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'plans',
+              where: { id: { equals: plan.id } },
+              overrideAccess: true,
+              context: { skipStripeSync: true },
+            })
+            .catch(() => {})
+          // subscriptions are cleaned up by plan/tenant cascade if configured; best-effort:
+          await payload
+            .delete({
+              collection: 'subscriptions',
+              where: { user: { equals: regularUser.id } },
+              overrideAccess: true,
+              context: { skipStripeSync: true },
+            } as any)
+            .catch(() => {})
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'bookingsOverTime includes zero-count days between booked days (Sat / Sun / Mon in range)',
       async () => {
         const satD = new Date(Date.UTC(2046, 0, 1))
@@ -398,6 +557,157 @@ describe('Analytics API (Phase 4)', () => {
           }),
         )
         expect(resNoTo.status).toBe(400)
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'location-filter (branchId) restricts totalBookings on the analytics API',
+      async () => {
+        const from = '2045-03-15'
+        const to = '2045-03-15'
+
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: `Analytics Branch Filter ${Date.now()}`,
+            places: 10,
+            description: 'branch filter analytics int test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+
+        const northLocation = await payload.create({
+          collection: 'locations',
+          data: {
+            name: `North ${Date.now()}`,
+            slug: `north-${Date.now()}`,
+            tenant: testTenantId,
+            active: true,
+          },
+          overrideAccess: true,
+        })
+
+        const southLocation = await payload.create({
+          collection: 'locations',
+          data: {
+            name: `South ${Date.now()}`,
+            slug: `south-${Date.now()}`,
+            tenant: testTenantId,
+            active: true,
+          },
+          overrideAccess: true,
+        })
+
+        const startTime = new Date('2045-03-15T12:00:00.000Z')
+        const endTime = new Date('2045-03-15T13:00:00.000Z')
+
+        const mkTimeslot = async (branchId: number) => {
+          return payload.create({
+            collection: 'timeslots',
+            data: {
+              date: startTime.toISOString(),
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              eventType: eventType.id,
+              tenant: testTenantId,
+              branch: branchId,
+              active: true,
+              lockOutTime: 0,
+            },
+            draft: false,
+            overrideAccess: true,
+          })
+        }
+
+        const northSlot = await mkTimeslot(northLocation.id as number)
+        const southSlot = await mkTimeslot(southLocation.id as number)
+
+        const northBooking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: northSlot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        const southBooking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: southSlot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        try {
+          const baseTenantUrl = `http://localhost/api/analytics?dateFrom=${from}&dateTo=${to}&tenantId=${testTenantId}`
+          const resAll = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: baseTenantUrl,
+            }),
+          )
+          expect(resAll.status).toBe(200)
+          const allJson = (await resAll.json()) as { summary: { totalBookings: number } }
+          expect(allJson.summary.totalBookings).toBe(2)
+
+          const resNorth = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `${baseTenantUrl}&branchId=${northLocation.id}`,
+            }),
+          )
+          expect(resNorth.status).toBe(200)
+          const northJson = (await resNorth.json()) as { summary: { totalBookings: number } }
+          // Should include only northSlot booking(s) for this branch.
+          expect(northJson.summary.totalBookings).toBe(1)
+
+          const resSouth = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `${baseTenantUrl}&branchId=${southLocation.id}`,
+            }),
+          )
+          expect(resSouth.status).toBe(200)
+          const southJson = (await resSouth.json()) as { summary: { totalBookings: number } }
+          expect(southJson.summary.totalBookings).toBe(1)
+        } finally {
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { in: [northBooking.id, southBooking.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { in: [northSlot.id, southSlot.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'locations',
+              where: { id: { in: [northLocation.id, southLocation.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+        }
       },
       TEST_TIMEOUT,
     )

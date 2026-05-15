@@ -29,8 +29,11 @@ import { DiscountCodeValueField as DiscountCodeValueField_41b58f2146d9fbeafdf93d
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
 import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
+import { default as default_dca537aa9082f5d27941b2b7b6483a3c } from '@/components/admin/SchedulerListView'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
+import { default as default_c460fff066f5db6b45826c32f5c7748e } from '@/components/admin/SyncPayloadLocationCookieToBranchField'
+import { default as default_2a89e3b2de91cb0ec6b364df0983fbdc } from '@/components/admin/SyncBranchFieldToPayloadLocationCookie'
 import { TimeslotAdmin as TimeslotAdmin_3ef87d1a74d531e63f91140f7dc9d197 } from '@repo/bookings-plugin/src/components/lessons/timeslot-admin'
 import { default as default_9ffd6949b6f61cfae4948d705a06c4b3 } from '@/components/admin/RequireStripeConnectField'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
@@ -45,6 +48,7 @@ import { default as default_1a7510af427896d367a49dbf838d2de6 } from '@/component
 import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/components/BeforeLogin'
 import { default as default_03c174bc83c57c8b0eee299d05fde10d } from '@/components/admin/NavHomeLink'
 import { ClearableTenantSelector as ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
+import { default as default_26be24305999939ad53f30926742118b } from '@/components/admin/AdminBranchSiteSelector'
 import { AdminErrorBoundary as AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688 } from '@payloadcms/plugin-sentry/client'
 import { TenantSelectionProviderRootAware as TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
@@ -83,8 +87,11 @@ export const importMap = {
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
   "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7,
+  "@/components/admin/SchedulerListView#default": default_dca537aa9082f5d27941b2b7b6483a3c,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
+  "@/components/admin/SyncPayloadLocationCookieToBranchField#default": default_c460fff066f5db6b45826c32f5c7748e,
+  "@/components/admin/SyncBranchFieldToPayloadLocationCookie#default": default_2a89e3b2de91cb0ec6b364df0983fbdc,
   "@repo/bookings-plugin/src/components/lessons/timeslot-admin#TimeslotAdmin": TimeslotAdmin_3ef87d1a74d531e63f91140f7dc9d197,
   "@/components/admin/RequireStripeConnectField#default": default_9ffd6949b6f61cfae4948d705a06c4b3,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
@@ -99,6 +106,7 @@ export const importMap = {
   "@/components/BeforeLogin#default": default_8a7ab0eb7ab5c511aba12e68480bfe5e,
   "@/components/admin/NavHomeLink#default": default_03c174bc83c57c8b0eee299d05fde10d,
   "@repo/plugin-clearable-tenant/rsc#ClearableTenantSelector": ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637,
+  "@/components/admin/AdminBranchSiteSelector#default": default_26be24305999939ad53f30926742118b,
   "@payloadcms/plugin-sentry/client#AdminErrorBoundary": AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688,
   "@repo/plugin-clearable-tenant/rsc#TenantSelectionProviderRootAware": TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,

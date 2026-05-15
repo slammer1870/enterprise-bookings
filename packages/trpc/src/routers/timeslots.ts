@@ -18,6 +18,7 @@ import {
   populateTimeslotEventType,
   deriveTenantIdFromTimeslot,
 } from "../utils/tenant";
+import { resolveGetByDateBranch } from "../utils/scheduleBranch";
 
 import { EventType, Timeslot, TimeslotScheduleState, ScheduleTimeslot } from "@repo/shared-types";
 import {
@@ -260,6 +261,8 @@ export const timeslotsRouter = {
       date: z.string(),
       /** When provided (e.g. from root home page schedule block), filter timeslots to this tenant. */
       tenantId: z.number().optional(),
+      /** Optional branch (`locations` id). Must belong to the resolved tenant. Overrides `branch-slug` cookie. */
+      branchId: z.number().optional(),
     }))
     .query(async ({ ctx, input }) => {
       try {
@@ -340,21 +343,40 @@ export const timeslotsRouter = {
         // apply the active constraint explicitly.
         const activeClause = { active: { equals: true } };
 
-        const whereClause: any = tenantId
-          ? {
-              and: [
-                dayRangeClause,
-                activeClause,
-                {
-                  tenant: {
-                    equals: tenantId,
-                  },
-                },
+        const resolvedBranch = await resolveGetByDateBranch(ctx.payload, {
+          tenantId,
+          inputBranchId: input.branchId ?? null,
+          cookieHeader: ctx.headers.get("cookie"),
+        });
+        if ("error" in resolvedBranch) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid branch for this tenant",
+          });
+        }
+
+        const andParts: any[] = [dayRangeClause, activeClause];
+        if (tenantId) {
+          andParts.push({
+            tenant: {
+              equals: tenantId,
+            },
+          });
+        }
+        if (resolvedBranch.branchId != null) {
+          if (resolvedBranch.whereMode === "strict") {
+            andParts.push({ branch: { equals: resolvedBranch.branchId } });
+          } else {
+            andParts.push({
+              or: [
+                { branch: { equals: resolvedBranch.branchId } },
+                { branch: { equals: null } },
               ],
-            }
-          : {
-              and: [dayRangeClause, activeClause],
-            };
+            });
+          }
+        }
+
+        const whereClause: any = { and: andParts };
 
         const queryOptions: {
           where: any;
@@ -414,6 +436,7 @@ export const timeslotsRouter = {
             eventType: true,
             tenant: true,
             active: true,
+            branch: true,
           } as SelectType,
         });
 
@@ -870,6 +893,7 @@ export const timeslotsRouter = {
             date: timeslot.date,
             startTime: timeslot.startTime,
             endTime: timeslot.endTime,
+            branch: getId(timeslot.branch),
             location: timeslot.location ?? "",
             staffMember,
             tenant: getId(timeslot.tenant),
@@ -888,6 +912,9 @@ export const timeslotsRouter = {
           return scheduleTimeslot;
         });
       } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         console.error("Error in getByDate:", error);
         // Log more details for debugging
         if (error instanceof Error) {

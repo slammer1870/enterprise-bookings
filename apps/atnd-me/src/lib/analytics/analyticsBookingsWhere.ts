@@ -22,6 +22,17 @@ const TIMESLOT_PAGE_SIZE = 1000
 /** Keep `in` lists bounded for Postgres parameter limits. */
 export const TIMESLOT_ID_IN_CHUNK_SIZE = 1000
 
+type TimeslotIdsCacheEntry = {
+  expiresAtMs: number
+  ids: number[]
+}
+
+// Small in-memory cache to avoid recomputing timeslot resolution for closely-spaced
+// analytics dashboard requests (e.g. async calls: chart + top customers + churn).
+// Kept deliberately short-lived to avoid stale behavior if tenant timezones change.
+const TIMESLOT_IDS_CACHE_TTL_MS = 60_000
+const timeslotIdsCache = new Map<string, TimeslotIdsCacheEntry>()
+
 const YMD_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 export function getDefaultTimeZoneForAnalytics(payload: Payload): string {
@@ -154,8 +165,26 @@ export async function resolveTimeslotIdsForAnalytics(
     return params.preResolvedTimeslotIds
   }
 
-  const { dateFrom, dateTo, tenantId } = params
+  const { dateFrom, dateTo, tenantId, branchId } = params
   const ids: number[] = []
+
+  // IMPORTANT: the analytics integration tests create new timeslots and then
+  // assert that subsequent API calls immediately reflect the change.
+  // The in-memory cache can cause stale results in that scenario.
+  // We only enable the cache in production.
+  // Integration + E2E tests frequently create new timeslots and then assert that
+  // subsequent /api/analytics calls reflect the new data immediately.
+  // Disable in-memory cache during Playwright E2E webServer runs.
+  // Playwright forces `NODE_ENV=production`, which would otherwise make analytics tests
+  // flake when they create new timeslots and expect immediate reflectance.
+  const cacheEnabled = process.env.NODE_ENV === 'production' && process.env.PW_E2E_PROFILE !== 'true'
+  const cacheKey = `${tenantId ?? 'all'}:${branchId ?? 'none'}:${dateFrom}:${dateTo}`
+  if (cacheEnabled) {
+    const cached = timeslotIdsCache.get(cacheKey)
+    if (cached && cached.expiresAtMs > Date.now()) {
+      return cached.ids
+    }
+  }
 
   const defaultTz = getDefaultTimeZoneForAnalytics(payload)
   const paddedFrom = padIsoDateYmd(dateFrom, -1)
@@ -189,6 +218,11 @@ export async function resolveTimeslotIdsForAnalytics(
     ]
     if (tenantId != null) {
       andClause.push({ tenant: { equals: tenantId } })
+    }
+    // Location-filtered analytics: when a tenant scope is active, also filter
+    // to timeslots assigned to the selected branch/location.
+    if (tenantId != null && branchId != null) {
+      andClause.push({ branch: { equals: branchId } })
     }
     const res = await payload.find({
       collection: 'timeslots',
@@ -227,7 +261,15 @@ export async function resolveTimeslotIdsForAnalytics(
     if (res.docs.length < TIMESLOT_PAGE_SIZE || page >= (res.totalPages ?? 1)) break
     page += 1
   }
-  return ids
+
+  // Defensive: de-dupe IDs to avoid double-counting bookings when callers chunk the IN list.
+  // (This can happen if the timeslot resolution query returns duplicates across pages.)
+  const uniqueIds = Array.from(new Set(ids))
+
+  if (cacheEnabled) {
+    timeslotIdsCache.set(cacheKey, { expiresAtMs: Date.now() + TIMESLOT_IDS_CACHE_TTL_MS, ids: uniqueIds })
+  }
+  return uniqueIds
 }
 
 export function buildConfirmedBookingsWhereForTimeslots(

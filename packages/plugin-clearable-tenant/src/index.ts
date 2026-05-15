@@ -7,6 +7,9 @@ export { getEffectiveTenantIdWhenClearing } from './shared/clearBehavior'
 export {
   getPayloadTenantCookieDomainDefault,
   setPayloadTenantCookie,
+  setPayloadLocationCookie,
+  deletePayloadLocationCookie,
+  getPayloadLocationCookie,
   deleteTenantCookie,
   getTenantCookie,
 } from './shared/cookieHelpers'

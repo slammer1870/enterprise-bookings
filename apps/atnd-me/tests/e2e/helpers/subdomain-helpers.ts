@@ -51,6 +51,12 @@ export async function getTenantContext(page: Page): Promise<string | null> {
   return tenantSlugCookie?.value || null
 }
 
+/** Public branch cookie set when visiting `/locations/{slug}` (see middleware + Chunk 8). */
+export async function getBranchSlugFromCookies(page: Page): Promise<string | null> {
+  const cookies = await page.context().cookies()
+  return cookies.find((c) => c.name === 'branch-slug')?.value ?? null
+}
+
 /**
  * Create a browser context with subdomain support
  * This is useful for tests that need to maintain tenant context across pages

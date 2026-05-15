@@ -10,7 +10,9 @@ const generateTimeslotsForAtndMe = createGenerateTimeslotsFromScheduleHandler(
 
 /**
  * Wrapper for generateTimeslotsFromSchedule that ensures tenant context is set
- * This allows the job to find tenant-scoped timeslots correctly
+ * so multi-tenant queries resolve. Job input may include `tenant` (from scheduler) and
+ * optional `branch` (locations id) when the tenant has multiple active sites — see
+ * {@link createGenerateTimeslotsFromScheduleHandler} in `@repo/bookings-plugin`.
  */
 export const generateTimeslotsFromScheduleWithTenant: TaskHandler<'generateTimeslotsFromSchedule'> = async (args) => {
   const { input, req } = args

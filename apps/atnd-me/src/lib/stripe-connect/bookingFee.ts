@@ -46,11 +46,23 @@ function resolvePercentFromConfig(
   const defaultPercent = global?.defaults?.[field] ?? DEFAULT_PERCENTS[productType]
   const override = global?.overrides?.find((o) => {
     const t = o.tenant
-    return (typeof t === 'object' && t !== null && 'id' in t ? t.id : t) === tenantId
+    if (typeof t === 'number') return t === tenantId
+    if (typeof t === 'string') return /^\d+$/.test(t) && parseInt(t, 10) === tenantId
+    if (typeof t === 'object' && t !== null && 'id' in t) {
+      const id = (t as { id: unknown }).id
+      if (typeof id === 'number' && Number.isFinite(id)) return id === tenantId
+      if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10) === tenantId
+    }
+    return false
   })
   const overridePercent = override?.[field]
-  if (overridePercent != null && typeof overridePercent === 'number') {
-    return overridePercent
+  if (overridePercent != null) {
+    if (typeof overridePercent === 'number') return overridePercent
+    if (typeof overridePercent === 'string' && /^\d+(\.\d+)?$/.test(overridePercent)) return Number(overridePercent)
+  }
+  // If defaults came back as a string (can happen across adapters/tests), coerce.
+  if (typeof defaultPercent === 'string' && /^\d+(\.\d+)?$/.test(defaultPercent)) {
+    return Number(defaultPercent)
   }
   return defaultPercent
 }

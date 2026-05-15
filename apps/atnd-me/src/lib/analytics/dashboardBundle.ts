@@ -8,6 +8,7 @@ import type {
   BookingsOverTimeRow,
   SummaryMetrics,
   TopCustomerRow,
+  LikelyChurnCustomerRow,
 } from './types'
 import {
   buildConfirmedBookingsWhereForTimeslots,
@@ -20,6 +21,7 @@ import {
   TIMESLOT_ID_IN_CHUNK_SIZE,
 } from './analyticsBookingsWhere'
 import { densifyBookingsOverTime, toDateKey } from './bookingsOverTimeDense'
+import { subscriptionBelongsToTenantContext } from '@/blocks/DhLiveMembership/subscription-tenant-context'
 
 type TimeslotYmdIanaMode =
   | { kind: 'scoped'; iana: string }
@@ -27,10 +29,19 @@ type TimeslotYmdIanaMode =
 
 const MAX_BOOKINGS_PER_CHUNK = 50_000
 const DEFAULT_TOP_LIMIT = 10
+const DEFAULT_LIKELY_CHURN_LIMIT = 10
+const CHURN_INACTIVITY_DAYS = 7
+const CHURN_TREND_WINDOW_DAYS = 30
 
 export type AnalyticsDashboardBundleOptions = {
+  /** When false, skips summary computation (total bookings + unique customers). */
+  includeSummary?: boolean
+  /** When false, skips bookingsOverTime computation (trend chart). */
+  includeBookingsOverTime?: boolean
   /** When false, skips per-user booking counts and user lookup (e.g. previous-period comparison). */
   includeTopCustomers?: boolean
+  /** When false, skips churn scoring + ranking. */
+  includeLikelyChurnCustomers?: boolean
 }
 
 function bookingUserId(doc: { user?: number | { id: number } }): number | null {
@@ -39,14 +50,33 @@ function bookingUserId(doc: { user?: number | { id: number } }): number | null {
   return typeof uid === 'number' ? uid : null
 }
 
+function shiftYmdUtc(date: string, deltaDays: number): string {
+  const parts = date.split('-').map((x) => parseInt(x, 10))
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return date
+  const y = parts[0]!
+  const m = parts[1]!
+  const d = parts[2]!
+  const dt = new Date(Date.UTC(y, m - 1, d))
+  dt.setUTCDate(dt.getUTCDate() + deltaDays)
+  return dt.toISOString().slice(0, 10)
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, n))
+}
+
 /** One query per timeslot chunk: avoids depth:1 on every booking row for calendar bucketing. */
-async function loadTimeslotCalendarYmdById(
+async function loadTimeslotCalendarInfoById(
   payload: Payload,
   timeslotIds: number[],
   ianaMode: TimeslotYmdIanaMode,
-): Promise<Map<number, string | null>> {
-  const map = new Map<number, string | null>()
-  if (timeslotIds.length === 0) return map
+): Promise<{
+  ymdById: Map<number, string | null>
+  tenantById: Map<number, number | null>
+}> {
+  const ymdById = new Map<number, string | null>()
+  const tenantById = new Map<number, number | null>()
+  if (timeslotIds.length === 0) return { ymdById, tenantById }
 
   const res = await payload.find({
     collection: 'timeslots',
@@ -60,9 +90,10 @@ async function loadTimeslotCalendarYmdById(
   if (ianaMode.kind === 'scoped') {
     for (const d of res.docs) {
       const row = d as { id: number; date?: unknown }
-      map.set(row.id, normalizeTimeslotCalendarYmd(row.date, ianaMode.iana))
+      ymdById.set(row.id, normalizeTimeslotCalendarYmd(row.date, ianaMode.iana))
+      tenantById.set(row.id, timeslotDocumentTenantId(row as any))
     }
-    return map
+    return { ymdById, tenantById }
   }
 
   const tids: number[] = []
@@ -76,9 +107,10 @@ async function loadTimeslotCalendarYmdById(
     const row = d as { id: number; date?: unknown; tenant?: unknown }
     const tid = timeslotDocumentTenantId(row)
     const iana = (tid != null ? byTenant.get(tid) : undefined) ?? defaultIana
-    map.set(row.id, normalizeTimeslotCalendarYmd(row.date, iana))
+    ymdById.set(row.id, normalizeTimeslotCalendarYmd(row.date, iana))
+    tenantById.set(row.id, tid)
   }
-  return map
+  return { ymdById, tenantById }
 }
 
 async function resolveTopCustomerRows(
@@ -124,22 +156,34 @@ export async function getAnalyticsDashboardBundle(
   summary: SummaryMetrics
   bookingsOverTime: BookingsOverTimeRow[]
   topCustomers: TopCustomerRow[]
+  likelyChurnCustomers: LikelyChurnCustomerRow[]
+  likelyChurnCustomersTotal: number
 }> {
+  const includeSummary = options?.includeSummary !== false
+  const includeBookingsOverTime = options?.includeBookingsOverTime !== false
   const includeTopCustomers = options?.includeTopCustomers !== false
+  const includeLikelyChurnCustomers = options?.includeLikelyChurnCustomers !== false
+
   const granularity = params.granularity ?? 'day'
   const topLimit = params.limitTopCustomers ?? DEFAULT_TOP_LIMIT
+  const likelyLimit = params.limitLikelyChurnCustomers ?? DEFAULT_LIKELY_CHURN_LIMIT
+  const likelyOffset = params.offsetLikelyChurnCustomers ?? 0
 
   const timeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
 
   if (timeslotIds.length === 0) {
     return {
       summary: { totalBookings: 0, uniqueCustomers: 0, grossVolumeCents: 0 },
-      bookingsOverTime: densifyBookingsOverTime(new Map(), {
-        dateFrom: params.dateFrom,
-        dateTo: params.dateTo,
-        granularity,
-      }),
-      topCustomers: [],
+      bookingsOverTime: includeBookingsOverTime
+        ? densifyBookingsOverTime(new Map(), {
+            dateFrom: params.dateFrom,
+            dateTo: params.dateTo,
+            granularity,
+          })
+        : [],
+      topCustomers: includeTopCustomers ? [] : [],
+      likelyChurnCustomers: [],
+      likelyChurnCustomersTotal: 0,
     }
   }
 
@@ -162,71 +206,390 @@ export async function getAnalyticsDashboardBundle(
     ymdIanaMode = { kind: 'per-tenant', defaultIana: defaultTz }
   }
 
+  type ChurnAgg = {
+    /** Confirmed bookings in the last 7 days (ending at params.dateTo, inclusive). */
+    recentBookings: number
+    /** Confirmed bookings in the "this week" window starting on Wednesday (Thu+ only). */
+    recentBookingsThisWeek: number
+    priorBookings: number
+    /** Confirmed bookings per day in the churn trend window (length = CHURN_TREND_WINDOW_DAYS). */
+    dayCounts: number[]
+  }
+
   let totalBookings = 0
-  const uniqueUserIds = new Set<number>()
-  const timeBucket = new Map<string, number>()
-  const byUser = new Map<number, number>()
+  const uniqueUserIds = includeSummary ? new Set<number>() : new Set<number>()
+  const timeBucket = includeBookingsOverTime ? new Map<string, number>() : new Map<string, number>()
+  const byUser = includeTopCustomers ? new Map<number, number>() : new Map<number, number>()
+  const churnAggByUser = includeLikelyChurnCustomers ? new Map<number, ChurnAgg>() : new Map<number, ChurnAgg>()
+  const churnAggTenantIdsByUser = includeLikelyChurnCustomers ? new Map<number, Set<number>>() : new Map<number, Set<number>>()
+
+  // Churn heuristic windows:
+  // - eligibility (recency):
+  //   * always: include users with no confirmed booking in the previous 7 days
+  //   * after Wednesday: also include users with no confirmed booking in the previous 4 days
+  // - trend decline: last ~30 days ending at params.dateTo (inclusive)
+  const dayOfWeek = new Date(`${params.dateTo}T00:00:00.000Z`).getUTCDay() // Sun=0 ... Sat=6
+  const inactivityFromYmd7 = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
+  const pastWednesday = dayOfWeek > 3 // Thu+
+  const cutoffWednesdayYmd = pastWednesday ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3)) : null
+  // For "Last check-in date", when today is Wednesday or later, ensure the earliest cutoff
+  // is the date 4 days before the current week's Wednesday.
+  // (e.g. Fri May 15 => current week Wed May 13 => cutoff May 9)
+  const todayIsWedOrLater = dayOfWeek >= 3 // Wed=3
+  const thisWeekWednesdayYmd = todayIsWedOrLater ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3)) : null
+  const lastCheckInCutoffYmd = thisWeekWednesdayYmd != null ? shiftYmdUtc(thisWeekWednesdayYmd, -4) : inactivityFromYmd7
+  const churnFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_TREND_WINDOW_DAYS - 1))
+
+  const needTimeslotYmd = includeBookingsOverTime || includeLikelyChurnCustomers
 
   for (const idChunk of chunkIds(timeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
     const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
-    const [timeslotYmdById, countResult, docsResult] = await Promise.all([
-      loadTimeslotCalendarYmdById(payload, idChunk, ymdIanaMode),
-      payload.count({
-        collection: 'bookings',
-        where,
-        overrideAccess: true,
-      }),
-      payload.find({
-        collection: 'bookings',
-        where,
-        limit: MAX_BOOKINGS_PER_CHUNK,
-        depth: 0,
-        select: { user: true, timeslot: true },
-        overrideAccess: true,
-      }),
+    const timeslotYmdPromise = needTimeslotYmd
+      ? loadTimeslotCalendarInfoById(payload, idChunk, ymdIanaMode)
+      : Promise.resolve({ ymdById: new Map<number, string | null>(), tenantById: new Map<number, number | null>() })
+
+    const countPromise = includeSummary
+      ? payload.count({
+          collection: 'bookings',
+          where,
+          overrideAccess: true,
+        })
+      : Promise.resolve({ totalDocs: 0 })
+
+    const docsPromise = payload.find({
+      collection: 'bookings',
+      where,
+      limit: MAX_BOOKINGS_PER_CHUNK,
+      depth: 0,
+      select: { user: true, timeslot: true },
+      overrideAccess: true,
+    })
+
+    const [timeslotInfo, countResult, docsResult] = await Promise.all([
+      timeslotYmdPromise,
+      countPromise,
+      docsPromise,
     ])
 
-    totalBookings += countResult.totalDocs ?? 0
+    if (includeSummary) totalBookings += countResult.totalDocs ?? 0
 
     for (const doc of docsResult.docs) {
       const d = doc as { user?: number | { id: number }; timeslot?: number | { id?: number } }
 
       const uid = bookingUserId(d)
       if (uid !== null) {
-        uniqueUserIds.add(uid)
-        if (includeTopCustomers) {
-          byUser.set(uid, (byUser.get(uid) ?? 0) + 1)
-        }
+        if (includeSummary) uniqueUserIds.add(uid)
+        if (includeTopCustomers) byUser.set(uid, (byUser.get(uid) ?? 0) + 1)
       }
+
+      if (!needTimeslotYmd) continue
 
       const ts = d.timeslot
       const tsId = typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : ts
-      const ymd =
-        typeof tsId === 'number' ? timeslotYmdById.get(tsId) ?? null : null
-      if (ymd) {
+      const ymd = typeof tsId === 'number' ? timeslotInfo.ymdById.get(tsId) ?? null : null
+      if (!ymd) continue
+
+      if (includeBookingsOverTime) {
         const key = toDateKey(`${ymd}T12:00:00.000Z`, granularity)
         timeBucket.set(key, (timeBucket.get(key) ?? 0) + 1)
+      }
+
+      if (includeLikelyChurnCustomers) {
+        // Only score within the churn trend window (last ~30 days).
+        if (ymd < churnFromYmd || ymd > params.dateTo) continue
+        if (uid === null) continue
+
+        let agg = churnAggByUser.get(uid)
+        if (!agg) {
+          agg = {
+            recentBookings: 0,
+            recentBookingsThisWeek: 0,
+            priorBookings: 0,
+            dayCounts: Array(CHURN_TREND_WINDOW_DAYS).fill(0),
+          }
+          churnAggByUser.set(uid, agg)
+        }
+
+        // Eligibility recency buckets:
+        // - recentBookings = last 7 days
+        // - recentBookingsThisWeek = bookings since Wednesday of current week (Thu+ only)
+        if (ymd >= inactivityFromYmd7) agg.recentBookings += 1
+        else agg.priorBookings += 1
+
+        if (cutoffWednesdayYmd != null && ymd >= cutoffWednesdayYmd) agg.recentBookingsThisWeek += 1
+
+        // Also store daily counts for rolling 7d frequency computations.
+        if (includeLikelyChurnCustomers) {
+          const ymdToDayNumber = (v: string): number => {
+            const [yy, mm, dd] = v.split('-').map((x) => parseInt(x, 10))
+            if (yy == null || mm == null || dd == null) return 0
+            return Math.floor(Date.UTC(yy, mm - 1, dd) / 86400000)
+          }
+          const dayOffset = ymdToDayNumber(ymd) - ymdToDayNumber(churnFromYmd)
+          if (dayOffset >= 0 && dayOffset < CHURN_TREND_WINDOW_DAYS) {
+            agg.dayCounts[dayOffset]! += 1
+          }
+        }
+
+        const tenantIdForTimeslot = typeof tsId === 'number' ? timeslotInfo.tenantById.get(tsId) : null
+        if (tenantIdForTimeslot != null) {
+          let tenantSet = churnAggTenantIdsByUser.get(uid)
+          if (!tenantSet) {
+            tenantSet = new Set<number>()
+            churnAggTenantIdsByUser.set(uid, tenantSet)
+          }
+          tenantSet.add(tenantIdForTimeslot)
+        }
       }
     }
   }
 
-  const bookingsOverTime = densifyBookingsOverTime(timeBucket, {
-    dateFrom: params.dateFrom,
-    dateTo: params.dateTo,
-    granularity,
-  })
-
-  const topCustomers = includeTopCustomers
-    ? await resolveTopCustomerRows(payload, byUser, topLimit)
+  const bookingsOverTime = includeBookingsOverTime
+    ? densifyBookingsOverTime(timeBucket, {
+        dateFrom: params.dateFrom,
+        dateTo: params.dateTo,
+        granularity,
+      })
     : []
+
+  const topCustomers = includeTopCustomers ? await resolveTopCustomerRows(payload, byUser, topLimit) : []
+
+  // Subscription-filter + score calculation (implemented after we fetch subscriptions
+  // to avoid per-user queries).
+  //
+  // Note: we keep an unrounded sort key (rawScore + supporting signals) to produce a
+  // more accurate ranking, while still returning the rounded `score` for display.
+  let scoredRowsWithUserNames: Array<{
+    userId: number
+    score: number
+    recentBookings: number
+    priorBookings: number
+    rawScore: number
+    recentRolling: number
+    avgEarlyRolling: number
+    declineRatioClamped: number
+    /** Most recent day index (within churn trend window) that has >=1 booking; -1 if none. */
+    lastActivityDayOffset: number
+  }> = []
+  if (includeLikelyChurnCustomers) {
+    const churnUserIds = Array.from(churnAggByUser.keys())
+    if (churnUserIds.length > 0) {
+      const statuses = ['active', 'past_due'] as const
+      const pageSize = 500
+      let page = 1
+      const subscribedUserIds = new Set<number>()
+
+      // Paginate subscriptions to keep payload queries bounded.
+      for (;;) {
+        const res = await payload.find({
+          collection: 'subscriptions',
+          where: { and: [{ user: { in: churnUserIds } }, { status: { in: statuses } }] },
+          limit: pageSize,
+          page,
+          depth: 2,
+          select: { user: true, plan: true, status: true },
+          overrideAccess: true,
+        })
+
+        for (const doc of res.docs) {
+          const d = doc as unknown as { user?: number | { id: number }; plan?: unknown; status?: string }
+          const u = d.user
+          const uid = typeof u === 'object' && u !== null && 'id' in u ? (u as { id: number }).id : (typeof u === 'number' ? u : null)
+          if (uid == null) continue
+
+          const belongs =
+            params.tenantId != null
+              ? subscriptionBelongsToTenantContext(doc as any, params.tenantId)
+              : (() => {
+                  const tenantSet = churnAggTenantIdsByUser.get(uid)
+                  if (!tenantSet || tenantSet.size === 0) return true
+                  for (const tid of tenantSet) {
+                    if (subscriptionBelongsToTenantContext(doc as any, tid)) return true
+                  }
+                  return false
+                })()
+          if (belongs) subscribedUserIds.add(uid)
+        }
+
+        if (subscribedUserIds.size >= churnUserIds.length) break
+        if (page >= (res.totalPages ?? 1)) break
+        page += 1
+      }
+
+      scoredRowsWithUserNames = Array.from(churnAggByUser.entries())
+        .filter(([userId, agg]) => {
+          if (!subscribedUserIds.has(userId)) return false
+          // Only include users with no confirmed bookings in the previous 7 days.
+          // This prevents users who booked recently (e.g. Mon/Tue before this week's Wednesday)
+          // from appearing just because they fall outside the Wednesday-based "this week" window.
+          return agg.recentBookings === 0
+        })
+        .map(([userId, agg]) => {
+          // Rolling 7-day frequency trend:
+          // - recentRolling = bookings in the last 7 days
+          // - avgEarlyRolling = average bookings in rolling 7-day windows ending before that
+          const recentEndIndex = CHURN_TREND_WINDOW_DAYS - 1
+          const recentStartIndex = Math.max(0, recentEndIndex - 6)
+          const recentRolling = agg.dayCounts
+            .slice(recentStartIndex, recentEndIndex + 1)
+            .reduce((a, b) => a + b, 0)
+
+          const prefix: number[] = [0]
+          for (const c of agg.dayCounts) prefix.push(prefix[prefix.length - 1]! + c)
+          const rollingSumForEnd = (endIndex: number): number => prefix[endIndex + 1]! - prefix[endIndex + 1 - 7]!
+
+          const earlyEndMin = 6
+          const earlyEndMax = recentEndIndex - 7 // inclusive
+          let earlyRollingTotal = 0
+          let earlyRollingCount = 0
+          for (let end = earlyEndMin; end <= earlyEndMax; end += 1) {
+            if (end + 1 - 7 < 0) continue
+            earlyRollingTotal += rollingSumForEnd(end)
+            earlyRollingCount += 1
+          }
+          const avgEarlyRolling = earlyRollingCount > 0 ? earlyRollingTotal / earlyRollingCount : 0
+
+          const lastActivityDayOffset = (() => {
+            // dayCounts is aligned to [churnFromYmd..params.dateTo]; higher offset == more recent.
+            for (let i = agg.dayCounts.length - 1; i >= 0; i -= 1) {
+              if (agg.dayCounts[i]! > 0) return i
+            }
+            return -1
+          })()
+
+          if (avgEarlyRolling <= 0) {
+            return {
+              userId,
+              score: 0,
+              recentBookings: agg.recentBookings,
+              priorBookings: agg.priorBookings,
+              rawScore: 0,
+              recentRolling,
+              avgEarlyRolling,
+              declineRatioClamped: 0,
+              lastActivityDayOffset,
+            }
+          }
+
+          const declineRatio = (avgEarlyRolling - recentRolling) / (avgEarlyRolling + 1)
+          const declineRatioClamped = clamp(declineRatio, 0, 1)
+          const inactivityBoost = recentRolling === 0 ? 1 : 0.5
+          const rawScore = declineRatioClamped * inactivityBoost
+          const score = Math.round(rawScore * 100)
+
+          return {
+            userId,
+            score,
+            recentBookings: agg.recentBookings,
+            priorBookings: agg.priorBookings,
+            rawScore,
+            recentRolling,
+            avgEarlyRolling,
+            declineRatioClamped,
+            lastActivityDayOffset,
+          }
+        })
+
+      scoredRowsWithUserNames.sort((a, b) => {
+        // Primary: show more recent timeslot activity higher.
+        if (b.lastActivityDayOffset !== a.lastActivityDayOffset) return b.lastActivityDayOffset - a.lastActivityDayOffset
+        // Tie-break: more likely churn first.
+        if (b.rawScore !== a.rawScore) return b.rawScore - a.rawScore
+        // Secondary tie-break: stronger decline signal.
+        if (b.declineRatioClamped !== a.declineRatioClamped) return b.declineRatioClamped - a.declineRatioClamped
+        // Then: less recent activity within the last 7 days (lower recentRolling implies more churn).
+        if (a.recentRolling !== b.recentRolling) return a.recentRolling - b.recentRolling
+        // Then: more history (prior bookings) to break remaining ties deterministically.
+        if (b.priorBookings !== a.priorBookings) return b.priorBookings - a.priorBookings
+        return a.userId - b.userId
+      })
+    }
+  }
+
+  const likelyChurnCustomersTotal = includeLikelyChurnCustomers ? scoredRowsWithUserNames.length : 0
+  const likelyChurnSlice = includeLikelyChurnCustomers
+    ? scoredRowsWithUserNames.slice(likelyOffset, likelyOffset + likelyLimit)
+    : []
+
+  let likelyChurnCustomers: LikelyChurnCustomerRow[] = []
+  if (includeLikelyChurnCustomers && likelyChurnSlice.length > 0) {
+    const userIds = likelyChurnSlice.map((r) => r.userId)
+
+        // "Last check-in date" = most recent confirmed booking timeslot date that is
+        // <= the eligibility cutoff (to avoid returning future lessons and to ensure
+        // the check-in is consistent with the "no booking this week/last 7 days" rule).
+    const lastCheckInDateByUserId = new Map<number, string | null>()
+
+    const maxAttempts = 10
+    for (const userId of userIds) {
+      let found: string | null = null
+
+        for (let page = 1; page <= maxAttempts; page += 1) {
+        const res = await payload.find({
+          collection: 'bookings',
+          where: { and: [{ user: { equals: userId } }, { status: { equals: 'confirmed' } }] },
+          depth: 0,
+          limit: 1,
+          page,
+          sort: '-updatedAt',
+          select: { timeslot: true },
+          overrideAccess: true,
+        })
+
+        const doc = res.docs[0] as unknown as { timeslot?: number | { id: number } } | undefined
+        const ts = doc?.timeslot
+        const tsId =
+          typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : (ts as number | undefined)
+        if (typeof tsId !== 'number' || !Number.isFinite(tsId)) continue
+
+        const info = await loadTimeslotCalendarInfoById(payload, [tsId], ymdIanaMode)
+        const ymd = info.ymdById.get(tsId) ?? null
+          // Ensure the check-in date shown on the churn table falls within the intended
+          // cutoff logic (timeslot date only).
+          if (ymd != null && ymd <= lastCheckInCutoffYmd) {
+          found = ymd
+          break
+        }
+      }
+
+      lastCheckInDateByUserId.set(userId, found)
+    }
+
+    const users = await payload.find({
+      collection: 'users',
+      where: { id: { in: userIds } },
+      depth: 0,
+      limit: userIds.length,
+      select: { id: true, name: true, email: true },
+      overrideAccess: true,
+    })
+
+    const userMap = new Map<number, string>()
+    for (const u of users.docs) {
+      const user = u as { id: number; name?: string | null; email?: string | null }
+      const label = user.name?.trim() || user.email || `User ${user.id}`
+      userMap.set(user.id, label)
+    }
+
+    likelyChurnCustomers = likelyChurnSlice.map((r) => ({
+      userId: r.userId,
+      score: r.score,
+      recentBookings: r.recentBookings,
+      priorBookings: r.priorBookings,
+      userName: userMap.get(r.userId),
+      lastCheckInDate: lastCheckInDateByUserId.get(r.userId) ?? null,
+    }))
+  }
 
   return {
     summary: {
-      totalBookings,
-      uniqueCustomers: uniqueUserIds.size,
+      totalBookings: includeSummary ? totalBookings : 0,
+      uniqueCustomers: includeSummary ? uniqueUserIds.size : 0,
       grossVolumeCents: 0,
     },
     bookingsOverTime,
     topCustomers,
+    likelyChurnCustomers,
+    likelyChurnCustomersTotal,
   }
 }

@@ -1,4 +1,6 @@
 const PAYLOAD_TENANT_COOKIE = 'payload-tenant'
+/** Admin branch filter (Payload `locations` document id). Same path/domain rules as {@link setPayloadTenantCookie}. */
+const PAYLOAD_LOCATION_COOKIE = 'payload-location'
 const TENANT_SLUG_COOKIE = 'tenant-slug'
 const TENANT_ID_COOKIE = 'tenant-id'
 const COOKIE_MAX_AGE_YEAR = 60 * 60 * 24 * 365
@@ -127,6 +129,7 @@ export function deleteTenantCookie(getCookieDomain?: () => string | undefined): 
 
 export function deleteTenantContextCookies(getCookieDomain?: () => string | undefined): void {
   deleteCookieEverywhere(PAYLOAD_TENANT_COOKIE, getCookieDomain)
+  deleteCookieEverywhere(PAYLOAD_LOCATION_COOKIE, getCookieDomain)
   deleteCookieEverywhere(TENANT_SLUG_COOKIE, getCookieDomain)
   deleteCookieEverywhere(TENANT_ID_COOKIE, getCookieDomain)
 }
@@ -134,6 +137,54 @@ export function deleteTenantContextCookies(getCookieDomain?: () => string | unde
 export function getTenantCookie(): string | undefined {
   if (typeof document === 'undefined') return undefined
   const match = document.cookie.match(new RegExp(`(?:^|; )${PAYLOAD_TENANT_COOKIE}=([^;]*)`))
+  return match?.[1] != null ? decodeURIComponent(match[1]) : undefined
+}
+
+/**
+ * Sets the admin branch filter cookie (`payload-location`). Empty / undefined clears it.
+ * Uses the same path clearing + canonical `Path=/` strategy as {@link setPayloadTenantCookie}.
+ */
+export function setPayloadLocationCookie(
+  locationId: string | undefined,
+  getCookieDomain?: () => string | undefined,
+): void {
+  if (typeof document === 'undefined') return
+  const encoded = locationId != null && locationId !== '' ? encodeURIComponent(locationId) : ''
+  const isSet = encoded !== ''
+  const rootHostname = getRootHostnameFromEnv()
+  const rootDomain = getRootCookieDomainFromEnv()
+  const defaultDomain = getPayloadTenantCookieDomainDefault()
+  const configuredDomain = getCookieDomain?.()
+  const currentHostname = window.location.hostname
+  const domain =
+    configuredDomain ??
+    defaultDomain ??
+    (rootHostname && currentHostname === rootHostname ? rootDomain : undefined)
+
+  const domainsToClear = [undefined, domain, rootDomain].filter(
+    (d, idx, arr) => arr.indexOf(d) === idx,
+  ) as Array<string | undefined>
+  const pathsToClear = getCookiePathsToClear()
+  for (const d of domainsToClear) {
+    const domainAttr = d ? `; Domain=${d}` : ''
+    for (const path of pathsToClear) {
+      document.cookie = `${PAYLOAD_LOCATION_COOKIE}=; Path=${path}; Max-Age=0; SameSite=Lax${domainAttr}`
+    }
+  }
+
+  if (!isSet) return
+
+  const domainAttr = domain ? `; Domain=${domain}` : ''
+  document.cookie = `${PAYLOAD_LOCATION_COOKIE}=${encoded}; Path=/; Max-Age=${COOKIE_MAX_AGE_YEAR}; SameSite=Lax${domainAttr}`
+}
+
+export function deletePayloadLocationCookie(getCookieDomain?: () => string | undefined): void {
+  deleteCookieEverywhere(PAYLOAD_LOCATION_COOKIE, getCookieDomain)
+}
+
+export function getPayloadLocationCookie(): string | undefined {
+  if (typeof document === 'undefined') return undefined
+  const match = document.cookie.match(new RegExp(`(?:^|; )${PAYLOAD_LOCATION_COOKIE}=([^;]*)`))
   return match?.[1] != null ? decodeURIComponent(match[1]) : undefined
 }
 

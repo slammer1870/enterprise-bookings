@@ -140,7 +140,7 @@ export const TimeslotAdmin = async (props: {
   if (
     hasTenantsCollection &&
     !checkRole(["super-admin"], user as unknown as SharedUser) &&
-    checkRole(["admin", "staff"], user as unknown as SharedUser)
+    checkRole(["admin", "staff", "location-manager"], user as unknown as SharedUser)
   ) {
     const rawCtx = req.context?.tenant;
     const missingTenantContext =
@@ -181,6 +181,24 @@ export const TimeslotAdmin = async (props: {
       } catch (error) {
         console.error("Error resolving tenant for timeslots admin view:", error);
       }
+    }
+  }
+
+  // Forward admin cookies to the local req so that access controls (timeslotsRead, etc.) can
+  // read `payload-tenant` and `payload-location` for list filtering. createLocalReq does NOT
+  // forward browser cookies, so we build a synthetic cookie store from Next.js cookies() here.
+  {
+    const adminCookieMap = new Map<string, string>();
+    if (payloadTenant) adminCookieMap.set("payload-tenant", payloadTenant);
+    const rawPayloadLocation = cookieStore.get("payload-location")?.value;
+    if (rawPayloadLocation != null) adminCookieMap.set("payload-location", rawPayloadLocation);
+    if (adminCookieMap.size > 0) {
+      (req as any).cookies = {
+        get: (name: string) => {
+          const v = adminCookieMap.get(name);
+          return v !== undefined ? { value: v } : undefined;
+        },
+      };
     }
   }
 

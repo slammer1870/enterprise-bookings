@@ -5,7 +5,7 @@ import { seoPlugin } from '@payloadcms/plugin-seo'
 import { searchPlugin } from '@payloadcms/plugin-search'
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant'
 import { sentryPlugin } from '@payloadcms/plugin-sentry'
-import type { Field, Payload } from 'payload'
+import type { Config, Field, Payload } from 'payload'
 import { Plugin } from 'payload'
 import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
@@ -19,9 +19,16 @@ import { filterSchedulerGlobal } from './filter-scheduler-global'
 import { clearableTenantPlugin } from '@repo/plugin-clearable-tenant'
 import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectForPayments'
 import { validateEventTypeNameUniqueWithinTenant } from '@/hooks/validateEventTypeNameUniqueWithinTenant'
+import { validateTimeslotBranchMatchesTenant } from '@/hooks/validateTimeslotBranchMatchesTenant'
+import { withTimeslotBranchFields } from '@/fields/timeslotBranchFields'
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { timeslotsRead } from '@/access/timeslotsRead'
+import {
+  timeslotsCreateAccess,
+  timeslotsDeleteAccess,
+  timeslotsUpdateAccess,
+} from '@/access/timeslotsWriteAccess'
 import {
   tenantScopedCreate,
   tenantScopedUpdate,
@@ -351,11 +358,15 @@ export const plugins: Plugin[] = [
     slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
     timeslotOverrides: {
       versions: false,
-      // Analytics + schedule: range on startTime, often with tenant equality (leading column covers date-only scans too).
-      indexes: [{ fields: ['startTime', 'tenant'] }],
+      indexes: [
+        { fields: ['startTime', 'tenant'] },
+        { fields: ['tenant', 'branch', 'startTime'] },
+      ],
       fields: ({ defaultFields }) =>
-        withExplicitTenantSyncFields(defaultFields).map((f) =>
-          'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
+        withTimeslotBranchFields(
+          withExplicitTenantSyncFields(defaultFields).map((f) =>
+            'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
+          ),
         ),
       hooks: ({ defaultHooks }) => {
         const d = defaultHooks as Record<string, unknown>
@@ -368,6 +379,7 @@ export const plugins: Plugin[] = [
                 operation,
                 req,
               }),
+            validateTimeslotBranchMatchesTenant,
             ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
           ],
         }
@@ -375,18 +387,9 @@ export const plugins: Plugin[] = [
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
         read: timeslotsRead, // Preserve tenant scoping while hiding past/inactive timeslots from public schedule
-        create: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedCreate(args)
-        },
-        update: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedUpdate(args)
-        },
-        delete: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedDelete(args)
-        },
+        create: timeslotsCreateAccess,
+        update: timeslotsUpdateAccess,
+        delete: timeslotsDeleteAccess,
       }),
     },
     eventTypesOverrides: {
@@ -556,7 +559,11 @@ export const plugins: Plugin[] = [
       }),
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        read: tenantScopedReadFiltered, // Filter by tenant for tenant-admins
+        // Use tenantScopedPublicReadStrict so location-managers (who need booking counts
+        // in the timeslots admin view) get a tenant-scoped Where clause rather than false.
+        // tenantScopedReadFiltered is intentionally denied for pure location-managers, so
+        // bookings must use this stricter-but-inclusive function instead.
+        read: tenantScopedPublicReadStrict,
         create: bookingCreateAccessWithPaymentValidation, // Step 3: payment validation (Connect required when payments enabled)
         update: bookingUpdateAccessWithPaymentValidation,
       }),
@@ -828,6 +835,7 @@ export const plugins: Plugin[] = [
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
       'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
+      locations: {}, // Phase 7: branches/sites per tenant; tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
       media: {}, // Tenant-scoped media uploads
       forms: {}, // Tenant-scoped for forms
@@ -837,7 +845,9 @@ export const plugins: Plugin[] = [
       // optional tenant (null = root site navbar/footer) and clear it in the admin form.
       navbar: { isGlobal: true, customTenantField: true },
       footer: { isGlobal: true, customTenantField: true },
-      scheduler: { isGlobal: true },
+      // scheduler is NOT isGlobal — tenants may have one scheduler per branch (location).
+      // The unique index on scheduler.tenant_id was dropped in migration 20260614_scheduler_multi_location.
+      scheduler: {},
       // NOTE: users collection is NOT included here to avoid automatic tenant scoping
       // The plugin will still add a 'tenants' field (array) to users automatically
       // We use:
@@ -859,6 +869,7 @@ export const plugins: Plugin[] = [
       'drop-ins',
       'plans',
       'discount-codes',
+      'locations',
       'subscriptions',
       'media',
       'forms',
@@ -881,6 +892,7 @@ export const plugins: Plugin[] = [
       'drop-ins',
       'plans',
       'discount-codes',
+      'locations',
       'subscriptions',
       'media',
       'forms',
@@ -909,4 +921,23 @@ export const plugins: Plugin[] = [
     ]
   })(),
   staffRosterUsersFieldAccessPlugin(),
+  // Append the branch/site selector AFTER the tenant selector in beforeNavLinks.
+  // The multi-tenant plugin appends TenantSelector to beforeNavLinks, so anything already in
+  // the base config ends up above it. Running this plugin last guarantees the correct order:
+  // NavHomeLink → TenantSelector → AdminBranchSiteSelector → (nav links).
+  (config: Config): Config => {
+    const admin = config.admin ?? {}
+    const components = admin.components ?? {}
+    const existing = Array.isArray(components.beforeNavLinks) ? components.beforeNavLinks : []
+    return {
+      ...config,
+      admin: {
+        ...admin,
+        components: {
+          ...components,
+          beforeNavLinks: [...existing, '@/components/admin/AdminBranchSiteSelector'],
+        },
+      },
+    }
+  },
 ]

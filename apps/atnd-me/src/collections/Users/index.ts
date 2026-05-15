@@ -3,7 +3,7 @@ import { checkRole, getEffectiveUserRoles } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
 import { authenticated } from '../../access/authenticated'
-import { getUserTenantIds } from '../../access/tenant-scoped'
+import { getTenantMembershipIdsFromUserDoc, getUserTenantIds } from '../../access/tenant-scoped'
 import { userSensitiveFieldReadForStaffRoster } from '../../access/staffRosterUserFieldAccess'
 import {
   userTenantRead,
@@ -88,7 +88,7 @@ export const Users: CollectionConfig = {
         }
         return data
       },
-      // Prevent non–super-admins from granting super-admin. Tenant org admins may assign `user`, `admin`, and `staff` only.
+      // Prevent non–super-admins from granting super-admin. Tenant org admins may assign `user`, `admin`, `staff`, and `location-manager` only.
       ({ data, req, originalDoc, operation }) => {
         if (!data) return data
         if (req.user && isAdmin(req.user)) return data
@@ -106,7 +106,10 @@ export const Users: CollectionConfig = {
               ...new Set(
                 raw.filter(
                   (r): r is string =>
-                    typeof r === 'string' && r !== 'admin' && r !== 'super-admin',
+                    typeof r === 'string' &&
+                    r !== 'admin' &&
+                    r !== 'super-admin' &&
+                    r !== 'location-manager',
                 ),
               ),
             ]
@@ -114,7 +117,7 @@ export const Users: CollectionConfig = {
           }
         }
 
-        const TENANT_ASSIGNABLE_ROLES = new Set(['user', 'admin', 'staff'])
+        const TENANT_ASSIGNABLE_ROLES = new Set(['user', 'admin', 'staff', 'location-manager'])
 
         if (req.user && isTenantAdmin(req.user) && d.role !== undefined) {
           const desiredRaw = Array.isArray(d.role) ? d.role : [d.role]
@@ -185,6 +188,29 @@ export const Users: CollectionConfig = {
           }
           return false
         },
+      },
+    },
+    {
+      name: 'locations',
+      type: 'relationship',
+      relationTo: 'locations',
+      hasMany: true,
+      admin: {
+        description:
+          'Branches this user manages (location manager). Org admins assign these; managers cannot self-assign.',
+      },
+      access: {
+        read: userSensitiveFieldReadForStaffRoster,
+        update: ({ req: { user } }) => {
+          if (!user) return false
+          return isAdmin(user) || isTenantAdmin(user)
+        },
+      },
+      filterOptions: ({ data, req }) => {
+        if (req.user && (isAdmin(req.user) || isTenantAdmin(req.user))) return true
+        const tenantIds = getTenantMembershipIdsFromUserDoc(data as SharedUser)
+        if (!tenantIds.length) return false
+        return { tenant: { in: tenantIds } }
       },
     },
     // Note: 'tenants' field is automatically added by @payloadcms/plugin-multi-tenant
