@@ -145,29 +145,45 @@ export const AnalyticsDashboardClient: React.FC<{
 
     const run = async () => {
       try {
-        const mainUrl = `${origin}/api/analytics?${common}`
+        const empty: AnalyticsData = {
+          summary: { totalBookings: 0, uniqueCustomers: 0, grossVolumeCents: 0 },
+          bookingsOverTime: [],
+          topCustomers: [],
+          likelyChurnCustomers: [],
+          likelyChurnCustomersTotal: 0,
+          summaryPrevious: undefined,
+          bookingsOverTimePrevious: undefined,
+        }
+        setData(empty)
+
+        // 1) Chart + summary first (critical path for UX)
+        const chartParams = new URLSearchParams(common)
+        chartParams.set('onlyChart', '1')
+        const chartUrl = `${origin}/api/analytics?${chartParams}`
+
+        let prevRaw: unknown = null
         if (comparePrevious) {
           const prevParams = new URLSearchParams(common)
           prevParams.set('previousPeriodOnly', 'true')
           const prevUrl = `${origin}/api/analytics?${prevParams}`
-          const [mainRaw, prevRaw] = await Promise.all([loadJson(mainUrl), loadJson(prevUrl)])
-          if (cancelled) return
-          const mainBody = mainRaw as AnalyticsData
-          const prevBody = prevRaw as Pick<AnalyticsData, 'summaryPrevious' | 'bookingsOverTimePrevious'>
-          setData({
-            ...mainBody,
-            summaryPrevious: prevBody.summaryPrevious,
-            bookingsOverTimePrevious: prevBody.bookingsOverTimePrevious,
-          })
-        } else {
-          const mainBody = (await loadJson(mainUrl)) as AnalyticsData
-          if (cancelled) return
-          setData({
-            ...mainBody,
-            summaryPrevious: undefined,
-            bookingsOverTimePrevious: undefined,
-          })
+          prevRaw = await loadJson(prevUrl)
         }
+
+        const mainRaw = await loadJson(chartUrl)
+        if (cancelled) return
+
+        const mainBody = mainRaw as Pick<AnalyticsData, 'summary' | 'bookingsOverTime'>
+        setData((prev) => {
+          if (!prev) return prev
+          const prevBody = (prevRaw as Pick<AnalyticsData, 'summaryPrevious' | 'bookingsOverTimePrevious'>) ?? null
+          return {
+            ...prev,
+            summary: mainBody.summary,
+            bookingsOverTime: mainBody.bookingsOverTime,
+            summaryPrevious: comparePrevious ? prevBody?.summaryPrevious : undefined,
+            bookingsOverTimePrevious: comparePrevious ? prevBody?.bookingsOverTimePrevious : undefined,
+          }
+        })
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load analytics')
       } finally {
@@ -176,6 +192,53 @@ export const AnalyticsDashboardClient: React.FC<{
     }
 
     void run()
+
+    // 2) Top customers (non-critical; render as soon as ready)
+    ;(async () => {
+      try {
+        const topParams = new URLSearchParams(common)
+        topParams.set('onlyTopCustomers', '1')
+        const topUrl = `${origin}/api/analytics?${topParams}`
+        const topRaw = await loadJson(topUrl)
+        const body = topRaw as { topCustomers?: AnalyticsData['topCustomers'] }
+        if (cancelled) return
+        setData((prev) => {
+          if (!prev) return prev
+          return { ...prev, topCustomers: body.topCustomers ?? [] }
+        })
+      } catch (e: unknown) {
+        // Keep existing chart render; don't hard-fail the whole dashboard.
+        if (!cancelled) console.error('Failed to load top customers', e)
+      }
+    })()
+
+    // 3) Likely churn (non-critical; render as soon as ready)
+    ;(async () => {
+      try {
+        const churnParams = new URLSearchParams(common)
+        churnParams.set('onlyLikelyChurn', '1')
+        churnParams.set('limitLikelyChurnCustomers', '10')
+        churnParams.set('offsetLikelyChurnCustomers', '0')
+        const churnUrl = `${origin}/api/analytics?${churnParams}`
+        const churnRaw = await loadJson(churnUrl)
+        const body = churnRaw as {
+          likelyChurnCustomers?: AnalyticsData['likelyChurnCustomers']
+          likelyChurnCustomersTotal?: number
+        }
+        if (cancelled) return
+        setData((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            likelyChurnCustomers: body.likelyChurnCustomers ?? [],
+            likelyChurnCustomersTotal: body.likelyChurnCustomersTotal ?? 0,
+          }
+        })
+      } catch (e: unknown) {
+        if (!cancelled) console.error('Failed to load likely churn', e)
+      }
+    })()
+
     return () => {
       cancelled = true
     }

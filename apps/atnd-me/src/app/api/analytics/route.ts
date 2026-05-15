@@ -84,6 +84,8 @@ export async function GET(request: NextRequest) {
       ? parseInt(searchParams.get('limitTopCustomers')!, 10)
       : undefined
     const onlyLikelyChurn = searchParams.get('onlyLikelyChurn') === '1'
+    const onlyChart = searchParams.get('onlyChart') === '1'
+    const onlyTopCustomers = searchParams.get('onlyTopCustomers') === '1'
     const limitLikelyChurnCustomers = searchParams.get('limitLikelyChurnCustomers')
       ? parseInt(searchParams.get('limitLikelyChurnCustomers')!, 10)
       : undefined
@@ -223,6 +225,62 @@ export async function GET(request: NextRequest) {
           headers: { 'Content-Type': 'application/json' },
         },
       )
+    }
+
+    if (onlyChart) {
+      const params = {
+        dateFrom,
+        dateTo,
+        tenantId: effectiveTenantId ?? undefined,
+        branchId: branchId ?? undefined,
+        granularity,
+        limitTopCustomers,
+        limitLikelyChurnCustomers,
+        offsetLikelyChurnCustomers,
+      }
+
+      const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
+      const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
+
+      const { summary, bookingsOverTime } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
+        includeSummary: true,
+        includeBookingsOverTime: true,
+        includeTopCustomers: false,
+        includeLikelyChurnCustomers: false,
+      })
+
+      return new NextResponse(jsonStringifySafe({ summary, bookingsOverTime }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (onlyTopCustomers) {
+      const params = {
+        dateFrom,
+        dateTo,
+        tenantId: effectiveTenantId ?? undefined,
+        branchId: branchId ?? undefined,
+        granularity,
+        limitTopCustomers,
+        limitLikelyChurnCustomers,
+        offsetLikelyChurnCustomers,
+      }
+
+      const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
+      const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
+
+      const { topCustomers } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
+        includeSummary: false,
+        includeBookingsOverTime: false,
+        includeTopCustomers: true,
+        includeLikelyChurnCustomers: false,
+      })
+
+      return new NextResponse(jsonStringifySafe({ topCustomers }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
     if (onlyLikelyChurn) {
