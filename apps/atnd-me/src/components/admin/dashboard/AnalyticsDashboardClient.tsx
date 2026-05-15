@@ -92,6 +92,7 @@ export const AnalyticsDashboardClient: React.FC<{
   const [error, setError] = useState<string | null>(null)
   const [loadingMoreChurn, setLoadingMoreChurn] = useState(false)
   const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null)
+  const [iframeLoaded, setIframeLoaded] = useState(false)
   /** Default:7 days — lighter first load than 30/91 day windows. */
   const [presetIndex, setPresetIndex] = useState(0)
   const [comparePrevious, setComparePrevious] = useState(false)
@@ -472,7 +473,7 @@ export const AnalyticsDashboardClient: React.FC<{
                             <td style={{ padding: '0.5rem 0.75rem' }}>
                               <button
                                 type="button"
-                                onClick={() => setActiveCustomerId(row.userId)}
+                                onClick={() => { setIframeLoaded(false); setActiveCustomerId(row.userId) }}
                                 style={{
                                   padding: 0,
                                   border: 'none',
@@ -546,7 +547,7 @@ export const AnalyticsDashboardClient: React.FC<{
                               <td style={{ padding: '0.5rem 0.75rem' }}>
                                 <button
                                   type="button"
-                                  onClick={() => setActiveCustomerId(row.userId)}
+                                  onClick={() => { setIframeLoaded(false); setActiveCustomerId(row.userId) }}
                                   style={{
                                     padding: 0,
                                     border: 'none',
@@ -665,10 +666,43 @@ export const AnalyticsDashboardClient: React.FC<{
                     Close
                   </button>
                 </div>
-                <iframe
-                  src={customerEditUrl}
-                  style={{ width: '100%', height: '100%', border: 'none', background: 'white' }}
-                />
+                <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+                  {!iframeLoaded && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.75rem',
+                        background: 'var(--theme-elevation-0, #fff)',
+                        zIndex: 1,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          border: '3px solid var(--theme-elevation-200, #e0e0e0)',
+                          borderTopColor: 'var(--theme-text, #333)',
+                          animation: 'spin 0.75s linear infinite',
+                        }}
+                      />
+                      <span style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
+                        Loading customer…
+                      </span>
+                      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  )}
+                  <iframe
+                    src={customerEditUrl}
+                    onLoad={() => setIframeLoaded(true)}
+                    style={{ width: '100%', height: '100%', border: 'none', background: 'white', display: 'block' }}
+                  />
+                </div>
               </div>
             </div>,
             document.body,
