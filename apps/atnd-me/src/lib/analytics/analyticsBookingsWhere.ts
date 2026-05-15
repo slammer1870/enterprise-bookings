@@ -22,6 +22,17 @@ const TIMESLOT_PAGE_SIZE = 1000
 /** Keep `in` lists bounded for Postgres parameter limits. */
 export const TIMESLOT_ID_IN_CHUNK_SIZE = 1000
 
+type TimeslotIdsCacheEntry = {
+  expiresAtMs: number
+  ids: number[]
+}
+
+// Small in-memory cache to avoid recomputing timeslot resolution for closely-spaced
+// analytics dashboard requests (e.g. async calls: chart + top customers + churn).
+// Kept deliberately short-lived to avoid stale behavior if tenant timezones change.
+const TIMESLOT_IDS_CACHE_TTL_MS = 60_000
+const timeslotIdsCache = new Map<string, TimeslotIdsCacheEntry>()
+
 const YMD_ONLY = /^\d{4}-\d{2}-\d{2}$/
 
 export function getDefaultTimeZoneForAnalytics(payload: Payload): string {
@@ -157,6 +168,12 @@ export async function resolveTimeslotIdsForAnalytics(
   const { dateFrom, dateTo, tenantId, branchId } = params
   const ids: number[] = []
 
+  const cacheKey = `${tenantId ?? 'all'}:${branchId ?? 'none'}:${dateFrom}:${dateTo}`
+  const cached = timeslotIdsCache.get(cacheKey)
+  if (cached && cached.expiresAtMs > Date.now()) {
+    return cached.ids
+  }
+
   const defaultTz = getDefaultTimeZoneForAnalytics(payload)
   const paddedFrom = padIsoDateYmd(dateFrom, -1)
   const paddedTo = padIsoDateYmd(dateTo, 1)
@@ -232,6 +249,7 @@ export async function resolveTimeslotIdsForAnalytics(
     if (res.docs.length < TIMESLOT_PAGE_SIZE || page >= (res.totalPages ?? 1)) break
     page += 1
   }
+  timeslotIdsCache.set(cacheKey, { expiresAtMs: Date.now() + TIMESLOT_IDS_CACHE_TTL_MS, ids })
   return ids
 }
 
