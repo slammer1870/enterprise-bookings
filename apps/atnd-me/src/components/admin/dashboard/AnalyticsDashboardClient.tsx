@@ -31,11 +31,20 @@ type Summary = {
 
 type BookingsOverTimeRow = { date: string; count: number }
 type TopCustomerRow = { userId: number; count: number; userName?: string }
+type LikelyChurnCustomerRow = {
+  userId: number
+  score: number
+  userName?: string
+  recentBookings: number
+  priorBookings: number
+}
 
 type AnalyticsData = {
   summary: Summary
   bookingsOverTime: BookingsOverTimeRow[]
   topCustomers: TopCustomerRow[]
+  likelyChurnCustomers?: LikelyChurnCustomerRow[]
+  likelyChurnCustomersTotal?: number
   summaryPrevious?: Summary
   bookingsOverTimePrevious?: BookingsOverTimeRow[]
 }
@@ -66,6 +75,7 @@ export const AnalyticsDashboardClient: React.FC<{
   const [data, setData] = useState<AnalyticsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [loadingMoreChurn, setLoadingMoreChurn] = useState(false)
   /** Default:7 days — lighter first load than 30/91 day windows. */
   const [presetIndex, setPresetIndex] = useState(0)
   const [comparePrevious, setComparePrevious] = useState(false)
@@ -160,6 +170,71 @@ export const AnalyticsDashboardClient: React.FC<{
       cancelled = true
     }
   }, [dateFromStr, dateToStr, comparePrevious, selectedTenantId])
+
+  const loadMoreLikelyChurn = async () => {
+    if (!data) return
+    if (loadingMoreChurn) return
+
+    const total = data.likelyChurnCustomersTotal ?? 0
+    const alreadyLoaded = data.likelyChurnCustomers?.length ?? 0
+    if (alreadyLoaded >= total) return
+
+    setLoadingMoreChurn(true)
+    setError(null)
+
+    try {
+      const dateTo = new Date()
+      const preset = PRESETS[Math.min(presetIndex, PRESETS.length - 1)] ?? PRESETS[0]
+      const dateFrom = new Date()
+      dateFrom.setDate(dateFrom.getDate() - preset.days)
+      const dateFromStrLocal = formatLocalYmd(dateFrom)
+      const dateToStrLocal = formatLocalYmd(dateTo)
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const common = new URLSearchParams({
+        dateFrom: dateFromStrLocal,
+        dateTo: dateToStrLocal,
+        onlyLikelyChurn: '1',
+        limitLikelyChurnCustomers: '10',
+        offsetLikelyChurnCustomers: String(alreadyLoaded),
+      })
+
+      if (selectedTenantId != null) common.set('tenantId', String(selectedTenantId))
+      if (selectedTenantId != null && selectedBranchId != null) common.set('branchId', String(selectedBranchId))
+
+      const url = `${origin}/api/analytics?${common}`
+      const res = await fetch(url, { credentials: 'include' })
+      if (!res.ok) {
+        let message =
+          res.status === 401 ? 'Unauthorized' : res.status === 403 ? 'Forbidden' : 'Failed to load analytics'
+        try {
+          const body = (await res.json()) as { error?: string }
+          if (typeof body?.error === 'string' && body.error) message = body.error
+        } catch {
+          /* non-JSON error response */
+        }
+        throw new Error(message)
+      }
+
+      const body = (await res.json()) as {
+        likelyChurnCustomers?: LikelyChurnCustomerRow[]
+        likelyChurnCustomersTotal?: number
+      }
+
+      setData((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          likelyChurnCustomers: [...(prev.likelyChurnCustomers ?? []), ...(body.likelyChurnCustomers ?? [])],
+          likelyChurnCustomersTotal: body.likelyChurnCustomersTotal ?? prev.likelyChurnCustomersTotal ?? 0,
+        }
+      })
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to load churn results')
+    } finally {
+      setLoadingMoreChurn(false)
+    }
+  }
 
   return (
     <Gutter>
@@ -279,38 +354,117 @@ export const AnalyticsDashboardClient: React.FC<{
             </div>
           </section>
 
-          {data.topCustomers.length > 0 && (
-            <section style={{ marginBottom: '1rem' }}>
-              <div
-                style={{
-                  border: '1px solid var(--theme-elevation-200, #eee)',
-                  borderRadius: '6px',
-                  overflow: 'hidden',
-                  backgroundColor: 'var(--theme-elevation-0)',
-                  padding: '1rem',
-                }}
-              >
-                <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Top customers</h2>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
-                      <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                      <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.topCustomers.map((row) => (
-                      <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                        <td style={{ padding: '0.5rem 0.75rem' }}>
-                          {row.userName ?? `User #${row.userId}`}
-                        </td>
-                        <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
+          {(data.topCustomers.length > 0 || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+                gap: '1rem',
+                marginBottom: '1rem',
+              }}
+            >
+              <section>
+                <div
+                  style={{
+                    border: '1px solid var(--theme-elevation-200, #eee)',
+                    borderRadius: '6px',
+                    overflow: 'hidden',
+                    backgroundColor: 'var(--theme-elevation-0)',
+                    padding: '1rem',
+                  }}
+                >
+                  <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Top customers</h2>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
+                        <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
+                        <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                    </thead>
+                    <tbody>
+                      {data.topCustomers.map((row) => (
+                        <tr
+                          key={row.userId}
+                          style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
+                        >
+                          <td style={{ padding: '0.5rem 0.75rem' }}>{row.userName ?? `User #${row.userId}`}</td>
+                          <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <section>
+                {(data.likelyChurnCustomers?.length ?? 0) > 0 && (
+                  <div
+                    style={{
+                      border: '1px solid var(--theme-elevation-200, #eee)',
+                      borderRadius: '6px',
+                      overflow: 'hidden',
+                      backgroundColor: 'var(--theme-elevation-0)',
+                      padding: '1rem',
+                    }}
+                  >
+                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Likely to churn</h2>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
+                          <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
+                          <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Churn score</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(data.likelyChurnCustomers ?? []).map((row) => (
+                          <tr
+                            key={row.userId}
+                            style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
+                          >
+                            <td style={{ padding: '0.5rem 0.75rem' }}>
+                              {row.userName ?? `User #${row.userId}`}
+                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
+                              {row.score}
+                            </td>
+                          </tr>
+                        ))}
+
+                        {(() => {
+                          const total = data.likelyChurnCustomersTotal ?? 0
+                          const loaded = data.likelyChurnCustomers?.length ?? 0
+                          const hasMore = loaded < total
+                          if (!hasMore) return null
+
+                          return (
+                            <tr style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
+                              <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => void loadMoreLikelyChurn()}
+                                  disabled={loadingMoreChurn}
+                                  style={{
+                                    width: '100%',
+                                    padding: '0.4rem 0.75rem',
+                                    borderRadius: 6,
+                                    border: '1px solid var(--theme-elevation-300, #ddd)',
+                                    background: 'transparent',
+                                    cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
+                                    opacity: loadingMoreChurn ? 0.6 : 1,
+                                  }}
+                                >
+                                  {loadingMoreChurn ? 'Loading…' : 'Load more'}
+                                </button>
+                              </td>
+                            </tr>
+                          )
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
           )}
         </>
       )}

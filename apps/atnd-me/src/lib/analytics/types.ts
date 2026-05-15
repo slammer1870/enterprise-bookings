@@ -12,6 +12,10 @@ export type AnalyticsQueryParams = AnalyticsDateRange & {
   branchId?: number | null
   granularity?: 'day' | 'week'
   limitTopCustomers?: number
+  /** Likely-to-churn results limit for pagination. */
+  limitLikelyChurnCustomers?: number
+  /** Likely-to-churn results offset for pagination. */
+  offsetLikelyChurnCustomers?: number
   /**
    * When set (e.g. by the analytics API route), skips re-querying timeslots so summary,
    * trend, and top-customers share one ID list.
@@ -33,6 +37,18 @@ export type BookingsOverTimeRow = {
 export type TopCustomerRow = {
   userId: number
   count: number
+  /** User name (or email fallback) when available */
+  userName?: string
+}
+
+export type LikelyChurnCustomerRow = {
+  userId: number
+  /** 0-100 heuristic score (higher = more likely). */
+  score: number
+  /** Confirmed bookings from the inactivity cutoff window (last 7 days by default). */
+  recentBookings: number
+  /** Confirmed bookings earlier in the churn trend window. */
+  priorBookings: number
   /** User name (or email fallback) when available */
   userName?: string
 }
