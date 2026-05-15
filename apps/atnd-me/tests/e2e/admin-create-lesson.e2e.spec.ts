@@ -77,6 +77,27 @@ async function chooseTenantInCreateModal(page: Page, tenantName: string) {
   await expect(dialog).not.toBeVisible({ timeout: 15000 })
 }
 
+async function chooseLocationInCreateModal(page: Page) {
+  const select = page.locator('select#select-location-create').first()
+  // The modal only mounts after the sidebar selector finishes loading locations.
+  // Wait briefly for it to appear; if it never appears, there's nothing to do.
+  await select.waitFor({ state: 'visible', timeout: 15_000 }).catch(() => null)
+  if (!(await select.isVisible().catch(() => false))) return
+
+  // Select the first real location option (skip the "Select a site" placeholder).
+  const options = select.locator('option')
+  const optionCount = await options.count()
+  if (optionCount <= 1) throw new Error('Expected at least one location option in create modal')
+
+  await select.selectOption({ index: 1 })
+
+  const continueButton = page.getByRole('button', { name: /continue/i }).first()
+  await expect(continueButton).toBeEnabled({ timeout: 10_000 })
+  await continueButton.click()
+  await page.waitForLoadState('load').catch(() => null)
+  await expect(select).not.toBeVisible({ timeout: 15_000 })
+}
+
 async function ensureTenantSelectedForCreate(
   page: Page,
   tenant: { id: number; name: string; slug?: string | null },
@@ -85,6 +106,8 @@ async function ensureTenantSelectedForCreate(
   const modalVisible = await dialog.isVisible().catch(() => false)
   if (modalVisible) {
     await chooseTenantInCreateModal(page, tenant.name)
+    // Tenant modal may open first; after continuing, location modal may appear.
+    await chooseLocationInCreateModal(page)
     return
   }
 
@@ -104,6 +127,11 @@ async function ensureTenantSelectedForCreate(
   await expect(
     getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant.name), 'i')).first(),
   ).toBeVisible({ timeout: 20_000 })
+
+  // If we ended up on a multi-location create route without a payload-location cookie,
+  // the location selection modal will be present and must be dismissed before interacting
+  // with the form.
+  await chooseLocationInCreateModal(page)
 }
 
 async function openTimeslotsDashboardForDate(
