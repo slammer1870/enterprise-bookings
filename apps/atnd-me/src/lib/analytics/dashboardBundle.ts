@@ -209,8 +209,8 @@ export async function getAnalyticsDashboardBundle(
   type ChurnAgg = {
     /** Confirmed bookings in the last 7 days (ending at params.dateTo, inclusive). */
     recentBookings: number
-    /** Confirmed bookings in the last 4 days (ending at params.dateTo, inclusive). */
-    recentBookings4: number
+    /** Confirmed bookings in the "this week" window starting on Wednesday (Thu+ only). */
+    recentBookingsThisWeek: number
     priorBookings: number
     /** Confirmed bookings per day in the churn trend window (length = CHURN_TREND_WINDOW_DAYS). */
     dayCounts: number[]
@@ -228,10 +228,11 @@ export async function getAnalyticsDashboardBundle(
   //   * always: include users with no confirmed booking in the previous 7 days
   //   * after Wednesday: also include users with no confirmed booking in the previous 4 days
   // - trend decline: last ~30 days ending at params.dateTo (inclusive)
-  const inactivityFromYmd7 = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
-  const inactivityFromYmd4 = shiftYmdUtc(params.dateTo, -3)
   const dayOfWeek = new Date(`${params.dateTo}T00:00:00.000Z`).getUTCDay() // Sun=0 ... Sat=6
+  const inactivityFromYmd7 = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
   const pastWednesday = dayOfWeek > 3 // Thu=4 ...
+  const cutoffWednesdayYmd = pastWednesday ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3)) : null
+  const cutoffEffectiveYmd = cutoffWednesdayYmd ?? inactivityFromYmd7
   const churnFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_TREND_WINDOW_DAYS - 1))
 
   const needTimeslotYmd = includeBookingsOverTime || includeLikelyChurnCustomers
@@ -297,7 +298,7 @@ export async function getAnalyticsDashboardBundle(
         if (!agg) {
           agg = {
             recentBookings: 0,
-            recentBookings4: 0,
+            recentBookingsThisWeek: 0,
             priorBookings: 0,
             dayCounts: Array(CHURN_TREND_WINDOW_DAYS).fill(0),
           }
@@ -306,11 +307,11 @@ export async function getAnalyticsDashboardBundle(
 
         // Eligibility recency buckets:
         // - recentBookings = last 7 days
-        // - recentBookings4 = last 4 days
+        // - recentBookingsThisWeek = bookings since Wednesday of current week (Thu+ only)
         if (ymd >= inactivityFromYmd7) agg.recentBookings += 1
         else agg.priorBookings += 1
 
-        if (ymd >= inactivityFromYmd4) agg.recentBookings4 += 1
+        if (cutoffWednesdayYmd != null && ymd >= cutoffWednesdayYmd) agg.recentBookingsThisWeek += 1
 
         // Also store daily counts for rolling 7d frequency computations.
         if (includeLikelyChurnCustomers) {
@@ -404,12 +405,12 @@ export async function getAnalyticsDashboardBundle(
       scoredRowsWithUserNames = Array.from(churnAggByUser.entries())
         .filter(([userId, agg]) => {
           if (!subscribedUserIds.has(userId)) return false
-          if (agg.recentBookings > 0) {
-            // After Wednesday: allow inclusion when there are no bookings in the previous 4 days.
-            // Otherwise, require no bookings in the previous 7 days.
-            return pastWednesday && agg.recentBookings4 === 0
+          if (cutoffWednesdayYmd != null) {
+            // Thu+: include only when there are no bookings in the current week window.
+            return agg.recentBookingsThisWeek === 0
           }
-          return true
+          // Mon-Tue-Wed: include only when there are no bookings in the previous 7 days.
+          return agg.recentBookings === 0
         })
         .map(([userId, agg]) => {
           // Rolling 7-day frequency trend:
@@ -465,37 +466,43 @@ export async function getAnalyticsDashboardBundle(
   if (includeLikelyChurnCustomers && likelyChurnSlice.length > 0) {
     const userIds = likelyChurnSlice.map((r) => r.userId)
 
-    // "Last check-in date" = date of the most recently updated confirmed booking's timeslot,
-    // expressed as the timeslot calendar YYYY-MM-DD in the dashboard's tenant time zone mode.
-    const lastTimeslotIdByUserId = new Map<number, number | null>()
-    const lastTimeslotIds: number[] = []
+        // "Last check-in date" = most recent confirmed booking timeslot date that is
+        // <= the eligibility cutoff (to avoid returning future lessons and to ensure
+        // the check-in is consistent with the "no booking this week/last 7 days" rule).
+    const lastCheckInDateByUserId = new Map<number, string | null>()
+
+    const maxAttempts = 10
     for (const userId of userIds) {
-      const res = await payload.find({
-        collection: 'bookings',
-        where: { and: [{ user: { equals: userId } }, { status: { equals: 'confirmed' } }] },
-        depth: 0,
-        limit: 1,
-        sort: '-updatedAt',
-        select: { timeslot: true },
-        overrideAccess: true,
-      })
+      let found: string | null = null
 
-      const doc = res.docs[0] as unknown as { timeslot?: number | { id: number } } | undefined
-      const ts = doc?.timeslot
-      const tsId =
-        typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : (ts as number | undefined)
-      if (typeof tsId === 'number' && Number.isFinite(tsId)) {
-        lastTimeslotIdByUserId.set(userId, tsId)
-        lastTimeslotIds.push(tsId)
-      } else {
-        lastTimeslotIdByUserId.set(userId, null)
+        for (let page = 1; page <= maxAttempts; page += 1) {
+        const res = await payload.find({
+          collection: 'bookings',
+          where: { and: [{ user: { equals: userId } }, { status: { equals: 'confirmed' } }] },
+          depth: 0,
+          limit: 1,
+          page,
+          sort: '-updatedAt',
+          select: { timeslot: true },
+          overrideAccess: true,
+        })
+
+        const doc = res.docs[0] as unknown as { timeslot?: number | { id: number } } | undefined
+        const ts = doc?.timeslot
+        const tsId =
+          typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : (ts as number | undefined)
+        if (typeof tsId !== 'number' || !Number.isFinite(tsId)) continue
+
+        const info = await loadTimeslotCalendarInfoById(payload, [tsId], ymdIanaMode)
+        const ymd = info.ymdById.get(tsId) ?? null
+          if (ymd != null && ymd <= cutoffEffectiveYmd) {
+          found = ymd
+          break
+        }
       }
-    }
 
-    const uniqueLastTimeslotIds = Array.from(new Set(lastTimeslotIds))
-    const lastTimeslotInfo = uniqueLastTimeslotIds.length
-      ? await loadTimeslotCalendarInfoById(payload, uniqueLastTimeslotIds, ymdIanaMode)
-      : { ymdById: new Map<number, string | null>(), tenantById: new Map<number, number | null>() }
+      lastCheckInDateByUserId.set(userId, found)
+    }
 
     const users = await payload.find({
       collection: 'users',
@@ -519,11 +526,7 @@ export async function getAnalyticsDashboardBundle(
       recentBookings: r.recentBookings,
       priorBookings: r.priorBookings,
       userName: userMap.get(r.userId),
-      lastCheckInDate: (() => {
-        const tsId = lastTimeslotIdByUserId.get(r.userId) ?? null
-        if (tsId == null) return null
-        return lastTimeslotInfo.ymdById.get(tsId) ?? null
-      })(),
+      lastCheckInDate: lastCheckInDateByUserId.get(r.userId) ?? null,
     }))
   }
 

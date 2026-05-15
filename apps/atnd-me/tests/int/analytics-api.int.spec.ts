@@ -261,6 +261,165 @@ describe('Analytics API (Phase 4)', () => {
     )
 
     it(
+      'likelyChurn lastCheckInDate is not a future lesson date',
+      async () => {
+        const dateTo = '2026-01-10'
+        const dateFrom = '2025-12-15'
+        const pastYmd = '2026-01-01'
+        const futureYmd = '2026-01-20'
+
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: `Analytics Churn Check-in ${Date.now()}`,
+            places: 10,
+            description: 'last check-in date test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+
+        const mkTimeslot = async (ymd: string) => {
+          const startTime = new Date(`${ymd}T12:00:00.000Z`)
+          const endTime = new Date(startTime)
+          endTime.setUTCHours(13)
+          return payload.create({
+            collection: 'timeslots',
+            data: {
+              date: startTime.toISOString(),
+              startTime: startTime.toISOString(),
+              endTime: endTime.toISOString(),
+              eventType: eventType.id,
+              tenant: testTenantId,
+              active: true,
+              lockOutTime: 0,
+            },
+            draft: false,
+            overrideAccess: true,
+          })
+        }
+
+        // Create past booking first, then future booking (so updatedAt on future is later).
+        const slotPast = await mkTimeslot(pastYmd)
+        const slotFuture = await mkTimeslot(futureYmd)
+
+        const bookingPast = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: slotPast.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        const bookingFuture = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: slotFuture.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        const plan = await payload.create({
+          collection: 'plans',
+          data: {
+            name: `Analytics Churn Plan ${Date.now()}`,
+            status: 'active',
+            tenant: testTenantId,
+            stripeProductId: `prod_churn_${Date.now()}`,
+            priceJSON: JSON.stringify({ id: `price_churn_${Date.now()}` }),
+          },
+          overrideAccess: true,
+          context: { skipStripeSync: true },
+        })
+
+        await payload.create({
+          collection: 'subscriptions' as import('payload').CollectionSlug,
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            plan: plan.id,
+            status: 'active',
+          } as Record<string, unknown>,
+          overrideAccess: true,
+          context: { skipStripeSync: true },
+        })
+
+        try {
+          const qs = new URLSearchParams({
+            dateFrom,
+            dateTo,
+            tenantId: String(testTenantId),
+            onlyLikelyChurn: '1',
+            limitLikelyChurnCustomers: '10',
+            offsetLikelyChurnCustomers: '0',
+          })
+
+          const res = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `http://localhost/api/analytics?${qs.toString()}`,
+            }),
+          )
+
+          expect(res.status).toBe(200)
+          const data = await res.json()
+          expect(data).toHaveProperty('likelyChurnCustomers')
+          expect(Array.isArray(data.likelyChurnCustomers)).toBe(true)
+
+          const row = data.likelyChurnCustomers.find((r: any) => r.userId === regularUser.id)
+          expect(row).toBeTruthy()
+          expect(row.lastCheckInDate).toBe(pastYmd)
+        } finally {
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { in: [bookingPast.id, bookingFuture.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { in: [slotPast.id, slotFuture.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'plans',
+              where: { id: { equals: plan.id } },
+              overrideAccess: true,
+              context: { skipStripeSync: true },
+            })
+            .catch(() => {})
+          // subscriptions are cleaned up by plan/tenant cascade if configured; best-effort:
+          await payload
+            .delete({
+              collection: 'subscriptions',
+              where: { user: { equals: regularUser.id } },
+              overrideAccess: true,
+              context: { skipStripeSync: true },
+            } as any)
+            .catch(() => {})
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'bookingsOverTime includes zero-count days between booked days (Sat / Sun / Mon in range)',
       async () => {
         const satD = new Date(Date.UTC(2046, 0, 1))

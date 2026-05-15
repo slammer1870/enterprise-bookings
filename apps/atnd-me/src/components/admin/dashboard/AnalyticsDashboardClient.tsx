@@ -4,6 +4,7 @@
  * Phase 4 – Analytics dashboard (client): fetches /api/analytics and renders summary + trend chart.
  */
 import React, { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { Banner, Gutter } from '@payloadcms/ui'
@@ -77,6 +78,7 @@ export const AnalyticsDashboardClient: React.FC<{
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingMoreChurn, setLoadingMoreChurn] = useState(false)
+  const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null)
   /** Default:7 days — lighter first load than 30/91 day windows. */
   const [presetIndex, setPresetIndex] = useState(0)
   const [comparePrevious, setComparePrevious] = useState(false)
@@ -171,6 +173,19 @@ export const AnalyticsDashboardClient: React.FC<{
       cancelled = true
     }
   }, [dateFromStr, dateToStr, comparePrevious, selectedTenantId])
+
+  useEffect(() => {
+    if (activeCustomerId == null) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActiveCustomerId(null)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+    }
+  }, [activeCustomerId])
+
+  const customerEditUrl = activeCustomerId != null ? `/admin/collections/users/${activeCustomerId}` : null
 
   const loadMoreLikelyChurn = async () => {
     if (!data) return
@@ -388,7 +403,23 @@ export const AnalyticsDashboardClient: React.FC<{
                           key={row.userId}
                           style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
                         >
-                          <td style={{ padding: '0.5rem 0.75rem' }}>{row.userName ?? `User #${row.userId}`}</td>
+                          <td style={{ padding: '0.5rem 0.75rem' }}>
+                            <button
+                              type="button"
+                              onClick={() => setActiveCustomerId(row.userId)}
+                              style={{
+                                padding: 0,
+                                border: 'none',
+                                background: 'transparent',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                color: 'var(--theme-text, #111)',
+                                textDecoration: 'underline',
+                              }}
+                            >
+                              {row.userName ?? `User #${row.userId}`}
+                            </button>
+                          </td>
                           <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
                         </tr>
                       ))}
@@ -423,7 +454,21 @@ export const AnalyticsDashboardClient: React.FC<{
                             style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
                           >
                             <td style={{ padding: '0.5rem 0.75rem' }}>
-                              {row.userName ?? `User #${row.userId}`}
+                              <button
+                                type="button"
+                                onClick={() => setActiveCustomerId(row.userId)}
+                                style={{
+                                  padding: 0,
+                                  border: 'none',
+                                  background: 'transparent',
+                                  textAlign: 'left',
+                                  cursor: 'pointer',
+                                  color: 'var(--theme-text, #111)',
+                                  textDecoration: 'underline',
+                                }}
+                              >
+                                {row.userName ?? `User #${row.userId}`}
+                              </button>
                             </td>
                             <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
                               {row.lastCheckInDate ?? '—'}
@@ -469,6 +514,73 @@ export const AnalyticsDashboardClient: React.FC<{
           )}
         </>
       )}
+
+      {activeCustomerId != null && customerEditUrl != null
+        ? createPortal(
+            <div
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+                padding: '1rem',
+              }}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Customer details"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setActiveCustomerId(null)
+              }}
+            >
+              <div
+                style={{
+                  width: 'min(1100px, 100%)',
+                  height: 'min(85vh, 900px)',
+                  background: 'var(--theme-elevation-0)',
+                  border: '1px solid var(--theme-elevation-200, #eee)',
+                  borderRadius: 6,
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+                onMouseDown={(e) => e.stopPropagation()}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 1rem',
+                    borderBottom: '1px solid var(--theme-elevation-200, #eee)',
+                  }}
+                >
+                  <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Customer</div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCustomerId(null)}
+                    style={{
+                      border: '1px solid var(--theme-elevation-300, #ddd)',
+                      background: 'transparent',
+                      borderRadius: 6,
+                      padding: '0.25rem 0.5rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Close
+                  </button>
+                </div>
+                <iframe
+                  src={customerEditUrl}
+                  style={{ width: '100%', height: '100%', border: 'none', background: 'white' }}
+                />
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </Gutter>
   )
 }
