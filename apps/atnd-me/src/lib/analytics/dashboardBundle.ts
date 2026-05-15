@@ -419,11 +419,9 @@ export async function getAnalyticsDashboardBundle(
       scoredRowsWithUserNames = Array.from(churnAggByUser.entries())
         .filter(([userId, agg]) => {
           if (!subscribedUserIds.has(userId)) return false
-          if (cutoffWednesdayYmd != null) {
-            // Thu+: include only when there are no bookings in the current week window.
-            return agg.recentBookingsThisWeek === 0
-          }
-          // Mon-Tue-Wed: include only when there are no bookings in the previous 7 days.
+          // Only include users with no confirmed bookings in the previous 7 days.
+          // This prevents users who booked recently (e.g. Mon/Tue before this week's Wednesday)
+          // from appearing just because they fall outside the Wednesday-based "this week" window.
           return agg.recentBookings === 0
         })
         .map(([userId, agg]) => {
