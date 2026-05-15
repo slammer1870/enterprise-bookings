@@ -65,6 +65,13 @@ function formatLocalYmd(d: Date): string {
   return `${y}-${m}-${day}`
 }
 
+function formatDdMmYyyy(ymd: string | null | undefined): string {
+  if (!ymd) return '—'
+  const [y, m, d] = ymd.split('-')
+  if (!y || !m || !d) return ymd
+  return `${d}-${m}-${y}`
+}
+
 export const AnalyticsDashboardClient: React.FC<{
   /** Tenant ID from sidebar (payload-tenant cookie), passed from server so API receives it. */
   selectedTenantId?: number | null
@@ -471,7 +478,7 @@ export const AnalyticsDashboardClient: React.FC<{
                               </button>
                             </td>
                             <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
-                              {row.lastCheckInDate ?? '—'}
+                              {formatDdMmYyyy(row.lastCheckInDate)}
                             </td>
                           </tr>
                         ))}
