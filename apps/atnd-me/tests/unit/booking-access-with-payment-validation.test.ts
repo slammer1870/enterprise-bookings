@@ -1,15 +1,17 @@
 /**
  * Regression tests for bookingCreateAccessWithPaymentValidation.
  *
- * Bug: When called from the Local API (e.g. reservePendingBookings in
+ * Bug (original): When called from the Local API (e.g. reservePendingBookings in
  * create-payment-intent), the internal request has no HTTP headers or cookies,
  * so tenantScopedPublicReadStrict cannot resolve the tenant and returns false.
  * This caused the timeslot findByID inside the access function to throw Payload's
  * Forbidden error ("You are not allowed to perform this action."), which propagated
  * to the client as an "invalid payment request" when selecting drop-in.
+ * Fix: timeslot fetch uses overrideAccess: true.
  *
- * Fix: The timeslot fetch inside bookingCreateAccessWithPaymentValidation must use
- * overrideAccess: true (consistent with the base bookingCreateAccess in the plugin).
+ * Bug (security): If the timeslot lookup returns null (e.g. deleted timeslot, ID
+ * enumeration), the access function was returning true — bypassing payment checks.
+ * Fix: !timeslot now returns false.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { bookingCreateAccessWithPaymentValidation } from '@/access/bookingAccess'
@@ -153,7 +155,7 @@ describe('bookingCreateAccessWithPaymentValidation', () => {
     expect(result).toBe(true)
   })
 
-  it('returns false when the timeslot is not found (tenant cannot be resolved)', async () => {
+  it('returns false when the timeslot is not found — prevents payment bypass via deleted/invalid IDs', async () => {
     const req = makeLocalApiReq(async () => null)
 
     const result = await bookingCreateAccessWithPaymentValidation({
@@ -161,9 +163,9 @@ describe('bookingCreateAccessWithPaymentValidation', () => {
       data: { timeslot: TIMESLOT_ID, user: 99, status: 'pending' },
     } as never)
 
-    // getTenantFromTimeslot mock is already wired to return 42, but the timeslot
-    // itself is null, so the function short-circuits at "if (!timeslot) return true".
-    // The important thing is it does NOT throw.
-    expect(typeof result).toBe('boolean')
+    // Must be false: if we cannot verify payment requirements the booking should be denied,
+    // not allowed. Returning true here would let a user bypass Stripe Connect checks by
+    // supplying a timeslot ID that no longer exists.
+    expect(result).toBe(false)
   })
 })

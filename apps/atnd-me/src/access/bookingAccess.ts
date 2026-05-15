@@ -95,7 +95,7 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
       overrideAccess: true,
       context: { triggerAfterChange: false },
     })
-    if (!timeslot) return true
+    if (!timeslot) return false
 
     const eventType = timeslot.eventType
     const tenantId = await getTenantFromTimeslot(req.payload, timeslot as { id: number; tenant?: number | { id: number } })

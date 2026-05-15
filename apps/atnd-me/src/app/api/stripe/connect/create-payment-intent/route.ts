@@ -5,6 +5,8 @@ import { getPayload } from '@/lib/payload'
 import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
 import {
   getCurrentUser,
+  resolveTenantSlugOrId,
+  resolveTenantForConnect,
   type TenantForConnect,
 } from '@/lib/stripe-connect/api-helpers'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
@@ -155,6 +157,26 @@ export async function POST(request: NextRequest) {
 
   if (!tenantId) {
     return NextResponse.json({ error: 'Tenant context not found for timeslot' }, { status: 400 })
+  }
+
+  // Cross-tenant guard: if the request carries a specific tenant context (subdomain or cookie),
+  // reject timeslot IDs that belong to a different tenant. This prevents a user on tenant A's
+  // site from booking a timeslot that belongs to tenant B by guessing its numeric ID.
+  const requestTenantSlugOrId = resolveTenantSlugOrId(request)
+  if (requestTenantSlugOrId != null) {
+    const requestNumericId = /^\d+$/.test(requestTenantSlugOrId)
+      ? parseInt(requestTenantSlugOrId, 10)
+      : null
+    if (requestNumericId != null) {
+      if (requestNumericId !== tenantId) {
+        return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
+      }
+    } else {
+      const requestTenant = await resolveTenantForConnect(payload, requestTenantSlugOrId)
+      if (requestTenant != null && requestTenant.id !== tenantId) {
+        return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
+      }
+    }
   }
 
   const tenant = (await payload.findByID({
