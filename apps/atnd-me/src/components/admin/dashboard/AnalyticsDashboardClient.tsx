@@ -413,7 +413,6 @@ export const AnalyticsDashboardClient: React.FC<{
                       <thead>
                         <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
                           <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                          <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Churn score</th>
                           <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Last check-in</th>
                         </tr>
                       </thead>
@@ -425,9 +424,6 @@ export const AnalyticsDashboardClient: React.FC<{
                           >
                             <td style={{ padding: '0.5rem 0.75rem' }}>
                               {row.userName ?? `User #${row.userId}`}
-                            </td>
-                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
-                              {row.score}
                             </td>
                             <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
                               {row.lastCheckInDate ?? '—'}
@@ -443,7 +439,7 @@ export const AnalyticsDashboardClient: React.FC<{
 
                           return (
                             <tr style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                              <td colSpan={3} style={{ padding: '0.5rem 0.75rem' }}>
+                              <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
                                 <button
                                   type="button"
                                   onClick={() => void loadMoreLikelyChurn()}

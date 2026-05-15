@@ -207,7 +207,10 @@ export async function getAnalyticsDashboardBundle(
   }
 
   type ChurnAgg = {
+    /** Confirmed bookings in the last 7 days (ending at params.dateTo, inclusive). */
     recentBookings: number
+    /** Confirmed bookings in the last 4 days (ending at params.dateTo, inclusive). */
+    recentBookings4: number
     priorBookings: number
     /** Confirmed bookings per day in the churn trend window (length = CHURN_TREND_WINDOW_DAYS). */
     dayCounts: number[]
@@ -221,20 +224,14 @@ export async function getAnalyticsDashboardBundle(
   const churnAggTenantIdsByUser = includeLikelyChurnCustomers ? new Map<number, Set<number>>() : new Map<number, Set<number>>()
 
   // Churn heuristic windows:
-  // - inactivity (eligibility): "no booking in the previous 7 days" OR
-  //   "no booking by Wednesday of the current week" when today is Wednesday or later.
+  // - eligibility (recency):
+  //   * always: include users with no confirmed booking in the previous 7 days
+  //   * after Wednesday: also include users with no confirmed booking in the previous 4 days
   // - trend decline: last ~30 days ending at params.dateTo (inclusive)
   const inactivityFromYmd7 = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
-  // Params `dateTo` is calendar YYYY-MM-DD; compute weekday in UTC so it stays stable.
+  const inactivityFromYmd4 = shiftYmdUtc(params.dateTo, -3)
   const dayOfWeek = new Date(`${params.dateTo}T00:00:00.000Z`).getUTCDay() // Sun=0 ... Sat=6
-  const wednesdayIndex = 3 // Wed=3 in JS getUTCDay()
-  let inactivityFromYmd = inactivityFromYmd7
-  if (dayOfWeek >= wednesdayIndex) {
-    const deltaDaysToWednesday = dayOfWeek - wednesdayIndex // 0..6
-    const cutoffWednesdayYmd = shiftYmdUtc(params.dateTo, -deltaDaysToWednesday)
-    // Use the later cutoff so the eligibility behaves like an OR between the two rules.
-    if (cutoffWednesdayYmd > inactivityFromYmd) inactivityFromYmd = cutoffWednesdayYmd
-  }
+  const pastWednesday = dayOfWeek > 3 // Thu=4 ...
   const churnFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_TREND_WINDOW_DAYS - 1))
 
   const needTimeslotYmd = includeBookingsOverTime || includeLikelyChurnCustomers
@@ -298,12 +295,22 @@ export async function getAnalyticsDashboardBundle(
 
         let agg = churnAggByUser.get(uid)
         if (!agg) {
-          agg = { recentBookings: 0, priorBookings: 0, dayCounts: Array(CHURN_TREND_WINDOW_DAYS).fill(0) }
+          agg = {
+            recentBookings: 0,
+            recentBookings4: 0,
+            priorBookings: 0,
+            dayCounts: Array(CHURN_TREND_WINDOW_DAYS).fill(0),
+          }
           churnAggByUser.set(uid, agg)
         }
 
-        if (ymd >= inactivityFromYmd) agg.recentBookings += 1
+        // Eligibility recency buckets:
+        // - recentBookings = last 7 days
+        // - recentBookings4 = last 4 days
+        if (ymd >= inactivityFromYmd7) agg.recentBookings += 1
         else agg.priorBookings += 1
+
+        if (ymd >= inactivityFromYmd4) agg.recentBookings4 += 1
 
         // Also store daily counts for rolling 7d frequency computations.
         if (includeLikelyChurnCustomers) {
@@ -395,7 +402,15 @@ export async function getAnalyticsDashboardBundle(
       }
 
       scoredRowsWithUserNames = Array.from(churnAggByUser.entries())
-        .filter(([userId, agg]) => subscribedUserIds.has(userId) && agg.recentBookings === 0)
+        .filter(([userId, agg]) => {
+          if (!subscribedUserIds.has(userId)) return false
+          if (agg.recentBookings > 0) {
+            // After Wednesday: allow inclusion when there are no bookings in the previous 4 days.
+            // Otherwise, require no bookings in the previous 7 days.
+            return pastWednesday && agg.recentBookings4 === 0
+          }
+          return true
+        })
         .map(([userId, agg]) => {
           // Rolling 7-day frequency trend:
           // - recentRolling = bookings in the last 7 days
