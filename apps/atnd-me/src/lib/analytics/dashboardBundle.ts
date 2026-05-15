@@ -219,9 +219,20 @@ export async function getAnalyticsDashboardBundle(
   const churnAggTenantIdsByUser = includeLikelyChurnCustomers ? new Map<number, Set<number>>() : new Map<number, Set<number>>()
 
   // Churn heuristic windows:
-  // - inactivity: last 7 days ending at params.dateTo (inclusive)
+  // - inactivity (eligibility): "no booking in the previous 7 days" OR
+  //   "no booking by Wednesday of the current week" when today is Wednesday or later.
   // - trend decline: last ~30 days ending at params.dateTo (inclusive)
-  const inactivityFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
+  const inactivityFromYmd7 = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
+  // Params `dateTo` is calendar YYYY-MM-DD; compute weekday in UTC so it stays stable.
+  const dayOfWeek = new Date(`${params.dateTo}T00:00:00.000Z`).getUTCDay() // Sun=0 ... Sat=6
+  const wednesdayIndex = 3 // Wed=3 in JS getUTCDay()
+  let inactivityFromYmd = inactivityFromYmd7
+  if (dayOfWeek >= wednesdayIndex) {
+    const deltaDaysToWednesday = dayOfWeek - wednesdayIndex // 0..6
+    const cutoffWednesdayYmd = shiftYmdUtc(params.dateTo, -deltaDaysToWednesday)
+    // Use the later cutoff so the eligibility behaves like an OR between the two rules.
+    if (cutoffWednesdayYmd > inactivityFromYmd) inactivityFromYmd = cutoffWednesdayYmd
+  }
   const churnFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_TREND_WINDOW_DAYS - 1))
 
   const needTimeslotYmd = includeBookingsOverTime || includeLikelyChurnCustomers
@@ -369,7 +380,7 @@ export async function getAnalyticsDashboardBundle(
       }
 
       scoredRowsWithUserNames = Array.from(churnAggByUser.entries())
-        .filter(([userId]) => subscribedUserIds.has(userId))
+        .filter(([userId, agg]) => subscribedUserIds.has(userId) && agg.recentBookings === 0)
         .map(([userId, agg]) => {
           if (agg.priorBookings === 0) {
             return { userId, score: 0, recentBookings: agg.recentBookings, priorBookings: agg.priorBookings }
@@ -399,6 +410,39 @@ export async function getAnalyticsDashboardBundle(
   let likelyChurnCustomers: LikelyChurnCustomerRow[] = []
   if (includeLikelyChurnCustomers && likelyChurnSlice.length > 0) {
     const userIds = likelyChurnSlice.map((r) => r.userId)
+
+    // "Last check-in date" = date of the most recently updated confirmed booking's timeslot,
+    // expressed as the timeslot calendar YYYY-MM-DD in the dashboard's tenant time zone mode.
+    const lastTimeslotIdByUserId = new Map<number, number | null>()
+    const lastTimeslotIds: number[] = []
+    for (const userId of userIds) {
+      const res = await payload.find({
+        collection: 'bookings',
+        where: { and: [{ user: { equals: userId } }, { status: { equals: 'confirmed' } }] },
+        depth: 0,
+        limit: 1,
+        sort: '-updatedAt',
+        select: { timeslot: true },
+        overrideAccess: true,
+      })
+
+      const doc = res.docs[0] as unknown as { timeslot?: number | { id: number } } | undefined
+      const ts = doc?.timeslot
+      const tsId =
+        typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : (ts as number | undefined)
+      if (typeof tsId === 'number' && Number.isFinite(tsId)) {
+        lastTimeslotIdByUserId.set(userId, tsId)
+        lastTimeslotIds.push(tsId)
+      } else {
+        lastTimeslotIdByUserId.set(userId, null)
+      }
+    }
+
+    const uniqueLastTimeslotIds = Array.from(new Set(lastTimeslotIds))
+    const lastTimeslotInfo = uniqueLastTimeslotIds.length
+      ? await loadTimeslotCalendarInfoById(payload, uniqueLastTimeslotIds, ymdIanaMode)
+      : { ymdById: new Map<number, string | null>(), tenantById: new Map<number, number | null>() }
+
     const users = await payload.find({
       collection: 'users',
       where: { id: { in: userIds } },
@@ -421,6 +465,11 @@ export async function getAnalyticsDashboardBundle(
       recentBookings: r.recentBookings,
       priorBookings: r.priorBookings,
       userName: userMap.get(r.userId),
+      lastCheckInDate: (() => {
+        const tsId = lastTimeslotIdByUserId.get(r.userId) ?? null
+        if (tsId == null) return null
+        return lastTimeslotInfo.ymdById.get(tsId) ?? null
+      })(),
     }))
   }
 

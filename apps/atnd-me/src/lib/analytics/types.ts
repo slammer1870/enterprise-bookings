@@ -49,6 +49,8 @@ export type LikelyChurnCustomerRow = {
   recentBookings: number
   /** Confirmed bookings earlier in the churn trend window. */
   priorBookings: number
+  /** Most recent confirmed booking timeslot calendar date overall (YYYY-MM-DD). */
+  lastCheckInDate?: string | null
   /** User name (or email fallback) when available */
   userName?: string
 }
