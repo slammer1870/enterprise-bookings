@@ -368,6 +368,8 @@ export async function getAnalyticsDashboardBundle(
     recentRolling: number
     avgEarlyRolling: number
     declineRatioClamped: number
+    /** Most recent day index (within churn trend window) that has >=1 booking; -1 if none. */
+    lastActivityDayOffset: number
   }> = []
   if (includeLikelyChurnCustomers) {
     const churnUserIds = Array.from(churnAggByUser.keys())
@@ -449,6 +451,14 @@ export async function getAnalyticsDashboardBundle(
           }
           const avgEarlyRolling = earlyRollingCount > 0 ? earlyRollingTotal / earlyRollingCount : 0
 
+          const lastActivityDayOffset = (() => {
+            // dayCounts is aligned to [churnFromYmd..params.dateTo]; higher offset == more recent.
+            for (let i = agg.dayCounts.length - 1; i >= 0; i -= 1) {
+              if (agg.dayCounts[i]! > 0) return i
+            }
+            return -1
+          })()
+
           if (avgEarlyRolling <= 0) {
             return {
               userId,
@@ -459,6 +469,7 @@ export async function getAnalyticsDashboardBundle(
               recentRolling,
               avgEarlyRolling,
               declineRatioClamped: 0,
+              lastActivityDayOffset,
             }
           }
 
@@ -477,15 +488,18 @@ export async function getAnalyticsDashboardBundle(
             recentRolling,
             avgEarlyRolling,
             declineRatioClamped,
+            lastActivityDayOffset,
           }
         })
 
       scoredRowsWithUserNames.sort((a, b) => {
-        // Primary: unrounded churn likelihood (more granular than the integer `score`).
+        // Primary: show more recent timeslot activity higher.
+        if (b.lastActivityDayOffset !== a.lastActivityDayOffset) return b.lastActivityDayOffset - a.lastActivityDayOffset
+        // Tie-break: more likely churn first.
         if (b.rawScore !== a.rawScore) return b.rawScore - a.rawScore
-        // Secondary: stronger decline signal.
+        // Secondary tie-break: stronger decline signal.
         if (b.declineRatioClamped !== a.declineRatioClamped) return b.declineRatioClamped - a.declineRatioClamped
-        // Tertiary: less recent activity (lower recentRolling implies more churn).
+        // Then: less recent activity within the last 7 days (lower recentRolling implies more churn).
         if (a.recentRolling !== b.recentRolling) return a.recentRolling - b.recentRolling
         // Then: more history (prior bookings) to break remaining ties deterministically.
         if (b.priorBookings !== a.priorBookings) return b.priorBookings - a.priorBookings
