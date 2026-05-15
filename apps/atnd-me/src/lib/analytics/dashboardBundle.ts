@@ -356,11 +356,18 @@ export async function getAnalyticsDashboardBundle(
 
   // Subscription-filter + score calculation (implemented after we fetch subscriptions
   // to avoid per-user queries).
+  //
+  // Note: we keep an unrounded sort key (rawScore + supporting signals) to produce a
+  // more accurate ranking, while still returning the rounded `score` for display.
   let scoredRowsWithUserNames: Array<{
     userId: number
     score: number
     recentBookings: number
     priorBookings: number
+    rawScore: number
+    recentRolling: number
+    avgEarlyRolling: number
+    declineRatioClamped: number
   }> = []
   if (includeLikelyChurnCustomers) {
     const churnUserIds = Array.from(churnAggByUser.keys())
@@ -443,19 +450,44 @@ export async function getAnalyticsDashboardBundle(
           const avgEarlyRolling = earlyRollingCount > 0 ? earlyRollingTotal / earlyRollingCount : 0
 
           if (avgEarlyRolling <= 0) {
-            return { userId, score: 0, recentBookings: agg.recentBookings, priorBookings: agg.priorBookings }
+            return {
+              userId,
+              score: 0,
+              recentBookings: agg.recentBookings,
+              priorBookings: agg.priorBookings,
+              rawScore: 0,
+              recentRolling,
+              avgEarlyRolling,
+              declineRatioClamped: 0,
+            }
           }
 
           const declineRatio = (avgEarlyRolling - recentRolling) / (avgEarlyRolling + 1)
           const declineRatioClamped = clamp(declineRatio, 0, 1)
           const inactivityBoost = recentRolling === 0 ? 1 : 0.5
-          const score = Math.round(declineRatioClamped * inactivityBoost * 100)
+          const rawScore = declineRatioClamped * inactivityBoost
+          const score = Math.round(rawScore * 100)
 
-          return { userId, score, recentBookings: agg.recentBookings, priorBookings: agg.priorBookings }
+          return {
+            userId,
+            score,
+            recentBookings: agg.recentBookings,
+            priorBookings: agg.priorBookings,
+            rawScore,
+            recentRolling,
+            avgEarlyRolling,
+            declineRatioClamped,
+          }
         })
 
       scoredRowsWithUserNames.sort((a, b) => {
-        if (b.score !== a.score) return b.score - a.score
+        // Primary: unrounded churn likelihood (more granular than the integer `score`).
+        if (b.rawScore !== a.rawScore) return b.rawScore - a.rawScore
+        // Secondary: stronger decline signal.
+        if (b.declineRatioClamped !== a.declineRatioClamped) return b.declineRatioClamped - a.declineRatioClamped
+        // Tertiary: less recent activity (lower recentRolling implies more churn).
+        if (a.recentRolling !== b.recentRolling) return a.recentRolling - b.recentRolling
+        // Then: more history (prior bookings) to break remaining ties deterministically.
         if (b.priorBookings !== a.priorBookings) return b.priorBookings - a.priorBookings
         return a.userId - b.userId
       })
