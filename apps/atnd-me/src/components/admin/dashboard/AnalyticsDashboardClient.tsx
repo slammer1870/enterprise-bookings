@@ -57,6 +57,10 @@ const PRESETS = [
   { label: 'Last 91 days', days: 91 },
 ] as const
 
+// Keep the "Likely to churn" ranking stable across the dashboard preset tabs.
+// The backend churn scoring needs at least the last ~30 days to compute the trend decline.
+const LIKELY_CHURN_TREND_DAYS = 30
+
 /** Local calendar YYYY-MM-DD (not UTC) so “today” and “last N days” match the admin’s timezone. */
 function formatLocalYmd(d: Date): string {
   const y = d.getFullYear()
@@ -221,10 +225,17 @@ export const AnalyticsDashboardClient: React.FC<{
     // 3) Likely churn (non-critical; render as soon as ready)
     ;(async () => {
       try {
+        // Use a fixed dateFrom for churn so we always have enough history
+        // for the churn trend window, even when the user selects "Last 7 days".
+        const churnDateFrom = new Date(dateTo)
+        churnDateFrom.setDate(churnDateFrom.getDate() - LIKELY_CHURN_TREND_DAYS)
+        const churnDateFromStr = formatLocalYmd(churnDateFrom)
+
         const churnParams = new URLSearchParams(common)
         churnParams.set('onlyLikelyChurn', '1')
         churnParams.set('limitLikelyChurnCustomers', '10')
         churnParams.set('offsetLikelyChurnCustomers', '0')
+        churnParams.set('dateFrom', churnDateFromStr)
         const churnUrl = `${origin}/api/analytics?${churnParams}`
         const churnRaw = await loadJson(churnUrl)
         const body = churnRaw as {
@@ -278,10 +289,9 @@ export const AnalyticsDashboardClient: React.FC<{
 
     try {
       const dateTo = new Date()
-      const preset = PRESETS[Math.min(presetIndex, PRESETS.length - 1)] ?? PRESETS[0]
-      const dateFrom = new Date()
-      dateFrom.setDate(dateFrom.getDate() - preset.days)
-      const dateFromStrLocal = formatLocalYmd(dateFrom)
+      const churnDateFrom = new Date(dateTo)
+      churnDateFrom.setDate(churnDateFrom.getDate() - LIKELY_CHURN_TREND_DAYS)
+      const dateFromStrLocal = formatLocalYmd(churnDateFrom)
       const dateToStrLocal = formatLocalYmd(dateTo)
 
       const origin = typeof window !== 'undefined' ? window.location.origin : ''
