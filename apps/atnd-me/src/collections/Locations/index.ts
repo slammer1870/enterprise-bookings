@@ -28,7 +28,7 @@ export const Locations: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'name',
-    group: 'Configurations',
+    group: 'Configuration',
     defaultColumns: ['name', 'slug', 'tenant', 'active'],
     description: 'Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.',
     hidden: ({ user }) => {
