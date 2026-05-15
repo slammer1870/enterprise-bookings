@@ -64,11 +64,18 @@ export function createBookingAccess(slugs: BookingCollectionSlugs) {
         return true;
       }
 
-      if (
-        timeslot.bookingStatus === "closed" ||
-        timeslot.bookingStatus === "booked"
-      ) {
+      // `bookingStatus` is computed per-user, and becomes `"booked"` when the user
+      // already has an existing confirmed booking for this timeslot.
+      //
+      // During checkout/payment-intent creation we intentionally create additional
+      // bookings in `"pending"` state to reserve capacity for multi-booking flows.
+      // Preventing `"pending"` reservations here breaks `create-payment-intent`.
+      if (timeslot.bookingStatus === "closed") {
         return false;
+      }
+
+      if (timeslot.bookingStatus === "booked") {
+        return data?.status === "pending";
       }
 
       return true;
