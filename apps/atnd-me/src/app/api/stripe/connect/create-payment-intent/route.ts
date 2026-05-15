@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
         user,
         tenantId,
         quantity,
-        trustedServerReservation: isTestMode,
+        trustedServerReservation: true,
       })
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Capacity exceeded'
