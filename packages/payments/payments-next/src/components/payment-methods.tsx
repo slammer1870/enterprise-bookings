@@ -885,9 +885,9 @@ export function PaymentMethods({
 
   const availableTabs = useMemo(() => {
     const tabs: string[] = [];
-    if (hasMembershipTab) tabs.push("membership");
-    if (hasClassPassTab) tabs.push("classpass");
     if (hasDropInTab) tabs.push("dropin");
+    if (hasClassPassTab) tabs.push("classpass");
+    if (hasMembershipTab) tabs.push("membership");
     return tabs;
   }, [hasMembershipTab, hasDropInTab, hasClassPassTab]);
 
@@ -926,9 +926,9 @@ export function PaymentMethods({
       </div>
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex w-full justify-around gap-4">
-          {hasMembershipTab && (
-            <TabsTrigger value="membership" className="w-full">
-              Membership
+          {hasDropInTab && (
+            <TabsTrigger value="dropin" className="w-full">
+              Drop-in
             </TabsTrigger>
           )}
           {hasClassPassTab && (
@@ -936,9 +936,9 @@ export function PaymentMethods({
               Class pass
             </TabsTrigger>
           )}
-          {hasDropInTab && (
-            <TabsTrigger value="dropin" className="w-full">
-              Drop-in
+          {hasMembershipTab && (
+            <TabsTrigger value="membership" className="w-full">
+              Membership
             </TabsTrigger>
           )}
         </TabsList>
