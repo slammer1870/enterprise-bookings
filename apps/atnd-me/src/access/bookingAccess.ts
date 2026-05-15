@@ -92,6 +92,7 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
       collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       id: timeslotId,
       depth: 2,
+      overrideAccess: true,
       context: { triggerAfterChange: false },
     })
     if (!timeslot) return true
