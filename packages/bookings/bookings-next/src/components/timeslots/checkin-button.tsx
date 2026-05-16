@@ -154,23 +154,16 @@ export const CheckInButton = ({
     }
 
     if (action === "book") {
-      const singleSlotOnly = scheduleState?.singleSlotOnly === true;
-      if (singleSlotOnly) {
-        try {
-          const result = await bookSingleSlotOrRedirect({ timeslotId });
-          // Only show "Booked" when the server actually booked immediately.
-          // If we got a redirectUrl, the user is being sent to a booking/manage page (payment/portal),
-          // so showing a success toast is misleading.
-          if (result?.redirectUrl == null) {
-            toast.success("Booked");
-          }
-          trackEvent("Booking Initiated");
-        } catch {
-          // Error toast is shown by mutation onError
+      try {
+        const result = await bookSingleSlotOrRedirect({ timeslotId });
+        // Only show "Booked" when the server booked immediately.
+        // If we got a redirectUrl the server is sending the user to the booking/payment page.
+        if (result?.redirectUrl == null) {
+          toast.success("Booked");
         }
-      } else {
-        router.push(`/bookings/${timeslotId}`);
         trackEvent("Booking Initiated");
+      } catch {
+        // Error toast is shown by mutation onError
       }
       return;
     }

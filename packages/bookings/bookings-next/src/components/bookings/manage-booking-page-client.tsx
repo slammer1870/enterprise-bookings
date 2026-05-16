@@ -176,7 +176,11 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   )
 
   const viewerMaxPerTimeslot = useMemo(() => computeViewerMax(paymentMethods), [paymentMethods])
-  const hasPaymentMethodsForMulti = hasPaymentMethodsConfigured && viewerMaxPerTimeslot > 1
+  // Quantity increase is allowed when:
+  //  - no payment methods configured (free lesson, unlimited additional slots), OR
+  //  - payment methods exist and at least one allows maxBookingsPerTimeslot > 1
+  const canIncreaseQuantity =
+    !hasPaymentMethodsConfigured || (hasPaymentMethodsConfigured && viewerMaxPerTimeslot > 1)
 
   // ── Checkout state ────────────────────────────────────────────────────────
   //
@@ -378,8 +382,24 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       return
     }
 
+    // ── Increase: no payment methods → confirm immediately ───────────────
+    if (target > current && !hasPaymentMethodsConfigured) {
+      try {
+        await createBookings({
+          timeslotId: timeslot.id,
+          quantity: target - current,
+          status: 'confirmed',
+        })
+        await invalidateBookingQueries()
+        toast.success('Booking updated')
+      } catch {
+        // Error toast handled by mutation onError
+      }
+      return
+    }
+
     // ── Increase with payment required → enter checkout ──────────────────
-    if (target > current && hasPaymentMethodsForMulti && PaymentMethodsComponent) {
+    if (target > current && canIncreaseQuantity && PaymentMethodsComponent) {
       try {
         const pending = await createBookings({
           timeslotId: timeslot.id,
@@ -674,7 +694,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
             <div>
               <p className="font-medium">Number of bookings</p>
               <p className="text-sm text-muted-foreground">
-                {viewerMaxPerTimeslot === 1
+                {hasPaymentMethodsConfigured && viewerMaxPerTimeslot === 1
                   ? 'Only 1 slot per timeslot per user.'
                   : `Up to ${maxTotalQuantity} total booking${maxTotalQuantity !== 1 ? 's' : ''} available for this timeslot.`}
               </p>
