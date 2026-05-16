@@ -252,6 +252,7 @@ export const bookingsRouter = {
               collection: "transactions" as import("payload").CollectionSlug,
               data: {
                 booking: bookingId,
+                paymentMethod: "class_pass",
                 classPassId: passId,
                 ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
               } as Record<string, unknown>,

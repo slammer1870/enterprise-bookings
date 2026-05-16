@@ -546,26 +546,34 @@ test.describe('Schedule immediate booking', () => {
     // 5. Update bookings — should confirm immediately without payment
     const updateBtn = page.getByRole('button', { name: /update bookings/i })
     await expect(updateBtn).toBeVisible({ timeout: 5000 })
-    await updateBtn.click()
+    const createBookingsResponse = page.waitForResponse(
+      (r) => r.url().includes('bookings.createBookings') && r.request().method() === 'POST' && r.status() === 200,
+      { timeout: 30000 }
+    )
+    await Promise.all([createBookingsResponse, updateBtn.click()])
 
     // Expect the quantity to now be 2 (no checkout/payment flow)
     await expect(page.getByTestId('booking-quantity')).toHaveText('2', { timeout: 15000 })
     await expect(page.getByText(/complete payment/i)).not.toBeVisible({ timeout: 3000 }).catch(() => null)
 
-    // Confirm 2 bookings in DB
-    const bookings = await payload.find({
-      collection: 'bookings',
-      where: {
-        and: [
-          { timeslot: { equals: lesson.id } },
-          { user: { equals: user.id } },
-          { status: { equals: 'confirmed' } },
-        ],
-      },
-      depth: 0,
-      overrideAccess: true,
-    })
-    expect(bookings.docs.length).toBe(2)
+    // Confirm 2 bookings in DB (poll because booking side-effects run asynchronously)
+    await expect
+      .poll(async () => {
+        const bookings = await payload.find({
+          collection: 'bookings',
+          where: {
+            and: [
+              { timeslot: { equals: lesson.id } },
+              { user: { equals: user.id } },
+              { status: { equals: 'confirmed' } },
+            ],
+          },
+          depth: 0,
+          overrideAccess: true,
+        })
+        return bookings.docs.length
+      }, { timeout: 30000 })
+      .toBe(2)
   })
 
   // ── Story 6b: Quantity increase with class pass (maxBookingsPerTimeslot: null) ─
@@ -674,7 +682,11 @@ test.describe('Schedule immediate booking', () => {
 
     // 4. Click Update — enters checkout
     const updateBtn = page.getByRole('button', { name: /update bookings/i })
-    await updateBtn.click()
+    const pendingCreateResponse = page.waitForResponse(
+      (r) => r.url().includes('bookings.createBookings') && r.request().method() === 'POST' && r.status() === 200,
+      { timeout: 30000 }
+    )
+    await Promise.all([pendingCreateResponse, updateBtn.click()])
 
     // Should enter payment checkout (pending bookings created)
     await expect(page.getByText(/complete payment/i).first()).toBeVisible({ timeout: 15000 })
@@ -769,6 +781,8 @@ test.describe('Schedule immediate booking', () => {
 
     // 3. Should show "Only 1 slot" message and no increase button
     await expect(page.getByText(/only 1 slot per timeslot/i)).toBeVisible({ timeout: 10000 })
-    await expect(page.getByRole('button', { name: /increase quantity/i })).not.toBeVisible({ timeout: 3000 }).catch(() => null)
+    const incBtn = page.getByRole('button', { name: /increase quantity/i })
+    await expect(incBtn).toBeVisible({ timeout: 5000 })
+    await expect(incBtn).toBeDisabled()
   })
 })
