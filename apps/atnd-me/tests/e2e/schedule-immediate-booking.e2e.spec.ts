@@ -8,13 +8,13 @@
  *
  * Stories:
  *  1. No payment methods → immediate booking, button becomes "Modify Booking"
- *  2. Active subscription → immediate booking, button becomes "Modify Booking"
+ *  2. Active subscription → immediate booking, button becomes "Cancel Booking" when single-slot
  *  3. Valid class pass → immediate booking (1 credit deducted), button becomes "Modify Booking"
  *  4. Payment required (no entitlement) → redirect to /bookings/[id]
  *  5. Subscription limit reached → redirect to /bookings/[id]
  *  6a. Quantity increase (no payment methods) → additional slots confirmed immediately
  *  6b. Quantity increase (class pass, maxBookingsPerTimeslot: null) → checkout flow, credits deducted
- *  6c. Quantity increase blocked (maxBookingsPerTimeslot: 1) → manage page shows "Only 1 slot" message
+ *  6c. Quantity increase blocked (maxBookingsPerTimeslot: 1) → public schedule shows "Cancel Booking"
  */
 
 import { test, expect } from './helpers/fixtures'
@@ -163,7 +163,7 @@ test.describe('Schedule immediate booking', () => {
 
   // ── Story 2: Active subscription → immediate booking ─────────────────────────
 
-  test('active subscription: Book creates confirmed booking immediately and button becomes Modify Booking', async ({
+  test('active subscription: Book creates confirmed booking immediately and button becomes Cancel Booking when single-slot', async ({
     page,
     testData,
   }) => {
@@ -221,9 +221,11 @@ test.describe('Schedule immediate booking', () => {
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
-    // Button should become "Modify Booking"
+    // For single-slot subscription caps, the only modification from the public schedule is cancel.
+    const cancelBtn = await getLessonBookButton(page, scheduleTitle, /cancel booking/i)
+    await expect(cancelBtn).toBeVisible({ timeout: 15000 })
     const modifyBtn = await getLessonBookButton(page, scheduleTitle, /modify booking/i)
-    await expect(modifyBtn).toBeVisible({ timeout: 15000 })
+    await expect(modifyBtn).not.toBeVisible({ timeout: 5000 })
 
     // URL should remain on schedule
     await page.waitForTimeout(300)
@@ -357,17 +359,29 @@ test.describe('Schedule immediate booking', () => {
     const className = uniqueClassName(`E2E Immediate Drop-in ${tenant.id}`)
     const eventType = await createTestEventType(tenant.id, className, 10, 'Drop-in class', w)
 
-    // Drop-in only, single slot — user2 has no subscription or class pass
+    // Drop-in only, single slot — user2 has no subscription or class pass.
+    // event-types.paymentMethods.allowedDropIn expects a drop-in relationship id,
+    // so create the drop-in document first.
+    const dropIn = (await payload.create({
+      collection: 'drop-ins',
+      data: {
+        name: `E2E Imm Drop-in Single Slot ${tenant.id}-w${w}-${Date.now()}`,
+        isActive: true,
+        price: 15,
+        adjustable: false,
+        paymentMethods: ['card'],
+        maxBookingsPerTimeslot: 1,
+        tenant: tenant.id,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
     await payload.update({
       collection: 'event-types',
       id: eventType.id,
       data: {
-        paymentMethods: {
-          allowedDropIn: {
-            price: 15,
-            maxBookingsPerTimeslot: 1,
-          },
-        },
+        paymentMethods: { allowedDropIn: dropIn.id },
+        tenant: tenant.id,
       },
       overrideAccess: true,
     })
@@ -769,20 +783,10 @@ test.describe('Schedule immediate booking', () => {
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
+    // With single-slot maxBookingsPerTimeslot cap, the schedule should only allow cancel.
+    const cancelBtn = await getLessonBookButton(page, scheduleTitle, /cancel booking/i)
+    await expect(cancelBtn).toBeVisible({ timeout: 15000 })
     const modifyBtn = await getLessonBookButton(page, scheduleTitle, /modify booking/i)
-    await expect(modifyBtn).toBeVisible({ timeout: 15000 })
-
-    // 2. Navigate to manage page
-    await modifyBtn.click()
-    await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, { timeout: 15000 })
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
-
-    await expect(page.getByText(/update booking quantity/i)).toBeVisible({ timeout: 15000 })
-
-    // 3. Should show "Only 1 slot" message and no increase button
-    await expect(page.getByText(/only 1 slot per timeslot/i)).toBeVisible({ timeout: 10000 })
-    const incBtn = page.getByRole('button', { name: /increase quantity/i })
-    await expect(incBtn).toBeVisible({ timeout: 5000 })
-    await expect(incBtn).toBeDisabled()
+    await expect(modifyBtn).not.toBeVisible({ timeout: 5000 })
   })
 })

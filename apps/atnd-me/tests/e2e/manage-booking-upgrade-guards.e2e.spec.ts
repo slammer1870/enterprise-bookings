@@ -360,10 +360,9 @@ test.describe('Manage booking upgrade guards', () => {
         })
 
         const quantityDisplay = page.getByTestId('booking-quantity')
-        const increaseButton = page.getByRole('button', { name: /increase quantity/i })
 
         await expect(quantityDisplay).toHaveText('1', { timeout: 10000 })
-        await expect(increaseButton).toBeDisabled()
+        await expect(page.getByRole('button', { name: /increase quantity/i })).toHaveCount(0)
       })
     }
   })
