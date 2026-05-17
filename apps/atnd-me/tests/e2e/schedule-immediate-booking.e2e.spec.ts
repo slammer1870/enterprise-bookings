@@ -725,7 +725,7 @@ test.describe('Schedule immediate booking', () => {
 
   // ── Story 6c: Quantity increase blocked (maxBookingsPerTimeslot: 1) ────────────
 
-  test('single-slot payment method (maxBookingsPerTimeslot: 1): Modify Booking shows "Only 1 slot" message', async ({
+  test('single-slot payment method (maxBookingsPerTimeslot: 1): public schedule allows only cancel', async ({
     page,
     testData,
   }) => {

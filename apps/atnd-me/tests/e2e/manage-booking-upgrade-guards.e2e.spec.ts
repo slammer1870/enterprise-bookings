@@ -202,7 +202,11 @@ test.describe('Manage booking upgrade guards', () => {
           await payload.update({
             collection: 'event-types',
             id: classOptionId,
-            data: { paymentMethods: { allowedDropIn: dropIn.id } },
+            // Explicitly clear the other payment methods because Payload's update
+            // can merge nested objects, and these tests assume "only this variant".
+            data: {
+              paymentMethods: { allowedDropIn: dropIn.id, allowedPlans: [], allowedClassPasses: [] },
+            },
             overrideAccess: true,
           })
         },
@@ -221,7 +225,9 @@ test.describe('Manage booking upgrade guards', () => {
           await payload.update({
             collection: 'event-types',
             id: classOptionId,
-            data: { paymentMethods: { allowedPlans: [plan.id] } },
+            data: {
+              paymentMethods: { allowedDropIn: null, allowedPlans: [plan.id], allowedClassPasses: [] },
+            },
             overrideAccess: true,
           })
         },
@@ -249,7 +255,9 @@ test.describe('Manage booking upgrade guards', () => {
           await payload.update({
             collection: 'event-types',
             id: classOptionId,
-            data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
+            data: {
+              paymentMethods: { allowedDropIn: null, allowedPlans: [], allowedClassPasses: [classPassType.id] },
+            },
             overrideAccess: true,
           })
         },
@@ -362,6 +370,7 @@ test.describe('Manage booking upgrade guards', () => {
         const quantityDisplay = page.getByTestId('booking-quantity')
 
         await expect(quantityDisplay).toHaveText('1', { timeout: 10000 })
+        // For single-slot (max 1) scenarios, the UI should hide the increase control entirely.
         await expect(page.getByRole('button', { name: /increase quantity/i })).toHaveCount(0)
       })
     }

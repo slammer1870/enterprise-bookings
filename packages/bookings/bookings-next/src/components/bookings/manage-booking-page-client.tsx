@@ -22,10 +22,16 @@ import { format } from 'date-fns'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PaymentMethodsLike = {
-  allowedDropIn?: {
-    maxBookingsPerTimeslot?: number | null
-    adjustable?: boolean
-  } | null
+  // Payload types can represent `allowedDropIn` as either a fully populated DropIn doc
+  // or just a relation reference id. The manage page needs the per-user cap values,
+  // so when we don't have the populated shape we should be conservative.
+  allowedDropIn?:
+    | {
+        maxBookingsPerTimeslot?: number | null
+        adjustable?: boolean
+      }
+    | number
+    | null
   allowedPlans?: Array<{
     sessionsInformation?: {
       maxBookingsPerTimeslot?: number | null
@@ -61,8 +67,18 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
   const caps: number[] = []
 
   if (paymentMethods.allowedDropIn) {
-    const { maxBookingsPerTimeslot: raw, adjustable } = paymentMethods.allowedDropIn
-    caps.push(capFromRaw(raw == null ? (adjustable === false ? 1 : null) : raw))
+    const dropIn = paymentMethods.allowedDropIn
+    // If `allowedDropIn` isn't populated (e.g. reference id only), we can't know the
+    // per-user cap. Default conservatively to single-slot (1) so we never enable
+    // quantity increases when the cap is unknown.
+    if (typeof dropIn !== 'object' || dropIn === null) {
+      caps.push(1)
+    } else {
+      const { maxBookingsPerTimeslot: raw, adjustable } = dropIn
+      // If we can't read the numeric cap from the drop-in, default to single-slot (1)
+      // unless the drop-in explicitly indicates `adjustable: true` (no per-user cap).
+      caps.push(capFromRaw(raw == null ? (adjustable === true ? null : 1) : raw))
+    }
   }
 
   for (const plan of paymentMethods.allowedPlans ?? []) {
@@ -78,7 +94,10 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
   for (const pass of paymentMethods.allowedClassPasses ?? []) {
     const raw = pass.maxBookingsPerTimeslot
     const legacy = pass.allowMultipleBookingsPerTimeslot
-    caps.push(capFromRaw(raw == null ? (legacy === false ? 1 : null) : raw))
+    // Be conservative: when `maxBookingsPerTimeslot` isn't available and we
+    // don't explicitly see `allowMultipleBookingsPerTimeslot === true`, treat
+    // it as single-slot (1) rather than "unlimited".
+    caps.push(capFromRaw(raw == null ? (legacy === true ? null : 1) : raw))
   }
 
   if (caps.length === 0) return Infinity
@@ -716,16 +735,18 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               >
                 {desiredQuantity}
               </span>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling}
-                onClick={() => setDesiredQuantity((q) => Math.min(maxTotalQuantity, q + 1))}
-                aria-label="Increase quantity"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              {!(hasPaymentMethodsConfigured && viewerMaxPerTimeslot === 1) && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling}
+                  onClick={() => setDesiredQuantity((q) => Math.min(maxTotalQuantity, q + 1))}
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
