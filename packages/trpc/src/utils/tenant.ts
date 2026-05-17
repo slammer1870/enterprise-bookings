@@ -178,7 +178,10 @@ export async function populateTimeslotEventType(
   if (coId == null || !hasCollection(payload, eventTypesSlug)) return;
   try {
     const populated = await findByIdSafe<EventType>(payload, eventTypesSlug, coId, {
-      depth: 3,
+      // We need nested payment-method docs (e.g. DropIn) to include fields like
+      // `maxBookingsPerTimeslot` so client logic can correctly cap single-slot
+      // booking quantity increases.
+      depth: 5,
       overrideAccess: true,
     });
     if (populated) {

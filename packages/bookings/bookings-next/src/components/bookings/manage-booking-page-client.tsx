@@ -22,10 +22,16 @@ import { format } from 'date-fns'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PaymentMethodsLike = {
-  allowedDropIn?: {
-    maxBookingsPerTimeslot?: number | null
-    adjustable?: boolean
-  } | null
+  // Payload types can represent `allowedDropIn` as either a fully populated DropIn doc
+  // or just a relation reference id. The manage page needs the per-user cap values,
+  // so when we don't have the populated shape we should be conservative.
+  allowedDropIn?:
+    | {
+        maxBookingsPerTimeslot?: number | null
+        adjustable?: boolean
+      }
+    | number
+    | null
   allowedPlans?: Array<{
     sessionsInformation?: {
       maxBookingsPerTimeslot?: number | null
@@ -61,8 +67,18 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
   const caps: number[] = []
 
   if (paymentMethods.allowedDropIn) {
-    const { maxBookingsPerTimeslot: raw, adjustable } = paymentMethods.allowedDropIn
-    caps.push(capFromRaw(raw == null ? (adjustable === false ? 1 : null) : raw))
+    const dropIn = paymentMethods.allowedDropIn
+    // If `allowedDropIn` isn't populated (e.g. reference id only), we can't know the
+    // per-user cap. Default conservatively to single-slot (1) so we never enable
+    // quantity increases when the cap is unknown.
+    if (typeof dropIn !== 'object' || dropIn === null) {
+      caps.push(1)
+    } else {
+      const { maxBookingsPerTimeslot: raw, adjustable } = dropIn
+      // If we can't read the numeric cap from the drop-in, default to single-slot (1)
+      // unless the drop-in explicitly indicates `adjustable: true` (no per-user cap).
+      caps.push(capFromRaw(raw == null ? (adjustable === true ? null : 1) : raw))
+    }
   }
 
   for (const plan of paymentMethods.allowedPlans ?? []) {
@@ -78,7 +94,10 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
   for (const pass of paymentMethods.allowedClassPasses ?? []) {
     const raw = pass.maxBookingsPerTimeslot
     const legacy = pass.allowMultipleBookingsPerTimeslot
-    caps.push(capFromRaw(raw == null ? (legacy === false ? 1 : null) : raw))
+    // Be conservative: when `maxBookingsPerTimeslot` isn't available and we
+    // don't explicitly see `allowMultipleBookingsPerTimeslot === true`, treat
+    // it as single-slot (1) rather than "unlimited".
+    caps.push(capFromRaw(raw == null ? (legacy === true ? null : 1) : raw))
   }
 
   if (caps.length === 0) return Infinity
@@ -95,6 +114,20 @@ function mergeById(base: Booking[], incoming: Booking[]): Booking[] {
   for (const b of base) byId.set(b.id, b)
   for (const b of incoming) byId.set(b.id, b)
   return Array.from(byId.values())
+}
+
+/**
+ * Compute checkout "+" cap for pending additions.
+ *
+ * - `capacityPending`: timeslot remaining capacity (hard limit)
+ * - `viewerMaxPerTimeslot`: per-user/payment-method max (Infinity = no cap)
+ * - `alreadyHeld`: already confirmed/active bookings that count towards the cap
+ */
+function computeCheckoutMax(capacityPending: number, viewerMaxPerTimeslot: number, alreadyHeld: number) {
+  const methodPending =
+    viewerMaxPerTimeslot === Infinity ? Infinity : Math.max(0, viewerMaxPerTimeslot - alreadyHeld)
+
+  return methodPending === Infinity ? capacityPending : Math.min(capacityPending, methodPending)
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -176,7 +209,11 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   )
 
   const viewerMaxPerTimeslot = useMemo(() => computeViewerMax(paymentMethods), [paymentMethods])
-  const hasPaymentMethodsForMulti = hasPaymentMethodsConfigured && viewerMaxPerTimeslot > 1
+  // Quantity increase is allowed when:
+  //  - no payment methods configured (free lesson, unlimited additional slots), OR
+  //  - payment methods exist and at least one allows maxBookingsPerTimeslot > 1
+  const canIncreaseQuantity =
+    !hasPaymentMethodsConfigured || (hasPaymentMethodsConfigured && viewerMaxPerTimeslot > 1)
 
   // ── Checkout state ────────────────────────────────────────────────────────
   //
@@ -200,7 +237,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [pendingMutationError, setPendingMutationError] = useState<string | null>(null)
 
   // Frozen when checkout begins; never changes mid-session.
-  const checkoutMaxRef = useRef(Math.max(0, timeslot.remainingCapacity))
+  // Seed it on first render (including SSR cases where the page loads already in checkout).
+  const capacityPending = Math.max(0, timeslot.remainingCapacity)
+  const alreadyHeld = activeBookings.length
+  const checkoutMaxRef = useRef(computeCheckoutMax(capacityPending, viewerMaxPerTimeslot, alreadyHeld))
 
   // ── Quantity selector state (non-checkout view) ────────────────────────────
 
@@ -319,13 +359,24 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // ── Checkout lifecycle helpers ────────────────────────────────────────────
 
   const enterCheckout = useCallback(
-    (pending: Booking[]) => {
-      checkoutMaxRef.current = Math.max(0, timeslot.remainingCapacity)
+    (pending: Booking[], checkoutMaxOverride?: number) => {
+      // Freeze checkout cap for "+" (pending bookings additions).
+      // This must respect BOTH:
+      //  1) timeslot remaining capacity (hard limit)
+      //  2) per-user/payment-method maxBookingsPerTimeslot cap (viewerMaxPerTimeslot),
+      //     adjusted by already-confirmed bookings.
+      const capacityPending = Math.max(0, timeslot.remainingCapacity)
+      if (typeof checkoutMaxOverride === 'number') {
+        checkoutMaxRef.current = checkoutMaxOverride
+      } else {
+        const alreadyHeld = activeBookings.length
+        checkoutMaxRef.current = computeCheckoutMax(capacityPending, viewerMaxPerTimeslot, alreadyHeld)
+      }
       setPendingBookings(pending)
       setPendingMutationError(null)
       setIsInCheckout(true)
     },
-    [timeslot.remainingCapacity]
+    [timeslot.remainingCapacity, activeBookings.length, viewerMaxPerTimeslot]
   )
 
   const exitCheckout = useCallback(() => {
@@ -378,15 +429,42 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       return
     }
 
-    // ── Increase with payment required → enter checkout ──────────────────
-    if (target > current && hasPaymentMethodsForMulti && PaymentMethodsComponent) {
+    // ── Increase: no payment methods → confirm immediately ───────────────
+    if (target > current && !hasPaymentMethodsConfigured) {
       try {
+        await createBookings({
+          timeslotId: timeslot.id,
+          quantity: target - current,
+          status: 'confirmed',
+        })
+        await invalidateBookingQueries()
+        toast.success('Booking updated')
+      } catch {
+        // Error toast handled by mutation onError
+      }
+      return
+    }
+
+    // ── Increase with payment required → enter checkout ──────────────────
+    if (target > current && canIncreaseQuantity && PaymentMethodsComponent) {
+      try {
+        // Compute the checkout "+" cap BEFORE creating pending bookings.
+        // This keeps the checkout freeze value aligned with the quantity
+        // selector's enforced per-user cap, even if the client/server data
+        // hydration timing changes during the async mutation.
+        const capacityPending = Math.max(0, timeslot.remainingCapacity)
+        const checkoutMaxOverride = computeCheckoutMax(
+          capacityPending,
+          viewerMaxPerTimeslot,
+          activeBookings.length
+        )
+
         const pending = await createBookings({
           timeslotId: timeslot.id,
           quantity: target - current,
           status: 'pending',
         })
-        enterCheckout(pending)
+        enterCheckout(pending, checkoutMaxOverride)
         toast.info('Please complete payment to confirm your additional bookings.')
       } catch {
         // Error toast handled by mutation onError
@@ -674,7 +752,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
             <div>
               <p className="font-medium">Number of bookings</p>
               <p className="text-sm text-muted-foreground">
-                {viewerMaxPerTimeslot === 1
+                {hasPaymentMethodsConfigured && viewerMaxPerTimeslot === 1
                   ? 'Only 1 slot per timeslot per user.'
                   : `Up to ${maxTotalQuantity} total booking${maxTotalQuantity !== 1 ? 's' : ''} available for this timeslot.`}
               </p>
@@ -696,16 +774,18 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               >
                 {desiredQuantity}
               </span>
-              <Button
-                type="button"
-                size="icon"
-                variant="outline"
-                disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling}
-                onClick={() => setDesiredQuantity((q) => Math.min(maxTotalQuantity, q + 1))}
-                aria-label="Increase quantity"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+              {!(hasPaymentMethodsConfigured && viewerMaxPerTimeslot === 1) && (
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="outline"
+                  disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling}
+                  onClick={() => setDesiredQuantity((q) => Math.min(maxTotalQuantity, q + 1))}
+                  aria-label="Increase quantity"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 

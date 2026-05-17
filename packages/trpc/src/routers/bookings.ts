@@ -30,16 +30,20 @@ import {
 
 export const bookingsRouter = {
   /**
-   * Schedule UX shortcut for single-slot timeslots:
-   * - If viewer has an eligible active subscription for the timeslot, book immediately.
-   * - Otherwise redirect to the timeslot booking page so payment/subscription options are available.
+   * Schedule booking shortcut — called by the "Book" CTA for every timeslot.
+   * The server decides whether to book immediately or send the viewer to the booking page:
    *
-   * This intentionally avoids navigating to the generic booking page for cases where the
-   * viewer can only ever book 1 slot and the flow is decided by membership state.
+   * 1. Child timeslot → redirect /bookings/children/[id]
+   * 2. Already has a confirmed booking → no-op (stay on schedule)
+   * 3. No payment methods on the lesson → book immediately (free/unlimited)
+   * 4. Active subscription covering this lesson, within session limit → book immediately
+   * 5. Valid class pass covering this lesson (active, credits > 0, not expired) → book immediately, decrement 1 credit
+   * 6. Subscription limit reached / no entitlement → redirect to /bookings/[id] for payment
    */
   bookSingleSlotTimeslotOrRedirect: protectedProcedure
     .use(requireBookingCollections("timeslots", "bookings", "eventTypes"))
     .use(requireCollections("subscriptions"))
+    .use(requireCollections("class-passes"))
     .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { timeslotId } = input;
@@ -101,50 +105,29 @@ export const bookingsRouter = {
           (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
       );
 
-      const maxFromCapOrLegacy = (
-        rawMax: any,
-        legacyAllowMultiple: boolean | undefined
-      ): number => {
-        // New semantics: null means unbounded; number means bounded; undefined means "legacy lookup".
-        if (rawMax === null) return Infinity;
-        if (rawMax === undefined) return legacyAllowMultiple === true ? Infinity : 1;
-        const n = Number(rawMax);
-        return Number.isFinite(n) ? Math.max(1, n) : Infinity;
-      };
+      const timeslotTenantId =
+        typeof timeslot.tenant === "object" && timeslot.tenant !== null
+          ? (timeslot.tenant as { id: number }).id
+          : typeof timeslot.tenant === "number"
+            ? timeslot.tenant
+            : null;
 
-      const caps: number[] = [];
-      if (paymentMethods?.allowedDropIn) {
-        const d: any = paymentMethods.allowedDropIn;
-        caps.push(maxFromCapOrLegacy(d?.maxBookingsPerTimeslot, d?.adjustable === true));
-      }
-      if (Array.isArray(paymentMethods?.allowedPlans)) {
-        for (const p of paymentMethods.allowedPlans as any[]) {
-          const si = p?.sessionsInformation;
-          caps.push(maxFromCapOrLegacy(si?.maxBookingsPerTimeslot, si?.allowMultipleBookingsPerTimeslot === true));
-        }
-      }
-      if (Array.isArray(paymentMethods?.allowedClassPasses)) {
-        for (const cp of paymentMethods.allowedClassPasses as any[]) {
-          caps.push(maxFromCapOrLegacy(cp?.maxBookingsPerTimeslot, cp?.allowMultipleBookingsPerTimeslot === true));
-        }
-      }
+      // Helper: create one confirmed booking and return the result.
+      const bookOneSlot = async (extra: Record<string, unknown> = {}) =>
+        createSafe<Booking>(
+          ctx.payload,
+          "bookings",
+          ({
+            timeslot: Number(timeslotId),
+            user: Number(ctx.user.id),
+            status: "confirmed",
+            ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
+            ...extra,
+          } as unknown) as Record<string, unknown>,
+          { overrideAccess: true }
+        );
 
-      const viewerMaxPerTimeslot = !hasPaymentMethods
-        ? Infinity
-        : caps.length > 0
-          ? caps.some((c) => c === Infinity)
-            ? Infinity
-            : Math.max(1, ...caps)
-          : 1;
-      const allowsMultipleBookingsForViewer = viewerMaxPerTimeslot > 1;
-      const singleSlotOnly = !allowsMultipleBookingsForViewer;
-
-      // If this isn't a single-slot timeslot, fall back to the normal booking page flow.
-      if (!singleSlotOnly) {
-        return { redirectUrl: `/bookings/${timeslotId}` };
-      }
-
-      // If already booked, no-op (stay on schedule).
+      // 2. Already booked → no-op (stay on schedule).
       const existingConfirmed = await findSafe<Booking>(ctx.payload, "bookings", {
         where: {
           and: [
@@ -163,58 +146,126 @@ export const bookingsRouter = {
         return { redirectUrl: null };
       }
 
+      // 3. No payment methods → free lesson, book immediately.
+      if (!hasPaymentMethods) {
+        await bookOneSlot();
+        return { redirectUrl: null };
+      }
+
+      // 4. Active subscription for this timeslot, within session limit → book immediately.
       const allowedPlanIds =
         (paymentMethods as any)?.allowedPlans?.map((p: any) =>
           typeof p === "object" && p != null ? p.id : p
         ) ?? [];
 
-      // No membership option configured -> redirect to manage.
-      if (!Array.isArray(allowedPlanIds) || allowedPlanIds.length === 0) {
-        return { redirectUrl: `/bookings/${timeslotId}` };
+      if (Array.isArray(allowedPlanIds) && allowedPlanIds.length > 0) {
+        const subs = await findSafe<Subscription>(ctx.payload, "subscriptions", {
+          where: {
+            and: [
+              { user: { equals: ctx.user.id } },
+              { plan: { in: allowedPlanIds } },
+            ],
+          },
+          depth: 2,
+          limit: 25,
+          overrideAccess: true,
+          user: ctx.user,
+          req: payloadReq,
+        });
+
+        const timeslotStart = new Date(timeslot.startTime);
+        const usableSub = subs.docs.find((s: any) => canUseSubscriptionForBooking(s?.status));
+
+        if (usableSub) {
+          const limitReached = await hasReachedSubscriptionLimit(usableSub as any, ctx.payload, timeslotStart);
+          if (limitReached) {
+            // Subscription exhausted — send to booking page to pay another way.
+            return { redirectUrl: `/bookings/${timeslotId}` };
+          }
+          await bookOneSlot({
+            paymentMethodUsed: "subscription",
+            subscriptionIdUsed: Number((usableSub as any).id),
+          });
+          return { redirectUrl: null };
+        }
       }
 
-      // Find the first eligible subscription the viewer can use for this timeslot.
-      const subs = await findSafe<Subscription>(ctx.payload, "subscriptions", {
-        where: {
-          and: [
-            { user: { equals: ctx.user.id } },
-            { plan: { in: allowedPlanIds } },
-          ],
-        },
-        depth: 2,
-        limit: 25,
-        overrideAccess: true,
-        user: ctx.user,
-        req: payloadReq,
-      });
+      // 5. Valid class pass for this timeslot → book immediately, decrement 1 credit.
+      const allowedClassPassTypeIds: number[] = (
+        (paymentMethods as any)?.allowedClassPasses ?? []
+      )
+        .map((cp: any) => (typeof cp === "object" && cp != null ? cp.id : cp))
+        .filter((id: unknown): id is number => typeof id === "number");
 
-      const timeslotStart = new Date(timeslot.startTime);
-      const usable = subs.docs.find((s: any) => canUseSubscriptionForBooking(s?.status));
+      if (allowedClassPassTypeIds.length > 0 && timeslotTenantId != null) {
+        const now = new Date().toISOString();
+        const passResult = await findSafe(ctx.payload, "class-passes", {
+          where: {
+            and: [
+              { user: { equals: ctx.user.id } },
+              { tenant: { equals: timeslotTenantId } },
+              { type: { in: allowedClassPassTypeIds } },
+              { status: { equals: "active" } },
+              { quantity: { greater_than: 0 } },
+              { expirationDate: { greater_than: now } },
+            ],
+          },
+          limit: 10,
+          depth: 1,
+          sort: "expirationDate",
+          overrideAccess: true,
+        });
 
-      if (!usable) {
-        return { redirectUrl: `/bookings/${timeslotId}` };
+        const usablePass = (
+          filterValidClassPassesForTimeslot(
+            timeslot as unknown as TimeslotLike,
+            passResult.docs as ClassPassLike[],
+            new Date(),
+            1
+          ) as any[]
+        )[0];
+
+        if (usablePass != null) {
+          const passId = (usablePass as any).id as number;
+
+          const booking = await bookOneSlot({
+            paymentMethodUsed: "class_pass",
+            classPassIdUsed: passId,
+          });
+
+          // Decrement class pass by 1 credit.
+          const currentQty =
+            typeof (usablePass as any).quantity === "number" ? (usablePass as any).quantity : 0;
+          const nextQty = Math.max(0, currentQty - 1);
+          const nextStatus = nextQty === 0 ? "used" : ((usablePass as any).status ?? "active");
+          await ctx.payload.update({
+            collection: "class-passes" as import("payload").CollectionSlug,
+            id: passId,
+            data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
+            overrideAccess: true,
+          });
+
+          // Create transaction record for accounting.
+          if (hasCollection(ctx.payload, "transactions")) {
+            const bookingId = (booking as unknown as { id: number }).id;
+            await ctx.payload.create({
+              collection: "transactions" as import("payload").CollectionSlug,
+              data: {
+                booking: bookingId,
+                paymentMethod: "class_pass",
+                classPassId: passId,
+                ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
+              } as Record<string, unknown>,
+              overrideAccess: true,
+            });
+          }
+
+          return { redirectUrl: null };
+        }
       }
 
-      const limitReached = await hasReachedSubscriptionLimit(usable as any, ctx.payload, timeslotStart);
-      if (limitReached) {
-        return { redirectUrl: `/bookings/${timeslotId}/manage` };
-      }
-
-      // Book directly (mark as subscription-backed). Capacity and subscription were validated above.
-      await createSafe(
-        ctx.payload,
-        "bookings",
-        ({
-          timeslot: Number(timeslotId),
-          user: Number(ctx.user.id),
-          status: "confirmed",
-          paymentMethodUsed: "subscription",
-          subscriptionIdUsed: Number((usable as any).id),
-        } as unknown) as Record<string, unknown>,
-        { overrideAccess: true }
-      );
-
-      return { redirectUrl: null };
+      // 6. No entitlement — redirect to booking page for payment.
+      return { redirectUrl: `/bookings/${timeslotId}` };
     }),
   checkIn: protectedProcedure
     .use(requireBookingCollections("timeslots", "bookings"))
