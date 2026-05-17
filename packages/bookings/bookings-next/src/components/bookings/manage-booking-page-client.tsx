@@ -116,6 +116,20 @@ function mergeById(base: Booking[], incoming: Booking[]): Booking[] {
   return Array.from(byId.values())
 }
 
+/**
+ * Compute checkout "+" cap for pending additions.
+ *
+ * - `capacityPending`: timeslot remaining capacity (hard limit)
+ * - `viewerMaxPerTimeslot`: per-user/payment-method max (Infinity = no cap)
+ * - `alreadyHeld`: already confirmed/active bookings that count towards the cap
+ */
+function computeCheckoutMax(capacityPending: number, viewerMaxPerTimeslot: number, alreadyHeld: number) {
+  const methodPending =
+    viewerMaxPerTimeslot === Infinity ? Infinity : Math.max(0, viewerMaxPerTimeslot - alreadyHeld)
+
+  return methodPending === Infinity ? capacityPending : Math.min(capacityPending, methodPending)
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface ManageBookingPageClientProps {
@@ -223,7 +237,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const [pendingMutationError, setPendingMutationError] = useState<string | null>(null)
 
   // Frozen when checkout begins; never changes mid-session.
-  const checkoutMaxRef = useRef(Math.max(0, timeslot.remainingCapacity))
+  // Seed it on first render (including SSR cases where the page loads already in checkout).
+  const capacityPending = Math.max(0, timeslot.remainingCapacity)
+  const alreadyHeld = activeBookings.length
+  const checkoutMaxRef = useRef(computeCheckoutMax(capacityPending, viewerMaxPerTimeslot, alreadyHeld))
 
   // ── Quantity selector state (non-checkout view) ────────────────────────────
 
@@ -342,13 +359,24 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // ── Checkout lifecycle helpers ────────────────────────────────────────────
 
   const enterCheckout = useCallback(
-    (pending: Booking[]) => {
-      checkoutMaxRef.current = Math.max(0, timeslot.remainingCapacity)
+    (pending: Booking[], checkoutMaxOverride?: number) => {
+      // Freeze checkout cap for "+" (pending bookings additions).
+      // This must respect BOTH:
+      //  1) timeslot remaining capacity (hard limit)
+      //  2) per-user/payment-method maxBookingsPerTimeslot cap (viewerMaxPerTimeslot),
+      //     adjusted by already-confirmed bookings.
+      const capacityPending = Math.max(0, timeslot.remainingCapacity)
+      if (typeof checkoutMaxOverride === 'number') {
+        checkoutMaxRef.current = checkoutMaxOverride
+      } else {
+        const alreadyHeld = activeBookings.length
+        checkoutMaxRef.current = computeCheckoutMax(capacityPending, viewerMaxPerTimeslot, alreadyHeld)
+      }
       setPendingBookings(pending)
       setPendingMutationError(null)
       setIsInCheckout(true)
     },
-    [timeslot.remainingCapacity]
+    [timeslot.remainingCapacity, activeBookings.length, viewerMaxPerTimeslot]
   )
 
   const exitCheckout = useCallback(() => {
@@ -420,12 +448,23 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     // ── Increase with payment required → enter checkout ──────────────────
     if (target > current && canIncreaseQuantity && PaymentMethodsComponent) {
       try {
+        // Compute the checkout "+" cap BEFORE creating pending bookings.
+        // This keeps the checkout freeze value aligned with the quantity
+        // selector's enforced per-user cap, even if the client/server data
+        // hydration timing changes during the async mutation.
+        const capacityPending = Math.max(0, timeslot.remainingCapacity)
+        const checkoutMaxOverride = computeCheckoutMax(
+          capacityPending,
+          viewerMaxPerTimeslot,
+          activeBookings.length
+        )
+
         const pending = await createBookings({
           timeslotId: timeslot.id,
           quantity: target - current,
           status: 'pending',
         })
-        enterCheckout(pending)
+        enterCheckout(pending, checkoutMaxOverride)
         toast.info('Please complete payment to confirm your additional bookings.')
       } catch {
         // Error toast handled by mutation onError

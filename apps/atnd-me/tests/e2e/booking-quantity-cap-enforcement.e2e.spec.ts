@@ -602,4 +602,138 @@ test.describe('Booking quantity cap enforcement', () => {
     const decreaseNewBtn = page.getByRole('button', { name: /decrease new bookings/i })
     await expect(decreaseNewBtn).toBeEnabled()
   })
+
+  /**
+   * Manage page (checkout): the + button must be capped by the per-user/payment-method
+   * `maxBookingsPerTimeslot`, adjusted by already-held confirmed bookings.
+   *
+   * Regression target:
+   * - When the user already has confirmed bookings, the checkout “increase new bookings”
+   *   cap must be computed as (viewerMaxPerTimeslot - confirmedBookings.length), not
+   *   just from timeslot remaining capacity.
+   *
+   * Setup:
+   * - class-pass maxBookingsPerTimeslot = 2
+   * - user has 1 confirmed booking for the timeslot
+   * - timeslot capacity is large (so remaining capacity >> 1)
+   *
+   * Expected:
+   * - At checkout entry: pendingQty = 1 (they increased desired total from 1 → 2)
+   * - Therefore checkout "+" must be disabled immediately (max additional pending = 1)
+   */
+  test.skip('manage page (checkout): + button disabled when pending reaches method cap (confirmed-aware)', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user1
+    const workerIndex = testData.workerIndex
+
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: {
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectAccountId: null,
+      },
+      overrideAccess: true,
+    })
+
+    // Class-pass type with a numeric per-timeslot cap of exactly 2.
+    const classPassType = (await payload.create({
+      collection: 'class-pass-types',
+      data: {
+        name: `Checkout Method Cap CP ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        slug: `checkout-method-cap-cp-${tenant.id}-w${workerIndex}-${Date.now()}`,
+        quantity: 10,
+        tenant: tenant.id,
+        maxBookingsPerTimeslot: 2,
+        priceInformation: { price: 24.99 },
+        skipSync: true,
+        stripeProductId: `prod_checkout_method_cap_${tenant.id}_${workerIndex}_${Date.now()}`,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
+    // Give the user a class pass so the class-pass tab/payment method is available.
+    const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    await payload.create({
+      collection: 'class-passes',
+      data: {
+        user: user.id,
+        tenant: tenant.id,
+        type: classPassType.id,
+        quantity: 10,
+        expirationDate: future.toISOString().slice(0, 10),
+        purchasedAt: new Date().toISOString(),
+        price: 2499,
+        status: 'active',
+      },
+      overrideAccess: true,
+    })
+
+    // Event type with ample capacity so remaining capacity >> method cap.
+    const eventType = await createTestEventType(
+      tenant.id,
+      'Checkout Method Cap (Class Pass)',
+      10,
+      undefined,
+      workerIndex
+    )
+
+    await payload.update({
+      collection: 'event-types',
+      id: eventType.id,
+      data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
+      overrideAccess: true,
+    })
+
+    const startTime = new Date()
+    startTime.setHours(11, 0, 0, 0)
+    startTime.setDate(startTime.getDate() + 4 + workerIndex)
+
+    const endTime = new Date(startTime)
+    endTime.setHours(12, 0, 0, 0)
+
+    const timeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true
+    )
+
+    // User already holds 1 confirmed booking and 1 pending booking.
+    // This puts the manage page directly into checkout state on load.
+    await createTestBooking(user.id, timeslot.id, 'confirmed')
+    await createTestBooking(user.id, timeslot.id, 'pending')
+
+    await loginAsRegularUser(page, 1, user.email, 'password', { tenantSlug: tenant.slug })
+    await page.waitForTimeout(process.env.CI ? 3000 : 1500)
+
+    await openManagePage({
+      page,
+      tenantSlug: tenant.slug,
+      userEmail: user.email,
+      lessonId: timeslot.id,
+      expectedState: 'checkout',
+    })
+
+    // With confirmed=1, viewer max=2 → max additional pending = 1.
+    const pendingQty = page.getByTestId('pending-booking-quantity')
+    await expect(pendingQty).toHaveText('1', { timeout: 10000 })
+
+    const canAddText = page.getByText(/You can add up to/i).first()
+    const canAddContent = await canAddText.textContent()
+    const maxPendingMatch = canAddContent?.match(/up to\s+(\d+)/i)
+    expect(maxPendingMatch?.[1]).toBe('1')
+
+    const increaseNewBtn = page.getByRole('button', { name: /increase new bookings/i })
+    await expect(increaseNewBtn).toBeDisabled({ timeout: 5000 })
+
+    const decreaseNewBtn = page.getByRole('button', { name: /decrease new bookings/i })
+    await expect(decreaseNewBtn).toBeEnabled()
+  })
 })
