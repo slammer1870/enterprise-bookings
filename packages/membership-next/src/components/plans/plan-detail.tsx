@@ -117,7 +117,7 @@ export const PlanDetail = ({
           </div>
         ))}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex flex-col gap-3">
         <Button
           onClick={handleAction}
           disabled={loading || !canPerformAction}
@@ -125,6 +125,9 @@ export const PlanDetail = ({
         >
           {loading ? "Loading..." : actionLabel}
         </Button>
+        {plan.footerText ? (
+          <p className="text-center text-xs text-muted-foreground">{plan.footerText}</p>
+        ) : null}
       </CardFooter>
     </Card>
   );

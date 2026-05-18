@@ -162,6 +162,16 @@ const defaultFields: Field[] = [
     label: "Price JSON",
   },
   {
+    name: "footerText",
+    type: "text",
+    label: "Membership card footer",
+    admin: {
+      description:
+        'Optional message shown at the bottom of the membership card, e.g. "For any questions on membership please email members@example.com".',
+      placeholder: "For any questions on membership please email members@example.com",
+    },
+  },
+  {
     name: "status",
     type: "select",
     options: ["active", "inactive"],

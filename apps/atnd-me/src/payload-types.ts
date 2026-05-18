@@ -876,6 +876,10 @@ export interface Plan {
   };
   priceJSON?: string | null;
   /**
+   * Optional message shown at the bottom of the membership card, e.g. "For any questions on membership please email members@example.com".
+   */
+  footerText?: string | null;
+  /**
    * Status of the plan
    */
   status: 'active' | 'inactive';
@@ -5231,6 +5235,7 @@ export interface PlansSelect<T extends boolean = true> {
         interval?: T;
       };
   priceJSON?: T;
+  footerText?: T;
   status?: T;
   skipSync?: T;
   deletedAt?: T;
