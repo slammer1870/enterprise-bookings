@@ -110,6 +110,7 @@ import * as migration_20260613_scheduler_branch_id from './20260613_scheduler_br
 import * as migration_20260614_scheduler_multi_location from './20260614_scheduler_multi_location';
 import * as migration_20260614_schedule_block_default_location from './20260614_schedule_block_default_location';
 import * as migration_20260615_locations_default_for_schedule from './20260615_locations_default_for_schedule';
+import * as migration_20260618_000001_plans_footer_text from './20260618_000001_plans_footer_text';
 
 export const migrations = [
   {
@@ -671,5 +672,10 @@ export const migrations = [
     up: migration_20260615_locations_default_for_schedule.up,
     down: migration_20260615_locations_default_for_schedule.down,
     name: '20260615_locations_default_for_schedule',
+  },
+  {
+    up: migration_20260618_000001_plans_footer_text.up,
+    down: migration_20260618_000001_plans_footer_text.down,
+    name: '20260618_000001_plans_footer_text',
   },
 ];

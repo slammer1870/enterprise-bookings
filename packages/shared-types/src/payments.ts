@@ -55,6 +55,7 @@ export interface Plan {
   } | null;
   stripeProductId?: string | null;
   priceJSON?: string | null;
+  footerText?: string | null;
   isSubscribed?: boolean | null;
   status: "active" | "inactive";
   type?: "child" | "adult" | "family";

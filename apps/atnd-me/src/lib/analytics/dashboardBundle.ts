@@ -344,6 +344,86 @@ export async function getAnalyticsDashboardBundle(
     }
   }
 
+  // Extra pass: fill in churn booking history that falls before the user-selected date range.
+  // The churn heuristic always looks back CHURN_TREND_WINDOW_DAYS from dateTo regardless of the
+  // chosen period. If dateFrom is more recent than churnFromYmd, fetch the gap so that switching
+  // between e.g. "last 7 days" and "last 30 days" does not alter the churn list.
+  if (includeLikelyChurnCustomers && churnFromYmd < params.dateFrom) {
+    const gapParams = {
+      ...params,
+      dateFrom: churnFromYmd,
+      dateTo: shiftYmdUtc(params.dateFrom, -1),
+      preResolvedTimeslotIds: undefined as number[] | undefined,
+    }
+    const gapTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, gapParams)
+
+    const ymdToDayNumber = (v: string): number => {
+      const [yy, mm, dd] = v.split('-').map((x) => parseInt(x, 10))
+      if (yy == null || mm == null || dd == null) return 0
+      return Math.floor(Date.UTC(yy, mm - 1, dd) / 86400000)
+    }
+    const churnFromDayNumber = ymdToDayNumber(churnFromYmd)
+
+    for (const idChunk of chunkIds(gapTimeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+      const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
+      const [timeslotInfo, docsResult] = await Promise.all([
+        loadTimeslotCalendarInfoById(payload, idChunk, ymdIanaMode),
+        payload.find({
+          collection: 'bookings',
+          where,
+          limit: MAX_BOOKINGS_PER_CHUNK,
+          depth: 0,
+          select: { user: true, timeslot: true },
+          overrideAccess: true,
+        }),
+      ])
+
+      for (const doc of docsResult.docs) {
+        const d = doc as { user?: number | { id: number }; timeslot?: number | { id?: number } }
+        const uid = bookingUserId(d)
+        if (uid === null) continue
+
+        const ts = d.timeslot
+        const tsId =
+          typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : ts
+        const ymd = typeof tsId === 'number' ? timeslotInfo.ymdById.get(tsId) ?? null : null
+        if (!ymd || ymd < churnFromYmd || ymd >= params.dateFrom) continue
+
+        let agg = churnAggByUser.get(uid)
+        if (!agg) {
+          agg = {
+            recentBookings: 0,
+            recentBookingsThisWeek: 0,
+            priorBookings: 0,
+            dayCounts: Array(CHURN_TREND_WINDOW_DAYS).fill(0),
+          }
+          churnAggByUser.set(uid, agg)
+        }
+
+        if (ymd >= inactivityFromYmd7) agg.recentBookings += 1
+        else agg.priorBookings += 1
+
+        if (cutoffWednesdayYmd != null && ymd >= cutoffWednesdayYmd) agg.recentBookingsThisWeek += 1
+
+        const dayOffset = ymdToDayNumber(ymd) - churnFromDayNumber
+        if (dayOffset >= 0 && dayOffset < CHURN_TREND_WINDOW_DAYS) {
+          agg.dayCounts[dayOffset]! += 1
+        }
+
+        const tenantIdForTimeslot =
+          typeof tsId === 'number' ? timeslotInfo.tenantById.get(tsId) : null
+        if (tenantIdForTimeslot != null) {
+          let tenantSet = churnAggTenantIdsByUser.get(uid)
+          if (!tenantSet) {
+            tenantSet = new Set<number>()
+            churnAggTenantIdsByUser.set(uid, tenantSet)
+          }
+          tenantSet.add(tenantIdForTimeslot)
+        }
+      }
+    }
+  }
+
   const bookingsOverTime = includeBookingsOverTime
     ? densifyBookingsOverTime(timeBucket, {
         dateFrom: params.dateFrom,
