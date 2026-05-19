@@ -91,6 +91,28 @@ describe('Magic-link email tenant From header', () => {
     expect(payload.from).toBe('Bru Grappling <auth@bru.example.com>')
   })
 
+  it('falls back when tenant domain contains env-style injection (=)', async () => {
+    const findImpl = vi.fn(async ({ collection, where }: any) => {
+      expect(collection).toBe('tenants')
+      expect(where).toEqual({ domain: { equals: 'bad.example.com' } })
+      return { docs: [{ name: 'Studio Yoga', domain: 'ATNDSTRIPE_CONNECT_CLIENT_ID=ca_xxx' }] }
+    })
+
+    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
+
+    await betterAuthPluginOptions.betterAuthOptions.magicLink.sendMagicLink({
+      email: 'person@example.com',
+      token: 'tok',
+      url: 'https://bad.example.com/api/auth/magic-link?token=tok',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [_url, init] = fetchMock.mock.calls[0] as any[]
+    const payload = JSON.parse(init.body)
+    // Domain includes '=' so sanitizeFromAddress rejects it; we should fall back to auth@atnd.me.
+    expect(payload.from).toBe('Studio Yoga <auth@atnd.me>')
+  })
+
   it('uses tenant name and auth@atnd.me for platform subdomains', async () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {
       expect(collection).toBe('tenants')

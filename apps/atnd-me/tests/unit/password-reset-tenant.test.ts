@@ -84,5 +84,25 @@ describe('Password reset email tenant From header', () => {
     expect(payload.subject).toBe('Reset your Acme Gym password')
     expect(payload.from).toBe('Acme Gym <auth@atnd.me>')
   })
+
+  it('falls back when tenant domain contains env-style injection (=)', async () => {
+    const findImpl = vi.fn(async ({ collection, where }: any) => {
+      expect(collection).toBe('tenants')
+      expect(where).toEqual({ domain: { equals: 'bad.example.com' } })
+      return { docs: [{ name: 'Studio Yoga', domain: 'ATNDSTRIPE_CONNECT_CLIENT_ID=ca_xxx' }] }
+    })
+
+    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
+
+    await betterAuthPluginOptions.betterAuthOptions.emailAndPassword.sendResetPassword({
+      user: { email: 'person@example.com', name: 'Person' },
+      url: 'https://bad.example.com/reset-password?token=tok',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [_url, init] = fetchMock.mock.calls[0] as any[]
+    const payload = JSON.parse(init.body)
+    expect(payload.from).toBe('Studio Yoga <auth@atnd.me>')
+  })
 })
 

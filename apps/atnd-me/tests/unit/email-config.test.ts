@@ -18,6 +18,11 @@ describe('payload email config', () => {
     expect(sanitizeFromAddress('noreply@atnd.ie')).toBe('noreply@atnd.ie')
   })
 
+  it('rejects malformed from addresses that look like env assignments', () => {
+    expect(sanitizeFromAddress('DEFAULT_FROM_ADDRESS=noreply@test.com')).toBeUndefined()
+    expect(sanitizeFromAddress('auth@ATNDSTRIPE_CONNECT_CLIENT_ID=ca_xxx')).toBeUndefined()
+  })
+
   it('resolves a safe resend adapter config from env', () => {
     expect(
       resolvePayloadEmailConfig({
