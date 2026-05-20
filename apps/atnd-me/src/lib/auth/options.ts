@@ -2,6 +2,7 @@ import { createBetterAuthPluginOptions, createCustomExpiryMagicLinkSender } from
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
+import { sanitizeFromAddress, sanitizeFromName } from '@/utilities/emailConfig'
 
 /**
  * Generate trusted origins for Better Auth, including wildcard patterns for tenant subdomains.
@@ -259,6 +260,21 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
 
 const BOOKING_MAGIC_LINK_EXPIRY_SECONDS = 36 * 60 * 60 // 36 hours
 
+function resolveTenantBasedBetterAuthFrom(args: { tenantName?: string | null; tenantDomain?: string | null }) {
+  const fromName = sanitizeFromName(args.tenantName) || 'ATND ME'
+
+  // Resend requires a syntactically valid email address, and the sender domain must be
+  // verified. Better Auth already retries with `DEFAULT_FROM_ADDRESS` when Resend rejects
+  // unverified domains, so we only sanitize to prevent malformed `from` headers (422s).
+  const normalizedDomain = args.tenantDomain ? normalizeCustomDomain(args.tenantDomain) : null
+  const fromAddressEmail = normalizedDomain ? `auth@${normalizedDomain}` : 'auth@atnd.me'
+
+  return {
+    fromName,
+    fromAddress: sanitizeFromAddress(fromAddressEmail) || 'auth@atnd.me',
+  }
+}
+
 const betterAuthConfig = {
   appName: 'ATND ME',
   adminUserIds: ['1'],
@@ -290,16 +306,12 @@ const betterAuthConfig = {
   },
   resolveMagicLinkFrom: async ({ url }: { url: string }) => {
     const tenant = await resolveTenantForMagicLinkUrl(url)
-    const fromName = tenant?.name || 'ATND ME'
-    const fromAddress = tenant?.domain ? `auth@${tenant.domain}` : 'auth@atnd.me'
-    return { fromName, fromAddress }
+    return resolveTenantBasedBetterAuthFrom({ tenantName: tenant?.name, tenantDomain: tenant?.domain })
   },
   resolveResetPasswordAppName: async ({ url }: { url: string }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
   resolveResetPasswordFrom: async ({ url }: { url: string }) => {
     const tenant = await resolveTenantForMagicLinkUrl(url)
-    const fromName = tenant?.name || 'ATND ME'
-    const fromAddress = tenant?.domain ? `auth@${tenant.domain}` : 'auth@atnd.me'
-    return { fromName, fromAddress }
+    return resolveTenantBasedBetterAuthFrom({ tenantName: tenant?.name, tenantDomain: tenant?.domain })
   },
   roles: {
     adminRoles: ['super-admin', 'admin', 'staff', 'location-manager'],
