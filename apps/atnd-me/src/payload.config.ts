@@ -24,6 +24,7 @@ import { generateTimeslotsFromScheduleWithTenant } from './tasks/generate-timesl
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
 import { resolvePayloadEmailConfig } from './utilities/emailConfig'
+import { createFromFallbackEmailAdapter, resolveResendFromFallbackConfig } from './utilities/emailConfig'
 import { createSubscriptionInStripeEndpoint } from './endpoints/admin/stripe/create-subscription'
 import { stripeDashboardLinkEndpoint } from './endpoints/admin/stripe/dashboard-link'
 import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/update-subscription'
@@ -127,7 +128,18 @@ export default buildConfig({
   },
   // This config helps us configure global or default features that the other editors can inherit
   editor: defaultLexical,
-  email: resendAdapter(resolvePayloadEmailConfig(process.env)),
+  email: (() => {
+    const primaryArgs = resolvePayloadEmailConfig(process.env)
+    const fallbackArgs = resolveResendFromFallbackConfig(process.env, primaryArgs)
+
+    const primaryAdapter = resendAdapter(primaryArgs)
+    const fallbackAdapter = resendAdapter(fallbackArgs)
+
+    return createFromFallbackEmailAdapter({
+      primaryAdapter,
+      fallbackAdapter,
+    })
+  })(),
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URI || '',
