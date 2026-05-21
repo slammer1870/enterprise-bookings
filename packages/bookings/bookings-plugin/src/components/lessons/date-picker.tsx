@@ -116,7 +116,7 @@ function DatePickerInner({ selectedDateISO }: { selectedDateISO?: string }) {
             <Button
               variant={"outline"}
               className={cn(
-                "w-[280px] justify-start bg-white text-left font-normal",
+                "w-[280px] justify-start bg-background text-left font-normal",
                 !date && "text-muted-foreground"
               )}
             >

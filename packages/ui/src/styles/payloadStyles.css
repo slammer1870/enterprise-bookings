@@ -72,7 +72,7 @@
   --closed-foreground: 0 0% 98%;
 }
 
-.dark {
+:where(.dark, [data-theme='dark'], [data-theme=dark]) {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
@@ -361,42 +361,7 @@
     font-size: 0.85rem !important; /* Smaller numbers */
   }
 
-  /* Selected buttons - gray background */
-  button[data-selected-single="true"],
-  button[data-range-start="true"],
-  button[data-range-end="true"] {
-    background: oklch(0.85 0 0) !important; /* Gray background */
-    color: var(--foreground) !important; /* Keep text color the same */
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Hovered buttons - light gray background */
-  button:hover:not([data-selected-single="true"]):not(
-      [data-range-start="true"]
-    ):not([data-range-end="true"]) {
-    background: oklch(0.95 0 0) !important; /* Light gray background */
-    color: var(--foreground) !important; /* Keep text color the same */
-  }
-
-  /* Selected buttons on hover - keep gray background */
-  button[data-selected-single="true"]:hover,
-  button[data-range-start="true"]:hover,
-  button[data-range-end="true"]:hover {
-    background: oklch(0.85 0 0) !important; /* Keep gray background */
-    color: var(--foreground) !important; /* Keep text color the same */
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Range middle (between start and end) */
-  button[data-range-middle="true"] {
-    background: oklch(0.9 0 0) !important; /* Light gray */
-    color: var(--foreground) !important; /* Keep text color the same */
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
+  /* Allow react-day-picker/tailwind classes (incl. dark mode) to control
+     selected/hover backgrounds. Payload admin styles can override layout,
+     but we shouldn't hard-code light-gray colors here. */
 }
