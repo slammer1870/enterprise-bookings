@@ -148,7 +148,11 @@ export async function middleware(request: NextRequest) {
     try {
       const origin = platformOrigin ?? request.nextUrl.origin
       const url = `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
-      const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: internalResolveHeaders,
+        signal: AbortSignal.timeout(2000),
+      })
       if (res.ok) {
         const data = (await res.json()) as { slug?: string; id?: string | number }
         if (data?.slug && typeof data.slug === 'string') {
@@ -308,7 +312,11 @@ export async function middleware(request: NextRequest) {
       try {
         const origin = platformOrigin ?? request.nextUrl.origin
         const url = `${origin}/api/tenant-by-slug?slug=${encodeURIComponent(subdomain)}`
-        const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
+        const res = await fetch(url, {
+          cache: 'no-store',
+          headers: internalResolveHeaders,
+          signal: AbortSignal.timeout(2000),
+        })
         if (res.ok) {
           const data = (await res.json()) as { id?: string | number }
           tenantIdToSet = typeof data?.id === 'string' || typeof data?.id === 'number' ? data.id : null
@@ -470,6 +478,7 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     res = await fetch(url, {
       cache: 'no-store',
       headers: request.headers,
+      signal: AbortSignal.timeout(2000),
     })
   } catch {
     // If the check fails (network/runtime), fail open so admin isn't bricked.

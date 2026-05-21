@@ -155,9 +155,10 @@ describe('Tenant Listing Page Access', () => {
       })
 
       const names = tenantsResult.docs.map((t: any) => t.name)
-      // Use localeCompare to match PostgreSQL's locale-aware collation (not JS default
-      // ASCII sort, which disagrees with Postgres on mixed-case strings like "DST" vs "Discount").
-      const sortedNames = [...names].sort((a, b) => a.localeCompare(b))
+      // Use the same byte-order comparison as PostgreSQL's C locale (used by Alpine/Docker
+      // test containers). Locale-aware localeCompare disagrees with Postgres on mixed-case
+      // strings like "LM..." vs "Li..." because uppercase letters precede lowercase in C locale.
+      const sortedNames = [...names].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
 
       expect(names).toEqual(sortedNames)
     },

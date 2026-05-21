@@ -146,7 +146,7 @@ test.describe('Full timeslot waitlist', () => {
     await navigateToTenant(page, tenant.slug, callbackPath)
 
     // Ensure the join mutation has completed (prevents racing the subsequent navigation).
-    await expect(page.getByText(/added to the waitlist/i)).toBeVisible({ timeout: 30000 })
+    await expect(page.getByText(/added to the waitlist/i).first()).toBeVisible({ timeout: 30000 })
 
     // Verify schedule state updated.
     await navigateToTenant(page, tenant.slug, '/')

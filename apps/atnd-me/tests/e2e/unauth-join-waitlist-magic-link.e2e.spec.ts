@@ -81,7 +81,7 @@ test.describe('Unauth join waitlist (magic link)', () => {
     await expect(page.getByText(/joined waitlist/i)).toBeHidden({ timeout: 1_500 }).catch(() => null)
 
     // Login prompt should be visible.
-    await expect(page.getByText(/log in to your account/i)).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText('Log in to your account', { exact: true })).toBeVisible({ timeout: 20_000 })
     const emailInput = page
       .getByRole('textbox', { name: /email/i })
       .or(page.getByPlaceholder(/your email/i))
@@ -97,7 +97,7 @@ test.describe('Unauth join waitlist (magic link)', () => {
     await page.goto(magicLink.url, { waitUntil: 'domcontentloaded' })
 
     // Visual feedback on completion.
-    await expect(page.getByText(/added to the waitlist/i)).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(/added to the waitlist/i).first()).toBeVisible({ timeout: 30_000 })
 
     // Return to schedule and verify schedule state.
     await page.getByRole('button', { name: /back to schedule/i }).click()
