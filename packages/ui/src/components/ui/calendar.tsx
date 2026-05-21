@@ -190,6 +190,16 @@ function CalendarDayButton({
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames()
 
+  // react-day-picker should provide `modifiers.today`, but in this app's
+  // Payload-admin + theme setup we want a deterministic marker.
+  const now = new Date()
+  // Match react-day-picker "day" identity as rendered by this calendar:
+  // we use local Y/M/D (same basis as `getStableDayAttribute`).
+  const isToday =
+    day.date.getFullYear() === now.getFullYear() &&
+    day.date.getMonth() === now.getMonth() &&
+    day.date.getDate() === now.getDate()
+
   const ref = React.useRef<HTMLButtonElement>(null)
   React.useEffect(() => {
     if (modifiers.focused) ref.current?.focus()
@@ -201,6 +211,7 @@ function CalendarDayButton({
       variant="ghost"
       size="icon"
       data-day={getStableDayAttribute(day.date)}
+      data-today={isToday ? 'true' : undefined}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&
