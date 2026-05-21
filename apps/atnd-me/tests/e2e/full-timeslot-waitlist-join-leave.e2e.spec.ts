@@ -122,7 +122,7 @@ test.describe('Full timeslot waitlist', () => {
     const timeslotCard = page.locator('div.border-b.border-border').filter({ hasText: eventName }).first()
     await expect(timeslotCard).toBeVisible({ timeout: 20000 })
 
-    const joinBtn = timeslotCard.getByRole('button', { name: /join waitlist/i })
+    const joinBtn = timeslotCard.getByRole('button', { name: /join.*waitlist/i })
     await expect(joinBtn).toBeVisible()
     await expect(joinBtn).toBeEnabled()
 
