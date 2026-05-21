@@ -145,14 +145,28 @@ test.describe('Full timeslot waitlist', () => {
     // Navigate to the callback where we auto-join the waitlist.
     await navigateToTenant(page, tenant.slug, callbackPath)
 
-    // Don't assert toast/text here; the reliable signal is the schedule state update below.
+    // Ensure the join mutation has completed (prevents racing the subsequent navigation).
+    await expect(page.getByText(/added to the waitlist/i)).toBeVisible({ timeout: 30000 })
 
     // Verify schedule state updated.
     await navigateToTenant(page, tenant.slug, '/')
 
-    // Re-locate the same timeslot card.
+    // The schedule resets to "today" when we return to `/`, so we must re-select the target date.
     await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({ timeout: 20000 })
-    await expect(dateLabel).toBeVisible({ timeout: 30000 })
+
+    const dateLabelAfter = page.locator('p.text-center.text-lg').first()
+    await expect(dateLabelAfter).toBeVisible({ timeout: 20000 })
+    const nextDayButtonAfter = dateLabelAfter.locator('xpath=..').locator('svg').nth(1)
+
+    for (let i = 0; i < 14; i += 1) {
+      const current = (await dateLabelAfter.textContent())?.trim()
+      if (current === targetLabel) break
+      await nextDayButtonAfter.click()
+      await expect(dateLabelAfter).toHaveText(targetLabel, { timeout: 10000 }).catch(() => null)
+    }
+    await expect(dateLabelAfter).toHaveText(targetLabel, { timeout: 15000 })
+
+    // Re-locate the same timeslot card.
 
     const timeslotCardAfter = page
       .locator('div.border-b.border-border')
