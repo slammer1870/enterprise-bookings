@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useTRPC } from '@repo/trpc/client'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 export default function JoinWaitlistPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const trpc = useTRPC()
+  const queryClient = useQueryClient()
 
   const timeslotId = useMemo(() => {
     const raw = searchParams.get('timeslotId')
@@ -27,6 +28,10 @@ export default function JoinWaitlistPage() {
       onSuccess: (result: any) => {
         setStatus('success')
         toast.success('Joined waitlist')
+        // Ensure the schedule UI refreshes when we navigate back to `/`.
+        void queryClient.invalidateQueries({
+          queryKey: trpc.timeslots.getByDate.queryKey(),
+        })
 
         // If we were already on the waitlist, scheduleState.viewer.waitingCount will be > 0
         // but the UX requirement is still to confirm successfully joining.

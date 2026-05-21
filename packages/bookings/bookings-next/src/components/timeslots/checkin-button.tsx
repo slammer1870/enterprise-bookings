@@ -54,14 +54,18 @@ function isAuthError(error: unknown): boolean {
 }
 
 const classNameByAction: Record<TimeslotScheduleState["action"], string> = {
-  book: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
-  cancel: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
-  modify: "w-full bg-modify hover:bg-modify/90 text-modify-foreground",
-  joinWaitlist: "w-full bg-waitlist hover:bg-waitlist/90 text-waitlist-foreground",
-  leaveWaitlist: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
-  closed: "w-full bg-closed hover:bg-closed/90 text-closed-foreground opacity-50 cursor-not-allowed",
-  loginToBook: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
-  manageChildren: "w-full bg-childrenBooked hover:bg-childrenBooked/90 text-childrenBooked-foreground",
+  // Tighten padding so longer labels still fit inside the fixed schedule column width.
+  // Keep `w-full` so every action uses the same column width and thus the same button size.
+  book: "w-full px-3 bg-checkin hover:bg-checkin/90 text-checkin-foreground",
+  cancel: "w-full px-3 bg-cancel hover:bg-cancel/90 text-cancel-foreground",
+  modify: "w-full px-3 bg-modify hover:bg-modify/90 text-modify-foreground",
+  joinWaitlist: "w-full px-3 bg-waitlist hover:bg-waitlist/90 text-waitlist-foreground",
+  leaveWaitlist: "w-full px-3 bg-cancel hover:bg-cancel/90 text-cancel-foreground",
+  closed:
+    "w-full px-3 bg-closed hover:bg-closed/90 text-closed-foreground opacity-50 cursor-not-allowed",
+  loginToBook: "w-full px-3 bg-checkin hover:bg-checkin/90 text-checkin-foreground",
+  manageChildren:
+    "w-full px-3 bg-childrenBooked hover:bg-childrenBooked/90 text-childrenBooked-foreground",
 };
 
 export const CheckInButton = ({
@@ -96,7 +100,20 @@ export const CheckInButton = ({
     ""
   );
 
-  const action: TimeslotScheduleState["action"] = scheduleState?.action ?? "book";
+  const viewerConfirmedCount = scheduleState?.viewer?.confirmedCount ?? 0;
+  const viewerWaitingCount = scheduleState?.viewer?.waitingCount ?? 0;
+
+  // Server should compute this, but add a safeguard for fully booked slots:
+  // if the slot is full and the viewer has no confirmed/waiting bookings,
+  // they should see "Join Waitlist" (even if the server action temporarily
+  // comes through as `loginToBook`).
+  const action: TimeslotScheduleState["action"] =
+    scheduleState?.availability === "full" &&
+    viewerConfirmedCount === 0 &&
+    viewerWaitingCount === 0
+      ? "joinWaitlist"
+      : scheduleState?.action ?? "book";
+
   const label = scheduleState?.label ?? labelByAction[action];
   const isTrialBooking = label.toLowerCase().includes("trial");
 
@@ -244,7 +261,7 @@ export const CheckInButton = ({
       <Button
         className={
           isTrialBooking
-            ? "w-full bg-trialable hover:bg-trialable/90 text-trialable-foreground"
+            ? "w-full px-3 bg-trialable hover:bg-trialable/90 text-trialable-foreground"
             : classNameByAction[action]
         }
         disabled={disabled}
