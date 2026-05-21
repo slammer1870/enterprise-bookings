@@ -108,14 +108,18 @@ export function createFromFallbackEmailAdapter(args: {
   const shouldFallback =
     args.shouldFallback ??
     ((err: unknown) => {
-      const statusCode = typeof err === 'object' && err && 'statusCode' in err ? (err as any).statusCode : undefined
+      const statusCodeFromStatusCode =
+        typeof err === 'object' && err && 'statusCode' in err ? (err as any).statusCode : undefined
+      const statusCodeFromStatus =
+        typeof err === 'object' && err && 'status' in err ? (err as any).status : undefined
+      const statusCode = statusCodeFromStatusCode ?? statusCodeFromStatus
       const message =
         err instanceof Error
           ? err.message
           : typeof err === 'object' && err && 'message' in err
             ? String((err as any).message)
             : String(err)
-      return statusCode === 403 && /domain is not verified/i.test(message)
+      return Number(statusCode) === 403 && /domain is not verified/i.test(message)
     })
 
   return ({ payload }: { payload: any }) => {

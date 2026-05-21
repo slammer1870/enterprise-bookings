@@ -154,5 +154,44 @@ describe('Resend from-domain fallback', () => {
 
     expect(fallbackSendEmail).not.toHaveBeenCalled()
   })
+
+  it('retries when Resend/Payload throws APIError with `status` (not statusCode)', async () => {
+    const primarySendEmail = vi.fn(async (_message: any) => {
+      throw {
+        status: 403,
+        name: 'g',
+        message: 'The brugrappling.ie domain is not verified. Please, add and verify your domain on https://resend.com/domains',
+      }
+    })
+
+    const fallbackSendEmail = vi.fn(async (_message: any) => ({ id: 'fallback-email-id' }))
+
+    const primaryAdapter = vi.fn(() => ({
+      defaultFromAddress: 'auth@primary.ie',
+      defaultFromName: 'Primary',
+      name: 'primary',
+      sendEmail: primarySendEmail,
+    }))
+
+    const fallbackAdapter = vi.fn(() => ({
+      defaultFromAddress: 'auth@atnd.ie',
+      defaultFromName: 'ATND',
+      name: 'fallback',
+      sendEmail: fallbackSendEmail,
+    }))
+
+    const adapter = createFromFallbackEmailAdapter({ primaryAdapter, fallbackAdapter })
+
+    const initialized = adapter({ payload: {} as any })
+    const result = await initialized.sendEmail({
+      from: 'Studio Yoga <auth@brugrappling.ie>',
+      subject: 'Hello',
+      to: ['person@example.com'],
+    })
+
+    expect(result).toEqual({ id: 'fallback-email-id' })
+    expect(primarySendEmail).toHaveBeenCalledTimes(1)
+    expect(fallbackSendEmail).toHaveBeenCalledTimes(1)
+  })
 })
 
