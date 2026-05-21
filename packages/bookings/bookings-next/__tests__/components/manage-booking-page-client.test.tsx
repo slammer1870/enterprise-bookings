@@ -467,8 +467,7 @@ describe('ManageBookingPageClient', () => {
     )
 
     // Quantity selector should allow only `1` total booking for this timeslot.
-    const increaseBtn = await screen.findByLabelText('Increase quantity')
-    expect(increaseBtn).toBeDisabled()
+    expect(screen.queryByLabelText('Increase quantity')).toBeNull()
   })
 
   it('cancels pending bookings when the checkout flow unmounts', async () => {

@@ -841,9 +841,6 @@ export const timeslotsRouter = {
           if (availability === "closed") {
             scheduleState.action = "closed";
             scheduleState.label = "Closed";
-          } else if (!viewerId) {
-            scheduleState.action = "loginToBook";
-            scheduleState.label = isTrialable ? "Book Trial Class" : "Book";
           } else if (isChildClass) {
             scheduleState.action = "manageChildren";
             scheduleState.label = "Manage Children";
@@ -866,6 +863,9 @@ export const timeslotsRouter = {
           } else if (availability === "full") {
             scheduleState.action = "joinWaitlist";
             scheduleState.label = "Join Waitlist";
+          } else if (!viewerId) {
+            scheduleState.action = "loginToBook";
+            scheduleState.label = isTrialable ? "Book Trial Class" : "Book";
           } else {
             scheduleState.action = "book";
             scheduleState.label = isTrialable && !viewerHasAnyConfirmedBooking ? "Book Trial Class" : "Book";

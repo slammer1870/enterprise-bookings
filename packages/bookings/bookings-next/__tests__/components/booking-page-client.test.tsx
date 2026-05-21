@@ -5,6 +5,28 @@ import userEvent from '@testing-library/user-event'
 import { BookingPageClient } from '../../src/components/bookings/booking-page-client'
 import type { Timeslot } from '@repo/shared-types'
 
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useSearchParams: () => ({ get: () => null }),
+}))
+
+vi.mock('@repo/trpc/client', () => ({
+  useTRPC: () => ({
+    bookings: {
+      setMyBookingForTimeslot: {
+        mutationOptions: (opts: any) => opts,
+      },
+    },
+  }),
+}))
+
+vi.mock('@tanstack/react-query', () => ({
+  useMutation: () => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  }),
+}))
+
 // Mock child components
 vi.mock('../../src/components/bookings/booking-summary', () => ({
   BookingSummary: ({ timeslot }: { timeslot: Timeslot }) => (

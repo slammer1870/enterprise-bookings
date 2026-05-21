@@ -42,6 +42,17 @@ function trpcErrorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
+function isAuthError(error: unknown): boolean {
+  const anyErr = error as any;
+  const code: unknown =
+    anyErr?.data?.code ?? anyErr?.shape?.code ?? anyErr?.code ?? anyErr?.message;
+  return (
+    code === "UNAUTHORIZED" ||
+    code === "FORBIDDEN" ||
+    (typeof code === "string" && /unauth|unauthorized|forbidden/i.test(code))
+  );
+}
+
 const classNameByAction: Record<TimeslotScheduleState["action"], string> = {
   book: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
   cancel: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
@@ -102,6 +113,7 @@ export const CheckInButton = ({
         }
       },
       onError: (error: unknown) => {
+        if (isAuthError(error)) return;
         toast.error(trpcErrorMessage(error));
       },
     })
@@ -137,7 +149,9 @@ export const CheckInButton = ({
       toast.info("Please sign in to continue");
       const url =
         loginToBookUrl?.(timeslotId, { isTrial }) ??
-        `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=/bookings/${timeslotId}`;
+        `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=${encodeURIComponent(
+          `/bookings/${timeslotId}`
+        )}`;
       router.push(url, { scroll: false });
       return;
     }
@@ -184,8 +198,26 @@ export const CheckInButton = ({
       try {
         await setMyBooking({ timeslotId, intent: "joinWaitlist" });
         toast.success("Joined waitlist");
-      } catch {
-        // Error toast is shown by mutation onError
+      } catch (error: unknown) {
+        if (!isAuthError(error)) return;
+
+        // For anonymous viewers, the join-waitlist mutation is protected. Redirect to auth
+        // and come back to this booking page with a query param so we can complete the join.
+        const isTrial = isTrialBooking;
+        const callbackPath = `/bookings/${timeslotId}?joinWaitlist=1`;
+
+        const baseUrl =
+          loginToBookUrl?.(timeslotId, { isTrial }) ??
+          `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=${encodeURIComponent(
+            `/bookings/${timeslotId}`
+          )}`;
+
+        // Replace callbackUrl so the user returns to the join-waitlist completion route.
+        const urlObj = new URL(baseUrl, window.location.origin);
+        urlObj.searchParams.set("callbackUrl", callbackPath);
+
+        toast.info("Please sign in to join the waitlist");
+        router.push(`${urlObj.pathname}${urlObj.search}`, { scroll: false });
       }
       return;
     }
