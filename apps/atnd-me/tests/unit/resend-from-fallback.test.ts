@@ -46,6 +46,80 @@ describe('Resend from-domain fallback', () => {
     expect(retriedMessage.from).toBeUndefined()
   })
 
+  it('strips malformed from values before sending', async () => {
+    const primarySendEmail = vi.fn(async (message: any) => {
+      expect(message.from).toBeUndefined()
+      return { id: 'normalized-away' }
+    })
+
+    const fallbackSendEmail = vi.fn(async (_message: any) => ({ id: 'fallback-email-id' }))
+
+    const primaryAdapter = vi.fn(() => ({
+      defaultFromAddress: 'auth@primary.ie',
+      defaultFromName: 'Primary',
+      name: 'primary',
+      sendEmail: primarySendEmail,
+    }))
+
+    const fallbackAdapter = vi.fn(() => ({
+      defaultFromAddress: 'auth@atnd.ie',
+      defaultFromName: 'ATND',
+      name: 'fallback',
+      sendEmail: fallbackSendEmail,
+    }))
+
+    const adapter = createFromFallbackEmailAdapter({ primaryAdapter, fallbackAdapter })
+
+    const initialized = adapter({ payload: {} as any })
+    const result = await initialized.sendEmail({
+      // This matches the report: Resend rejects `from` when it doesn't include a valid email address.
+      from: 'test user or and email address',
+      subject: 'Hello',
+      to: ['person@example.com'],
+    })
+
+    expect(result).toEqual({ id: 'normalized-away' })
+    expect(primarySendEmail).toHaveBeenCalledTimes(1)
+    expect(fallbackSendEmail).not.toHaveBeenCalled()
+  })
+
+  it('extracts a bare email from a malformed from string', async () => {
+    const primarySendEmail = vi.fn(async (message: any) => {
+      expect(message.from).toBe('person@example.com')
+      return { id: 'extracted-email' }
+    })
+
+    const fallbackSendEmail = vi.fn(async (_message: any) => ({ id: 'should-not-happen' }))
+
+    const primaryAdapter = vi.fn(() => ({
+      defaultFromAddress: 'auth@primary.ie',
+      defaultFromName: 'Primary',
+      name: 'primary',
+      sendEmail: primarySendEmail,
+    }))
+
+    const fallbackAdapter = vi.fn(() => ({
+      defaultFromAddress: 'auth@atnd.ie',
+      defaultFromName: 'ATND',
+      name: 'fallback',
+      sendEmail: fallbackSendEmail,
+    }))
+
+    const adapter = createFromFallbackEmailAdapter({ primaryAdapter, fallbackAdapter })
+    const initialized = adapter({ payload: {} as any })
+
+    const result = await initialized.sendEmail({
+      // Payload may pass a free-form "from" value; we extract the first email-looking substring.
+      from: 'Studio Yoga person@example.com',
+      subject: 'Hello',
+      to: ['person2@example.com'],
+    })
+
+    expect(result).toEqual({ id: 'extracted-email' })
+    expect(primarySendEmail).toHaveBeenCalledTimes(1)
+    expect(fallbackSendEmail).not.toHaveBeenCalled()
+  })
+
   it('does not retry for 403 errors that are not unverified-from-domain', async () => {
     const primarySendEmail = vi.fn(async (_message: any) => {
       throw { statusCode: 403, message: 'Some other forbidden error' }

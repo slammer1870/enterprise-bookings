@@ -30,6 +30,35 @@ export function sanitizeFromName(input: unknown): string | undefined {
   return ascii
 }
 
+function normalizeResendFrom(from: unknown, defaults: { defaultFromAddress?: string; defaultFromName?: string }) {
+  const s = typeof from === 'string' ? from.trim() : ''
+  if (!s) return undefined
+
+  // Prevent header injection.
+  if (s.includes('\n') || s.includes('\r')) return undefined
+
+  // Already in a valid strict format: "email@example.com" or "Name <email@example.com>"
+  const fromNameEmailMatch = s.match(/^\s*(?:"?([^"<]+?)"?\s*)?<\s*([^>]+)\s*>\s*$/)
+  if (fromNameEmailMatch) {
+    const name = sanitizeFromName(fromNameEmailMatch[1])
+    const address = sanitizeFromAddress(fromNameEmailMatch[2])
+    if (!address) return undefined
+    if (!name) return address
+    return `${name} <${address}>`
+  }
+
+  const bareEmail = sanitizeFromAddress(s)
+  if (bareEmail) return bareEmail
+
+  // Lenient fallback: extract the first email-looking substring and send as bare email.
+  const emailMatch = s.match(/([^\s<>"']+@[^\s<>"']+\.[^\s<>"']+)/)
+  const extractedEmail = emailMatch ? sanitizeFromAddress(emailMatch[1]) : undefined
+  if (extractedEmail) return extractedEmail
+
+  // Malformed "from" (e.g. "test user" without an address) -> drop so adapter defaults apply.
+  return undefined
+}
+
 export function resolvePayloadEmailConfig(env: NodeJS.ProcessEnv) {
   return {
     // Resend validates `from` strictly (must be a proper email or "Name <email>").
@@ -96,13 +125,19 @@ export function createFromFallbackEmailAdapter(args: {
     return {
       ...primaryInitialized,
       sendEmail: async (message: any) => {
+        const normalizedFrom = normalizeResendFrom(message.from, {
+          defaultFromAddress: primaryInitialized.defaultFromAddress,
+          defaultFromName: primaryInitialized.defaultFromName,
+        })
+        const normalizedMessage = { ...message, from: normalizedFrom }
+
         try {
-          return await primaryInitialized.sendEmail(message)
+          return await primaryInitialized.sendEmail(normalizedMessage)
         } catch (err) {
           if (!shouldFallback(err)) throw err
 
           // Remove `from` so the adapter uses its configured defaults.
-          const retryMessage = { ...message, from: undefined }
+          const retryMessage = { ...normalizedMessage, from: undefined }
           return await fallbackInitialized.sendEmail(retryMessage)
         }
       },
