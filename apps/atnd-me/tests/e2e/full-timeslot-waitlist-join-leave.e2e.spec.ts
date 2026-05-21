@@ -60,18 +60,18 @@ test.describe('Full timeslot waitlist', () => {
     const timeslotCard = page.locator('div.border-b.border-border').filter({ hasText: eventName }).first()
     await expect(timeslotCard).toBeVisible({ timeout: 20000 })
 
-    const joinBtn = timeslotCard.getByRole('button', { name: /join waitlist/i })
+    const joinBtn = timeslotCard.getByRole('button', { name: /join.*waitlist/i })
     await expect(joinBtn).toBeVisible()
     await expect(joinBtn).toBeEnabled()
     await joinBtn.click()
 
-    await expect(timeslotCard.getByRole('button', { name: /leave waitlist/i })).toBeVisible({
+    await expect(timeslotCard.getByRole('button', { name: /leave.*waitlist/i })).toBeVisible({
       timeout: 20000,
     })
 
-    await timeslotCard.getByRole('button', { name: /leave waitlist/i }).click()
+    await timeslotCard.getByRole('button', { name: /leave.*waitlist/i }).click()
 
-    await expect(timeslotCard.getByRole('button', { name: /join waitlist/i })).toBeVisible({
+    await expect(timeslotCard.getByRole('button', { name: /join.*waitlist/i })).toBeVisible({
       timeout: 20000,
     })
   })
@@ -140,11 +140,10 @@ test.describe('Full timeslot waitlist', () => {
       tenantSlug: tenant.slug,
     })
 
-    // Navigate to the callback where the booking page auto-joins the waitlist.
+    // Navigate to the callback where we auto-join the waitlist.
     await navigateToTenant(page, tenant.slug, callbackPath)
 
-    // Confirm toast + waitlist state (UI should show "Leave waitlist" for this user).
-    await expect(page.getByText(/joined waitlist/i)).toBeVisible({ timeout: 20000 }).catch(() => null)
+    // Confirm UI confirmation (toasts may not be asserted reliably in CI).
     await expect(page.getByText(/added to the waitlist/i)).toBeVisible({ timeout: 20000 })
 
     // Verify schedule state updated.
@@ -159,7 +158,7 @@ test.describe('Full timeslot waitlist', () => {
       .filter({ hasText: eventName })
       .first()
 
-    await expect(timeslotCardAfter.getByRole('button', { name: /leave waitlist/i })).toBeVisible({
+    await expect(timeslotCardAfter.getByRole('button', { name: /leave.*waitlist/i })).toBeVisible({
       timeout: 20000,
     })
   })

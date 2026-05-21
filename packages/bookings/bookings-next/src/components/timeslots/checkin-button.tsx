@@ -204,7 +204,10 @@ export const CheckInButton = ({
         // For anonymous viewers, the join-waitlist mutation is protected. Redirect to auth
         // and come back to this booking page with a query param so we can complete the join.
         const isTrial = isTrialBooking;
-        const callbackPath = `/bookings/${timeslotId}?joinWaitlist=1`;
+        // Avoid `/bookings/[id]` when the timeslot is full; that page can block access (403/BAD_REQUEST)
+        // and redirect users back to `/`. Instead, land on a lightweight route that only performs
+        // the join-waitlist mutation.
+        const callbackPath = `/join-waitlist?timeslotId=${timeslotId}`;
 
         const baseUrl =
           loginToBookUrl?.(timeslotId, { isTrial }) ??
