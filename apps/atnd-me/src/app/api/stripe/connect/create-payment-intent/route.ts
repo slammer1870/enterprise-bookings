@@ -296,6 +296,7 @@ export async function POST(request: NextRequest) {
       productType: 'drop-in',
       payload,
       customerId: stripeCustomerId,
+      receiptEmail: user.email,
       metadata: {
         ...(metadata ?? {}),
         timeslotId: String(timeslotId),

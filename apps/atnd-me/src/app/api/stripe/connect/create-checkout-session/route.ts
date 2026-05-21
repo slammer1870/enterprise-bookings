@@ -225,6 +225,7 @@ export async function POST(request: NextRequest) {
       successUrl,
       cancelUrl,
       customerId: custId,
+      receiptEmail: user.email,
       promotionCodeId,
       payload,
       bookingFeeAmount,

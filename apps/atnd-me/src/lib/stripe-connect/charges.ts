@@ -17,6 +17,11 @@ export type CreateTenantPaymentIntentParams = {
   classPriceAmount: number
   currency: string
   /**
+   * Email to send the Stripe receipt to.
+   * Used for both direct charges on the connected account and destination charges.
+   */
+  receiptEmail?: string | null
+  /**
    * Customer ID in the tenant's connected Stripe account.
    * When provided, the PaymentIntent will be created on the connected account and attached to this customer.
    */
@@ -40,12 +45,15 @@ export type CreateTenantPaymentIntentParams = {
 export async function createTenantPaymentIntent(
   params: CreateTenantPaymentIntentParams,
 ): Promise<{ id: string; client_secret: string | null }> {
-  const { tenant, classPriceAmount, currency, metadata, customerId } = params
+  const { tenant, classPriceAmount, currency, metadata, customerId, receiptEmail } = params
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
   if (!accountId) {
     throw new Error('Tenant Connect account id is missing')
   }
+
+  const receiptEmailClean =
+    typeof receiptEmail === 'string' && receiptEmail.trim().length > 0 ? receiptEmail.trim() : null
 
   if (isStripeTestAccount(accountId)) {
     const mockId = `pi_test_${Date.now()}`
@@ -86,6 +94,7 @@ export async function createTenantPaymentIntent(
         automatic_payment_methods: { enabled: true },
         application_fee_amount: bookingFeeAmount,
         customer: customerId!.trim(),
+        ...(receiptEmailClean ? { receipt_email: receiptEmailClean } : {}),
         metadata: meta,
       },
       { stripeAccount: accountId },
@@ -101,6 +110,7 @@ export async function createTenantPaymentIntent(
     application_fee_amount: bookingFeeAmount,
     on_behalf_of: accountId,
     transfer_data: { destination: accountId },
+    ...(receiptEmailClean ? { receipt_email: receiptEmailClean } : {}),
     metadata: meta,
   })
 
@@ -116,6 +126,11 @@ export type CreateTenantCheckoutSessionParams = {
   mode: 'payment' | 'subscription'
   quantity?: number
   metadata?: Record<string, string>
+  /**
+   * Email to send the Stripe receipt to (used for mode='payment' via payment_intent_data).
+   * For subscription mode, receipts are invoice/customer-email based.
+   */
+  receiptEmail?: string | null
   promotionCodeId?: string
   successUrl?: string
   cancelUrl?: string
@@ -151,6 +166,7 @@ export async function createTenantCheckoutSession(
     payload,
     subscriptionApplicationFeePercent,
     disableTestShortCircuit,
+    receiptEmail,
   } = params
 
   requireTenantConnectAccount(tenant)
@@ -158,6 +174,9 @@ export async function createTenantCheckoutSession(
   if (!accountId) {
     throw new Error('Tenant Connect account id is missing')
   }
+
+  const receiptEmailClean =
+    typeof receiptEmail === 'string' && receiptEmail.trim().length > 0 ? receiptEmail.trim() : null
 
   const isE2eTestMode = process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
   if (!disableTestShortCircuit && isE2eTestMode) {
@@ -261,6 +280,7 @@ export async function createTenantCheckoutSession(
         ? {
             payment_intent_data: {
               metadata: normalizedMetadata,
+              ...(receiptEmailClean ? { receipt_email: receiptEmailClean } : {}),
             },
           }
         : {}),
