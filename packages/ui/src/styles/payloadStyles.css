@@ -299,6 +299,11 @@
 
 /* Calendar-specific overrides to prevent PayloadCMS admin style conflicts */
 [data-slot="calendar"] {
+  /* Payload/tailwind admin styles can cause Tailwind bg tokens to not apply.
+     Explicitly set the wrapper background/text to ensure dark mode renders. */
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+
   /* Reset any PayloadCMS table styles that might interfere */
   table {
     border-collapse: separate !important;
@@ -315,7 +320,6 @@
   /* Ensure calendar buttons aren't affected by PayloadCMS button styles */
   button {
     border: none !important;
-    background: inherit !important;
     font-family: inherit !important;
     font-size: inherit !important;
     line-height: inherit !important;
@@ -326,14 +330,8 @@
   /* Fix for react-day-picker specific classes */
   .rdp-button {
     border: none !important;
-    background: inherit !important;
     color: var(--foreground) !important;
     cursor: pointer !important;
-  }
-
-  .rdp-button:hover {
-    background: var(--accent) !important;
-    color: var(--accent-foreground) !important;
   }
 
   /* Ensure calendar cells maintain proper sizing */
