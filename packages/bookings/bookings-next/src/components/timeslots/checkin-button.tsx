@@ -42,15 +42,30 @@ function trpcErrorMessage(error: unknown): string {
   return "Something went wrong. Please try again.";
 }
 
+function isAuthError(error: unknown): boolean {
+  const anyErr = error as any;
+  const code: unknown =
+    anyErr?.data?.code ?? anyErr?.shape?.code ?? anyErr?.code ?? anyErr?.message;
+  return (
+    code === "UNAUTHORIZED" ||
+    code === "FORBIDDEN" ||
+    (typeof code === "string" && /unauth|unauthorized|forbidden/i.test(code))
+  );
+}
+
 const classNameByAction: Record<TimeslotScheduleState["action"], string> = {
-  book: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
-  cancel: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
-  modify: "w-full bg-modify hover:bg-modify/90 text-modify-foreground",
-  joinWaitlist: "w-full bg-waitlist hover:bg-waitlist/90 text-waitlist-foreground",
-  leaveWaitlist: "w-full bg-cancel hover:bg-cancel/90 text-cancel-foreground",
-  closed: "w-full bg-closed hover:bg-closed/90 text-closed-foreground opacity-50 cursor-not-allowed",
-  loginToBook: "w-full bg-checkin hover:bg-checkin/90 text-checkin-foreground",
-  manageChildren: "w-full bg-childrenBooked hover:bg-childrenBooked/90 text-childrenBooked-foreground",
+  // Tighten padding so longer labels still fit inside the fixed schedule column width.
+  // Keep `w-full` so every action uses the same column width and thus the same button size.
+  book: "w-full px-3 bg-checkin hover:bg-checkin/90 text-checkin-foreground",
+  cancel: "w-full px-3 bg-cancel hover:bg-cancel/90 text-cancel-foreground",
+  modify: "w-full px-3 bg-modify hover:bg-modify/90 text-modify-foreground",
+  joinWaitlist: "w-full px-3 bg-waitlist hover:bg-waitlist/90 text-waitlist-foreground",
+  leaveWaitlist: "w-full px-3 bg-cancel hover:bg-cancel/90 text-cancel-foreground",
+  closed:
+    "w-full px-3 bg-closed hover:bg-closed/90 text-closed-foreground opacity-50 cursor-not-allowed",
+  loginToBook: "w-full px-3 bg-checkin hover:bg-checkin/90 text-checkin-foreground",
+  manageChildren:
+    "w-full px-3 bg-childrenBooked hover:bg-childrenBooked/90 text-childrenBooked-foreground",
 };
 
 export const CheckInButton = ({
@@ -85,7 +100,20 @@ export const CheckInButton = ({
     ""
   );
 
-  const action: TimeslotScheduleState["action"] = scheduleState?.action ?? "book";
+  const viewerConfirmedCount = scheduleState?.viewer?.confirmedCount ?? 0;
+  const viewerWaitingCount = scheduleState?.viewer?.waitingCount ?? 0;
+
+  // Server should compute this, but add a safeguard for fully booked slots:
+  // if the slot is full and the viewer has no confirmed/waiting bookings,
+  // they should see "Join Waitlist" (even if the server action temporarily
+  // comes through as `loginToBook`).
+  const action: TimeslotScheduleState["action"] =
+    scheduleState?.availability === "full" &&
+    viewerConfirmedCount === 0 &&
+    viewerWaitingCount === 0
+      ? "joinWaitlist"
+      : scheduleState?.action ?? "book";
+
   const label = scheduleState?.label ?? labelByAction[action];
   const isTrialBooking = label.toLowerCase().includes("trial");
 
@@ -102,6 +130,7 @@ export const CheckInButton = ({
         }
       },
       onError: (error: unknown) => {
+        if (isAuthError(error)) return;
         toast.error(trpcErrorMessage(error));
       },
     })
@@ -137,7 +166,9 @@ export const CheckInButton = ({
       toast.info("Please sign in to continue");
       const url =
         loginToBookUrl?.(timeslotId, { isTrial }) ??
-        `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=/bookings/${timeslotId}`;
+        `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=${encodeURIComponent(
+          `/bookings/${timeslotId}`
+        )}`;
       router.push(url, { scroll: false });
       return;
     }
@@ -184,8 +215,29 @@ export const CheckInButton = ({
       try {
         await setMyBooking({ timeslotId, intent: "joinWaitlist" });
         toast.success("Joined waitlist");
-      } catch {
-        // Error toast is shown by mutation onError
+      } catch (error: unknown) {
+        if (!isAuthError(error)) return;
+
+        // For anonymous viewers, the join-waitlist mutation is protected. Redirect to auth
+        // and come back to this booking page with a query param so we can complete the join.
+        const isTrial = isTrialBooking;
+        // Avoid `/bookings/[id]` when the timeslot is full; that page can block access (403/BAD_REQUEST)
+        // and redirect users back to `/`. Instead, land on a lightweight route that only performs
+        // the join-waitlist mutation.
+        const callbackPath = `/join-waitlist?timeslotId=${timeslotId}`;
+
+        const baseUrl =
+          loginToBookUrl?.(timeslotId, { isTrial }) ??
+          `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=${encodeURIComponent(
+            `/bookings/${timeslotId}`
+          )}`;
+
+        // Replace callbackUrl so the user returns to the join-waitlist completion route.
+        const urlObj = new URL(baseUrl, window.location.origin);
+        urlObj.searchParams.set("callbackUrl", callbackPath);
+
+        toast.info("Please sign in to join the waitlist");
+        router.push(`${urlObj.pathname}${urlObj.search}`, { scroll: false });
       }
       return;
     }
@@ -209,7 +261,7 @@ export const CheckInButton = ({
       <Button
         className={
           isTrialBooking
-            ? "w-full bg-trialable hover:bg-trialable/90 text-trialable-foreground"
+            ? "w-full px-3 bg-trialable hover:bg-trialable/90 text-trialable-foreground"
             : classNameByAction[action]
         }
         disabled={disabled}

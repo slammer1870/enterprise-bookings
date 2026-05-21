@@ -76,7 +76,9 @@ export function TimeslotDetail({
           </>
         )}
       </div>
-      <div className="w-full md:w-1/4">
+      {/* Fixed button column width on md+ so labels (e.g. "Cancel Booking", "Leave Waitlist") don't clip
+          and all action buttons render consistently sized across timeslots. */}
+      <div className="w-full md:w-[200px] md:flex-shrink-0">
         <CheckInButton
           timeslotId={timeslot.id}
           type={timeslot.eventType.type}

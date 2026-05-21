@@ -72,7 +72,7 @@
   --closed-foreground: 0 0% 98%;
 }
 
-.dark {
+:where(.dark, [data-theme='dark'], [data-theme=dark]) {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
@@ -299,6 +299,11 @@
 
 /* Calendar-specific overrides to prevent PayloadCMS admin style conflicts */
 [data-slot="calendar"] {
+  /* Payload/tailwind admin styles can cause Tailwind bg tokens to not apply.
+     Explicitly set the wrapper background/text to ensure dark mode renders. */
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+
   /* Reset any PayloadCMS table styles that might interfere */
   table {
     border-collapse: separate !important;
@@ -315,7 +320,6 @@
   /* Ensure calendar buttons aren't affected by PayloadCMS button styles */
   button {
     border: none !important;
-    background: inherit !important;
     font-family: inherit !important;
     font-size: inherit !important;
     line-height: inherit !important;
@@ -326,14 +330,8 @@
   /* Fix for react-day-picker specific classes */
   .rdp-button {
     border: none !important;
-    background: inherit !important;
     color: var(--foreground) !important;
     cursor: pointer !important;
-  }
-
-  .rdp-button:hover {
-    background: var(--accent) !important;
-    color: var(--accent-foreground) !important;
   }
 
   /* Ensure calendar cells maintain proper sizing */
@@ -357,46 +355,42 @@
 
   /* Consistent text color, gray backgrounds for selected/hovered */
   button {
-    color: var(--foreground) !important; /* Keep text color consistent */
     font-size: 0.85rem !important; /* Smaller numbers */
   }
 
-  /* Selected buttons - gray background */
-  button[data-selected-single="true"],
+  /* Force correct day highlight behavior.
+     Payload/admin styles sometimes apply background to all buttons, which makes
+     every day look "lightly highlighted" in dark mode. React-day-picker marks
+     states via data attributes; set explicit colors for readability. */
+  /* Baseline: remove background so only our explicit states render. */
+  button[data-day] {
+    background: transparent !important;
+    background-color: transparent !important;
+    color: var(--foreground) !important;
+  }
+
+  /* Selected + ranges */
+  button[data-selected-single="true"] {
+    background-color: var(--primary) !important;
+    color: var(--primary-foreground) !important;
+  }
+
   button[data-range-start="true"],
   button[data-range-end="true"] {
-    background: oklch(0.85 0 0) !important; /* Gray background */
-    color: var(--foreground) !important; /* Keep text color the same */
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
+    background-color: var(--primary) !important;
+    color: var(--primary-foreground) !important;
   }
 
-  /* Hovered buttons - light gray background */
-  button:hover:not([data-selected-single="true"]):not(
-      [data-range-start="true"]
-    ):not([data-range-end="true"]) {
-    background: oklch(0.95 0 0) !important; /* Light gray background */
-    color: var(--foreground) !important; /* Keep text color the same */
-  }
-
-  /* Selected buttons on hover - keep gray background */
-  button[data-selected-single="true"]:hover,
-  button[data-range-start="true"]:hover,
-  button[data-range-end="true"]:hover {
-    background: oklch(0.85 0 0) !important; /* Keep gray background */
-    color: var(--foreground) !important; /* Keep text color the same */
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
-  }
-
-  /* Range middle (between start and end) */
   button[data-range-middle="true"] {
-    background: oklch(0.9 0 0) !important; /* Light gray */
-    color: var(--foreground) !important; /* Keep text color the same */
-    border: none !important;
-    outline: none !important;
-    box-shadow: none !important;
+    background-color: var(--accent) !important;
+    color: var(--accent-foreground) !important;
+  }
+
+  /* Today (lighter than selected) */
+  button[data-today]:not([data-selected-single="true"]):not([data-range-start="true"]):not(
+      [data-range-end="true"]
+    ):not([data-range-middle="true"]) {
+    background-color: color-mix(in srgb, var(--accent) 70%, transparent) !important;
+    color: var(--foreground) !important;
   }
 }

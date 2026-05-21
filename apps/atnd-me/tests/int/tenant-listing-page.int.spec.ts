@@ -154,12 +154,31 @@ describe('Tenant Listing Page Access', () => {
         overrideAccess: true,
       })
 
-      const names = tenantsResult.docs.map((t: any) => t.name)
-      // Use localeCompare to match PostgreSQL's locale-aware collation (not JS default
-      // ASCII sort, which disagrees with Postgres on mixed-case strings like "DST" vs "Discount").
-      const sortedNames = [...names].sort((a, b) => a.localeCompare(b))
+      const allNames = tenantsResult.docs.map((t: any) => t.name)
 
-      expect(names).toEqual(sortedNames)
+      // Verify sort by checking the relative positions of the tenants this test
+      // created. Their names differ only in a trailing number ("Listing Test
+      // Tenant 1/2/3"), so they sort identically in every PostgreSQL collation
+      // (C-locale byte-order, en_US.UTF-8, etc.). Checking global order across
+      // ALL tenants is fragile because the collation affects mixed-case pairs
+      // (e.g. "LM…" vs "Li…") differently between Alpine Docker and Ubuntu CI.
+      const testTenantNames = testTenants.map(t => t.name)
+      const testPositions = testTenantNames.map(name => allNames.indexOf(name))
+
+      // All test tenants must appear in the result.
+      for (const [name, pos] of testTenantNames.map(
+        (n, i) => [n, testPositions[i]] as const,
+      )) {
+        expect(pos, `"${name}" should be in the result`).toBeGreaterThanOrEqual(0)
+      }
+
+      // Positions must be strictly ascending — i.e. Tenant 1 before 2 before 3.
+      for (let i = 1; i < testPositions.length; i++) {
+        expect(
+          testPositions[i],
+          `"${testTenantNames[i]}" (pos ${testPositions[i]}) should come after "${testTenantNames[i - 1]}" (pos ${testPositions[i - 1]})`,
+        ).toBeGreaterThan(testPositions[i - 1])
+      }
     },
     TEST_TIMEOUT,
   )

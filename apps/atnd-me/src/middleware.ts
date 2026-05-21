@@ -45,6 +45,18 @@ function getPublicHostname(request: NextRequest): string {
   return (raw.split(':')[0] ?? raw).toLowerCase()
 }
 
+/**
+ * Returns an AbortSignal that cancels hanging internal fetches after 2 seconds.
+ * Only applied outside of production so that integration tests (which have no real
+ * server to respond) fail fast instead of blocking the whole test run.
+ * In production (e2e webServer or real deployment) we allow the server as much
+ * time as it needs — killing the signal there would silently drop tenant context
+ * on a momentarily-busy server, causing pages to render without the right tenant.
+ */
+function internalFetchSignal(): AbortSignal | undefined {
+  return process.env.NODE_ENV !== 'production' ? AbortSignal.timeout(2000) : undefined
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPayloadAdmin = pathname.startsWith('/admin')
@@ -148,7 +160,12 @@ export async function middleware(request: NextRequest) {
     try {
       const origin = platformOrigin ?? request.nextUrl.origin
       const url = `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
-      const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
+      const signal = internalFetchSignal()
+      const res = await fetch(url, {
+        cache: 'no-store',
+        headers: internalResolveHeaders,
+        ...(signal && { signal }),
+      })
       if (res.ok) {
         const data = (await res.json()) as { slug?: string; id?: string | number }
         if (data?.slug && typeof data.slug === 'string') {
@@ -308,7 +325,12 @@ export async function middleware(request: NextRequest) {
       try {
         const origin = platformOrigin ?? request.nextUrl.origin
         const url = `${origin}/api/tenant-by-slug?slug=${encodeURIComponent(subdomain)}`
-        const res = await fetch(url, { cache: 'no-store', headers: internalResolveHeaders })
+        const signal = internalFetchSignal()
+        const res = await fetch(url, {
+          cache: 'no-store',
+          headers: internalResolveHeaders,
+          ...(signal && { signal }),
+        })
         if (res.ok) {
           const data = (await res.json()) as { id?: string | number }
           tenantIdToSet = typeof data?.id === 'string' || typeof data?.id === 'number' ? data.id : null
@@ -465,11 +487,13 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
   const origin = platformOrigin ?? request.nextUrl.origin
   const url = `${origin}/api/admin/authorize-tenant`
 
+  const signal = internalFetchSignal()
   let res: Response
   try {
     res = await fetch(url, {
       cache: 'no-store',
       headers: request.headers,
+      ...(signal && { signal }),
     })
   } catch {
     // If the check fails (network/runtime), fail open so admin isn't bricked.
