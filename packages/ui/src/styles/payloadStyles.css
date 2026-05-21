@@ -355,11 +355,19 @@
 
   /* Consistent text color, gray backgrounds for selected/hovered */
   button {
-    color: var(--foreground) !important; /* Keep text color consistent */
     font-size: 0.85rem !important; /* Smaller numbers */
   }
 
   /* Allow react-day-picker/tailwind classes (incl. dark mode) to control
      selected/hover backgrounds. Payload admin styles can override layout,
      but we shouldn't hard-code light-gray colors here. */
+
+  /* Payload admin styles may apply a background to all buttons.
+     Ensure unselected days stay transparent so only react-day-picker modifiers
+     (selected/today/range) control the background via Tailwind classes. */
+  button:not([data-selected-single="true"]):not([data-range-start="true"]):not(
+      [data-range-end="true"]
+    ):not([data-range-middle="true"]):not([data-today="true"]) {
+    background: transparent !important;
+  }
 }
