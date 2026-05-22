@@ -111,14 +111,14 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
       <div className="relative z-10 flex min-h-screen flex-col md:flex-row">
         {/* Image panel: logo + CTA buttons centred, pt-28 clears the 112px absolute header (p-8 + h-12) */}
         <div className="flex min-h-[420px] flex-col items-center justify-center pt-28 pb-10 md:flex-1 lg:flex-[2]">
-          <div className="flex flex-col items-center gap-5 px-8 text-center">
+          <div className="flex w-full flex-col items-center gap-5 px-8 text-center">
             {logoUrl && (
               <Image
                 src={logoUrl}
                 alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
-                width={160}
-                height={160}
-                className="object-contain drop-shadow-xl"
+                width={320}
+                height={320}
+                className="h-60 w-60 object-contain drop-shadow-xl md:h-80 md:w-80"
               />
             )}
             {links && links.length > 0 && (
@@ -133,11 +133,12 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
                     <Button
                       key={index}
                       asChild
+                      size="lg"
                       variant={isOutline ? 'outline' : 'default'}
                       className={
                         isOutline
-                          ? 'border-2 border-white bg-transparent text-white hover:bg-white hover:text-stone-900'
-                          : 'bg-white text-stone-900 hover:bg-stone-100'
+                          ? 'w-full border-2 border-white bg-transparent text-white hover:bg-white hover:text-stone-900 sm:w-auto'
+                          : 'w-full bg-white text-stone-900 hover:bg-stone-100 sm:w-auto'
                       }
                     >
                       <Link href={href} {...newTabProps}>
@@ -153,8 +154,8 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
 
         {/* Schedule panel — starts just below the navbar on desktop (pt-28 = header height); stacks naturally on mobile */}
         <div className="flex flex-col justify-start bg-card px-8 pb-10 pt-28 md:flex-1 lg:flex-[1]">
-          <div className="mx-auto w-full max-w-sm text-card-foreground md:mx-0 md:ml-auto md:max-w-[19rem] xl:max-w-[21rem]">
-            <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-card-foreground lg:text-left">
+          <div className="mx-auto w-full max-w-sm text-card-foreground">
+            <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-card-foreground">
               Schedule
             </h2>
             {schedulePanel}
