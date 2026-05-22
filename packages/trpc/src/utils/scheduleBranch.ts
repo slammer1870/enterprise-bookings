@@ -1,6 +1,6 @@
 import type { Payload } from "payload";
 
-import { hasCollection } from "./collections";
+import { findByIdSafe, findSafe, hasCollection } from "./collections";
 
 /**
  * Public branch picker cookie — must match `PUBLIC_BRANCH_SLUG_COOKIE` in atnd-me
@@ -34,8 +34,7 @@ async function findActiveLocationIdBySlug(
   slug: string,
 ): Promise<number | null> {
   if (!hasCollection(payload, "locations")) return null;
-  const res = await payload.find({
-    collection: "locations",
+  const res = await findSafe<{ id?: unknown }>(payload, "locations", {
     where: {
       and: [
         { tenant: { equals: tenantId } },
@@ -53,8 +52,7 @@ async function findActiveLocationIdBySlug(
 
 async function listActiveLocationIds(payload: Payload, tenantId: number): Promise<number[]> {
   if (!hasCollection(payload, "locations")) return [];
-  const res = await payload.find({
-    collection: "locations",
+  const res = await findSafe<{ id?: unknown }>(payload, "locations", {
     where: {
       and: [{ tenant: { equals: tenantId } }, { active: { equals: true } }],
     },
@@ -73,14 +71,15 @@ async function validateBranchForTenant(
   branchId: number,
 ): Promise<boolean> {
   if (!hasCollection(payload, "locations")) return false;
-  const doc = await payload
-    .findByID({
-      collection: "locations",
-      id: branchId,
+  const doc = await findByIdSafe<{ tenant?: unknown; active?: unknown }>(
+    payload,
+    "locations",
+    branchId,
+    {
       depth: 0,
       overrideAccess: true,
-    })
-    .catch(() => null);
+    },
+  );
   if (!doc) return false;
   const t = (doc as { tenant?: unknown }).tenant;
   const tid =

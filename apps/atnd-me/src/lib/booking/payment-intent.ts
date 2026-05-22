@@ -26,7 +26,7 @@ export async function validateBookingIdsFromMetadata(
   if (ids.length === 0) return []
 
   const docs = await payload.find({
-    collection: 'bookings',
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
     where: {
       and: [
         { id: { in: ids } },
@@ -37,9 +37,10 @@ export async function validateBookingIdsFromMetadata(
     },
     depth: 0,
     limit: parsed.length,
-    // These booking IDs come from the client; enforce access controls.
-    overrideAccess: false,
-    user: opts.user,
+    // Server-side payment-intent route: IDs are constrained to this user's pending
+    // bookings for the timeslot. Local API calls have no HTTP tenant context, so
+    // overrideAccess: false makes tenantScopedPublicReadStrict deny and Payload throws.
+    overrideAccess: true,
   })
 
   return (docs.docs as { id: number }[]).map((b) => String(b.id))

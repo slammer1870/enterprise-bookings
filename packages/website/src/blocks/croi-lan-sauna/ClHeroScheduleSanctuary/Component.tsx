@@ -69,9 +69,9 @@ export type ClHeroScheduleSanctuaryBlockProps = {
 export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlockProps> = ({
   backgroundImage,
   logo,
-  title,
-  subtitle,
-  tagline,
+  title: _title,
+  subtitle: _subtitle,
+  tagline: _tagline,
   links,
   schedulePanel,
 }) => {
