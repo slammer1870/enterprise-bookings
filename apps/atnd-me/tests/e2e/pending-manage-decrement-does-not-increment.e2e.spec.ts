@@ -33,7 +33,6 @@ test.describe('Manage page: pending quantity decrement', () => {
         isActive: true,
         price: 10,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenant.id,
       },
       overrideAccess: true,

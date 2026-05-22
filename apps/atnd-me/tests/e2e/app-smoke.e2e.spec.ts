@@ -140,7 +140,6 @@ test.describe('App smoke', () => {
         isActive: true,
         price: 1000,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenantId,
       },
       overrideAccess: true,

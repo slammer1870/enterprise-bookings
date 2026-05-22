@@ -42,7 +42,6 @@ test.describe('Pending bookings cleanup when user leaves checkout', () => {
           isActive: true,
           price: 1000,
           adjustable: true,
-          paymentMethods: ['card'],
           tenant: tenant.id,
         },
         overrideAccess: true,

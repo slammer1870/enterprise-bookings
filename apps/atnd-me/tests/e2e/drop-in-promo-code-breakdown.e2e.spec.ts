@@ -85,7 +85,6 @@ test.describe('Drop-in promo code breakdown', () => {
         isActive: true,
         price: 10,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenantId,
       },
       overrideAccess: true,

@@ -44,7 +44,6 @@ test.describe('Drop-in multi-quantity discount', () => {
         isActive: true,
         price: 10, // currency units (e.g. €10.00) – converted to cents server-side
         adjustable: true,
-        paymentMethods: ['card'],
         discountTiers: [{ minQuantity: 2, discountPercent: 10, type: 'normal' }],
         tenant: tenantId,
       },

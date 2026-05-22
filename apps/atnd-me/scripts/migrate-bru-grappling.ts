@@ -1304,7 +1304,6 @@ async function migrateDropIns(
       price: Number(getRowValue(row, 'price') ?? 0),
       adjustable: Boolean(getRowValue(row, 'adjustable') ?? false),
       discountTiers: parseJSONIfString(getRowValue(row, 'discountTiers')) ?? null,
-      paymentMethods: parseJSONIfString(getRowValue(row, 'paymentMethods')) ?? ['card'],
     })
 
     if (args.dryRun) {

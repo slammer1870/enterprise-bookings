@@ -14,9 +14,6 @@ const defaultAccess: NonNullable<CollectionConfig["access"]> = {
   delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
 };
 
-/** Card payments only; no config option. */
-const PAYMENT_METHODS = ["card"] as const;
-
 export function dropInsCollection(
   pluginOptions: DropInsOptions = {}
 ): CollectionConfig {
@@ -79,15 +76,6 @@ export function dropInsCollection(
           return true;
         },
       },
-    {
-      name: "paymentMethods",
-      label: "Payment Methods",
-      type: "select",
-      options: [...PAYMENT_METHODS],
-      defaultValue: PAYMENT_METHODS[0],
-      hasMany: true,
-      required: true,
-    },
   ];
 
   const access = overrides?.access

@@ -56,7 +56,6 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
         isActive: true,
         price: 1000,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: testTenantId,
       },
       overrideAccess: true,

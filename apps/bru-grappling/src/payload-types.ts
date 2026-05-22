@@ -1037,7 +1037,6 @@ export interface DropIn {
         id?: string | null;
       }[]
     | null;
-  paymentMethods: 'card'[];
   'event-typesPaymentMethods'?: {
     docs?: (number | EventType)[];
     hasNextPage?: boolean;
@@ -1933,7 +1932,6 @@ export interface DropInsSelect<T extends boolean = true> {
         type?: T;
         id?: T;
       };
-  paymentMethods?: T;
   'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
