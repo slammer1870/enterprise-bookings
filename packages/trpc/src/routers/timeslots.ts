@@ -47,7 +47,10 @@ export const timeslotsRouter = {
         .findByID({
           collection: ctx.bookingsSlugs.timeslots as any,
           id: input.id,
-          depth: 3,
+          // Need enough depth so nested payment-method relationships like
+          // `eventType.paymentMethods.allowedDropIn` can be populated (including
+          // `maxBookingsPerTimeslot`) for manage-page quantity-cap logic.
+          depth: 5,
           overrideAccess: false,
           user: ctx.user,
           req: {
@@ -75,8 +78,11 @@ export const timeslotsRouter = {
 
       if (effectiveTenantId) {
         assertTimeslotBelongsToTenant(timeslot, effectiveTenantId, input.id);
-        await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
       }
+
+      // Always populate eventType payment methods when possible so the client
+      // can correctly interpret drop-in caps (e.g. `null` = unlimited).
+      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
 
       const fallbackTimeZone = resolveTimeZone(
         ctx.payload.config.admin.timezones.defaultTimezone
@@ -481,13 +487,15 @@ export const timeslotsRouter = {
             price: doc.price ?? null,
             // New numeric cap; legacy `adjustable` is mapped for older rows during migration.
             maxBookingsPerTimeslot:
-              doc.maxBookingsPerTimeslot == null
-                ? doc.adjustable === false
-                  ? 1
-                  : doc.adjustable === true
-                    ? null
-                    : null
-                : doc.maxBookingsPerTimeslot,
+              typeof doc.maxBookingsPerTimeslot === "number"
+                ? doc.maxBookingsPerTimeslot
+                : doc.maxBookingsPerTimeslot === null
+                  ? null
+                  : doc.adjustable === false
+                    ? 1
+                    : doc.adjustable === true
+                      ? null
+                      : null,
             discountTiers: Array.isArray(doc.discountTiers) ? doc.discountTiers : [],
             paymentMethods: Array.isArray(doc.paymentMethods) ? doc.paymentMethods : [],
           };

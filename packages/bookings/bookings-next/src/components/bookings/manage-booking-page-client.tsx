@@ -75,9 +75,17 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
       caps.push(1)
     } else {
       const { maxBookingsPerTimeslot: raw, adjustable } = dropIn
-      // If we can't read the numeric cap from the drop-in, default to single-slot (1)
-      // unless the drop-in explicitly indicates `adjustable: true` (no per-user cap).
-      caps.push(capFromRaw(raw == null ? (adjustable === true ? null : 1) : raw))
+      // Semantics:
+      // - `maxBookingsPerTimeslot: null` means "no per-user cap" (unlimited).
+      // - `maxBookingsPerTimeslot` being `undefined` means "not provided / unknown"
+      //   (in which case we can only fall back to legacy `adjustable`).
+      //
+      // For the manage page, Payload serialization may omit `maxBookingsPerTimeslot`
+      // when it is `null`. In that case, the client would incorrectly fall back
+      // to the conservative `1` cap. Treat missing/undefined as "unlimited"
+      // for populated drop-in objects.
+      if (raw === null || typeof raw === 'undefined') caps.push(Infinity)
+      else caps.push(capFromRaw(raw))
     }
   }
 
