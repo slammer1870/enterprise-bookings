@@ -111,7 +111,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
       <div className="relative z-10 flex min-h-screen flex-col md:flex-row">
         {/* Image panel: on mobile h-[67vh] matches the bg image; logo fills the middle, buttons pinned to bottom.
             On desktop reverts to flex-1 with everything centred together. */}
-        <div className="flex h-[67vh] flex-col items-center pt-28 pb-8 md:h-auto md:flex-1 md:justify-center md:pb-10 lg:flex-[2]">
+        <div className="flex h-[67vh] flex-col items-center pt-12 md:pt-28 pb-8 md:h-auto md:flex-1 md:justify-center md:pb-10 lg:flex-[2]">
           {/* Logo: flex-1 on mobile so it occupies the space between the header clearance and the buttons */}
           <div className="flex w-full flex-1 items-center justify-center px-8 md:flex-none md:mb-5">
             {logoUrl && (
