@@ -1,6 +1,6 @@
 /**
  * Class pass purchase: create PaymentIntent for class pass.
- * Accepts quantity; tenant from context (slug/header).
+ * Accepts quantity and classPassTypeId; tenant from context (slug/header).
  * Pass expiry after payment is set from the class pass type's daysUntilExpiration (webhook), not client input.
  */
 import { NextResponse } from 'next/server'
@@ -14,8 +14,6 @@ import {
 } from '@/lib/stripe-connect/api-helpers'
 import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
-
-const DEFAULT_PRICE_CENTS = 1000
 
 export async function POST(request: NextRequest) {
   const payload = await getPayload()
@@ -37,6 +35,19 @@ export async function POST(request: NextRequest) {
     )
   }
 
+  const classPassTypeId =
+    typeof body.classPassTypeId === 'number'
+      ? body.classPassTypeId
+      : typeof body.classPassTypeId === 'string'
+        ? parseInt(body.classPassTypeId, 10)
+        : undefined
+  if (classPassTypeId == null || !Number.isFinite(classPassTypeId) || classPassTypeId < 1) {
+    return NextResponse.json(
+      { error: 'classPassTypeId required and must be a positive integer' },
+      { status: 400 }
+    )
+  }
+
   const tenantSlugOrId = resolveTenantSlugOrId(request)
   if (!tenantSlugOrId) {
     return NextResponse.json(
@@ -54,7 +65,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
   }
 
-  const totalCents = DEFAULT_PRICE_CENTS * quantity
+  const classPassType = await payload
+    .findByID({
+      collection: 'class-pass-types' as import('payload').CollectionSlug,
+      id: classPassTypeId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    .catch(() => null) as { priceInformation?: { price?: number } } | null
+
+  const priceEur = classPassType?.priceInformation?.price
+  if (priceEur == null || priceEur <= 0) {
+    return NextResponse.json({ error: 'Class pass type has no price configured' }, { status: 400 })
+  }
+
+  const unitCents = Math.round(priceEur * 100)
+  const totalCents = unitCents * quantity
 
   const placeholderAccount =
     /^acct_[a-z0-9_]+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
@@ -91,8 +117,8 @@ export async function POST(request: NextRequest) {
         type: 'class_pass_purchase',
         userId: String(user.id),
         tenantId: String(tenant.id),
+        classPassTypeId: String(classPassTypeId),
         quantity: String(quantity),
-        totalCents: String(totalCents),
       },
     })
     return NextResponse.json({ clientSecret: client_secret, stripeAccountId: tenant.stripeConnectAccountId })

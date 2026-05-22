@@ -99,7 +99,6 @@ export async function POST(request: NextRequest) {
     ) {
       const userId = meta.userId
       const classPassTypeId = meta.classPassTypeId ? parseInt(meta.classPassTypeId, 10) : NaN
-      const totalCents = meta.totalCents ? parseInt(meta.totalCents, 10) : 0
       const transactionId = obj?.id ?? null
       if (userId && Number.isFinite(classPassTypeId) && classPassTypeId > 0) {
         const classPassType = (await payload.findByID({
@@ -137,7 +136,6 @@ export async function POST(request: NextRequest) {
             // so integration tests (and real clients) get stable YYYY-MM-DD.
             expirationDate: expirationDateISO,
             purchasedAt: now.toISOString().slice(0, 10),
-            price: totalCents,
             status: 'active',
             ...(transactionId ? { transactionId } : {}),
           } as Record<string, unknown>,

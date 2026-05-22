@@ -5,7 +5,6 @@ import {
   classPassUpdateAccess,
   classPassDeleteAccess,
 } from "../access/class-passes";
-import { beforeClassPassChange } from "../hooks/before-class-pass-change";
 import type { CollectionOverrides } from "../../types";
 
 const STATUS_OPTIONS = ["active", "expired", "used", "cancelled"] as const;
@@ -67,17 +66,6 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
       admin: { description: "When the pass was purchased" },
     },
     {
-      name: "price",
-      label: "Price (cents)",
-      type: "number",
-      required: true,
-      min: 0,
-      admin: {
-        description:
-          "Price paid for the pass in cents. Auto-filled from the pass type's price when creating.",
-      },
-    },
-    {
       name: "transactionId",
       label: "Transaction ID",
       type: "text",
@@ -105,7 +93,6 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
   ];
 
   const defaultHooks: NonNullable<CollectionConfig["hooks"]> = {
-    beforeChange: [beforeClassPassChange],
     beforeValidate: [
       async ({ data, operation }) => {
         if (operation === "create" && data?.expirationDate) {

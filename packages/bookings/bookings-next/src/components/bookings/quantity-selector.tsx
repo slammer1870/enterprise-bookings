@@ -27,7 +27,6 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
       : capacityMaxQuantity
   const minQuantity = 1
   const canAdjustQuantity = maxQuantity > minQuantity
-  const isCappedByRules = maxQuantity < capacityMaxQuantity
 
   const handleDecrease = () => {
     if (quantity > minQuantity) {
@@ -46,11 +45,9 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
       <Label>Number of Slots</Label>
       <div className="flex items-center justify-between">
         <span className="text-sm text-muted-foreground">
-          {isCappedByRules
-            ? 'Only 1 slot per booking'
-            : capacityMaxQuantity === 1
-              ? '1 slot available'
-              : `${capacityMaxQuantity} slots available`}
+          {maxQuantity === 1
+            ? '1 slot available'
+            : `${maxQuantity} slots available`}
         </span>
         {canAdjustQuantity ? (
           <div className="flex items-center gap-3">

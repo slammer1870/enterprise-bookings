@@ -102,10 +102,17 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
   for (const pass of paymentMethods.allowedClassPasses ?? []) {
     const raw = pass.maxBookingsPerTimeslot
     const legacy = pass.allowMultipleBookingsPerTimeslot
-    // Be conservative: when `maxBookingsPerTimeslot` isn't available and we
-    // don't explicitly see `allowMultipleBookingsPerTimeslot === true`, treat
-    // it as single-slot (1) rather than "unlimited".
-    caps.push(capFromRaw(raw == null ? (legacy === true ? null : 1) : raw))
+    if (raw === null) {
+      // Explicitly cleared to null in the DB → no per-user cap.
+      // The server re-fetches the doc so this null is preserved rather than stripped.
+      caps.push(Infinity)
+    } else if (typeof raw === 'undefined') {
+      // Field absent (never set, or Payload stripped an unrelated null) →
+      // fall back to the legacy boolean.
+      caps.push(legacy === true ? Infinity : 1)
+    } else {
+      caps.push(capFromRaw(raw))
+    }
   }
 
   if (caps.length === 0) return Infinity

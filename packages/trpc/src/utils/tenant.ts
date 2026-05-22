@@ -264,11 +264,38 @@ export async function populateTimeslotEventType(
         };
       }
       if (Array.isArray(plain?.paymentMethods?.allowedClassPasses)) {
+        // Re-fetch each class-pass-type document to preserve `maxBookingsPerTimeslot: null`.
+        // Payload serialisation strips null keys during nested population, which would make
+        // an explicitly-cleared cap (null = unlimited) indistinguishable from "never set".
+        // The manage-page cap logic relies on the explicit null to unlock the + button.
+        const backfilledPasses = await Promise.all(
+          plain.paymentMethods.allowedClassPasses.map(async (cp: any) => {
+            const cloned = cp ? { ...cp } : cp;
+            if (!cloned || typeof cloned !== "object") return cloned;
+            const cpId =
+              typeof cloned.id === "number"
+                ? cloned.id
+                : typeof cloned.id === "string"
+                  ? (() => { const n = parseInt(cloned.id, 10); return Number.isFinite(n) ? n : null; })()
+                  : typeof cloned === "number"
+                    ? cloned
+                    : null;
+            if (cpId == null) return cloned;
+            const cpDoc = await findByIdSafe<any>(payload, "class-pass-types", cpId, {
+              depth: 0,
+              overrideAccess: true,
+            });
+            if (!cpDoc) return cloned;
+            return {
+              ...cloned,
+              // Explicitly carry the DB value so the client sees null (unlimited) vs a number.
+              maxBookingsPerTimeslot: cpDoc.maxBookingsPerTimeslot ?? null,
+            };
+          })
+        );
         plain.paymentMethods = {
           ...plain.paymentMethods,
-          allowedClassPasses: plain.paymentMethods.allowedClassPasses.map((cp: any) =>
-            cp ? { ...cp } : cp
-          ),
+          allowedClassPasses: backfilledPasses,
         };
       }
 

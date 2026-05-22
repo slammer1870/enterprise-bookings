@@ -13,6 +13,7 @@ import * as migration_20260120_201317 from './20260120_201317';
 import * as migration_20260128_000001_locked_documents_rels_memberships from './20260128_000001_locked_documents_rels_memberships';
 import * as migration_20260226_users_stripe_customers_table from './20260226_users_stripe_customers_table';
 import * as migration_20260329_094748 from './20260329_094748';
+import * as migration_20260522_drop_drop_ins_payment_methods from './20260522_drop_drop_ins_payment_methods';
 
 export const migrations = [
   {
@@ -89,5 +90,10 @@ export const migrations = [
     up: migration_20260329_094748.up,
     down: migration_20260329_094748.down,
     name: '20260329_094748'
+  },
+  {
+    up: migration_20260522_drop_drop_ins_payment_methods.up,
+    down: migration_20260522_drop_drop_ins_payment_methods.down,
+    name: '20260522_drop_drop_ins_payment_methods',
   },
 ];

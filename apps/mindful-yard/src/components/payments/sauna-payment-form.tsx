@@ -46,13 +46,14 @@ export const SaunaPaymentForm = ({ timeslot, user }: SaunaPaymentFormProps) => {
       timeslot.bookings?.docs?.filter((booking) => booking.status === 'confirmed').length || 0,
   })
 
-  const dropInPaymentOptions = timeslot.eventType.paymentMethods?.allowedDropIn?.paymentMethods
+  const allowedDropIn = timeslot.eventType.paymentMethods?.allowedDropIn
+  const dropInPaymentOptions = allowedDropIn ? ['card'] : undefined
   const membershipPaymentOptions = timeslot.eventType.paymentMethods?.allowedPlans?.length
 
   const { paymentMethod, setPaymentMethod, loading, setLoading, calculatePrice } = usePayment({
-    basePrice: timeslot.eventType.paymentMethods?.allowedDropIn?.price || 0,
-    discountTiers: timeslot.eventType.paymentMethods?.allowedDropIn?.discountTiers || [],
-    paymentMethods: timeslot.eventType.paymentMethods?.allowedDropIn?.paymentMethods || [],
+    basePrice: allowedDropIn?.price || 0,
+    discountTiers: allowedDropIn?.discountTiers || [],
+    paymentMethods: ['card'],
   })
 
   // Calculate price based on attendees
