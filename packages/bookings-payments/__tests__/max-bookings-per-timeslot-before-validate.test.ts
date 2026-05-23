@@ -64,6 +64,37 @@ describe("maxBookingsPerTimeslot beforeValidate", () => {
     } as any);
 
     expect((data as any).maxBookingsPerTimeslot).toBe(5);
+    expect((data as any).adjustable).toBe(false);
+  });
+
+  it("drop-ins: explicit max of 1 should not be cleared when adjustable is true", async () => {
+    const cfg = dropInsCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        adjustable: true,
+        maxBookingsPerTimeslot: 1,
+      },
+    } as any);
+
+    expect((data as any).maxBookingsPerTimeslot).toBe(1);
+    expect((data as any).adjustable).toBe(false);
+  });
+
+  it("drop-ins: legacy adjustable should set null when numeric field missing", async () => {
+    const cfg = dropInsCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        adjustable: true,
+      },
+    } as any);
+
+    expect((data as any).maxBookingsPerTimeslot).toBe(null);
   });
 });
 

@@ -38,9 +38,13 @@ export function dropInsCollection(
         name: "maxBookingsPerTimeslot",
         label: "Max bookings per timeslot (per user)",
         type: "number",
-        defaultValue: 1,
         required: false,
-        min: 1,
+        validate: (value: unknown) => {
+          if (value == null) return true;
+          return typeof value === "number" && value >= 1
+            ? true
+            : "maxBookingsPerTimeslot must be >= 1 or blank";
+        },
         admin: {
           description:
             "Leave blank for no per-user limit (still bounded by the event type capacity). When set, users can book up to this many spots per timeslot for this drop-in.",
@@ -100,21 +104,19 @@ export function dropInsCollection(
             maxBookingsPerTimeslot?: number | null
           }
 
-          // Legacy mapping:
-          // - If `adjustable: true` we want "no per-user cap" which maps to
-          //   `maxBookingsPerTimeslot = null`.
-          // - Payload applies field `defaultValue`s before hooks, so in "create"
-          //   flows `maxBookingsPerTimeslot` may already be set to the default
-          //   (1) even when callers omitted it. Treat that default as
-          //   "unspecified" for the purpose of the legacy mapping.
-          if (d.adjustable === true) {
-            if (typeof d.maxBookingsPerTimeslot === 'undefined' || d.maxBookingsPerTimeslot === 1) {
-              d.maxBookingsPerTimeslot = null
-            }
-          } else if (d.adjustable === false) {
-            if (typeof d.maxBookingsPerTimeslot === 'undefined') {
-              d.maxBookingsPerTimeslot = 1
-            }
+          // Legacy mapping: only apply the hidden boolean flag when the numeric field
+          // isn't present in the update payload. Otherwise, the new numeric semantics
+          // should win (avoids resetting numeric value back to null/1 on save).
+          if (
+            typeof d.adjustable === "boolean" &&
+            typeof d.maxBookingsPerTimeslot === "undefined"
+          ) {
+            d.maxBookingsPerTimeslot = d.adjustable ? null : 1;
+          } else if (typeof d.maxBookingsPerTimeslot === "number") {
+            // Explicit numeric cap supersedes legacy "adjustable" unlimited semantics.
+            d.adjustable = false;
+          } else if (d.maxBookingsPerTimeslot === null) {
+            d.adjustable = true;
           }
 
           return d
