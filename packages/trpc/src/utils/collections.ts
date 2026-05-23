@@ -108,7 +108,12 @@ export async function findByIdSafe<T>(
     })) as unknown as T | null;
   } catch (error: any) {
     // If it's a not found error, return null
-    if (error?.statusCode === 404 || error?.message?.includes("not found")) {
+    if (
+      error?.statusCode === 404 ||
+      error?.status === 404 ||
+      error?.name === "NotFound" ||
+      error?.message?.toLowerCase?.().includes("not found")
+    ) {
       return null;
     }
     throw error;
