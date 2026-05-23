@@ -57,7 +57,6 @@ test.describe('Trialable drop-in pricing', () => {
         isActive: true,
         price: 10,
         adjustable: true,
-        paymentMethods: ['card'],
         discountTiers: [{ minQuantity: 1, discountPercent: 50, type: 'trial' }],
         tenant: tenantId,
       },

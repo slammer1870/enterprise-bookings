@@ -17,7 +17,6 @@ import { TenantScopedScheduleBlock } from '@/blocks/TenantScopedSchedule/Compone
 import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
 import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
 import { ClHeroScheduleSanctuaryBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClHeroScheduleSanctuary'
-import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
 import { MissionElementsBlock } from '@/blocks/MissionElements/Component'
@@ -50,7 +49,7 @@ function HeroScheduleSanctuaryBlock(
 ) {
   return React.createElement(ClHeroScheduleSanctuaryBlock, {
     ...props,
-    schedulePanel: React.createElement(ScheduleLazy),
+    schedulePanel: React.createElement(ScheduleBlock),
   })
 }
 

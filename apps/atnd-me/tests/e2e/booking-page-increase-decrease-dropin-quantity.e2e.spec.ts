@@ -46,7 +46,6 @@ test.describe("Booking page: increase/decrease drop-in quantity", () => {
         isActive: true,
         price: 10, // currency units (server converts to cents)
         adjustable: true,
-        paymentMethods: ["card"],
         tenant: tenant.id,
       },
       overrideAccess: true,

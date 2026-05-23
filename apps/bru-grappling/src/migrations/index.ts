@@ -20,6 +20,7 @@ import * as migration_20260122_205531 from './20260122_205531';
 import * as migration_20260203_000001_plans_allow_multiple_bookings_per_lesson from './20260203_000001_plans_allow_multiple_bookings_per_lesson';
 import * as migration_20260211_200619 from './20260211_200619';
 import * as migration_20260226_users_stripe_customers_table from './20260226_users_stripe_customers_table';
+import * as migration_20260522_drop_drop_ins_payment_methods from './20260522_drop_drop_ins_payment_methods';
 
 export const migrations = [
   {
@@ -131,5 +132,10 @@ export const migrations = [
     up: migration_20260226_users_stripe_customers_table.up,
     down: migration_20260226_users_stripe_customers_table.down,
     name: '20260226_users_stripe_customers_table',
+  },
+  {
+    up: migration_20260522_drop_drop_ins_payment_methods.up,
+    down: migration_20260522_drop_drop_ins_payment_methods.down,
+    name: '20260522_drop_drop_ins_payment_methods',
   },
 ];

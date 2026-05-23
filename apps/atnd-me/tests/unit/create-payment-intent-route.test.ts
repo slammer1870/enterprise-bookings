@@ -205,4 +205,33 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/fully booked/i)
   })
+
+  it('manage page: uses validated bookingIds and skips reservePendingBookings', async () => {
+    mockValidateBookingIdsFromMetadata.mockResolvedValueOnce(['2608'])
+
+    const res = await POST(
+      makeRequest({
+        metadata: {
+          bookingIds: '2608',
+          timeslotId: String(TIMESLOT_ID),
+        },
+      }),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockValidateBookingIdsFromMetadata).toHaveBeenCalledWith(
+      mockPayload,
+      expect.objectContaining({
+        bookingIds: '2608',
+        timeslotId: String(TIMESLOT_ID),
+      }),
+      expect.objectContaining({
+        timeslotId: TIMESLOT_ID,
+        userId: USER.id,
+      }),
+    )
+    expect(mockReservePendingBookings).not.toHaveBeenCalled()
+    expect(typeof body.clientSecret).toBe('string')
+  })
 })

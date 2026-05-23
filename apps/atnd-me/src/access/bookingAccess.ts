@@ -138,6 +138,13 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
 export const bookingUpdateAccessWithPaymentValidation: Access = async (args: AccessArgs) => {
   const { req } = args
   const requester = req.user as SharedUser | null
+
+  // Platform super-admin: full access (must run before admin/staff — resolveTenantAdminTenantIds
+  // returns [] for super-admins, which would otherwise deny updates from the timeslots admin UI).
+  if (requester && checkRole(['super-admin'], requester)) {
+    return true
+  }
+
   if (requester && checkRole(['admin', 'staff'], requester)) {
     const tenantIds = await resolveTenantAdminTenantIds({
       user: requester,

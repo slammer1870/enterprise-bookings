@@ -90,7 +90,6 @@ test.describe('Trial class offer (first-time bookings only)', () => {
         isActive: true,
         price: 10,
         adjustable: true,
-        paymentMethods: ['card'],
         discountTiers: [{ minQuantity: 1, discountPercent: 50, type: 'trial' }],
         tenant: tenantId,
       },

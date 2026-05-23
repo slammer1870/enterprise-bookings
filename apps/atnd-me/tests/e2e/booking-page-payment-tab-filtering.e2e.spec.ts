@@ -120,7 +120,6 @@ test.describe('Booking page: payment method tab filtering by quantity', () => {
           isActive: true,
           price: 15,
           adjustable: false,   // beforeValidate maps this → maxBookingsPerTimeslot: 1
-          paymentMethods: ['card'],
           tenant: tenant.id,
         },
         overrideAccess: true,
@@ -154,7 +153,6 @@ test.describe('Booking page: payment method tab filtering by quantity', () => {
           quantity: 4,
           expirationDate: expiry.toISOString().slice(0, 10),
           purchasedAt: new Date().toISOString(),
-          price: 2999,
           status: 'active',
         },
         overrideAccess: true,

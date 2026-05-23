@@ -75,9 +75,17 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
       caps.push(1)
     } else {
       const { maxBookingsPerTimeslot: raw, adjustable } = dropIn
-      // If we can't read the numeric cap from the drop-in, default to single-slot (1)
-      // unless the drop-in explicitly indicates `adjustable: true` (no per-user cap).
-      caps.push(capFromRaw(raw == null ? (adjustable === true ? null : 1) : raw))
+      // Semantics:
+      // - `maxBookingsPerTimeslot: null` means "no per-user cap" (unlimited).
+      // - `maxBookingsPerTimeslot` being `undefined` means "not provided / unknown"
+      //   (in which case we can only fall back to legacy `adjustable`).
+      //
+      // For the manage page, Payload serialization may omit `maxBookingsPerTimeslot`
+      // when it is `null`. In that case, the client would incorrectly fall back
+      // to the conservative `1` cap. Treat missing/undefined as "unlimited"
+      // for populated drop-in objects.
+      if (raw === null || typeof raw === 'undefined') caps.push(Infinity)
+      else caps.push(capFromRaw(raw))
     }
   }
 
@@ -94,10 +102,17 @@ function computeViewerMax(paymentMethods: PaymentMethodsLike): number {
   for (const pass of paymentMethods.allowedClassPasses ?? []) {
     const raw = pass.maxBookingsPerTimeslot
     const legacy = pass.allowMultipleBookingsPerTimeslot
-    // Be conservative: when `maxBookingsPerTimeslot` isn't available and we
-    // don't explicitly see `allowMultipleBookingsPerTimeslot === true`, treat
-    // it as single-slot (1) rather than "unlimited".
-    caps.push(capFromRaw(raw == null ? (legacy === true ? null : 1) : raw))
+    if (raw === null) {
+      // Explicitly cleared to null in the DB → no per-user cap.
+      // The server re-fetches the doc so this null is preserved rather than stripped.
+      caps.push(Infinity)
+    } else if (typeof raw === 'undefined') {
+      // Field absent (never set, or Payload stripped an unrelated null) →
+      // fall back to the legacy boolean.
+      caps.push(legacy === true ? Infinity : 1)
+    } else {
+      caps.push(capFromRaw(raw))
+    }
   }
 
   if (caps.length === 0) return Infinity

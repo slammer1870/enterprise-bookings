@@ -69,7 +69,6 @@ test.describe('Booking fee disclosure (step 2.7.2)', () => {
         isActive: true,
         price: 10,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenantId,
       },
       overrideAccess: true,

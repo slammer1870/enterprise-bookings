@@ -193,7 +193,7 @@ export const DropInView = ({
   const { price } = usePayment({
     basePrice: dropInDoc.price,
     discountTiers: dropInDoc.discountTiers || [],
-    paymentMethods: dropInDoc.paymentMethods || [],
+    paymentMethods: ["card"],
     trialable: bookingStatus === "trialable" ? true : false,
     quantity: quantity || 1,
   });

@@ -133,9 +133,18 @@ export async function resolveTenantTimeZone(
 export function getRelationId(value: unknown): number | null {
   if (value == null) return null;
   if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : null;
+  }
   if (typeof value === "object" && value !== null && "id" in value) {
     const id = (value as { id: unknown }).id;
-    return typeof id === "number" ? id : null;
+    if (typeof id === "number") return id;
+    if (typeof id === "string") {
+      const n = parseInt(id, 10);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
   }
   return null;
 }
@@ -185,9 +194,112 @@ export async function populateTimeslotEventType(
       overrideAccess: true,
     });
     if (populated) {
-      (timeslot as { eventType: EventType }).eventType = JSON.parse(
-        JSON.stringify(populated)
-      ) as EventType;
+      // Avoid `JSON.parse(JSON.stringify(...))` here: Payload document instances can
+      // omit `null` keys via `toJSON`, which breaks our "null means unlimited" logic.
+      // Shallow-clone into plain objects to preserve explicit `null` values.
+      const anyPop = populated as any;
+      const plain: any = { ...anyPop };
+
+      // Ensure `paymentMethods.allowedDropIn` includes `maxBookingsPerTimeslot`.
+      // The manage-page quantity-cap logic uses:
+      //   - `maxBookingsPerTimeslot: null` => unlimited (Infinity)
+      //   - `maxBookingsPerTimeslot: number` => cap
+      // If Payload serialization omits `maxBookingsPerTimeslot` when it's null,
+      // the client may conservatively fall back to `1`. So we backfill from the
+      // Drop-in doc whenever the cap is missing/undefined.
+      if (plain?.paymentMethods?.allowedDropIn != null) {
+        const allowedDropIn: any = plain.paymentMethods.allowedDropIn;
+        const dropInId =
+          typeof allowedDropIn === "number"
+            ? allowedDropIn
+            : typeof allowedDropIn === "string"
+              ? (() => {
+                const n = parseInt(allowedDropIn, 10);
+                return Number.isFinite(n) ? n : null;
+              })()
+              : typeof allowedDropIn?.id === "number"
+                ? allowedDropIn.id
+                : typeof allowedDropIn?.id === "string"
+                  ? (() => {
+                    const n = parseInt(allowedDropIn.id, 10);
+                    return Number.isFinite(n) ? n : null;
+                  })()
+                  : null;
+
+        // Always re-fetch the drop-in when we have its ID.
+        // Payload can sometimes normalize `null` relationship fields during
+        // nested population, and we need the client to see the real semantics:
+        //   - `maxBookingsPerTimeslot: null` => unlimited (Infinity)
+        if (dropInId != null) {
+          const dropInDoc = await findByIdSafe<any>(payload, "drop-ins", dropInId, {
+            depth: 0,
+            overrideAccess: true,
+          });
+          if (dropInDoc) {
+            plain.paymentMethods.allowedDropIn = {
+              ...(typeof allowedDropIn === "object" && allowedDropIn != null ? allowedDropIn : {}),
+              maxBookingsPerTimeslot: dropInDoc.maxBookingsPerTimeslot ?? null,
+              // If numeric cap is explicitly null, treat as "no per-user cap" in
+              // legacy semantics too. Some response shaping paths map
+              // `maxBookingsPerTimeslot` null/undefined to `1` based on
+              // `adjustable`.
+              adjustable: dropInDoc.maxBookingsPerTimeslot === null ? true : dropInDoc.adjustable,
+            };
+          }
+        }
+      }
+
+      if (plain?.paymentMethods?.allowedDropIn && typeof plain.paymentMethods.allowedDropIn === 'object') {
+        plain.paymentMethods = {
+          ...plain.paymentMethods,
+          allowedDropIn: { ...plain.paymentMethods.allowedDropIn },
+        };
+      }
+      if (Array.isArray(plain?.paymentMethods?.allowedPlans)) {
+        plain.paymentMethods = {
+          ...plain.paymentMethods,
+          allowedPlans: plain.paymentMethods.allowedPlans.map((p: any) =>
+            p?.sessionsInformation ? { ...p, sessionsInformation: { ...p.sessionsInformation } } : p
+          ),
+        };
+      }
+      if (Array.isArray(plain?.paymentMethods?.allowedClassPasses)) {
+        // Re-fetch each class-pass-type document to preserve `maxBookingsPerTimeslot: null`.
+        // Payload serialisation strips null keys during nested population, which would make
+        // an explicitly-cleared cap (null = unlimited) indistinguishable from "never set".
+        // The manage-page cap logic relies on the explicit null to unlock the + button.
+        const backfilledPasses = await Promise.all(
+          plain.paymentMethods.allowedClassPasses.map(async (cp: any) => {
+            const cloned = cp ? { ...cp } : cp;
+            if (!cloned || typeof cloned !== "object") return cloned;
+            const cpId =
+              typeof cloned.id === "number"
+                ? cloned.id
+                : typeof cloned.id === "string"
+                  ? (() => { const n = parseInt(cloned.id, 10); return Number.isFinite(n) ? n : null; })()
+                  : typeof cloned === "number"
+                    ? cloned
+                    : null;
+            if (cpId == null) return cloned;
+            const cpDoc = await findByIdSafe<any>(payload, "class-pass-types", cpId, {
+              depth: 0,
+              overrideAccess: true,
+            });
+            if (!cpDoc) return cloned;
+            return {
+              ...cloned,
+              // Explicitly carry the DB value so the client sees null (unlimited) vs a number.
+              maxBookingsPerTimeslot: cpDoc.maxBookingsPerTimeslot ?? null,
+            };
+          })
+        );
+        plain.paymentMethods = {
+          ...plain.paymentMethods,
+          allowedClassPasses: backfilledPasses,
+        };
+      }
+
+      (timeslot as { eventType: EventType }).eventType = plain as EventType;
     }
   } catch (err) {
     console.error("Failed to populate eventType with payment methods:", err);

@@ -57,7 +57,6 @@ test.describe('Drop-in 100% promo booking', () => {
         isActive: true,
         price: 10,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenantId,
       },
       overrideAccess: true,

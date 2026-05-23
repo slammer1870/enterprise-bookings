@@ -45,7 +45,6 @@ test.describe("Booking page: multi-slot exit with drop-in", () => {
         isActive: true,
         price: 10, // currency units; converted server-side
         adjustable: true,
-        paymentMethods: ["card"],
         tenant: tenant.id,
       },
       overrideAccess: true,

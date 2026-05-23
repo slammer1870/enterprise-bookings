@@ -166,23 +166,6 @@ async function ensureAtLeastOneDropIn(page: any): Promise<string> {
     await isActive.setChecked(true)
   }
 
-  // Ensure card payment method is selected if the field exists
-  const paymentMethodsCombobox = page
-    .locator('text=Payment Methods')
-    .locator('..')
-    .locator('[role="combobox"]')
-    .first()
-  if ((await paymentMethodsCombobox.count()) > 0) {
-    await paymentMethodsCombobox.click()
-    const cardOption = page.getByRole('option', { name: /card/i })
-    if ((await cardOption.count()) > 0) {
-      await cardOption.first().click()
-    } else {
-      // Close the list if it opened without options
-      await page.keyboard.press('Escape').catch(() => { })
-    }
-  }
-
   await saveObjectAndWaitForNavigation(page, {
     apiPath: '/api/drop-ins',
     expectedUrlPattern: /\/admin\/collections\/drop-ins\/\d+/,

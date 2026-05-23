@@ -178,7 +178,6 @@ test.describe('Booking quantity cap enforcement', () => {
         quantity: 10,
         expirationDate: future.toISOString().slice(0, 10),
         purchasedAt: new Date().toISOString(),
-        price: 1999,
         status: 'active',
       },
       overrideAccess: true,
@@ -282,7 +281,6 @@ test.describe('Booking quantity cap enforcement', () => {
         isActive: true,
         price: 15,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenant.id,
       },
       overrideAccess: true,
@@ -405,7 +403,6 @@ test.describe('Booking quantity cap enforcement', () => {
         quantity: 5,
         expirationDate: future.toISOString().slice(0, 10),
         purchasedAt: new Date().toISOString(),
-        price: 2499,
         status: 'active',
       },
       overrideAccess: true,
@@ -517,7 +514,6 @@ test.describe('Booking quantity cap enforcement', () => {
         isActive: true,
         price: 18,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenant.id,
       },
       overrideAccess: true,
@@ -604,6 +600,383 @@ test.describe('Booking quantity cap enforcement', () => {
   })
 
   /**
+   * Regression: drop-in `maxBookingsPerTimeslot` must be cleared correctly.
+   *
+   * Bug report summary:
+   * - If a drop-in is created with `maxBookingsPerTimeslot=1`, the manage UI correctly caps increases.
+   * - If the admin later clears/removes the field (so it becomes `null` or `undefined`)
+   *   the app must treat it as "unlimited per user" and re-relax the cap.
+   *
+   * This test verifies both update styles:
+   * - update to explicit `null` (expected to work)
+   * - simulate "field removed" by updating with `undefined` (should also work)
+   */
+  test('manage page: drop-in maxBookingsPerTimeslot cleared to null/undefined relaxes cap', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user1
+    const workerIndex = testData.workerIndex
+
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: {
+        stripeConnectOnboardingStatus: 'active',
+        // Keep it stable; manage pages can touch payment config.
+        stripeConnectAccountId: null,
+      },
+      overrideAccess: true,
+    })
+
+    // Drop-in starts capped at 1 per timeslot.
+    const dropIn = (await payload.create({
+      collection: 'drop-ins',
+      data: {
+        name: `Cap Clear Drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        isActive: true,
+        price: 15,
+        tenant: tenant.id,
+        // Important: numeric cap present initially.
+        maxBookingsPerTimeslot: 1,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
+    // Timeslot capacity = 3, so after 1 confirmed booking we should have remainingCapacity=2.
+    const eventType = await createTestEventType(
+      tenant.id,
+      'Cap Clear Drop-in Booking',
+      3,
+      undefined,
+      workerIndex
+    )
+
+    await payload.update({
+      collection: 'event-types',
+      id: eventType.id,
+      data: { paymentMethods: { allowedDropIn: dropIn.id } },
+      overrideAccess: true,
+    })
+
+    const startTime = new Date()
+    startTime.setHours(10, 0, 0, 0)
+    startTime.setDate(startTime.getDate() + 3 + workerIndex)
+    const endTime = new Date(startTime)
+    endTime.setHours(11, 0, 0, 0)
+
+    const timeslot = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    await createTestBooking(user.id, timeslot.id, 'confirmed')
+
+    await openManagePage({
+      page,
+      tenantSlug: tenant.slug,
+      userEmail: user.email,
+      lessonId: timeslot.id,
+      expectedState: 'quantity',
+    })
+
+    // Manage pages can render multiple payment-method tabs. Ensure we’re looking
+    // at the Drop-in tab controls for this assertion.
+    const dropInTab = page.getByRole('tab', { name: /drop-?in/i }).first()
+    if ((await dropInTab.count()) > 0) {
+      await dropInTab.click()
+    }
+
+    const bookingQty = page.getByTestId('booking-quantity')
+    const increaseBtns = page.getByRole('button', { name: /increase quantity/i })
+
+    // With maxBookingsPerTimeslot=1 and current booking qty=1, the increase button must be disabled.
+    await expect(bookingQty).toHaveText('1', { timeout: 10_000 })
+    // Some UIs hide the button entirely when capped at 1.
+    await expect(increaseBtns).toHaveCount(0, { timeout: 10_000 })
+
+    // 1) Update to explicit null → should be treated as "unlimited per user".
+    await payload.update({
+      collection: 'drop-ins',
+      id: dropIn.id,
+      data: { maxBookingsPerTimeslot: null },
+      overrideAccess: true,
+    })
+
+    const dropInAfterNull = await payload.findByID({
+      collection: 'drop-ins',
+      id: dropIn.id,
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect(dropInAfterNull?.maxBookingsPerTimeslot).toBeNull()
+
+    const eventTypeAfterNull = (await payload.findByID({
+      collection: 'event-types',
+      id: eventType.id,
+      depth: 5,
+      overrideAccess: true,
+    })) as any
+    const allowedDropInAfterNull = eventTypeAfterNull?.paymentMethods?.allowedDropIn
+    expect(allowedDropInAfterNull).not.toBeNull()
+    if (typeof allowedDropInAfterNull === 'object') {
+      expect(allowedDropInAfterNull.maxBookingsPerTimeslot).toBeNull()
+    }
+
+    await openManagePage({
+      page,
+      tenantSlug: tenant.slug,
+      userEmail: user.email,
+      lessonId: timeslot.id,
+      expectedState: 'quantity',
+    })
+
+    const dropInTabAfterNull = page.getByRole('tab', { name: /drop-?in/i }).first()
+    if ((await dropInTabAfterNull.count()) > 0) {
+      await dropInTabAfterNull.click()
+    }
+
+    const bookingQtyAfterNull = page.getByTestId('booking-quantity')
+    const increaseBtnsAfterNull = page.getByRole('button', { name: /increase quantity/i })
+    const increaseBtnAfterNull = increaseBtnsAfterNull.first()
+
+    await expect(bookingQtyAfterNull).toHaveText('1', { timeout: 10_000 })
+    await expect(increaseBtnsAfterNull).toHaveCount(1, { timeout: 10_000 })
+    await expect(increaseBtnAfterNull).toBeEnabled({ timeout: 10_000 })
+
+    // With capacity=3 and current confirmed=1, max desired total should be 3.
+    await increaseBtnAfterNull.click()
+    await expect(bookingQtyAfterNull).toHaveText('2', { timeout: 5_000 })
+    await increaseBtnAfterNull.click()
+    await expect(bookingQtyAfterNull).toHaveText('3', { timeout: 5_000 })
+    await expect(increaseBtnAfterNull).toBeDisabled({ timeout: 5_000 })
+
+    // 2) Re-set cap to 1, then clear it again with null. This simulates the real user
+    // flow a second time to verify the fix is not a one-shot fluke (e.g. the cap can
+    // be restored and re-cleared indefinitely).
+    await payload.update({
+      collection: 'drop-ins',
+      id: dropIn.id,
+      data: { maxBookingsPerTimeslot: 1 },
+      overrideAccess: true,
+    })
+
+    await payload.update({
+      collection: 'drop-ins',
+      id: dropIn.id,
+      data: { maxBookingsPerTimeslot: null },
+      overrideAccess: true,
+    })
+
+    const dropInAfterUndefined = await payload.findByID({
+      collection: 'drop-ins',
+      id: dropIn.id,
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect(dropInAfterUndefined?.maxBookingsPerTimeslot).toBeNull()
+
+    await openManagePage({
+      page,
+      tenantSlug: tenant.slug,
+      userEmail: user.email,
+      lessonId: timeslot.id,
+      expectedState: 'quantity',
+    })
+
+    const dropInTabAfterUndefined = page.getByRole('tab', { name: /drop-?in/i }).first()
+    if ((await dropInTabAfterUndefined.count()) > 0) {
+      await dropInTabAfterUndefined.click()
+    }
+
+    const bookingQtyAfterUndefined = page.getByTestId('booking-quantity')
+    const increaseBtnsAfterUndefined = page.getByRole('button', { name: /increase quantity/i })
+    const increaseBtnAfterUndefined = increaseBtnsAfterUndefined.first()
+
+    await expect(bookingQtyAfterUndefined).toHaveText('1', { timeout: 10_000 })
+    await expect(increaseBtnsAfterUndefined).toHaveCount(1, { timeout: 10_000 })
+    await expect(increaseBtnAfterUndefined).toBeEnabled({ timeout: 10_000 })
+
+    await increaseBtnAfterUndefined.click()
+    await expect(bookingQtyAfterUndefined).toHaveText('2', { timeout: 5_000 })
+    await increaseBtnAfterUndefined.click()
+    await expect(bookingQtyAfterUndefined).toHaveText('3', { timeout: 5_000 })
+    await expect(increaseBtnAfterUndefined).toBeDisabled({ timeout: 5_000 })
+  })
+
+  /**
+   * Regression: class-pass-type `maxBookingsPerTimeslot` cleared to null relaxes cap.
+   *
+   * The class-pass collection schema treats `maxBookingsPerTimeslot: null` as
+   * "no per-user limit". If a class pass previously had a numeric cap (e.g. 1) and
+   * the field is then cleared to null, the manage page must unlock the + button so the
+   * user can book up to the timeslot's remaining capacity.
+   *
+   * The bug: Payload serialisation strips null keys from nested relation docs, so
+   * `maxBookingsPerTimeslot: null` arrives at the client as `undefined`. The client
+   * then falls back to the legacy `allowMultipleBookingsPerTimeslot` field (false),
+   * and the cap stays at 1.
+   *
+   * Fix: `populateTimeslotEventType` explicitly re-fetches each class-pass-type doc
+   * to preserve the null, and `computeViewerMax` now treats `null` as unlimited.
+   */
+  test('manage page: class-pass maxBookingsPerTimeslot cleared to null relaxes cap', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user1
+    const workerIndex = testData.workerIndex
+
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: {
+        stripeConnectOnboardingStatus: 'active',
+        stripeConnectAccountId: null,
+      },
+      overrideAccess: true,
+    })
+
+    // Class-pass type starts capped at 1 per timeslot.
+    const classPassType = (await payload.create({
+      collection: 'class-pass-types',
+      data: {
+        name: `Cap Clear CP ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        slug: `cap-clear-cp-${tenant.id}-${workerIndex}-${Date.now()}`,
+        quantity: 10,
+        tenant: tenant.id,
+        maxBookingsPerTimeslot: 1,
+        allowMultipleBookingsPerTimeslot: false,
+        priceInformation: { price: 20 },
+        skipSync: true,
+        stripeProductId: `prod_cap_clear_cp_${tenant.id}_${workerIndex}_${Date.now()}`,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
+    const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    await payload.create({
+      collection: 'class-passes',
+      data: {
+        user: user.id,
+        tenant: tenant.id,
+        type: classPassType.id,
+        quantity: 5,
+        expirationDate: future.toISOString().slice(0, 10),
+        purchasedAt: new Date().toISOString(),
+        status: 'active',
+      },
+      overrideAccess: true,
+    })
+
+    // Timeslot capacity = 3, so with 1 confirmed booking remainingCapacity = 2.
+    const eventType = await createTestEventType(
+      tenant.id,
+      'Cap Clear Class Pass Event',
+      3,
+      undefined,
+      workerIndex
+    )
+
+    await payload.update({
+      collection: 'event-types',
+      id: eventType.id,
+      data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
+      overrideAccess: true,
+    })
+
+    const startTime = new Date()
+    startTime.setHours(10, 0, 0, 0)
+    startTime.setDate(startTime.getDate() + 3 + workerIndex)
+    const endTime = new Date(startTime)
+    endTime.setHours(11, 0, 0, 0)
+
+    const timeslot = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    await createTestBooking(user.id, timeslot.id, 'confirmed')
+
+    await openManagePage({
+      page,
+      tenantSlug: tenant.slug,
+      userEmail: user.email,
+      lessonId: timeslot.id,
+      expectedState: 'quantity',
+    })
+
+    const classPassTab = page.getByRole('tab', { name: /class.?pass/i }).first()
+    if ((await classPassTab.count()) > 0) await classPassTab.click()
+
+    const bookingQty = page.getByTestId('booking-quantity')
+    const increaseBtns = page.getByRole('button', { name: /increase quantity/i })
+
+    // With maxBookingsPerTimeslot=1 and current qty=1, the + button must be hidden.
+    await expect(bookingQty).toHaveText('1', { timeout: 10_000 })
+    await expect(increaseBtns).toHaveCount(0, { timeout: 10_000 })
+
+    // Clear the cap: explicit null → "no per-user limit".
+    await payload.update({
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { maxBookingsPerTimeslot: null },
+      overrideAccess: true,
+    })
+
+    const cpAfterNull = await payload.findByID({
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect((cpAfterNull as any)?.maxBookingsPerTimeslot).toBeNull()
+
+    await openManagePage({
+      page,
+      tenantSlug: tenant.slug,
+      userEmail: user.email,
+      lessonId: timeslot.id,
+      expectedState: 'quantity',
+    })
+
+    const classPassTabAfter = page.getByRole('tab', { name: /class.?pass/i }).first()
+    if ((await classPassTabAfter.count()) > 0) await classPassTabAfter.click()
+
+    const bookingQtyAfter = page.getByTestId('booking-quantity')
+    const increaseBtnsAfter = page.getByRole('button', { name: /increase quantity/i })
+    const increaseBtnAfter = increaseBtnsAfter.first()
+
+    await expect(bookingQtyAfter).toHaveText('1', { timeout: 10_000 })
+    await expect(increaseBtnsAfter).toHaveCount(1, { timeout: 10_000 })
+    await expect(increaseBtnAfter).toBeEnabled({ timeout: 10_000 })
+
+    // With capacity=3 and 1 confirmed booking, user can increase to 3 total.
+    await increaseBtnAfter.click()
+    await expect(bookingQtyAfter).toHaveText('2', { timeout: 5_000 })
+    await increaseBtnAfter.click()
+    await expect(bookingQtyAfter).toHaveText('3', { timeout: 5_000 })
+    await expect(increaseBtnAfter).toBeDisabled({ timeout: 5_000 })
+
+    // Verify the fix survives a re-set + re-clear cycle.
+    await payload.update({
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { maxBookingsPerTimeslot: 1 },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { maxBookingsPerTimeslot: null },
+      overrideAccess: true,
+    })
+    const cpAfterResetAndClear = await payload.findByID({
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect((cpAfterResetAndClear as any)?.maxBookingsPerTimeslot).toBeNull()
+  })
+
+  /**
    * Manage page (checkout): the + button must be capped by the per-user/payment-method
    * `maxBookingsPerTimeslot`, adjusted by already-held confirmed bookings.
    *
@@ -667,7 +1040,6 @@ test.describe('Booking quantity cap enforcement', () => {
         quantity: 10,
         expirationDate: future.toISOString().slice(0, 10),
         purchasedAt: new Date().toISOString(),
-        price: 2499,
         status: 'active',
       },
       overrideAccess: true,

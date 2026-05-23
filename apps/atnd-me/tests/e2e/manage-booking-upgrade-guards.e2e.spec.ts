@@ -145,10 +145,9 @@ async function createUserClassPass(args: {
       tenant: tenantId,
       type: typeId,
       quantity,
-      expirationDate: future.toISOString().slice(0, 10),
-      purchasedAt: new Date().toISOString(),
-      price: 3999,
-      status: 'active',
+        expirationDate: future.toISOString().slice(0, 10),
+        purchasedAt: new Date().toISOString(),
+        status: 'active',
     },
     overrideAccess: true,
   })
@@ -193,7 +192,6 @@ test.describe('Manage booking upgrade guards', () => {
               isActive: true,
               price: 20,
               adjustable: false,
-              paymentMethods: ['card'],
               tenant: tenant.id,
             },
             overrideAccess: true,
@@ -273,7 +271,6 @@ test.describe('Manage booking upgrade guards', () => {
               isActive: true,
               price: 22,
               adjustable: false,
-              paymentMethods: ['card'],
               tenant: tenant.id,
             },
             overrideAccess: true,
@@ -354,7 +351,7 @@ test.describe('Manage booking upgrade guards', () => {
           lessonId: lesson.id,
         })
 
-        await expect(page.getByText(/only 1 slot per booking/i)).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText(/1 slot available/i)).toBeVisible({ timeout: 10000 })
         await expect(page.getByRole('button', { name: /increase quantity/i })).toHaveCount(0)
 
         await createTestBooking(user.id, lesson.id, 'confirmed')
@@ -412,7 +409,6 @@ test.describe('Manage booking upgrade guards', () => {
               isActive: true,
               price: 24,
               adjustable: true,
-              paymentMethods: ['card'],
               tenant: tenant.id,
             },
             overrideAccess: true,
@@ -466,7 +462,6 @@ test.describe('Manage booking upgrade guards', () => {
               isActive: true,
               price: 26,
               adjustable: true,
-              paymentMethods: ['card'],
               tenant: tenant.id,
             },
             overrideAccess: true,
@@ -504,7 +499,6 @@ test.describe('Manage booking upgrade guards', () => {
               isActive: true,
               price: 28,
               adjustable: true,
-              paymentMethods: ['card'],
               tenant: tenant.id,
             },
             overrideAccess: true,
@@ -655,7 +649,6 @@ test.describe('Manage booking upgrade guards', () => {
         isActive: true,
         price: 24,
         adjustable: true,
-        paymentMethods: ['card'],
         tenant: tenant.id,
       },
       overrideAccess: true,

@@ -956,7 +956,6 @@ export interface DropIn {
         id?: string | null;
       }[]
     | null;
-  paymentMethods: 'card'[];
   'event-typesPaymentMethods'?: {
     docs?: (number | EventType)[];
     hasNextPage?: boolean;
@@ -3121,10 +3120,6 @@ export interface ClassPass {
    */
   purchasedAt: string;
   /**
-   * Price paid for the pass in cents. Auto-filled from the pass type's price when creating.
-   */
-  price: number;
-  /**
    * External transaction id (e.g. Stripe payment intent id).
    */
   transactionId?: string | null;
@@ -5136,7 +5131,6 @@ export interface DropInsSelect<T extends boolean = true> {
         type?: T;
         id?: T;
       };
-  paymentMethods?: T;
   'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -5178,7 +5172,6 @@ export interface ClassPassesSelect<T extends boolean = true> {
   quantity?: T;
   expirationDate?: T;
   purchasedAt?: T;
-  price?: T;
   transactionId?: T;
   status?: T;
   notes?: T;
