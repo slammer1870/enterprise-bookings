@@ -88,6 +88,7 @@
     "payload-auth": "1.8.4",
     "prism-react-renderer": "^2.3.1",
     "react": "19.2.1",
+    "react-colorful": "^5.7.0",
     "react-dom": "19.2.1",
     "react-hook-form": "7.56.3",
     "recharts": "^3.7.0",
@@ -99,7 +100,6 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
-    "webpack-bundle-analyzer": "^4.10.2",
     "@playwright/test": "1.56.1",
     "@repo/typescript-config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.17",
@@ -124,7 +124,8 @@
     "tsx": "^4.19.2",
     "typescript": "5.9.3",
     "vite-tsconfig-paths": "5.1.4",
-    "vitest": "3.2.3"
+    "vitest": "3.2.3",
+    "webpack-bundle-analyzer": "^4.10.2"
   },
   "engines": {
     "node": "^18.20.2 || >=20.9.0",

@@ -374,6 +374,39 @@ export interface Tenant {
     | null;
   logo?: (number | null) | Media;
   /**
+   * Customize schedule check-in and booking button colors. Leave fields empty to use platform defaults.
+   */
+  bookingTheme?: {
+    checkin?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    trialable?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    cancel?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    waitlist?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    childrenBooked?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    modify?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    closed?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+  };
+  /**
    * Stripe Connect account ID (set by OAuth callback).
    */
   stripeConnectAccountId?: string | null;
@@ -4669,6 +4702,52 @@ export interface TenantsSelect<T extends boolean = true> {
   description?: T;
   allowedBlocks?: T;
   logo?: T;
+  bookingTheme?:
+    | T
+    | {
+        checkin?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        trialable?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        cancel?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        childrenBooked?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        modify?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        closed?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+      };
   stripeConnectAccountId?: T;
   stripeConnectOnboardingStatus?: T;
   stripeConnectLastError?: T;

@@ -1,4 +1,5 @@
 import type { Payload } from 'payload'
+import type { TenantBookingTheme } from '@/utilities/bookingThemeTypes'
 import {
   collectTenantLookupHostnames,
   getPayloadTenantIdFromRequest,
@@ -68,6 +69,7 @@ async function findTenantByHost(payload: Payload, headers?: Headers | null) {
         domain: true,
         logo: true,
         description: true,
+        bookingTheme: true,
       } as any,
     })
 
@@ -126,6 +128,29 @@ export async function getTenantIdForCreateRequest(
 export type TenantWithBranding = TenantContext & {
   logo?: { url?: string; alt?: string } | number | null
   description?: string | null
+  bookingTheme?: TenantBookingTheme | null
+}
+
+type TenantBrandingDoc = {
+  id: number
+  slug: string
+  name?: string
+  domain?: string | null
+  logo?: { url?: string; alt?: string } | number | null
+  description?: string | null
+  bookingTheme?: TenantBookingTheme | null
+}
+
+function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
+  return {
+    id: t.id,
+    slug: t.slug,
+    name: t.name ?? '',
+    domain: t.domain ?? null,
+    logo: t.logo,
+    description: t.description,
+    bookingTheme: t.bookingTheme ?? null,
+  }
 }
 
 /**
@@ -228,50 +253,19 @@ export async function getTenantWithBranding(
         domain: true,
         logo: true,
         description: true,
+        bookingTheme: true,
       } as any,
     })
 
     const tenant = result.docs[0]
     if (!tenant) return null
 
-    const t = tenant as {
-      id: number
-      slug: string
-      name?: string
-      domain?: string | null
-      logo?: { url?: string; alt?: string } | number | null
-      description?: string | null
-    }
-
-    return {
-      id: t.id,
-      slug: t.slug,
-      name: t.name ?? '',
-      domain: t.domain ?? null,
-      logo: t.logo,
-      description: t.description,
-    }
+    return toTenantWithBranding(tenant as TenantBrandingDoc)
   }
 
   const tenantFromHost = await findTenantByHost(payload, source?.headers)
   if (tenantFromHost) {
-    const t = tenantFromHost as {
-      id: number
-      slug: string
-      name?: string
-      domain?: string | null
-      logo?: { url?: string; alt?: string } | number | null
-      description?: string | null
-    }
-
-    return {
-      id: t.id,
-      slug: t.slug,
-      name: t.name ?? '',
-      domain: t.domain ?? null,
-      logo: t.logo,
-      description: t.description,
-    }
+    return toTenantWithBranding(tenantFromHost as TenantBrandingDoc)
   }
 
   // Fallback: Admin TenantSelector (payload-tenant cookie stores tenant ID)
@@ -290,26 +284,12 @@ export async function getTenantWithBranding(
         domain: true,
         logo: true,
         description: true,
+        bookingTheme: true,
       } as any,
     })
     if (!tenant) return null
 
-    const t = tenant as {
-      id: number
-      slug: string
-      name?: string
-      domain?: string | null
-      logo?: { url?: string; alt?: string } | number | null
-      description?: string | null
-    }
-    return {
-      id: t.id,
-      slug: t.slug,
-      name: t.name ?? '',
-      domain: t.domain ?? null,
-      logo: t.logo,
-      description: t.description,
-    }
+    return toTenantWithBranding(tenant as TenantBrandingDoc)
   } catch {
     return null
   }
