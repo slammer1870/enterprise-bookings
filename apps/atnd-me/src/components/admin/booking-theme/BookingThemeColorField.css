@@ -1,0 +1,110 @@
+.booking-theme-color-field__dialog {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(280px, 100%);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--theme-elevation-150);
+  background: var(--theme-elevation-0);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.booking-theme-color-picker {
+  width: 100%;
+}
+
+.booking-theme-color-picker .react-colorful {
+  width: 100%;
+  height: 160px;
+}
+
+.booking-theme-color-picker .react-colorful__saturation {
+  border-radius: 6px 6px 0 0;
+}
+
+.booking-theme-color-picker .react-colorful__hue {
+  height: 14px;
+  border-radius: 0 0 6px 6px;
+}
+
+.booking-theme-color-picker .react-colorful__pointer {
+  width: 18px;
+  height: 18px;
+}
+
+.booking-theme-color-field__controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+
+.booking-theme-color-field__hex-input {
+  flex: 1;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--theme-elevation-150);
+  background: var(--theme-input-bg);
+  color: var(--theme-text);
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.booking-theme-color-field__eyedropper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--theme-elevation-150);
+  background: var(--theme-elevation-50);
+  color: var(--theme-text);
+  cursor: pointer;
+  padding: 0;
+}
+
+.booking-theme-color-field__eyedropper:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.booking-theme-color-field__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.booking-theme-color-field__preset {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--theme-elevation-150);
+  cursor: pointer;
+  padding: 0;
+}
+
+.booking-theme-color-field__preset:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.booking-theme-color-field__default {
+  margin-top: 12px;
+  border: none;
+  background: transparent;
+  color: var(--theme-elevation-600);
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.booking-theme-color-field__default:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}

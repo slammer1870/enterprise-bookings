@@ -113,6 +113,7 @@ import * as migration_20260615_locations_default_for_schedule from './20260615_l
 import * as migration_20260618_000001_plans_footer_text from './20260618_000001_plans_footer_text';
 import * as migration_20260622_000001_class_passes_drop_price from './20260622_000001_class_passes_drop_price';
 import * as migration_20260522_drop_drop_ins_payment_methods from './20260522_drop_drop_ins_payment_methods';
+import * as migration_20260523_tenants_booking_theme from './20260523_tenants_booking_theme';
 
 export const migrations = [
   {
@@ -689,5 +690,10 @@ export const migrations = [
     up: migration_20260522_drop_drop_ins_payment_methods.up,
     down: migration_20260522_drop_drop_ins_payment_methods.down,
     name: '20260522_drop_drop_ins_payment_methods',
+  },
+  {
+    up: migration_20260523_tenants_booking_theme.up,
+    down: migration_20260523_tenants_booking_theme.down,
+    name: '20260523_tenants_booking_theme',
   },
 ];
