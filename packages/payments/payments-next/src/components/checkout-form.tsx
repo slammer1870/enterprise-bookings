@@ -228,7 +228,23 @@ export default function CheckoutForm({
     const createCheckoutSession = async () => {
       const requestId = ++paymentIntentRequestIdRef.current;
       try {
-        if (controller.signal.aborted) return
+        // Leading abort-aware delay: if a prop change (e.g. rapid quantity clicks) triggers
+        // React cleanup before this resolves, controller.abort() fires, rejects this promise,
+        // and onReserveCheckoutHold is never called for the stale render.
+        // This prevents concurrent hold upserts from exhausting the DB connection pool.
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 100);
+          controller.signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              reject(new DOMException("Aborted", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+
+        if (controller.signal.aborted) return;
         setIsLoading(true);
         setError(null);
         setClientSecret(null);

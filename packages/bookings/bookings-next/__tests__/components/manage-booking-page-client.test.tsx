@@ -100,6 +100,73 @@ describe('ManageBookingPageClient', () => {
   let mockSetBookingQuantity: ReturnType<typeof vi.fn>
   let mockCancelPendingBookingsForTimeslot: ReturnType<typeof vi.fn>
   let mockCancelNewestPendingBookingsForTimeslot: ReturnType<typeof vi.fn>
+  let mockReleaseCheckoutHold: ReturnType<typeof vi.fn>
+  let mockUpsertCheckoutHold: ReturnType<typeof vi.fn>
+  let mockAdjustCheckoutHoldQuantity: ReturnType<typeof vi.fn>
+  let mockExtendCheckoutHold: ReturnType<typeof vi.fn>
+
+  // Builds a complete useTRPC mock.
+  // Pass `getBookings` when the test mutates the array in-place (closure-captured variable).
+  const buildTRPCMock = (initialBookings: Booking[] = [], getBookings?: () => Booking[]) => ({
+    bookings: {
+      getUserBookingsForTimeslot: {
+        queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
+        queryOptions: (opts: { timeslotId: number }) => ({
+          queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
+          queryFn: getBookings ?? (() => initialBookings),
+          initialData: initialBookings.length > 0 ? initialBookings : (undefined as Booking[] | undefined),
+        }),
+      },
+      cancelBooking: {
+        mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
+          mutationFn: mockCancelBooking,
+          onSuccess: opts?.onSuccess,
+          onError: opts?.onError,
+        }),
+      },
+      createBookings: {
+        mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
+          mutationFn: mockCreateBookings,
+          onSuccess: opts?.onSuccess,
+          onError: opts?.onError,
+        }),
+      },
+      setMyBookingQuantityForTimeslot: {
+        mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
+          mutationFn: mockSetBookingQuantity,
+          onSuccess: opts?.onSuccess,
+          onError: opts?.onError,
+        }),
+      },
+      cancelNewestPendingBookingsForTimeslot: {
+        mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
+          mutationFn: mockCancelNewestPendingBookingsForTimeslot,
+          onSuccess: opts?.onSuccess,
+          onError: opts?.onError,
+        }),
+      },
+      cancelPendingBookingsForTimeslot: {
+        mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }),
+      },
+      releaseCheckoutHold: {
+        mutationOptions: () => ({ mutationFn: mockReleaseCheckoutHold }),
+      },
+      upsertCheckoutHold: {
+        mutationOptions: () => ({ mutationFn: mockUpsertCheckoutHold }),
+      },
+      adjustCheckoutHoldQuantity: {
+        mutationOptions: () => ({ mutationFn: mockAdjustCheckoutHoldQuantity }),
+      },
+      extendCheckoutHold: {
+        mutationOptions: () => ({ mutationFn: mockExtendCheckoutHold }),
+      },
+    },
+    timeslots: {
+      getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+      getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+      getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
+    },
+  })
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -112,59 +179,13 @@ describe('ManageBookingPageClient', () => {
     mockCreateBookings = vi.fn().mockResolvedValue([])
     mockSetBookingQuantity = vi.fn().mockResolvedValue([])
     mockCancelPendingBookingsForTimeslot = vi.fn().mockResolvedValue({ cancelled: 0 })
-    mockCancelNewestPendingBookingsForTimeslot = vi
-      .fn()
-      .mockResolvedValue({ cancelled: 0, cancelledIds: [] })
+    mockCancelNewestPendingBookingsForTimeslot = vi.fn().mockResolvedValue({ cancelled: 0, cancelledIds: [] })
+    mockReleaseCheckoutHold = vi.fn().mockResolvedValue({})
+    mockUpsertCheckoutHold = vi.fn().mockResolvedValue({ id: 1, quantity: 1 })
+    mockAdjustCheckoutHoldQuantity = vi.fn().mockResolvedValue({ id: 1, quantity: 1 })
+    mockExtendCheckoutHold = vi.fn().mockResolvedValue({})
 
-    const mockConfirm = vi.fn().mockResolvedValue(true)
-    ;(useTRPC as any).mockReturnValue({
-      bookings: {
-        getUserBookingsForTimeslot: {
-          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { timeslotId: number }) => ({
-            queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
-            queryFn: () => [],
-            initialData: undefined as Booking[] | undefined,
-          }),
-        },
-        cancelBooking: {
-          mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
-            mutationFn: mockCancelBooking,
-            onSuccess: opts?.onSuccess,
-            onError: opts?.onError,
-          }),
-        },
-        createBookings: {
-          mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
-            mutationFn: mockCreateBookings,
-            onSuccess: opts?.onSuccess,
-            onError: opts?.onError,
-          }),
-        },
-        setMyBookingQuantityForTimeslot: {
-          mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
-            mutationFn: mockSetBookingQuantity,
-            onSuccess: opts?.onSuccess,
-            onError: opts?.onError,
-          }),
-        },
-        cancelNewestPendingBookingsForTimeslot: {
-          mutationOptions: () => ({
-            mutationFn: mockCancelNewestPendingBookingsForTimeslot,
-          }),
-        },
-        cancelPendingBookingsForTimeslot: {
-          mutationOptions: () => ({
-            mutationFn: mockCancelPendingBookingsForTimeslot,
-          }),
-        },
-      },
-      timeslots: {
-        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-      },
-    })
+    ;(useTRPC as any).mockReturnValue(buildTRPCMock())
   })
 
   it('shows quantity view when all bookings are confirmed', async () => {
@@ -172,30 +193,7 @@ describe('ManageBookingPageClient', () => {
       createMockBooking(1, 'confirmed'),
       createMockBooking(2, 'confirmed'),
     ]
-    ;(useTRPC as any).mockReturnValue({
-      bookings: {
-        getUserBookingsForTimeslot: {
-          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { timeslotId: number }) => ({
-            queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
-            queryFn: () => bookings,
-            initialData: bookings,
-          }),
-        },
-        cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
-        createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
-        setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
-        cancelNewestPendingBookingsForTimeslot: {
-          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
-        },
-        cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
-      },
-      timeslots: {
-        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-      },
-    })
+    ;(useTRPC as any).mockReturnValue(buildTRPCMock(bookings))
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -220,30 +218,7 @@ describe('ManageBookingPageClient', () => {
     const lesson = createMockTimeslot({ hasPaymentMethods: true })
     const PaymentMethodsStub = () => <div data-testid="payment-methods-stub">Payment methods</div>
 
-    ;(useTRPC as any).mockReturnValue({
-      bookings: {
-        getUserBookingsForTimeslot: {
-          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { timeslotId: number }) => ({
-            queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
-            queryFn: () => bookings,
-            initialData: bookings,
-          }),
-        },
-        cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
-        createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
-        setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
-        cancelNewestPendingBookingsForTimeslot: {
-          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
-        },
-        cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
-      },
-      timeslots: {
-        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-      },
-    })
+    ;(useTRPC as any).mockReturnValue(buildTRPCMock(bookings))
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -273,30 +248,7 @@ describe('ManageBookingPageClient', () => {
       return [newPendingBooking]
     })
 
-    ;(useTRPC as any).mockReturnValue({
-      bookings: {
-        getUserBookingsForTimeslot: {
-          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { timeslotId: number }) => ({
-            queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
-            queryFn: () => serverBookings,
-            initialData: serverBookings,
-          }),
-        },
-        cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
-        createBookings: { mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({ mutationFn: mockCreateBookings, onSuccess: opts?.onSuccess, onError: opts?.onError }) },
-        setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
-        cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
-        cancelNewestPendingBookingsForTimeslot: {
-          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
-        },
-      },
-      timeslots: {
-        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-      },
-    })
+    ;(useTRPC as any).mockReturnValue(buildTRPCMock(serverBookings, () => serverBookings))
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -350,42 +302,7 @@ describe('ManageBookingPageClient', () => {
       return { cancelled: cancelledIds.length, cancelledIds }
     })
 
-    ;(useTRPC as any).mockReturnValue({
-      bookings: {
-        getUserBookingsForTimeslot: {
-          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { timeslotId: number }) => ({
-            queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
-            queryFn: () => serverBookings,
-            initialData: serverBookings,
-          }),
-        },
-        cancelBooking: {
-          mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
-            mutationFn: mockCancelBooking,
-            onSuccess: opts?.onSuccess,
-            onError: opts?.onError,
-          }),
-        },
-        createBookings: {
-          mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
-            mutationFn: mockCreateBookings,
-            onSuccess: opts?.onSuccess,
-            onError: opts?.onError,
-          }),
-        },
-        setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
-        cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
-        cancelNewestPendingBookingsForTimeslot: {
-          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
-        },
-      },
-      timeslots: {
-        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-      },
-    })
+    ;(useTRPC as any).mockReturnValue(buildTRPCMock(serverBookings, () => serverBookings))
 
     render(
       <QueryClientProvider client={queryClient}>
@@ -431,30 +348,7 @@ describe('ManageBookingPageClient', () => {
     const lesson = createMockTimeslotWithMembershipPlan()
     const PaymentMethodsStub = () => <div data-testid="payment-methods-stub">Payment methods</div>
 
-    ;(useTRPC as any).mockReturnValue({
-      bookings: {
-        getUserBookingsForTimeslot: {
-          queryKey: (opts: { timeslotId: number }) => ['bookings', 'getUserBookingsForTimeslot', opts],
-          queryOptions: (opts: { timeslotId: number }) => ({
-            queryKey: ['bookings', 'getUserBookingsForTimeslot', opts],
-            queryFn: () => bookings,
-            initialData: bookings,
-          }),
-        },
-        cancelBooking: { mutationOptions: () => ({ mutationFn: mockCancelBooking }) },
-        createBookings: { mutationOptions: () => ({ mutationFn: mockCreateBookings }) },
-        setMyBookingQuantityForTimeslot: { mutationOptions: () => ({ mutationFn: mockSetBookingQuantity }) },
-        cancelNewestPendingBookingsForTimeslot: {
-          mutationOptions: () => ({ mutationFn: mockCancelNewestPendingBookingsForTimeslot }),
-        },
-        cancelPendingBookingsForTimeslot: { mutationOptions: () => ({ mutationFn: mockCancelPendingBookingsForTimeslot }) },
-      },
-      timeslots: {
-        getByDate: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getById: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-        getByIdForBooking: { queryKey: () => [], queryOptions: () => ({ queryKey: [], queryFn: () => [] }) },
-      },
-    })
+    ;(useTRPC as any).mockReturnValue(buildTRPCMock(bookings))
 
     render(
       <QueryClientProvider client={queryClient}>

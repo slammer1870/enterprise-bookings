@@ -97,6 +97,17 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
 }) => {
   const trpc = useTRPC()
   const [quantity, setQuantity] = useState<number>(1)
+  // Debounced quantity — only this value flows into PaymentMethodsComponent.
+  // Rapid + clicks update `quantity` for immediate UI feedback but network calls
+  // (hold upsert + payment-intent bootstrap) wait until the user pauses for 350ms,
+  // preventing concurrent hold upserts from exhausting the DB connection pool.
+  const [debouncedQuantity, setDebouncedQuantity] = useState<number>(1)
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuantity(quantity), 350)
+    return () => clearTimeout(timer)
+  }, [quantity])
+
   const paymentRedirectInProgressRef = useRef(false)
   /** Bumped on unmount so in-flight hold upserts after leave are rolled back. */
   const checkoutSessionRef = useRef(0)
@@ -128,9 +139,11 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   const onReserveCheckoutHold = useCallback(
     async (metadata: Record<string, string>) => {
       const session = checkoutSessionRef.current
+      // Use metadata.quantity (reflects debouncedQuantity) with debouncedQuantity
+      // as fallback — never the raw `quantity` to avoid stale hold creation.
       const qty = Math.max(
         1,
-        parseInt(metadata.quantity ?? String(quantity), 10) || quantity,
+        parseInt(metadata.quantity ?? String(debouncedQuantity), 10) || debouncedQuantity,
       )
       const result = await upsertCheckoutHold({
         timeslotId: timeslot.id,
@@ -165,7 +178,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
       upsertCheckoutHold,
       releaseCheckoutHold,
       timeslot.id,
-      quantity,
+      debouncedQuantity,
       useCheckoutHolds,
       releaseHoldApiUrl,
     ],
@@ -306,7 +319,13 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
       : Math.min(capacityMaxQuantity, viewerMaxFromPaymentOptions)
 
   useEffect(() => {
-    setQuantity((q) => Math.min(Math.max(1, q), maxQuantity))
+    setQuantity((prev) => {
+      const clamped = Math.min(Math.max(1, prev), maxQuantity)
+      // Sync the debounce target immediately on a hard capacity clamp so the
+      // payment component never shows a stale quantity after the slot fills up.
+      if (clamped !== prev) setDebouncedQuantity(clamped)
+      return clamped
+    })
   }, [maxQuantity])
 
   // If payment methods exist, show payment gateway (filtered by quantity when pendingBookings/quantity > 1)
@@ -334,7 +353,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
 
           <PaymentMethodsComponent
             timeslot={timeslot}
-            quantity={quantity}
+            quantity={debouncedQuantity}
             onPaymentRedirectStart={() => {
               paymentRedirectInProgressRef.current = true
               if (useCheckoutHolds) {

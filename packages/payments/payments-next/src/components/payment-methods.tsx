@@ -873,12 +873,14 @@ export function PaymentMethods({
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
   let hasMembershipTab =
     activePlans.length > 0 || Boolean(hasSubscriptionWithPlan);
-  // Show drop-in when: (1) no usable membership, or (2) quantity > 1 and drop-in allows multiple
-  // (so members modifying a booking can pay for additional slots with drop-in)
+  // Show drop-in when: (1) no usable membership, (2) quantity > 1 and drop-in allows multiple,
+  // or (3) the user's plan caps at 1 booking per timeslot — in that case the membership cannot
+  // cover an additional slot so drop-in must remain available as a fallback.
   let hasDropInTab =
     Boolean(allowedDropIn) &&
     (!(hasSubscriptionWithPlan && subscriptionUsableForBooking) ||
-      (quantity > 1 && dropInAllowsQuantity(allowedDropIn as DropIn, quantity)));
+      (quantity > 1 && dropInAllowsQuantity(allowedDropIn as DropIn, quantity)) ||
+      userPlanMaxPerTimeslot === 1);
 
   if (quantity > 1) {
     hasMembershipTab =
