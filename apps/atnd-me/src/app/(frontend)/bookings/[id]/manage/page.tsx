@@ -44,7 +44,24 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
     //
     // Cancelling before creating the hold ensures fulfillCheckoutHold (called on payment
     // success) creates fresh confirmed bookings without leaving behind dangling pending rows.
-    if (initialCheckoutHold === null) {
+    //
+    // Only do this when the timeslot has at least one payment method configured; without
+    // payment methods there is nothing to pay, so pending rows should remain as-is and
+    // the normal quantity view should be shown.
+    const eventType =
+      timeslot.eventType && typeof timeslot.eventType === 'object' ? timeslot.eventType : null
+    const pm =
+      eventType && typeof (eventType as { paymentMethods?: unknown }).paymentMethods === 'object'
+        ? (eventType as { paymentMethods: Record<string, unknown> }).paymentMethods
+        : null
+    const timeslotHasPaymentMethods = Boolean(
+      pm?.allowedDropIn ||
+        (Array.isArray(pm?.allowedPlans) && (pm.allowedPlans as unknown[]).length > 0) ||
+        (Array.isArray(pm?.allowedClassPasses) &&
+          (pm.allowedClassPasses as unknown[]).length > 0),
+    )
+
+    if (initialCheckoutHold === null && timeslotHasPaymentMethods) {
       const pendingOnly = (userBookings ?? []).filter(
         (b) => String((b as { status?: string }).status).toLowerCase() === 'pending',
       )
