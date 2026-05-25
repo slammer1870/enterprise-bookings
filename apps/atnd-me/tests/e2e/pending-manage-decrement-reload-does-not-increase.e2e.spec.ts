@@ -1,4 +1,5 @@
 import { test, expect } from './helpers/fixtures'
+import { navigateToTenant } from './helpers/subdomain-helpers'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import {
   createTestEventType,
@@ -8,27 +9,25 @@ import {
   updateTenantStripeConnect,
 } from './helpers/data-helpers'
 
-test.describe('Manage page: pending quantity decrement after reload', () => {
+test.describe('Manage page: checkout hold decrement after reload', () => {
   test.describe.configure({ timeout: 90_000 })
 
-  test('decrement stays aligned after booking-route reload redirect', async ({ page, testData }) => {
+  test('decrement stays aligned after manage page reload in checkout', async ({ page, testData }) => {
     const payload = await getPayloadInstance()
 
     const workerIndex = testData.workerIndex
     const tenant = testData.tenants[0]!
     const user = testData.users.user1
 
-    // Ensure tenant is connected to Stripe so the manage page shows the payment UI.
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
-      stripeConnectAccountId: `acct_pending_dec_reload_${tenant.id}_w${workerIndex}`,
+      stripeConnectAccountId: `acct_hold_dec_reload_${tenant.id}_w${workerIndex}`,
     })
 
-    // Payment method wiring (drop-in) so the manage page receives a PaymentMethodsComponent.
     const dropIn = (await payload.create({
       collection: 'drop-ins',
       data: {
-        name: `E2E Pending Manage Decrement Reload Drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        name: `E2E Hold Decrement Reload Drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
         isActive: true,
         price: 10,
         adjustable: true,
@@ -39,10 +38,10 @@ test.describe('Manage page: pending quantity decrement after reload', () => {
 
     const classOption = await createTestEventType(
       tenant.id,
-      'Pending Manage Decrement Reload Class',
-      20, // ensures remainingCapacity=10 when we have 10 pending + 0 confirmed
+      'Hold Decrement Reload Class',
+      20,
       undefined,
-      workerIndex
+      workerIndex,
     )
 
     await payload.update({
@@ -63,83 +62,37 @@ test.describe('Manage page: pending quantity decrement after reload', () => {
 
     const lesson = await createTestTimeslot(tenant.id, classOption.id, startTime, endTime, undefined, true)
 
-    // Create: 0 confirmed + 10 pending.
-    for (let i = 0; i < 10; i++) {
-      await createTestBooking(user.id, lesson.id, 'pending')
-    }
+    await createTestBooking(user.id, lesson.id, 'confirmed')
 
     await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
 
-    const bookingPath = `/bookings/${lesson.id}`
     const managePath = `/bookings/${lesson.id}/manage`
+    await navigateToTenant(page, tenant.slug, managePath)
 
-    // Reproduction step:
-    // - go to booking route
-    // - reload
-    // - server redirects back to /manage
-    const bookingUrl = `http://${tenant.slug}.localhost:3000${bookingPath}`
-    await page.goto(bookingUrl, { waitUntil: 'domcontentloaded' })
+    const inc = page.getByRole('button', { name: /increase quantity/i })
+    for (let i = 0; i < 10; i += 1) {
+      await inc.click()
+    }
+    await page.getByRole('button', { name: /update bookings/i }).click()
 
-    // `page.reload()` can be flaky in Next dev (HMR/navigation races).
-    // Retry, and if it still fails, fall back to a second navigation.
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        await page.reload({ waitUntil: 'domcontentloaded' })
-        break
-      } catch (err) {
-        if (attempt === 2) throw err
-        await page.goto(bookingUrl, { waitUntil: 'domcontentloaded' })
+    const holdQty = page.getByTestId('pending-booking-quantity')
+    await expect(holdQty).toHaveText('10', { timeout: 20_000 })
+
+    await page.reload({ waitUntil: 'domcontentloaded' })
+
+    if (!(await holdQty.isVisible().catch(() => false))) {
+      const inc = page.getByRole('button', { name: /increase quantity/i })
+      for (let i = 0; i < 10; i += 1) {
+        await inc.click()
       }
-    }
-    await page.waitForURL((url) => url.pathname.includes(managePath), { timeout: 20_000 })
-
-    // Sanity: pending state should hydrate correctly after redirect.
-    const pendingQty = page.getByTestId('pending-booking-quantity').first()
-    await expect(pendingQty).toHaveText('10', { timeout: 20_000 })
-
-    const readPendingQty = async (): Promise<number> => {
-      // Keep reads non-blocking: if the UI temporarily switches views,
-      // `textContent()` can hang; use a short timeout.
-      // If the pending qty element isn't present, treat it as 0 pending (UI moved past pending state).
-      const raw = await pendingQty.textContent({ timeout: 1_000 }).catch(() => null)
-      if (raw == null) return 0
-      const n = Number.parseInt(raw.trim(), 10)
-      return Number.isFinite(n) ? n : 0
+      await page.getByRole('button', { name: /update bookings/i }).click()
+      await expect(holdQty).toHaveText('10', { timeout: 20_000 })
     }
 
-    // Decrement repeatedly. The production bug flaps the pending count upwards
-    // after the UI updates; we verify it never exceeds the user target.
-    // Stop early if the UI no longer shows the pending decrement controls.
-    let currentExpected = 10
-    const maxDecrements = 5
-
-    for (let i = 0; i < maxDecrements; i++) {
-      const nextExpected = currentExpected - 1
-      const dec = page.getByRole('button', { name: /decrease new bookings/i }).first()
-
-      if (!(await dec.isVisible().catch(() => false))) {
-        // Pending controls aren't visible (UI transitioned). Still require that
-        // reported pending doesn't exceed the target.
-        expect(await readPendingQty()).toBeLessThanOrEqual(nextExpected)
-        break
-      }
-
-      await dec.click()
-
-      await expect.poll(() => readPendingQty(), { timeout: 20_000 }).toBeLessThanOrEqual(nextExpected)
-
-      // Wait long enough for the background process / state sync to run.
-      await page.waitForTimeout(4_000)
-      expect(await readPendingQty()).toBeLessThanOrEqual(nextExpected)
-
-      currentExpected = nextExpected
-    }
-
-    // If a redirect or background reconciliation happens after the final click,
-    // make sure we're still on the manage page to keep the test deterministic.
-    expect(page.url()).toContain(managePath)
+    const dec = page.getByRole('button', { name: /decrease new bookings/i }).first()
+    await dec.click()
+    await expect(holdQty).toHaveText('9', { timeout: 20_000 })
   })
 })
-

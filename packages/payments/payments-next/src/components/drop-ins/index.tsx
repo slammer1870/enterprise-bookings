@@ -66,6 +66,7 @@ function DropInCheckoutWithFee({
   FeeBreakdownComponent: _FeeBreakdownComponent,
   timeslotId,
   onPaymentRedirectStart,
+  onReserveCheckoutHold,
   returnUrl,
 }: {
   classPriceAmount: number;
@@ -75,6 +76,9 @@ function DropInCheckoutWithFee({
   FeeBreakdownComponent?: React.ComponentType<{ classPriceCents: number; timeslotId: number }>;
   timeslotId: number;
   onPaymentRedirectStart?: () => void;
+  onReserveCheckoutHold?: (
+    _metadata: Record<string, string>
+  ) => Promise<Record<string, string> | void>;
   returnUrl?: string;
 }) {
   const trpc = useTRPC();
@@ -107,6 +111,7 @@ function DropInCheckoutWithFee({
       metadata={metadata}
       createPaymentIntentUrl={createPaymentIntentUrl}
       onPaymentRedirectStart={onPaymentRedirectStart}
+      onReserveCheckoutHold={onReserveCheckoutHold}
       returnUrl={returnUrl}
     />
   );
@@ -132,6 +137,7 @@ export const DropInView = ({
   discount,
   metadata,
   onPaymentRedirectStart,
+  onReserveCheckoutHold,
   createPaymentIntentUrl,
   FeeBreakdownComponent,
   returnUrl,
@@ -144,6 +150,9 @@ export const DropInView = ({
   metadata?: Record<string, string>;
   /** Called when user starts payment redirect (e.g. to Stripe) so parent can avoid cancelling pending bookings */
   onPaymentRedirectStart?: () => void;
+  onReserveCheckoutHold?: (
+    _metadata: Record<string, string>
+  ) => Promise<Record<string, string> | void>;
   createPaymentIntentUrl?: string;
   /** Optional: render fee breakdown (class price + booking fee + total) when drop-in has platform fee */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
@@ -251,6 +260,7 @@ export const DropInView = ({
           FeeBreakdownComponent={FeeBreakdownComponent}
           timeslotId={timeslotIdNum}
           onPaymentRedirectStart={onPaymentRedirectStart}
+          onReserveCheckoutHold={onReserveCheckoutHold}
           returnUrl={returnUrl}
         />
       ) : (
@@ -263,6 +273,7 @@ export const DropInView = ({
           }}
           createPaymentIntentUrl={createPaymentIntentUrl}
           onPaymentRedirectStart={onPaymentRedirectStart}
+          onReserveCheckoutHold={onReserveCheckoutHold}
           returnUrl={returnUrl}
         />
       )}

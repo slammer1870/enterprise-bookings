@@ -109,13 +109,13 @@ export const subscriptionCreated: StripeWebhookHandler<{
       for (const id of ids) {
         try {
           const booking = (await payload.findByID({
-            collection: "bookings",
+            collection: asCollection("bookings"),
             id,
             depth: 1,
           })) as { tenant?: number | { id: number }; status?: string } | null;
           if (!booking) continue;
           await payload.update({
-            collection: "bookings",
+            collection: asCollection("bookings"),
             id,
             data: { status: "confirmed" },
             overrideAccess: true,
@@ -151,7 +151,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
       }
 
       const bookingQuery = await payload.find({
-        collection: "bookings",
+        collection: asCollection("bookings"),
         where: {
           user: { equals: user.id as number },
           timeslot: { equals: timeslotIdNum },
@@ -163,7 +163,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
 
       if (bookingQuery.totalDocs === 0) {
         const created = await payload.create({
-          collection: "bookings",
+          collection: asCollection("bookings"),
           data: {
             timeslot: timeslotIdNum,
             user: user.id as number,
@@ -176,7 +176,7 @@ export const subscriptionCreated: StripeWebhookHandler<{
         const existing = bookingQuery.docs[0];
         bookingId = existing?.id as number;
         await payload.update({
-          collection: "bookings",
+          collection: asCollection("bookings"),
           id: bookingId,
           data: { status: "confirmed" },
           overrideAccess: true, // Bypass access control for webhook

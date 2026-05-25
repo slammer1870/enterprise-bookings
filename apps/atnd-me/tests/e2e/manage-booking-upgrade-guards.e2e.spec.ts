@@ -8,6 +8,7 @@ import {
   createTestPlan,
   getPayloadInstance,
 } from './helpers/data-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 async function openBookingPage(args: {
   page: Parameters<typeof test>[0]['page']
@@ -53,7 +54,7 @@ async function openManagePageWithExpectedState(args: {
   const { page, tenantSlug, userEmail, lessonId, expectedState } = args
   const quantityHeading = page.getByText(/update booking quantity/i).first()
   const completePaymentHeading = page.getByRole('heading', { name: /complete payment/i })
-  const pendingBookingText = page.getByText(/pending booking/i).first()
+  const checkoutReservedText = page.getByText(/reserved while you checkout/i).first()
   const errorHeading = page.getByRole('heading', { name: /booking page error/i })
 
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -68,7 +69,7 @@ async function openManagePageWithExpectedState(args: {
     const outcome = await Promise.race([
       quantityHeading.waitFor({ state: 'visible', timeout: 20000 }).then(() => 'quantity' as const),
       completePaymentHeading.waitFor({ state: 'visible', timeout: 20000 }).then(() => 'checkout' as const),
-      pendingBookingText.waitFor({ state: 'visible', timeout: 20000 }).then(() => 'checkout' as const),
+      checkoutReservedText.waitFor({ state: 'visible', timeout: 20000 }).then(() => 'checkout' as const),
       errorHeading.waitFor({ state: 'visible', timeout: 20000 }).then(() => 'error' as const),
     ]).catch(() => null)
 
@@ -91,11 +92,11 @@ async function openManagePageWithExpectedState(args: {
 
 async function expectCurrentManageCheckoutState(page: Parameters<typeof test>[0]['page']) {
   const completePaymentHeading = page.getByRole('heading', { name: /complete payment/i })
-  const pendingBookingText = page.getByText(/pending booking/i).first()
+  const checkoutReservedText = page.getByText(/reserved while you checkout/i).first()
 
   const outcome = await Promise.race([
     completePaymentHeading.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'heading' as const),
-    pendingBookingText.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'pending' as const),
+    checkoutReservedText.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'reserved' as const),
   ]).catch(() => null)
 
   if (outcome == null) {
@@ -154,7 +155,7 @@ async function createUserClassPass(args: {
 }
 
 test.describe('Manage booking upgrade guards', () => {
-  test.describe.configure({ timeout: 120_000 })
+  test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
   test('disallowed payment-method variants stay capped at one slot on create and manage', async ({
     page,
@@ -597,7 +598,7 @@ test.describe('Manage booking upgrade guards', () => {
         await expect(page.getByText(/complete payment/i).first()).toBeVisible({
           timeout: 10000,
         })
-        await expect(page.getByText(/pending booking/i).first()).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText(/reserved while you checkout/i).first()).toBeVisible({ timeout: 10000 })
 
         for (const tabName of variant.expectedTabs) {
           await expect(page.getByRole('tab', { name: tabName })).toBeVisible()

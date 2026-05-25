@@ -7,6 +7,7 @@
  * Event structure matches Stripe payment_intent.succeeded (platform/destination charges).
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
+import { normalizeTimeslotTestData } from './timeslot-test-data'
 
 vi.mock('@/lib/stripe-connect/webhookVerify', () => ({
   verifyStripeConnectWebhook: vi.fn(),
@@ -268,7 +269,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
       const lessonConfirm = await payload.create({
         collection: 'timeslots',
         draft: false,
-        data: {
+        data: normalizeTimeslotTestData({
           tenant: tenantId,
           eventType: classOptionId,
           date: new Date().toISOString().split('T')[0],
@@ -276,7 +277,7 @@ describe('Stripe payment webhooks (step 2.8)', () => {
           endTime: new Date(Date.now() + 86400000 + 3600000).toISOString(),
           lockOutTime: 60,
           active: true,
-        },
+        }),
         overrideAccess: true,
       })
       const lessonConfirmId = lessonConfirm.id as number

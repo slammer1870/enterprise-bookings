@@ -241,8 +241,14 @@ const resolveTimeslotTimeZone = async ({
   }
 };
 
-function createTimeslotDefaultFields(slugs: BookingCollectionSlugs): Field[] {
-  const getRemainingCapacity = createGetRemainingCapacity(slugs);
+function createTimeslotDefaultFields(
+  slugs: BookingCollectionSlugs,
+  config?: BookingsPluginConfig,
+): Field[] {
+  const getRemainingCapacity = createGetRemainingCapacity(slugs, {
+    reservedCapacityMode: config?.reservedCapacityMode,
+    checkoutHoldCollection: config?.checkoutHoldCollection,
+  });
   const getBookingStatus = createGetBookingStatus(slugs);
   const staffMembersSlug = slugs.staffMembers as CollectionSlug;
   const eventTypesSlug = slugs.eventTypes as CollectionSlug;
@@ -666,7 +672,7 @@ export const generateTimeslotCollection = (
   slugs: BookingCollectionSlugs,
 ) => {
   const overrides = config?.timeslotOverrides;
-  const defaultFields = createTimeslotDefaultFields(slugs);
+  const defaultFields = createTimeslotDefaultFields(slugs, config);
   const defaultHooks = createTimeslotDefaultHooks(slugs);
 
   const timeslotConfig: CollectionConfig = {

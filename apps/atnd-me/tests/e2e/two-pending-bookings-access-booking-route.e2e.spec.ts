@@ -1,7 +1,7 @@
 /**
- * E2E: User with 0 confirmed but 2 pending bookings can access /bookings/[id]
- * and complete a booking without being redirected to home (regression test for
- * the bug where such users hit an error and got redirected to /).
+ * E2E: User with 0 confirmed but API-created pending bookings can access /bookings/[id]
+ * without being redirected to home. With checkout holds enabled, those pending rows are
+ * not auto-loaded into checkout; the user can still book via pay-at-door.
  */
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
@@ -10,6 +10,7 @@ import {
   createTestEventType,
   createTestTimeslot,
   createTestBooking,
+  getPayloadInstance,
 } from './helpers/data-helpers'
 
 test.describe('Two pending bookings: access booking route and make booking', () => {
@@ -21,13 +22,12 @@ test.describe('Two pending bookings: access booking route and make booking', () 
     const user = testData.users.user1
     const workerIndex = testData.workerIndex
 
-    // Create pay-at-door lesson (no payment methods) so booking creates confirmed directly
     const classOption = await createTestEventType(
       tenant.id,
       'Two Pending Access Test',
       10,
       undefined,
-      workerIndex
+      workerIndex,
     )
 
     const startTime = new Date()
@@ -42,91 +42,86 @@ test.describe('Two pending bookings: access booking route and make booking', () 
       startTime,
       endTime,
       undefined,
-      true
+      true,
     )
 
-    // Create 2 pending bookings (0 confirmed) - simulates abandoned checkout
     await createTestBooking(user.id, lesson.id, 'pending')
     await createTestBooking(user.id, lesson.id, 'pending')
 
-    // Use API login to avoid flaky UI login / rate limiting in CI.
     await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
 
-    // Ensure session cookies exist on tenant host before hitting protected routes.
     const tenantOrigin = `http://${tenant.slug}.localhost:3000`
     await expect
       .poll(
         async () => {
           const cookies = await page.context().cookies([tenantOrigin])
-          return cookies.some((c) => /^(better-auth\.|session_token|session_data|dont_remember)/.test(c.name))
+          return cookies.some((c) =>
+            /^(better-auth\.|session_token|session_data|dont_remember)/.test(c.name),
+          )
         },
         { timeout: 20_000 },
       )
       .toBe(true)
 
-    // Navigate to booking page - should NOT redirect to home (the regression we're testing)
     await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('load').catch(() => null)
-
-    // Allow time for any server-side redirect (e.g. postValidation -> /manage)
     await page.waitForTimeout(2000)
 
     const currentUrl = page.url()
 
-    // CRITICAL: Must NOT be redirected to home (root)
     expect(currentUrl).not.toMatch(/^https?:\/\/[^/]+\/?$/)
     expect(currentUrl).not.toContain('/?')
     expect(currentUrl).toContain('/bookings/')
 
-    // We should either be on /bookings/[id] or /bookings/[id]/manage (postValidation redirect)
     const isOnBookingPage = currentUrl.includes(`/bookings/${lesson.id}`)
     const isOnManagePage = currentUrl.includes(`/bookings/${lesson.id}/manage`)
-
     expect(isOnBookingPage || isOnManagePage).toBe(true)
 
-    // Page should show booking-related content (not error boundary or generic home)
-    const errorHeading = page.getByRole('heading', { name: /booking page error|something went wrong/i })
+    const errorHeading = page.getByRole('heading', {
+      name: /booking page error|something went wrong/i,
+    })
     await expect(errorHeading).not.toBeVisible({ timeout: 3000 })
 
     if (isOnManagePage) {
-      // On manage with 2 pending: verify we see manage/checkout content
-      await expect(
-        page.getByText(/update booking quantity|complete payment|pending booking|booking/i).first()
-      ).toBeVisible({ timeout: 10000 })
-
-      // "Make a booking": Cancel the 2 pending, then book fresh (pay-at-door = confirmed).
-      // Wait for checkout abandon control — the manage client used to mount quantity view first and only
-      // switch to payment UI after an effect, so an immediate isVisible() check raced and hit the wrong
-      // "Decrease" control.
-      const cancelButton = page.getByRole('button', { name: /^cancel$/i })
-      await expect(cancelButton).toBeVisible({ timeout: 15000 })
-      await cancelButton.click()
-      await page.waitForTimeout(2000)
-
-      const bookNowButton = page.getByRole('button', { name: /book now/i })
-      await expect(bookNowButton).toBeVisible({ timeout: 10000 })
-      await bookNowButton.click()
-
-      // Now on booking page: make a fresh booking (pay-at-door = confirmed directly)
-      await expect(
-        page.getByText(/select quantity|number of slots|book|payment methods/i).first()
-      ).toBeVisible({ timeout: 12000 })
-      const bookBtn = page.getByRole('button', { name: /book/i }).first()
-      await expect(bookBtn).toBeVisible({ timeout: 10000 })
-      await bookBtn.click()
-
-      await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
-    } else {
-      // Stayed on booking page: wait for form (quantity, Book, or payment methods label) then make a booking
-      await expect(
-        page.getByText(/select quantity|number of slots|book|payment methods/i).first()
-      ).toBeVisible({ timeout: 15000 })
-      const bookBtn = page.getByRole('button', { name: /book/i }).first()
-      await expect(bookBtn).toBeVisible({ timeout: 12000 })
-      await bookBtn.click()
-      await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
+      await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({
+        timeout: 10_000,
+      })
+      await expect(page.getByTestId('booking-quantity')).toHaveText('2', { timeout: 10_000 })
+      await expect(page.getByText(/complete payment/i)).not.toBeVisible()
     }
+
+    const payload = await getPayloadInstance()
+    const pendingRows = await payload.find({
+      collection: 'bookings',
+      where: {
+        timeslot: { equals: lesson.id },
+        user: { equals: user.id },
+        status: { equals: 'pending' },
+      },
+      depth: 0,
+      limit: 10,
+      overrideAccess: true,
+    })
+    for (const row of pendingRows.docs ?? []) {
+      await payload.update({
+        collection: 'bookings',
+        id: row.id,
+        data: { status: 'cancelled' },
+        overrideAccess: true,
+      })
+    }
+
+    await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)
+
+    await expect(
+      page.getByText(/select quantity|number of slots|book|payment methods/i).first(),
+    ).toBeVisible({ timeout: 15_000 })
+
+    const bookBtn = page.getByRole('button', { name: /book \d+ slot/i })
+    await expect(bookBtn).toBeVisible({ timeout: 12_000 })
+    await bookBtn.click()
+    await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15_000 })
   })
 })

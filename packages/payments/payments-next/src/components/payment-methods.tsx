@@ -55,6 +55,10 @@ type PaymentMethodsProps = {
    * Defaults to /dashboard for backwards compatibility with apps that use that route.
    */
   successUrl?: string;
+  /** Merge holdId (or other metadata) before creating payment intent when checkout holds are enabled. */
+  onReserveCheckoutHold?: (
+    _metadata: Record<string, string>
+  ) => Promise<Record<string, string> | void>;
 };
 
 type CheckoutSessionInput = {
@@ -315,6 +319,7 @@ export function PaymentMethods({
   validateDiscountCodeUrl,
   FeeBreakdownComponent,
   successUrl: successUrlProp,
+  onReserveCheckoutHold,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -1066,6 +1071,7 @@ export function PaymentMethods({
                 discountCode={appliedDiscountCode}
                 discount={appliedDiscount}
                 onPaymentRedirectStart={onPaymentRedirectStart}
+                onReserveCheckoutHold={onReserveCheckoutHold}
                 createPaymentIntentUrl={createPaymentIntentUrl}
                 FeeBreakdownComponent={FeeBreakdownComponent}
                 returnUrl={successUrlProp}

@@ -6,12 +6,13 @@ import {
   createTestTimeslot,
   createTestBooking,
 } from './helpers/data-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 /**
  * Schedule UX: full timeslot → Join Waitlist → Leave Waitlist (still full → Join shows again).
  */
 test.describe('Full timeslot waitlist', () => {
-  test.setTimeout(120000)
+  test.setTimeout(e2eSlowTestTimeout())
 
   test('user joins waitlist on a full slot then leaves it', async ({ page, testData }) => {
     const tenant = testData.tenants[0]!

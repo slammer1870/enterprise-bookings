@@ -9,6 +9,7 @@ import {
   createTestEventType,
   createTestTimeslot,
 } from "./helpers/data-helpers";
+import { e2eSlowTestTimeout } from "./helpers/timeouts";
 
 function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -74,7 +75,7 @@ test.describe("Admin: pending booking offers email completion", () => {
     request,
     testData,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(e2eSlowTestTimeout());
     const tenant = testData.tenants[0];
     if (!tenant?.id) throw new Error("Expected tenant fixture for admin pending booking test");
 
@@ -210,6 +211,109 @@ test.describe("Admin: pending booking offers email completion", () => {
 
     // Business requirement: after opening the sign-in link, the user must end up on the tenant host.
     expect(callbackURL).toContain(`/bookings/${timeslot.id}/manage`);
+  });
+
+  test("tenant admin can add multiple pending bookings for one user and send completion link", async ({
+    page,
+    request,
+    testData,
+  }) => {
+    test.setTimeout(180_000);
+    const tenant = testData.tenants[0];
+    if (!tenant?.id) throw new Error("Expected tenant fixture for admin pending booking test");
+
+    const endTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const startTime = new Date(endTime.getTime() - 2 * 60 * 60 * 1000);
+    const targetDate = new Date(startTime);
+    targetDate.setHours(0, 0, 0, 0);
+
+    const eventType = await createTestEventType(
+      tenant.id,
+      `Admin Multi Pending ${Date.now()}`,
+    );
+    const timeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    );
+
+    const recipient = testData.users.user1;
+    if (!recipient?.email) throw new Error("Expected recipient user1 email");
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request });
+
+    await ensureSidebarOpen(page);
+    await openTimeslotsDashboardForDate(page, targetDate);
+
+    const timeslotRow = page.locator("tr", { hasText: eventType.name }).first();
+    await expect(timeslotRow).toBeVisible({ timeout: 30_000 });
+
+    const bookingsCell = timeslotRow.locator("td").nth(4);
+    const toggleBookingsButton = bookingsCell.getByRole("button").first();
+    await toggleBookingsButton.scrollIntoViewIfNeeded();
+    await toggleBookingsButton.click({ force: true });
+
+    const expandedAddBookingRow = page.locator("tr:has(.add-booking-form)").first();
+    await expect(expandedAddBookingRow).toBeVisible({ timeout: 45_000 });
+    const addBooking = expandedAddBookingRow.locator(".add-booking-form");
+
+    async function addPendingBookingForRecipient() {
+      const userCombo = addBooking.locator('[role="combobox"]').first();
+      await expect(userCombo).toBeEnabled({ timeout: 30_000 });
+      await userCombo.click({ force: true });
+
+      const listbox = page.locator('[role="listbox"]').first();
+      const userOption = listbox
+        .locator('[role="option"]')
+        .filter({ hasText: new RegExp(escapeRegex(recipient.email), "i") })
+        .first();
+      await expect(userOption).toBeVisible({ timeout: 15_000 });
+      await userOption.click({ timeout: 15_000, force: true });
+
+      const createBookingResponse = page.waitForResponse((res) => {
+        return res.url().includes("/api/bookings") && res.request().method() === "POST";
+      });
+
+      await addBooking.getByRole("button", { name: /^add booking$/i }).click();
+      const createBookingRes = await createBookingResponse;
+      expect([200, 201]).toContain(createBookingRes.status());
+    }
+
+    // First pending booking — dismiss dialog; admin can keep adding more.
+    await addPendingBookingForRecipient();
+    await expect(page.getByText(/send completion magic link\?/i)).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("button", { name: /^deny$/i }).click();
+    await expect(page.getByText(/send completion magic link\?/i)).not.toBeVisible({ timeout: 10_000 });
+
+    // Second pending booking — send completion email.
+    await addPendingBookingForRecipient();
+    await expect(page.getByText(/send completion magic link\?/i)).toBeVisible({ timeout: 15_000 });
+
+    const lateMagicSendResponse = page.waitForResponse((res) => {
+      return (
+        res.url().includes("/api/admin/bookings/late-magic-link/send") &&
+        res.request().method() === "POST"
+      );
+    });
+
+    await clearTestMagicLinks(request, recipient.email);
+    await page.getByRole("button", { name: /confirm & send/i }).click();
+
+    const lateMagicRes = await lateMagicSendResponse;
+    expect(lateMagicRes.status()).toBe(200);
+    await expect(page.getByText(/booking magic link sent/i)).toBeVisible({ timeout: 15_000 });
+
+    const magicLink = await pollForTestMagicLink(request, recipient.email);
+    const verifyUrl = new URL(magicLink.url);
+    const callbackURL = verifyUrl.searchParams.get("callbackURL") ?? "";
+    expect(callbackURL).toContain(`/bookings/${timeslot.id}/manage`);
+
+    // Bookings toggle should reflect two pending rows for this timeslot.
+    await expect(toggleBookingsButton).toContainText("2", { timeout: 15_000 });
   });
 });
 

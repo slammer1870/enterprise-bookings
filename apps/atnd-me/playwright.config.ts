@@ -33,6 +33,14 @@ const truthyEnv = (v: string | undefined) =>
 /** When set (e.g. CI after `payload migrate:fresh`), webServer only starts the app — no second migrate in the same shell. */
 const skipWebserverMigrate = truthyEnv(process.env.PW_E2E_SKIP_WEBSERVER_MIGRATE)
 
+/**
+ * Local dev: PW_E2E_FAST=1 tightens timeouts so failures surface sooner.
+ * Combine with PW_E2E_BAIL=1 (or `pnpm test:e2e:fast`) to stop after the first failure.
+ * CI is unchanged unless these env vars are set explicitly.
+ */
+const fastE2E = truthyEnv(process.env.PW_E2E_FAST)
+const bailE2E = truthyEnv(process.env.PW_E2E_BAIL)
+
 function resolveWorkers(): number {
   const fromEnv = process.env.PW_E2E_WORKERS
   if (fromEnv !== undefined && fromEnv !== '') {
@@ -56,16 +64,20 @@ const devWebCommand = skipWebserverMigrate
 export default defineConfig({
   testDir: './tests/e2e',
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: fastE2E ? 0 : process.env.CI ? 1 : 0,
+  maxFailures: bailE2E ? 1 : undefined,
   // Override with PW_E2E_WORKERS=1 if multi-worker runs flake on shared DB state.
   workers: resolveWorkers(),
-  timeout: 60_000,
+  timeout: fastE2E ? 35_000 : 60_000,
   // Console-first output (no HTML report).
   reporter: [['list']],
+  expect: {
+    timeout: fastE2E ? 8_000 : 15_000,
+  },
   use: {
     baseURL: 'http://localhost:3000',
-    actionTimeout: 30000,
-    navigationTimeout: 60000,
+    actionTimeout: fastE2E ? 10_000 : 30_000,
+    navigationTimeout: fastE2E ? 20_000 : 60_000,
     trace: 'off',
     screenshot: 'off',
   },

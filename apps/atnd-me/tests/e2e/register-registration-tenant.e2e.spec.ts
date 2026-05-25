@@ -9,9 +9,10 @@
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { getPayloadInstance } from './helpers/data-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 test.describe('Registration tenant (E2E)', () => {
-  test.describe.configure({ timeout: 120_000 })
+  test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
   test('register from tenant subdomain persists registrationTenant', async ({ page, testData }) => {
     const tenant = testData.tenants[0]

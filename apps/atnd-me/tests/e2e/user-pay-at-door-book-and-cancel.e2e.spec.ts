@@ -10,9 +10,10 @@ import {
   createTestTimeslot,
   getPayloadInstance,
 } from './helpers/data-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 test.describe('User pay-at-door book and cancel', () => {
-  test.setTimeout(120_000)
+  test.setTimeout(e2eSlowTestTimeout())
 
   test('regular user can book pay-at-door in UI then cancel on manage page', async ({
     page,

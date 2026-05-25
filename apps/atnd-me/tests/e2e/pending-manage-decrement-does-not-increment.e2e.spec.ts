@@ -9,27 +9,25 @@ import {
   updateTenantStripeConnect,
 } from './helpers/data-helpers'
 
-test.describe('Manage page: pending quantity decrement', () => {
+test.describe('Manage page: checkout hold quantity decrement', () => {
   test.describe.configure({ timeout: 90_000 })
 
-  test('decrement does not increase pending bookings', async ({ page, testData }) => {
+  test('decrement does not increase reserved checkout quantity', async ({ page, testData }) => {
     const payload = await getPayloadInstance()
 
     const workerIndex = testData.workerIndex
     const tenant = testData.tenants[0]!
     const user = testData.users.user1
 
-    // Ensure tenant is connected to Stripe so the manage page shows the payment UI.
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
       stripeConnectAccountId: `acct_pending_dec_${tenant.id}_w${workerIndex}`,
     })
 
-    // Payment method wiring (drop-in) so the manage page receives a PaymentMethodsComponent.
     const dropIn = (await payload.create({
       collection: 'drop-ins',
       data: {
-        name: `E2E Pending Manage Decrement Drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        name: `E2E Hold Manage Decrement Drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
         isActive: true,
         price: 10,
         adjustable: true,
@@ -40,10 +38,10 @@ test.describe('Manage page: pending quantity decrement', () => {
 
     const classOption = await createTestEventType(
       tenant.id,
-      'Pending Manage Decrement Class',
-      20, // ensures remainingCapacity=10 when we have 10 pending + 0 confirmed
+      'Hold Manage Decrement Class',
+      20,
       undefined,
-      workerIndex
+      workerIndex,
     )
 
     await payload.update({
@@ -64,10 +62,7 @@ test.describe('Manage page: pending quantity decrement', () => {
 
     const lesson = await createTestTimeslot(tenant.id, classOption.id, startTime, endTime, undefined, true)
 
-    // Create: 0 confirmed + 10 pending.
-    for (let i = 0; i < 10; i++) {
-      await createTestBooking(user.id, lesson.id, 'pending')
-    }
+    await createTestBooking(user.id, lesson.id, 'confirmed')
 
     await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
@@ -76,24 +71,25 @@ test.describe('Manage page: pending quantity decrement', () => {
     const managePath = `/bookings/${lesson.id}/manage`
     await navigateToTenant(page, tenant.slug, managePath)
 
-    const pendingQty = page.getByTestId('pending-booking-quantity')
-    const pendingDesc = (expected: number) =>
-      page.getByText(new RegExp(`You have\\s*${expected}\\s*pending booking(s)?\\s*for this timeslot`, 'i'))
+    await expect(page.getByTestId('booking-quantity')).toHaveText('1', { timeout: 20_000 })
 
-    // Wait for the manage page to hydrate server pending state.
-    await expect(pendingQty).toHaveText('10', { timeout: 20_000 })
-    await expect(pendingDesc(10)).toBeVisible({ timeout: 20_000 })
+    const inc = page.getByRole('button', { name: /increase quantity/i })
+    for (let i = 0; i < 10; i += 1) {
+      await inc.click()
+    }
+    await expect(page.getByTestId('booking-quantity')).toHaveText('11', { timeout: 20_000 })
+    await page.getByRole('button', { name: /update bookings/i }).click()
+
+    const holdQty = page.getByTestId('pending-booking-quantity')
+    await expect(holdQty).toHaveText('10', { timeout: 20_000 })
+    await expect(page.getByText(/reserved while you checkout/i)).toBeVisible({ timeout: 20_000 })
 
     const decBtn = page.getByRole('button', { name: /decrease new bookings/i }).first()
 
-    // Decrement 10 -> 8 in two clicks; the flaky bug would sometimes "flip" the direction.
     await decBtn.click()
-    await expect(pendingQty).toHaveText('9', { timeout: 20_000 })
-    await expect(pendingDesc(9)).toBeVisible({ timeout: 20_000 })
+    await expect(holdQty).toHaveText('9', { timeout: 20_000 })
 
     await decBtn.click()
-    await expect(pendingQty).toHaveText('8', { timeout: 20_000 })
-    await expect(pendingDesc(8)).toBeVisible({ timeout: 20_000 })
+    await expect(holdQty).toHaveText('8', { timeout: 20_000 })
   })
 })
-

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User, Tenant, Timeslot, EventType } from '@repo/shared-types'
+import { normalizeTimeslotTestData } from './timeslot-test-data'
 
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
@@ -26,22 +27,13 @@ describe('User Tenant Access Control', () => {
       context: { tenant: tenantId },
     } as any
     
-    // Fix lesson dates if they're the same (endTime must be after startTime)
-    if (collection === 'timeslots' && data.startTime && data.endTime) {
-      const startTime = new Date(data.startTime)
-      const endTime = new Date(data.endTime)
-      // If endTime is same or before startTime, set it to 1 hour later
-      if (endTime <= startTime) {
-        endTime.setHours(startTime.getHours() + 1)
-        data.endTime = endTime.toISOString()
-      }
-    }
-    
+    // Normalize ISO datetime fixtures to wall-clock timeslot fields.
+    const dataForCreate =
+      collection === 'timeslots' ? normalizeTimeslotTestData(data) : data
+
     // Explicitly set tenant in data for collections that don't have beforeValidate hooks
-    // Collections with isGlobal: true (navbar, footer, scheduler) have hooks that set it from context
-    // But standard collections (timeslots, event-types, etc.) need it in data
     const dataWithTenant = {
-      ...data,
+      ...dataForCreate,
       tenant: tenantId,
     }
     return payload.create({

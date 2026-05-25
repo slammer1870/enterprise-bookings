@@ -3,8 +3,8 @@
  *
  * This specifically validates that the booking page "checkout area" (drop-in tab)
  * allows a user to increase to 7 and decrease to 3 via the quantity selector.
- * It also asserts that the UI totals update, and that `create-payment-intent` requests
- * are being triggered (best-effort) for the corresponding prices.
+ * It also asserts that the UI totals update as quantity changes (capacity is reserved
+ * via checkout holds; payment intent is created at pay time, not on each adjustment).
  */
 import { test, expect } from "./helpers/fixtures"
 import { navigateToTenant } from "./helpers/subdomain-helpers"
@@ -115,18 +115,6 @@ test.describe("Booking page: increase/decrease drop-in quantity", () => {
     await expect(inc).toBeVisible()
     await expect(dec).toBeVisible()
 
-    const paymentIntentPrices: number[] = []
-    page.on("request", (req) => {
-      try {
-        if (req.method() !== "POST") return
-        if (!req.url().includes("create-payment-intent")) return
-        const body = req.postDataJSON() as { price?: unknown } | null
-        if (body && typeof body.price !== "undefined") paymentIntentPrices.push(Number(body.price))
-      } catch {
-        // Ignore parse errors; test will assert based on what we successfully captured.
-      }
-    })
-
     // Quantity value is rendered between the decrement/increment buttons.
     // Use sibling relationship so we don't accidentally match other numbers on the page.
     const qtyValue = inc.locator('xpath=preceding-sibling::span[1]')
@@ -146,10 +134,6 @@ test.describe("Booking page: increase/decrease drop-in quantity", () => {
     }
     await expect(qtyValue).toHaveText("3", { timeout: 20_000 })
     await expect(page.getByText("€30.00")).toBeVisible({ timeout: 20_000 })
-
-    // Best-effort server-side confirmation: request prices should track the UI totals.
-    // (We don't assert pending bookings rows here because some flows reserve on a later step.)
-    expect(paymentIntentPrices).toEqual(expect.arrayContaining([70, 30]))
   })
 })
 

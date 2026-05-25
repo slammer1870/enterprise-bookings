@@ -12,30 +12,13 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUser } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
+import { advanceScheduleToDate } from './helpers/schedule-helpers'
+import { e2eTestTimeout } from './helpers/timeouts'
 
 function addDays(start: Date, days: number): Date {
   const next = new Date(start)
   next.setDate(next.getDate() + days)
   return next
-}
-
-async function advanceScheduleToDate(page: Parameters<typeof test>[0]['page'], targetDate: Date) {
-  const dateLabel = page.locator('p.text-center.text-lg').first()
-  await expect(dateLabel).toBeVisible({ timeout: 15_000 })
-
-  const toggle = dateLabel.locator('xpath=..')
-  const nextDayButton = toggle.locator('svg').nth(1)
-  const targetLabel = targetDate.toDateString()
-
-  for (let i = 0; i < 14; i += 1) {
-    const currentLabel = (await dateLabel.textContent())?.trim()
-    if (currentLabel === targetLabel) return
-
-    await nextDayButton.click()
-    await expect(dateLabel).toHaveText(targetLabel, { timeout: 10_000 }).catch(() => null)
-  }
-
-  await expect(dateLabel).toHaveText(targetLabel, { timeout: 15_000 })
 }
 
 async function setPayloadTenantCookie(
@@ -50,7 +33,8 @@ async function setPayloadTenantCookie(
 }
 
 test.describe('Trial class offer (first-time bookings only)', () => {
-  test.describe.configure({ timeout: 120_000 })
+  // Heavier than schedule-only flows (UI login, two booking-page visits, API seeding).
+  test.describe.configure({ timeout: e2eTestTimeout(90000) })
 
   test('booking page stops offering trial after a confirmed booking', async ({
     page,

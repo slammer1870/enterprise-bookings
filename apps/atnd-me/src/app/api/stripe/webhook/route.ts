@@ -145,6 +145,40 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Checkout hold fulfillment
+    const holdIdRaw = meta.holdId
+    const holdId =
+      holdIdRaw && /^\d+$/.test(holdIdRaw) ? parseInt(holdIdRaw, 10) : null
+    if (tenant && holdId != null && meta.userId) {
+      const userId = parseInt(meta.userId, 10)
+      if (!Number.isNaN(userId)) {
+        const { fulfillCheckoutHold } = await import('@repo/bookings-payments')
+        const stripeClient = (await import('@/lib/stripe')).stripe
+        await fulfillCheckoutHold(payload, {
+          holdId,
+          userId,
+          paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
+          tenantId: tenant.id,
+          tenantContext: paymentIntentTenantContext,
+          refundPaymentIntent:
+            stripeClient != null
+              ? async (paymentIntentId: string) => {
+                  if (accountId) {
+                    await stripeClient.refunds.create(
+                      { payment_intent: paymentIntentId },
+                      { stripeAccount: accountId },
+                    )
+                  } else {
+                    await stripeClient.refunds.create({ payment_intent: paymentIntentId })
+                  }
+                }
+              : undefined,
+        })
+        markStripeConnectEventProcessed(event.id)
+        return NextResponse.json({ received: true }, { status: 200 })
+      }
+    }
+
     // Explicit booking IDs (drop-in / modify-booking flow)
     if (tenant && bookingIdsToConfirm.length > 0) {
       await confirmBookingsFromPaymentIntent(payload, bookingIdsToConfirm, {

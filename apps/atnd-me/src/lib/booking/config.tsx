@@ -15,7 +15,13 @@ export const bookingPageConfig: BookingPageConfig = {
   errorRedirectPath: '/',
   onSuccessRedirect: '/success',
   BookingPageClient: (props) => (
-    <BookingPageClientSmart {...props} PaymentMethodsComponent={PaymentMethodsConnect} />
+    <BookingPageClientSmart
+      {...props}
+      PaymentMethodsComponent={PaymentMethodsConnect}
+      useCheckoutHolds={true}
+      releaseHoldApiUrl="/api/bookings/release-hold"
+      cancelPendingApiUrl="/api/bookings/cancel-pending"
+    />
   ),
   attemptCheckIn: false,
   postValidation: redirectToManageIfMultipleBookings,

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Timeslot } from '@repo/shared-types'
 import { useTRPC } from '@repo/trpc/client'
 import { useMutation } from '@tanstack/react-query'
@@ -69,6 +69,9 @@ interface BookingPageClientSmartProps {
     onPaymentRedirectStart?: () => void
     /** URL to redirect to after successful payment (Stripe Elements, Checkout Session). */
     successUrl?: string
+    onReserveCheckoutHold?: (
+      metadata: Record<string, string>,
+    ) => Promise<Record<string, string> | void>
   }>
 
   /**
@@ -76,6 +79,12 @@ interface BookingPageClientSmartProps {
    * If not provided, defaults to `/api/bookings/cancel-pending`.
    */
   cancelPendingApiUrl?: string
+
+  /** When true, release checkout holds on leave instead of cancelling pending bookings. */
+  useCheckoutHolds?: boolean
+
+  /** API route for keepalive hold release on navigation (defaults to `/api/bookings/release-hold`). */
+  releaseHoldApiUrl?: string
 }
 
 export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
@@ -83,11 +92,14 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   onSuccessRedirect,
   PaymentMethodsComponent,
   cancelPendingApiUrl = '/api/bookings/cancel-pending',
+  useCheckoutHolds = false,
+  releaseHoldApiUrl = '/api/bookings/release-hold',
 }) => {
   const trpc = useTRPC()
   const [quantity, setQuantity] = useState<number>(1)
   const paymentRedirectInProgressRef = useRef(false)
-  const hasCancelledOnLeaveRef = useRef(false)
+  /** Bumped on unmount so in-flight hold upserts after leave are rolled back. */
+  const checkoutSessionRef = useRef(0)
 
   if (!timeslot?.id) {
     return (
@@ -101,55 +113,135 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     trpc.bookings.cancelPendingBookingsForTimeslot.mutationOptions()
   )
 
-  // When user leaves the booking page, cancel any pending bookings for this timeslot
+  const { mutateAsync: releaseCheckoutHold } = useMutation(
+    trpc.bookings.releaseCheckoutHold.mutationOptions()
+  )
+
+  const { mutateAsync: upsertCheckoutHold } = useMutation(
+    trpc.bookings.upsertCheckoutHold.mutationOptions()
+  )
+
+  const { mutateAsync: extendCheckoutHoldMutation } = useMutation(
+    trpc.bookings.extendCheckoutHold.mutationOptions()
+  )
+
+  const onReserveCheckoutHold = useCallback(
+    async (metadata: Record<string, string>) => {
+      const session = checkoutSessionRef.current
+      const qty = Math.max(
+        1,
+        parseInt(metadata.quantity ?? String(quantity), 10) || quantity,
+      )
+      const result = await upsertCheckoutHold({
+        timeslotId: timeslot.id,
+        quantity: qty,
+      })
+      if (session !== checkoutSessionRef.current) {
+        if (useCheckoutHolds && releaseHoldApiUrl) {
+          const body = JSON.stringify({ timeslotId: timeslot.id })
+          try {
+            const xhr = new XMLHttpRequest()
+            xhr.open('POST', releaseHoldApiUrl, false)
+            xhr.setRequestHeader('Content-Type', 'application/json')
+            xhr.withCredentials = true
+            xhr.send(body)
+          } catch {
+            fetch(releaseHoldApiUrl, {
+              method: 'POST',
+              body,
+              headers: { 'Content-Type': 'application/json' },
+              keepalive: true,
+              credentials: 'include',
+            }).catch(() => {})
+          }
+        } else {
+          await releaseCheckoutHold({ timeslotId: timeslot.id }).catch(() => {})
+        }
+        return
+      }
+      return { holdId: String(result.holdId) }
+    },
+    [
+      upsertCheckoutHold,
+      releaseCheckoutHold,
+      timeslot.id,
+      quantity,
+      useCheckoutHolds,
+      releaseHoldApiUrl,
+    ],
+  )
+
+  // When user leaves the booking page, cancel pending bookings or release checkout holds
   useEffect(() => {
     const timeslotId = timeslot.id
-    hasCancelledOnLeaveRef.current = false
 
-    const cancelViaApi = () => {
+    const postAbandonViaApi = (sync: boolean) => {
       if (paymentRedirectInProgressRef.current) return
-      if (!cancelPendingApiUrl) return
-      if (hasCancelledOnLeaveRef.current) return
-      hasCancelledOnLeaveRef.current = true
+      const url = useCheckoutHolds ? releaseHoldApiUrl : cancelPendingApiUrl
+      if (!url) return
+      const body = JSON.stringify({ timeslotId })
 
-      // Use keepalive so the request has a chance to reach the server during navigation/unmount.
-      fetch(cancelPendingApiUrl, {
+      if (sync && typeof XMLHttpRequest !== 'undefined') {
+        try {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', url, false)
+          xhr.setRequestHeader('Content-Type', 'application/json')
+          xhr.withCredentials = true
+          xhr.send(body)
+          return
+        } catch {
+          // fall through to keepalive fetch
+        }
+      }
+
+      fetch(url, {
         method: 'POST',
-        body: JSON.stringify({ timeslotId }),
+        body,
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         credentials: 'include',
       }).catch(() => {})
     }
 
-    const handleBeforeUnload = () => {
-      cancelViaApi()
+    const handlePageHide = () => {
+      checkoutSessionRef.current += 1
+      postAbandonViaApi(true)
     }
 
+    const handleBeforeUnload = () => {
+      checkoutSessionRef.current += 1
+      postAbandonViaApi(true)
+    }
+
+    window.addEventListener('pagehide', handlePageHide)
     window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
+      checkoutSessionRef.current += 1
+      window.removeEventListener('pagehide', handlePageHide)
       window.removeEventListener('beforeunload', handleBeforeUnload)
       if (paymentRedirectInProgressRef.current) return
-      // Prefer the API approach first (it doesn't depend on TRPC client state).
-      cancelViaApi()
+      postAbandonViaApi(false)
 
-      // Race: the UI can still be in the middle of reserving pending bookings (via
-      // `create-payment-intent`) when we unmount. Reserving might complete after the
-      // initial cancel request, leaving a small number of pending bookings.
-      // Fire a couple of additional cancels after a short delay to settle the state.
-      window.setTimeout(() => {
-        if (paymentRedirectInProgressRef.current) return
-        cancelViaApi()
-      }, 1500)
+      if (!useCheckoutHolds) {
+        window.setTimeout(() => {
+          if (paymentRedirectInProgressRef.current) return
+          postAbandonViaApi(false)
+        }, 1500)
 
-      // Also trigger TRPC mutation as a fallback when we don't have an API url
-      // for keepalive cancellation.
-      if (!cancelPendingApiUrl) {
-        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+        if (!cancelPendingApiUrl) {
+          cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+        }
       }
     }
-  }, [timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
+  }, [
+    timeslot.id,
+    cancelPendingForTimeslot,
+    releaseCheckoutHold,
+    cancelPendingApiUrl,
+    releaseHoldApiUrl,
+    useCheckoutHolds,
+  ])
 
   // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the timeslot data from the server
   // is used; there is no client-side Stripe Connect or tenant check. If the server returns a timeslot without
@@ -243,7 +335,13 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
           <PaymentMethodsComponent
             timeslot={timeslot}
             quantity={quantity}
-            onPaymentRedirectStart={() => { paymentRedirectInProgressRef.current = true }}
+            onPaymentRedirectStart={() => {
+              paymentRedirectInProgressRef.current = true
+              if (useCheckoutHolds) {
+                extendCheckoutHoldMutation({ timeslotId: timeslot.id }).catch(() => {})
+              }
+            }}
+            onReserveCheckoutHold={useCheckoutHolds ? onReserveCheckoutHold : undefined}
             successUrl={onSuccessRedirect}
           />
         </div>

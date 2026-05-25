@@ -1,35 +1,61 @@
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { loginAsRegularUser } from './helpers/auth-helpers'
+import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import {
   createTestEventType,
   createTestTimeslot,
   createTestBooking,
   getPayloadInstance,
+  updateTenantStripeConnect,
 } from './helpers/data-helpers'
 
 /**
- * E2E tests for the "return to checkout" edge case:
- * - User has confirmed + pending bookings, leaves checkout, returns -> sees checkout again.
- * - Cancelling checkout cancels pending in DB; quantity view shows only confirmed.
- * - Reducing quantity when some are pending only removes pending (no "cancel confirmed" prompt for unpaid).
+ * E2E tests for checkout-hold return / abandon flows on the manage page.
  */
-test.describe('Manage page: pending bookings and checkout return', () => {
-  test('returning to manage page with pending bookings shows checkout (Complete Payment)', async ({
+test.describe('Manage page: checkout holds and checkout return', () => {
+  test.describe.configure({ timeout: 90_000 })
+
+  test('entering checkout with confirmed bookings shows Complete Payment and reserved copy', async ({
     page,
     testData,
   }) => {
+    const payload = await getPayloadInstance()
     const workerIndex = testData.workerIndex
     const tenant = testData.tenants[0]!
     const user = testData.users.user1
 
+    await updateTenantStripeConnect(tenant.id, {
+      stripeConnectOnboardingStatus: 'active',
+      stripeConnectAccountId: `acct_hold_edge_${tenant.id}_w${workerIndex}`,
+    })
+
+    const dropIn = (await payload.create({
+      collection: 'drop-ins',
+      data: {
+        name: `Hold Edge Drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        isActive: true,
+        price: 10,
+        adjustable: true,
+        tenant: tenant.id,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
     const classOption = await createTestEventType(
       tenant.id,
-      'Pending Checkout Edge Case Class',
+      'Hold Checkout Edge Case Class',
       10,
       undefined,
-      workerIndex
+      workerIndex,
     )
+
+    await payload.update({
+      collection: 'event-types',
+      id: classOption.id,
+      data: { paymentMethods: { allowedDropIn: dropIn.id }, tenant: tenant.id },
+      overrideAccess: true,
+    })
+
     const startTime = new Date()
     startTime.setHours(10, 0, 0, 0)
     startTime.setDate(startTime.getDate() + 1 + workerIndex)
@@ -42,77 +68,72 @@ test.describe('Manage page: pending bookings and checkout return', () => {
       startTime,
       endTime,
       undefined,
-      true
+      true,
     )
 
-    // 2 confirmed + 3 pending (simulates user added more, went to checkout, then left)
     await createTestBooking(user.id, lesson.id, 'confirmed')
     await createTestBooking(user.id, lesson.id, 'confirmed')
-    await createTestBooking(user.id, lesson.id, 'pending')
-    await createTestBooking(user.id, lesson.id, 'pending')
-    await createTestBooking(user.id, lesson.id, 'pending')
 
-    const managePath = `/bookings/${lesson.id}/manage`
-    const errorHeading = page.getByRole('heading', { name: /booking page error/i })
-    const completePayment = page.getByText(/complete payment/i).first()
-
-    const gotoManageAndRace = async () => {
-      await navigateToTenant(page, tenant.slug, managePath)
-      if (page.url().includes('/auth/sign-in')) {
-        await loginAsRegularUser(page, 1, user.email, 'password', {
-          tenantSlug: tenant.slug,
-        })
-        await page.waitForTimeout(1500)
-        await navigateToTenant(page, tenant.slug, managePath)
-      }
-      // Don't match redirectTo / callbackUrl query params from /auth/sign-in.
-      await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
-        timeout: 20000,
-      })
-      await page.waitForLoadState('load').catch(() => null)
-      return Promise.race([
-        completePayment.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'success' as const),
-        errorHeading.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error' as const),
-      ])
-    }
-
-    await loginAsRegularUser(page, 1, user.email, 'password', {
+    await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
-    await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
 
-    let outcome = await gotoManageAndRace()
-    if (outcome === 'error') {
-      // One retry: re-login and re-navigate (session can be flaky on first request to manage)
-      await loginAsRegularUser(page, 1, user.email, 'password', {
-        tenantSlug: tenant.slug,
-      })
-      await page.waitForTimeout(2000)
-      outcome = await gotoManageAndRace()
+    const managePath = `/bookings/${lesson.id}/manage`
+    await navigateToTenant(page, tenant.slug, managePath)
+    await expect(page.getByTestId('booking-quantity')).toHaveText('2', { timeout: 20_000 })
+
+    const inc = page.getByRole('button', { name: /increase quantity/i })
+    for (let i = 0; i < 3; i += 1) {
+      await inc.click()
     }
-    if (outcome === 'error') {
-      throw new Error(
-        'Manage page showed "Booking page error" instead of checkout. Check server logs and auth/session for this lesson.'
-      )
-    }
-    await expect(page.getByText(/pending booking/i).first()).toBeVisible({ timeout: 5000 })
+    await page.getByRole('button', { name: /update bookings/i }).click()
+
+    await expect(page.getByText(/complete payment/i).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByTestId('pending-booking-quantity')).toHaveText('3', { timeout: 10_000 })
+    await expect(page.getByText(/reserved while you checkout/i)).toBeVisible({ timeout: 10_000 })
   })
 
-  test('Cancel on checkout cancels pending bookings and shows quantity view with confirmed count', async ({
+  test('Cancel on checkout releases hold and shows quantity view with confirmed count', async ({
     page,
     testData,
   }) => {
+    const payload = await getPayloadInstance()
     const workerIndex = testData.workerIndex
     const tenant = testData.tenants[0]!
     const user = testData.users.user2 ?? testData.users.user1
 
+    await updateTenantStripeConnect(tenant.id, {
+      stripeConnectOnboardingStatus: 'active',
+      stripeConnectAccountId: `acct_hold_cancel_${tenant.id}_w${workerIndex}`,
+    })
+
+    const dropIn = (await payload.create({
+      collection: 'drop-ins',
+      data: {
+        name: `Hold Cancel Drop-in ${tenant.id}-w${workerIndex}-${Date.now()}`,
+        isActive: true,
+        price: 10,
+        adjustable: true,
+        tenant: tenant.id,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
     const classOption = await createTestEventType(
       tenant.id,
-      'Pending Checkout Cancel Class',
+      'Hold Checkout Cancel Class',
       10,
       undefined,
-      workerIndex
+      workerIndex,
     )
+
+    await payload.update({
+      collection: 'event-types',
+      id: classOption.id,
+      data: { paymentMethods: { allowedDropIn: dropIn.id }, tenant: tenant.id },
+      overrideAccess: true,
+    })
+
     const startTime = new Date()
     startTime.setHours(11, 0, 0, 0)
     startTime.setDate(startTime.getDate() + 1 + workerIndex)
@@ -125,69 +146,48 @@ test.describe('Manage page: pending bookings and checkout return', () => {
       startTime,
       endTime,
       undefined,
-      true
+      true,
     )
 
     await createTestBooking(user.id, lesson.id, 'confirmed')
     await createTestBooking(user.id, lesson.id, 'confirmed')
-    await createTestBooking(user.id, lesson.id, 'pending')
-    await createTestBooking(user.id, lesson.id, 'pending')
 
-    const managePath = `/bookings/${lesson.id}/manage`
-    const errorHeading = page.getByRole('heading', { name: /booking page error/i })
-    const completePayment = page.getByText(/complete payment/i).first()
-
-    const gotoManageAndRace = async () => {
-      await navigateToTenant(page, tenant.slug, managePath)
-      if (page.url().includes('/auth/sign-in')) {
-        await loginAsRegularUser(page, 1, user.email, 'password', {
-          tenantSlug: tenant.slug,
-        })
-        await page.waitForTimeout(1500)
-        await navigateToTenant(page, tenant.slug, managePath)
-      }
-      // Don't match redirectTo / callbackUrl query params from /auth/sign-in.
-      await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
-        timeout: 20000,
-      })
-      await page.waitForLoadState('load').catch(() => null)
-      return Promise.race([
-        completePayment.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'success' as const),
-        errorHeading.waitFor({ state: 'visible', timeout: 15000 }).then(() => 'error' as const),
-      ])
-    }
-
-    await loginAsRegularUser(page, 1, user.email, 'password', {
+    await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
-    await page.waitForTimeout(1500) // Let session stabilize so manage page receives auth
 
-    let outcome = await gotoManageAndRace()
-    if (outcome === 'error') {
-      await loginAsRegularUser(page, 1, user.email, 'password', {
-        tenantSlug: tenant.slug,
-      })
-      await page.waitForTimeout(2000)
-      outcome = await gotoManageAndRace()
-    }
-    if (outcome === 'error') {
-      throw new Error(
-        'Manage page showed "Booking page error" instead of checkout. Check server logs and auth/session for this lesson.'
-      )
-    }
+    const managePath = `/bookings/${lesson.id}/manage`
+    await navigateToTenant(page, tenant.slug, managePath)
+
+    await page.getByRole('button', { name: /increase quantity/i }).click()
+    await page.getByRole('button', { name: /increase quantity/i }).click()
+    await page.getByRole('button', { name: /update bookings/i }).click()
+
+    await expect(page.getByText(/complete payment/i).first()).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByTestId('pending-booking-quantity')).toHaveText('2', { timeout: 10_000 })
 
     const cancelButton = page.getByRole('button', { name: /^cancel$/i })
     await expect(cancelButton).toBeVisible({ timeout: 5000 })
     await cancelButton.click()
 
-    // After Cancel, pending are cancelled in DB; we should see quantity view with 2 bookings
-    await expect(
-      page.getByText(/update booking quantity/i).first()
-    ).toBeVisible({ timeout: 10000 })
-    const quantityDisplay = page.getByTestId('booking-quantity')
-    await expect(quantityDisplay).toHaveText('2', { timeout: 5000 })
+    await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.getByTestId('booking-quantity')).toHaveText('2', { timeout: 5000 })
 
-    const payload = await getPayloadInstance()
+    const holds = await payload.find({
+      collection: 'booking-checkout-holds' as import('payload').CollectionSlug,
+      where: {
+        and: [
+          { timeslot: { equals: lesson.id } },
+          { user: { equals: user.id } },
+          { status: { equals: 'active' } },
+        ],
+      },
+      depth: 0,
+      limit: 10,
+      overrideAccess: true,
+    })
+    expect(holds.totalDocs ?? 0).toBe(0)
+
     const bookings = await payload.find({
       collection: 'bookings',
       where: {
@@ -199,7 +199,7 @@ test.describe('Manage page: pending bookings and checkout return', () => {
       overrideAccess: true,
     })
     const active = (bookings?.docs ?? []).filter(
-      (b: any) => String(b?.status ?? '').toLowerCase() !== 'cancelled'
+      (b: { status?: string }) => String(b?.status ?? '').toLowerCase() !== 'cancelled',
     )
     expect(active.length).toBe(2)
   })

@@ -29,6 +29,13 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
   try {
     const timeslot = await caller.timeslots.getById({ id })
 
+    let initialCheckoutHold: { id: number; quantity: number; expiresAt: string } | null = null
+    try {
+      initialCheckoutHold = await caller.bookings.getActiveCheckoutHold({ timeslotId: id })
+    } catch {
+      initialCheckoutHold = null
+    }
+
     return (
       <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
         <ManageBookingPageClient
@@ -36,6 +43,9 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
           initialBookings={userBookings}
           PaymentMethodsComponent={PaymentMethodsConnect}
           cancelPendingApiUrl="/api/bookings/cancel-pending"
+          releaseHoldApiUrl="/api/bookings/release-hold"
+          useCheckoutHolds={true}
+          initialCheckoutHold={initialCheckoutHold}
           successUrl="/success"
         />
       </div>

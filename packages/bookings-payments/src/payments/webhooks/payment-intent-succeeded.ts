@@ -5,6 +5,8 @@
  */
 import type { Payload } from "payload";
 
+const asCollection = (s: string): any => s;
+
 export interface PaymentIntentSucceededArgs {
   event: {
     data: { object: { id?: string; customer?: string; metadata?: Record<string, string> } };
@@ -45,13 +47,13 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
       await Promise.all(
         explicitBookingIds.map(async (bookingId) => {
           try {
-            const existing = await payload.findByID({ collection: "bookings", id: bookingId });
+            const existing = await payload.findByID({ collection: asCollection("bookings"), id: bookingId });
             if (!existing) {
               payload.logger?.warn?.(`Booking ${bookingId} not found`);
               return;
             }
             await payload.update({
-              collection: "bookings",
+              collection: asCollection("bookings"),
               id: bookingId,
               data: { status: "confirmed" },
             });
@@ -86,7 +88,7 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
           : 0;
 
       const existingBookingsQuery = await payload.find({
-        collection: "bookings",
+        collection: asCollection("bookings"),
         where: {
           timeslot: { equals: timeslotId },
           user: { equals: user.id },
@@ -104,14 +106,14 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
 
       for (const b of toConfirmCapped) {
         await payload.update({
-          collection: "bookings",
+          collection: asCollection("bookings"),
           id: b.id,
           data: { status: "confirmed" },
         });
       }
       for (let i = 0; i < createCapped; i++) {
         const created = await payload.create({
-          collection: "bookings",
+          collection: asCollection("bookings"),
           data: {
             timeslot: timeslotId,
             status: "confirmed",
@@ -156,13 +158,13 @@ export const paymentIntentSucceeded = async (args: PaymentIntentSucceededArgs): 
     await Promise.all(
       bookingIds.map(async (bookingId) => {
         try {
-          const existing = await payload.findByID({ collection: "bookings", id: bookingId });
+          const existing = await payload.findByID({ collection: asCollection("bookings"), id: bookingId });
           if (!existing) {
             payload.logger?.warn?.(`Booking ${bookingId} not found`);
             return;
           }
           await payload.update({
-            collection: "bookings",
+            collection: asCollection("bookings"),
             id: bookingId,
             data: { status: "confirmed" },
           });

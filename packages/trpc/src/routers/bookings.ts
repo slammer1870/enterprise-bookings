@@ -27,6 +27,14 @@ import {
   type TimeslotLike,
   type ClassPassLike,
 } from "@repo/shared-services";
+import {
+  upsertCheckoutHold as upsertCheckoutHoldService,
+  adjustCheckoutHoldQuantity as adjustCheckoutHoldQuantityService,
+  releaseCheckoutHold as releaseCheckoutHoldService,
+  extendCheckoutHold as extendCheckoutHoldService,
+  getActiveCheckoutHold as getActiveCheckoutHoldService,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from "@repo/bookings-payments";
 
 export const bookingsRouter = {
   /**
@@ -2418,5 +2426,141 @@ export const bookingsRouter = {
 
       // Should never reach here, but return empty array as fallback
       return [];
+    }),
+
+  upsertCheckoutHold: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(
+      z.object({
+        timeslotId: z.number(),
+        quantity: z.number().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const timeslot = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        { depth: 0, overrideAccess: true, user: ctx.user },
+      );
+      if (!timeslot) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Timeslot not found" });
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = deriveTenantIdFromTimeslot(timeslot);
+      }
+      if (tenantId != null) {
+        assertTimeslotBelongsToTenant(timeslot, tenantId, input.timeslotId);
+      } else {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tenant context not found for timeslot" });
+      }
+
+      try {
+        return await upsertCheckoutHoldService(ctx.payload, {
+          timeslotId: input.timeslotId,
+          userId: Number(ctx.user.id),
+          tenantId,
+          quantity: input.quantity,
+          timeslotsSlug: ctx.bookingsSlugs.timeslots as import("payload").CollectionSlug,
+          eventTypesSlug: ctx.bookingsSlugs.eventTypes as import("payload").CollectionSlug,
+          bookingsSlug: ctx.bookingsSlugs.bookings as import("payload").CollectionSlug,
+        });
+      } catch (e) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: e instanceof Error ? e.message : "Failed to reserve checkout hold",
+        });
+      }
+    }),
+
+  adjustCheckoutHoldQuantity: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(
+      z.object({
+        timeslotId: z.number(),
+        quantity: z.number().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const timeslot = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        { depth: 0, overrideAccess: true, user: ctx.user },
+      );
+      if (!timeslot) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Timeslot not found" });
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) tenantId = deriveTenantIdFromTimeslot(timeslot);
+      if (tenantId == null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tenant context not found for timeslot" });
+      }
+
+      try {
+        return await adjustCheckoutHoldQuantityService(ctx.payload, {
+          timeslotId: input.timeslotId,
+          userId: Number(ctx.user.id),
+          tenantId,
+          quantity: input.quantity,
+          timeslotsSlug: ctx.bookingsSlugs.timeslots as import("payload").CollectionSlug,
+          eventTypesSlug: ctx.bookingsSlugs.eventTypes as import("payload").CollectionSlug,
+          bookingsSlug: ctx.bookingsSlugs.bookings as import("payload").CollectionSlug,
+        });
+      } catch (e) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: e instanceof Error ? e.message : "Failed to adjust checkout hold",
+        });
+      }
+    }),
+
+  releaseCheckoutHold: protectedProcedure
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(z.object({ timeslotId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      return releaseCheckoutHoldService(ctx.payload, {
+        timeslotId: input.timeslotId,
+        userId: Number(ctx.user.id),
+      });
+    }),
+
+  extendCheckoutHold: protectedProcedure
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(z.object({ timeslotId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await extendCheckoutHoldService(ctx.payload, {
+          timeslotId: input.timeslotId,
+          userId: Number(ctx.user.id),
+        });
+      } catch (e) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: e instanceof Error ? e.message : "Failed to extend checkout hold",
+        });
+      }
+    }),
+
+  getActiveCheckoutHold: protectedProcedure
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(z.object({ timeslotId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const hold = await getActiveCheckoutHoldService(ctx.payload, {
+        timeslotId: input.timeslotId,
+        userId: Number(ctx.user.id),
+      });
+      if (!hold) return null;
+      return {
+        id: hold.id,
+        quantity: hold.quantity,
+        expiresAt: hold.expiresAt,
+        status: hold.status,
+      };
     }),
 } satisfies TRPCRouterRecord;

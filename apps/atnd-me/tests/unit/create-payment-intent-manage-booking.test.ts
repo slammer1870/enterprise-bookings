@@ -1,31 +1,26 @@
 /**
- * Regression: manage page POSTs explicit bookingIds to create-payment-intent.
- *
- * Production bug: validateBookingIdsFromMetadata used overrideAccess: false. Local API
- * calls have no HTTP tenant context, so tenantScopedPublicReadStrict denied the read and
- * Payload threw Forbidden — uncaught in the route → HTTP 500.
- *
- * Example failing payload:
- *   { price: 15, metadata: { bookingIds: "2608", timeslotId: "18140" } }
- *
- * This file exercises the real validateBookingIdsFromMetadata helper (not mocked) and
- * simulates Payload access denial when overrideAccess is false on bookings reads.
+ * Manage page posts holdId (not pending bookingIds) to create-payment-intent.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const BOOKING_ID = 2608
+const HOLD_ID = 2608
 const TIMESLOT_ID = 18140
 const TENANT_ID = 3
 const USER_ID = 99
 const USER = { id: USER_ID, email: 'user@example.com', name: 'Test User' }
 
-const { mockPayload, mockCreateTenantPaymentIntent } = vi.hoisted(() => ({
+const {
+  mockPayload,
+  mockGetActiveCheckoutHold,
+  mockComputeRemainingCapacityWithHolds,
+} = vi.hoisted(() => ({
   mockPayload: {
     findByID: vi.fn(),
-    find: vi.fn(),
+    find: vi.fn().mockResolvedValue({ docs: [], totalDocs: 0 }),
     auth: vi.fn(),
   },
-  mockCreateTenantPaymentIntent: vi.fn().mockResolvedValue({ client_secret: 'pi_live_secret' }),
+  mockGetActiveCheckoutHold: vi.fn(),
+  mockComputeRemainingCapacityWithHolds: vi.fn().mockResolvedValue(10),
 }))
 
 vi.mock('@/lib/stripe-connect/api-helpers', () => ({
@@ -40,6 +35,10 @@ vi.mock('@/lib/stripe-connect/test-accounts', () => ({
 
 vi.mock('@repo/bookings-payments', () => ({
   ensureStripeCustomerIdForAccount: vi.fn().mockResolvedValue({ stripeCustomerId: 'cus_test' }),
+  getActiveCheckoutHold: mockGetActiveCheckoutHold,
+  computeRemainingCapacityWithHolds: mockComputeRemainingCapacityWithHolds,
+  fulfillCheckoutHold: vi.fn(),
+  CHECKOUT_HOLD_COLLECTION_SLUG: 'booking-checkout-holds',
 }))
 
 vi.mock('@repo/shared-utils', () => ({
@@ -47,11 +46,14 @@ vi.mock('@repo/shared-utils', () => ({
 }))
 
 vi.mock('@/lib/stripe-connect/charges', () => ({
-  createTenantPaymentIntent: mockCreateTenantPaymentIntent,
+  createTenantPaymentIntent: vi.fn().mockResolvedValue({ client_secret: 'pi_live_secret' }),
 }))
 
-vi.mock('@/lib/stripe-connect/webhook/confirm-bookings', () => ({
-  confirmBookingsFromPaymentIntent: vi.fn().mockResolvedValue(undefined),
+vi.mock('@/lib/booking/payment-intent', () => ({
+  formatCapacityError: (remaining: number, requested: number) =>
+    remaining === 0
+      ? 'This timeslot is fully booked.'
+      : `Only ${remaining} spot${remaining !== 1 ? 's' : ''} available. You requested ${requested}.`,
 }))
 
 vi.mock('@/lib/api/request-utils', () => ({
@@ -92,8 +94,9 @@ function makeManagePageRequest() {
       Promise.resolve({
         price: 15,
         metadata: {
-          bookingIds: String(BOOKING_ID),
+          holdId: String(HOLD_ID),
           timeslotId: String(TIMESLOT_ID),
+          quantity: '1',
         },
       }),
     headers: new Headers(),
@@ -102,42 +105,15 @@ function makeManagePageRequest() {
   } as unknown as import('next/server').NextRequest
 }
 
-/** Simulates tenantScopedPublicReadStrict denying Local API reads without overrideAccess. */
-function installPayloadFindMock() {
-  mockPayload.find.mockImplementation(
-    (args: { collection: string; overrideAccess?: boolean; where?: unknown }) => {
-      if (args.collection !== 'bookings') {
-        return Promise.resolve({ docs: [], totalDocs: 0 })
-      }
-
-      if (args.overrideAccess !== true) {
-        return Promise.reject(new Error('You are not allowed to perform this action.'))
-      }
-
-      const whereStr = JSON.stringify(args.where ?? {})
-      if (
-        whereStr.includes(String(BOOKING_ID)) &&
-        whereStr.includes(String(TIMESLOT_ID)) &&
-        whereStr.includes(String(USER_ID)) &&
-        whereStr.includes('pending')
-      ) {
-        return Promise.resolve({ docs: [{ id: BOOKING_ID }] })
-      }
-
-      if (whereStr.includes('confirmed')) {
-        return Promise.resolve({ docs: [], totalDocs: 1 })
-      }
-
-      return Promise.resolve({ docs: [], totalDocs: 0 })
-    },
-  )
-}
-
-describe('POST /api/stripe/connect/create-payment-intent — manage page bookingIds', () => {
+describe('POST /api/stripe/connect/create-payment-intent — manage page hold', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(getCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValue(USER)
-    installPayloadFindMock()
+    mockGetActiveCheckoutHold.mockResolvedValue({
+      id: HOLD_ID,
+      quantity: 1,
+      expiresAt: new Date().toISOString(),
+    })
     mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
       if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
       if (collection === 'tenants') return Promise.resolve(makeTenant())
@@ -145,37 +121,24 @@ describe('POST /api/stripe/connect/create-payment-intent — manage page booking
     })
   })
 
-  it('returns 200 (not 500) for the production manage-page payload shape', async () => {
+  it('returns 200 for manage-page payload with holdId', async () => {
     const res = await POST(makeManagePageRequest())
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(res.status).not.toBe(500)
     expect(body.error).toBeUndefined()
     expect(typeof body.clientSecret).toBe('string')
   })
 
-  it('resolves pending booking IDs with overrideAccess: true on bookings find', async () => {
+  it('uses holdId from metadata without calling getActiveCheckoutHold', async () => {
     await POST(makeManagePageRequest())
 
-    const bookingsFindCalls = mockPayload.find.mock.calls.filter(
-      ([args]: [{ collection: string }]) => args.collection === 'bookings',
-    )
-    expect(bookingsFindCalls.length).toBeGreaterThan(0)
-
-    const validateCall = bookingsFindCalls.find(
-      ([args]: [{ where?: unknown }]) => JSON.stringify(args.where ?? '').includes('pending'),
-    )
-    expect(validateCall).toBeDefined()
-    expect(validateCall![0]).toMatchObject({ overrideAccess: true })
+    expect(mockGetActiveCheckoutHold).not.toHaveBeenCalled()
   })
 
-  it('does not call Stripe live path in test mode but still validates bookingIds first', async () => {
+  it('checks remaining capacity via computeRemainingCapacityWithHolds', async () => {
     await POST(makeManagePageRequest())
 
-    // In NODE_ENV=test the route short-circuits to a mock client secret, but
-    // validateBookingIdsFromMetadata must still run successfully first.
-    expect(mockCreateTenantPaymentIntent).not.toHaveBeenCalled()
-    expect(mockPayload.find).toHaveBeenCalled()
+    expect(mockComputeRemainingCapacityWithHolds).toHaveBeenCalled()
   })
 })
