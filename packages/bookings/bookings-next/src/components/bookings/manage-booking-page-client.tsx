@@ -307,7 +307,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     trpc.bookings.upsertCheckoutHold.mutationOptions()
   )
 
-  const { mutateAsync: adjustCheckoutHoldQuantityMutation } = useMutation(
+  const { mutateAsync: adjustCheckoutHoldQuantityMutation, isPending: isAdjustingHold } = useMutation(
     trpc.bookings.adjustCheckoutHoldQuantity.mutationOptions()
   )
 
@@ -691,7 +691,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   // ── Checkout view ─────────────────────────────────────────────────────────
 
-  const isUpdatingPending = isCreating || isCancelling || isAbandoningCheckout || isCancellingNewest
+  const isUpdatingPending = isCreating || isCancelling || isAbandoningCheckout || isCancellingNewest || isAdjustingHold
 
   if (
     isInCheckout &&
