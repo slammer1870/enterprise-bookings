@@ -386,4 +386,49 @@ describe('ManageBookingPageClient', () => {
     })
     expect(mockCancelPendingBookingsForTimeslot.mock.calls[0]?.[0]).toEqual({ timeslotId: 1 })
   })
+
+  it('disables +/- and Update Bookings button while upsertCheckoutHold is in flight', async () => {
+    const lesson = createMockTimeslot({ hasPaymentMethods: true })
+    ;(lesson.eventType as any).paymentMethods.allowedDropIn = {
+      id: 1,
+      maxBookingsPerTimeslot: 5,
+    }
+    const PaymentMethodsStub = () => <div>Payment methods</div>
+    const serverBookings = [createMockBooking(1, 'confirmed')]
+
+    // Deferred promise so we can hold the mutation in-flight
+    let resolveHold!: (value: { holdId: number; quantity: number; expiresAt: string }) => void
+    const holdPromise = new Promise<{ holdId: number; quantity: number; expiresAt: string }>(
+      (res) => { resolveHold = res }
+    )
+    mockUpsertCheckoutHold = vi.fn().mockReturnValue(holdPromise)
+    ;(useTRPC as any).mockReturnValue(buildTRPCMock(serverBookings))
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ManageBookingPageClient
+          timeslot={lesson}
+          initialBookings={serverBookings}
+          PaymentMethodsComponent={PaymentMethodsStub}
+          useCheckoutHolds={true}
+        />
+      </QueryClientProvider>
+    )
+
+    await waitFor(() => expect(screen.getByText(/update booking quantity/i)).toBeInTheDocument())
+
+    fireEvent.click(screen.getByLabelText('Increase quantity'))
+    fireEvent.click(screen.getByRole('button', { name: 'Update Bookings' }))
+
+    // While the hold upsert is in flight, all three controls should be disabled
+    await waitFor(() => {
+      expect(screen.getByLabelText('Increase quantity')).toBeDisabled()
+      expect(screen.getByLabelText('Decrease quantity')).toBeDisabled()
+      expect(screen.getByRole('button', { name: /updating bookings/i })).toBeDisabled()
+    })
+
+    // Resolve the hold — UI should proceed to checkout
+    resolveHold({ holdId: 99, quantity: 1, expiresAt: new Date(Date.now() + 300_000).toISOString() })
+    await waitFor(() => expect(screen.getByText('Complete Payment')).toBeInTheDocument())
+  })
 })

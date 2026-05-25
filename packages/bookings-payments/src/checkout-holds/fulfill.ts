@@ -71,6 +71,21 @@ export async function fulfillCheckoutHold(
   }
 
   if (hold.status === 'consumed') {
+    // The hold was already fulfilled (e.g. webhook re-delivery after a partial failure).
+    // Try to find bookings already created via this payment so the caller gets the right IDs.
+    if (opts.paymentIntentId) {
+      const existingTxns = (await payload.find({
+        collection: opts.transactionsSlug ?? TRANSACTIONS_COLLECTION_SLUG,
+        where: { stripePaymentIntentId: { equals: opts.paymentIntentId } },
+        depth: 0,
+        limit: 100,
+        overrideAccess: true,
+      }).catch(() => ({ docs: [] }))) as { docs: Array<{ booking?: number | { id: number } }> }
+      const ids = existingTxns.docs
+        .map((t) => (typeof t.booking === 'object' ? t.booking?.id : t.booking))
+        .filter((id): id is number => typeof id === 'number')
+      return { confirmedBookingIds: ids, refunded: false }
+    }
     return { confirmedBookingIds: [], refunded: false }
   }
 
@@ -118,6 +133,30 @@ export async function fulfillCheckoutHold(
     }
   }
 
+  // Mark the hold consumed BEFORE creating bookings.
+  //
+  // Why: booking creation triggers expensive afterChange hooks (lockout sync, waitlist check),
+  // so the loop can take 1–4 seconds for multi-booking scenarios.  During that window the old
+  // ordering (bookings first, hold consumed last) caused `remainingCapacity` to double-count:
+  // both the new confirmed bookings AND the still-active hold were subtracted, making capacity
+  // appear lower than correct for several seconds.
+  //
+  // Marking consumed first means the hold is removed from the "active holds" tally immediately,
+  // so capacity stays stable while bookings are being written.
+  //
+  // Re-delivery safety: if booking creation fails partway through, a Stripe re-delivery will
+  // find `hold.status === 'consumed'` above and look up already-created transactions to return
+  // the correct booking IDs rather than creating duplicates.
+  await payload.update({
+    collection: holdCollection,
+    id: hold.id,
+    data: {
+      status: 'consumed',
+      ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
+    },
+    overrideAccess: true,
+  })
+
   const confirmedBookingIds: number[] = []
 
   for (let i = 0; i < hold.quantity; i++) {
@@ -149,16 +188,6 @@ export async function fulfillCheckoutHold(
       })
     }
   }
-
-  await payload.update({
-    collection: holdCollection,
-    id: hold.id,
-    data: {
-      status: 'consumed',
-      ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
-    },
-    overrideAccess: true,
-  })
 
   return { confirmedBookingIds, refunded: false }
 }

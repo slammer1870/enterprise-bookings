@@ -1,7 +1,11 @@
 /**
- * E2E: User with 0 confirmed but API-created pending bookings can access /bookings/[id]
- * without being redirected to home. With checkout holds enabled, those pending rows are
- * not auto-loaded into checkout; the user can still book via pay-at-door.
+ * E2E: User with 0 confirmed but API-created pending bookings is redirected to the manage
+ * page and prompted to complete payment.  The manage page auto-cancels the pending rows,
+ * creates a checkout hold, and renders the checkout form so the user can pay.
+ *
+ * Previously (regression scenario) the user would land on the manage page but see only
+ * the quantity selector — the Update Bookings button was permanently disabled because
+ * desired === active count — leaving them unable to pay.
  */
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
@@ -10,11 +14,10 @@ import {
   createTestEventType,
   createTestTimeslot,
   createTestBooking,
-  getPayloadInstance,
 } from './helpers/data-helpers'
 
-test.describe('Two pending bookings: access booking route and make booking', () => {
-  test('user with 0 confirmed and 2 pending can access /bookings/[id] and make a booking', async ({
+test.describe('Two pending bookings: manage page prompts payment', () => {
+  test('user with 0 confirmed and 2 pending is redirected to manage and sees checkout prompt', async ({
     page,
     testData,
   }) => {
@@ -65,6 +68,8 @@ test.describe('Two pending bookings: access booking route and make booking', () 
       )
       .toBe(true)
 
+    // User navigates to /bookings/[id] — redirectToManageIfMultipleBookings fires (2+ non-cancelled
+    // bookings) and sends them to /manage.
     await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('load').catch(() => null)
     await page.waitForTimeout(2000)
@@ -75,53 +80,16 @@ test.describe('Two pending bookings: access booking route and make booking', () 
     expect(currentUrl).not.toContain('/?')
     expect(currentUrl).toContain('/bookings/')
 
-    const isOnBookingPage = currentUrl.includes(`/bookings/${lesson.id}`)
-    const isOnManagePage = currentUrl.includes(`/bookings/${lesson.id}/manage`)
-    expect(isOnBookingPage || isOnManagePage).toBe(true)
+    // With 2 pending bookings the user is redirected to the manage page.
+    expect(currentUrl).toContain(`/bookings/${lesson.id}/manage`)
 
     const errorHeading = page.getByRole('heading', {
       name: /booking page error|something went wrong/i,
     })
     await expect(errorHeading).not.toBeVisible({ timeout: 3000 })
 
-    if (isOnManagePage) {
-      await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({
-        timeout: 10_000,
-      })
-      await expect(page.getByTestId('booking-quantity')).toHaveText('2', { timeout: 10_000 })
-      await expect(page.getByText(/complete payment/i)).not.toBeVisible()
-    }
-
-    const payload = await getPayloadInstance()
-    const pendingRows = await payload.find({
-      collection: 'bookings',
-      where: {
-        timeslot: { equals: lesson.id },
-        user: { equals: user.id },
-        status: { equals: 'pending' },
-      },
-      depth: 0,
-      limit: 10,
-      overrideAccess: true,
-    })
-    for (const row of pendingRows.docs ?? []) {
-      await payload.update({
-        collection: 'bookings',
-        id: row.id,
-        data: { status: 'cancelled' },
-        overrideAccess: true,
-      })
-    }
-
-    await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)
-
-    await expect(
-      page.getByText(/select quantity|number of slots|book|payment methods/i).first(),
-    ).toBeVisible({ timeout: 15_000 })
-
-    const bookBtn = page.getByRole('button', { name: /book \d+ slot/i })
-    await expect(bookBtn).toBeVisible({ timeout: 12_000 })
-    await bookBtn.click()
-    await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15_000 })
+    // The manage page should cancel the pending bookings, create a checkout hold, and render
+    // the checkout form — not the plain quantity selector.
+    await expect(page.getByText(/complete payment/i).first()).toBeVisible({ timeout: 20_000 })
   })
 })

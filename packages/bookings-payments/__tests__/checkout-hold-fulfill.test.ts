@@ -99,7 +99,7 @@ describe('fulfillCheckoutHold', () => {
     expect(payload.create).toHaveBeenCalledTimes(4) // 2 bookings + 2 transactions
   })
 
-  it('is idempotent when hold already consumed', async () => {
+  it('is idempotent when hold already consumed (no prior transactions)', async () => {
     hold.status = 'consumed'
     const payload = makePayload()
 
@@ -112,6 +112,65 @@ describe('fulfillCheckoutHold', () => {
 
     expect(result.confirmedBookingIds).toEqual([])
     expect(payload.create).not.toHaveBeenCalled()
+  })
+
+  it('returns existing booking IDs from transactions on re-delivery after partial failure', async () => {
+    hold.status = 'consumed'
+    const existingTransactions = [
+      { booking: 201, stripePaymentIntentId: PI_ID },
+      { booking: 202, stripePaymentIntentId: PI_ID },
+    ]
+    const payload = makePayload()
+    payload.find = vi.fn().mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'bookings') return Promise.resolve({ docs: [], totalDocs: 0 })
+      if (collection === 'booking-checkout-holds') return Promise.resolve({ docs: [], totalDocs: 0 })
+      if (collection === 'transactions') return Promise.resolve({ docs: existingTransactions, totalDocs: 2 })
+      return Promise.resolve({ docs: [], totalDocs: 0 })
+    })
+
+    const result = await fulfillCheckoutHold(payload as never, {
+      holdId: HOLD_ID,
+      userId: USER_ID,
+      paymentIntentId: PI_ID,
+      tenantId: TENANT_ID,
+      transactionsSlug: 'transactions' as never,
+    })
+
+    expect(result.confirmedBookingIds).toEqual([201, 202])
+    expect(payload.create).not.toHaveBeenCalled()
+  })
+
+  it('marks hold consumed BEFORE creating bookings (prevents capacity double-counting)', async () => {
+    const callOrder: string[] = []
+    const payload = makePayload()
+    payload.update = vi.fn().mockImplementation(({ id, data }: { id: number; data: Record<string, unknown> }) => {
+      if (id === HOLD_ID) {
+        hold = { ...hold, ...data }
+        callOrder.push(`hold:${data.status}`)
+      }
+      return Promise.resolve({ id, ...data })
+    })
+    payload.create = vi.fn().mockImplementation(({ collection, data }: { collection: string; data: Record<string, unknown> }) => {
+      const doc = { id: 100 + createdBookings.length, ...data }
+      if (collection === 'bookings') {
+        createdBookings.push(doc)
+        callOrder.push('booking:created')
+      }
+      return Promise.resolve(doc)
+    })
+
+    await fulfillCheckoutHold(payload as never, {
+      holdId: HOLD_ID,
+      userId: USER_ID,
+      paymentIntentId: PI_ID,
+      tenantId: TENANT_ID,
+    })
+
+    // Hold must be consumed before any booking is created
+    const firstBookingIdx = callOrder.indexOf('booking:created')
+    const holdConsumedIdx = callOrder.indexOf('hold:consumed')
+    expect(holdConsumedIdx).toBeGreaterThanOrEqual(0)
+    expect(firstBookingIdx).toBeGreaterThan(holdConsumedIdx)
   })
 
   it('grace-fulfills expired hold when capacity still available', async () => {

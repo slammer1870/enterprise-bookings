@@ -303,7 +303,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     trpc.bookings.releaseCheckoutHold.mutationOptions()
   )
 
-  const { mutateAsync: upsertCheckoutHold } = useMutation(
+  const { mutateAsync: upsertCheckoutHold, isPending: isUpsertingHold } = useMutation(
     trpc.bookings.upsertCheckoutHold.mutationOptions()
   )
 
@@ -880,7 +880,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                 type="button"
                 size="icon"
                 variant="outline"
-                disabled={desiredQuantity <= 0 || isCreating || isCancelling}
+                disabled={desiredQuantity <= 0 || isCreating || isCancelling || isUpsertingHold || isSettingQuantity}
                 onClick={() => setDesiredQuantity((q) => Math.max(0, q - 1))}
                 aria-label="Decrease quantity"
               >
@@ -897,7 +897,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                   type="button"
                   size="icon"
                   variant="outline"
-                  disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling}
+                  disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling || isUpsertingHold || isSettingQuantity}
                   onClick={() => setDesiredQuantity((q) => Math.min(maxTotalQuantity, q + 1))}
                   aria-label="Increase quantity"
                 >
@@ -913,11 +913,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               isCreating ||
               isCancelling ||
               isSettingQuantity ||
+              isUpsertingHold ||
               desiredQuantity === activeBookings.length
             }
             onClick={() => void handleUpdateQuantity()}
           >
-            {isCreating || isCancelling || isSettingQuantity ? (
+            {isCreating || isCancelling || isSettingQuantity || isUpsertingHold ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Updating Bookings...
