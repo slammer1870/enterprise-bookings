@@ -55,15 +55,31 @@ export async function POST(request: NextRequest) {
   const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
 
   let holdId: number | null = null
+  // Track the hold's reserved quantity so the capacity precheck can exclude it.
+  // computeRemainingCapacityWithHolds counts every active hold (including the
+  // requester's own) against remaining capacity.  Since the hold IS the
+  // authorisation for this payment we must add it back when comparing, otherwise
+  // the check incorrectly fires when the hold fills the last N slots exactly.
+  let ownHoldQuantity = 0
   const holdIdRaw = metadata?.holdId
   if (holdIdRaw && /^\d+$/.test(holdIdRaw)) {
     holdId = parseInt(holdIdRaw, 10)
+    const holdRecord = await payload
+      .findByID({
+        collection: CHECKOUT_HOLD_COLLECTION_SLUG,
+        id: holdId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .catch(() => null) as { id?: number; quantity?: number } | null
+    ownHoldQuantity = holdRecord?.quantity ?? 0
   } else {
     const active = await getActiveCheckoutHold(payload, {
       timeslotId,
       userId: user.id,
     })
     holdId = active?.id ?? null
+    ownHoldQuantity = active?.quantity ?? 0
   }
   if (holdId == null) {
     return NextResponse.json(
