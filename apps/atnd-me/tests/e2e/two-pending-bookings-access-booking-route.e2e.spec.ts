@@ -14,6 +14,7 @@ import {
   createTestEventType,
   createTestTimeslot,
   createTestBooking,
+  createAndConfigureTestDropIn,
 } from './helpers/data-helpers'
 
 test.describe('Two pending bookings: manage page prompts payment', () => {
@@ -32,6 +33,10 @@ test.describe('Two pending bookings: manage page prompts payment', () => {
       undefined,
       workerIndex,
     )
+
+    // Configure a drop-in payment method so the manage page treats this event type as
+    // payable, which triggers the auto-cancel-pending + create-checkout-hold flow.
+    await createAndConfigureTestDropIn(tenant.id, classOption.id)
 
     const startTime = new Date()
     startTime.setHours(10, 0, 0, 0)
