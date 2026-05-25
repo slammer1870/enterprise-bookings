@@ -173,9 +173,14 @@ export async function POST(request: NextRequest) {
   // any heavier checks; confirmOnly still reserves with real capacity.
   const skipCapacityPrecheck = classPriceAmountCents <= 0 && !confirmOnly
 
-  if (quantity > remainingCapacity && !skipCapacityPrecheck) {
+  // computeRemainingCapacityWithHolds includes the current user's own hold in its
+  // "held" tally, so when their hold fills the last N slots the raw remaining reads 0.
+  // Adding ownHoldQuantity back gives the capacity available to THIS user (their hold
+  // is the reservation they are paying for, not competing capacity).
+  const capacityForPrecheck = remainingCapacity + ownHoldQuantity
+  if (quantity > capacityForPrecheck && !skipCapacityPrecheck) {
     return NextResponse.json(
-      { error: formatCapacityError(remainingCapacity, quantity) },
+      { error: formatCapacityError(capacityForPrecheck, quantity) },
       { status: 400 }
     )
   }
