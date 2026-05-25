@@ -276,6 +276,13 @@ test.describe('Drop-in booking (qty 2) then manage: capacity label reflects actu
       const qtyValue = increaseQtyBtn.locator('xpath=preceding-sibling::span[1]')
       await expect(qtyValue).toHaveText(String(BOOKED_QTY), { timeout: 10_000 })
 
+      // Wait for the debounce (350ms) + abort-aware delay (100ms) to settle so that
+      // debouncedQuantity=BOOKED_QTY has propagated to PaymentMethods/CheckoutForm and
+      // the checkout hold is upserted for the correct quantity before we apply the promo.
+      // Without this wait the hold can still be at qty=1 when the promo fires, causing
+      // only 1 booking to be confirmed instead of BOOKED_QTY.
+      await page.waitForTimeout(600)
+
       // Set up the response listener before clicking Apply (race-safe pattern used
       // throughout the existing drop-in tests).
       const zeroAmountPI = page.waitForResponse(
