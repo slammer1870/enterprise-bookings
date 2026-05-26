@@ -1,5 +1,6 @@
 import type { Config, Plugin } from "payload";
 import { transactionsCollection } from "../collections/transactions";
+import { bookingCheckoutHoldsCollection } from "../collections/booking-checkout-holds";
 import type { BookingsPaymentsPluginConfig } from "../types";
 import type { PluginContext } from "./context";
 import { applyDropInsFeature } from "./apply-drop-ins";
@@ -104,6 +105,16 @@ export const bookingsPaymentsPlugin =
       const bookingsCol = ctx.collections.find((c) => c.slug === "bookings");
       if (bookingsCol) {
         injectTransactionsIntoBookings(bookingsCol);
+      }
+    }
+
+    // Checkout holds: ephemeral capacity reservations during payment (drop-in / paid checkout)
+    if (dropIns?.enabled) {
+      const needsCheckoutHolds = !ctx.collections.some(
+        (c) => c.slug === "booking-checkout-holds"
+      );
+      if (needsCheckoutHolds) {
+        ctx.collections.push(bookingCheckoutHoldsCollection());
       }
     }
 

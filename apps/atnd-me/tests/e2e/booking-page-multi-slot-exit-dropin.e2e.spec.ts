@@ -1,66 +1,76 @@
 /**
  * Regression: Booking page multi-slot selection + leaving the page
- * should not crash the site and should cancel any pending bookings.
- *
- * Steps:
- * - Configure tenant + lesson with an adjustable drop-in
- * - On `/bookings/[id]`, increase quantity so pending bookings are created
- * - Navigate away immediately (unmount triggers cancelPendingBookingsForTimeslot)
- * - Assert:
- *   - user has no pending bookings for that timeslot
- *   - app navigates successfully to tenant home (/home)
+ * should not crash the site and should release checkout holds.
  */
-import { test, expect } from "./helpers/fixtures"
-import { navigateToTenant } from "./helpers/subdomain-helpers"
-import { loginAsRegularUserViaApi } from "./helpers/auth-helpers"
+import { test, expect } from './helpers/fixtures'
+import { navigateToTenant } from './helpers/subdomain-helpers'
+import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import {
   createTestEventType,
   createTestTimeslot,
   getPayloadInstance,
-} from "./helpers/data-helpers"
+} from './helpers/data-helpers'
 
-test.describe("Booking page: multi-slot exit with drop-in", () => {
-  test("does not crash and cancels pending bookings", async ({ page, testData }) => {
+async function countActiveHolds(
+  payload: Awaited<ReturnType<typeof getPayloadInstance>>,
+  lessonId: number,
+  userId: number,
+) {
+  const result = await payload.find({
+    collection: 'booking-checkout-holds' as import('payload').CollectionSlug,
+    where: {
+      and: [
+        { timeslot: { equals: lessonId } },
+        { user: { equals: userId } },
+        { status: { equals: 'active' } },
+      ],
+    },
+    depth: 0,
+    limit: 20,
+    overrideAccess: true,
+  })
+  return result.totalDocs ?? 0
+}
+
+test.describe('Booking page: multi-slot exit with drop-in', () => {
+  test('does not crash and releases checkout holds on leave', async ({ page, testData }) => {
     const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     const user = testData.users.user1
     const workerIndex = testData.workerIndex
 
-    // Ensure tenant is connected to Stripe so drop-in payment flow is enabled.
     await payload.update({
-      collection: "tenants",
+      collection: 'tenants',
       id: tenant.id,
       data: {
-        stripeConnectOnboardingStatus: "active",
+        stripeConnectOnboardingStatus: 'active',
         stripeConnectAccountId: `acct_e2e_dropin_exit_${tenant.id}_${workerIndex}`,
       },
       overrideAccess: true,
     })
 
-    // Create an adjustable drop-in (allows multiple bookings for the same timeslot).
     const dropIn = (await payload.create({
-      collection: "drop-ins",
+      collection: 'drop-ins',
       data: {
         name: `E2E Drop-in Exit ${tenant.id}-${workerIndex}-${Date.now()}`,
         isActive: true,
-        price: 10, // currency units; converted server-side
+        price: 10,
         adjustable: true,
         tenant: tenant.id,
       },
       overrideAccess: true,
     })) as { id: number }
 
-    // Create class option and attach the drop-in as an allowed payment method.
     const classOption = await createTestEventType(
       tenant.id,
-      "Drop-in Exit Multi-slot",
+      'Drop-in Exit Multi-slot',
       10,
       undefined,
-      workerIndex
+      workerIndex,
     )
 
     await payload.update({
-      collection: "event-types",
+      collection: 'event-types',
       id: classOption.id,
       data: {
         paymentMethods: { allowedDropIn: dropIn.id },
@@ -77,100 +87,54 @@ test.describe("Booking page: multi-slot exit with drop-in", () => {
 
     const lesson = await createTestTimeslot(tenant.id, classOption.id, startTime, endTime, undefined, true)
 
-    // Simulate legacy data where `originalLockOutTime` might be missing/null.
-    // The afterChange hook should treat it as 0 and never fail booking cancellation.
-    await payload
-      .update({
-        collection: "timeslots",
-        id: lesson.id,
-        data: {
-          lockOutTime: 60,
-          originalLockOutTime: null,
-        },
-        overrideAccess: true,
-      })
-      .catch(() => null)
-
-    // Login with tenant cookie + session.
-    await loginAsRegularUserViaApi(page, user.email, "password", {
+    await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
 
     await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)
-    await page.waitForLoadState("domcontentloaded").catch(() => null)
+    await page.waitForLoadState('domcontentloaded').catch(() => null)
 
-    // Wait for the booking payment UI to be mounted.
     await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 15000 })
-    await expect(page.getByRole("tab", { name: /drop-?in/i })).toBeVisible()
+    await page.getByRole('tab', { name: /drop-?in/i }).click()
 
-    // Increase quantity to 2 (creates multiple pending bookings via create-payment-intent).
-    await page.getByRole("tab", { name: /drop-?in/i }).click()
-    const inc = page.getByRole("button", { name: /increase quantity/i })
+    await page
+      .waitForResponse(
+        (r) =>
+          r.url().includes('create-payment-intent') &&
+          r.request().method() === 'POST' &&
+          r.status() === 200,
+        { timeout: 20_000 },
+      )
+      .catch(() => null)
+
+    const inc = page.getByRole('button', { name: /increase quantity/i })
+    const holdQuantityResponse = page.waitForResponse(
+      (r) =>
+        r.url().includes('create-payment-intent') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 20_000 },
+    )
     await inc.click()
+    await holdQuantityResponse.catch(() => null)
 
-    // Wait until at least one pending booking exists for this user+timeslot.
-    let pendingDocs: any[] = []
-    const startedAt = Date.now()
-    while (Date.now() - startedAt < 20000) {
-      const res = await payload.find({
-        collection: "bookings",
-        where: {
-          and: [
-            { timeslot: { equals: lesson.id } },
-            { user: { equals: user.id } },
-            { status: { equals: "pending" } },
-          ],
-        },
-        depth: 0,
-        limit: 20,
-        overrideAccess: true,
+    // Payment UI load reserves a checkout hold for the selected quantity.
+    await expect
+      .poll(() => countActiveHolds(payload, lesson.id as number, user.id as number), {
+        timeout: 30_000,
       })
-      pendingDocs = (res.docs ?? []) as any[]
-      if (pendingDocs.length >= 1) break
-      await page.waitForTimeout(500)
-    }
+      .toBeGreaterThanOrEqual(1)
 
-    expect(pendingDocs.length).toBeGreaterThanOrEqual(1)
+    // Leave the page – cleanup should release the hold (keepalive may not be observable on goto).
+    await navigateToTenant(page, tenant.slug, '/')
+    await page.waitForLoadState('domcontentloaded').catch(() => null)
 
-    // Navigate away quickly. The booking page unmount cleanup cancels pending bookings.
-    await navigateToTenant(page, tenant.slug, "/")
-    await page.waitForLoadState("domcontentloaded").catch(() => null)
-    await page.waitForTimeout(1500)
-
-    // Ensure user has no pending bookings after leaving.
-    // There can be a small race where a "reserve pending bookings" request
-    // completes slightly after we trigger cancellation on unmount.
-    let afterPendingCount = -1
-    const afterStartedAt = Date.now()
-    while (Date.now() - afterStartedAt < 10_000) {
-      const after = await payload.find({
-        collection: "bookings",
-        where: {
-          and: [
-            { timeslot: { equals: lesson.id } },
-            { user: { equals: user.id } },
-            { status: { equals: "pending" } },
-          ],
-        },
-        depth: 0,
-        limit: 20,
-        overrideAccess: true,
+    await expect
+      .poll(() => countActiveHolds(payload, lesson.id as number, user.id as number), {
+        timeout: 25_000,
       })
+      .toBe(0)
 
-      afterPendingCount = (after.docs ?? []).length
-      if (afterPendingCount === 0) break
-
-      await page.waitForTimeout(500)
-    }
-
-    // In practice there's a known race where a late `create-payment-intent`
-    // can reserve one more pending booking after we cancel on unmount.
-    // For this flow we assert the system releases (almost all) reserved capacity.
-    expect(afterPendingCount).toBeLessThanOrEqual(1)
-
-    // Basic health check: tenant home still loads.
-    // Depending on routing/tenant base-path behavior, tenant landing can be `/` or `/home`.
     await expect(page).toHaveURL(/\/(home\/?)?$/, { timeout: 15000 })
   })
 })
-

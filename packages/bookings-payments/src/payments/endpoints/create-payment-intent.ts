@@ -3,6 +3,8 @@ import { stripe, formatAmountForStripe } from "@repo/shared-utils";
 import { APIError } from "payload";
 import type { User } from "@repo/shared-types";
 
+const asCollection = (s: string): any => s;
+
 export const createPaymentIntent: PayloadHandler = async (req): Promise<Response> => {
   if (!req.json) {
     throw new APIError("Invalid request body", 400);
@@ -35,7 +37,7 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
       const ids = parsed.map((id) => parseInt(id, 10)).filter((n) => !Number.isNaN(n));
       if (ids.length > 0) {
         const docs = await req.payload.find({
-          collection: "bookings",
+          collection: asCollection("bookings"),
           where: {
             and: [
               { id: { in: ids } },
@@ -82,7 +84,7 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
     if (process.env.NODE_ENV !== "test" && process.env.ENABLE_TEST_WEBHOOKS !== "true") {
       const pendingCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const existing = await req.payload.find({
-        collection: "bookings",
+        collection: asCollection("bookings"),
         where: {
           and: [
             { timeslot: { equals: timeslotId } },
@@ -123,7 +125,7 @@ export const createPaymentIntent: PayloadHandler = async (req): Promise<Response
             : undefined;
         for (let i = 0; i < need; i++) {
           const created = await req.payload.create({
-            collection: "bookings",
+            collection: asCollection("bookings"),
             data: {
               timeslot: timeslotId,
               user: user.id,

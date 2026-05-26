@@ -246,15 +246,6 @@ export function createSchedulerGlobal(
         },
       },
       {
-        name: "week",
-        label: "Week",
-        admin: {
-          description: "The days of the week and their time slots",
-        },
-        type: "group",
-        fields: [days],
-      },
-      {
         name: "clearExisting",
         type: "checkbox",
         label: "Clear Existing Timeslots",
@@ -263,6 +254,15 @@ export function createSchedulerGlobal(
           description:
             "Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)",
         },
+      },
+      {
+        name: "week",
+        label: "Week",
+        admin: {
+          description: "The days of the week and their time slots",
+        },
+        type: "group",
+        fields: [days],
       },
     ],
   };

@@ -1,7 +1,11 @@
 /**
- * E2E: User with 0 confirmed but 2 pending bookings can access /bookings/[id]
- * and complete a booking without being redirected to home (regression test for
- * the bug where such users hit an error and got redirected to /).
+ * E2E: User with 0 confirmed but API-created pending bookings is redirected to the manage
+ * page and prompted to complete payment.  The manage page auto-cancels the pending rows,
+ * creates a checkout hold, and renders the checkout form so the user can pay.
+ *
+ * Previously (regression scenario) the user would land on the manage page but see only
+ * the quantity selector — the Update Bookings button was permanently disabled because
+ * desired === active count — leaving them unable to pay.
  */
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
@@ -10,10 +14,11 @@ import {
   createTestEventType,
   createTestTimeslot,
   createTestBooking,
+  createAndConfigureTestDropIn,
 } from './helpers/data-helpers'
 
-test.describe('Two pending bookings: access booking route and make booking', () => {
-  test('user with 0 confirmed and 2 pending can access /bookings/[id] and make a booking', async ({
+test.describe('Two pending bookings: manage page prompts payment', () => {
+  test('user with 0 confirmed and 2 pending is redirected to manage and sees checkout prompt', async ({
     page,
     testData,
   }) => {
@@ -21,14 +26,17 @@ test.describe('Two pending bookings: access booking route and make booking', () 
     const user = testData.users.user1
     const workerIndex = testData.workerIndex
 
-    // Create pay-at-door lesson (no payment methods) so booking creates confirmed directly
     const classOption = await createTestEventType(
       tenant.id,
       'Two Pending Access Test',
       10,
       undefined,
-      workerIndex
+      workerIndex,
     )
+
+    // Configure a drop-in payment method so the manage page treats this event type as
+    // payable, which triggers the auto-cancel-pending + create-checkout-hold flow.
+    await createAndConfigureTestDropIn(tenant.id, classOption.id)
 
     const startTime = new Date()
     startTime.setHours(10, 0, 0, 0)
@@ -42,91 +50,51 @@ test.describe('Two pending bookings: access booking route and make booking', () 
       startTime,
       endTime,
       undefined,
-      true
+      true,
     )
 
-    // Create 2 pending bookings (0 confirmed) - simulates abandoned checkout
     await createTestBooking(user.id, lesson.id, 'pending')
     await createTestBooking(user.id, lesson.id, 'pending')
 
-    // Use API login to avoid flaky UI login / rate limiting in CI.
     await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
     })
 
-    // Ensure session cookies exist on tenant host before hitting protected routes.
     const tenantOrigin = `http://${tenant.slug}.localhost:3000`
     await expect
       .poll(
         async () => {
           const cookies = await page.context().cookies([tenantOrigin])
-          return cookies.some((c) => /^(better-auth\.|session_token|session_data|dont_remember)/.test(c.name))
+          return cookies.some((c) =>
+            /^(better-auth\.|session_token|session_data|dont_remember)/.test(c.name),
+          )
         },
         { timeout: 20_000 },
       )
       .toBe(true)
 
-    // Navigate to booking page - should NOT redirect to home (the regression we're testing)
+    // User navigates to /bookings/[id] — redirectToManageIfMultipleBookings fires (2+ non-cancelled
+    // bookings) and sends them to /manage.
     await navigateToTenant(page, tenant.slug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('load').catch(() => null)
-
-    // Allow time for any server-side redirect (e.g. postValidation -> /manage)
     await page.waitForTimeout(2000)
 
     const currentUrl = page.url()
 
-    // CRITICAL: Must NOT be redirected to home (root)
     expect(currentUrl).not.toMatch(/^https?:\/\/[^/]+\/?$/)
     expect(currentUrl).not.toContain('/?')
     expect(currentUrl).toContain('/bookings/')
 
-    // We should either be on /bookings/[id] or /bookings/[id]/manage (postValidation redirect)
-    const isOnBookingPage = currentUrl.includes(`/bookings/${lesson.id}`)
-    const isOnManagePage = currentUrl.includes(`/bookings/${lesson.id}/manage`)
+    // With 2 pending bookings the user is redirected to the manage page.
+    expect(currentUrl).toContain(`/bookings/${lesson.id}/manage`)
 
-    expect(isOnBookingPage || isOnManagePage).toBe(true)
-
-    // Page should show booking-related content (not error boundary or generic home)
-    const errorHeading = page.getByRole('heading', { name: /booking page error|something went wrong/i })
+    const errorHeading = page.getByRole('heading', {
+      name: /booking page error|something went wrong/i,
+    })
     await expect(errorHeading).not.toBeVisible({ timeout: 3000 })
 
-    if (isOnManagePage) {
-      // On manage with 2 pending: verify we see manage/checkout content
-      await expect(
-        page.getByText(/update booking quantity|complete payment|pending booking|booking/i).first()
-      ).toBeVisible({ timeout: 10000 })
-
-      // "Make a booking": Cancel the 2 pending, then book fresh (pay-at-door = confirmed).
-      // Wait for checkout abandon control — the manage client used to mount quantity view first and only
-      // switch to payment UI after an effect, so an immediate isVisible() check raced and hit the wrong
-      // "Decrease" control.
-      const cancelButton = page.getByRole('button', { name: /^cancel$/i })
-      await expect(cancelButton).toBeVisible({ timeout: 15000 })
-      await cancelButton.click()
-      await page.waitForTimeout(2000)
-
-      const bookNowButton = page.getByRole('button', { name: /book now/i })
-      await expect(bookNowButton).toBeVisible({ timeout: 10000 })
-      await bookNowButton.click()
-
-      // Now on booking page: make a fresh booking (pay-at-door = confirmed directly)
-      await expect(
-        page.getByText(/select quantity|number of slots|book|payment methods/i).first()
-      ).toBeVisible({ timeout: 12000 })
-      const bookBtn = page.getByRole('button', { name: /book/i }).first()
-      await expect(bookBtn).toBeVisible({ timeout: 10000 })
-      await bookBtn.click()
-
-      await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
-    } else {
-      // Stayed on booking page: wait for form (quantity, Book, or payment methods label) then make a booking
-      await expect(
-        page.getByText(/select quantity|number of slots|book|payment methods/i).first()
-      ).toBeVisible({ timeout: 15000 })
-      const bookBtn = page.getByRole('button', { name: /book/i }).first()
-      await expect(bookBtn).toBeVisible({ timeout: 12000 })
-      await bookBtn.click()
-      await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
-    }
+    // The manage page should cancel the pending bookings, create a checkout hold, and render
+    // the checkout form — not the plain quantity selector.
+    await expect(page.getByText(/complete payment/i).first()).toBeVisible({ timeout: 20_000 })
   })
 })

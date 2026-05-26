@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { bookingCreateAccessWithPaymentValidation } from '@/access/bookingAccess'
+import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
 
 vi.mock('@repo/bookings-plugin', () => ({
   createBookingAccess: () => ({
@@ -30,6 +31,10 @@ vi.mock('@repo/bookings-payments', () => ({
 
 vi.mock('@/utilities/getTenantFromTimeslot', () => ({
   getTenantFromTimeslot: vi.fn().mockResolvedValue(42),
+}))
+
+vi.mock('@/access/tenant-scoped', () => ({
+  resolveTenantAdminTenantIds: vi.fn().mockResolvedValue([]),
 }))
 
 const TIMESLOT_ID = 7
@@ -95,6 +100,7 @@ function makeLocalApiReq(findByIDImpl?: (args: { collection: string; id: unknown
 describe('bookingCreateAccessWithPaymentValidation', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(resolveTenantAdminTenantIds).mockResolvedValue([])
   })
 
   it('fetches the timeslot with overrideAccess: true so it does not fail for Local API requests without tenant context', async () => {
@@ -167,5 +173,24 @@ describe('bookingCreateAccessWithPaymentValidation', () => {
     // not allowed. Returning true here would let a user bypass Stripe Connect checks by
     // supplying a timeslot ID that no longer exists.
     expect(result).toBe(false)
+  })
+
+  it('allows tenant org admin to create pending bookings without Stripe Connect (admin dashboard flow)', async () => {
+    vi.mocked(resolveTenantAdminTenantIds).mockResolvedValue([42])
+
+    const req = makeLocalApiReq(async ({ collection }) => {
+      if (collection === 'timeslots') return makeTimeslot()
+      if (collection === 'tenants')
+        return makeTenant({ stripeConnectAccountId: null, stripeConnectOnboardingStatus: 'not_connected' })
+      return null
+    })
+    req.user = { id: 1, role: ['admin'], tenants: [{ tenant: 42 }] }
+
+    const result = await bookingCreateAccessWithPaymentValidation({
+      req: req as never,
+      data: { timeslot: TIMESLOT_ID, user: 99, status: 'pending' },
+    } as never)
+
+    expect(result).toBe(true)
   })
 })

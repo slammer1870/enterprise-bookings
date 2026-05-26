@@ -7,6 +7,7 @@ import {
 } from './helpers/data-helpers'
 
 import { clearTestMagicLinks, pollForTestMagicLink } from '@repo/testing-config/src/playwright'
+import { advanceScheduleToDate } from './helpers/schedule-helpers'
 
 /**
  * Requirement:
@@ -55,18 +56,7 @@ test.describe('Unauth join waitlist (magic link)', () => {
 
     await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({ timeout: 20_000 })
 
-    const dateLabel = page.locator('p.text-center.text-lg').first()
-    await expect(dateLabel).toBeVisible({ timeout: 30_000 })
-    const nextDayButton = dateLabel.locator('xpath=..').locator('svg').nth(1)
-    const targetLabel = startTime.toDateString()
-
-    for (let i = 0; i < 14; i += 1) {
-      const current = (await dateLabel.textContent())?.trim()
-      if (current === targetLabel) break
-      await nextDayButton.click()
-      await expect(dateLabel).toHaveText(targetLabel, { timeout: 10_000 }).catch(() => null)
-    }
-    await expect(dateLabel).toHaveText(targetLabel, { timeout: 15_000 })
+    await advanceScheduleToDate(page, startTime)
 
     const timeslotCard = page.locator('div.border-b.border-border').filter({ hasText: eventName }).first()
     await expect(timeslotCard).toBeVisible({ timeout: 20_000 })
@@ -103,16 +93,7 @@ test.describe('Unauth join waitlist (magic link)', () => {
     await page.getByRole('button', { name: /back to schedule/i }).click()
     await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({ timeout: 20_000 })
 
-    const dateLabelAfter = page.locator('p.text-center.text-lg').first()
-    const nextDayButtonAfter = dateLabelAfter.locator('xpath=..').locator('svg').nth(1)
-
-    for (let i = 0; i < 14; i += 1) {
-      const current = (await dateLabelAfter.textContent())?.trim()
-      if (current === targetLabel) break
-      await nextDayButtonAfter.click()
-      await expect(dateLabelAfter).toHaveText(targetLabel, { timeout: 10_000 }).catch(() => null)
-    }
-    await expect(dateLabelAfter).toHaveText(targetLabel, { timeout: 15_000 })
+    await advanceScheduleToDate(page, startTime)
 
     const timeslotCardAfter = page
       .locator('div.border-b.border-border')

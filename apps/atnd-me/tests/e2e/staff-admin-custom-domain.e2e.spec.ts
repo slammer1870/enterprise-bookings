@@ -15,6 +15,8 @@
 import { test, expect } from './helpers/fixtures'
 import { loginAsStaff } from './helpers/auth-helpers'
 import { createTestTenant, createTestUser, getPayloadInstance } from './helpers/data-helpers'
+import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 import type { Page } from '@playwright/test'
 
 async function submitAdminLogin(page: Page, email: string, password = 'password') {
@@ -37,28 +39,33 @@ async function submitAdminLogin(page: Page, email: string, password = 'password'
 }
 
 test.describe('Staff admin access (custom domain host)', () => {
-  test.describe.configure({ timeout: 120_000 })
+  test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
   let staffOrigin: string
   let otherOrigin: string
   let staffEmail: string
   let tenant1Slug: string
+  let nipIoAvailable = false
 
   test.beforeAll(async ({ testData }) => {
+    nipIoAvailable = await isNipIoDnsAvailable()
+
     const payload = await getPayloadInstance()
     const w = testData.workerIndex
     const stamp = Date.now()
-    const host1 = `e2e-staff-${w}-${stamp}.127.0.0.1.nip.io`
-    const host2 = `e2e-staff-oth-${w}-${stamp}.127.0.0.1.nip.io`
-    staffOrigin = `http://${host1}:3000`
-    otherOrigin = `http://${host2}:3000`
+    const host1 = nipIoAvailable ? `e2e-staff-${w}-${stamp}.127.0.0.1.nip.io` : undefined
+    const host2 = nipIoAvailable ? `e2e-staff-oth-${w}-${stamp}.127.0.0.1.nip.io` : undefined
+    if (host1) staffOrigin = `http://${host1}:3000`
+    if (host2) otherOrigin = `http://${host2}:3000`
 
     const slug1 = `staff-cd-1-${w}-${stamp}`
     const slug2 = `staff-cd-2-${w}-${stamp}`
     tenant1Slug = slug1
 
     const tenant1 = await createTestTenant('E2E staff custom domain 1', slug1, host1)
-    await createTestTenant('E2E staff custom domain 2', slug2, host2)
+    if (host2) {
+      await createTestTenant('E2E staff custom domain 2', slug2, host2)
+    }
 
     staffEmail = `staffcd${w}${stamp}@test.com`
     await createTestUser(staffEmail, 'password', 'E2E Staff CD', ['staff'])
@@ -74,6 +81,8 @@ test.describe('Staff admin access (custom domain host)', () => {
   })
 
   test('staff can open the admin dashboard on the tenant custom domain', async ({ page, request }) => {
+    test.skip(!nipIoAvailable, 'nip.io DNS is not available (outbound DNS required for custom-domain e2e)')
+
     await loginAsStaff(page, staffEmail, { request, password: 'password', adminOrigin: staffOrigin })
     const url = new URL(page.url())
     expect(url.origin).toBe(staffOrigin)
@@ -103,6 +112,8 @@ test.describe('Staff admin access (custom domain host)', () => {
   test('staff for tenant A cannot use the admin dashboard on tenant B custom domain', async ({
     page,
   }) => {
+    test.skip(!nipIoAvailable, 'nip.io DNS is not available (outbound DNS required for custom-domain e2e)')
+
     const hostOther = new URL(otherOrigin).hostname
     await page.goto(`${otherOrigin}/admin/login`, { waitUntil: 'domcontentloaded' })
     await submitAdminLogin(page, staffEmail)

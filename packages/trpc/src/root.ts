@@ -10,12 +10,13 @@ import {
   createTRPCRouter,
   type GetSubscriptionBookingFeeCents,
 } from "./trpc";
-import type { GetDropInFeeBreakdown } from "./routers/payments";
+import type { GetDropInFeeBreakdown, GetClassPassFeeBreakdown } from "./routers/payments";
 
 export type AppRouterOptions = {
   payments?: {
     getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
     getDropInFeeBreakdown?: GetDropInFeeBreakdown;
+    getClassPassFeeBreakdown?: GetClassPassFeeBreakdown;
   };
 };
 

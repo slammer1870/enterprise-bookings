@@ -6,6 +6,7 @@ import { appRouter } from '@repo/trpc'
 import type { User, Timeslot, EventType } from '@repo/shared-types'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '../../src/constants/bookings-collection-slugs'
 import { formatInTimeZone, resolveTimeZone } from '@repo/shared-utils'
+import { normalizeTimeslotTestData } from './timeslot-test-data'
 
 const TEST_TIMEOUT = 60000 // 60 seconds
 const HOOK_TIMEOUT = 300000 // 5 minutes
@@ -34,6 +35,9 @@ describe('tRPC Bookings Integration Tests', () => {
     ] as const
     if ((tenantScopedCollections as readonly string[]).includes(collection)) {
       data = { ...data, tenant: testTenant.id }
+    }
+    if (collection === 'timeslots') {
+      data = normalizeTimeslotTestData(data)
     }
     return payload.create({
       collection,

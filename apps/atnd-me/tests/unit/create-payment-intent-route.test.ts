@@ -1,45 +1,26 @@
 /**
- * Regression test for the create-payment-intent route handler.
+ * Regression tests for the create-payment-intent route handler.
  *
- * Core regression: the route was returning 400 {"error":"You are not allowed to
- * perform this action."} for legitimate drop-in bookings in production because
- * reservePendingBookings was called with trustedServerReservation: isTestMode
- * (false in production), causing payload.find / payload.create to run with
- * overrideAccess: false. The bookings read access (tenantScopedPublicReadStrict)
- * then returned false for Local API requests that carry no HTTP context, and
- * Payload threw its built-in Forbidden error.
- *
- * Fix: trustedServerReservation is now always true. These tests verify that:
- *   1. The route calls reservePendingBookings with trustedServerReservation: true.
- *   2. The route returns 200 + clientSecret for a legitimate drop-in booking.
- *   3. The route returns 400 (not 500) when reservePendingBookings throws.
+ * Checkout uses booking-checkout-holds (not pending booking rows). The route requires
+ * an active hold before creating a payment intent.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// ─── mock all I/O dependencies before importing the route ───────────────────
-// vi.mock factories are hoisted above variable declarations, so shared mocks
-// that are referenced inside factories must use vi.hoisted().
-
 const {
   mockPayload,
-  mockReservePendingBookings,
-  mockValidateBookingIdsFromMetadata,
-  mockComputeRemainingCapacityForTimeslot,
+  mockGetActiveCheckoutHold,
+  mockComputeRemainingCapacityWithHolds,
 } = vi.hoisted(() => ({
   mockPayload: {
     findByID: vi.fn(),
     find: vi.fn().mockResolvedValue({ docs: [], totalDocs: 0 }),
     auth: vi.fn(),
   },
-  mockReservePendingBookings: vi.fn(),
-  mockValidateBookingIdsFromMetadata: vi.fn().mockResolvedValue([]),
-  mockComputeRemainingCapacityForTimeslot: vi.fn().mockResolvedValue(10),
+  mockGetActiveCheckoutHold: vi.fn(),
+  mockComputeRemainingCapacityWithHolds: vi.fn().mockResolvedValue(10),
 }))
 
 vi.mock('@/lib/booking/payment-intent', () => ({
-  reservePendingBookings: mockReservePendingBookings,
-  validateBookingIdsFromMetadata: mockValidateBookingIdsFromMetadata,
-  computeRemainingCapacityForTimeslot: mockComputeRemainingCapacityForTimeslot,
   formatCapacityError: (remaining: number, requested: number) =>
     remaining === 0
       ? 'This timeslot is fully booked.'
@@ -48,7 +29,7 @@ vi.mock('@/lib/booking/payment-intent', () => ({
 
 vi.mock('@/lib/stripe-connect/api-helpers', () => ({
   getCurrentUser: vi.fn(),
-  resolveTenantSlugOrId: vi.fn().mockReturnValue(null), // no tenant context → guard is no-op
+  resolveTenantSlugOrId: vi.fn().mockReturnValue(null),
   resolveTenantForConnect: vi.fn(),
 }))
 
@@ -58,6 +39,10 @@ vi.mock('@/lib/stripe-connect/test-accounts', () => ({
 
 vi.mock('@repo/bookings-payments', () => ({
   ensureStripeCustomerIdForAccount: vi.fn().mockResolvedValue({ stripeCustomerId: 'cus_test' }),
+  getActiveCheckoutHold: mockGetActiveCheckoutHold,
+  computeRemainingCapacityWithHolds: mockComputeRemainingCapacityWithHolds,
+  fulfillCheckoutHold: vi.fn(),
+  CHECKOUT_HOLD_COLLECTION_SLUG: 'booking-checkout-holds',
 }))
 
 vi.mock('@repo/shared-utils', () => ({
@@ -66,10 +51,6 @@ vi.mock('@repo/shared-utils', () => ({
 
 vi.mock('@/lib/stripe-connect/charges', () => ({
   createTenantPaymentIntent: vi.fn().mockResolvedValue({ client_secret: 'pi_live_secret' }),
-}))
-
-vi.mock('@/lib/stripe-connect/webhook/confirm-bookings', () => ({
-  confirmBookingsFromPaymentIntent: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/api/request-utils', () => ({
@@ -83,10 +64,9 @@ vi.mock('@/lib/payload', () => ({
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
 import { POST } from '@/app/api/stripe/connect/create-payment-intent/route'
 
-// ─── fixtures ────────────────────────────────────────────────────────────────
-
 const TIMESLOT_ID = 7
 const TENANT_ID = 3
+const HOLD_ID = 55
 const USER = { id: 99, email: 'user@example.com', name: 'Test User' }
 
 function makeTimeslot(overrides: Record<string, unknown> = {}) {
@@ -103,35 +83,38 @@ function makeTimeslot(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function makeTenant(overrides: Partial<{ stripeConnectAccountId: string; stripeConnectOnboardingStatus: string }> = {}) {
+function makeTenant() {
   return {
     id: TENANT_ID,
     stripeConnectAccountId: 'acct_placeholder_test',
     stripeConnectOnboardingStatus: 'active',
-    ...overrides,
   }
 }
 
 function makeRequest(body: Record<string, unknown> = {}) {
   return {
-    json: () => Promise.resolve({
-      price: 15,
-      metadata: { timeslotId: String(TIMESLOT_ID) },
-      ...body,
-    }),
+    json: () =>
+      Promise.resolve({
+        price: 15,
+        metadata: { timeslotId: String(TIMESLOT_ID), holdId: String(HOLD_ID) },
+        ...body,
+      }),
     headers: new Headers(),
     nextUrl: { searchParams: new URLSearchParams() },
     cookies: { get: () => undefined },
   } as unknown as import('next/server').NextRequest
 }
 
-// ─── tests ───────────────────────────────────────────────────────────────────
-
 describe('POST /api/stripe/connect/create-payment-intent', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     ;(getCurrentUser as ReturnType<typeof vi.fn>).mockResolvedValue(USER)
-    mockReservePendingBookings.mockResolvedValue(['101'])
+    mockGetActiveCheckoutHold.mockResolvedValue({
+      id: HOLD_ID,
+      quantity: 1,
+      expiresAt: new Date().toISOString(),
+    })
+    mockComputeRemainingCapacityWithHolds.mockResolvedValue(10)
     mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
       if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
       if (collection === 'tenants') return Promise.resolve(makeTenant())
@@ -144,37 +127,41 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    // NODE_ENV=test so the route returns a test client secret
     expect(typeof body.clientSecret).toBe('string')
     expect(body.clientSecret).toMatch(/^pi_/)
   })
 
-  it('calls reservePendingBookings with trustedServerReservation: true', async () => {
+  it('uses holdId from metadata when provided', async () => {
     await POST(makeRequest())
 
-    expect(mockReservePendingBookings).toHaveBeenCalledOnce()
-    expect(mockReservePendingBookings.mock.calls[0][1]).toMatchObject({
-      trustedServerReservation: true,
+    expect(mockGetActiveCheckoutHold).not.toHaveBeenCalled()
+  })
+
+  it('falls back to getActiveCheckoutHold when holdId is not in metadata', async () => {
+    await POST(
+      makeRequest({
+        metadata: { timeslotId: String(TIMESLOT_ID) },
+      }),
+    )
+
+    expect(mockGetActiveCheckoutHold).toHaveBeenCalledWith(mockPayload, {
+      timeslotId: TIMESLOT_ID,
+      userId: USER.id,
     })
   })
 
-  it('does NOT return the Forbidden 400 that was the original production bug', async () => {
-    // The original bug: reservePendingBookings threw Payload's Forbidden error because
-    // payload.find ran with overrideAccess: false and the bookings read access
-    // (tenantScopedPublicReadStrict) returned false for the Local API internal request.
-    // The route caught it and returned 400 {"error":"You are not allowed to perform this action."}.
-    mockReservePendingBookings.mockRejectedValueOnce(
-      new Error('You are not allowed to perform this action.'),
-    )
+  it('returns 400 when no active hold exists', async () => {
+    mockGetActiveCheckoutHold.mockResolvedValue(null)
 
-    const res = await POST(makeRequest())
+    const res = await POST(
+      makeRequest({
+        metadata: { timeslotId: String(TIMESLOT_ID) },
+      }),
+    )
     const body = await res.json()
 
-    // With the fix deployed this path is never reached (trustedServerReservation: true
-    // means overrideAccess: true, so Payload never throws Forbidden).
-    // If it IS somehow reached the route must return 400, not 200 — document the contract.
     expect(res.status).toBe(400)
-    expect(body.error).toBe('You are not allowed to perform this action.')
+    expect(body.error).toMatch(/hold required/i)
   })
 
   it('returns 401 when the user is not authenticated', async () => {
@@ -193,45 +180,12 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
   })
 
   it('returns 400 when the timeslot is at capacity', async () => {
-    mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
-      if (collection === 'timeslots') return Promise.resolve(makeTimeslot({ remainingCapacity: 0 }))
-      if (collection === 'tenants') return Promise.resolve(makeTenant())
-      return Promise.resolve(null)
-    })
+    mockComputeRemainingCapacityWithHolds.mockResolvedValue(0)
 
     const res = await POST(makeRequest())
     const body = await res.json()
 
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/fully booked/i)
-  })
-
-  it('manage page: uses validated bookingIds and skips reservePendingBookings', async () => {
-    mockValidateBookingIdsFromMetadata.mockResolvedValueOnce(['2608'])
-
-    const res = await POST(
-      makeRequest({
-        metadata: {
-          bookingIds: '2608',
-          timeslotId: String(TIMESLOT_ID),
-        },
-      }),
-    )
-    const body = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(mockValidateBookingIdsFromMetadata).toHaveBeenCalledWith(
-      mockPayload,
-      expect.objectContaining({
-        bookingIds: '2608',
-        timeslotId: String(TIMESLOT_ID),
-      }),
-      expect.objectContaining({
-        timeslotId: TIMESLOT_ID,
-        userId: USER.id,
-      }),
-    )
-    expect(mockReservePendingBookings).not.toHaveBeenCalled()
-    expect(typeof body.clientSecret).toBe('string')
   })
 })

@@ -27,6 +27,14 @@ import {
   type TimeslotLike,
   type ClassPassLike,
 } from "@repo/shared-services";
+import {
+  upsertCheckoutHold as upsertCheckoutHoldService,
+  adjustCheckoutHoldQuantity as adjustCheckoutHoldQuantityService,
+  releaseCheckoutHold as releaseCheckoutHoldService,
+  extendCheckoutHold as extendCheckoutHoldService,
+  getActiveCheckoutHold as getActiveCheckoutHoldService,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from "@repo/bookings-payments";
 
 export const bookingsRouter = {
   /**
@@ -43,7 +51,7 @@ export const bookingsRouter = {
   bookSingleSlotTimeslotOrRedirect: protectedProcedure
     .use(requireBookingCollections("timeslots", "bookings", "eventTypes"))
     .use(requireCollections("subscriptions"))
-    .use(requireCollections("class-passes"))
+    .use(requireBookingCollections("classPasses"))
     .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { timeslotId } = input;
@@ -199,7 +207,7 @@ export const bookingsRouter = {
 
       if (allowedClassPassTypeIds.length > 0 && timeslotTenantId != null) {
         const now = new Date().toISOString();
-        const passResult = await findSafe(ctx.payload, "class-passes", {
+        const passResult = await findSafe(ctx.payload, ctx.bookingsSlugs.classPasses, {
           where: {
             and: [
               { user: { equals: ctx.user.id } },
@@ -239,7 +247,7 @@ export const bookingsRouter = {
           const nextQty = Math.max(0, currentQty - 1);
           const nextStatus = nextQty === 0 ? "used" : ((usablePass as any).status ?? "active");
           await ctx.payload.update({
-            collection: "class-passes" as import("payload").CollectionSlug,
+            collection: ctx.bookingsSlugs.classPasses as import("payload").CollectionSlug,
             id: passId,
             data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
             overrideAccess: true,
@@ -651,7 +659,7 @@ export const bookingsRouter = {
             message: "Booking with class pass must be confirmed.",
           });
         }
-        if (!hasCollection(ctx.payload, "class-passes")) {
+        if (!hasCollection(ctx.payload, ctx.bookingsSlugs.classPasses)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Class passes are not available in this application.",
@@ -679,7 +687,7 @@ export const bookingsRouter = {
         }
         const passResult = await findSafe(
           ctx.payload,
-          "class-passes",
+          ctx.bookingsSlugs.classPasses,
           {
             where: {
               id: { equals: classPassId },
@@ -713,10 +721,10 @@ export const bookingsRouter = {
             ? (passDoc.type as { id: number }).id
             : passDoc.type;
         let passType: { maxBookingsPerTimeslot?: number | null } | null = null;
-        if (passTypeId != null && hasCollection(ctx.payload, "class-pass-types")) {
+        if (passTypeId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.classPassTypes)) {
           const typeDoc = await findByIdSafe(
             ctx.payload,
-            "class-pass-types",
+            ctx.bookingsSlugs.classPassTypes,
             passTypeId,
             { depth: 0, overrideAccess: true }
           );
@@ -791,7 +799,7 @@ export const bookingsRouter = {
       const decrementClassPassCredits = async (count: number) => {
         if (classPassIdUsed == null || count <= 0) return;
         const pass = (await ctx.payload.findByID({
-          collection: "class-passes" as import("payload").CollectionSlug,
+          collection: ctx.bookingsSlugs.classPasses as import("payload").CollectionSlug,
           id: classPassIdUsed,
           depth: 0,
           // System operation: class pass decrement is enforced by earlier ownership checks,
@@ -803,7 +811,7 @@ export const bookingsRouter = {
         const nextQty = Math.max(0, pass.quantity - count);
         const nextStatus = nextQty === 0 ? "used" : (pass.status ?? "active");
         await ctx.payload.update({
-          collection: "class-passes" as import("payload").CollectionSlug,
+          collection: ctx.bookingsSlugs.classPasses as import("payload").CollectionSlug,
           id: classPassIdUsed,
           data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
           overrideAccess: true,
@@ -1023,7 +1031,7 @@ export const bookingsRouter = {
   getValidClassPassesForTimeslot: protectedProcedure
     .input(z.object({ timeslotId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, "class-passes")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, ctx.bookingsSlugs.classPasses)) {
         return [];
       }
 
@@ -1039,7 +1047,7 @@ export const bookingsRouter = {
       if (!timeslot) {
         return [];
       }
-      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
+      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes, ctx.bookingsSlugs.classPassTypes);
       const eventType =
         typeof timeslot.eventType === "object" ? timeslot.eventType : null;
       const eventTypeWithPasses = eventType as (typeof eventType) & {
@@ -1064,7 +1072,7 @@ export const bookingsRouter = {
       // Same `withTenantAccess` / empty session tenants issue as getPurchasableClassPassTypesForTimeslot.
       const result = await findSafe(
         ctx.payload,
-        "class-passes",
+        ctx.bookingsSlugs.classPasses,
         {
           where: {
             user: { equals: ctx.user.id },
@@ -1091,7 +1099,7 @@ export const bookingsRouter = {
   getPurchasableClassPassTypesForTimeslot: protectedProcedure
     .input(z.object({ timeslotId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, "class-pass-types")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, ctx.bookingsSlugs.classPassTypes)) {
         return [];
       }
 
@@ -1109,7 +1117,7 @@ export const bookingsRouter = {
         return [];
       }
 
-      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
+      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes, ctx.bookingsSlugs.classPassTypes);
       const eventType =
         typeof timeslot.eventType === "object" ? timeslot.eventType : null;
       const eventTypeWithPasses = eventType as (typeof eventType) & {
@@ -1158,7 +1166,7 @@ export const bookingsRouter = {
       // `withTenantAccess` on class-pass-types adds tenant { in: sessionUser.tenants }.
       // Better Auth sessions often omit populated tenants, yielding `in: []` and a 403 from Payload.
       // Allowed IDs and tenant come from the timeslot's event type; scope is enforced in `where` below.
-      const accessible = await findSafe(ctx.payload, "class-pass-types", {
+      const accessible = await findSafe(ctx.payload, ctx.bookingsSlugs.classPassTypes, {
         where: {
           id: { in: allowedTypeIds },
           status: { equals: "active" },
@@ -1175,7 +1183,7 @@ export const bookingsRouter = {
           const typeId = typeof doc?.id === "number" ? doc.id : null;
           if (typeId == null) return null;
 
-          const fullDoc = await findByIdSafe(ctx.payload, "class-pass-types", typeId, {
+          const fullDoc = await findByIdSafe(ctx.payload, ctx.bookingsSlugs.classPassTypes, typeId, {
             depth: 0,
             overrideAccess: true,
           });
@@ -2418,5 +2426,141 @@ export const bookingsRouter = {
 
       // Should never reach here, but return empty array as fallback
       return [];
+    }),
+
+  upsertCheckoutHold: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(
+      z.object({
+        timeslotId: z.number(),
+        quantity: z.number().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const timeslot = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        { depth: 0, overrideAccess: true, user: ctx.user },
+      );
+      if (!timeslot) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Timeslot not found" });
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = deriveTenantIdFromTimeslot(timeslot);
+      }
+      if (tenantId != null) {
+        assertTimeslotBelongsToTenant(timeslot, tenantId, input.timeslotId);
+      } else {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tenant context not found for timeslot" });
+      }
+
+      try {
+        return await upsertCheckoutHoldService(ctx.payload, {
+          timeslotId: input.timeslotId,
+          userId: Number(ctx.user.id),
+          tenantId,
+          quantity: input.quantity,
+          timeslotsSlug: ctx.bookingsSlugs.timeslots as import("payload").CollectionSlug,
+          eventTypesSlug: ctx.bookingsSlugs.eventTypes as import("payload").CollectionSlug,
+          bookingsSlug: ctx.bookingsSlugs.bookings as import("payload").CollectionSlug,
+        });
+      } catch (e) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: e instanceof Error ? e.message : "Failed to reserve checkout hold",
+        });
+      }
+    }),
+
+  adjustCheckoutHoldQuantity: protectedProcedure
+    .use(requireBookingCollections("timeslots"))
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(
+      z.object({
+        timeslotId: z.number(),
+        quantity: z.number().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const timeslot = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        { depth: 0, overrideAccess: true, user: ctx.user },
+      );
+      if (!timeslot) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Timeslot not found" });
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) tenantId = deriveTenantIdFromTimeslot(timeslot);
+      if (tenantId == null) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Tenant context not found for timeslot" });
+      }
+
+      try {
+        return await adjustCheckoutHoldQuantityService(ctx.payload, {
+          timeslotId: input.timeslotId,
+          userId: Number(ctx.user.id),
+          tenantId,
+          quantity: input.quantity,
+          timeslotsSlug: ctx.bookingsSlugs.timeslots as import("payload").CollectionSlug,
+          eventTypesSlug: ctx.bookingsSlugs.eventTypes as import("payload").CollectionSlug,
+          bookingsSlug: ctx.bookingsSlugs.bookings as import("payload").CollectionSlug,
+        });
+      } catch (e) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: e instanceof Error ? e.message : "Failed to adjust checkout hold",
+        });
+      }
+    }),
+
+  releaseCheckoutHold: protectedProcedure
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(z.object({ timeslotId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      return releaseCheckoutHoldService(ctx.payload, {
+        timeslotId: input.timeslotId,
+        userId: Number(ctx.user.id),
+      });
+    }),
+
+  extendCheckoutHold: protectedProcedure
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(z.object({ timeslotId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        return await extendCheckoutHoldService(ctx.payload, {
+          timeslotId: input.timeslotId,
+          userId: Number(ctx.user.id),
+        });
+      } catch (e) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: e instanceof Error ? e.message : "Failed to extend checkout hold",
+        });
+      }
+    }),
+
+  getActiveCheckoutHold: protectedProcedure
+    .use(requireCollections(CHECKOUT_HOLD_COLLECTION_SLUG))
+    .input(z.object({ timeslotId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const hold = await getActiveCheckoutHoldService(ctx.payload, {
+        timeslotId: input.timeslotId,
+        userId: Number(ctx.user.id),
+      });
+      if (!hold) return null;
+      return {
+        id: hold.id,
+        quantity: hold.quantity,
+        expiresAt: hold.expiresAt,
+        status: hold.status,
+      };
     }),
 } satisfies TRPCRouterRecord;

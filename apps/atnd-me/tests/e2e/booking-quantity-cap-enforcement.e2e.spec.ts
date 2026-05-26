@@ -15,7 +15,7 @@
  *  1. Booking page: + button disabled at numeric class-pass maxBookingsPerTimeslot
  *  2. Booking page: + button disabled at timeslot remaining capacity (< method max)
  *  3. Manage page (quantity view): + disabled at numeric per-method cap
- *  4. Manage page (checkout view): + disabled once pending count reaches remaining capacity
+ *  4. Manage page (checkout view): + disabled once hold quantity reaches remaining capacity
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUser } from './helpers/auth-helpers'
@@ -26,6 +26,7 @@ import {
   createTestTimeslot,
   getPayloadInstance,
 } from './helpers/data-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 // ─── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ async function openManagePage(args: {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 test.describe('Booking quantity cap enforcement', () => {
-  test.describe.configure({ timeout: 120_000 })
+  test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
   /**
    * Booking page: the top-level quantity selector is capped at the numeric
@@ -480,14 +481,14 @@ test.describe('Booking quantity cap enforcement', () => {
   })
 
   /**
-   * Manage page (checkout view): the + button is disabled once the pending count
+   * Manage page (checkout view): the + button is disabled once the checkout hold quantity
    * reaches the timeslot's remaining capacity (as captured at checkout entry).
    *
    * Specifically: adjustable drop-in, timeslot capacity=2, user has 1 confirmed booking
-   * (remaining capacity = 1).  After entering checkout the pending count is 1 and
+   * (remaining capacity = 1).  After entering checkout the hold quantity is 1 and
    * checkoutMaxRef = 1, so the + button must be immediately disabled.
    */
-  test('manage page (checkout): + button disabled when pending bookings reach remaining capacity', async ({
+  test('manage page (checkout): + button disabled when hold quantity reaches remaining capacity', async ({
     page,
     testData,
   }) => {
@@ -567,7 +568,7 @@ test.describe('Booking quantity cap enforcement', () => {
     const bookingQty = page.getByTestId('booking-quantity')
     await expect(bookingQty).toHaveText('1', { timeout: 10000 })
 
-    // Increase to 2 and update — should enter checkout with 1 pending booking.
+    // Increase to 2 and update — should enter checkout with hold quantity 1.
     const increaseBtn = page.getByRole('button', { name: /increase quantity/i })
     await expect(increaseBtn).toBeEnabled({ timeout: 10000 })
     await increaseBtn.click()
@@ -994,7 +995,7 @@ test.describe('Booking quantity cap enforcement', () => {
    * - At checkout entry: pendingQty = 1 (they increased desired total from 1 → 2)
    * - Therefore checkout "+" must be disabled immediately (max additional pending = 1)
    */
-  test.skip('manage page (checkout): + button disabled when pending reaches method cap (confirmed-aware)', async ({
+  test.skip('manage page (checkout): + button disabled when hold reaches method cap (confirmed-aware)', async ({
     page,
     testData,
   }) => {
@@ -1077,8 +1078,7 @@ test.describe('Booking quantity cap enforcement', () => {
       true
     )
 
-    // User already holds 1 confirmed booking and 1 pending booking.
-    // This puts the manage page directly into checkout state on load.
+    // TODO(holds): seed active checkout hold via API instead of pending booking row.
     await createTestBooking(user.id, timeslot.id, 'confirmed')
     await createTestBooking(user.id, timeslot.id, 'pending')
 

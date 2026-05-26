@@ -7,7 +7,9 @@ export function ToggleDate(props: ToggleDateProps) {
   const { date, setDate } = props;
 
   const handleChange = (amount: number) => {
-    setDate(new Date(date.setDate(date.getDate() + amount)));
+    const next = new Date(date);
+    next.setDate(next.getDate() + amount);
+    setDate(next);
   };
 
   return (

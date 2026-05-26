@@ -162,10 +162,14 @@ interface ManageBookingPageClientProps {
    */
   PaymentMethodsComponent?: React.ComponentType<{
     timeslot: Timeslot
+    quantity?: number
     pendingBookings?: Booking[]
     onPaymentSuccess?: () => void
     /** Called when user starts a payment redirect; suppresses pending-cancel on unmount. */
     onPaymentRedirectStart?: () => void
+    onReserveCheckoutHold?: (
+      metadata: Record<string, string>
+    ) => Promise<Record<string, string> | void>
     successUrl?: string
   }>
   /**
@@ -173,6 +177,9 @@ interface ManageBookingPageClientProps {
    * Falls back to tRPC mutation on unmount if not provided.
    */
   cancelPendingApiUrl?: string
+  releaseHoldApiUrl?: string
+  useCheckoutHolds?: boolean
+  initialCheckoutHold?: { id: number; quantity: number; expiresAt: string } | null
   /** Redirect URL after successful payment. Defaults to /dashboard. */
   successUrl?: string
 }
@@ -184,6 +191,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   initialBookings,
   PaymentMethodsComponent,
   cancelPendingApiUrl,
+  releaseHoldApiUrl = '/api/bookings/release-hold',
+  useCheckoutHolds = false,
+  initialCheckoutHold = null,
   successUrl = '/dashboard',
 }) => {
   const trpc = useTRPC()
@@ -241,19 +251,34 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // updates remainingCapacity in response to pending booking creation.
 
   const initialPending = useMemo(
-    () => byStatus(initialBookings ?? [], 'pending'),
-    []
+    () => (useCheckoutHolds ? [] : byStatus(initialBookings ?? [], 'pending')),
+    [useCheckoutHolds, initialBookings],
   )
 
+  const [checkoutHold, setCheckoutHold] = useState<{
+    id: number
+    quantity: number
+    expiresAt: string
+  } | null>(initialCheckoutHold)
+
   const [isInCheckout, setIsInCheckout] = useState(
-    () => initialPending.length > 0 && PaymentMethodsComponent != null
+    () =>
+      (useCheckoutHolds
+        ? initialCheckoutHold != null
+        : initialPending.length > 0) && PaymentMethodsComponent != null,
   )
   const [pendingBookings, setPendingBookings] = useState<Booking[]>(initialPending)
   const [pendingMutationError, setPendingMutationError] = useState<string | null>(null)
 
   // Frozen when checkout begins; never changes mid-session.
   // Seed it on first render (including SSR cases where the page loads already in checkout).
-  const capacityPending = Math.max(0, timeslot.remainingCapacity)
+  //
+  // When the SSR page fetches the timeslot *before* resolving the active checkout hold, the
+  // timeslot's `remainingCapacity` already has the user's own hold subtracted.  Adding it back
+  // here ensures every capacity calculation in this component treats the user's own hold as
+  // transparent — i.e. the user is not penalised for their own in-progress reservation.
+  const ownInitialHoldQty = useCheckoutHolds ? (initialCheckoutHold?.quantity ?? 0) : 0
+  const capacityPending = Math.max(0, timeslot.remainingCapacity + ownInitialHoldQty)
   const alreadyHeld = activeBookings.length
   const checkoutMaxRef = useRef(computeCheckoutMax(capacityPending, viewerMaxPerTimeslot, alreadyHeld))
 
@@ -280,12 +305,30 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     trpc.bookings.cancelPendingBookingsForTimeslot.mutationOptions()
   )
 
+  const { mutateAsync: releaseCheckoutHold } = useMutation(
+    trpc.bookings.releaseCheckoutHold.mutationOptions()
+  )
+
+  const { mutateAsync: upsertCheckoutHold, isPending: isUpsertingHold } = useMutation(
+    trpc.bookings.upsertCheckoutHold.mutationOptions()
+  )
+
+  const { mutateAsync: adjustCheckoutHoldQuantityMutation, isPending: isAdjustingHold } = useMutation(
+    trpc.bookings.adjustCheckoutHoldQuantity.mutationOptions()
+  )
+
+  const { mutateAsync: extendCheckoutHoldMutation } = useMutation(
+    trpc.bookings.extendCheckoutHold.mutationOptions()
+  )
+
   useEffect(() => {
     const timeslotId = timeslot.id
 
-    const cancelViaApi = () => {
-      if (paymentRedirectInProgressRef.current || !cancelPendingApiUrl) return
-      fetch(cancelPendingApiUrl, {
+    const releaseViaApi = () => {
+      if (paymentRedirectInProgressRef.current) return
+      const url = useCheckoutHolds ? releaseHoldApiUrl : cancelPendingApiUrl
+      if (!url) return
+      fetch(url, {
         method: 'POST',
         body: JSON.stringify({ timeslotId }),
         headers: { 'Content-Type': 'application/json' },
@@ -294,25 +337,34 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       }).catch(() => {})
     }
 
-    const handleBeforeUnload = () => cancelViaApi()
+    const handleBeforeUnload = () => releaseViaApi()
     window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
       if (paymentRedirectInProgressRef.current) return
-      cancelPendingForTimeslot({ timeslotId }).catch(() => {})
-      // Fire a couple of extra cancels to catch pending bookings that might
-      // finish creating just after unmount.
-      window.setTimeout(() => {
-        if (!paymentRedirectInProgressRef.current)
-          cancelPendingForTimeslot({ timeslotId }).catch(() => {})
-      }, 500)
-      window.setTimeout(() => {
-        if (!paymentRedirectInProgressRef.current)
-          cancelPendingForTimeslot({ timeslotId }).catch(() => {})
-      }, 1500)
+      if (useCheckoutHolds) {
+        releaseCheckoutHold({ timeslotId }).catch(() => {})
+      } else {
+        cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+        window.setTimeout(() => {
+          if (!paymentRedirectInProgressRef.current)
+            cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+        }, 500)
+        window.setTimeout(() => {
+          if (!paymentRedirectInProgressRef.current)
+            cancelPendingForTimeslot({ timeslotId }).catch(() => {})
+        }, 1500)
+      }
     }
-  }, [timeslot.id, cancelPendingForTimeslot, cancelPendingApiUrl])
+  }, [
+    timeslot.id,
+    cancelPendingForTimeslot,
+    releaseCheckoutHold,
+    cancelPendingApiUrl,
+    releaseHoldApiUrl,
+    useCheckoutHolds,
+  ])
 
   // ── Shared query invalidation ──────────────────────────────────────────────
 
@@ -380,7 +432,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       //  1) timeslot remaining capacity (hard limit)
       //  2) per-user/payment-method maxBookingsPerTimeslot cap (viewerMaxPerTimeslot),
       //     adjusted by already-confirmed bookings.
-      const capacityPending = Math.max(0, timeslot.remainingCapacity)
+      const capacityPending = Math.max(0, timeslot.remainingCapacity + ownInitialHoldQty)
       if (typeof checkoutMaxOverride === 'number') {
         checkoutMaxRef.current = checkoutMaxOverride
       } else {
@@ -397,6 +449,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const exitCheckout = useCallback(() => {
     setIsInCheckout(false)
     setPendingBookings([])
+    setCheckoutHold(null)
     setPendingMutationError(null)
   }, [])
 
@@ -409,17 +462,23 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const handleCancelCheckout = useCallback(async () => {
     setIsAbandoningCheckout(true)
     try {
-      await cancelPendingForTimeslot({ timeslotId: timeslot.id })
+      if (useCheckoutHolds) {
+        await releaseCheckoutHold({ timeslotId: timeslot.id })
+      } else {
+        await cancelPendingForTimeslot({ timeslotId: timeslot.id })
+      }
       exitCheckout()
       setDesiredQuantity(confirmedBookings.length)
       await queryClient.invalidateQueries({ queryKey: userBookingsQueryKey })
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to cancel pending bookings'
+      const msg = err instanceof Error ? err.message : 'Failed to cancel checkout'
       toast.error(msg)
     } finally {
       setIsAbandoningCheckout(false)
     }
   }, [
+    useCheckoutHolds,
+    releaseCheckoutHold,
     cancelPendingForTimeslot,
     timeslot.id,
     exitCheckout,
@@ -463,24 +522,35 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     // ── Increase with payment required → enter checkout ──────────────────
     if (target > current && canIncreaseQuantity && PaymentMethodsComponent) {
       try {
-        // Compute the checkout "+" cap BEFORE creating pending bookings.
-        // This keeps the checkout freeze value aligned with the quantity
-        // selector's enforced per-user cap, even if the client/server data
-        // hydration timing changes during the async mutation.
-        const capacityPending = Math.max(0, timeslot.remainingCapacity)
+        const capacityPending = Math.max(0, timeslot.remainingCapacity + ownInitialHoldQty)
         const checkoutMaxOverride = computeCheckoutMax(
           capacityPending,
           viewerMaxPerTimeslot,
           activeBookings.length
         )
 
-        const pending = await createBookings({
-          timeslotId: timeslot.id,
-          quantity: target - current,
-          status: 'pending',
-        })
-        enterCheckout(pending, checkoutMaxOverride)
-        toast.info('Please complete payment to confirm your additional bookings.')
+        if (useCheckoutHolds) {
+          const delta = target - current
+          const hold = await upsertCheckoutHold({
+            timeslotId: timeslot.id,
+            quantity: delta,
+          })
+          setCheckoutHold({
+            id: hold.holdId,
+            quantity: hold.quantity,
+            expiresAt: hold.expiresAt,
+          })
+          enterCheckout([], checkoutMaxOverride)
+          toast.info('Please complete payment to confirm your additional bookings.')
+        } else {
+          const pending = await createBookings({
+            timeslotId: timeslot.id,
+            quantity: target - current,
+            status: 'pending',
+          })
+          enterCheckout(pending, checkoutMaxOverride)
+          toast.info('Please complete payment to confirm your additional bookings.')
+        }
       } catch {
         // Error toast handled by mutation onError
       }
@@ -537,13 +607,38 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
    */
   const handlePendingQuantityChange = async (requestedQty: number) => {
     setPendingMutationError(null)
-    const current = pendingBookings.length
+    const current = useCheckoutHolds ? (checkoutHold?.quantity ?? 0) : pendingBookings.length
     const target = Math.min(Math.max(requestedQty, 0), checkoutMaxRef.current)
     if (target === current) return
 
     // Dropping to 0 = abandon checkout
     if (target === 0) {
       await handleCancelCheckout()
+      return
+    }
+
+    if (useCheckoutHolds) {
+      try {
+        const updated = await adjustCheckoutHoldQuantityMutation({
+          timeslotId: timeslot.id,
+          quantity: target,
+        })
+        setCheckoutHold({
+          id: updated.holdId,
+          quantity: updated.quantity,
+          expiresAt: updated.expiresAt,
+        })
+        if (target > current) {
+          const added = target - current
+          toast.success(`Added ${added} booking${added !== 1 ? 's' : ''}. Complete payment below.`)
+        } else {
+          toast.success(`Reduced to ${target} new booking${target !== 1 ? 's' : ''} to pay for.`)
+        }
+      } catch (err: unknown) {
+        setPendingMutationError(
+          err instanceof Error ? err.message : 'Failed to update checkout hold'
+        )
+      }
       return
     }
 
@@ -602,10 +697,14 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   // ── Checkout view ─────────────────────────────────────────────────────────
 
-  const isUpdatingPending = isCreating || isCancelling || isAbandoningCheckout || isCancellingNewest
+  const isUpdatingPending = isCreating || isCancelling || isAbandoningCheckout || isCancellingNewest || isAdjustingHold
 
-  if (isInCheckout && PaymentMethodsComponent && pendingBookings.length > 0) {
-    const pendingQty = pendingBookings.length
+  if (
+    isInCheckout &&
+    PaymentMethodsComponent &&
+    (useCheckoutHolds ? checkoutHold != null : pendingBookings.length > 0)
+  ) {
+    const pendingQty = useCheckoutHolds ? (checkoutHold?.quantity ?? 0) : pendingBookings.length
     const maxPending = checkoutMaxRef.current
 
     return (
@@ -682,18 +781,28 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
           <CardHeader>
             <CardTitle>Complete Payment</CardTitle>
             <CardDescription>
-              You have {pendingQty} pending booking{pendingQty !== 1 ? 's' : ''} for this timeslot.
-              Please complete payment to confirm.
+              {useCheckoutHolds
+                ? `You're paying for ${pendingQty} additional booking${pendingQty !== 1 ? 's' : ''}. Your spot${pendingQty !== 1 ? 's are' : ' is'} reserved while you checkout.`
+                : `You have ${pendingQty} pending booking${pendingQty !== 1 ? 's' : ''} for this timeslot. Please complete payment to confirm.`}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <PaymentMethodsComponent
               timeslot={timeslot}
-              pendingBookings={pendingBookings}
+              pendingBookings={useCheckoutHolds ? [] : pendingBookings}
+              quantity={pendingQty}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentRedirectStart={() => {
                 paymentRedirectInProgressRef.current = true
+                if (useCheckoutHolds) {
+                  extendCheckoutHoldMutation({ timeslotId: timeslot.id }).catch(() => {})
+                }
               }}
+              onReserveCheckoutHold={
+                useCheckoutHolds && checkoutHold
+                  ? async () => ({ holdId: String(checkoutHold.id) })
+                  : undefined
+              }
               successUrl={successUrl}
             />
           </CardContent>
@@ -742,7 +851,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   // ── Quantity selector view ─────────────────────────────────────────────────
 
-  const maxTotalQuantityBase = activeBookings.length + timeslot.remainingCapacity
+  const maxTotalQuantityBase = activeBookings.length + timeslot.remainingCapacity + ownInitialHoldQty
   const maxTotalQuantity =
     viewerMaxPerTimeslot === Infinity
       ? maxTotalQuantityBase
@@ -777,7 +886,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                 type="button"
                 size="icon"
                 variant="outline"
-                disabled={desiredQuantity <= 0 || isCreating || isCancelling}
+                disabled={desiredQuantity <= 0 || isCreating || isCancelling || isUpsertingHold || isSettingQuantity}
                 onClick={() => setDesiredQuantity((q) => Math.max(0, q - 1))}
                 aria-label="Decrease quantity"
               >
@@ -794,7 +903,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                   type="button"
                   size="icon"
                   variant="outline"
-                  disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling}
+                  disabled={desiredQuantity >= maxTotalQuantity || isCreating || isCancelling || isUpsertingHold || isSettingQuantity}
                   onClick={() => setDesiredQuantity((q) => Math.min(maxTotalQuantity, q + 1))}
                   aria-label="Increase quantity"
                 >
@@ -810,11 +919,12 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               isCreating ||
               isCancelling ||
               isSettingQuantity ||
+              isUpsertingHold ||
               desiredQuantity === activeBookings.length
             }
             onClick={() => void handleUpdateQuantity()}
           >
-            {isCreating || isCancelling || isSettingQuantity ? (
+            {isCreating || isCancelling || isSettingQuantity || isUpsertingHold ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Updating Bookings...

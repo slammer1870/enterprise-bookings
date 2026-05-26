@@ -25,6 +25,27 @@ test.describe('Drop-in multi-quantity discount', () => {
       throw new Error('Tenant ID or slug is missing from test data')
     }
 
+    const platformFees = (await payload.findGlobal({
+      slug: 'platform-fees',
+      depth: 0,
+      overrideAccess: true,
+    })) as { defaults?: object; overrides?: Array<{ tenant: number; dropInPercent?: number }> } | null
+    const overrides = platformFees?.overrides ?? []
+    const existingIdx = overrides.findIndex((o: { tenant: number }) => o.tenant === tenantId)
+    const newOverrides =
+      existingIdx >= 0
+        ? overrides.map((o, i) => (i === existingIdx ? { ...o, dropInPercent: 2 } : o))
+        : [...overrides, { tenant: tenantId, dropInPercent: 2 }]
+    await payload.updateGlobal({
+      slug: 'platform-fees',
+      data: {
+        defaults: platformFees?.defaults ?? { dropInPercent: 2, classPassPercent: 3, subscriptionPercent: 4 },
+        overrides: newOverrides,
+      },
+      depth: 0,
+      overrideAccess: true,
+    } as Parameters<typeof payload.updateGlobal>[0])
+
     // Ensure tenant is connected (some flows gate payments UI behind connect status).
     await payload.update({
       collection: 'tenants',
@@ -138,11 +159,9 @@ test.describe('Drop-in multi-quantity discount', () => {
 
     await page.getByRole('tab', { name: /drop-?in/i }).click()
 
-    // Baseline: quantity 1 shows class price €10.00 and total €11.00 in the price breakdown.
-    await expect(page.getByText(/^Total$/i)).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('€10.00').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('booking-fee-breakdown')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('class-price')).toHaveText('€10.00', { timeout: 15_000 })
 
-    // Wait for the *discounted* payment intent request when quantity becomes 2 (price should be 18.00).
     const discountedRequestPromise = page.waitForRequest(
       (req) => {
         if (!req.url().includes('create-payment-intent')) return false
@@ -154,24 +173,22 @@ test.describe('Drop-in multi-quantity discount', () => {
           return false
         }
       },
-      { timeout: 30_000 }
+      { timeout: 30_000 },
     )
 
-    // Increase quantity to 2 (should trigger discount tier and a new payment intent creation)
-    const inc = page.getByRole('button', { name: 'Increase quantity' })
+    const inc = page.getByRole('button', { name: /increase quantity/i })
     await inc.scrollIntoViewIfNeeded()
     await expect(inc).toBeVisible({ timeout: 10_000 })
     await expect(inc).toBeEnabled({ timeout: 10_000 })
     await Promise.all([discountedRequestPromise, inc.click()])
 
-    // UI shows original total struck-through and discounted total visible (multiple nodes can show same amount)
-    await expect(page.getByText('€20.00').first()).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('€18.00').first()).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('class-price')).toHaveText('€18.00', { timeout: 15_000 })
+    await expect(page.getByTestId('total')).toHaveText('€18.36', { timeout: 15_000 })
 
-    // Verify the discounted amount is what is posted to the payment intent endpoint
     const req = await discountedRequestPromise
-    const body = req.postDataJSON() as { price?: unknown }
+    const body = req.postDataJSON() as { price?: unknown; metadata?: { holdId?: string } }
     expect(body.price).toBe(18)
+    expect(body.metadata?.holdId).toBeTruthy()
   })
 })
 

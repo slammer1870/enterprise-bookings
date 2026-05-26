@@ -426,6 +426,50 @@ export async function createTestPlan(params: {
   })) as Plan
 }
 
+/**
+ * Create a drop-in product and configure it as the allowed drop-in on an event type.
+ * This makes `timeslotHasPaymentMethods` return true on the manage page, which is
+ * required for the auto-cancel-pending-and-create-checkout-hold flow to run.
+ *
+ * @param tenantId - Tenant ID
+ * @param eventTypeId - Event type ID to configure
+ * @param name - Optional drop-in name (defaults to a unique value)
+ * @returns The created drop-in document (with at least `id`)
+ */
+export async function createAndConfigureTestDropIn(
+  tenantId: string | number,
+  eventTypeId: string | number,
+  name?: string,
+): Promise<{ id: number }> {
+  const payload = await getPayloadInstance()
+  const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
+  const eventTypeIdNumber = typeof eventTypeId === 'string' ? Number(eventTypeId) : eventTypeId
+
+  const dropIn = (await payload.create({
+    collection: 'drop-ins',
+    data: {
+      name: name ?? `Test Drop-in ${tenantIdNumber}-${Date.now()}`,
+      isActive: true,
+      price: 10,
+      adjustable: false,
+      maxBookingsPerTimeslot: 2,
+      tenant: tenantIdNumber,
+    },
+    overrideAccess: true,
+  })) as { id: number }
+
+  await payload.update({
+    collection: 'event-types',
+    id: eventTypeIdNumber,
+    data: {
+      paymentMethods: { allowedDropIn: dropIn.id },
+    },
+    overrideAccess: true,
+  })
+
+  return dropIn
+}
+
 export async function setEventTypeAllowedPlans(
   classOptionId: string | number,
   planIds: Array<string | number>

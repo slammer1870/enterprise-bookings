@@ -108,7 +108,6 @@ describe('Class pass booking UI (Phase 4.6)', () => {
       collection: 'class-pass-types',
       data: {
         name: 'CP UI 5-Pack',
-        slug: `cp-ui-5pack-${Date.now()}`,
         quantity: 5,
         tenant: testTenantId,
         status: 'active',

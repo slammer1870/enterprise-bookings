@@ -5,6 +5,7 @@ import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@repo/trpc'
 import type { User, Timeslot, EventType, Tenant } from '@repo/shared-types'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { defaultTimeslotFields } from './timeslot-test-data'
 
 /**
  * Tests that authenticated users can see timeslots in the schedule on the homepage.
@@ -140,7 +141,6 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       collection: 'class-pass-types',
       data: {
         name: `Schedule Test Pass Type ${Date.now()}`,
-        slug: `schedule-test-pass-type-${Date.now()}`,
         tenant: testTenant.id,
         quantity: 10,
         allowMultipleBookingsPerTimeslot: true,
@@ -169,21 +169,16 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       overrideAccess: true,
     })) as EventType
 
-    // Create a lesson in the future (schedule endpoint hides ended timeslots)
-    const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
-    startTime.setSeconds(0, 0)
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
+    // Create a timeslot in the future (schedule endpoint hides ended timeslots)
+    const slotFields = defaultTimeslotFields(2)
 
     testTimeslot = (await payload.create({
       collection: 'timeslots',
       draft: false,
       data: {
-        date: startTime.toISOString(),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        ...slotFields,
         staffMember: instructorId,
         eventType: classOption.id,
-        active: true,
         tenant: testTenant.id,
       },
       overrideAccess: true,
@@ -193,10 +188,8 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       collection: 'timeslots',
       draft: false,
       data: {
-        date: startTime.toISOString(),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-          staffMember: instructorId,
+        ...slotFields,
+        staffMember: instructorId,
         eventType: classOption.id,
         active: false,
         tenant: testTenant.id,
@@ -206,20 +199,18 @@ describe('Schedule timeslots visibility for authenticated users', () => {
 
     // A lesson that started and ended earlier today. The schedule should still show it
     // because the rule is "no timeslots from yesterday or earlier", not "endTime >= now".
-    const endedStart = new Date()
-    endedStart.setHours(endedStart.getHours() - 2, 0, 0, 0)
-    const endedEnd = new Date()
-    endedEnd.setHours(endedEnd.getHours() - 1, 0, 0, 0)
+    const todayDate = new Date().toISOString().slice(0, 10)
 
     endedTodayTimeslot = (await payload.create({
       collection: 'timeslots',
       draft: false,
       data: {
-        date: endedStart.toISOString(),
-        startTime: endedStart.toISOString(),
-        endTime: endedEnd.toISOString(),
-        eventType: classOption.id,
+        date: todayDate,
+        startTime: '08:00',
+        endTime: '09:00',
+        lockOutTime: 0,
         active: true,
+        eventType: classOption.id,
         tenant: testTenant.id,
       },
       overrideAccess: true,
@@ -307,7 +298,7 @@ describe('Schedule timeslots visibility for authenticated users', () => {
 
       try {
         // Call getByDate using the lesson's calendar day (schedule endpoint hides past days/ended timeslots)
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
         
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
@@ -344,7 +335,7 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
         
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
@@ -394,7 +385,7 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
 
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
@@ -431,7 +422,7 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       } as any)
 
       try {
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
         
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
@@ -573,7 +564,7 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       try {
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
-          date: new Date(testTimeslot.startTime).toISOString(),
+          date: new Date(String(testTimeslot.date)).toISOString(),
         })
 
         const lessonIds = timeslots.map((l) => l.id)
@@ -648,18 +639,13 @@ describe('Schedule timeslots visibility for authenticated users', () => {
         overrideAccess: true,
       })) as EventType
 
-      const today = new Date()
-      today.setHours(14, 0, 0, 0)
-      const endTime = new Date(today)
-      endTime.setHours(15, 0, 0, 0)
+      const secondSlotFields = defaultTimeslotFields(0)
 
       const secondTimeslot = (await payload.create({
         collection: 'timeslots',
         draft: false,
         data: {
-          date: today.toISOString(),
-          startTime: today.toISOString(),
-          endTime: endTime.toISOString(),
+          ...secondSlotFields,
           eventType: secondEventType.id,
           active: true,
           tenant: secondTenant.id,
@@ -683,7 +669,7 @@ describe('Schedule timeslots visibility for authenticated users', () => {
         } as any)
 
         try {
-          const today = new Date(testTimeslot.startTime)
+          const today = new Date(String(testTimeslot.date))
           
           const caller = appRouter.createCaller(ctx)
           const timeslots = await caller.timeslots.getByDate({

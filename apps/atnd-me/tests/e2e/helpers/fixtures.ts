@@ -1,8 +1,9 @@
-import { test as base } from '@playwright/test'
+import { test as base, expect as baseExpect } from '@playwright/test'
 import type { WorkerInfo } from '@playwright/test'
 import {
   setupE2ETestData,
 } from './data-helpers'
+import { defaultExpectTimeoutMs } from './timeouts'
 
 /**
  * Worker-scoped test data fixture
@@ -30,4 +31,5 @@ export const test = base.extend<
   ],
 })
 
-export { expect } from '@playwright/test'
+/** Shorter default assertion timeout when PW_E2E_FAST=1. */
+export const expect = baseExpect.configure({ timeout: defaultExpectTimeoutMs })

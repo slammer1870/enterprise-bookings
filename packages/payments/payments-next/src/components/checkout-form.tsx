@@ -155,6 +155,7 @@ export default function CheckoutForm({
   metadata,
   createPaymentIntentUrl,
   onPaymentRedirectStart,
+  onReserveCheckoutHold,
   returnUrl,
 }: {
   price: number;
@@ -168,6 +169,13 @@ export default function CheckoutForm({
   createPaymentIntentUrl?: string;
   /** Called when user starts payment (before redirect to Stripe) so parent can avoid cancelling pending bookings */
   onPaymentRedirectStart?: () => void;
+  /**
+   * When checkout holds are enabled, reserve capacity before creating the payment intent.
+   * Return metadata to merge (e.g. { holdId: "123" }).
+   */
+  onReserveCheckoutHold?: (
+    _metadata: Record<string, string>
+  ) => Promise<Record<string, string> | void>;
   /** URL Stripe redirects to after payment. Defaults to /dashboard for backwards compatibility. */
   returnUrl?: string;
 }) {
@@ -220,7 +228,23 @@ export default function CheckoutForm({
     const createCheckoutSession = async () => {
       const requestId = ++paymentIntentRequestIdRef.current;
       try {
-        if (controller.signal.aborted) return
+        // Leading abort-aware delay: if a prop change (e.g. rapid quantity clicks) triggers
+        // React cleanup before this resolves, controller.abort() fires, rejects this promise,
+        // and onReserveCheckoutHold is never called for the stale render.
+        // This prevents concurrent hold upserts from exhausting the DB connection pool.
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 100);
+          controller.signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timer);
+              reject(new DOMException("Aborted", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+
+        if (controller.signal.aborted) return;
         setIsLoading(true);
         setError(null);
         setClientSecret(null);
@@ -230,8 +254,16 @@ export default function CheckoutForm({
         console.log("Creating payment intent with price:", price);
 
         const url = createPaymentIntentUrl ?? "/api/stripe/create-payment-intent";
-        // Payments endpoint is typically provided by the Payload bookings-payments plugin at:
-        // POST /stripe/create-payment-intent (served under Payload's /api/* catch-all).
+        let requestMetadata = stableMetadata ?? {};
+        if (onReserveCheckoutHold) {
+          const reserved = await onReserveCheckoutHold(requestMetadata);
+          if (controller.signal.aborted || paymentIntentRequestIdRef.current !== requestId) {
+            return;
+          }
+          if (reserved) {
+            requestMetadata = { ...requestMetadata, ...reserved };
+          }
+        }
         const response = await fetch(url, {
           method: "POST",
           headers: {
@@ -241,7 +273,7 @@ export default function CheckoutForm({
           signal: controller.signal,
           body: JSON.stringify({
             price,
-            metadata: stableMetadata,
+            metadata: requestMetadata,
           }),
         });
 
@@ -318,7 +350,7 @@ export default function CheckoutForm({
     return () => {
       controller.abort()
     }
-  }, [price, metadataKey, createPaymentIntentUrl]);
+  }, [price, metadataKey, createPaymentIntentUrl, onReserveCheckoutHold]);
 
   if (error) {
     return (

@@ -17,6 +17,8 @@ import {
   updateTenantStripeConnect,
 } from './helpers/data-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
+import { advanceScheduleToDate } from './helpers/schedule-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 function addDays(start: Date, days: number): Date {
   const next = new Date(start)
@@ -24,27 +26,8 @@ function addDays(start: Date, days: number): Date {
   return next
 }
 
-async function advanceScheduleToDate(page: Parameters<typeof test>[0]['page'], targetDate: Date) {
-  const dateLabel = page.locator('p.text-center.text-lg').first()
-  await expect(dateLabel).toBeVisible({ timeout: 15000 })
-
-  const toggle = dateLabel.locator('xpath=..')
-  const nextDayButton = toggle.locator('svg').nth(1)
-  const targetLabel = targetDate.toDateString()
-
-  for (let i = 0; i < 14; i += 1) {
-    const currentLabel = (await dateLabel.textContent())?.trim()
-    if (currentLabel === targetLabel) return
-
-    await nextDayButton.click()
-    await expect(dateLabel).toHaveText(targetLabel, { timeout: 10000 }).catch(() => null)
-  }
-
-  await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
-}
-
 test.describe('Single-slot membership: schedule Book → booking page', () => {
-  test.setTimeout(120_000)
+  test.setTimeout(e2eSlowTestTimeout())
 
   test('logged-in user without subscription is redirected to booking page (tRPC shortcut succeeds)', async ({
     page,

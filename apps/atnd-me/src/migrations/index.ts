@@ -111,9 +111,12 @@ import * as migration_20260614_scheduler_multi_location from './20260614_schedul
 import * as migration_20260614_schedule_block_default_location from './20260614_schedule_block_default_location';
 import * as migration_20260615_locations_default_for_schedule from './20260615_locations_default_for_schedule';
 import * as migration_20260618_000001_plans_footer_text from './20260618_000001_plans_footer_text';
+import * as migration_20260526_000001_class_pass_types_drop_slug from './20260526_000001_class_pass_types_drop_slug';
 import * as migration_20260622_000001_class_passes_drop_price from './20260622_000001_class_passes_drop_price';
 import * as migration_20260522_drop_drop_ins_payment_methods from './20260522_drop_drop_ins_payment_methods';
 import * as migration_20260523_tenants_booking_theme from './20260523_tenants_booking_theme';
+import * as migration_20260523_000002_booking_checkout_holds from './20260523_000002_booking_checkout_holds';
+import * as migration_20260523_000003_booking_checkout_holds_lock_rels from './20260523_000003_booking_checkout_holds_lock_rels';
 
 export const migrations = [
   {
@@ -682,6 +685,11 @@ export const migrations = [
     name: '20260618_000001_plans_footer_text',
   },
   {
+    up: migration_20260526_000001_class_pass_types_drop_slug.up,
+    down: migration_20260526_000001_class_pass_types_drop_slug.down,
+    name: '20260526_000001_class_pass_types_drop_slug',
+  },
+  {
     up: migration_20260622_000001_class_passes_drop_price.up,
     down: migration_20260622_000001_class_passes_drop_price.down,
     name: '20260622_000001_class_passes_drop_price',
@@ -695,5 +703,15 @@ export const migrations = [
     up: migration_20260523_tenants_booking_theme.up,
     down: migration_20260523_tenants_booking_theme.down,
     name: '20260523_tenants_booking_theme',
+  },
+  {
+    up: migration_20260523_000002_booking_checkout_holds.up,
+    down: migration_20260523_000002_booking_checkout_holds.down,
+    name: '20260523_000002_booking_checkout_holds',
+  },
+  {
+    up: migration_20260523_000003_booking_checkout_holds_lock_rels.up,
+    down: migration_20260523_000003_booking_checkout_holds_lock_rels.down,
+    name: '20260523_000003_booking_checkout_holds_lock_rels',
   },
 ];

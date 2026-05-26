@@ -10,13 +10,12 @@ import {
 } from './helpers/data-helpers'
 
 /**
- * Regression E2E: manage page checkout POSTs explicit bookingIds to create-payment-intent.
- * A Local API read with overrideAccess: false caused Payload Forbidden → HTTP 500 in production.
+ * Manage page checkout POSTs holdId (not pending bookingIds) to create-payment-intent.
  */
-test.describe('Manage page: create-payment-intent with bookingIds', () => {
+test.describe('Manage page: create-payment-intent with holdId', () => {
   test.describe.configure({ timeout: 90_000 })
 
-  test('create-payment-intent succeeds when checkout loads with pending bookings', async ({
+  test('create-payment-intent succeeds when checkout loads after reserving a hold', async ({
     page,
     testData,
   }) => {
@@ -76,7 +75,6 @@ test.describe('Manage page: create-payment-intent with bookingIds', () => {
     )
 
     await createTestBooking(user.id, lesson.id, 'confirmed')
-    const pendingBooking = await createTestBooking(user.id, lesson.id, 'pending')
 
     await loginAsRegularUserViaApi(page, user.email, 'password', {
       tenantSlug: tenant.slug,
@@ -94,14 +92,14 @@ test.describe('Manage page: create-payment-intent with bookingIds', () => {
         try {
           const body = JSON.parse(postData) as {
             price?: number
-            metadata?: { bookingIds?: string; timeslotId?: string }
+            metadata?: { holdId?: string; timeslotId?: string }
           }
           return (
             typeof body.price === 'number' &&
             body.price > 0 &&
             body.metadata?.timeslotId === String(lesson.id) &&
-            typeof body.metadata?.bookingIds === 'string' &&
-            body.metadata.bookingIds.length > 0
+            typeof body.metadata?.holdId === 'string' &&
+            body.metadata.holdId.length > 0
           )
         } catch {
           return false
@@ -112,6 +110,10 @@ test.describe('Manage page: create-payment-intent with bookingIds', () => {
 
     await navigateToTenant(page, tenant.slug, managePath)
 
+    await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({ timeout: 20_000 })
+    await page.getByRole('button', { name: /increase quantity/i }).click()
+    await page.getByRole('button', { name: /update bookings/i }).click()
+
     await expect(page.getByText(/complete payment/i).first()).toBeVisible({ timeout: 20_000 })
 
     const res = await paymentIntentResponse
@@ -121,8 +123,9 @@ test.describe('Manage page: create-payment-intent with bookingIds', () => {
     ).toBeTruthy()
 
     const requestBody = JSON.parse(res.request().postData() ?? '{}') as {
-      metadata?: { bookingIds?: string }
+      metadata?: { holdId?: string; bookingIds?: string }
     }
-    expect(requestBody.metadata?.bookingIds).toContain(String(pendingBooking.id))
+    expect(requestBody.metadata?.holdId).toMatch(/^\d+$/)
+    expect(requestBody.metadata?.bookingIds).toBeUndefined()
   })
 })

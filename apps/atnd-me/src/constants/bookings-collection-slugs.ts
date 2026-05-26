@@ -10,4 +10,6 @@ export const ATND_ME_BOOKINGS_COLLECTION_SLUGS = {
   eventTypes: 'event-types',
   staffMembers: 'staff-members',
   bookings: 'bookings',
+  classPasses: 'class-passes',
+  classPassTypes: 'class-pass-types',
 } as const satisfies BookingCollectionSlugs & TRPCBookingCollectionSlugs

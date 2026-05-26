@@ -12,14 +12,20 @@
  */
 import { test, expect } from './helpers/fixtures'
 import { createTestTenant, getPayloadInstance } from './helpers/data-helpers'
+import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 test.describe('Registration tenant (custom domain E2E)', () => {
-  test.describe.configure({ timeout: 120_000 })
+  test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
   let registerOrigin: string
   let tenantId: number
+  let nipIoAvailable = false
 
   test.beforeAll(async ({ testData }) => {
+    nipIoAvailable = await isNipIoDnsAvailable()
+    if (!nipIoAvailable) return
     const w = testData.workerIndex
     const stamp = Date.now()
     const host = `e2e-reg-${w}-${stamp}.127.0.0.1.nip.io`
@@ -32,6 +38,8 @@ test.describe('Registration tenant (custom domain E2E)', () => {
   })
 
   test('register from tenant custom domain persists registrationTenant', async ({ page }) => {
+    test.skip(!nipIoAvailable, 'nip.io DNS is not available (outbound DNS required for custom-domain e2e)')
+
     const email = `e2eregcd${Date.now()}@test.com`
     const name = 'E2E Registrant Custom Domain'
 

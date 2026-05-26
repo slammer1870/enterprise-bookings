@@ -13,12 +13,14 @@ import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
 import { coerceMetadata } from '@/lib/api/request-utils'
 import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
 import {
-  validateBookingIdsFromMetadata,
-  reservePendingBookings,
+  getActiveCheckoutHold,
+  fulfillCheckoutHold,
+  computeRemainingCapacityWithHolds,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from '@repo/bookings-payments'
+import {
   formatCapacityError,
-  computeRemainingCapacityForTimeslot,
 } from '@/lib/booking/payment-intent'
-import { confirmBookingsFromPaymentIntent } from '@/lib/stripe-connect/webhook/confirm-bookings'
 import { formatAmountForStripe } from '@repo/shared-utils'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
@@ -52,11 +54,39 @@ export async function POST(request: NextRequest) {
 
   const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
 
-  let bookingIds = await validateBookingIdsFromMetadata(payload, metadata ?? {}, {
-    timeslotId,
-    userId: user.id,
-    user,
-  })
+  let holdId: number | null = null
+  // Track the hold's reserved quantity so the capacity precheck can exclude it.
+  // computeRemainingCapacityWithHolds counts every active hold (including the
+  // requester's own) against remaining capacity.  Since the hold IS the
+  // authorisation for this payment we must add it back when comparing, otherwise
+  // the check incorrectly fires when the hold fills the last N slots exactly.
+  let ownHoldQuantity = 0
+  const holdIdRaw = metadata?.holdId
+  if (holdIdRaw && /^\d+$/.test(holdIdRaw)) {
+    holdId = parseInt(holdIdRaw, 10)
+    const holdRecord = await payload
+      .findByID({
+        collection: CHECKOUT_HOLD_COLLECTION_SLUG,
+        id: holdId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .catch(() => null) as { id?: number; quantity?: number } | null
+    ownHoldQuantity = holdRecord?.quantity ?? 0
+  } else {
+    const active = await getActiveCheckoutHold(payload, {
+      timeslotId,
+      userId: user.id,
+    })
+    holdId = active?.id ?? null
+    ownHoldQuantity = active?.quantity ?? 0
+  }
+  if (holdId == null) {
+    return NextResponse.json(
+      { error: 'Checkout hold required. Reserve capacity before creating payment intent.' },
+      { status: 400 },
+    )
+  }
 
   const timeslot = (await payload.findByID({
     collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
@@ -73,10 +103,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
   }
 
-  const remainingCapacity =
-    typeof timeslot.remainingCapacity === 'number'
-      ? Math.max(0, timeslot.remainingCapacity)
-      : await computeRemainingCapacityForTimeslot(payload, timeslotId, timeslot)
+  const remainingCapacity = await computeRemainingCapacityWithHolds(payload, timeslotId, {
+    timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+    eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
+    bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
+    holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
+  })
 
   // Per-viewer cap for drop-in multi-booking (confirmed bookings only).
   // Note: when we confirm existing pending bookings via metadata, cap must still apply.
@@ -103,7 +135,7 @@ export async function POST(request: NextRequest) {
           ? Math.max(1, Number(configuredMaxRaw))
           : Infinity
 
-  const requestedForCap = bookingIds.length > 0 ? bookingIds.length : quantity
+  const requestedForCap = quantity
 
   if (maxPerViewer !== Infinity) {
     const existingConfirmedResult = await payload.find({
@@ -141,9 +173,14 @@ export async function POST(request: NextRequest) {
   // any heavier checks; confirmOnly still reserves with real capacity.
   const skipCapacityPrecheck = classPriceAmountCents <= 0 && !confirmOnly
 
-  if (bookingIds.length === 0 && quantity > remainingCapacity && !skipCapacityPrecheck) {
+  // computeRemainingCapacityWithHolds includes the current user's own hold in its
+  // "held" tally, so when their hold fills the last N slots the raw remaining reads 0.
+  // Adding ownHoldQuantity back gives the capacity available to THIS user (their hold
+  // is the reservation they are paying for, not competing capacity).
+  const capacityForPrecheck = remainingCapacity + ownHoldQuantity
+  if (quantity > capacityForPrecheck && !skipCapacityPrecheck) {
     return NextResponse.json(
-      { error: formatCapacityError(remainingCapacity, quantity) },
+      { error: formatCapacityError(capacityForPrecheck, quantity) },
       { status: 400 }
     )
   }
@@ -212,58 +249,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
   }
 
-  // Even in test mode we reserve pending bookings. Some UI flows (and E2E tests)
-  // increase quantity and expect `status: "pending"` bookings to exist before payment
-  // is completed (payment confirmation happens later via mock webhooks).
-  if (bookingIds.length === 0) {
-    try {
-      bookingIds = await reservePendingBookings(payload, {
-        timeslotId,
-        userId: user.id,
-        user,
-        tenantId,
-        quantity,
-        trustedServerReservation: true,
-      })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Capacity exceeded'
-      return NextResponse.json({ error: msg }, { status: 400 })
-    }
-  }
-
   if (classPriceAmountCents <= 0) {
     if (!confirmOnly) {
       return NextResponse.json({ zeroAmount: true, amount: 0 }, { status: 200 })
     }
 
-    if (bookingIds.length === 0) {
-      try {
-        bookingIds = await reservePendingBookings(payload, {
-          timeslotId,
-          userId: user.id,
-          user,
-          tenantId,
-          quantity,
-          trustedServerReservation: true,
-        })
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'Capacity exceeded'
-        return NextResponse.json({ error: msg }, { status: 400 })
-      }
-    }
-
-    const resolvedBookingIds = bookingIds
-      .map((id: string | number) => parseInt(String(id), 10))
-      .filter((id: number) => Number.isFinite(id))
-
-    await confirmBookingsFromPaymentIntent(payload, resolvedBookingIds, {
+    const result = await fulfillCheckoutHold(payload, {
+      holdId,
+      userId: user.id,
       tenantId,
       tenantContext: { tenant: tenantId },
+      timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
+      bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
     })
 
     return NextResponse.json(
-      { zeroAmount: true, amount: 0, bookingIds: resolvedBookingIds },
-      { status: 200 }
+      {
+        zeroAmount: true,
+        amount: 0,
+        bookingIds: result.confirmedBookingIds,
+        refunded: result.refunded,
+      },
+      { status: 200 },
     )
   }
 
@@ -302,7 +310,7 @@ export async function POST(request: NextRequest) {
         timeslotId: String(timeslotId),
         userId: String(user.id),
         quantity: String(quantity),
-        ...(bookingIds.length > 0 ? { bookingIds: bookingIds.join(',') } : {}),
+        holdId: String(holdId),
       },
     })
 

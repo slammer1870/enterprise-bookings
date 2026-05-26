@@ -78,7 +78,6 @@ describe('Class pass purchase expiration (Stripe webhook)', () => {
       collection: 'class-pass-types',
       data: {
         name: '30-Day Pack',
-        slug: `thirty-day-pack-${Date.now()}`,
         quantity: 10,
         daysUntilExpiration: 30,
         tenant: tenantId,

@@ -7,9 +7,16 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
 import { NextRequest } from 'next/server'
-const { mockCreateTenantCheckoutSession, mockEnsureStripeCustomerIdForAccount } = vi.hoisted(() => ({
+const {
+  mockCreateTenantCheckoutSession,
+  mockEnsureStripeCustomerIdForAccount,
+  mockPricesRetrieve,
+  mockCalculateBookingFeeAmount,
+} = vi.hoisted(() => ({
   mockCreateTenantCheckoutSession: vi.fn(),
   mockEnsureStripeCustomerIdForAccount: vi.fn(),
+  mockPricesRetrieve: vi.fn(),
+  mockCalculateBookingFeeAmount: vi.fn(),
 }))
 
 vi.mock('@/lib/stripe-connect/charges', () => ({
@@ -22,6 +29,19 @@ vi.mock('@repo/bookings-payments', async () => {
     ...actual,
     ensureStripeCustomerIdForAccount: mockEnsureStripeCustomerIdForAccount,
   }
+})
+
+vi.mock('@/lib/stripe/platform', () => ({
+  getPlatformStripe: () => ({
+    prices: { retrieve: mockPricesRetrieve },
+  }),
+}))
+
+vi.mock('@/lib/stripe-connect/bookingFee', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/stripe-connect/bookingFee')>(
+    '@/lib/stripe-connect/bookingFee',
+  )
+  return { ...actual, calculateBookingFeeAmount: mockCalculateBookingFeeAmount }
 })
 
 import { POST } from '@/app/api/stripe/connect/create-checkout-session/route'
@@ -128,6 +148,8 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
   beforeEach(() => {
     mockCreateTenantCheckoutSession.mockReset()
     mockEnsureStripeCustomerIdForAccount.mockReset()
+    mockPricesRetrieve.mockReset()
+    mockCalculateBookingFeeAmount.mockReset()
     mockCreateTenantCheckoutSession.mockResolvedValue({
       id: 'cs_test_123',
       url: 'https://checkout.test/session',
@@ -136,6 +158,9 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
       stripeCustomerId: 'cus_test_123',
       stripeAccountId: connectedAccount,
     })
+    mockPricesRetrieve.mockResolvedValue({ unit_amount: 3000, currency: 'eur', recurring: null })
+    mockCalculateBookingFeeAmount.mockResolvedValue(90)
+    vi.unstubAllEnvs()
   })
 
   function request(opts: RequestOptions = {}) {
@@ -356,6 +381,60 @@ describe('create-checkout-session API route (Phase 2.5)', () => {
           }),
         }),
       )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'passes productType class-pass for class_pass_purchase in payment mode',
+    async () => {
+      const res = await POST(
+        request({
+          headers: { 'x-test-user-id': String(regularUser.id), 'x-tenant-id': String(activeTenantId) },
+          body: {
+            priceId: 'price_class_pass_1',
+            quantity: 2,
+            mode: 'payment',
+            metadata: { type: 'class_pass_purchase' },
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productType: 'class-pass',
+          mode: 'payment',
+        }),
+      )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'does not pass productType for payment mode without class_pass_purchase metadata type',
+    async () => {
+      const res = await POST(
+        request({
+          headers: { 'x-test-user-id': String(regularUser.id), 'x-tenant-id': String(activeTenantId) },
+          body: {
+            priceId: 'price_other_payment',
+            quantity: 1,
+            mode: 'payment',
+            metadata: { type: 'drop_in_booking' },
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productType: undefined,
+          mode: 'payment',
+        }),
+      )
+      expect(mockPricesRetrieve).not.toHaveBeenCalled()
+      expect(mockCalculateBookingFeeAmount).not.toHaveBeenCalled()
     },
     TEST_TIMEOUT,
   )

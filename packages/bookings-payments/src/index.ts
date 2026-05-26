@@ -21,6 +21,28 @@ export {
 } from "./class-pass/utilities/class-pass-expiration";
 export { paymentIntentSucceeded } from "./payments/webhooks/payment-intent-succeeded";
 export type { PaymentIntentSucceededArgs } from "./payments/webhooks/payment-intent-succeeded";
+export {
+  HOLD_TTL_MS,
+  HOLD_FULFILLMENT_GRACE_MS,
+  HOLD_MAX_LIFETIME_MS,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from "./checkout-holds/constants";
+export {
+  upsertCheckoutHold,
+  adjustCheckoutHoldQuantity,
+  releaseCheckoutHold,
+  extendCheckoutHold,
+  getActiveCheckoutHold,
+  countActiveHoldQuantityForTimeslot,
+  computeRemainingCapacityWithHolds,
+  isHoldActive,
+  isHoldWithinFulfillmentGrace,
+  formatCapacityError as formatCheckoutHoldCapacityError,
+} from "./checkout-holds/service";
+export { fulfillCheckoutHold } from "./checkout-holds/fulfill";
+export type { CheckoutHoldRecord, UpsertCheckoutHoldResult } from "./checkout-holds/service";
+export type { FulfillCheckoutHoldResult } from "./checkout-holds/fulfill";
+export { bookingCheckoutHoldsCollection } from "./collections/booking-checkout-holds";
 // Payments endpoints
 export { createCustomersProxy } from "./payments/endpoints/customers";
 export {

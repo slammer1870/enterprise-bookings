@@ -44,6 +44,10 @@ type PaymentMethodsProps = {
    */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
   /**
+   * Optional component to show fee breakdown (class price, booking fee, total) per purchasable class pass card.
+   */
+  ClassPassFeeBreakdownComponent?: React.ComponentType<ClassPassFeeBreakdownComponentProps>;
+  /**
    * Override the endpoint used to create a subscription checkout session.
    * Defaults to tRPC `payments.createCustomerCheckoutSession`.
    */
@@ -55,6 +59,10 @@ type PaymentMethodsProps = {
    * Defaults to /dashboard for backwards compatibility with apps that use that route.
    */
   successUrl?: string;
+  /** Merge holdId (or other metadata) before creating payment intent when checkout holds are enabled. */
+  onReserveCheckoutHold?: (
+    _metadata: Record<string, string>
+  ) => Promise<Record<string, string> | void>;
 };
 
 type CheckoutSessionInput = {
@@ -92,6 +100,11 @@ type PurchasableClassPassType = {
   priceId: string;
 };
 
+export type ClassPassFeeBreakdownComponentProps = {
+  classPassTypeId: number;
+  classPriceCents: number;
+};
+
 function ClassPassTabContent({
   passes,
   purchasablePassTypes,
@@ -99,6 +112,7 @@ function ClassPassTabContent({
   isLoading,
   onConfirm,
   onPurchase,
+  ClassPassFeeBreakdownComponent,
 }: {
   passes: ClassPassForTimeslot[];
   purchasablePassTypes: PurchasableClassPassType[];
@@ -106,6 +120,7 @@ function ClassPassTabContent({
   isLoading?: boolean;
   onConfirm: (_classPassId: number) => Promise<void>;
   onPurchase: (_passType: PurchasableClassPassType) => Promise<void>;
+  ClassPassFeeBreakdownComponent?: React.ComponentType<ClassPassFeeBreakdownComponentProps>;
 }) {
   const [selectedPassId, setSelectedPassId] = useState<number | null>(
     passes.length === 1 && passes[0] != null ? passes[0].id : null
@@ -222,7 +237,7 @@ function ClassPassTabContent({
           </div>
           <div className="space-y-2">
             {purchasablePassTypes.map((passType) => (
-              <div key={passType.id} className="rounded-md border p-3">
+              <div key={passType.id} className="rounded-md border p-3 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-0.5">
                     <div className="font-medium">{passType.name}</div>
@@ -250,6 +265,12 @@ function ClassPassTabContent({
                     {purchasePassTypeId === passType.id ? "Redirecting..." : "Buy pass"}
                   </button>
                 </div>
+                {ClassPassFeeBreakdownComponent != null && passType.price != null && passType.price > 0 && (
+                  <ClassPassFeeBreakdownComponent
+                    classPassTypeId={passType.id}
+                    classPriceCents={Math.round(passType.price * 100)}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -314,7 +335,9 @@ export function PaymentMethods({
   createCheckoutSessionUrl,
   validateDiscountCodeUrl,
   FeeBreakdownComponent,
+  ClassPassFeeBreakdownComponent,
   successUrl: successUrlProp,
+  onReserveCheckoutHold,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -376,7 +399,7 @@ export function PaymentMethods({
       return (
         <div className="text-sm text-muted-foreground">
           <div className="flex items-center justify-between gap-3">
-            <span>Booking fee</span>
+            <span>Platform fee</span>
             <span>{fmt.format(fee)}</span>
           </div>
           <div className="flex items-center justify-between gap-3">
@@ -868,12 +891,14 @@ export function PaymentMethods({
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
   let hasMembershipTab =
     activePlans.length > 0 || Boolean(hasSubscriptionWithPlan);
-  // Show drop-in when: (1) no usable membership, or (2) quantity > 1 and drop-in allows multiple
-  // (so members modifying a booking can pay for additional slots with drop-in)
+  // Show drop-in when: (1) no usable membership, (2) quantity > 1 and drop-in allows multiple,
+  // or (3) the user's plan caps at 1 booking per timeslot — in that case the membership cannot
+  // cover an additional slot so drop-in must remain available as a fallback.
   let hasDropInTab =
     Boolean(allowedDropIn) &&
     (!(hasSubscriptionWithPlan && subscriptionUsableForBooking) ||
-      (quantity > 1 && dropInAllowsQuantity(allowedDropIn as DropIn, quantity)));
+      (quantity > 1 && dropInAllowsQuantity(allowedDropIn as DropIn, quantity)) ||
+      userPlanMaxPerTimeslot === 1);
 
   if (quantity > 1) {
     hasMembershipTab =
@@ -958,6 +983,7 @@ export function PaymentMethods({
                 });
               }}
               onPurchase={handleCreateClassPassCheckout}
+              ClassPassFeeBreakdownComponent={ClassPassFeeBreakdownComponent}
             />
           </TabsContent>
         )}
@@ -1066,6 +1092,7 @@ export function PaymentMethods({
                 discountCode={appliedDiscountCode}
                 discount={appliedDiscount}
                 onPaymentRedirectStart={onPaymentRedirectStart}
+                onReserveCheckoutHold={onReserveCheckoutHold}
                 createPaymentIntentUrl={createPaymentIntentUrl}
                 FeeBreakdownComponent={FeeBreakdownComponent}
                 returnUrl={successUrlProp}

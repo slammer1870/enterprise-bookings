@@ -356,6 +356,8 @@ export const plugins: Plugin[] = [
   bookingsPlugin({
     enabled: true,
     slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+    reservedCapacityMode: 'checkout-holds',
+    checkoutHoldCollection: 'booking-checkout-holds',
     timeslotOverrides: {
       versions: false,
       indexes: [
@@ -832,6 +834,7 @@ export const plugins: Plugin[] = [
       'class-pass-types': {}, // Pass types (e.g. Fitness Only, Sauna Only); tenant-scoped
       'class-passes': {}, // Class passes; tenant-scoped
       'transactions': {}, // Payment records per booking (Stripe, class pass, subscription); tenant-scoped via plugin overrides
+      'booking-checkout-holds': {}, // Ephemeral checkout capacity holds; tenant-scoped
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
       'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
@@ -866,6 +869,7 @@ export const plugins: Plugin[] = [
       'class-pass-types',
       'class-passes',
       'transactions',
+      'booking-checkout-holds',
       'drop-ins',
       'plans',
       'discount-codes',
@@ -889,6 +893,7 @@ export const plugins: Plugin[] = [
       'class-pass-types',
       'class-passes',
       'transactions',
+      'booking-checkout-holds',
       'drop-ins',
       'plans',
       'discount-codes',

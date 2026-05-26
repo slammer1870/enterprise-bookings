@@ -6,6 +6,7 @@ import { appRouter } from '@repo/trpc'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import type { User, Timeslot, EventType, Tenant, Booking } from '@repo/shared-types'
 import { TZDate } from '@date-fns/tz'
+import { defaultTimeslotFields, normalizeTimeslotTestData } from './timeslot-test-data'
 
 /**
  * Integration tests to verify tRPC procedures work correctly in both:
@@ -67,19 +68,13 @@ describe('tRPC Tenant Compatibility Tests', () => {
       overrideAccess: true,
     })) as EventType
 
-    // Create a lesson in the future (schedule endpoint hides ended timeslots)
-    const startTime = new Date(Date.now() + 2 * 60 * 60 * 1000)
-    startTime.setSeconds(0, 0)
-    const endTime = new Date(startTime.getTime() + 60 * 60 * 1000)
+    const slotFields = defaultTimeslotFields(2)
 
     testTimeslot = (await payload.create({
       collection: 'timeslots',
       data: {
-        date: startTime.toISOString(),
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        ...slotFields,
         eventType: testEventType.id,
-        active: true,
         tenant: testTenant.id,
       },
       overrideAccess: true,
@@ -177,7 +172,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
 
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
@@ -341,13 +336,6 @@ describe('tRPC Tenant Compatibility Tests', () => {
       'timeslots.getByIdForBooking: returns lesson for subdomain tenant even when user does not have tenant in tenants array',
       async () => {
         // Create a lesson that's available for booking (not booked/closed)
-        // Use a future date and ensure class has enough capacity
-        const futureDate = new Date()
-        futureDate.setDate(futureDate.getDate() + 1) // Tomorrow
-        futureDate.setHours(16, 0, 0, 0) // Future time
-        const endTime = new Date(futureDate)
-        endTime.setHours(17, 0, 0, 0)
-
         // Create a class option with more capacity
         const largeEventType = (await payload.create({
           collection: 'event-types',
@@ -362,14 +350,11 @@ describe('tRPC Tenant Compatibility Tests', () => {
 
         const availableTimeslot = (await payload.create({
           collection: 'timeslots',
-          data: {
-            date: futureDate.toISOString(),
-            startTime: futureDate.toISOString(),
-            endTime: endTime.toISOString(),
+          data: normalizeTimeslotTestData({
+            ...defaultTimeslotFields(1),
             eventType: largeEventType.id,
-            active: true,
             tenant: testTenant.id,
-          },
+          }),
           overrideAccess: true,
         })) as Timeslot
 
@@ -561,7 +546,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
 
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
@@ -634,21 +619,13 @@ describe('tRPC Tenant Compatibility Tests', () => {
       async () => {
         // Create a lesson that's available for booking.
         // Use tomorrow so the timeslot is never in the past regardless of when the suite runs.
-        const today = new Date(Date.now() + 24 * 60 * 60 * 1000)
-        today.setHours(18, 0, 0, 0) // Future time
-        const endTime = new Date(today)
-        endTime.setHours(19, 0, 0, 0)
-
         const availableTimeslot = (await payload.create({
           collection: 'timeslots',
-          data: {
-            date: today.toISOString(),
-            startTime: today.toISOString(),
-            endTime: endTime.toISOString(),
+          data: normalizeTimeslotTestData({
+            ...defaultTimeslotFields(1),
             eventType: testEventType.id,
-            active: true,
             tenant: testTenant.id,
-          },
+          }),
           overrideAccess: true,
         })) as Timeslot
 
@@ -711,7 +688,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
 
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({
@@ -748,7 +725,7 @@ describe('tRPC Tenant Compatibility Tests', () => {
           bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
         })
 
-        const today = new Date(testTimeslot.startTime)
+        const today = new Date(String(testTimeslot.date))
 
         const caller = appRouter.createCaller(ctx)
         const timeslots = await caller.timeslots.getByDate({

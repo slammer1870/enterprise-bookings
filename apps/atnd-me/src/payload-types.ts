@@ -94,6 +94,7 @@ export interface Config {
     subscriptions: Subscription;
     plans: Plan;
     transactions: Transaction;
+    'booking-checkout-holds': BookingCheckoutHold;
     users: User;
     'form-submissions': FormSubmission;
     'payload-kv': PayloadKv;
@@ -146,6 +147,7 @@ export interface Config {
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    'booking-checkout-holds': BookingCheckoutHoldsSelect<false> | BookingCheckoutHoldsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
@@ -1010,10 +1012,6 @@ export interface ClassPassType {
    * e.g. Fitness Only, Sauna Only, All Access
    */
   name: string;
-  /**
-   * Unique identifier, e.g. fitness-only, sauna-only
-   */
-  slug: string;
   /**
    * Optional description of what this pass type covers
    */
@@ -3165,6 +3163,32 @@ export interface ClassPass {
   createdAt: string;
 }
 /**
+ * Temporary capacity reservations during checkout. Bookings are created only after payment succeeds.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-checkout-holds".
+ */
+export interface BookingCheckoutHold {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  timeslot: number | Timeslot;
+  quantity: number;
+  expiresAt: string;
+  /**
+   * When the hold was first created; used for max lifetime cap.
+   */
+  firstUpsertedAt?: string | null;
+  status: 'active' | 'consumed' | 'expired';
+  stripePaymentIntentId?: string | null;
+  /**
+   * Set when hold expires without fulfillment (e.g. refund path).
+   */
+  failureReason?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "form-submissions".
  */
@@ -3405,6 +3429,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'transactions';
         value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'booking-checkout-holds';
+        value: number | BookingCheckoutHold;
       } | null)
     | ({
         relationTo: 'users';
@@ -5221,7 +5249,6 @@ export interface DropInsSelect<T extends boolean = true> {
 export interface ClassPassTypesSelect<T extends boolean = true> {
   tenant?: T;
   name?: T;
-  slug?: T;
   description?: T;
   quantity?: T;
   daysUntilExpiration?: T;
@@ -5326,6 +5353,23 @@ export interface TransactionsSelect<T extends boolean = true> {
   classPassId?: T;
   stripePaymentIntentId?: T;
   subscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-checkout-holds_select".
+ */
+export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  timeslot?: T;
+  quantity?: T;
+  expiresAt?: T;
+  firstUpsertedAt?: T;
+  status?: T;
+  stripePaymentIntentId?: T;
+  failureReason?: T;
   updatedAt?: T;
   createdAt?: T;
 }

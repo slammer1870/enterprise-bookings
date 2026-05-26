@@ -22,7 +22,7 @@ export const syncStripeSubscriptionsEndpoint: PayloadHandler = async (
       input: {},
     } as unknown as Parameters<typeof req.payload.jobs.queue>[0]);
     return new Response(
-      JSON.stringify({ success: true, jobId: job?.id ?? null }),
+      JSON.stringify({ success: true, jobId: (job as { id?: string | number } | null)?.id ?? null }),
       { status: 202, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {

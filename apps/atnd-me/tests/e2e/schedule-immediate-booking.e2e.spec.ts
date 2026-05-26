@@ -30,6 +30,8 @@ import {
   updateTenantStripeConnect,
 } from './helpers/data-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
+import { advanceScheduleToDate } from './helpers/schedule-helpers'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 // ─── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -38,29 +40,6 @@ function futureDate(daysFromNow: number, hour = 10): Date {
   d.setDate(d.getDate() + daysFromNow)
   d.setHours(hour, 0, 0, 0)
   return d
-}
-
-async function advanceScheduleToDate(
-  page: Parameters<typeof test>[0]['page'],
-  targetDate: Date
-) {
-  const dateLabel = page.locator('p.text-center.text-lg').first()
-  await expect(dateLabel).toBeVisible({ timeout: 15000 })
-
-  const toggle = dateLabel.locator('xpath=..')
-  const nextDayButton = toggle.locator('svg').nth(1)
-  const targetLabel = targetDate.toDateString()
-
-  for (let i = 0; i < 21; i++) {
-    const currentLabel = (await dateLabel.textContent())?.trim()
-    if (currentLabel === targetLabel) return
-    await nextDayButton.click()
-    await expect(dateLabel)
-      .toHaveText(targetLabel, { timeout: 8000 })
-      .catch(() => null)
-  }
-
-  await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
 }
 
 async function navigateToSchedule(
@@ -98,7 +77,7 @@ async function getLessonBookButton(
 // ─── Tests ─────────────────────────────────────────────────────────────────────
 
 test.describe('Schedule immediate booking', () => {
-  test.setTimeout(120_000)
+  test.setTimeout(e2eSlowTestTimeout())
 
   // ── Story 1: No payment methods → immediate booking ──────────────────────────
 
@@ -693,11 +672,14 @@ test.describe('Schedule immediate booking', () => {
 
     // 4. Click Update — enters checkout
     const updateBtn = page.getByRole('button', { name: /update bookings/i })
-    const pendingCreateResponse = page.waitForResponse(
-      (r) => r.url().includes('bookings.createBookings') && r.request().method() === 'POST' && r.status() === 200,
-      { timeout: 30000 }
+    const holdCreateResponse = page.waitForResponse(
+      (r) =>
+        r.url().includes('bookings.upsertCheckoutHold') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 30000 },
     )
-    await Promise.all([pendingCreateResponse, updateBtn.click()])
+    await Promise.all([holdCreateResponse, updateBtn.click()])
 
     // Should enter payment checkout (pending bookings created)
     await expect(page.getByText(/complete payment/i).first()).toBeVisible({ timeout: 15000 })
@@ -762,8 +744,8 @@ test.describe('Schedule immediate booking', () => {
       stripeAccountId: null,
     })
 
-    const startTime = futureDate(13 + w)
-    const endTime = futureDate(13 + w, 11)
+    const startTime = futureDate(3 + w)
+    const endTime = futureDate(3 + w, 11)
     const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
@@ -773,7 +755,7 @@ test.describe('Schedule immediate booking', () => {
 
     // 1. Book immediately from schedule
     const bookBtn = await getLessonBookButton(page, scheduleTitle)
-    await expect(bookBtn).toBeVisible({ timeout: 10000 })
+    await expect(bookBtn).toBeVisible({ timeout: 20000 })
     const trpcCall = page.waitForResponse(
       (r) => r.url().includes('bookSingleSlotTimeslotOrRedirect') && r.request().method() === 'POST' && r.status() === 200,
       { timeout: 20000 }

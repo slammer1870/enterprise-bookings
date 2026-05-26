@@ -134,7 +134,91 @@ describe('createTenantCheckoutSession', () => {
       },
     })
     expect(createArgs).not.toHaveProperty('subscription_data')
+    expect(createArgs.payment_intent_data).not.toHaveProperty('application_fee_amount')
     expect(sessionOptions).toEqual({ stripeAccount: 'acct_prod_xyz' })
+  })
+
+  it('sets application_fee_amount on payment_intent_data and adds Platform fee line item when bookingFeeAmount > 0 for payment mode', async () => {
+    await createTenantCheckoutSession({
+      tenant: connectedTenant,
+      price: 'price_class_pass',
+      mode: 'payment',
+      quantity: 1,
+      bookingFeeAmount: 90,
+      metadata: { type: 'class_pass_purchase', tenantId: '101' },
+      disableTestShortCircuit: true,
+    })
+
+    expect(mockPricesRetrieve).toHaveBeenCalledTimes(1)
+    expect(mockCheckoutSessionCreate).toHaveBeenCalledTimes(1)
+    const [createArgs] = mockCheckoutSessionCreate.mock.calls[0] ?? []
+    expect(createArgs.line_items).toEqual([
+      { price: 'price_class_pass', quantity: 1 },
+      {
+        quantity: 1,
+        price_data: {
+          currency: 'eur',
+          product_data: { name: 'Platform fee', description: 'Platform fee' },
+          unit_amount: 90,
+        },
+      },
+    ])
+    expect(createArgs.payment_intent_data).toMatchObject({
+      application_fee_amount: 90,
+    })
+    expect(createArgs).not.toHaveProperty('subscription_data')
+  })
+
+  it('does not set application_fee_amount on payment_intent_data when bookingFeeAmount is 0', async () => {
+    await createTenantCheckoutSession({
+      tenant: connectedTenant,
+      price: 'price_class_pass_free',
+      mode: 'payment',
+      quantity: 1,
+      bookingFeeAmount: 0,
+      metadata: { type: 'class_pass_purchase', tenantId: '101' },
+      disableTestShortCircuit: true,
+    })
+
+    expect(mockCheckoutSessionCreate).toHaveBeenCalledTimes(1)
+    const [createArgs] = mockCheckoutSessionCreate.mock.calls[0] ?? []
+    expect(createArgs.payment_intent_data).not.toHaveProperty('application_fee_amount')
+  })
+
+  it('includes bookingFeeAmount in metadata, adds Platform fee line item, and sets classPriceAmount when payment mode fee is set', async () => {
+    await createTenantCheckoutSession({
+      tenant: connectedTenant,
+      price: 'price_class_pass_meta',
+      mode: 'payment',
+      quantity: 2,
+      bookingFeeAmount: 120,
+      classPriceAmount: 4000,
+      metadata: { type: 'class_pass_purchase', tenantId: '101' },
+      disableTestShortCircuit: true,
+    })
+
+    expect(mockPricesRetrieve).toHaveBeenCalledTimes(1)
+    expect(mockCheckoutSessionCreate).toHaveBeenCalledTimes(1)
+    const [createArgs] = mockCheckoutSessionCreate.mock.calls[0] ?? []
+    expect(createArgs.line_items).toEqual([
+      { price: 'price_class_pass_meta', quantity: 2 },
+      {
+        quantity: 1,
+        price_data: {
+          currency: 'eur',
+          product_data: { name: 'Platform fee', description: 'Platform fee' },
+          unit_amount: 120,
+        },
+      },
+    ])
+    expect(createArgs.metadata).toMatchObject({
+      bookingFeeAmount: '120',
+      classPriceAmount: '4000',
+    })
+    expect(createArgs.payment_intent_data).toMatchObject({
+      application_fee_amount: 120,
+      metadata: expect.objectContaining({ bookingFeeAmount: '120' }),
+    })
   })
 
   it('adds Stripe discounts when a promotion code id is provided', async () => {

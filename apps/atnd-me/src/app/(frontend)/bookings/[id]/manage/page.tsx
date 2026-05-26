@@ -20,7 +20,7 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
   await requireAuthForBooking(id, `/bookings/${id}/manage`)
 
   const caller = await createCallerForBooking()
-  const userBookings = await caller.bookings.getUserBookingsForTimeslot({ timeslotId: id })
+  let userBookings = await caller.bookings.getUserBookingsForTimeslot({ timeslotId: id })
 
   if ((userBookings?.length ?? 0) === 0) {
     redirect(`/bookings/${id}`)
@@ -29,6 +29,63 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
   try {
     const timeslot = await caller.timeslots.getById({ id })
 
+    let initialCheckoutHold: { id: number; quantity: number; expiresAt: string } | null = null
+    try {
+      initialCheckoutHold = await caller.bookings.getActiveCheckoutHold({ timeslotId: id })
+    } catch {
+      initialCheckoutHold = null
+    }
+
+    // If the user has pending bookings but no active hold (e.g. admin created them via the
+    // dashboard), cancel the pending rows and create a hold so the manage page opens directly
+    // in checkout mode.  Without this, `isInCheckout` stays false and the quantity selector
+    // shows with the Update Bookings button permanently disabled (desired === active count),
+    // leaving the user unable to pay.
+    //
+    // Cancelling before creating the hold ensures fulfillCheckoutHold (called on payment
+    // success) creates fresh confirmed bookings without leaving behind dangling pending rows.
+    //
+    // Only do this when the timeslot has at least one payment method configured; without
+    // payment methods there is nothing to pay, so pending rows should remain as-is and
+    // the normal quantity view should be shown.
+    const eventType =
+      timeslot.eventType && typeof timeslot.eventType === 'object' ? timeslot.eventType : null
+    const pm =
+      eventType && typeof (eventType as { paymentMethods?: unknown }).paymentMethods === 'object'
+        ? (eventType as { paymentMethods: Record<string, unknown> }).paymentMethods
+        : null
+    const timeslotHasPaymentMethods = Boolean(
+      pm?.allowedDropIn ||
+        (Array.isArray(pm?.allowedPlans) && (pm.allowedPlans as unknown[]).length > 0) ||
+        (Array.isArray(pm?.allowedClassPasses) &&
+          (pm.allowedClassPasses as unknown[]).length > 0),
+    )
+
+    if (initialCheckoutHold === null && timeslotHasPaymentMethods) {
+      const pendingOnly = (userBookings ?? []).filter(
+        (b) => String((b as { status?: string }).status).toLowerCase() === 'pending',
+      )
+      if (pendingOnly.length > 0) {
+        try {
+          await caller.bookings.cancelPendingBookingsForTimeslot({ timeslotId: id })
+          const holdResult = await caller.bookings.upsertCheckoutHold({
+            timeslotId: id,
+            quantity: pendingOnly.length,
+          })
+          initialCheckoutHold = {
+            id: holdResult.holdId,
+            quantity: holdResult.quantity,
+            expiresAt: holdResult.expiresAt,
+          }
+          // Re-fetch so initialBookings reflects the cancelled-pending state.
+          userBookings = await caller.bookings.getUserBookingsForTimeslot({ timeslotId: id })
+        } catch {
+          // Fall through — user sees the normal manage page without the payment prompt.
+          initialCheckoutHold = null
+        }
+      }
+    }
+
     return (
       <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
         <ManageBookingPageClient
@@ -36,6 +93,9 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
           initialBookings={userBookings}
           PaymentMethodsComponent={PaymentMethodsConnect}
           cancelPendingApiUrl="/api/bookings/cancel-pending"
+          releaseHoldApiUrl="/api/bookings/release-hold"
+          useCheckoutHolds={true}
+          initialCheckoutHold={initialCheckoutHold}
           successUrl="/success"
         />
       </div>

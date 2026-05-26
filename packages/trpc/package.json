@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@date-fns/tz": "^1.4.1",
+    "@repo/bookings-payments": "workspace:*",
     "@repo/shared-services": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",

@@ -85,7 +85,7 @@ export const subscriptionCanceled: StripeWebhookHandler<{
 
       if (plan.docs[0]?.id) {
         await payload.update({
-          collection: "bookings",
+          collection: asCollection("bookings"),
           where: {
             user: { equals: subscriptionUserId },
             "timeslot.eventType.paymentMethods.allowedPlans": {

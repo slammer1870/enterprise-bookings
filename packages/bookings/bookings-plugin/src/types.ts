@@ -17,6 +17,7 @@ import {
 import { EventType, Timeslot, User } from "@repo/shared-types";
 
 import type { BookingCollectionSlugs } from "./resolve-slugs";
+import type { RemainingCapacityOptions } from "./hooks/remaining-capacity";
 
 export type FieldsOverride = (_args: { defaultFields: Field[] }) => Field[];
 export type HooksOverride = (_args: {
@@ -76,6 +77,13 @@ export type BookingsPluginConfig = {
     hooks?: HooksOverride;
     access?: AccessOverride;
   } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
+  /**
+   * How reserved-but-unconfirmed capacity is counted for `remainingCapacity`.
+   * @default 'recent-pending'
+   */
+  reservedCapacityMode?: RemainingCapacityOptions["reservedCapacityMode"];
+  /** Collection slug for checkout holds when `reservedCapacityMode` is `checkout-holds`. */
+  checkoutHoldCollection?: RemainingCapacityOptions["checkoutHoldCollection"];
 };
 
 export type AccessControls =

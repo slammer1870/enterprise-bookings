@@ -69,8 +69,6 @@ test.describe('Past-due membership upgrade flow', () => {
     )
 
     await createTestBooking(user.id, lesson.id, 'confirmed')
-    await createTestBooking(user.id, lesson.id, 'pending')
-    await createTestBooking(user.id, lesson.id, 'pending')
 
     await createTestSubscription({
       userId: user.id,
@@ -89,6 +87,25 @@ test.describe('Past-due membership upgrade flow', () => {
     const managePath = `/bookings/${lesson.id}/manage`
     await navigateToTenant(page, tenant.slug, managePath)
     await page.waitForLoadState('load').catch(() => null)
+
+    await expect(page.getByText(/update booking quantity/i).first()).toBeVisible({
+      timeout: 15000,
+    })
+    await page.getByRole('button', { name: /increase quantity/i }).click()
+    await page.getByRole('button', { name: /increase quantity/i }).click()
+    await expect(page.getByTestId('booking-quantity')).toHaveText('3', { timeout: 5000 })
+
+    const holdResponse = page.waitForResponse(
+      (r) =>
+        r.url().includes('bookings.upsertCheckoutHold') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 30000 },
+    )
+    await Promise.all([
+      holdResponse,
+      page.getByRole('button', { name: /update bookings/i }).click(),
+    ])
 
     await expect(page.getByText('Complete Payment', { exact: true })).toBeVisible({
       timeout: 15000,

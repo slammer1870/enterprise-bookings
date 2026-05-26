@@ -3,7 +3,7 @@
  * Decrement hook only decrements class pass when a transaction exists with paymentMethod 'class_pass'.
  * Subscription bookings create a transaction with paymentMethod 'subscription' and subscriptionId.
  */
-import type { CollectionConfig } from "payload";
+import type { CollectionConfig, CollectionSlug } from "payload";
 import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types";
 import type { CollectionOverrides } from "../types";
@@ -21,7 +21,7 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
   {
     name: "booking",
     type: "relationship",
-    relationTo: "bookings",
+    relationTo: "bookings" as CollectionSlug,
     required: true,
     admin: { description: "The booking this transaction applies to." },
     // When createBookingTransactionOnCreate sets skipBookingValidationForId, accept that id so deferred create succeeds

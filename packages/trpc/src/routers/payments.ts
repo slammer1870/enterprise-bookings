@@ -25,9 +25,20 @@ export type GetDropInFeeBreakdown = (_params: {
   totalCents: number;
 }>;
 
+export type GetClassPassFeeBreakdown = (_params: {
+  payload: any;
+  classPassTypeId: number;
+  classPriceCents: number;
+}) => Promise<{
+  classPriceCents: number;
+  bookingFeeCents: number;
+  totalCents: number;
+}>;
+
 export type CreatePaymentsRouterDeps = {
   getSubscriptionBookingFeeCents?: GetSubscriptionBookingFeeCents;
   getDropInFeeBreakdown?: GetDropInFeeBreakdown;
+  getClassPassFeeBreakdown?: GetClassPassFeeBreakdown;
 };
 
 /**
@@ -359,6 +370,7 @@ function isStripeMissingConnectCustomerError(e: unknown): boolean {
 export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
   const getFee = deps?.getSubscriptionBookingFeeCents;
   const getDropInFeeBreakdown = deps?.getDropInFeeBreakdown;
+  const getClassPassFeeBreakdown = deps?.getClassPassFeeBreakdown;
 
   return {
     ...(getDropInFeeBreakdown && {
@@ -383,6 +395,25 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
             classPriceCents: input.classPriceCents,
             originalClassPriceCents: input.originalClassPriceCents,
             promoDiscountCents: input.promoDiscountCents,
+          })
+        ),
+    }),
+    ...(getClassPassFeeBreakdown && {
+      /**
+       * Returns fee breakdown for class pass purchase (class price, booking fee, total).
+       */
+      getClassPassFeeBreakdown: protectedProcedure
+        .input(
+          z.object({
+            classPassTypeId: z.number(),
+            classPriceCents: z.number().min(0),
+          })
+        )
+        .query(({ ctx, input }) =>
+          getClassPassFeeBreakdown({
+            payload: ctx.payload,
+            classPassTypeId: input.classPassTypeId,
+            classPriceCents: input.classPriceCents,
           })
         ),
     }),

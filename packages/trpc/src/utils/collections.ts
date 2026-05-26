@@ -148,7 +148,7 @@ export async function findSafe<T = JsonObject & TypeWithID>(
   return (await payload.find({
     collection: collectionSlug as CollectionSlug,
     where: options.where,
-    limit: options.limit,
+    limit: options.limit ?? 0,
     depth: options.depth ?? 0,
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
