@@ -13,6 +13,7 @@ import {
   validateCustomDomainFormat,
   validateCustomDomainNotPlatform,
 } from '@/utilities/validateCustomDomain'
+import { registerApplePayDomain } from './registerApplePayDomain'
 
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
@@ -254,6 +255,30 @@ export const Tenants: CollectionConfig = {
     },
   ],
   hooks: {
+    afterChange: [
+      async ({ doc, previousDoc, operation }) => {
+        const newDomain =
+          typeof doc?.domain === 'string' && doc.domain.trim() ? doc.domain.trim() : null
+        const prevDomain =
+          typeof previousDoc?.domain === 'string' && previousDoc.domain.trim()
+            ? previousDoc.domain.trim()
+            : null
+
+        // Register the domain with Stripe whenever a custom domain is set or changed.
+        if (newDomain && newDomain !== prevDomain) {
+          await registerApplePayDomain(newDomain).catch((err: unknown) => {
+            console.error(
+              `[Tenants afterChange] Failed to register Apple Pay domain "${newDomain}":`,
+              err,
+            )
+          })
+        }
+
+        // If the domain was cleared, no deregistration needed — Stripe doesn't expose a
+        // paymentMethodDomains.delete() that would break other integrations on the same domain.
+        void operation
+      },
+    ],
     beforeValidate: [
       async ({ data, operation, req, originalDoc }) => {
         if (!data) return data
