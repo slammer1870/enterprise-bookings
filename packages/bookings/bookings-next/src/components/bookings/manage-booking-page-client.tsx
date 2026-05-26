@@ -272,7 +272,13 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   // Frozen when checkout begins; never changes mid-session.
   // Seed it on first render (including SSR cases where the page loads already in checkout).
-  const capacityPending = Math.max(0, timeslot.remainingCapacity)
+  //
+  // When the SSR page fetches the timeslot *before* resolving the active checkout hold, the
+  // timeslot's `remainingCapacity` already has the user's own hold subtracted.  Adding it back
+  // here ensures every capacity calculation in this component treats the user's own hold as
+  // transparent — i.e. the user is not penalised for their own in-progress reservation.
+  const ownInitialHoldQty = useCheckoutHolds ? (initialCheckoutHold?.quantity ?? 0) : 0
+  const capacityPending = Math.max(0, timeslot.remainingCapacity + ownInitialHoldQty)
   const alreadyHeld = activeBookings.length
   const checkoutMaxRef = useRef(computeCheckoutMax(capacityPending, viewerMaxPerTimeslot, alreadyHeld))
 
@@ -426,7 +432,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       //  1) timeslot remaining capacity (hard limit)
       //  2) per-user/payment-method maxBookingsPerTimeslot cap (viewerMaxPerTimeslot),
       //     adjusted by already-confirmed bookings.
-      const capacityPending = Math.max(0, timeslot.remainingCapacity)
+      const capacityPending = Math.max(0, timeslot.remainingCapacity + ownInitialHoldQty)
       if (typeof checkoutMaxOverride === 'number') {
         checkoutMaxRef.current = checkoutMaxOverride
       } else {
@@ -516,7 +522,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     // ── Increase with payment required → enter checkout ──────────────────
     if (target > current && canIncreaseQuantity && PaymentMethodsComponent) {
       try {
-        const capacityPending = Math.max(0, timeslot.remainingCapacity)
+        const capacityPending = Math.max(0, timeslot.remainingCapacity + ownInitialHoldQty)
         const checkoutMaxOverride = computeCheckoutMax(
           capacityPending,
           viewerMaxPerTimeslot,
@@ -845,7 +851,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
 
   // ── Quantity selector view ─────────────────────────────────────────────────
 
-  const maxTotalQuantityBase = activeBookings.length + timeslot.remainingCapacity
+  const maxTotalQuantityBase = activeBookings.length + timeslot.remainingCapacity + ownInitialHoldQty
   const maxTotalQuantity =
     viewerMaxPerTimeslot === Infinity
       ? maxTotalQuantityBase

@@ -366,8 +366,8 @@ test.describe('Drop-in booking (qty 2) then manage: capacity label reflects actu
       //   "Up to X total bookings available for this timeslot."
       //
       // The component computes:
-      //   maxTotalQuantityBase = activeBookings.length + timeslot.remainingCapacity
-      //                        = BOOKED_QTY          + (CAPACITY − BOOKED_QTY)
+      //   maxTotalQuantityBase = activeBookings.length + timeslot.remainingCapacity + ownInitialHoldQty
+      //                        = BOOKED_QTY          + (CAPACITY − BOOKED_QTY)    + 0 (no pre-existing hold)
       //                        = CAPACITY
       //
       // Since viewerMaxPerTimeslot = Infinity (adjustable drop-in, no per-user cap),
