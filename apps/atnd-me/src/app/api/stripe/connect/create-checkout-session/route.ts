@@ -207,6 +207,29 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (
+    mode === 'payment' &&
+    metadataFromBody?.type === 'class_pass_purchase' &&
+    !isTestShortcut &&
+    !isTestConnectAccount &&
+    typeof tenant.id === 'number' &&
+    payload
+  ) {
+    const stripe = getPlatformStripe()
+    const stripeOpts = { stripeAccount: tenant.stripeConnectAccountId }
+    const priceObj = await stripe.prices.retrieve(priceId, { expand: [] }, stripeOpts)
+    const unitAmount = typeof priceObj.unit_amount === 'number' ? priceObj.unit_amount : 0
+    const classPriceAmount = unitAmount * quantity
+    if (classPriceAmount > 0) {
+      bookingFeeAmount = await calculateBookingFeeAmount({
+        payload,
+        tenantId: tenant.id,
+        productType: 'class-pass',
+        classPriceAmount,
+      })
+    }
+  }
+
   const origin = request.nextUrl.origin
   const successUrl = body.successUrl ? String(body.successUrl) : `${origin}/`
   const cancelUrl = body.cancelUrl ? String(body.cancelUrl) : `${origin}/`
@@ -229,7 +252,12 @@ export async function POST(request: NextRequest) {
       promotionCodeId,
       payload,
       bookingFeeAmount,
-      productType: mode === 'subscription' ? 'subscription' : undefined,
+      productType:
+        mode === 'subscription'
+          ? 'subscription'
+          : mode === 'payment' && metadataFromBody?.type === 'class_pass_purchase'
+            ? 'class-pass'
+            : undefined,
       subscriptionApplicationFeePercent,
     })
 

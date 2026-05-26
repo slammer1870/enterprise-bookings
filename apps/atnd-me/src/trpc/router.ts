@@ -62,6 +62,35 @@ export const appRouter = createAppRouter({
         totalCents: classPriceCents + bookingFeeCents,
       }
     },
+    getClassPassFeeBreakdown: async ({ payload, classPassTypeId, classPriceCents }) => {
+      const cpt = (await payload.findByID({
+        collection: 'class-pass-types',
+        id: classPassTypeId,
+        depth: 0,
+        overrideAccess: true,
+        select: { tenant: true } as any,
+      })) as { tenant?: number | { id: number } } | null
+      const tenantId =
+        cpt?.tenant != null
+          ? typeof cpt.tenant === 'object' && cpt.tenant !== null
+            ? cpt.tenant.id
+            : cpt.tenant
+          : null
+      if (!tenantId) {
+        return { classPriceCents, bookingFeeCents: 0, totalCents: classPriceCents }
+      }
+      const bookingFeeCents = await calculateBookingFeeAmount({
+        payload,
+        tenantId,
+        productType: 'class-pass',
+        classPriceAmount: classPriceCents,
+      })
+      return {
+        classPriceCents,
+        bookingFeeCents,
+        totalCents: classPriceCents + bookingFeeCents,
+      }
+    },
   },
 })
 

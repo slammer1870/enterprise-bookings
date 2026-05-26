@@ -15,6 +15,7 @@ export type BookingFeeBreakdownProps = {
   originalClassPriceCents?: number
   promoDiscountCents?: number
   bookingFeeCents: number
+  feeLabel?: string
 }
 
 export function BookingFeeBreakdown({
@@ -22,6 +23,7 @@ export function BookingFeeBreakdown({
   originalClassPriceCents,
   promoDiscountCents,
   bookingFeeCents,
+  feeLabel = 'Booking fee',
 }: BookingFeeBreakdownProps) {
   const totalCents = classPriceCents + bookingFeeCents
   const hasBookingFee = bookingFeeCents > 0
@@ -49,7 +51,7 @@ export function BookingFeeBreakdown({
         )}
         {hasBookingFee && (
           <div className="flex justify-between text-sm">
-            <span>Booking fee</span>
+            <span>{feeLabel}</span>
             <span data-testid="booking-fee">{formatCentsToCurrency(bookingFeeCents)}</span>
           </div>
         )}

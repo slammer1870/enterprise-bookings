@@ -44,6 +44,10 @@ type PaymentMethodsProps = {
    */
   FeeBreakdownComponent?: React.ComponentType<FeeBreakdownComponentProps>;
   /**
+   * Optional component to show fee breakdown (class price, booking fee, total) per purchasable class pass card.
+   */
+  ClassPassFeeBreakdownComponent?: React.ComponentType<ClassPassFeeBreakdownComponentProps>;
+  /**
    * Override the endpoint used to create a subscription checkout session.
    * Defaults to tRPC `payments.createCustomerCheckoutSession`.
    */
@@ -96,6 +100,11 @@ type PurchasableClassPassType = {
   priceId: string;
 };
 
+export type ClassPassFeeBreakdownComponentProps = {
+  classPassTypeId: number;
+  classPriceCents: number;
+};
+
 function ClassPassTabContent({
   passes,
   purchasablePassTypes,
@@ -103,6 +112,7 @@ function ClassPassTabContent({
   isLoading,
   onConfirm,
   onPurchase,
+  ClassPassFeeBreakdownComponent,
 }: {
   passes: ClassPassForTimeslot[];
   purchasablePassTypes: PurchasableClassPassType[];
@@ -110,6 +120,7 @@ function ClassPassTabContent({
   isLoading?: boolean;
   onConfirm: (_classPassId: number) => Promise<void>;
   onPurchase: (_passType: PurchasableClassPassType) => Promise<void>;
+  ClassPassFeeBreakdownComponent?: React.ComponentType<ClassPassFeeBreakdownComponentProps>;
 }) {
   const [selectedPassId, setSelectedPassId] = useState<number | null>(
     passes.length === 1 && passes[0] != null ? passes[0].id : null
@@ -226,7 +237,7 @@ function ClassPassTabContent({
           </div>
           <div className="space-y-2">
             {purchasablePassTypes.map((passType) => (
-              <div key={passType.id} className="rounded-md border p-3">
+              <div key={passType.id} className="rounded-md border p-3 space-y-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-0.5">
                     <div className="font-medium">{passType.name}</div>
@@ -254,6 +265,12 @@ function ClassPassTabContent({
                     {purchasePassTypeId === passType.id ? "Redirecting..." : "Buy pass"}
                   </button>
                 </div>
+                {ClassPassFeeBreakdownComponent != null && passType.price != null && passType.price > 0 && (
+                  <ClassPassFeeBreakdownComponent
+                    classPassTypeId={passType.id}
+                    classPriceCents={Math.round(passType.price * 100)}
+                  />
+                )}
               </div>
             ))}
           </div>
@@ -318,6 +335,7 @@ export function PaymentMethods({
   createCheckoutSessionUrl,
   validateDiscountCodeUrl,
   FeeBreakdownComponent,
+  ClassPassFeeBreakdownComponent,
   successUrl: successUrlProp,
   onReserveCheckoutHold,
 }: PaymentMethodsProps) {
@@ -381,7 +399,7 @@ export function PaymentMethods({
       return (
         <div className="text-sm text-muted-foreground">
           <div className="flex items-center justify-between gap-3">
-            <span>Booking fee</span>
+            <span>Platform fee</span>
             <span>{fmt.format(fee)}</span>
           </div>
           <div className="flex items-center justify-between gap-3">
@@ -965,6 +983,7 @@ export function PaymentMethods({
                 });
               }}
               onPurchase={handleCreateClassPassCheckout}
+              ClassPassFeeBreakdownComponent={ClassPassFeeBreakdownComponent}
             />
           </TabsContent>
         )}

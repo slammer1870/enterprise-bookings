@@ -236,12 +236,12 @@ export async function createTenantCheckoutSession(
 
     lineItems.push({
       quantity: 1,
-      price_data: {
-        currency: currency ?? 'eur',
-        product_data: {
-          name: 'Booking fee',
-          description: 'Platform booking fee',
-        },
+        price_data: {
+          currency: currency ?? 'eur',
+          product_data: {
+            name: 'Platform fee',
+            description: 'Platform fee',
+          },
         unit_amount: resolvedBookingFeeAmount,
         recurring: {
           interval: recurringPrice.interval || 'month',
@@ -281,6 +281,9 @@ export async function createTenantCheckoutSession(
             payment_intent_data: {
               metadata: normalizedMetadata,
               ...(receiptEmailClean ? { receipt_email: receiptEmailClean } : {}),
+              ...(typeof resolvedBookingFeeAmount === 'number' && resolvedBookingFeeAmount > 0
+                ? { application_fee_amount: resolvedBookingFeeAmount }
+                : {}),
             },
           }
         : {}),
