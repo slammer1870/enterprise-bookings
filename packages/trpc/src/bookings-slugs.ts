@@ -1,6 +1,6 @@
 /**
  * Booking-related Payload collection slugs for tRPC.
- * Defaults match @repo/bookings-plugin; apps can override via createTRPCContext.
+ * Defaults matches @repo/bookings-plugin; apps can override via createTRPCContext.
  */
 export type TRPCBookingCollectionSlugs = {
   timeslots: string;
