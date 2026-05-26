@@ -10,6 +10,7 @@ import { exchangeCodeForStripeConnectAccount } from '@/lib/stripe-connect/callba
 import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import { getRequestOrigin, getServerSideURL } from '@/utilities/getURL'
+import { registerAllDomainsForConnectedAccount } from '@/collections/Tenants/registerApplePayDomain'
 
 const ERROR_REDIRECT = '/admin'
 
@@ -82,6 +83,22 @@ export async function GET(request: NextRequest) {
       select: { id: true } as any,
     })
     console.info('[Stripe Connect] connected', { tenantId, userId: stateUserId })
+
+    // Register all platform domains on the newly connected account so Apple Pay
+    // works immediately — Elements is initialised with { stripeAccount } so Stripe
+    // checks the connected account's domain list, not the platform's.
+    registerAllDomainsForConnectedAccount(
+      payload,
+      result.stripe_account_id,
+      tenantId,
+    ).catch((err) => {
+      console.error('[Stripe Connect] Apple Pay domain registration failed for connected account', {
+        tenantId,
+        accountId: result.stripe_account_id,
+        err,
+      })
+    })
+
     return NextResponse.redirect(appendConnectStatus(returnTo, 'success'), 302)
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
