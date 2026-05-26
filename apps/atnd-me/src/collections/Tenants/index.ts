@@ -283,13 +283,31 @@ export const Tenants: CollectionConfig = {
           domainsToRegister.push(newDomain)
         }
 
+        // The connected account ID (if this tenant has completed Stripe Connect onboarding).
+        // Apple Pay domain registration must happen on both the platform AND the connected account
+        // because Stripe Elements is initialised with `loadStripe(key, { stripeAccount })`.
+        const connectedAccountId =
+          typeof doc?.stripeConnectAccountId === 'string' && doc.stripeConnectAccountId.trim()
+            ? doc.stripeConnectAccountId.trim()
+            : null
+
         for (const domain of domainsToRegister) {
+          // Platform registration
           await registerApplePayDomain(domain).catch((err: unknown) => {
             console.error(
-              `[Tenants afterChange] Failed to register Apple Pay domain "${domain}":`,
+              `[Tenants afterChange] Failed to register Apple Pay domain "${domain}" (platform):`,
               err,
             )
           })
+          // Connected account registration
+          if (connectedAccountId) {
+            await registerApplePayDomain(domain, connectedAccountId).catch((err: unknown) => {
+              console.error(
+                `[Tenants afterChange] Failed to register Apple Pay domain "${domain}" (${connectedAccountId}):`,
+                err,
+              )
+            })
+          }
         }
 
         // If the domain was cleared, no deregistration needed — Stripe doesn't expose a

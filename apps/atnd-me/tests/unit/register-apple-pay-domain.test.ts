@@ -60,7 +60,7 @@ describe('registerApplePayDomain', () => {
 
     await registerApplePayDomain('acme.example.com')
 
-    expect(mockList).toHaveBeenCalledWith({ domain_name: 'acme.example.com', limit: 1 })
+    expect(mockList).toHaveBeenCalledWith({ domain_name: 'acme.example.com', limit: 1 }, undefined)
     expect(mockCreate).not.toHaveBeenCalled()
     expect(mockUpdate).not.toHaveBeenCalled()
   })
@@ -71,7 +71,7 @@ describe('registerApplePayDomain', () => {
 
     await registerApplePayDomain('acme.example.com')
 
-    expect(mockUpdate).toHaveBeenCalledWith('pmd_disabled', { enabled: true })
+    expect(mockUpdate).toHaveBeenCalledWith('pmd_disabled', { enabled: true }, undefined)
     expect(mockCreate).not.toHaveBeenCalled()
   })
 
@@ -81,7 +81,7 @@ describe('registerApplePayDomain', () => {
 
     await registerApplePayDomain('acme.example.com')
 
-    expect(mockCreate).toHaveBeenCalledWith({ domain_name: 'acme.example.com' })
+    expect(mockCreate).toHaveBeenCalledWith({ domain_name: 'acme.example.com' }, undefined)
     expect(mockUpdate).not.toHaveBeenCalled()
   })
 
@@ -98,6 +98,36 @@ describe('registerApplePayDomain', () => {
     mockList.mockRejectedValue(new Error('Network error'))
 
     await expect(registerApplePayDomain('acme.example.com')).rejects.toThrow('Network error')
+  })
+
+  it('passes stripeAccount request option when stripeAccountId is provided', async () => {
+    mockList.mockResolvedValue({ data: [] })
+    mockCreate.mockResolvedValue(makeDomain())
+
+    await registerApplePayDomain('acme.example.com', 'acct_connected123')
+
+    expect(mockList).toHaveBeenCalledWith(
+      { domain_name: 'acme.example.com', limit: 1 },
+      { stripeAccount: 'acct_connected123' },
+    )
+    expect(mockCreate).toHaveBeenCalledWith(
+      { domain_name: 'acme.example.com' },
+      { stripeAccount: 'acct_connected123' },
+    )
+  })
+
+  it('re-enables a disabled domain on a connected account', async () => {
+    mockList.mockResolvedValue({ data: [makeDomain({ id: 'pmd_con', enabled: false })] })
+    mockUpdate.mockResolvedValue(makeDomain({ id: 'pmd_con', enabled: true }))
+
+    await registerApplePayDomain('acme.example.com', 'acct_connected123')
+
+    expect(mockUpdate).toHaveBeenCalledWith(
+      'pmd_con',
+      { enabled: true },
+      { stripeAccount: 'acct_connected123' },
+    )
+    expect(mockCreate).not.toHaveBeenCalled()
   })
 })
 
