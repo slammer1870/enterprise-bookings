@@ -263,52 +263,51 @@ export const Tenants: CollectionConfig = {
           try { return new URL(url).hostname.toLowerCase() } catch { return null }
         })()
 
-        const domainsToRegister: string[] = []
-
-        // Platform subdomain: register on create, or if slug changed.
         const newSlug = typeof doc?.slug === 'string' ? doc.slug.trim() : null
         const prevSlug = typeof previousDoc?.slug === 'string' ? previousDoc.slug.trim() : null
-        if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
-          domainsToRegister.push(`${newSlug}.${rootHostname}`)
-        }
-
-        // Custom domain: register whenever it is set or changed.
         const newDomain =
           typeof doc?.domain === 'string' && doc.domain.trim() ? doc.domain.trim() : null
         const prevDomain =
           typeof previousDoc?.domain === 'string' && previousDoc.domain.trim()
             ? previousDoc.domain.trim()
             : null
-        if (newDomain && newDomain !== prevDomain) {
-          domainsToRegister.push(newDomain)
-        }
 
-        // The connected account ID (if this tenant has completed Stripe Connect onboarding).
-        // Apple Pay domain registration must happen on both the platform AND the connected account
-        // because Stripe Elements is initialised with `loadStripe(key, { stripeAccount })`.
         const connectedAccountId =
           typeof doc?.stripeConnectAccountId === 'string' && doc.stripeConnectAccountId.trim()
             ? doc.stripeConnectAccountId.trim()
             : null
 
-        for (const domain of domainsToRegister) {
-          // Platform registration
-          await registerApplePayDomain(domain).catch((err: unknown) => {
+        // Domains to register on the platform — only what actually changed.
+        const platformDomains: string[] = []
+        if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
+          platformDomains.push(`${newSlug}.${rootHostname}`)
+        }
+        if (newDomain && newDomain !== prevDomain) {
+          platformDomains.push(newDomain)
+        }
+
+        // Domains to register on the connected account — all current domains whenever
+        // anything changes. This means any save (including the two-save temp-domain trick)
+        // keeps the connected account fully in sync, closing the gap where only the custom
+        // domain changed but the platform subdomain was never registered on the account.
+        const connectedDomains: string[] = []
+        if (connectedAccountId && (platformDomains.length > 0)) {
+          if (newSlug && rootHostname) connectedDomains.push(`${newSlug}.${rootHostname}`)
+          if (newDomain) connectedDomains.push(newDomain)
+        }
+
+        const register = async (domain: string, accountId?: string) => {
+          await registerApplePayDomain(domain, accountId).catch((err: unknown) => {
+            const label = accountId ? `(${accountId})` : '(platform)'
             console.error(
-              `[Tenants afterChange] Failed to register Apple Pay domain "${domain}" (platform):`,
+              `[Tenants afterChange] Failed to register Apple Pay domain "${domain}" ${label}:`,
               err,
             )
           })
-          // Connected account registration
-          if (connectedAccountId) {
-            await registerApplePayDomain(domain, connectedAccountId).catch((err: unknown) => {
-              console.error(
-                `[Tenants afterChange] Failed to register Apple Pay domain "${domain}" (${connectedAccountId}):`,
-                err,
-              )
-            })
-          }
         }
+
+        for (const domain of platformDomains) await register(domain)
+        for (const domain of connectedDomains) await register(domain, connectedAccountId!)
 
         // If the domain was cleared, no deregistration needed — Stripe doesn't expose a
         // paymentMethodDomains.delete() that would break other integrations on the same domain.

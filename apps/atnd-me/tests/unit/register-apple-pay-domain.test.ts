@@ -132,122 +132,134 @@ describe('registerApplePayDomain', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Tenant afterChange hook subdomain coverage
+// Tenant afterChange hook domain collection logic
 // ---------------------------------------------------------------------------
-// The logic below mirrors the hook in src/collections/Tenants/index.ts so we
-// can unit-test domain collection without spinning up Payload.
+// Mirrors the hook in src/collections/Tenants/index.ts so the routing logic
+// can be unit-tested without spinning up Payload.
 
-function collectDomainsFromHookArgs({
-  doc,
-  previousDoc,
-  operation,
-  rootHostname,
-}: {
-  doc: { slug?: string | null; domain?: string | null }
+type HookArgs = {
+  doc: { slug?: string | null; domain?: string | null; stripeConnectAccountId?: string | null }
   previousDoc: { slug?: string | null; domain?: string | null }
   operation: 'create' | 'update'
   rootHostname: string | null
-}): string[] {
-  const domains: string[] = []
+}
+
+function collectRegistrationsFromHookArgs(args: HookArgs): {
+  platform: string[]
+  connected: string[]
+} {
+  const { doc, previousDoc, operation, rootHostname } = args
 
   const newSlug = typeof doc.slug === 'string' ? doc.slug.trim() : null
   const prevSlug = typeof previousDoc.slug === 'string' ? previousDoc.slug.trim() : null
-  if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
-    domains.push(`${newSlug}.${rootHostname}`)
-  }
-
   const newDomain = typeof doc.domain === 'string' && doc.domain.trim() ? doc.domain.trim() : null
   const prevDomain =
     typeof previousDoc.domain === 'string' && previousDoc.domain.trim()
       ? previousDoc.domain.trim()
       : null
+  const connectedAccountId =
+    typeof doc.stripeConnectAccountId === 'string' && doc.stripeConnectAccountId.trim()
+      ? doc.stripeConnectAccountId.trim()
+      : null
+
+  const platform: string[] = []
+  if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
+    platform.push(`${newSlug}.${rootHostname}`)
+  }
   if (newDomain && newDomain !== prevDomain) {
-    domains.push(newDomain)
+    platform.push(newDomain)
   }
 
-  return domains
+  const connected: string[] = []
+  if (connectedAccountId && platform.length > 0) {
+    if (newSlug && rootHostname) connected.push(`${newSlug}.${rootHostname}`)
+    if (newDomain) connected.push(newDomain)
+  }
+
+  return { platform, connected }
 }
 
-describe('Tenants afterChange — domain collection logic', () => {
+describe('Tenants afterChange — domain registration routing', () => {
   const ROOT = 'atnd-me.com'
+  const ACCOUNT = 'acct_connected'
 
-  it('registers the platform subdomain on tenant create', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme', domain: null },
+  it('registers the platform subdomain on create (no connected account)', () => {
+    const { platform, connected } = collectRegistrationsFromHookArgs({
+      doc: { slug: 'acme', domain: null, stripeConnectAccountId: null },
       previousDoc: { slug: null, domain: null },
       operation: 'create',
       rootHostname: ROOT,
     })
-    expect(domains).toEqual(['acme.atnd-me.com'])
+    expect(platform).toEqual(['acme.atnd-me.com'])
+    expect(connected).toEqual([])
   })
 
-  it('registers both subdomain and custom domain on create when both are set', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme', domain: 'acme.com' },
+  it('registers subdomain on both platform and connected account on create', () => {
+    const { platform, connected } = collectRegistrationsFromHookArgs({
+      doc: { slug: 'acme', domain: null, stripeConnectAccountId: ACCOUNT },
       previousDoc: { slug: null, domain: null },
       operation: 'create',
       rootHostname: ROOT,
     })
-    expect(domains).toEqual(['acme.atnd-me.com', 'acme.com'])
+    expect(platform).toEqual(['acme.atnd-me.com'])
+    expect(connected).toEqual(['acme.atnd-me.com'])
   })
 
-  it('registers the new subdomain when the slug changes on update', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme-new', domain: null },
-      previousDoc: { slug: 'acme-old', domain: null },
+  it('two-save trick: custom domain change also registers subdomain on connected account', () => {
+    // Second save of the two-save trick: real domain replaces temp domain.
+    // Connected account receives BOTH subdomain + custom domain even though
+    // only the custom domain changed on the platform.
+    const { platform, connected } = collectRegistrationsFromHookArgs({
+      doc: { slug: 'acme', domain: 'acme.com', stripeConnectAccountId: ACCOUNT },
+      previousDoc: { slug: 'acme', domain: 'temp.acme.com' },
       operation: 'update',
       rootHostname: ROOT,
     })
-    expect(domains).toEqual(['acme-new.atnd-me.com'])
+    expect(platform).toEqual(['acme.com'])
+    expect(connected).toEqual(['acme.atnd-me.com', 'acme.com'])
   })
 
-  it('does not re-register subdomain when slug is unchanged on update', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme', domain: null },
-      previousDoc: { slug: 'acme', domain: null },
+  it('slug change registers new subdomain on both platform and connected account', () => {
+    const { platform, connected } = collectRegistrationsFromHookArgs({
+      doc: { slug: 'acme-new', domain: 'acme.com', stripeConnectAccountId: ACCOUNT },
+      previousDoc: { slug: 'acme-old', domain: 'acme.com' },
       operation: 'update',
       rootHostname: ROOT,
     })
-    expect(domains).toEqual([])
+    expect(platform).toEqual(['acme-new.atnd-me.com'])
+    expect(connected).toEqual(['acme-new.atnd-me.com', 'acme.com'])
   })
 
-  it('registers custom domain when it is added on update', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme', domain: 'acme.com' },
-      previousDoc: { slug: 'acme', domain: null },
-      operation: 'update',
-      rootHostname: ROOT,
-    })
-    expect(domains).toEqual(['acme.com'])
-  })
-
-  it('registers new custom domain when it changes on update', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme', domain: 'new.acme.com' },
-      previousDoc: { slug: 'acme', domain: 'old.acme.com' },
-      operation: 'update',
-      rootHostname: ROOT,
-    })
-    expect(domains).toEqual(['new.acme.com'])
-  })
-
-  it('does nothing when neither slug nor domain changed', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme', domain: 'acme.com' },
+  it('no registrations when nothing changed', () => {
+    const { platform, connected } = collectRegistrationsFromHookArgs({
+      doc: { slug: 'acme', domain: 'acme.com', stripeConnectAccountId: ACCOUNT },
       previousDoc: { slug: 'acme', domain: 'acme.com' },
       operation: 'update',
       rootHostname: ROOT,
     })
-    expect(domains).toEqual([])
+    expect(platform).toEqual([])
+    expect(connected).toEqual([])
   })
 
-  it('does not register subdomain when NEXT_PUBLIC_SERVER_URL is not set (rootHostname null)', () => {
-    const domains = collectDomainsFromHookArgs({
-      doc: { slug: 'acme', domain: null },
+  it('does not register on connected account when there is no connected account', () => {
+    const { platform, connected } = collectRegistrationsFromHookArgs({
+      doc: { slug: 'acme', domain: 'acme.com', stripeConnectAccountId: null },
+      previousDoc: { slug: 'acme', domain: null },
+      operation: 'update',
+      rootHostname: ROOT,
+    })
+    expect(platform).toEqual(['acme.com'])
+    expect(connected).toEqual([])
+  })
+
+  it('does not register subdomain when rootHostname is not set', () => {
+    const { platform, connected } = collectRegistrationsFromHookArgs({
+      doc: { slug: 'acme', domain: null, stripeConnectAccountId: ACCOUNT },
       previousDoc: { slug: null, domain: null },
       operation: 'create',
       rootHostname: null,
     })
-    expect(domains).toEqual([])
+    expect(platform).toEqual([])
+    expect(connected).toEqual([])
   })
 })
