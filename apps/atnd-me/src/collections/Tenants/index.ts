@@ -257,18 +257,36 @@ export const Tenants: CollectionConfig = {
   hooks: {
     afterChange: [
       async ({ doc, previousDoc, operation }) => {
+        const rootHostname = (() => {
+          const url = process.env.NEXT_PUBLIC_SERVER_URL
+          if (!url) return null
+          try { return new URL(url).hostname.toLowerCase() } catch { return null }
+        })()
+
+        const domainsToRegister: string[] = []
+
+        // Platform subdomain: register on create, or if slug changed.
+        const newSlug = typeof doc?.slug === 'string' ? doc.slug.trim() : null
+        const prevSlug = typeof previousDoc?.slug === 'string' ? previousDoc.slug.trim() : null
+        if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
+          domainsToRegister.push(`${newSlug}.${rootHostname}`)
+        }
+
+        // Custom domain: register whenever it is set or changed.
         const newDomain =
           typeof doc?.domain === 'string' && doc.domain.trim() ? doc.domain.trim() : null
         const prevDomain =
           typeof previousDoc?.domain === 'string' && previousDoc.domain.trim()
             ? previousDoc.domain.trim()
             : null
-
-        // Register the domain with Stripe whenever a custom domain is set or changed.
         if (newDomain && newDomain !== prevDomain) {
-          await registerApplePayDomain(newDomain).catch((err: unknown) => {
+          domainsToRegister.push(newDomain)
+        }
+
+        for (const domain of domainsToRegister) {
+          await registerApplePayDomain(domain).catch((err: unknown) => {
             console.error(
-              `[Tenants afterChange] Failed to register Apple Pay domain "${newDomain}":`,
+              `[Tenants afterChange] Failed to register Apple Pay domain "${domain}":`,
               err,
             )
           })
