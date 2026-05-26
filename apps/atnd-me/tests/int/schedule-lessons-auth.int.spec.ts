@@ -141,7 +141,6 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       collection: 'class-pass-types',
       data: {
         name: `Schedule Test Pass Type ${Date.now()}`,
-        slug: `schedule-test-pass-type-${Date.now()}`,
         tenant: testTenant.id,
         quantity: 10,
         allowMultipleBookingsPerTimeslot: true,

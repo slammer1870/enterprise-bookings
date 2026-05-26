@@ -3,7 +3,10 @@
 import type { ClassPassFeeBreakdownComponentProps } from '@repo/payments-next'
 import { useTRPC } from '@repo/trpc/client'
 import { useQuery } from '@tanstack/react-query'
-import { BookingFeeBreakdown } from '@/components/booking/BookingFeeBreakdown'
+
+function formatCents(cents: number): string {
+  return `€${(cents / 100).toFixed(2)}`
+}
 
 function ClassPassFeeBreakdownQuery({ classPassTypeId, classPriceCents }: ClassPassFeeBreakdownComponentProps) {
   const trpc = useTRPC()
@@ -11,13 +14,11 @@ function ClassPassFeeBreakdownQuery({ classPassTypeId, classPriceCents }: ClassP
   const { data, isLoading, error } = useQuery(
     procedure.queryOptions({ classPassTypeId, classPriceCents }),
   )
-  if (isLoading || error || !data) return null
+  if (isLoading || error || !data || data.bookingFeeCents <= 0) return null
   return (
-    <BookingFeeBreakdown
-      classPriceCents={data.classPriceCents}
-      bookingFeeCents={data.bookingFeeCents}
-      feeLabel="Platform fee"
-    />
+    <p className="text-xs text-muted-foreground" data-testid="class-pass-platform-fee-note">
+      Includes {formatCents(data.bookingFeeCents)} platform fee
+    </p>
   )
 }
 

@@ -61,7 +61,6 @@ describe('Class-pass-types soft delete (Phase 4.5)', () => {
       collection: 'class-pass-types',
       data: {
         name: 'Test Pass Type Soft Delete',
-        slug: `pass-soft-${runId}`,
         quantity: 5,
         tenant: testTenantId,
         priceInformation: { price: 29.99 },

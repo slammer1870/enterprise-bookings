@@ -181,7 +181,8 @@ export function assertTimeslotBelongsToTenant(
 export async function populateTimeslotEventType(
   payload: Payload,
   timeslot: Timeslot,
-  eventTypesSlug: string = DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS.eventTypes
+  eventTypesSlug: string = DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS.eventTypes,
+  classPassTypesSlug: string = DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS.classPassTypes
 ): Promise<void> {
   const coId = getEventTypeId(timeslot);
   if (coId == null || !hasCollection(payload, eventTypesSlug)) return;
@@ -281,7 +282,7 @@ export async function populateTimeslotEventType(
                     ? cloned
                     : null;
             if (cpId == null) return cloned;
-            const cpDoc = await findByIdSafe<any>(payload, "class-pass-types", cpId, {
+            const cpDoc = await findByIdSafe<any>(payload, classPassTypesSlug, cpId, {
               depth: 0,
               overrideAccess: true,
             });

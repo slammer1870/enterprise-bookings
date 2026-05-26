@@ -1013,10 +1013,6 @@ export interface ClassPassType {
    */
   name: string;
   /**
-   * Unique identifier, e.g. fitness-only, sauna-only
-   */
-  slug: string;
-  /**
    * Optional description of what this pass type covers
    */
   description?: string | null;
@@ -5253,7 +5249,6 @@ export interface DropInsSelect<T extends boolean = true> {
 export interface ClassPassTypesSelect<T extends boolean = true> {
   tenant?: T;
   name?: T;
-  slug?: T;
   description?: T;
   quantity?: T;
   daysUntilExpiration?: T;

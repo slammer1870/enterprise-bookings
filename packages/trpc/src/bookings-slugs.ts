@@ -7,6 +7,8 @@ export type TRPCBookingCollectionSlugs = {
   eventTypes: string;
   staffMembers: string;
   bookings: string;
+  classPasses: string;
+  classPassTypes: string;
 };
 
 export const DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS: TRPCBookingCollectionSlugs = {
@@ -14,6 +16,8 @@ export const DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS: TRPCBookingCollectionSlugs =
   eventTypes: "event-types",
   staffMembers: "staff-members",
   bookings: "bookings",
+  classPasses: "class-passes",
+  classPassTypes: "class-pass-types",
 };
 
 export function mergeTRPCBookingCollectionSlugs(

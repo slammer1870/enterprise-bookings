@@ -37,14 +37,6 @@ const defaultFields: Field[] = [
     admin: { description: "e.g. Fitness Only, Sauna Only, All Access" },
   },
   {
-    name: "slug",
-    label: "Slug",
-    type: "text",
-    required: true,
-    unique: true,
-    admin: { description: "Unique identifier, e.g. fitness-only, sauna-only" },
-  },
-  {
     name: "description",
     label: "Description",
     type: "textarea",
@@ -202,7 +194,7 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
     labels: { singular: "Class Pass Type", plural: "Class Pass Types" },
     admin: {
       useAsTitle: "name",
-      defaultColumns: ["name", "slug", "quantity", "daysUntilExpiration", "priceInformation.price", "status"],
+      defaultColumns: ["name", "quantity", "daysUntilExpiration", "priceInformation.price", "status"],
       group: adminGroup,
       description:
         "Defines pass types (e.g. Fitness Only, Sauna Only). Class options can restrict which types are accepted.",

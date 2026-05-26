@@ -1242,7 +1242,6 @@ describe("Booking tests", () => {
           collection: "class-pass-types",
           data: {
             name: "Class pass cap type",
-            slug: `class-pass-cap-type-${Date.now()}`,
             quantity: 10,
             daysUntilExpiration: 30,
             maxBookingsPerTimeslot: 1,

@@ -51,7 +51,7 @@ export const bookingsRouter = {
   bookSingleSlotTimeslotOrRedirect: protectedProcedure
     .use(requireBookingCollections("timeslots", "bookings", "eventTypes"))
     .use(requireCollections("subscriptions"))
-    .use(requireCollections("class-passes"))
+    .use(requireBookingCollections("classPasses"))
     .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { timeslotId } = input;
@@ -207,7 +207,7 @@ export const bookingsRouter = {
 
       if (allowedClassPassTypeIds.length > 0 && timeslotTenantId != null) {
         const now = new Date().toISOString();
-        const passResult = await findSafe(ctx.payload, "class-passes", {
+        const passResult = await findSafe(ctx.payload, ctx.bookingsSlugs.classPasses, {
           where: {
             and: [
               { user: { equals: ctx.user.id } },
@@ -247,7 +247,7 @@ export const bookingsRouter = {
           const nextQty = Math.max(0, currentQty - 1);
           const nextStatus = nextQty === 0 ? "used" : ((usablePass as any).status ?? "active");
           await ctx.payload.update({
-            collection: "class-passes" as import("payload").CollectionSlug,
+            collection: ctx.bookingsSlugs.classPasses as import("payload").CollectionSlug,
             id: passId,
             data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
             overrideAccess: true,
@@ -659,7 +659,7 @@ export const bookingsRouter = {
             message: "Booking with class pass must be confirmed.",
           });
         }
-        if (!hasCollection(ctx.payload, "class-passes")) {
+        if (!hasCollection(ctx.payload, ctx.bookingsSlugs.classPasses)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Class passes are not available in this application.",
@@ -687,7 +687,7 @@ export const bookingsRouter = {
         }
         const passResult = await findSafe(
           ctx.payload,
-          "class-passes",
+          ctx.bookingsSlugs.classPasses,
           {
             where: {
               id: { equals: classPassId },
@@ -721,10 +721,10 @@ export const bookingsRouter = {
             ? (passDoc.type as { id: number }).id
             : passDoc.type;
         let passType: { maxBookingsPerTimeslot?: number | null } | null = null;
-        if (passTypeId != null && hasCollection(ctx.payload, "class-pass-types")) {
+        if (passTypeId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.classPassTypes)) {
           const typeDoc = await findByIdSafe(
             ctx.payload,
-            "class-pass-types",
+            ctx.bookingsSlugs.classPassTypes,
             passTypeId,
             { depth: 0, overrideAccess: true }
           );
@@ -799,7 +799,7 @@ export const bookingsRouter = {
       const decrementClassPassCredits = async (count: number) => {
         if (classPassIdUsed == null || count <= 0) return;
         const pass = (await ctx.payload.findByID({
-          collection: "class-passes" as import("payload").CollectionSlug,
+          collection: ctx.bookingsSlugs.classPasses as import("payload").CollectionSlug,
           id: classPassIdUsed,
           depth: 0,
           // System operation: class pass decrement is enforced by earlier ownership checks,
@@ -811,7 +811,7 @@ export const bookingsRouter = {
         const nextQty = Math.max(0, pass.quantity - count);
         const nextStatus = nextQty === 0 ? "used" : (pass.status ?? "active");
         await ctx.payload.update({
-          collection: "class-passes" as import("payload").CollectionSlug,
+          collection: ctx.bookingsSlugs.classPasses as import("payload").CollectionSlug,
           id: classPassIdUsed,
           data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
           overrideAccess: true,
@@ -1031,7 +1031,7 @@ export const bookingsRouter = {
   getValidClassPassesForTimeslot: protectedProcedure
     .input(z.object({ timeslotId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, "class-passes")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, ctx.bookingsSlugs.classPasses)) {
         return [];
       }
 
@@ -1047,7 +1047,7 @@ export const bookingsRouter = {
       if (!timeslot) {
         return [];
       }
-      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
+      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes, ctx.bookingsSlugs.classPassTypes);
       const eventType =
         typeof timeslot.eventType === "object" ? timeslot.eventType : null;
       const eventTypeWithPasses = eventType as (typeof eventType) & {
@@ -1072,7 +1072,7 @@ export const bookingsRouter = {
       // Same `withTenantAccess` / empty session tenants issue as getPurchasableClassPassTypesForTimeslot.
       const result = await findSafe(
         ctx.payload,
-        "class-passes",
+        ctx.bookingsSlugs.classPasses,
         {
           where: {
             user: { equals: ctx.user.id },
@@ -1099,7 +1099,7 @@ export const bookingsRouter = {
   getPurchasableClassPassTypesForTimeslot: protectedProcedure
     .input(z.object({ timeslotId: z.number(), quantity: z.number().min(1).optional() }))
     .query(async ({ ctx, input }) => {
-      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, "class-pass-types")) {
+      if (!hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) || !hasCollection(ctx.payload, ctx.bookingsSlugs.classPassTypes)) {
         return [];
       }
 
@@ -1117,7 +1117,7 @@ export const bookingsRouter = {
         return [];
       }
 
-      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes);
+      await populateTimeslotEventType(ctx.payload, timeslot, ctx.bookingsSlugs.eventTypes, ctx.bookingsSlugs.classPassTypes);
       const eventType =
         typeof timeslot.eventType === "object" ? timeslot.eventType : null;
       const eventTypeWithPasses = eventType as (typeof eventType) & {
@@ -1166,7 +1166,7 @@ export const bookingsRouter = {
       // `withTenantAccess` on class-pass-types adds tenant { in: sessionUser.tenants }.
       // Better Auth sessions often omit populated tenants, yielding `in: []` and a 403 from Payload.
       // Allowed IDs and tenant come from the timeslot's event type; scope is enforced in `where` below.
-      const accessible = await findSafe(ctx.payload, "class-pass-types", {
+      const accessible = await findSafe(ctx.payload, ctx.bookingsSlugs.classPassTypes, {
         where: {
           id: { in: allowedTypeIds },
           status: { equals: "active" },
@@ -1183,7 +1183,7 @@ export const bookingsRouter = {
           const typeId = typeof doc?.id === "number" ? doc.id : null;
           if (typeId == null) return null;
 
-          const fullDoc = await findByIdSafe(ctx.payload, "class-pass-types", typeId, {
+          const fullDoc = await findByIdSafe(ctx.payload, ctx.bookingsSlugs.classPassTypes, typeId, {
             depth: 0,
             overrideAccess: true,
           });
