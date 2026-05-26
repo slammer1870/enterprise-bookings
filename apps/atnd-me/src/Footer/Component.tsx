@@ -131,7 +131,7 @@ export async function Footer() {
           : {}),
       }}
     >
-      <div className="mx-auto">
+      <div className="container mx-auto">
         <div
           className={`${paddingXClasses} py-8 gap-8 flex flex-col md:flex-row md:justify-between`}
         >
@@ -187,7 +187,7 @@ export async function Footer() {
         </div>
       </div>
       {copyrightText && (
-        <div className="mx-auto border-t border-border/50">
+        <div className="container mx-auto border-t border-border/50">
           <div className={`${paddingXClasses} py-4`}>
             <p className={`text-sm text-center ${textColor} opacity-75`}>{copyrightText}</p>
           </div>
