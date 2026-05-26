@@ -17,7 +17,7 @@ function ClassPassFeeBreakdownQuery({ classPassTypeId, classPriceCents }: ClassP
   if (isLoading || error || !data || data.bookingFeeCents <= 0) return null
   return (
     <p className="text-xs text-muted-foreground" data-testid="class-pass-platform-fee-note">
-      Includes {formatCents(data.bookingFeeCents)} platform fee
+      Additional platform fee of {formatCents(data.bookingFeeCents)}
     </p>
   )
 }

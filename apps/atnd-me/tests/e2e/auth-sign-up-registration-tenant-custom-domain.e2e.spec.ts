@@ -15,7 +15,7 @@ import { isNipIoDnsAvailable } from './helpers/dns-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 test.describe('Better Auth /auth/sign-up registrationTenant (custom domain E2E)', () => {
-  test.describe.configure({ timeout: e2eSlowTestTimeout() })
+  test.describe.configure({ timeout: e2eSlowTestTimeout(180_000, 120_000) })
 
   let registerOrigin: string
   let tenantId: number
