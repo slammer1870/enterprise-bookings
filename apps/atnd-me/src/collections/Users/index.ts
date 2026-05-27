@@ -17,6 +17,7 @@ import {
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { cookiesFromHeaders } from '@/utilities/cookiesFromHeaders'
+import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForDocumentWrite'
 
 const FIRST_USER_CREATE_CTX = '__atndFirstUserCreate' as const
 
@@ -42,7 +43,8 @@ export const Users: CollectionConfig = {
       async ({ data, operation, req }) => {
         if (operation === 'create' && data && !data.registrationTenant) {
           const user = req.user
-          if (user && checkRole(['admin'], user as unknown as SharedUser)) {
+          // Covers both tenant-admins ('admin' role) and platform super-admins ('super-admin' role).
+          if (user && checkRole(['admin', 'super-admin'], user as unknown as SharedUser)) {
             const rawTenant = req.context?.tenant as unknown
             if (rawTenant) {
               ;(data as { registrationTenant?: string | number }).registrationTenant =
@@ -54,6 +56,14 @@ export const Users: CollectionConfig = {
               const tenantIds = getUserTenantIds(user as unknown as SharedUser)
               if (tenantIds && tenantIds.length > 0) {
                 ;(data as { registrationTenant?: string | number }).registrationTenant = tenantIds[0]
+              } else {
+                // super-admin (getUserTenantIds returns null) or admin with no loaded tenants:
+                // fall back to the TenantSelector cookie (payload-tenant) set in the admin UI.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const fromSelector = await resolveTenantIdForDocumentWrite(req as any)
+                if (fromSelector != null && fromSelector !== '') {
+                  ;(data as { registrationTenant?: string | number }).registrationTenant = fromSelector
+                }
               }
             }
           } else if (!user && req.headers && typeof (req.headers as Headers).get === 'function') {

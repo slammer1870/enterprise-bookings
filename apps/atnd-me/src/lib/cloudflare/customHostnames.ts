@@ -1,0 +1,101 @@
+/**
+ * Cloudflare TLS for SaaS — custom hostname management.
+ * Used to provision SSL certificates for tenant apex domains.
+ *
+ * Requires:
+ *   CLOUDFLARE_API_TOKEN  — token with Zone:Custom Hostnames:Edit permission
+ *   CLOUDFLARE_ZONE_ID    — zone ID of the platform Cloudflare zone
+ */
+
+const CF_API = 'https://api.cloudflare.com/client/v4'
+
+export interface CustomHostnameResult {
+  id: string
+  verificationTxtValue: string
+  status: string
+}
+
+interface CfCustomHostname {
+  id: string
+  hostname: string
+  status: string
+  ownership_verification?: {
+    type: string
+    name: string
+    value: string
+  }
+}
+
+interface CfApiResponse<T> {
+  result: T
+  success: boolean
+  errors: Array<{ code: number; message: string }>
+}
+
+function getConfig(): { token: string; zoneId: string } {
+  const token = process.env.CLOUDFLARE_API_TOKEN?.trim()
+  if (!token) throw new Error('CLOUDFLARE_API_TOKEN is not set')
+
+  const zoneId = process.env.CLOUDFLARE_ZONE_ID?.trim()
+  if (!zoneId) throw new Error('CLOUDFLARE_ZONE_ID is not set')
+
+  return { token, zoneId }
+}
+
+function authHeaders(token: string) {
+  return {
+    Authorization: `Bearer ${token}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+function extractResult(record: CfCustomHostname): CustomHostnameResult {
+  return {
+    id: record.id,
+    verificationTxtValue: record.ownership_verification?.value ?? '',
+    status: record.status,
+  }
+}
+
+/**
+ * Creates a Cloudflare TLS for SaaS custom hostname for the given domain,
+ * or returns the existing one if it is already registered (idempotent).
+ *
+ * The returned `verificationTxtValue` should be set as a TXT record at
+ * `_cf-custom-hostname.{hostname}` so Cloudflare can verify domain ownership.
+ */
+export async function createOrGetCustomHostname(hostname: string): Promise<CustomHostnameResult> {
+  const { token, zoneId } = getConfig()
+
+  const createRes = await fetch(`${CF_API}/zones/${zoneId}/custom_hostnames`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      hostname,
+      ssl: { method: 'txt', type: 'dv', settings: { min_tls_version: '1.0' } },
+    }),
+  })
+
+  if (createRes.ok) {
+    const body = (await createRes.json()) as CfApiResponse<CfCustomHostname>
+    return extractResult(body.result)
+  }
+
+  if (createRes.status === 409) {
+    // Hostname already exists — fetch and return the existing record
+    const listRes = await fetch(
+      `${CF_API}/zones/${zoneId}/custom_hostnames?hostname=${encodeURIComponent(hostname)}&limit=1`,
+      { headers: authHeaders(token) },
+    )
+    const listBody = (await listRes.json()) as CfApiResponse<CfCustomHostname[]>
+    const existing = listBody.result?.[0]
+    if (!existing) {
+      throw new Error(`Cloudflare: hostname ${hostname} reported as existing but not found in list`)
+    }
+    return extractResult(existing)
+  }
+
+  const errorBody = await createRes.json().catch(() => null) as CfApiResponse<unknown> | null
+  const msg = errorBody?.errors?.[0]?.message ?? createRes.statusText
+  throw new Error(`Cloudflare custom hostname creation failed (${createRes.status}): ${msg}`)
+}

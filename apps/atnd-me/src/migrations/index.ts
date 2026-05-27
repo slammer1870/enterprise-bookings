@@ -1,3 +1,4 @@
+import * as migration_20260527_000001_tenants_apex_domain from './20260527_000001_tenants_apex_domain';
 import * as migration_20260120_171611 from './20260120_171611';
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260121_111436 from './20260121_111436';
@@ -713,5 +714,10 @@ export const migrations = [
     up: migration_20260523_000003_booking_checkout_holds_lock_rels.up,
     down: migration_20260523_000003_booking_checkout_holds_lock_rels.down,
     name: '20260523_000003_booking_checkout_holds_lock_rels',
+  },
+  {
+    up: migration_20260527_000001_tenants_apex_domain.up,
+    down: migration_20260527_000001_tenants_apex_domain.down,
+    name: '20260527_000001_tenants_apex_domain',
   },
 ];

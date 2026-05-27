@@ -62,6 +62,10 @@ const cleanedBaseNodeOptions = baseNodeOptions
 const env = {
   ...process.env,
   ENABLE_TEST_WEBHOOKS: 'true',
+  // Shared secret for /api/tenant-by-host and /api/tenant-by-slug internal calls.
+  // Middleware reads this at runtime to build the Authorization header; the route
+  // handler checks it.  Must be set to the same value in both places.
+  INTERNAL_TENANT_RESOLVE_TOKEN: process.env.INTERNAL_TENANT_RESOLVE_TOKEN ?? 'e2e-internal-test-secret',
   NODE_OPTIONS: `${cleanedBaseNodeOptions} --no-deprecation ${loaderNodeOptions}`.trim(),
 }
 const child = spawn(process.execPath, [serverEntrypoint], {

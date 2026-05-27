@@ -17,13 +17,23 @@ function SafeLink(props: NextLinkProps) {
 export function BetterAuthUIProvider({ children }: { children: ReactNode }) {
   const router = useRouter()
 
+  const handleSessionChange = () => {
+    // Ensure the user has a registrationTenant set. Covers the case where the
+    // Better Auth databaseHooks context lacked request headers during sign-up,
+    // causing the hook to silently skip tenant assignment.
+    fetch('/api/ensure-registration-tenant', { method: 'POST' }).catch(() => {
+      // Non-critical: tenant assignment will be retried on next session change.
+    })
+    router.refresh()
+  }
+
   return (
     <AuthUIProvider
       authClient={authClient}
       baseURL={getAuthUiBaseURL()}
       navigate={router.push}
       replace={router.replace}
-      onSessionChange={() => router.refresh()}
+      onSessionChange={handleSessionChange}
       Link={SafeLink}
       magicLink
     >

@@ -30,6 +30,21 @@ export function getPlatformRootHostname(): string | null {
 }
 
 /**
+ * Strips the first DNS label from a hostname, returning the parent domain.
+ * Used to derive the apex from a subdomain (e.g. www.croilan.com → croilan.com).
+ * Returns null when the hostname has fewer than 3 labels (already an apex or bare TLD).
+ */
+export function stripFirstLabel(hostname: string): string | null {
+  if (!hostname) return null
+  const dotIndex = hostname.indexOf('.')
+  if (dotIndex === -1) return null
+  const remainder = hostname.slice(dotIndex + 1)
+  // Remainder must itself contain a dot to be a valid multi-label domain
+  if (!remainder.includes('.')) return null
+  return remainder
+}
+
+/**
  * Normalizes a custom domain for storage: trim, lowercase, remove port if present.
  * Does not validate; use validateCustomDomainFormat for that.
  */
