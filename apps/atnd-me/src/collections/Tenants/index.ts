@@ -180,7 +180,7 @@ export const Tenants: CollectionConfig = {
       defaultValue: false,
       admin: {
         description:
-          'Redirect the bare apex domain (e.g. croilan.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.',
+          'Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.',
         condition: (data) => {
           const d = typeof data?.domain === 'string' ? data.domain : ''
           return d.includes('.') && d.split('.').length >= 3
