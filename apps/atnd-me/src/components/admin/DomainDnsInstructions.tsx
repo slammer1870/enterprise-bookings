@@ -8,31 +8,27 @@ import React from 'react'
  * Cloudflare TLS for SaaS verifies ownership automatically via the CNAME chain
  * (CNAME DCV), so no additional TXT record is required for subdomain custom domains.
  *
- * The CNAME target must be a dedicated, proxied (orange-cloud) A record in the
- * SaaS zone that points directly to the origin server — NOT a per-tenant proxied
- * subdomain. Using a tenant subdomain (e.g. slug.platform.com) causes Cloudflare
- * Error 1000 "DNS points to prohibited IP" because the resolved Cloudflare IPs
- * form a loop within the same zone.
+ * The CNAME target is derived by convention as `cname.<platform-domain>` from
+ * NEXT_PUBLIC_SERVER_URL. This must be a proxied (orange-cloud) A record in the
+ * SaaS zone pointing directly to the origin server — NOT a per-tenant subdomain.
+ * Using a per-tenant proxied subdomain causes Cloudflare Error 1000 (DNS loop).
  *
- * Set CLOUDFLARE_CNAME_TARGET to the dedicated hostname, e.g. `cname.atnd.me`.
+ * No extra env vars needed beyond NEXT_PUBLIC_SERVER_URL.
  */
 export const DomainDnsInstructions: UIFieldServerComponent = ({ data }) => {
   const domain = typeof data?.domain === 'string' && data.domain.trim() ? data.domain.trim() : null
 
   if (!domain) return null
 
-  // Prefer the dedicated CNAME target (e.g. cname.atnd.me) which is a proxied A record
-  // pointing straight to the origin server. Fallback to slug.rootHostname only for local
-  // dev where the env var is not set.
+  // Derive the CNAME target by convention: cname.<platform-domain>.
+  // The admin must create this A record (proxied) in Cloudflare pointing to the origin server,
+  // and set it as the Fallback Origin in SSL/TLS → Custom Hostnames.
   const cnameTarget = (() => {
-    if (process.env.CLOUDFLARE_CNAME_TARGET) return process.env.CLOUDFLARE_CNAME_TARGET
-    const slug = typeof data?.slug === 'string' && data.slug.trim() ? data.slug.trim() : null
     const url = process.env.NEXT_PUBLIC_SERVER_URL
-    if (!slug || !url) return null
-    try { return `${slug}.${new URL(url).hostname}` } catch { return null }
+    if (!url) return null
+    try { return `cname.${new URL(url).hostname}` } catch { return null }
   })()
 
-  // Derive the host label to CNAME (first label of the domain)
   const hostLabel = domain.split('.')[0] ?? '@'
 
   return (
@@ -58,7 +54,7 @@ export const DomainDnsInstructions: UIFieldServerComponent = ({ data }) => {
             <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{hostLabel}</td>
             <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
               {cnameTarget ?? (
-                <em style={{ color: 'var(--theme-error-500)' }}>Set CLOUDFLARE_CNAME_TARGET env var</em>
+                <em style={{ color: 'var(--theme-error-500)' }}>Set NEXT_PUBLIC_SERVER_URL env var</em>
               )}
             </td>
             <td style={{ padding: '4px 8px' }}>Auto</td>

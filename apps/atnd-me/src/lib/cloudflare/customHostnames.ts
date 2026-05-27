@@ -1,10 +1,17 @@
 /**
  * Cloudflare TLS for SaaS — custom hostname management.
- * Used to provision SSL certificates for tenant apex domains.
+ * Used to provision SSL certificates for tenant custom domains.
  *
- * Requires:
+ * Required env vars (only two):
  *   CLOUDFLARE_API_TOKEN  — token with Zone:Custom Hostnames:Edit permission
  *   CLOUDFLARE_ZONE_ID    — zone ID of the platform Cloudflare zone
+ *
+ * One-time Cloudflare setup (no further env vars needed):
+ *   1. DNS tab: add `cname.<platform-domain>` A record → origin server IP, Proxied (orange cloud)
+ *   2. SSL/TLS → Custom Hostnames → Fallback Origin: set to `cname.<platform-domain>`
+ *
+ * Everything else (CNAME target for admin UI, apex A record IP) is derived automatically
+ * from NEXT_PUBLIC_SERVER_URL at runtime.
  */
 
 const CF_API = 'https://api.cloudflare.com/client/v4'

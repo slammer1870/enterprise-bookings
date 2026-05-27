@@ -1,4 +1,5 @@
 import type { UIFieldServerComponent } from 'payload'
+import { resolve4 } from 'node:dns/promises'
 import React from 'react'
 import { stripFirstLabel } from '@/utilities/validateCustomDomain'
 
@@ -6,18 +7,37 @@ import { stripFirstLabel } from '@/utilities/validateCustomDomain'
  * Admin UI panel shown on the Tenants edit view when redirectApex is enabled.
  * Displays the two DNS records the client must add to their registrar to activate
  * apex → www redirect via Cloudflare TLS for SaaS.
+ *
+ * The apex A record IP is resolved at render time from `cname.<platform-domain>`,
+ * which is the same proxied Cloudflare record tenants CNAME their subdomain to.
+ * No CLOUDFLARE_APEX_IP env var is needed.
  */
-export const ApexDnsInstructions: UIFieldServerComponent = ({ data }) => {
+export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   const domain = typeof data?.domain === 'string' ? data.domain : null
   const token = typeof data?.apexDomainVerificationToken === 'string'
     ? data.apexDomainVerificationToken
     : null
-  const apexIp = process.env.CLOUDFLARE_APEX_IP ?? null
 
   if (!domain) return null
 
   const apex = stripFirstLabel(domain)
   if (!apex) return null
+
+  // Resolve the Cloudflare anycast IP from the convention-based CNAME target.
+  // Falls back to CLOUDFLARE_APEX_IP if set (for environments where DNS resolution
+  // is unavailable at render time, e.g. locked-down CI).
+  const apexIp = await (async () => {
+    if (process.env.CLOUDFLARE_APEX_IP) return process.env.CLOUDFLARE_APEX_IP
+    const url = process.env.NEXT_PUBLIC_SERVER_URL
+    if (!url) return null
+    try {
+      const cnameTarget = `cname.${new URL(url).hostname}`
+      const [ip] = await resolve4(cnameTarget)
+      return ip ?? null
+    } catch {
+      return null
+    }
+  })()
 
   return (
     <div style={{ padding: '12px 0' }}>
@@ -42,7 +62,7 @@ export const ApexDnsInstructions: UIFieldServerComponent = ({ data }) => {
             <td style={{ padding: '4px 8px' }}>A</td>
             <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
             <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
-              {apexIp ?? <em style={{ color: 'var(--theme-error-500)' }}>Set CLOUDFLARE_APEX_IP env var</em>}
+              {apexIp ?? <em style={{ color: 'var(--theme-error-500)' }}>Unable to resolve — set CLOUDFLARE_APEX_IP env var</em>}
             </td>
             <td style={{ padding: '4px 8px' }}>Auto</td>
           </tr>
