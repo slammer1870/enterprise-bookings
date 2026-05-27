@@ -125,8 +125,8 @@ const availableBlocks = [
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config
-const ThreeColumnLayout = createThreeColumnLayout(availableBlocks)
 const TwoColumnLayout = createTwoColumnLayout(availableBlocks)
+const ThreeColumnLayout = createThreeColumnLayout([...availableBlocks, TwoColumnLayout])
 
 const pageBlocks = [
   HeroSchedule,

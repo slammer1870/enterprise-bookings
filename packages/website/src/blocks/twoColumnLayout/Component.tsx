@@ -50,6 +50,7 @@ export const TwoColumnLayoutBlock: React.FC<TwoColumnLayoutBlockProps> = ({
   rightColumnHeading = 'Column two',
   leftBlocks,
   rightBlocks,
+  disableInnerContainer,
 }) => {
   const left = renderColumnBlocks(leftBlocks)
   const right = renderColumnBlocks(rightBlocks)
@@ -58,9 +59,16 @@ export const TwoColumnLayoutBlock: React.FC<TwoColumnLayoutBlockProps> = ({
     return null
   }
 
+  // When nested inside another layout block, always stack vertically and omit the
+  // standalone top padding that clears the fixed header.
+  const gridClass = disableInnerContainer ? 'grid grid-cols-1 gap-4' : 'grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4'
+  const wrapperClass = disableInnerContainer
+    ? 'w-full'
+    : 'mx-auto w-full max-w-7xl px-4 pt-24 sm:pt-28'
+
   return (
-    <section className="mx-auto w-full max-w-7xl px-4 pt-24 sm:pt-28">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-4">
+    <section className={wrapperClass}>
+      <div className={gridClass}>
         <div className="mx-auto w-full max-w-screen-sm p-6">
           {leftColumnHeading ? (
             <h2 className="mb-4 text-center text-2xl font-medium">{leftColumnHeading}</h2>
