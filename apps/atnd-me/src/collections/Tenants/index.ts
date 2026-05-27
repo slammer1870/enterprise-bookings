@@ -372,41 +372,31 @@ export const Tenants: CollectionConfig = {
           })
         }
 
-        // Apex domain: register Cloudflare custom hostname + Apple Pay when redirectApex is on.
-        if (apexActions.registerApex) {
-          let token: string | null = null
-          await createOrGetCustomHostname(apexActions.registerApex, true)
-            .then((result) => { token = result.verificationTxtValue })
-            .catch((err: unknown) => {
-              console.error(
-                `[Tenants afterChange] Failed to register Cloudflare custom hostname "${apexActions.registerApex}":`,
-                err,
-              )
-            })
-          await registerApplePayDomain(apexActions.registerApex).catch((err: unknown) => {
+        // Apex domain: register with Apple Pay and store in DB when redirectApex is on.
+        // SSL for the apex is handled by Traefik/Let's Encrypt on the origin server —
+        // no Cloudflare custom hostname registration needed for apex domains.
+        if (apexActions.registerApexApplePay) {
+          await registerApplePayDomain(apexActions.registerApexApplePay).catch((err: unknown) => {
             console.error(
-              `[Tenants afterChange] Failed to register Apple Pay domain "${apexActions.registerApex}":`,
+              `[Tenants afterChange] Failed to register Apple Pay domain "${apexActions.registerApexApplePay}":`,
               err,
             )
           })
           await req.payload.update({
             collection: 'tenants',
             id: doc.id,
-            data: {
-              apexDomain: apexActions.apexDomainToStore,
-              apexDomainVerificationToken: token,
-            },
+            data: { apexDomain: apexActions.apexDomainToStore },
             req,
             overrideAccess: true,
             context: { skipApexHook: true },
           }).catch((err: unknown) => {
             console.error('[Tenants afterChange] Failed to store apexDomain:', err)
           })
-        } else if (apexActions.clearToken) {
+        } else if (apexActions.clearApex) {
           await req.payload.update({
             collection: 'tenants',
             id: doc.id,
-            data: { apexDomain: null, apexDomainVerificationToken: null },
+            data: { apexDomain: null },
             req,
             overrideAccess: true,
             context: { skipApexHook: true },

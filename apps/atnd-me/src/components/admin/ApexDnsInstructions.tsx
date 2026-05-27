@@ -2,11 +2,7 @@ import type { UIFieldServerComponent } from 'payload'
 import { resolve4 } from 'node:dns/promises'
 import React from 'react'
 import { stripFirstLabel } from '@/utilities/validateCustomDomain'
-import {
-  getCustomHostnameStatus,
-  getDcvDelegationUuid,
-  type HostnameVerificationStatus,
-} from '@/lib/cloudflare/customHostnames'
+import type { HostnameVerificationStatus } from '@/lib/cloudflare/customHostnames'
 
 // ---------------------------------------------------------------------------
 // Status badge
@@ -35,56 +31,48 @@ function StatusBadge({ status }: { status: HostnameVerificationStatus | null }) 
 /**
  * Admin UI panel shown on the Tenants edit view when redirectApex is enabled.
  *
- * Shows all DNS records the client must add, with live verification status
- * fetched from Cloudflare, and uses DCV Delegation for the _acme-challenge
- * record so it is set once and auto-renews forever (no one-time TXT values).
+ * The apex domain is handled entirely by the origin server (Traefik / Let's Encrypt) —
+ * no Cloudflare TLS for SaaS registration is required. This works with any DNS
+ * provider since the client only needs to add a plain A record to the server IP.
+ *
+ * Set ORIGIN_SERVER_IP to your Hetzner (or other host) server's public IPv4.
+ * The status indicator resolves the apex domain at render time to check propagation.
  */
 export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   const domain = typeof data?.domain === 'string' ? data.domain : null
-  const token = typeof data?.apexDomainVerificationToken === 'string'
-    ? data.apexDomainVerificationToken
-    : null
-
   if (!domain) return null
 
   const apex = stripFirstLabel(domain)
   if (!apex) return null
 
-  // Fetch in parallel: live hostname status, DCV delegation UUID, apex IP
-  const [cfStatus, dcvUuid, apexIp] = await Promise.all([
-    getCustomHostnameStatus(apex),
-    getDcvDelegationUuid(),
-    (async () => {
-      if (process.env.CLOUDFLARE_APEX_IP) return process.env.CLOUDFLARE_APEX_IP
-      const url = process.env.NEXT_PUBLIC_SERVER_URL
-      if (!url) return null
-      try {
-        const cnameTarget = `cname.${new URL(url).hostname}`
-        const [ip] = await resolve4(cnameTarget)
-        return ip ?? null
-      } catch {
-        return null
-      }
-    })(),
-  ])
+  const originIp = process.env.ORIGIN_SERVER_IP ?? null
 
-  const dcvCnameTarget = dcvUuid ? `${apex}.${dcvUuid}.dcv.cloudflare.com` : null
+  // Check if the apex A record has propagated to the origin server IP
+  const aRecordStatus: HostnameVerificationStatus = await (async () => {
+    if (!originIp) return 'unknown'
+    try {
+      const ips = await resolve4(apex)
+      return ips.includes(originIp) ? 'active' : 'pending'
+    } catch {
+      return 'pending'
+    }
+  })()
 
-  const isFullyActive = cfStatus?.hostnameStatus === 'active' && cfStatus?.sslStatus === 'active'
+  const isActive = aRecordStatus === 'active'
 
   return (
     <div style={{ padding: '12px 0' }}>
       <h4 style={{ marginBottom: 4 }}>Apex domain DNS setup</h4>
 
-      {isFullyActive ? (
+      {isActive ? (
         <p style={{ marginBottom: 12, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
-          ✓ {apex} is active — SSL certificate issued and routing correctly.
+          ✓ {apex} A record is pointing to the server. SSL will be issued automatically on first visit.
         </p>
       ) : (
         <p style={{ marginBottom: 12, fontSize: 12, color: 'var(--theme-elevation-500)' }}>
           The <strong>{domain}</strong> CNAME is already in place (see above).
-          The apex (<strong>{apex}</strong>) cannot use a CNAME, so it needs three records below.
-          Add all three at once — then Cloudflare will issue an SSL certificate and activate the redirect.
+          Add one A record for the apex (<strong>{apex}</strong>) — the server issues
+          an SSL certificate automatically on first HTTPS request.
         </p>
       )}
 
@@ -99,55 +87,25 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
           </tr>
         </thead>
         <tbody>
-          {/* A record — routes traffic through Cloudflare */}
           <tr>
             <td style={{ padding: '4px 8px' }}>A</td>
             <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
             <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
-              {apexIp ?? <em style={{ color: 'var(--theme-error-500)' }}>Set CLOUDFLARE_APEX_IP</em>}
-            </td>
-            <td style={{ padding: '4px 8px' }}>Auto</td>
-            <td style={{ padding: '4px 8px' }}>
-              <StatusBadge status={cfStatus?.hostnameStatus ?? null} />
-            </td>
-          </tr>
-
-          {/* Ownership TXT — proves domain control to Cloudflare */}
-          <tr>
-            <td style={{ padding: '4px 8px' }}>TXT</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>_cf-custom-hostname</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
-              {token ?? <em style={{ color: 'var(--theme-warning-500)' }}>Save first to generate</em>}
-            </td>
-            <td style={{ padding: '4px 8px' }}>Auto</td>
-            <td style={{ padding: '4px 8px' }}>
-              <StatusBadge status={cfStatus ? (cfStatus.hostnameStatus === 'active' ? 'active' : 'pending') : null} />
-            </td>
-          </tr>
-
-          {/* DCV delegation CNAME — set once, auto-renews SSL forever */}
-          <tr>
-            <td style={{ padding: '4px 8px' }}>CNAME</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>_acme-challenge</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
-              {dcvCnameTarget ?? (
-                <em style={{ color: 'var(--theme-elevation-500)' }}>
-                  Requires CLOUDFLARE_API_TOKEN to generate
-                </em>
+              {originIp ?? (
+                <em style={{ color: 'var(--theme-error-500)' }}>Set ORIGIN_SERVER_IP env var</em>
               )}
             </td>
             <td style={{ padding: '4px 8px' }}>Auto</td>
             <td style={{ padding: '4px 8px' }}>
-              <StatusBadge status={cfStatus?.sslStatus ?? null} />
+              <StatusBadge status={aRecordStatus} />
             </td>
           </tr>
         </tbody>
       </table>
 
       <p style={{ marginTop: 8, fontSize: 12, color: 'var(--theme-elevation-500)' }}>
-        The <code>_acme-challenge</code> CNAME uses{' '}
-        <strong>DCV Delegation</strong> — set it once and Cloudflare renews the SSL
-        certificate automatically forever. No more one-time TXT values.
+        That&apos;s it — just one record. Works with any DNS provider.
+        SSL is issued automatically by the server; no TXT records or Cloudflare tokens required.
       </p>
     </div>
   )

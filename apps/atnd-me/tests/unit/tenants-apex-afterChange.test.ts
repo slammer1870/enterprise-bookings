@@ -25,12 +25,12 @@ type ApexHookArgs = {
 }
 
 type ApexActions = {
-  /** Apex hostname to register (Cloudflare + Apple Pay). Null = nothing to register. */
-  registerApex: string | null
+  /** Apex hostname to register with Apple Pay. Null = nothing to register. */
+  registerApexApplePay: string | null
   /** Derived apex to write into the apexDomain column. Null = clear the column. */
   apexDomainToStore: string | null
-  /** When true, the token field should be cleared (redirectApex was turned off). */
-  clearToken: boolean
+  /** When true, the apexDomain field should be cleared (redirectApex was turned off). */
+  clearApex: boolean
   /** Main custom domain to register as a Cloudflare custom hostname. Null = no change. */
   registerDomain: string | null
 }
@@ -40,26 +40,26 @@ type ApexActions = {
 // ---------------------------------------------------------------------------
 
 describe('collectApexActionsFromHookArgs', () => {
-  it('returns registerApex and apexDomainToStore for a new www.* domain with redirectApex true', () => {
+  it('returns registerApexApplePay and apexDomainToStore for a new www.* domain with redirectApex true', () => {
     const result = collectApexActionsFromHookArgs({
       doc: { domain: 'www.croilan.com', redirectApex: true, apexDomain: null },
       previousDoc: { domain: null, redirectApex: false },
       operation: 'create',
     })
-    expect(result.registerApex).toBe('croilan.com')
+    expect(result.registerApexApplePay).toBe('croilan.com')
     expect(result.apexDomainToStore).toBe('croilan.com')
-    expect(result.clearToken).toBe(false)
+    expect(result.clearApex).toBe(false)
   })
 
-  it('returns registerApex for a non-www subdomain when redirectApex is true', () => {
+  it('returns registerApexApplePay for a non-www subdomain when redirectApex is true', () => {
     const result = collectApexActionsFromHookArgs({
       doc: { domain: 'booking.croilan.com', redirectApex: true, apexDomain: null },
       previousDoc: { domain: null, redirectApex: false },
       operation: 'create',
     })
-    expect(result.registerApex).toBe('croilan.com')
+    expect(result.registerApexApplePay).toBe('croilan.com')
     expect(result.apexDomainToStore).toBe('croilan.com')
-    expect(result.clearToken).toBe(false)
+    expect(result.clearApex).toBe(false)
   })
 
   it('returns no actions when redirectApex is false', () => {
@@ -68,20 +68,20 @@ describe('collectApexActionsFromHookArgs', () => {
       previousDoc: { domain: null, redirectApex: false },
       operation: 'create',
     })
-    expect(result.registerApex).toBeNull()
+    expect(result.registerApexApplePay).toBeNull()
     expect(result.apexDomainToStore).toBeNull()
-    expect(result.clearToken).toBe(false)
+    expect(result.clearApex).toBe(false)
   })
 
-  it('clears token when redirectApex is toggled off', () => {
+  it('sets clearApex when redirectApex is toggled off', () => {
     const result = collectApexActionsFromHookArgs({
       doc: { domain: 'www.croilan.com', redirectApex: false, apexDomain: 'croilan.com' },
       previousDoc: { domain: 'www.croilan.com', redirectApex: true },
       operation: 'update',
     })
-    expect(result.registerApex).toBeNull()
+    expect(result.registerApexApplePay).toBeNull()
     expect(result.apexDomainToStore).toBeNull()
-    expect(result.clearToken).toBe(true)
+    expect(result.clearApex).toBe(true)
   })
 
   it('re-registers when domain changes and redirectApex stays true', () => {
@@ -90,9 +90,9 @@ describe('collectApexActionsFromHookArgs', () => {
       previousDoc: { domain: 'www.old-domain.com', redirectApex: true },
       operation: 'update',
     })
-    expect(result.registerApex).toBe('new-domain.com')
+    expect(result.registerApexApplePay).toBe('new-domain.com')
     expect(result.apexDomainToStore).toBe('new-domain.com')
-    expect(result.clearToken).toBe(false)
+    expect(result.clearApex).toBe(false)
   })
 
   it('does not re-register when neither domain nor redirectApex changed', () => {
@@ -101,38 +101,37 @@ describe('collectApexActionsFromHookArgs', () => {
       previousDoc: { domain: 'www.croilan.com', redirectApex: true },
       operation: 'update',
     })
-    expect(result.registerApex).toBeNull()
+    expect(result.registerApexApplePay).toBeNull()
     expect(result.apexDomainToStore).toBeNull()
-    expect(result.clearToken).toBe(false)
+    expect(result.clearApex).toBe(false)
   })
 
   it('registers on create even when domain and redirectApex match previousDoc', () => {
-    // On create, previousDoc fields are typically empty/null; operation=create always registers.
     const result = collectApexActionsFromHookArgs({
       doc: { domain: 'www.croilan.com', redirectApex: true, apexDomain: null },
       previousDoc: { domain: null, redirectApex: false },
       operation: 'create',
     })
-    expect(result.registerApex).toBe('croilan.com')
+    expect(result.registerApexApplePay).toBe('croilan.com')
   })
 
-  it('returns null registerApex when domain cannot be stripped (only two labels)', () => {
+  it('returns null registerApexApplePay when domain cannot be stripped (only two labels)', () => {
     const result = collectApexActionsFromHookArgs({
       doc: { domain: 'croilan.com', redirectApex: true, apexDomain: null },
       previousDoc: { domain: null, redirectApex: false },
       operation: 'create',
     })
-    expect(result.registerApex).toBeNull()
+    expect(result.registerApexApplePay).toBeNull()
     expect(result.apexDomainToStore).toBeNull()
   })
 
-  it('returns null registerApex when domain is missing', () => {
+  it('returns null registerApexApplePay when domain is missing', () => {
     const result = collectApexActionsFromHookArgs({
       doc: { domain: null, redirectApex: true, apexDomain: null },
       previousDoc: { domain: null, redirectApex: false },
       operation: 'create',
     })
-    expect(result.registerApex).toBeNull()
+    expect(result.registerApexApplePay).toBeNull()
   })
 })
 
@@ -180,6 +179,6 @@ describe('collectApexActionsFromHookArgs — registerDomain (Cloudflare custom h
       operation: 'create',
     })
     expect(result.registerDomain).toBe('www.example.com')
-    expect(result.registerApex).toBe('example.com')
+    expect(result.registerApexApplePay).toBe('example.com')
   })
 })

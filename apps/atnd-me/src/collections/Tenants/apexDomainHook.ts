@@ -16,12 +16,12 @@ type ApexHookPrevShape = {
 }
 
 export type ApexActions = {
-  /** Apex hostname to register with Cloudflare + Apple Pay. Null = nothing to do. */
-  registerApex: string | null
+  /** Apex hostname to register with Apple Pay. Null = nothing to do. */
+  registerApexApplePay: string | null
   /** Derived apex value to write to the apexDomain column. Null = clear it. */
   apexDomainToStore: string | null
-  /** When true, the apexDomainVerificationToken field should be cleared. */
-  clearToken: boolean
+  /** When true, clear the apexDomain column (redirectApex was toggled off). */
+  clearApex: boolean
   /** Main custom domain to register as a Cloudflare TLS for SaaS custom hostname. Null = no change needed. */
   registerDomain: string | null
 }
@@ -48,31 +48,31 @@ export function collectApexActionsFromHookArgs({ doc, previousDoc, operation }: 
   const domainChanged = domain !== prevDomain
   const registerDomain = domain && (operation === 'create' || domainChanged) ? domain : null
 
-  // redirectApex toggled off — clear apex fields but still handle domain registration above
+  // redirectApex toggled off — clear apex field but still handle domain registration above
   if (!redirectApex && prevRedirectApex) {
-    return { registerApex: null, apexDomainToStore: null, clearToken: true, registerDomain }
+    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: true, registerDomain }
   }
 
   // redirectApex is off — no apex work needed
   if (!redirectApex) {
-    return { registerApex: null, apexDomainToStore: null, clearToken: false, registerDomain }
+    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
   }
 
   // redirectApex is on — check if anything changed that requires (re-)registration
   const apexTurnedOn = redirectApex && !prevRedirectApex
 
   if (!domainChanged && !apexTurnedOn && operation !== 'create') {
-    return { registerApex: null, apexDomainToStore: null, clearToken: false, registerDomain }
+    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
   }
 
   if (!domain) {
-    return { registerApex: null, apexDomainToStore: null, clearToken: false, registerDomain }
+    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
   }
 
   const apex = stripFirstLabel(domain)
   if (!apex) {
-    return { registerApex: null, apexDomainToStore: null, clearToken: false, registerDomain }
+    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
   }
 
-  return { registerApex: apex, apexDomainToStore: apex, clearToken: false, registerDomain }
+  return { registerApexApplePay: apex, apexDomainToStore: apex, clearApex: false, registerDomain }
 }
