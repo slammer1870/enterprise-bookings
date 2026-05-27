@@ -33,7 +33,7 @@ export const AboutBlock: React.FC<AboutBlockProps> = ({
       {title && <h2 className="text-3xl font-bold mb-8 text-center">{title}</h2>}
       <div className="flex flex-col gap-8">
         {imageUrl && (
-          <div className="relative w-full max-w-sm aspect-square rounded-lg overflow-hidden">
+          <div className="relative w-full aspect-square rounded-lg overflow-hidden">
             <Image
               src={imageUrl}
               alt={typeof image === 'object' ? image.alt || '' : ''}

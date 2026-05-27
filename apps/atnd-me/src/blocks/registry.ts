@@ -101,8 +101,8 @@ const allBlocks: Block[] = [
   ClSaunaBenefits,
 ]
 
-const ThreeColumnLayout = createThreeColumnLayout(allBlocks)
 const TwoColumnLayout = createTwoColumnLayout(allBlocks)
+const ThreeColumnLayout = createThreeColumnLayout([...allBlocks, TwoColumnLayout])
 
 /** Block slugs that all tenants always have access to. */
 export const defaultBlockSlugs: string[] = [
