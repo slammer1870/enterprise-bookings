@@ -31,6 +31,24 @@ interface CfCustomHostname {
     name: string
     value: string
   }
+  ssl?: {
+    status: string
+  }
+}
+
+export type HostnameVerificationStatus = 'active' | 'pending' | 'error' | 'unknown'
+
+export interface CustomHostnameStatusResult {
+  /** Overall hostname routing status — 'active' means traffic is flowing */
+  hostnameStatus: HostnameVerificationStatus
+  /** SSL cert status — 'active' means the cert is issued and deployed */
+  sslStatus: HostnameVerificationStatus
+  /** Raw Cloudflare status string for the hostname */
+  rawHostnameStatus: string
+  /** Raw Cloudflare SSL status string */
+  rawSslStatus: string
+  /** The ownership TXT value (_cf-custom-hostname) if available */
+  ownershipTxtValue: string | null
 }
 
 interface CfApiResponse<T> {
@@ -118,4 +136,77 @@ export async function createOrGetCustomHostname(
   const errorBody = await createRes.json().catch(() => null) as CfApiResponse<unknown> | null
   const msg = errorBody?.errors?.[0]?.message ?? createRes.statusText
   throw new Error(`Cloudflare custom hostname creation failed (${createRes.status}): ${msg}`)
+}
+
+/**
+ * Fetches the current verification and SSL status of a registered custom hostname.
+ * Returns null if the hostname is not registered or credentials are missing.
+ */
+export async function getCustomHostnameStatus(hostname: string): Promise<CustomHostnameStatusResult | null> {
+  let token: string, zoneId: string
+  try {
+    ;({ token, zoneId } = getConfig())
+  } catch {
+    return null
+  }
+
+  try {
+    const res = await fetch(
+      `${CF_API}/zones/${zoneId}/custom_hostnames?hostname=${encodeURIComponent(hostname)}&limit=1`,
+      { headers: authHeaders(token), cache: 'no-store' },
+    )
+    if (!res.ok) return null
+
+    const body = (await res.json()) as CfApiResponse<CfCustomHostname[]>
+    const record = body.result?.[0]
+    if (!record) return null
+
+    const toStatus = (s: string): HostnameVerificationStatus => {
+      if (s === 'active') return 'active'
+      if (['pending', 'initializing', 'pending_validation', 'pending_issuance', 'pending_deployment'].includes(s)) return 'pending'
+      if (['blocked', 'moved', 'deleted'].includes(s)) return 'error'
+      return 'unknown'
+    }
+
+    return {
+      hostnameStatus: toStatus(record.status),
+      sslStatus: toStatus(record.ssl?.status ?? ''),
+      rawHostnameStatus: record.status,
+      rawSslStatus: record.ssl?.status ?? '',
+      ownershipTxtValue: record.ownership_verification?.value ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Fetches the zone's DCV delegation UUID from Cloudflare.
+ * This UUID forms the stable CNAME target for _acme-challenge records:
+ *   _acme-challenge.example.com  CNAME  example.com.{uuid}.dcv.cloudflare.com
+ *
+ * The client adds this CNAME once and Cloudflare handles all cert renewals
+ * automatically — no more one-time _acme-challenge TXT values.
+ *
+ * Returns null if credentials are missing or the request fails.
+ */
+export async function getDcvDelegationUuid(): Promise<string | null> {
+  let token: string, zoneId: string
+  try {
+    ;({ token, zoneId } = getConfig())
+  } catch {
+    return null
+  }
+
+  try {
+    const res = await fetch(
+      `${CF_API}/zones/${zoneId}/dcv_delegation/uuid`,
+      { headers: authHeaders(token), next: { revalidate: 3600 } },
+    )
+    if (!res.ok) return null
+    const body = (await res.json()) as CfApiResponse<{ uuid: string }>
+    return body.result?.uuid ?? null
+  } catch {
+    return null
+  }
 }
