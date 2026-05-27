@@ -61,18 +61,31 @@ function extractResult(record: CfCustomHostname): CustomHostnameResult {
  * Creates a Cloudflare TLS for SaaS custom hostname for the given domain,
  * or returns the existing one if it is already registered (idempotent).
  *
- * The returned `verificationTxtValue` should be set as a TXT record at
- * `_cf-custom-hostname.{hostname}` so Cloudflare can verify domain ownership.
+ * For subdomains (e.g. www.example.com) we use HTTP validation — Cloudflare
+ * verifies ownership automatically once the CNAME is pointing to the zone,
+ * so the client needs no extra DNS records beyond the CNAME itself.
+ *
+ * For apex domains (e.g. example.com) we use TXT validation — apex domains
+ * cannot use CNAME so HTTP validation is unavailable. The returned
+ * `verificationTxtValue` must be set as a TXT record at
+ * `_cf-custom-hostname.{hostname}`.
+ *
+ * @param isApex - true for bare apex domains, false (default) for subdomains
  */
-export async function createOrGetCustomHostname(hostname: string): Promise<CustomHostnameResult> {
+export async function createOrGetCustomHostname(
+  hostname: string,
+  isApex = false,
+): Promise<CustomHostnameResult> {
   const { token, zoneId } = getConfig()
+
+  const sslMethod = isApex ? 'txt' : 'http'
 
   const createRes = await fetch(`${CF_API}/zones/${zoneId}/custom_hostnames`, {
     method: 'POST',
     headers: authHeaders(token),
     body: JSON.stringify({
       hostname,
-      ssl: { method: 'txt', type: 'dv', settings: { min_tls_version: '1.0' } },
+      ssl: { method: sslMethod, type: 'dv', settings: { min_tls_version: '1.0' } },
     }),
   })
 

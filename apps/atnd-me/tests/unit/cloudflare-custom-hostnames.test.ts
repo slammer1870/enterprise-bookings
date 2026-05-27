@@ -53,12 +53,38 @@ describe('createOrGetCustomHostname', () => {
     vi.resetModules()
   })
 
+  it('creates a subdomain custom hostname using http validation by default', async () => {
+    const record = makeHostnameResponse({ hostname: 'www.croilan.com' })
+    globalThis.fetch = vi.fn().mockResolvedValue(makeApiResponse(record, 200))
+
+    const { createOrGetCustomHostname } = await import('@/lib/cloudflare/customHostnames')
+    const result = await createOrGetCustomHostname('www.croilan.com')
+
+    expect(result.id).toBe('csh_test123')
+    expect(result.verificationTxtValue).toBe('txt-token-abc')
+    expect(result.status).toBe('pending')
+
+    const body = JSON.parse((vi.mocked(globalThis.fetch).mock.calls[0][1] as RequestInit).body as string)
+    expect(body.ssl.method).toBe('http')
+  })
+
+  it('creates an apex custom hostname using txt validation when isApex=true', async () => {
+    const record = makeHostnameResponse()
+    globalThis.fetch = vi.fn().mockResolvedValue(makeApiResponse(record, 200))
+
+    const { createOrGetCustomHostname } = await import('@/lib/cloudflare/customHostnames')
+    await createOrGetCustomHostname('croilan.com', true)
+
+    const body = JSON.parse((vi.mocked(globalThis.fetch).mock.calls[0][1] as RequestInit).body as string)
+    expect(body.ssl.method).toBe('txt')
+  })
+
   it('creates a new custom hostname and returns id, verificationTxtValue, status', async () => {
     const record = makeHostnameResponse()
     globalThis.fetch = vi.fn().mockResolvedValue(makeApiResponse(record, 200))
 
     const { createOrGetCustomHostname } = await import('@/lib/cloudflare/customHostnames')
-    const result = await createOrGetCustomHostname('croilan.com')
+    const result = await createOrGetCustomHostname('croilan.com', true)
 
     expect(result.id).toBe('csh_test123')
     expect(result.verificationTxtValue).toBe('txt-token-abc')

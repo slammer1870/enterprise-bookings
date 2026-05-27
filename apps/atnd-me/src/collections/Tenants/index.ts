@@ -364,7 +364,7 @@ export const Tenants: CollectionConfig = {
         // and Cloudflare verifies ownership automatically — no TXT token needed.
         const apexActions = collectApexActionsFromHookArgs({ doc, previousDoc, operation })
         if (apexActions.registerDomain) {
-          await createOrGetCustomHostname(apexActions.registerDomain).catch((err: unknown) => {
+          await createOrGetCustomHostname(apexActions.registerDomain, false).catch((err: unknown) => {
             console.error(
               `[Tenants afterChange] Failed to register Cloudflare custom hostname "${apexActions.registerDomain}":`,
               err,
@@ -375,7 +375,7 @@ export const Tenants: CollectionConfig = {
         // Apex domain: register Cloudflare custom hostname + Apple Pay when redirectApex is on.
         if (apexActions.registerApex) {
           let token: string | null = null
-          await createOrGetCustomHostname(apexActions.registerApex)
+          await createOrGetCustomHostname(apexActions.registerApex, true)
             .then((result) => { token = result.verificationTxtValue })
             .catch((err: unknown) => {
               console.error(
