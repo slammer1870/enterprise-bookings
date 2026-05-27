@@ -145,8 +145,8 @@ export function LocationScopedScheduleClient({
 
   return (
     <div className="w-full space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <label className="text-sm font-medium text-foreground sm:whitespace-nowrap">
+      <div className="flex flex-row items-center gap-3">
+        <label className="flex-1 text-xs font-medium text-foreground whitespace-nowrap sm:text-sm md:text-base lg:text-lg">
           Show schedule for
         </label>
         <div className="w-full sm:flex-1">
