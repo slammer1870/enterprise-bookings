@@ -330,7 +330,7 @@ export interface Tenant {
    */
   domain?: string | null;
   /**
-   * Redirect the bare apex domain (e.g. croilan.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
+   * Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
    */
   redirectApex?: boolean | null;
   apexDomain?: string | null;
@@ -1353,6 +1353,7 @@ export interface ThreeColumnLayoutBlock {
         | ClMissionBlock
         | ClPillarsBlock
         | ClSaunaBenefitsBlock
+        | TwoColumnLayoutBlock
       )[]
     | null;
   id?: string | null;
@@ -3810,6 +3811,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         clMission?: T | ClMissionBlockSelect<T>;
         clPillars?: T | ClPillarsBlockSelect<T>;
         clSaunaBenefits?: T | ClSaunaBenefitsBlockSelect<T>;
+        twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
       };
   id?: T;
   blockName?: T;

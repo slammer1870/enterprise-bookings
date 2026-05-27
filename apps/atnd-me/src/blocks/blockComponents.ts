@@ -49,7 +49,7 @@ function HeroScheduleSanctuaryBlock(
 ) {
   return React.createElement(ClHeroScheduleSanctuaryBlock, {
     ...props,
-    schedulePanel: React.createElement(ScheduleBlock),
+    schedulePanel: React.createElement('div', { className: 'w-full min-w-0 px-6 md:px-8' }, React.createElement(ScheduleBlock)),
   })
 }
 

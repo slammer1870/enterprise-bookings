@@ -85,7 +85,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
         className="pointer-events-none absolute inset-0 z-0 flex flex-col md:flex-row"
         aria-hidden
       >
-        <div className="relative h-[67vh] w-full shrink-0 overflow-hidden md:h-full md:w-1/2 lg:w-2/3">
+        <div className="relative h-[67vh] w-full shrink-0 overflow-hidden md:h-full md:w-1/2 lg:w-7/12">
           {bgUrl ? (
             <>
               <Image
@@ -107,22 +107,37 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
         <div className="w-full flex-1 bg-card md:min-h-full md:w-1/2 lg:w-1/3" />
       </div>
 
+      {/* Logo centred over the bg image area on md+ — absolutely positioned to match the
+          full-bleed image panel (md:w-1/2 lg:w-7/12) so it stays centred regardless of
+          the container width. Hidden on mobile where it sits inside the flex flow. */}
+      {logoUrl && (
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden items-center justify-center md:flex md:w-1/2 lg:w-7/12">
+          <Image
+            src={logoUrl}
+            alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
+            width={320}
+            height={320}
+            className="h-80 w-80 object-contain drop-shadow-xl lg:h-96 lg:w-96"
+          />
+        </div>
+      )}
+
       {/* Foreground — container mx-auto mirrors the navbar so the schedule panel's right edge
           aligns with the rightmost navbar item. The absolute bg layer stays full-bleed. */}
       <div className="relative z-10 min-h-screen">
         <div className="container mx-auto flex min-h-screen flex-col md:flex-row">
-          {/* Image panel: on mobile h-[67vh] matches the bg image; logo fills the middle, buttons pinned to bottom.
-              On desktop reverts to flex-1 with everything centred together. */}
-          <div className="flex h-[67vh] flex-col items-center pt-12 md:pt-28 pb-8 md:h-auto md:flex-1 md:justify-center md:pb-10 lg:flex-[2]">
-            {/* Logo: flex-1 on mobile so it occupies the space between the header clearance and the buttons */}
-            <div className="flex w-full flex-1 items-center justify-center px-8 md:flex-none md:mb-5">
+          {/* Image panel: spacer on md+ (logo is absolutely positioned above); on mobile
+              the logo sits in the flex flow with flex-1 and buttons pinned to bottom. */}
+          <div className="flex h-[67vh] flex-col items-center pt-12 pb-8 md:h-auto md:flex-1 lg:flex-[2]">
+            {/* Logo: mobile only — on md+ the absolute layer above handles this */}
+            <div className="flex w-full flex-1 items-center justify-center px-8 md:hidden">
               {logoUrl && (
                 <Image
                   src={logoUrl}
                   alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
                   width={320}
                   height={320}
-                  className="h-60 w-60 object-contain drop-shadow-xl md:h-80 md:w-80"
+                  className="h-60 w-60 object-contain drop-shadow-xl"
                 />
               )}
             </div>
@@ -159,8 +174,8 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
 
           {/* Schedule panel — on md+ the absolute bg supplies the card colour so we go transparent here;
               on mobile bg-card keeps the stacked panel white. pt-28 on md+ clears the fixed header. */}
-          <div className="flex flex-col justify-start bg-card md:bg-transparent pb-10 pt-8 md:pt-28 md:flex-1 lg:flex-[1]">
-            <div className="mx-auto w-full max-w-sm text-card-foreground">
+          <div className="flex flex-col justify-start bg-card md:bg-transparent pb-10 pt-8 md:pt-28 md:flex-1 md:min-w-0 lg:flex-[1]">
+            <div className="w-full min-w-0 text-card-foreground">
               <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-card-foreground">
                 Schedule
               </h2>
