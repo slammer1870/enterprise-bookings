@@ -175,11 +175,17 @@ export async function middleware(request: NextRequest) {
         if (data?.redirectTo && typeof data.redirectTo === 'string') {
           // console.log(`[middleware] apex redirect ${hostname} → ${data.redirectTo}`)
           // Preserve the current request's protocol and port so that local/test
-          // environments (http://...:3000) work correctly.  In production, requests
-          // always arrive over HTTPS so the protocol is unchanged.
+          // environments (http://...:3000) work correctly.  In production, the
+          // app runs behind a reverse proxy (Traefik) on an internal port (3000)
+          // that must NOT appear in the public redirect URL — strip it when the
+          // protocol is HTTPS (proxy scenario) so the redirect lands on the
+          // standard port. HTTP requests keep their port (local/E2E dev).
           const redirectUrl = new URL(data.redirectTo)
           const target = new URL(request.nextUrl.href)
           target.hostname = redirectUrl.hostname
+          if (target.protocol === 'https:' && target.port === '3000') {
+            target.port = ''
+          }
           target.pathname = pathname
           target.search = request.nextUrl.search
           return NextResponse.redirect(target.toString(), 301)
