@@ -329,6 +329,12 @@ export interface Tenant {
    * Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. When VALIDATE_TENANT_CUSTOM_DOMAIN_DNS=true, the domain must have DNS records (A, AAAA, or CNAME) before saving.
    */
   domain?: string | null;
+  /**
+   * Redirect the bare apex domain (e.g. croilan.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
+   */
+  redirectApex?: boolean | null;
+  apexDomain?: string | null;
+  apexDomainVerificationToken?: string | null;
   description?: string | null;
   /**
    * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA) are always available.
@@ -4727,6 +4733,9 @@ export interface TenantsSelect<T extends boolean = true> {
   slug?: T;
   timeZone?: T;
   domain?: T;
+  redirectApex?: T;
+  apexDomain?: T;
+  apexDomainVerificationToken?: T;
   description?: T;
   allowedBlocks?: T;
   logo?: T;

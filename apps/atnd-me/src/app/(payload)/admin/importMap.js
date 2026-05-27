@@ -22,6 +22,8 @@ import { HorizontalRuleFeatureClient as HorizontalRuleFeatureClient_e70f5e05f09f
 import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { SlugField as SlugField_3817bf644402e67bfe6577f60ef982de } from '@payloadcms/ui'
+import { default as default_ce6f29e70fd4204b43c477b4bf07b84b } from '@/components/admin/DomainDnsInstructions'
+import { default as default_a5117e5f562e81a9d1ce48d0eee41679 } from '@/components/admin/ApexDnsInstructions'
 import { BookingThemePreviewField as BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b } from '@/components/admin/booking-theme/BookingThemePreviewField'
 import { BookingThemeColorField as BookingThemeColorField_2f44dc0f205ee651fa304de8d2ad2dff } from '@/components/admin/booking-theme/BookingThemeColorField'
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
@@ -82,6 +84,8 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@payloadcms/ui#SlugField": SlugField_3817bf644402e67bfe6577f60ef982de,
+  "@/components/admin/DomainDnsInstructions#default": default_ce6f29e70fd4204b43c477b4bf07b84b,
+  "@/components/admin/ApexDnsInstructions#default": default_a5117e5f562e81a9d1ce48d0eee41679,
   "@/components/admin/booking-theme/BookingThemePreviewField#BookingThemePreviewField": BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b,
   "@/components/admin/booking-theme/BookingThemeColorField#BookingThemeColorField": BookingThemeColorField_2f44dc0f205ee651fa304de8d2ad2dff,
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,

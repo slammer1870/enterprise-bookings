@@ -18,15 +18,15 @@ export default async function Page() {
   return (
     <div className="min-h-screen pt-24 pb-24">
       <PageClient />
-      <div className="container">
-        <div className="px-8 mb-10">
+      <div className="container mx-auto">
+        <div className="px-4 mb-10">
           <h1 className="text-4xl font-bold tracking-tight">Posts</h1>
           <p className="mt-2 text-muted-foreground">
             Articles, updates and stories from our team.
           </p>
         </div>
 
-        <div className="px-8 mb-8">
+        <div className="px-4 mb-8">
           <PageRange
             collection="posts"
             currentPage={posts.page}
@@ -38,8 +38,8 @@ export default async function Page() {
 
       <CollectionArchive posts={posts.docs} />
 
-      <div className="container">
-        <div className="px-8">
+      <div className="container mx-auto">
+        <div className="px-4">
           {posts.totalPages > 1 && posts.page && (
             <Pagination page={posts.page} totalPages={posts.totalPages} />
           )}

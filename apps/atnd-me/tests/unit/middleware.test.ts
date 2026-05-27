@@ -205,6 +205,75 @@ describe('Middleware', () => {
       expect(setCookie).toContain('payload-tenant=42')
     })
 
+    it('issues a 301 redirect when API returns redirectTo for an apex host', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-host') && String(url).includes('host=croilan.com')) {
+          return new Response(
+            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+      const res = await middleware(createMockRequest('croilan.com', '/'))
+      expect(res.status).toBe(301)
+      // Middleware preserves the request protocol; mock requests use http://.
+      // In production all requests arrive over https:// so the redirect is https://.
+      expect(res.headers.get('location')).toBe('http://www.croilan.com/')
+    })
+
+    it('preserves pathname in the apex redirect', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-host')) {
+          return new Response(
+            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+      const res = await middleware(createMockRequest('croilan.com', '/schedule'))
+      expect(res.status).toBe(301)
+      expect(res.headers.get('location')).toBe('http://www.croilan.com/schedule')
+    })
+
+    it('preserves query string in the apex redirect', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-host')) {
+          return new Response(
+            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+      const req = new NextRequest('http://croilan.com/?ref=google', {
+        headers: { host: 'croilan.com' },
+      })
+      const res = await middleware(req)
+      expect(res.status).toBe(301)
+      expect(res.headers.get('location')).toBe('http://www.croilan.com/?ref=google')
+    })
+
+    it('does not set tenant cookies on an apex redirect response', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        if (String(url).includes('/api/tenant-by-host')) {
+          return new Response(
+            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+      const res = await middleware(createMockRequest('croilan.com', '/'))
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
+    })
+
     it('uses x-forwarded-host for custom domain tenant-by-host when Host is internal', async () => {
       let sawStudioHost = false
       globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {

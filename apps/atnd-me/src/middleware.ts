@@ -163,11 +163,33 @@ export async function middleware(request: NextRequest) {
       const signal = internalFetchSignal()
       const res = await fetch(url, {
         cache: 'no-store',
-        headers: internalResolveHeaders,
+        // Pass hostname in a header as well: Next.js normalises 127.0.0.1→localhost
+        // in URL query strings during internal routing, so the header is the
+        // authoritative source of the original hostname.
+        headers: { ...internalResolveHeaders, 'x-resolve-host': hostname },
         ...(signal && { signal }),
       })
       if (res.ok) {
-        const data = (await res.json()) as { slug?: string; id?: string | number }
+        const data = (await res.json()) as { slug?: string; id?: string | number; redirectTo?: string }
+        // Apex domain: redirect to the www custom domain before any cookie logic
+        if (data?.redirectTo && typeof data.redirectTo === 'string') {
+          // console.log(`[middleware] apex redirect ${hostname} → ${data.redirectTo}`)
+          // Preserve the current request's protocol and port so that local/test
+          // environments (http://...:3000) work correctly.  In production, the
+          // app runs behind a reverse proxy (Traefik) on an internal port (3000)
+          // that must NOT appear in the public redirect URL — strip it when the
+          // protocol is HTTPS (proxy scenario) so the redirect lands on the
+          // standard port. HTTP requests keep their port (local/E2E dev).
+          const redirectUrl = new URL(data.redirectTo)
+          const target = new URL(request.nextUrl.href)
+          target.hostname = redirectUrl.hostname
+          if (target.protocol === 'https:' && target.port === '3000') {
+            target.port = ''
+          }
+          target.pathname = pathname
+          target.search = request.nextUrl.search
+          return NextResponse.redirect(target.toString(), 301)
+        }
         if (data?.slug && typeof data.slug === 'string') {
           resolvedFromHost = { slug: data.slug, id: data.id as string | number }
         }

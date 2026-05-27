@@ -14,6 +14,8 @@ import {
   validateCustomDomainNotPlatform,
 } from '@/utilities/validateCustomDomain'
 import { registerApplePayDomain } from './registerApplePayDomain'
+import { collectApexActionsFromHookArgs } from './apexDomainHook'
+import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
 
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
@@ -165,6 +167,50 @@ export const Tenants: CollectionConfig = {
       },
     },
     {
+      name: 'domainDnsInstructions',
+      type: 'ui',
+      admin: {
+        condition: (data) => Boolean(data?.domain),
+        components: { Field: '@/components/admin/DomainDnsInstructions' },
+      },
+    },
+    {
+      name: 'redirectApex',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description:
+          'Redirect the bare apex domain (e.g. croilan.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.',
+        condition: (data) => {
+          const d = typeof data?.domain === 'string' ? data.domain : ''
+          return d.includes('.') && d.split('.').length >= 3
+        },
+      },
+    },
+    {
+      name: 'apexDomain',
+      type: 'text',
+      required: false,
+      index: true,
+      admin: { hidden: true },
+      access: { update: adminOnlyUpdate },
+    },
+    {
+      name: 'apexDomainVerificationToken',
+      type: 'text',
+      required: false,
+      admin: { hidden: true },
+      access: { update: adminOnlyUpdate },
+    },
+    {
+      name: 'apexDnsInstructions',
+      type: 'ui',
+      admin: {
+        condition: (data) => Boolean(data?.redirectApex),
+        components: { Field: '@/components/admin/ApexDnsInstructions' },
+      },
+    },
+    {
       name: 'description',
       type: 'textarea',
       required: false,
@@ -256,7 +302,8 @@ export const Tenants: CollectionConfig = {
   ],
   hooks: {
     afterChange: [
-      async ({ doc, previousDoc, operation }) => {
+      async ({ doc, previousDoc, operation, req, context }) => {
+        if (context?.skipApexHook) return
         const rootHostname = (() => {
           const url = process.env.NEXT_PUBLIC_SERVER_URL
           if (!url) return null
@@ -311,6 +358,51 @@ export const Tenants: CollectionConfig = {
 
         // If the domain was cleared, no deregistration needed — Stripe doesn't expose a
         // paymentMethodDomains.delete() that would break other integrations on the same domain.
+
+        // Main custom domain: register as a Cloudflare TLS for SaaS custom hostname.
+        // CNAME DCV means the client only needs one DNS record (CNAME → platform subdomain)
+        // and Cloudflare verifies ownership automatically — no TXT token needed.
+        const apexActions = collectApexActionsFromHookArgs({ doc, previousDoc, operation })
+        if (apexActions.registerDomain) {
+          await createOrGetCustomHostname(apexActions.registerDomain, false).catch((err: unknown) => {
+            console.error(
+              `[Tenants afterChange] Failed to register Cloudflare custom hostname "${apexActions.registerDomain}":`,
+              err,
+            )
+          })
+        }
+
+        // Apex domain: register with Apple Pay and store in DB when redirectApex is on.
+        // SSL for the apex is handled by Traefik/Let's Encrypt on the origin server —
+        // no Cloudflare custom hostname registration needed for apex domains.
+        if (apexActions.registerApexApplePay) {
+          await registerApplePayDomain(apexActions.registerApexApplePay).catch((err: unknown) => {
+            console.error(
+              `[Tenants afterChange] Failed to register Apple Pay domain "${apexActions.registerApexApplePay}":`,
+              err,
+            )
+          })
+          await req.payload.update({
+            collection: 'tenants',
+            id: doc.id,
+            data: { apexDomain: apexActions.apexDomainToStore },
+            req,
+            overrideAccess: true,
+            context: { skipApexHook: true },
+          }).catch((err: unknown) => {
+            console.error('[Tenants afterChange] Failed to store apexDomain:', err)
+          })
+        } else if (apexActions.clearApex) {
+          await req.payload.update({
+            collection: 'tenants',
+            id: doc.id,
+            data: { apexDomain: null },
+            req,
+            overrideAccess: true,
+            context: { skipApexHook: true },
+          })
+        }
+
         void operation
       },
     ],

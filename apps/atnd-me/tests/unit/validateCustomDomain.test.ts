@@ -14,6 +14,7 @@ import dns from 'node:dns/promises'
 import {
   getPlatformRootHostname,
   normalizeCustomDomain,
+  stripFirstLabel,
   validateCustomDomainFormat,
   validateCustomDomainNotPlatform,
   isCustomDomainDnsValidationEnabled,
@@ -33,6 +34,32 @@ describe('validateCustomDomain', () => {
 
   afterEach(() => {
     process.env = origEnv
+  })
+
+  describe('stripFirstLabel', () => {
+    it('strips www from www.croilan.com', () => {
+      expect(stripFirstLabel('www.croilan.com')).toBe('croilan.com')
+    })
+
+    it('strips arbitrary subdomain from booking.croilan.com', () => {
+      expect(stripFirstLabel('booking.croilan.com')).toBe('croilan.com')
+    })
+
+    it('strips only the first label from deeply nested subdomain', () => {
+      expect(stripFirstLabel('a.b.c.com')).toBe('b.c.com')
+    })
+
+    it('returns null for a bare apex (two labels only is the minimum, cannot strip further)', () => {
+      expect(stripFirstLabel('croilan.com')).toBeNull()
+    })
+
+    it('returns null for a single-label string', () => {
+      expect(stripFirstLabel('croilan')).toBeNull()
+    })
+
+    it('returns null for empty string', () => {
+      expect(stripFirstLabel('')).toBeNull()
+    })
   })
 
   describe('normalizeCustomDomain', () => {
