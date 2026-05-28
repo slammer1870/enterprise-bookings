@@ -79,7 +79,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
   const logoUrl = resolveMediaUrl(logo)
 
   return (
-    <section className="relative w-full">
+    <section id="schedule" className="relative w-full">
       {/* Full-bleed split backgrounds — image left/top, card right/bottom */}
       <div
         className="pointer-events-none absolute inset-0 z-0 flex flex-col md:flex-row"
@@ -126,11 +126,11 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           aligns with the rightmost navbar item. The absolute bg layer stays full-bleed. */}
       <div className="relative z-10 min-h-screen">
         <div className="container mx-auto flex min-h-screen flex-col md:flex-row">
-          {/* Image panel: spacer on md+ (logo is absolutely positioned above); on mobile
+          {/*  panel: spacer on md+ (logo is absolutely positioned above); on mobile
               the logo sits in the flex flow with flex-1 and buttons pinned to bottom. */}
           <div className="flex h-[67vh] flex-col items-center pt-12 pb-8 md:h-auto md:flex-1 lg:flex-[2]">
             {/* Logo: mobile only — on md+ the absolute layer above handles this */}
-            <div className="flex w-full flex-1 items-center justify-center px-8 md:hidden">
+            <div className="flex w-full flex-1 items-center justify-center px-4 md:hidden">
               {logoUrl && (
                 <Image
                   src={logoUrl}
@@ -143,7 +143,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
             </div>
             {/* Buttons: mobile only — hidden on md+ where the schedule panel is visible */}
             {links && links.length > 0 && (
-              <div className="flex w-full flex-col gap-3 px-8 sm:flex-row sm:justify-center md:hidden">
+              <div className="flex w-full flex-col gap-3 px-4 sm:flex-row sm:justify-center md:hidden">
                 {links.map((linkItem, index) => {
                   if (!linkItem?.link) return null
                   const { link } = linkItem

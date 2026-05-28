@@ -60,6 +60,13 @@ export type ScheduleTimeslot = {
   myBookingCount?: number;
 };
 
+export type TimeslotBranch = {
+  id: number;
+  name: string;
+  address?: string | null;
+  slug?: string | null;
+};
+
 export type Timeslot = {
   id: number;
   date: string;
@@ -67,6 +74,8 @@ export type Timeslot = {
   endTime: string;
   eventType: EventType;
   location: string;
+  /** Physical branch / site (`locations` collection). Populated when depth >= 1. */
+  branch?: number | TimeslotBranch | null;
   staffMember?: StaffMember | null;
   bookings: { docs: Booking[] };
   remainingCapacity: number;
