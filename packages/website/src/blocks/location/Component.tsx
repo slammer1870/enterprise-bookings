@@ -96,7 +96,7 @@ export const LocationBlock: React.FC<LocationBlockProps> = ({
   if (disableInnerContainer) {
     return (
       <section className="w-full pt-0 pb-6">
-        <div className="max-w-6xl mx-auto px-2">
+        <div className="max-w-6xl mx-auto">
           {contentElement}
         </div>
       </section>
@@ -105,7 +105,7 @@ export const LocationBlock: React.FC<LocationBlockProps> = ({
 
   return (
     <section className="container py-12">
-      <div className="max-w-6xl mx-auto px-8">
+      <div className="max-w-6xl mx-auto">
         {contentElement}
 
         <div className="grid md:grid-cols-2 gap-8 mt-8">
