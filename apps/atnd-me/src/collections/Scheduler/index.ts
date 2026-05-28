@@ -262,16 +262,20 @@ export const Scheduler: CollectionConfig = {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     data.week.days = (data.week.days as any[]).map((day: any) => {
                         if (!day?.timeSlot || !Array.isArray(day.timeSlot)) return day
-                        return {
-                            ...day,
-                            timeSlot: day.timeSlot.filter(
-                                (slot: any) =>
-                                    slot?.startTime != null &&
-                                    slot?.startTime !== '' &&
-                                    slot?.endTime != null &&
-                                    slot?.endTime !== '',
-                            ),
-                        }
+                        const filtered = day.timeSlot.filter(
+                            (slot: any) =>
+                                slot?.startTime != null &&
+                                slot?.startTime !== '' &&
+                                slot?.endTime != null &&
+                                slot?.endTime !== '',
+                        )
+                        // Sort slots by wall-clock start time so the UI always shows them in order.
+                        filtered.sort((a: any, b: any) => {
+                            const at = extractUtcWallClock(a.startTime)
+                            const bt = extractUtcWallClock(b.startTime)
+                            return (at.hours * 60 + at.minutes) - (bt.hours * 60 + bt.minutes)
+                        })
+                        return { ...day, timeSlot: filtered }
                     })
                 }
 

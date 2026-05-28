@@ -269,6 +269,16 @@ export function createGenerateTimeslotsFromScheduleHandler(
         })
       }
 
+      // Scope clear to the specific branch so that sibling locations within the
+      // same tenant are not affected when their scheduler is saved independently.
+      if (resolvedBranchId != null) {
+        whereConditions.push({
+          branch: {
+            equals: resolvedBranchId,
+          },
+        })
+      }
+
       const whereClause = {
         and: whereConditions,
       }
@@ -324,6 +334,16 @@ export function createGenerateTimeslotsFromScheduleHandler(
           deleteWhereClause.and.push({
             tenant: {
               equals: tenantId,
+            },
+          })
+        }
+
+        // Scope delete to the specific branch so that sibling locations within
+        // the same tenant are not affected when their scheduler is saved independently.
+        if (resolvedBranchId != null) {
+          deleteWhereClause.and.push({
+            branch: {
+              equals: resolvedBranchId,
             },
           })
         }
