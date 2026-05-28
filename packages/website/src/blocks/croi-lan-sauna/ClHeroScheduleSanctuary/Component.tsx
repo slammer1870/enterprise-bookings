@@ -111,7 +111,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           full-bleed image panel (md:w-1/2 lg:w-7/12) so it stays centred regardless of
           the container width. Hidden on mobile where it sits inside the flex flow. */}
       {logoUrl && (
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-20 hidden items-center justify-center md:flex md:w-1/2 lg:w-7/12">
+        <div className="pointer-events-none absolute top-0 left-0 z-20 hidden h-screen items-center justify-center md:flex md:w-1/2 lg:w-7/12">
           <Image
             src={logoUrl}
             alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}

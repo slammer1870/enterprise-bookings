@@ -179,7 +179,9 @@ export function createSchedulerGlobal(
           });
 
           if (job.id) {
-            await req.payload.jobs.runByID({
+            // Fire-and-forget: return the save response immediately so the browser
+            // doesn't hold the request open for the entire generation duration.
+            void req.payload.jobs.runByID({
               id: job.id,
             });
           }
