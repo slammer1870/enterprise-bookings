@@ -91,7 +91,7 @@ const days: Field = {
                           otherStartMinutes < currentEndMinutes
 
                         if (hasTimeOverlap) {
-                            return 'Time slots cannot overlap for the same location on the same day'
+                            return `Time Slot ${String(i + 1).padStart(2, '0')} and Time Slot ${String(j + 1).padStart(2, '0')} overlap for the same location (${currentSlot.location}) — please adjust their start or end times`
                         }
                     }
                 }
@@ -252,6 +252,29 @@ export const Scheduler: CollectionConfig = {
                     }
                 }
 
+                // Strip incomplete timeSlot rows (missing startTime or endTime) before
+                // validation runs. Payload's duplicate-row feature in nested arrays copies
+                // the internal row `id`, creating two rows with the same React key. This
+                // causes the remove button to appear broken (row reappears). Stripping
+                // incomplete rows on save keeps the DB clean and prevents the generate-
+                // timeslots task from creating bogus epoch-date timeslots.
+                if (data?.week?.days && Array.isArray(data.week.days)) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    data.week.days = (data.week.days as any[]).map((day: any) => {
+                        if (!day?.timeSlot || !Array.isArray(day.timeSlot)) return day
+                        return {
+                            ...day,
+                            timeSlot: day.timeSlot.filter(
+                                (slot: any) =>
+                                    slot?.startTime != null &&
+                                    slot?.startTime !== '' &&
+                                    slot?.endTime != null &&
+                                    slot?.endTime !== '',
+                            ),
+                        }
+                    })
+                }
+
                 return data
             },
         ],
@@ -296,7 +319,14 @@ export const Scheduler: CollectionConfig = {
                 })
 
                 if (job.id) {
-                    await req.payload.jobs.runByID({
+                    // Fire-and-forget: run in the background so the save response is
+                    // returned to the browser immediately. Without this the HTTP request
+                    // stays open for the entire generation duration, which (a) shows an
+                    // indefinite "saving…" state and (b) lets the browser's leave-page
+                    // guard cancel the request mid-job if the user navigates away.
+                    // The job is already persisted in the DB by jobs.queue() above, so
+                    // it can also be retried by a cron runner if the process exits early.
+                    void req.payload.jobs.runByID({
                         id: job.id,
                         // Pass req to maintain tenant context
                         req,
