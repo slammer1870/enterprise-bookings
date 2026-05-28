@@ -79,7 +79,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
   const logoUrl = resolveMediaUrl(logo)
 
   return (
-    <section className="relative w-full">
+    <section id="schedule" className="relative w-full">
       {/* Full-bleed split backgrounds — image left/top, card right/bottom */}
       <div
         className="pointer-events-none absolute inset-0 z-0 flex flex-col md:flex-row"
