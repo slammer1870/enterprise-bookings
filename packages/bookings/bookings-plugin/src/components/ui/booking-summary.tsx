@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarIcon, Clock, ClipboardCheck } from "lucide-react";
+import { CalendarIcon, Clock, ClipboardCheck, MapPin } from "lucide-react";
 
 import type { Timeslot } from "@repo/shared-types";
 import {
@@ -19,6 +19,10 @@ import {
 
 export function BookingSummary({ timeslot }: { timeslot: Timeslot }) {
   const timeZone = resolveTimeslotTimeZone(timeslot);
+  const branchName =
+    timeslot.branch != null && typeof timeslot.branch === "object"
+      ? timeslot.branch.name
+      : null;
 
   return (
     <Card className="bg-white">
@@ -55,6 +59,14 @@ export function BookingSummary({ timeslot }: { timeslot: Timeslot }) {
             <span className="font-medium">Booking Type:</span>
             <span className="ml-2">{timeslot.eventType.name}</span>
           </div>
+
+          {branchName && (
+            <div className="flex items-center">
+              <MapPin className="h-5 w-5 mr-2 text-primary" />
+              <span className="font-medium">Location:</span>
+              <span className="ml-2">{branchName}</span>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
