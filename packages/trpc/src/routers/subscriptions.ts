@@ -309,8 +309,29 @@ export const subscriptionsRouter = {
       const selectedQuantity = input.quantity ?? 1;
       const timeslotDate = new Date(timeslot.startTime);
 
+      // Count the user's existing confirmed bookings for this timeslot.
+      // On the initial booking page this is always 0.  On the manage page a
+      // user may already hold N confirmed slots; adding M pending bookings
+      // means N+M total, which must be checked against the plan's per-timeslot
+      // cap — even when M=1 (single increase on the manage page).
+      const existingConfirmedResult = await payload.find({
+        collection: "bookings",
+        where: {
+          timeslot: { equals: input.timeslotId },
+          user: { equals: user.id },
+          status: { equals: "confirmed" },
+        },
+        limit: 0,
+        overrideAccess: true,
+      });
+      const confirmedForTimeslot = existingConfirmedResult.totalDocs ?? 0;
+
+      // The effective per-timeslot total is the already-held confirmed slots
+      // plus the new pending slots being requested right now.
+      const effectiveQuantity = confirmedForTimeslot + selectedQuantity;
+
       const eligiblePlansForQuantity =
-        selectedQuantity > 1
+        effectiveQuantity > 1
           ? await (async () => {
               const candidates = allowedPlanDocs.filter((p) => p.status === "active");
               const eligible: Plan[] = [];
@@ -331,7 +352,7 @@ export const subscriptionsRouter = {
                 const legacyCap = legacyAllowsMultiple ? Infinity : 1;
 
                 const effectiveMax = rawMax == null ? legacyCap : maxPerTimeslot;
-                if (selectedQuantity > effectiveMax) continue;
+                if (effectiveQuantity > effectiveMax) continue;
 
                 const remainingForPlan = await getRemainingSessionsInPeriodForPlan(
                   subscription as Subscription,
@@ -367,6 +388,7 @@ export const subscriptionsRouter = {
         needsCustomerPortal,
         upgradeOptions,
         eligiblePlansForQuantity,
+        confirmedForTimeslot,
       };
     }),
 };

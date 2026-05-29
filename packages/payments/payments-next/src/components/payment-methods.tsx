@@ -441,6 +441,9 @@ export function PaymentMethods({
   const needsCustomerPortal = subscriptionData?.needsCustomerPortal ?? false;
   const upgradeOptions = subscriptionData?.upgradeOptions ?? [];
   const eligiblePlansForQuantity = subscriptionData?.eligiblePlansForQuantity ?? null;
+  // How many confirmed bookings the user already holds for this timeslot.
+  // On the initial booking page this is 0; on the manage page it may be ≥1.
+  const confirmedForTimeslot = subscriptionData?.confirmedForTimeslot ?? 0;
 
   const startCheckoutRedirect = (session: { url: string | null }) => {
     if (session.url) {
@@ -802,7 +805,12 @@ export function PaymentMethods({
     return Math.max(1, Number(raw));
   })();
 
-  const userPlanAllowsQuantity = userPlanMaxPerTimeslot === Infinity || quantity <= userPlanMaxPerTimeslot;
+  // Factor in any confirmed bookings already held for this timeslot.
+  // e.g. user has 1 confirmed + requesting 1 more = 2 total; a cap=1 plan
+  // should not be offered even though the pending delta is only 1.
+  const userPlanAllowsQuantity =
+    userPlanMaxPerTimeslot === Infinity ||
+    quantity + confirmedForTimeslot <= userPlanMaxPerTimeslot;
 
   const subscriptionUsableForBooking =
     subscription &&

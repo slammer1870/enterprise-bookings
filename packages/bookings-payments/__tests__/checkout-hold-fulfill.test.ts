@@ -222,10 +222,10 @@ describe('fulfillCheckoutHold', () => {
     expect(result.confirmedBookingIds).toHaveLength(0)
     expect(onRefund).toHaveBeenCalledWith(PI_ID)
     expect(hold.status).toBe('expired')
-    expect(hold.failureReason).toBe('capacity_taken_during_grace')
+    expect(hold.failureReason).toBe('capacity_taken')
   })
 
-  it('refunds when hold expired beyond grace window', async () => {
+  it('fulfills when hold expired beyond grace window but capacity is still available', async () => {
     hold.expiresAt = iso(now - HOLD_FULFILLMENT_GRACE_MS - 1000)
     const payload = makePayload()
     const onRefund = vi.fn().mockResolvedValue(undefined)
@@ -238,9 +238,10 @@ describe('fulfillCheckoutHold', () => {
       refundPaymentIntent: onRefund,
     })
 
-    expect(result.refunded).toBe(true)
-    expect(onRefund).toHaveBeenCalledWith(PI_ID)
-    expect(hold.failureReason).toBe('past_grace')
+    expect(result.refunded).toBe(false)
+    expect(result.confirmedBookingIds).toHaveLength(2)
+    expect(onRefund).not.toHaveBeenCalled()
+    expect(hold.status).toBe('consumed')
   })
 
   it('rejects when hold belongs to different user', async () => {

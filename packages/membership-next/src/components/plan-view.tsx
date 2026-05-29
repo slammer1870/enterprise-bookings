@@ -5,7 +5,9 @@ import { Plan, Subscription } from "@repo/shared-types";
 import { PlanList } from "./plans/plan-list";
 import { PlanDetail } from "./plans/plan-detail";
 import { Button } from "@repo/ui/components/ui/button";
+import { CircleCheck } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@repo/ui/components/ui/card";
+import { Price } from "./price";
 
 export type UpgradeOption = {
   plan: Plan;
@@ -159,12 +161,25 @@ export function PlanView({
           {upgradeOptions.map(({ plan, maxAdditionalSessions }) => (
             <Card key={plan.id}>
               <CardHeader>
-                <CardTitle className="font-light">{plan.name}</CardTitle>
+                <CardTitle className="flex flex-col gap-2">
+                  <span className="font-light">{plan.name}</span>
+                  <Price product={plan} />
+                  {PlanPriceSummary ? <PlanPriceSummary plan={plan} /> : null}
+                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="flex flex-col gap-2">
                 <p className="text-sm text-muted-foreground">
                   {maxAdditionalSessions} more session{maxAdditionalSessions === 1 ? "" : "s"} this period
                 </p>
+                {plan.features?.map(({ id, feature }) => (
+                  <div
+                    key={id}
+                    className="mb-2 text-sm flex items-center justify-start text-gray-500 gap-2"
+                  >
+                    <CircleCheck className="w-4 h-4 text-green-500" />
+                    <span className="text-sm">{feature}</span>
+                  </div>
+                ))}
               </CardContent>
               <CardFooter>
                 {onCreateCustomerUpgradePortal ? (

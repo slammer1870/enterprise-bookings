@@ -7,7 +7,6 @@ import {
 import {
   computeRemainingCapacityWithHolds,
   isHoldActive,
-  isHoldWithinFulfillmentGrace,
   type CheckoutHoldRecord,
 } from './service'
 
@@ -96,15 +95,6 @@ export async function fulfillCheckoutHold(
 
   const nowMs = Date.now()
   const active = isHoldActive(hold, nowMs)
-  const withinGrace = !active && isHoldWithinFulfillmentGrace(hold, nowMs)
-
-  if (!active && !withinGrace) {
-    if (opts.paymentIntentId && opts.refundPaymentIntent) {
-      await opts.refundPaymentIntent(opts.paymentIntentId)
-    }
-    await markHoldExpired(payload, hold.id, 'past_grace', holdCollection)
-    return { confirmedBookingIds: [], refunded: true, failureReason: 'past_grace' }
-  }
 
   const timeslotId = relationId(hold.timeslot)
   if (timeslotId == null) {
@@ -118,18 +108,19 @@ export async function fulfillCheckoutHold(
     holdCollection,
   })
 
-  // Active hold quantity is already counted in remaining; for grace path expired hold is not counted.
+  // Active hold quantity is already counted in remaining (it reduces available spots).
+  // Expired hold is not counted, so no adjustment needed.
   const capacityForFulfillment = active ? remaining + hold.quantity : remaining
 
   if (capacityForFulfillment < hold.quantity) {
     if (opts.paymentIntentId && opts.refundPaymentIntent) {
       await opts.refundPaymentIntent(opts.paymentIntentId)
     }
-    await markHoldExpired(payload, hold.id, 'capacity_taken_during_grace', holdCollection)
+    await markHoldExpired(payload, hold.id, 'capacity_taken', holdCollection)
     return {
       confirmedBookingIds: [],
       refunded: true,
-      failureReason: 'capacity_taken_during_grace',
+      failureReason: 'capacity_taken',
     }
   }
 
