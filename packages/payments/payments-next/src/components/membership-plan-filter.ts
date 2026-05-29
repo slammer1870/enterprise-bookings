@@ -51,7 +51,11 @@ export function getMembershipPlansForView(args: {
   const activeAllowedPlans = allowedPlanDocs.filter((plan) => plan.status === "active");
   let activePlans = activeAllowedPlans;
 
-  if (quantity > 1 && Array.isArray(eligiblePlansForQuantity)) {
+  // The server returns a non-null eligiblePlansForQuantity whenever the
+  // effective total (confirmed + pending) > 1.  Trust that list over the
+  // client-side quantity guard so that the manage-booking flow (where
+  // confirmed > 0 but pending = 1) is also filtered correctly.
+  if (Array.isArray(eligiblePlansForQuantity)) {
     activePlans = eligiblePlansForQuantity.filter((plan) => plan.status === "active");
   } else {
     activePlans = activePlans.filter((plan) => planCanCoverQuantity(plan, quantity));
