@@ -30,7 +30,10 @@ test.describe('Better Auth /auth/sign-up registrationTenant (custom domain E2E)'
     registerOrigin = `http://${host}:3000`
 
     const slug = `bauth-cd-${w}-${stamp}`
-    const tenant = await createTestTenant(`E2E Better Auth CD ${w}`, slug, host)
+    // `createTestTenant` reuses existing tenants by both `slug` and `name`.
+    // Ensure the name is unique per run so the stored `tenant.domain` always
+    // matches the current `host` we’re visiting for this test.
+    const tenant = await createTestTenant(`E2E Better Auth CD ${w} ${stamp}`, slug, host)
     if (tenant.id == null) throw new Error('tenant missing id')
     tenantId = tenant.id
   })
@@ -44,9 +47,15 @@ test.describe('Better Auth /auth/sign-up registrationTenant (custom domain E2E)'
     const name = 'E2E Better Auth Sign-Up'
     const password = 'e2e-signup-pass-9aa!'
 
-    await page.goto(`${registerOrigin}/auth/sign-up`, {
+    // Better Auth validates `callbackURL` against its trusted origins list. When signing up
+    // from custom domains, the UI may compute an absolute callbackURL that can be rejected
+    // in our test environment, so pass an explicit relative callbackURL.
+    await page.goto(
+      `${registerOrigin}/auth/sign-up?callbackURL=${encodeURIComponent('/auth/sign-in')}&redirectTo=${encodeURIComponent('/auth/sign-in')}`,
+      {
       waitUntil: 'domcontentloaded',
-    })
+      },
+    )
     await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => null)
 
     await expect(page.locator('[data-slot="card-title"]')).toHaveText(/sign up/i, {
@@ -73,6 +82,13 @@ test.describe('Better Auth /auth/sign-up registrationTenant (custom domain E2E)'
         /sign-up|signup/i.test(r.url()),
       { timeout: 45_000 },
     )
+    const signUpRequestPromise = page.waitForRequest(
+      (r) =>
+        r.method() === 'POST' &&
+        /\/api\/auth\//.test(r.url()) &&
+        /sign-up|signup/i.test(r.url()),
+      { timeout: 45_000 },
+    )
 
     // better-auth-ui uses localized SIGN_UP_ACTION ("Create an account"), not the card title "Sign up".
     const submitSignUp = page.getByRole('button', {
@@ -80,9 +96,13 @@ test.describe('Better Auth /auth/sign-up registrationTenant (custom domain E2E)'
     })
     await submitSignUp.click()
     const signUpResponse = await signUpResponsePromise
+    const signUpRequest = await signUpRequestPromise
     if (!signUpResponse.ok()) {
       const body = await signUpResponse.text().catch(() => '')
-      throw new Error(`sign-up failed: ${signUpResponse.status()} ${body}`)
+      const postData = signUpRequest.postData() ?? ''
+      throw new Error(
+        `sign-up failed: ${signUpResponse.status()} ${body} (request.postData=${postData})`,
+      )
     }
 
     // Successful credential sign-up redirects to sign-in (email verification off in app config).

@@ -2215,10 +2215,12 @@ export const bookingsRouter = {
           (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
       );
 
-      // No payment methods → free lesson, book immediately.
+      // No payment methods:
+      // - In this codebase that includes the "pay at door" flow (no paymentMethods configured).
+      // - Do NOT auto-book on page load; the client should show the booking UI so the user
+      //   explicitly clicks "Book" to create the confirmed booking.
       if (!hasPaymentMethods) {
-        await bookOneSlot();
-        return { shouldRedirect: false, bookedImmediately: true, error: null };
+        return { shouldRedirect: false, bookedImmediately: false, error: null };
       }
 
       // Active subscription within session limit → book immediately.
@@ -2298,28 +2300,10 @@ export const bookingsRouter = {
         )[0];
 
         if (usablePass != null) {
-          // Only auto-book when the class pass type restricts to 1 booking per timeslot.
-          const passTypeDoc = typeof (usablePass as any).type === "object" ? (usablePass as any).type : null;
-          const passMaxPerTimeslot = passTypeDoc?.maxBookingsPerTimeslot as number | null | undefined;
-          if (passMaxPerTimeslot !== 1) {
-            return { shouldRedirect: false, bookedImmediately: false, error: null };
-          }
-
-          const passId = (usablePass as any).id as number;
-          await bookOneSlot({ paymentMethodUsed: "class_pass", classPassIdUsed: passId });
-
-          const currentQty =
-            typeof (usablePass as any).quantity === "number" ? (usablePass as any).quantity : 0;
-          const nextQty = Math.max(0, currentQty - 1);
-          const nextStatus = nextQty === 0 ? "used" : ((usablePass as any).status ?? "active");
-          await ctx.payload.update({
-            collection: ctx.bookingsSlugs.classPasses as import("payload").CollectionSlug,
-            id: passId,
-            data: { quantity: nextQty, status: nextStatus },
-            overrideAccess: true,
-          });
-
-          return { shouldRedirect: false, bookedImmediately: true, error: null };
+          // Do not auto-book class passes on booking-page load.
+          // The booking UI (class pass tab) should confirm the booking explicitly,
+          // which keeps upgrade/multi-step flows deterministic.
+          return { shouldRedirect: false, bookedImmediately: false, error: null };
         }
       }
 

@@ -128,18 +128,20 @@ describe('createOrGetCustomHostname', () => {
     await expect(createOrGetCustomHostname('croilan.com')).rejects.toThrow('Cloudflare')
   })
 
-  it('throws when CLOUDFLARE_API_TOKEN is missing', async () => {
+  it('skips when CLOUDFLARE_API_TOKEN is missing', async () => {
     delete process.env.CLOUDFLARE_API_TOKEN
 
     const { createOrGetCustomHostname } = await import('@/lib/cloudflare/customHostnames')
-    await expect(createOrGetCustomHostname('croilan.com')).rejects.toThrow('CLOUDFLARE_API_TOKEN')
+    const result = await createOrGetCustomHostname('croilan.com')
+    expect(result).toEqual({ id: '', verificationTxtValue: '', status: 'skipped' })
   })
 
-  it('throws when CLOUDFLARE_ZONE_ID is missing', async () => {
+  it('skips when CLOUDFLARE_ZONE_ID is missing', async () => {
     delete process.env.CLOUDFLARE_ZONE_ID
 
     const { createOrGetCustomHostname } = await import('@/lib/cloudflare/customHostnames')
-    await expect(createOrGetCustomHostname('croilan.com')).rejects.toThrow('CLOUDFLARE_ZONE_ID')
+    const result = await createOrGetCustomHostname('croilan.com')
+    expect(result).toEqual({ id: '', verificationTxtValue: '', status: 'skipped' })
   })
 
   it('propagates network errors', async () => {

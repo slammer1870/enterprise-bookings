@@ -7,6 +7,7 @@ import {
   createTestBooking,
 } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
+import { advanceScheduleToDate } from './helpers/schedule-helpers'
 
 /**
  * Schedule UX: full timeslot → Join Waitlist → Leave Waitlist (still full → Join shows again).
@@ -118,19 +119,9 @@ test.describe('Full timeslot waitlist', () => {
     await navigateToTenant(page, tenant.slug, '/')
 
     await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({ timeout: 20000 })
-
-    const dateLabel = page.locator('p.text-center.text-lg').first()
-    await expect(dateLabel).toBeVisible({ timeout: 30000 })
-    const nextDayButton = dateLabel.locator('xpath=..').locator('svg').nth(1)
-    const targetLabel = startTime.toDateString()
-
-    for (let i = 0; i < 14; i += 1) {
-      const current = (await dateLabel.textContent())?.trim()
-      if (current === targetLabel) break
-      await nextDayButton.click()
-      await expect(dateLabel).toHaveText(targetLabel, { timeout: 10000 }).catch(() => null)
-    }
-    await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
+    // Use the shared helper for schedule date navigation. It handles click flakiness
+    // and ensures the calendar reliably updates (especially in anonymous flows).
+    await advanceScheduleToDate(page, startTime)
 
     const callbackPath = `/join-waitlist?timeslotId=${timeslot.id}`
     const loginUrl = `/complete-booking?mode=login&callbackUrl=${encodeURIComponent(callbackPath)}`
@@ -154,18 +145,7 @@ test.describe('Full timeslot waitlist', () => {
 
     // The schedule resets to "today" when we return to `/`, so we must re-select the target date.
     await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({ timeout: 20000 })
-
-    const dateLabelAfter = page.locator('p.text-center.text-lg').first()
-    await expect(dateLabelAfter).toBeVisible({ timeout: 20000 })
-    const nextDayButtonAfter = dateLabelAfter.locator('xpath=..').locator('svg').nth(1)
-
-    for (let i = 0; i < 14; i += 1) {
-      const current = (await dateLabelAfter.textContent())?.trim()
-      if (current === targetLabel) break
-      await nextDayButtonAfter.click()
-      await expect(dateLabelAfter).toHaveText(targetLabel, { timeout: 10000 }).catch(() => null)
-    }
-    await expect(dateLabelAfter).toHaveText(targetLabel, { timeout: 15000 })
+    await advanceScheduleToDate(page, startTime)
 
     // Re-locate the same timeslot card.
 
