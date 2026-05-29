@@ -2104,21 +2104,30 @@ export const bookingsRouter = {
       };
     }),
   /**
-   * Validates if a user can be checked in for a timeslot and attempts check-in if possible.
-   * This is designed to be called at the page level before rendering booking components.
-   * 
-   * @returns Object indicating whether check-in succeeded and redirect should occur
+   * Called server-side when an authenticated user lands on /bookings/[id].
+   * Uses the same entitlement logic as bookSingleSlotTimeslotOrRedirect:
+   *   - Free lesson (no payment methods) → book immediately
+   *   - Active subscription within session limit → book with subscription
+   *   - Valid class pass → book with class pass
+   *   - Payment required but no entitlement → return shouldRedirect:false so the
+   *     booking page renders and the user can choose a payment method
+   *
+   * Returns { bookedImmediately: true } when the booking was created automatically so
+   * createBookingPage can redirect straight to onSuccessRedirect without rendering the UI.
    */
   validateAndAttemptCheckIn: protectedProcedure
-    .use(requireBookingCollections("timeslots", "bookings"))
+    .use(requireBookingCollections("timeslots", "bookings", "eventTypes"))
+    .use(requireCollections("subscriptions"))
+    .use(requireBookingCollections("classPasses"))
     .input(z.object({ timeslotId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const { timeslotId } = input;
-      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
 
+      // Load with depth:2 so eventType.paymentMethods (and nested plan docs) are populated.
       const timeslot = await findByIdSafe<Timeslot>(ctx.payload, ctx.bookingsSlugs.timeslots, timeslotId, {
-        depth: 0,
-        overrideAccess: Boolean(tenantId),
+        depth: 2,
+        overrideAccess: true,
         user: ctx.user,
       });
 
@@ -2128,106 +2137,179 @@ export const bookingsRouter = {
           message: `Timeslot with id ${timeslotId} not found`,
         });
       }
+
+      if (tenantId == null) tenantId = deriveTenantIdFromTimeslot(timeslot);
       if (tenantId) assertTimeslotBelongsToTenant(timeslot, tenantId, timeslotId);
 
-      const checkInTimeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
+      const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
 
-      // Check if timeslot status allows immediate check-in
-      if (!['active', 'trialable'].includes(timeslot.bookingStatus || '')) {
+      const payloadReq = createPayloadLocalReqFromTrpc({
+        payload: ctx.payload,
+        user: ctx.user,
+        headers: ctx.headers,
+        tenantId,
+      });
+
+      // Child timeslots are handled on a dedicated page.
+      const eventType =
+        typeof timeslot.eventType === "object" && timeslot.eventType !== null
+          ? (timeslot.eventType as any)
+          : null;
+
+      if (eventType?.type === "child") {
         return {
           shouldRedirect: false,
-          error: null,
-          reason: `Timeslot status is ${timeslot.bookingStatus}, check-in not available`,
+          bookedImmediately: false,
+          error: "REDIRECT_TO_CHILDREN_BOOKING",
+          redirectUrl: `/bookings/children/${timeslotId}`,
         };
       }
 
-      console.log("User is authenticated:", ctx.user);
+      // Already confirmed → treat as success so the user is redirected to /success.
+      const existingConfirmed = await findSafe<Booking>(ctx.payload, "bookings", {
+        where: {
+          and: [
+            { timeslot: { equals: timeslotId } },
+            { user: { equals: ctx.user.id } },
+            { status: { equals: "confirmed" } },
+          ],
+        },
+        depth: 0,
+        limit: 1,
+        overrideAccess: true,
+        user: ctx.user,
+        req: payloadReq,
+      });
+      if (existingConfirmed.docs.length > 0) {
+        return { shouldRedirect: false, bookedImmediately: true, error: null };
+      }
 
-      // Attempt check-in by calling the existing checkIn procedure logic
-      try {
-        // Business Logic: Handle children's timeslots differently
-        const eventTypeId =
-          typeof timeslot.eventType === "object" && timeslot.eventType !== null
-            ? (timeslot.eventType as any).id
-            : (timeslot.eventType as any);
-        const eventType =
-          typeof timeslot.eventType === "object" && timeslot.eventType !== null
-            ? (timeslot.eventType as any)
-            : eventTypeId != null && hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)
-              ? await findByIdSafe<EventType>(ctx.payload, ctx.bookingsSlugs.eventTypes, eventTypeId, {
-                  depth: 0,
-                  overrideAccess: Boolean(tenantId),
-                  user: ctx.user,
-                })
-              : null;
+      const userId = typeof ctx.user.id === "string" ? parseInt(ctx.user.id, 10) : ctx.user.id;
 
-        if ((eventType as any)?.type === "child") {
-          return {
-            shouldRedirect: false,
-            error: "REDIRECT_TO_CHILDREN_BOOKING",
-            reason: "This is a children's timeslot",
-            redirectUrl: `/bookings/children/${timeslotId}`,
-          };
-        }
-
-        // Try to create/update booking
-        const existingBooking = await findSafe(ctx.payload, "bookings", {
-          where: {
-            timeslot: { equals: timeslotId },
-            user: { equals: ctx.user.id },
-            ...(checkInTimeslotTenantId != null ? { tenant: { equals: checkInTimeslotTenantId } } : {}),
-          },
-          depth: 2,
-          limit: 1,
-          overrideAccess: true,
-        });
-
-        if (existingBooking.docs.length === 0) {
-          // Create new booking
-          // Ensure user ID is a number for Payload validation
-          const userId = typeof ctx.user.id === 'string' ? parseInt(ctx.user.id, 10) : ctx.user.id;
-          
-          if (!userId || isNaN(userId as number)) {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "Invalid user ID",
-            });
-          }
-
-          await createSafe(ctx.payload, "bookings", {
+      const bookOneSlot = async (extra: Record<string, unknown> = {}) =>
+        createSafe<Booking>(
+          ctx.payload,
+          "bookings",
+          ({
             timeslot: Number(timeslotId),
             user: Number(userId),
             status: "confirmed",
-          }, {
-            overrideAccess: true,
-            user: ctx.user,
-          });
-        } else {
-          // Update existing booking
-          await updateSafe(ctx.payload, "bookings", existingBooking.docs[0]?.id as number, {
-            status: "confirmed",
-          }, {
-            overrideAccess: true,
-            user: ctx.user,
-          });
-        }
+            ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
+            ...extra,
+          } as unknown) as Record<string, unknown>,
+          { overrideAccess: true }
+        );
 
-        // Check-in succeeded
-        return {
-          shouldRedirect: true,
-          error: null,
-          reason: null,
-        };
-      } catch (error: any) {
-        console.error("Error validating and attempting check-in:", error);
-        // If booking creation/update fails due to membership/payment issues
-        return {
-          shouldRedirect: false,
-          error: "REDIRECT_TO_BOOKING_PAYMENT",
-          reason: error.message || "Check-in failed - payment required",
-          redirectUrl: `/bookings/${timeslotId}`,
-        };
+      const paymentMethods = eventType?.paymentMethods as
+        | { allowedDropIn?: any; allowedPlans?: any[]; allowedClassPasses?: any[] }
+        | undefined;
+
+      const allowedPlanIds: number[] =
+        (paymentMethods?.allowedPlans ?? [])
+          .map((p: any) => (typeof p === "object" && p != null ? p.id : p))
+          .filter((id: unknown): id is number => typeof id === "number");
+
+      const hasPaymentMethods = Boolean(
+        paymentMethods?.allowedDropIn ||
+          allowedPlanIds.length > 0 ||
+          (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
+      );
+
+      // No payment methods:
+      // - In this codebase that includes the "pay at door" flow (no paymentMethods configured).
+      // - Do NOT auto-book on page load; the client should show the booking UI so the user
+      //   explicitly clicks "Book" to create the confirmed booking.
+      if (!hasPaymentMethods) {
+        return { shouldRedirect: false, bookedImmediately: false, error: null };
       }
+
+      // Active subscription within session limit → book immediately.
+      if (allowedPlanIds.length > 0) {
+        const subs = await findSafe<Subscription>(ctx.payload, "subscriptions", {
+          where: {
+            and: [
+              { user: { equals: ctx.user.id } },
+              { plan: { in: allowedPlanIds } },
+            ],
+          },
+          depth: 2,
+          limit: 25,
+          overrideAccess: true,
+          user: ctx.user,
+          req: payloadReq,
+        });
+
+        const timeslotStart = new Date(timeslot.startTime);
+        const usableSub = subs.docs.find((s: any) => canUseSubscriptionForBooking(s?.status));
+
+        if (usableSub) {
+          // Only auto-book when the plan explicitly restricts to 1 booking per timeslot.
+          // null/undefined means unlimited — the user may want to book multiple spots,
+          // so let them land on /bookings/[id] to pick their quantity.
+          const planDoc = (usableSub as any).plan;
+          const planMaxPerTimeslot =
+            planDoc?.sessionsInformation?.maxBookingsPerTimeslot as number | null | undefined;
+          if (planMaxPerTimeslot !== 1) {
+            return { shouldRedirect: false, bookedImmediately: false, error: null };
+          }
+
+          const limitReached = await hasReachedSubscriptionLimit(usableSub as any, ctx.payload, timeslotStart);
+          if (!limitReached) {
+            await bookOneSlot({
+              paymentMethodUsed: "subscription",
+              subscriptionIdUsed: Number((usableSub as any).id),
+            });
+            return { shouldRedirect: false, bookedImmediately: true, error: null };
+          }
+        }
+      }
+
+      // Valid class pass → book immediately, decrement 1 credit.
+      const allowedClassPassTypeIds: number[] = (
+        (paymentMethods?.allowedClassPasses ?? [])
+      )
+        .map((cp: any) => (typeof cp === "object" && cp != null ? cp.id : cp))
+        .filter((id: unknown): id is number => typeof id === "number");
+
+      if (allowedClassPassTypeIds.length > 0 && timeslotTenantId != null) {
+        const now = new Date().toISOString();
+        const passResult = await findSafe(ctx.payload, ctx.bookingsSlugs.classPasses, {
+          where: {
+            and: [
+              { user: { equals: ctx.user.id } },
+              { tenant: { equals: timeslotTenantId } },
+              { type: { in: allowedClassPassTypeIds } },
+              { status: { equals: "active" } },
+              { quantity: { greater_than: 0 } },
+              { expirationDate: { greater_than: now } },
+            ],
+          },
+          limit: 10,
+          depth: 1,
+          sort: "expirationDate",
+          overrideAccess: true,
+        });
+
+        const usablePass = (
+          filterValidClassPassesForTimeslot(
+            timeslot as unknown as TimeslotLike,
+            passResult.docs as ClassPassLike[],
+            new Date(),
+            1
+          ) as any[]
+        )[0];
+
+        if (usablePass != null) {
+          // Do not auto-book class passes on booking-page load.
+          // The booking UI (class pass tab) should confirm the booking explicitly,
+          // which keeps upgrade/multi-step flows deterministic.
+          return { shouldRedirect: false, bookedImmediately: false, error: null };
+        }
+      }
+
+      // Payment is required but the user has no valid entitlement — let the booking
+      // page render so they can choose drop-in, subscribe, or buy a class pass.
+      return { shouldRedirect: false, bookedImmediately: false, error: null };
     }),
   setMyBookingQuantityForTimeslot: protectedProcedure
     .use(requireBookingCollections("timeslots", "bookings"))

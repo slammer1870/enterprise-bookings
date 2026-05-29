@@ -57,13 +57,11 @@ interface CfApiResponse<T> {
   errors: Array<{ code: number; message: string }>
 }
 
-function getConfig(): { token: string; zoneId: string } {
+function getConfig(): { token: string; zoneId: string } | null {
   const token = process.env.CLOUDFLARE_API_TOKEN?.trim()
-  if (!token) throw new Error('CLOUDFLARE_API_TOKEN is not set')
-
   const zoneId = process.env.CLOUDFLARE_ZONE_ID?.trim()
-  if (!zoneId) throw new Error('CLOUDFLARE_ZONE_ID is not set')
 
+  if (!token || !zoneId) return null
   return { token, zoneId }
 }
 
@@ -101,7 +99,15 @@ export async function createOrGetCustomHostname(
   hostname: string,
   isApex = false,
 ): Promise<CustomHostnameResult> {
-  const { token, zoneId } = getConfig()
+  const config = getConfig()
+  if (!config) {
+    console.warn(
+      `[cloudflare] Missing CLOUDFLARE_API_TOKEN/CLOUDFLARE_ZONE_ID — skipping custom hostname provisioning for "${hostname}"`,
+    )
+    return { id: '', verificationTxtValue: '', status: 'skipped' }
+  }
+
+  const { token, zoneId } = config
 
   const sslMethod = isApex ? 'txt' : 'http'
 
@@ -143,12 +149,10 @@ export async function createOrGetCustomHostname(
  * Returns null if the hostname is not registered or credentials are missing.
  */
 export async function getCustomHostnameStatus(hostname: string): Promise<CustomHostnameStatusResult | null> {
-  let token: string, zoneId: string
-  try {
-    ;({ token, zoneId } = getConfig())
-  } catch {
-    return null
-  }
+  const config = getConfig()
+  if (!config) return null
+
+  const { token, zoneId } = config
 
   try {
     const res = await fetch(
@@ -191,12 +195,10 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
  * Returns null if credentials are missing or the request fails.
  */
 export async function getDcvDelegationUuid(): Promise<string | null> {
-  let token: string, zoneId: string
-  try {
-    ;({ token, zoneId } = getConfig())
-  } catch {
-    return null
-  }
+  const config = getConfig()
+  if (!config) return null
+
+  const { token, zoneId } = config
 
   try {
     const res = await fetch(

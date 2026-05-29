@@ -154,12 +154,16 @@ export async function createBookingPage(
         timeslotId: id,
       })
 
-      // Handle redirects based on check-in result
+      // Booking was created automatically (free lesson, subscription, or class pass) —
+      // send the user straight to the success page.
+      if (checkInResult.bookedImmediately) {
+        redirect(config.onSuccessRedirect ?? '/')
+      }
+
       if (checkInResult.shouldRedirect) {
         redirect(config.errorRedirectPath)
       }
 
-      // Handle special redirect cases
       if (checkInResult.error === 'REDIRECT_TO_CHILDREN_BOOKING' && checkInResult.redirectUrl) {
         redirect(checkInResult.redirectUrl)
       }

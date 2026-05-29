@@ -25,21 +25,48 @@ export async function registerApplePayDomain(
   domain: string,
   stripeAccountId?: string,
 ): Promise<void> {
+  // E2E/test environments should not depend on live Stripe domain registration.
+  // Stripe calls can hang/fail (e.g. DNS/ENOTFOUND) and block request/route rendering,
+  // which in turn causes Playwright timeouts.
+  if (
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
+    process.env.PW_E2E_PROFILE
+  ) {
+    return
+  }
+
   if (!process.env.STRIPE_SECRET_KEY?.trim()) {
     console.warn('[registerApplePayDomain] STRIPE_SECRET_KEY not set — skipping domain registration')
     return
   }
 
   const stripe = getPlatformStripe()
+  if (!stripe) {
+    console.warn('[registerApplePayDomain] Stripe client not available — skipping domain registration')
+    return
+  }
+  // Stripe's API surface can vary by API version / account type; in some E2E/test
+  // environments the SDK might not expose paymentMethodDomains at all.
+  const paymentMethodDomains = (stripe as any).paymentMethodDomains as
+    | {
+        list?: (...args: any[]) => Promise<any>
+        create?: (...args: any[]) => Promise<any>
+        update?: (...args: any[]) => Promise<any>
+      }
+    | undefined
   const requestOptions: Stripe.RequestOptions | undefined = stripeAccountId
     ? { stripeAccount: stripeAccountId }
     : undefined
 
-  const existing = await stripe.paymentMethodDomains.list(
-    { domain_name: domain, limit: 1 },
-    requestOptions,
-  )
-  const record = existing.data[0]
+  if (!paymentMethodDomains?.list) {
+    console.warn(
+      `[registerApplePayDomain] Stripe paymentMethodDomains.list is not available — skipping "${domain}"`,
+    )
+    return
+  }
+
+  const existing = await paymentMethodDomains.list({ domain_name: domain, limit: 1 }, requestOptions)
+  const record = existing?.data?.[0]
   const accountLabel = stripeAccountId ? ` (${stripeAccountId})` : ' (platform)'
 
   if (record) {
@@ -47,12 +74,24 @@ export async function registerApplePayDomain(
       console.log(`[registerApplePayDomain] "${domain}"${accountLabel} already registered and enabled — skipping`)
       return
     }
-    await stripe.paymentMethodDomains.update(record.id, { enabled: true }, requestOptions)
+    if (!paymentMethodDomains.update) {
+      console.warn(
+        `[registerApplePayDomain] Stripe paymentMethodDomains.update is not available — skipping re-enable "${domain}"`,
+      )
+      return
+    }
+    await paymentMethodDomains.update(record.id, { enabled: true }, requestOptions)
     console.log(`[registerApplePayDomain] Re-enabled "${domain}"${accountLabel}`)
     return
   }
 
-  await stripe.paymentMethodDomains.create({ domain_name: domain }, requestOptions)
+  if (!paymentMethodDomains.create) {
+    console.warn(
+      `[registerApplePayDomain] Stripe paymentMethodDomains.create is not available — skipping register "${domain}"`,
+    )
+    return
+  }
+  await paymentMethodDomains.create({ domain_name: domain }, requestOptions)
   console.log(`[registerApplePayDomain] Registered "${domain}"${accountLabel}`)
 }
 

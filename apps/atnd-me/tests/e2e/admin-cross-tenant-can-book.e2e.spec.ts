@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
+import { loginAsRegularUser } from './helpers/auth-helpers'
 import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 
 test.describe('Admin cross-tenant booking', () => {
@@ -38,16 +38,29 @@ test.describe('Admin cross-tenant booking', () => {
       where: { email: { equals: adminB.email } },
       data: {
         tenants: [{ tenant: tenantA.id }, { tenant: tenantB.id }],
+        // Better Auth's tenant resolution uses `registrationTenant`, so set it to
+        // the target tenant we sign into (tenant A) for this cross-tenant booking test.
+        registrationTenant: tenantA.id,
       },
       overrideAccess: true,
     })
 
     // Login as tenant B admin, but ensure cookies are scoped to the tenant A host
     // so the booking route resolves tenant context from tenant A.
-    await loginAsRegularUserViaApi(page, adminB.email, 'password', { tenantSlug: tenantA.slug })
+    await loginAsRegularUser(page, 1, adminB.email, 'password', { tenantSlug: tenantA.slug })
 
     await navigateToTenant(page, tenantA.slug, `/bookings/${lesson.id}`)
     await page.waitForLoadState('domcontentloaded').catch(() => null)
+
+    // Booking page can sometimes redirect to /success if the hold is created/confirmed
+    // faster than the UI settles. If we're already on success, assert and exit early.
+    const successHeading = page.getByRole('heading', { name: /thank you/i })
+    const successAlreadyVisible = await successHeading.isVisible().catch(() => false)
+    if (successAlreadyVisible) {
+      await expect(successHeading).toBeVisible({ timeout: 5000 })
+      await expect(page.getByText(/your booking has been confirmed/i)).toBeVisible({ timeout: 5000 })
+      return
+    }
 
     await expect(
       page.getByText(/select quantity|number of slots|choose how many slots/i).first()

@@ -85,7 +85,8 @@ let tenantDomainsAllCache: TenantDomainsCacheAllEntry | null = null
 
 async function isTenantCustomDomain(hostname: string): Promise<boolean> {
   const now = Date.now()
-  const ttlMs = 5 * 60_000
+  // In E2E, tenants are created after the webServer boots; avoid stale cache.
+  const ttlMs = process.env.PW_E2E_PROFILE ? 0 : 5 * 60_000
   const cached = tenantDomainCache.get(hostname)
   if (cached && now - cached.atMs < ttlMs) return cached.ok
 
@@ -112,7 +113,8 @@ async function isTenantCustomDomain(hostname: string): Promise<boolean> {
 
 async function getAllTenantCustomDomains(): Promise<string[]> {
   const now = Date.now()
-  const ttlMs = 5 * 60_000
+  // In E2E, tenants are created after the webServer boots; avoid stale cache.
+  const ttlMs = process.env.PW_E2E_PROFILE ? 0 : 5 * 60_000
   if (tenantDomainsAllCache && now - tenantDomainsAllCache.atMs < ttlMs) {
     return tenantDomainsAllCache.domains
   }
@@ -154,6 +156,18 @@ async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
     ...getExtraTrustedOriginHosts(),
     ...allTenantDomains,
   ])
+  if (
+    process.env.E2E_DEBUG_TRUSTED_ORIGINS &&
+    process.env.PW_E2E_PROFILE &&
+    allTenantDomains.some((d) => d.includes('nip.io'))
+  ) {
+    // eslint-disable-next-line no-console
+    console.log('[trustedOriginsFromRequest debug base]', {
+      allTenantDomainsCount: allTenantDomains.length,
+      nipIoDomains: allTenantDomains.filter((d) => d.includes('nip.io')).slice(0, 5),
+      baseCount: base.length,
+    })
+  }
 
   const originHeader = request.headers.get('origin') || ''
   if (!originHeader) return base
@@ -168,13 +182,25 @@ async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
   const hostname = normalizeCustomDomain(origin.hostname)
   if (!hostname) return base
 
+  // E2E / Playwright uses http://host:3000 for both platform and tenant custom domains.
+  // Allow HTTP origins during tests to avoid rejecting callbackURL validation.
+  if (origin.protocol === 'http:' && process.env.PW_E2E_PROFILE) {
+    const trusted = [...new Set([...base, origin.origin])]
+    if (process.env.E2E_DEBUG_TRUSTED_ORIGINS && hostname.includes('nip.io')) {
+      // eslint-disable-next-line no-console
+      console.log('[trustedOriginsFromRequest debug]', {
+        originHeader,
+        hostname,
+        originOrigin: origin.origin,
+        trustedHasOrigin: trusted.includes(origin.origin),
+        trustedCount: trusted.length,
+      })
+    }
+    return trusted
+  }
+
   const isTenant = await isTenantCustomDomain(hostname)
   if (!isTenant) return base
-
-  // Production: only https tenant origins beyond `base`. E2E / Playwright uses http://host:3000.
-  if (origin.protocol === 'http:' && process.env.PW_E2E_PROFILE) {
-    return [...new Set([...base, origin.origin])]
-  }
 
   // Enforce https origins only (we redirect http->https at the edge/app).
   if (origin.protocol !== 'https:') return base
