@@ -919,6 +919,8 @@ export function PaymentMethods({
   // Controlled tab so we can auto-switch when the active tab is no longer available
   const defaultTab = availableTabs[0] ?? "dropin";
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
+  // Tracks whether the user has deliberately clicked a tab so we don't override their choice.
+  const [tabManuallySelected, setTabManuallySelected] = useState(false);
 
   // When active tab becomes unavailable (or invalid), switch to a valid tab.
   useEffect(() => {
@@ -927,6 +929,14 @@ export function PaymentMethods({
       setActiveTab(defaultTab);
     }
   }, [activeTab, availableTabs, defaultTab]);
+
+  // When subscription data resolves and the user has a usable membership, default to
+  // the Membership tab. Skip if the user has already manually chosen a different tab.
+  useEffect(() => {
+    if (canUseSubscriptionForQuantity && hasMembershipTab && !tabManuallySelected) {
+      setActiveTab("membership");
+    }
+  }, [canUseSubscriptionForQuantity, hasMembershipTab, tabManuallySelected]);
 
   // Important: keep this after hooks so changing quantity doesn't break hook order.
   if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {
@@ -949,7 +959,7 @@ export function PaymentMethods({
           Please select a payment method to continue:
         </p>
       </div>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={(v) => { setTabManuallySelected(true); setActiveTab(v); }}>
         <TabsList className="flex w-full justify-around gap-4">
           {hasDropInTab && (
             <TabsTrigger value="dropin" className="w-full">

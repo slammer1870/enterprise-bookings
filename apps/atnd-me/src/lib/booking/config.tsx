@@ -23,7 +23,7 @@ export const bookingPageConfig: BookingPageConfig = {
       cancelPendingApiUrl="/api/bookings/cancel-pending"
     />
   ),
-  attemptCheckIn: false,
+  attemptCheckIn: true,
   postValidation: redirectToManageIfMultipleBookings,
 }
 
