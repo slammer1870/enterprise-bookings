@@ -172,4 +172,45 @@ describe('PlanView upgrade flow', () => {
 
     expect(onCreateCustomerUpgradePortal).toHaveBeenCalledWith(300)
   })
+
+  it('renders upgrade option price and features when limit reached', async () => {
+    const currentPlan = createPlan({ id: 100, name: 'Single Membership' })
+    const upgradePlan = createPlan({
+      id: 300,
+      name: 'Family Membership',
+      features: [{ id: 'f1', feature: 'Extra sessions' }] as any,
+      priceJSON: JSON.stringify({
+        id: 'price_123',
+        unit_amount: 5000,
+        currency: 'eur',
+        type: 'recurring',
+        recurring: { interval: 'month', interval_count: 1 },
+      }),
+    })
+
+    render(
+      <PlanView
+        allowedPlans={[currentPlan, upgradePlan]}
+        subscription={createSubscription(currentPlan, { status: 'active' })}
+        timeslotDate={new Date('2026-03-21T10:00:00.000Z')}
+        subscriptionLimitReached
+        canUseSubscriptionForQuantity={false}
+        remainingSessions={0}
+        selectedQuantity={2}
+        subscriptionAllowsMultiplePerTimeslot
+        upgradeOptions={[
+          {
+            plan: upgradePlan,
+            maxAdditionalSessions: 4,
+          },
+        ]}
+        onCreateCheckoutSession={vi.fn().mockResolvedValue(undefined)}
+        onCreateCustomerPortal={vi.fn().mockResolvedValue(undefined)}
+      />
+    )
+
+    expect(screen.getByText('Extra sessions')).toBeInTheDocument()
+    // Price component appends the recurring interval display.
+    expect(screen.getByText(/\/month/i)).toBeInTheDocument()
+  })
 })
