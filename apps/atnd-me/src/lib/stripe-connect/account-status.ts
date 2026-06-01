@@ -13,19 +13,24 @@ export function getStripeConnectOnboardingStatus(
   if (!account) return 'pending'
 
   const requirements = account.requirements
-  const hasOutstandingRequirements = Boolean(
+  // Only requirements that are currently blocking charges or past their deadline.
+  // `eventually_due` and `pending_verification` represent future deadlines or
+  // in-progress reviews — they do not currently prevent the account from taking
+  // payments, so they must not trigger restricted status.
+  const hasBlockingRequirements = Boolean(
     requirements?.disabled_reason ||
       requirements?.currently_due?.length ||
-      requirements?.eventually_due?.length ||
-      requirements?.past_due?.length ||
-      requirements?.pending_verification?.length,
+      requirements?.past_due?.length,
   )
 
+  // `payouts_enabled` being false means payouts are paused (e.g. documents needed
+  // within a future deadline) but the account can still accept charges. Only gate
+  // on `charges_enabled` so tenants can continue taking payments while they resolve
+  // their payout verification requirements.
   if (
     account.charges_enabled === true &&
-    account.payouts_enabled === true &&
     account.details_submitted === true &&
-    !hasOutstandingRequirements
+    !hasBlockingRequirements
   ) {
     return 'active'
   }

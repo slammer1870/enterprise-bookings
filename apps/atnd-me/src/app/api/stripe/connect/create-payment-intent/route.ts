@@ -320,6 +320,31 @@ export async function POST(request: NextRequest) {
     )
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Payment intent failed'
+
+    const alertEmail = process.env.ALERT_EMAIL || 'info@atnd.ie'
+    if (alertEmail) {
+      const errorDetail = e instanceof Error && e.stack ? e.stack : message
+      const occurredAt = new Date().toISOString()
+      payload.sendEmail({
+        to: alertEmail,
+        subject: `[ATND] Payment intent failed – tenant ${tenantId}`,
+        html: `
+          <p>A <strong>create payment intent</strong> request failed in production.</p>
+          <table cellpadding="6" style="border-collapse:collapse;font-family:monospace;font-size:13px">
+            <tr><td><strong>Time</strong></td><td>${occurredAt}</td></tr>
+            <tr><td><strong>Tenant ID</strong></td><td>${tenantId}</td></tr>
+            <tr><td><strong>Timeslot ID</strong></td><td>${timeslotId}</td></tr>
+            <tr><td><strong>User ID</strong></td><td>${user.id}</td></tr>
+            <tr><td><strong>Price (cents)</strong></td><td>${classPriceAmountCents}</td></tr>
+            <tr><td><strong>Error</strong></td><td style="color:#b00">${message}</td></tr>
+          </table>
+          <pre style="background:#f4f4f4;padding:12px;margin-top:12px;font-size:12px;overflow:auto">${errorDetail}</pre>
+        `,
+      }).catch(() => {
+        // swallow — alert sending must never mask the original error response
+      })
+    }
+
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

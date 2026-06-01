@@ -50,7 +50,7 @@ describe('Middleware', () => {
       process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
     })
 
-    it('treats root domain as no tenant and clears cookies', async () => {
+    it('redirects root domain to www subdomain (apex redirect)', async () => {
       const req = new NextRequest('http://atnd-me.com/', {
         headers: {
           host: 'atnd-me.com',
@@ -58,9 +58,8 @@ describe('Middleware', () => {
         },
       })
       const res = await middleware(req)
-      const setCookie = res.headers.get('set-cookie')
-      expect(setCookie).toContain('tenant-slug=; Path=/; Max-Age=0')
-      expect(setCookie).toContain('payload-tenant=; Path=/; Max-Age=0')
+      expect(res.status).toBe(301)
+      expect(res.headers.get('location')).toBe('http://www.atnd-me.com/')
     })
 
     it('extracts tenant from subdomain when host ends with root hostname', async () => {
