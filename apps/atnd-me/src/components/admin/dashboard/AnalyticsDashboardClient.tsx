@@ -28,6 +28,8 @@ type Summary = {
   totalBookings: number
   uniqueCustomers: number
   grossVolumeCents: number
+  accountToBookingConversionPercent: number | null
+  returningCustomerPercent: number | null
 }
 
 type BookingsOverTimeRow = { date: string; count: number }
@@ -155,7 +157,13 @@ export const AnalyticsDashboardClient: React.FC<{
     const run = async () => {
       try {
         const empty: AnalyticsData = {
-          summary: { totalBookings: 0, uniqueCustomers: 0, grossVolumeCents: 0 },
+          summary: {
+            totalBookings: 0,
+            uniqueCustomers: 0,
+            grossVolumeCents: 0,
+            accountToBookingConversionPercent: null,
+            returningCustomerPercent: null,
+          },
           bookingsOverTime: [],
           topCustomers: [],
           likelyChurnCustomers: [],
@@ -384,6 +392,46 @@ export const AnalyticsDashboardClient: React.FC<{
                     (prev: {data.summaryPrevious.uniqueCustomers})
                   </span>
                 )}
+              </div>
+            </div>
+            <div
+              style={{
+                padding: '1rem',
+                border: '1px solid var(--theme-elevation-200, #eee)',
+                borderRadius: '6px',
+                backgroundColor: 'var(--theme-elevation-50)',
+              }}
+            >
+              <div style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
+                Sign-up to booking rate
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>
+                {data.summary.accountToBookingConversionPercent !== null
+                  ? `${data.summary.accountToBookingConversionPercent}%`
+                  : '—'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--theme-elevation-500, #888)', marginTop: '0.25rem' }}>
+                New sign-ups in period who booked
+              </div>
+            </div>
+            <div
+              style={{
+                padding: '1rem',
+                border: '1px solid var(--theme-elevation-200, #eee)',
+                borderRadius: '6px',
+                backgroundColor: 'var(--theme-elevation-50)',
+              }}
+            >
+              <div style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
+                Returning customer rate
+              </div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>
+                {data.summary.returningCustomerPercent !== null
+                  ? `${data.summary.returningCustomerPercent}%`
+                  : '—'}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--theme-elevation-500, #888)', marginTop: '0.25rem' }}>
+                Customers who booked on 2+ separate days
               </div>
             </div>
           </div>

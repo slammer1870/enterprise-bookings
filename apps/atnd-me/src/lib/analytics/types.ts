@@ -27,6 +27,17 @@ export type SummaryMetrics = {
   totalBookings: number
   uniqueCustomers: number
   grossVolumeCents: number
+  /**
+   * Percentage (0–100) of users who registered in the period and have at least one
+   * confirmed booking (all-time, not bounded to the period). Null when there are no
+   * new registrations in the selected date range.
+   */
+  accountToBookingConversionPercent: number | null
+  /**
+   * Percentage (0–100) of unique customers in the period who made confirmed bookings
+   * on at least two distinct calendar days. Null when there are no bookings in range.
+   */
+  returningCustomerPercent: number | null
 }
 
 export type BookingsOverTimeRow = {
