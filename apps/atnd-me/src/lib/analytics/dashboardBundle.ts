@@ -173,7 +173,13 @@ export async function getAnalyticsDashboardBundle(
 
   if (timeslotIds.length === 0) {
     return {
-      summary: { totalBookings: 0, uniqueCustomers: 0, grossVolumeCents: 0 },
+      summary: {
+        totalBookings: 0,
+        uniqueCustomers: 0,
+        grossVolumeCents: 0,
+        accountToBookingConversionPercent: null,
+        returningCustomerPercent: null,
+      },
       bookingsOverTime: includeBookingsOverTime
         ? densifyBookingsOverTime(new Map(), {
             dateFrom: params.dateFrom,
@@ -222,6 +228,10 @@ export async function getAnalyticsDashboardBundle(
   const byUser = includeTopCustomers ? new Map<number, number>() : new Map<number, number>()
   const churnAggByUser = includeLikelyChurnCustomers ? new Map<number, ChurnAgg>() : new Map<number, ChurnAgg>()
   const churnAggTenantIdsByUser = includeLikelyChurnCustomers ? new Map<number, Set<number>>() : new Map<number, Set<number>>()
+  // Track distinct booking dates per user for the returning-customer metric.
+  // Only populated when we already need timeslot dates (includeBookingsOverTime).
+  const trackReturningCustomers = includeSummary && includeBookingsOverTime
+  const userBookingDatesMap = trackReturningCustomers ? new Map<number, Set<string>>() : null
 
   // Churn heuristic windows:
   // - eligibility (recency):
@@ -292,6 +302,15 @@ export async function getAnalyticsDashboardBundle(
       if (includeBookingsOverTime) {
         const key = toDateKey(`${ymd}T12:00:00.000Z`, granularity)
         timeBucket.set(key, (timeBucket.get(key) ?? 0) + 1)
+      }
+
+      if (trackReturningCustomers && userBookingDatesMap !== null && uid !== null) {
+        let dates = userBookingDatesMap.get(uid)
+        if (!dates) {
+          dates = new Set()
+          userBookingDatesMap.set(uid, dates)
+        }
+        dates.add(ymd)
       }
 
       if (includeLikelyChurnCustomers) {
@@ -421,6 +440,79 @@ export async function getAnalyticsDashboardBundle(
           tenantSet.add(tenantIdForTimeslot)
         }
       }
+    }
+  }
+
+  // Returning-customer rate: % of unique customers in the period who booked on 2+ distinct days.
+  let returningCustomerPercent: number | null = null
+  if (trackReturningCustomers && userBookingDatesMap !== null) {
+    const totalUnique = uniqueUserIds.size
+    if (totalUnique > 0) {
+      let returningCount = 0
+      for (const dates of userBookingDatesMap.values()) {
+        if (dates.size >= 2) returningCount++
+      }
+      returningCustomerPercent = Math.round((returningCount / totalUnique) * 100)
+    }
+  }
+
+  // Account-to-booking conversion: % of users who registered in the period and have ≥1 confirmed booking.
+  let accountToBookingConversionPercent: number | null = null
+  if (includeSummary) {
+    const dateFromIso = `${params.dateFrom}T00:00:00.000Z`
+    const dateToIso = `${params.dateTo}T23:59:59.999Z`
+
+    const newUsersAndConditions: import('payload').Where[] = [
+      { createdAt: { greater_than_equal: dateFromIso } },
+      { createdAt: { less_than_equal: dateToIso } },
+    ]
+    if (params.tenantId != null) {
+      newUsersAndConditions.push({ registrationTenant: { equals: params.tenantId } })
+    }
+
+    const allNewUserIds: number[] = []
+    let newUsersPage = 1
+    for (;;) {
+      const res = await payload.find({
+        collection: 'users',
+        where: { and: newUsersAndConditions },
+        select: { email: true },
+        limit: 1000,
+        page: newUsersPage,
+        depth: 0,
+        overrideAccess: true,
+      })
+      for (const u of res.docs) {
+        allNewUserIds.push((u as { id: number }).id)
+      }
+      if (newUsersPage >= (res.totalPages ?? 1)) break
+      newUsersPage++
+    }
+
+    if (allNewUserIds.length > 0) {
+      const usersWithBookings = new Set<number>()
+      for (const userIdChunk of chunkIds(allNewUserIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+        const bookingAndConditions: import('payload').Where[] = [
+          { user: { in: userIdChunk } },
+          { status: { equals: 'confirmed' } },
+        ]
+        if (params.tenantId != null) {
+          bookingAndConditions.push({ tenant: { equals: params.tenantId } })
+        }
+        const bookingDocs = await payload.find({
+          collection: 'bookings',
+          where: { and: bookingAndConditions },
+          select: { user: true },
+          limit: MAX_BOOKINGS_PER_CHUNK,
+          depth: 0,
+          overrideAccess: true,
+        })
+        for (const doc of bookingDocs.docs) {
+          const uid = bookingUserId(doc as { user?: number | { id: number } })
+          if (uid !== null) usersWithBookings.add(uid)
+        }
+      }
+      accountToBookingConversionPercent = Math.round((usersWithBookings.size / allNewUserIds.length) * 100)
     }
   }
 
@@ -666,6 +758,8 @@ export async function getAnalyticsDashboardBundle(
       totalBookings: includeSummary ? totalBookings : 0,
       uniqueCustomers: includeSummary ? uniqueUserIds.size : 0,
       grossVolumeCents: 0,
+      accountToBookingConversionPercent: includeSummary ? accountToBookingConversionPercent : null,
+      returningCustomerPercent: includeSummary ? returningCustomerPercent : null,
     },
     bookingsOverTime,
     topCustomers,

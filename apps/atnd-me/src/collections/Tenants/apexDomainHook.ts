@@ -13,6 +13,7 @@ type ApexHookDocShape = {
 type ApexHookPrevShape = {
   domain?: string | null
   redirectApex?: boolean | null
+  apexDomain?: string | null
 }
 
 export type ApexActions = {
@@ -61,7 +62,11 @@ export function collectApexActionsFromHookArgs({ doc, previousDoc, operation }: 
   // redirectApex is on — check if anything changed that requires (re-)registration
   const apexTurnedOn = redirectApex && !prevRedirectApex
 
-  if (!domainChanged && !apexTurnedOn && operation !== 'create') {
+  // Also re-derive when apexDomain is missing despite redirectApex being on — covers the
+  // case where it was set via direct DB write (bypassing the hook) or a migration backfill.
+  const apexDomainMissing = !doc.apexDomain
+
+  if (!domainChanged && !apexTurnedOn && !apexDomainMissing && operation !== 'create') {
     return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
   }
 

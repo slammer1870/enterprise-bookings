@@ -59,7 +59,7 @@ export function TimeslotDetail({
             )}
             <div className="flex flex-col">
               <span className="text-foreground">{timeslot.staffMember.name}</span>
-              {timeslot.bookingStatus !== 'closed' && (
+              {timeslot.bookingStatus !== 'closed' && timeslot.remainingCapacity <= 6 && (
                 <span className="text-sm font-light text-muted-foreground">
                   {timeslot.remainingCapacity} places remaining
                 </span>
@@ -68,7 +68,7 @@ export function TimeslotDetail({
           </div>
         ) : (
           <>
-            {timeslot.bookingStatus !== 'closed' && (
+            {timeslot.bookingStatus !== 'closed' && timeslot.remainingCapacity <= 6 && (
               <span className="text-sm font-light text-muted-foreground">
                 {timeslot.remainingCapacity} places remaining
               </span>

@@ -95,7 +95,7 @@ describe('collectApexActionsFromHookArgs', () => {
     expect(result.clearApex).toBe(false)
   })
 
-  it('does not re-register when neither domain nor redirectApex changed', () => {
+  it('does not re-register when neither domain nor redirectApex changed and apexDomain is already set', () => {
     const result = collectApexActionsFromHookArgs({
       doc: { domain: 'www.croilan.com', redirectApex: true, apexDomain: 'croilan.com' },
       previousDoc: { domain: 'www.croilan.com', redirectApex: true },
@@ -103,6 +103,17 @@ describe('collectApexActionsFromHookArgs', () => {
     })
     expect(result.registerApexApplePay).toBeNull()
     expect(result.apexDomainToStore).toBeNull()
+    expect(result.clearApex).toBe(false)
+  })
+
+  it('re-derives apexDomain when redirectApex is already true but apexDomain is null (null-gap from migration or direct DB write)', () => {
+    const result = collectApexActionsFromHookArgs({
+      doc: { domain: 'www.croilan.com', redirectApex: true, apexDomain: null },
+      previousDoc: { domain: 'www.croilan.com', redirectApex: true },
+      operation: 'update',
+    })
+    expect(result.registerApexApplePay).toBe('croilan.com')
+    expect(result.apexDomainToStore).toBe('croilan.com')
     expect(result.clearApex).toBe(false)
   })
 
