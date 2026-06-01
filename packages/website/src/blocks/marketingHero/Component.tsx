@@ -59,7 +59,7 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
   return (
     <section
       className={cn(
-        'relative overflow-hidden min-h-screen pt-20',
+        'relative overflow-hidden lg:min-h-screen pt-24',
         bgColorClasses[backgroundColor ?? 'default'],
         className,
       )}
