@@ -132,6 +132,22 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Apex → www redirect: when hitting the bare platform domain on a public-facing path, redirect
+  // to the www subdomain so the landing-page tenant ("www") handles the request.
+  // Excluded: /admin (super-admin global context), /auth (auth UI), /next (preview/seed routes).
+  // API routes are already excluded above. Skipped entirely in localhost dev.
+  const isApexPublicPath =
+    !isPayloadAdmin &&
+    !pathname.startsWith('/auth') &&
+    !pathname.startsWith('/next')
+  if (!isLocalhost && rootHostname && hostname === rootHostname && isApexPublicPath) {
+    const target = new URL(request.nextUrl.href)
+    target.hostname = `www.${rootHostname}`
+    // Strip internal port when behind an HTTPS reverse proxy (Traefik/Coolify).
+    if (target.protocol === 'https:' && target.port === '3000') target.port = ''
+    return NextResponse.redirect(target.toString(), 301)
+  }
+
   // Custom domain: host is not platform root and not a subdomain of it; resolve tenant by domain lookup.
   let isCustomDomain = false
   let resolvedTenantId: string | number | null = null

@@ -183,6 +183,44 @@ describe('Stripe Connect webhook (step 2.5)', () => {
   )
 
   it(
+    'processes account.updated with payouts paused but charges still enabled as active',
+    async () => {
+      // Stripe pauses payouts pending document submission (e.g. 6-week deadline)
+      // but charges remain enabled. The tenant must still be able to take payments.
+      const event = {
+        id: 'evt_account_updated_payouts_paused_1',
+        type: 'account.updated',
+        account: webhookAccountId,
+        data: {
+          object: {
+            charges_enabled: true,
+            payouts_enabled: false,
+            details_submitted: true,
+            requirements: {
+              disabled_reason: null,
+              currently_due: [],
+              eventually_due: ['individual.verification.document'],
+              past_due: [],
+              pending_verification: [],
+            },
+          },
+        },
+      }
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const updated = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        overrideAccess: true,
+      })
+      expect(updated.stripeConnectOnboardingStatus).toBe('active')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'processes account.application.deauthorized: marks tenant deauthorized and clears account id',
     async () => {
       const event = {
