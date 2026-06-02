@@ -22,6 +22,7 @@ import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
 import { MissionElementsBlock } from '@/blocks/MissionElements/Component'
 import { ThreeColumnLayoutBlock } from '@repo/website/src/blocks/threeColumnLayout'
 import { TwoColumnLayoutBlock } from '@repo/website/src/blocks/twoColumnLayout'
+import { SimpleAboutBlock } from '@/blocks/SimpleAbout/Component'
 import { BruHeroBlock } from '@repo/website/src/blocks/bru-grappling/BruHero'
 import { BruAboutBlock } from '@repo/website/src/blocks/bru-grappling/BruAbout'
 import { BruScheduleBlock } from '@repo/website/src/blocks/bru-grappling/BruSchedule'
@@ -64,6 +65,7 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   hero: HeroBlock,
   marketingHero: MarketingHeroBlock,
   about: AboutBlock,
+  simpleAbout: SimpleAboutBlock,
   location: LocationBlock,
   schedule: ScheduleBlock,
   tenantScopedSchedule: TenantScopedScheduleBlock,

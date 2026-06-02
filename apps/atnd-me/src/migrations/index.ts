@@ -1,4 +1,5 @@
 import * as migration_20260527_000001_tenants_apex_domain from './20260527_000001_tenants_apex_domain';
+import * as migration_20260602_180000_simple_about_block_tables from './20260602_180000_simple_about_block_tables';
 import * as migration_20260120_171611 from './20260120_171611';
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260121_111436 from './20260121_111436';
@@ -719,5 +720,10 @@ export const migrations = [
     up: migration_20260527_000001_tenants_apex_domain.up,
     down: migration_20260527_000001_tenants_apex_domain.down,
     name: '20260527_000001_tenants_apex_domain',
+  },
+  {
+    up: migration_20260602_180000_simple_about_block_tables.up,
+    down: migration_20260602_180000_simple_about_block_tables.down,
+    name: '20260602_180000_simple_about_block_tables',
   },
 ];

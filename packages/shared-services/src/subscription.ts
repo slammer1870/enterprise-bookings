@@ -1,7 +1,7 @@
 import { Payload, Where, CollectionSlug } from "payload";
 
 import { Timeslot, Plan, Subscription, User } from "@repo/shared-types";
-import { getIntervalStartAndEndDate } from "@repo/shared-utils";
+import { getIntervalStartAndEndDate, getSessionLimitWindowStartAndEndDate } from "@repo/shared-utils";
 
 /** Resolve plan collection slug (plans). */
 function getPlanCollectionSlug(payload: Payload): CollectionSlug {
@@ -43,29 +43,19 @@ function getSubscriptionPeriodStartAndEndDate(opts: {
 
   const lessonDate = new Date(opts.lessonDate);
 
-  // Fast paths for fixed-length intervals.
-  if (opts.intervalType === "day" || opts.intervalType === "week") {
-    const msPerDay = 24 * 60 * 60 * 1000;
-    const periodMs =
-      opts.intervalType === "day"
-        ? opts.intervalCount * msPerDay
-        : opts.intervalCount * 7 * msPerDay;
-
-    const diffMs = lessonDate.getTime() - subscriptionStart.getTime();
-    const periodIndex = diffMs >= 0 ? Math.floor(diffMs / periodMs) : 0;
-
-    const startDate = new Date(subscriptionStart.getTime() + periodIndex * periodMs);
-    const endDate = new Date(startDate.getTime() + periodMs - 1);
-    return { startDate, endDate };
+  // For day/week/month we intentionally ignore `subscription.startDate` and
+  // use the lesson-date anchored windows (calendar/rolling), matching the
+  // "X per week/month" semantics users expect.
+  if (opts.intervalType === "day" || opts.intervalType === "week" || opts.intervalType === "month") {
+    return getSessionLimitWindowStartAndEndDate({
+      intervalType: opts.intervalType,
+      intervalCount: opts.intervalCount,
+      lessonDate,
+    });
   }
 
   // Month/quarter/year: align periods to subscriptionStartDate's day-of-month.
-  const monthsPerPeriod =
-    opts.intervalType === "month"
-      ? opts.intervalCount
-      : opts.intervalType === "quarter"
-        ? opts.intervalCount * 3
-        : opts.intervalCount * 12;
+  const monthsPerPeriod = opts.intervalType === "quarter" ? opts.intervalCount * 3 : opts.intervalCount * 12;
 
   const monthsBetween =
     (lessonDate.getFullYear() - subscriptionStart.getFullYear()) * 12 +
@@ -172,20 +162,24 @@ export const hasReachedSubscriptionLimit = async (
     return false;
   }
 
-  // Prefer subscription-anchored periods (more predictable than calendar week/month boundaries)
-  // but fall back to the legacy calendar-based behavior if subscription startDate is missing.
-  const { startDate, endDate } = subscription.startDate
-    ? getSubscriptionPeriodStartAndEndDate({
-        subscriptionStartDate: subscription.startDate as any,
-        lessonDate,
-        intervalType: plan.sessionsInformation.interval,
-        intervalCount: plan.sessionsInformation.intervalCount || 1,
-      })
-    : getIntervalStartAndEndDate(
-        plan.sessionsInformation.interval,
-        plan.sessionsInformation.intervalCount || 1,
-        lessonDate
-      );
+  const intervalType = plan.sessionsInformation.interval;
+  const intervalCount = plan.sessionsInformation.intervalCount || 1;
+
+  const { startDate, endDate } =
+    intervalType === "day" || intervalType === "week" || intervalType === "month"
+      ? getSessionLimitWindowStartAndEndDate({
+          intervalType,
+          intervalCount,
+          lessonDate,
+        })
+      : subscription.startDate
+        ? getSubscriptionPeriodStartAndEndDate({
+            subscriptionStartDate: subscription.startDate as any,
+            lessonDate,
+            intervalType,
+            intervalCount,
+          })
+        : getIntervalStartAndEndDate(intervalType, intervalCount, lessonDate);
 
   // TODO: add a check to see if the subscription is a drop in or free
   // if it is, then we need to check the drop in limit
@@ -264,18 +258,24 @@ export const getRemainingSessionsInPeriodForPlan = async (
     return null; // unlimited
   }
 
-  const { startDate, endDate } = subscription.startDate
-    ? getSubscriptionPeriodStartAndEndDate({
-        subscriptionStartDate: subscription.startDate as any,
-        lessonDate,
-        intervalType: plan.sessionsInformation.interval,
-        intervalCount: plan.sessionsInformation.intervalCount || 1,
-      })
-    : getIntervalStartAndEndDate(
-        plan.sessionsInformation.interval,
-        plan.sessionsInformation.intervalCount || 1,
-        lessonDate
-      );
+  const intervalType = plan.sessionsInformation.interval;
+  const intervalCount = plan.sessionsInformation.intervalCount || 1;
+
+  const { startDate, endDate } =
+    intervalType === "day" || intervalType === "week" || intervalType === "month"
+      ? getSessionLimitWindowStartAndEndDate({
+          intervalType,
+          intervalCount,
+          lessonDate,
+        })
+      : subscription.startDate
+        ? getSubscriptionPeriodStartAndEndDate({
+            subscriptionStartDate: subscription.startDate as any,
+            lessonDate,
+            intervalType,
+            intervalCount,
+          })
+        : getIntervalStartAndEndDate(intervalType, intervalCount, lessonDate);
 
   try {
     const bookings = await payload.find({

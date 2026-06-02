@@ -153,7 +153,7 @@ export function PlanView({
           You have reached the limit of your subscription
         </p>
       )}
-      {subscriptionLimitReached && upgradeOptions.length > 0 && (
+      {(subscriptionLimitReached || notEnoughSessionsLeft) && upgradeOptions.length > 0 && (
         <div className="flex flex-col gap-3 mb-4">
           <p className="text-sm text-muted-foreground">
             Upgrade to get more sessions this period (pro-rata):

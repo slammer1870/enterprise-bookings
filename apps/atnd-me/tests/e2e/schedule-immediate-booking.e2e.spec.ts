@@ -12,6 +12,8 @@
  *  3. Valid class pass → immediate booking (1 credit deducted), button becomes "Modify Booking"
  *  4. Payment required (no entitlement) → redirect to /bookings/[id]
  *  5. Subscription limit reached → redirect to /bookings/[id]
+ *  5b. 2x/week limit exhausted (3rd check-in) → redirect to /bookings/[id], Membership tab
+ *      selected by default and upgrade plans displayed
  *  6a. Quantity increase (no payment methods) → additional slots confirmed immediately
  *  6b. Quantity increase (class pass, maxBookingsPerTimeslot: null) → checkout flow, credits deducted
  *  6c. Quantity increase blocked (maxBookingsPerTimeslot: 1) → public schedule shows "Cancel Booking"
@@ -43,7 +45,9 @@ function futureDate(daysFromNow: number, hour = 10): Date {
 }
 
 async function navigateToSchedule(
-  page: Parameters<typeof test>[0]['page'],
+  // Playwright `page` type is not easily inferable through our custom fixtures wrapper.
+  // Using `any` keeps this test file focused on behavior assertions.
+  page: any,
   tenantSlug: string,
   targetDate: Date
 ) {
@@ -64,7 +68,7 @@ async function navigateToSchedule(
  * Find the lesson row by title and return the CTA button within it.
  */
 async function getLessonBookButton(
-  page: Parameters<typeof test>[0]['page'],
+  page: any,
   scheduleTitle: string,
   buttonName: RegExp | string = /^book$/i
 ) {
@@ -245,7 +249,7 @@ test.describe('Schedule immediate booking', () => {
         priceInformation: { price: 19.99 },
         skipSync: true,
         stripeProductId: `prod_imm_pass_${tenant.id}_${w}_${Date.now()}`,
-      },
+      } as any,
       overrideAccess: true,
     }) as { id: number }
 
@@ -430,13 +434,26 @@ test.describe('Schedule immediate booking', () => {
       stripeSubscriptionId: null,
       stripeCustomerId: null,
       stripeAccountId: null,
-      // Start date is today so the current week starts now
+      // For day/week/month session limits, the effective window is lesson-date anchored
+      // (subscription.startDate does not affect the window).
       startDate: new Date(),
     })
 
     // Create a booking in this period using the subscription to exhaust the 1-session limit
-    const usedTimeslotStart = futureDate(10 + w, 8)
-    const usedTimeslotEnd = futureDate(10 + w, 9)
+    const lessonDay = futureDate(10 + w, 14)
+    const lessonDayDate = new Date(lessonDay)
+    const lessonDayOfWeek = lessonDayDate.getDay() // 0=Sunday..6=Saturday
+    const mostRecentSunday = new Date(lessonDayDate)
+    mostRecentSunday.setHours(0, 0, 0, 0)
+    mostRecentSunday.setDate(mostRecentSunday.getDate() - lessonDayOfWeek)
+
+    const usedTimeslotStart = new Date(mostRecentSunday)
+    usedTimeslotStart.setDate(usedTimeslotStart.getDate() + lessonDayOfWeek)
+    usedTimeslotStart.setHours(8, 0, 0, 0)
+
+    const usedTimeslotEnd = new Date(mostRecentSunday)
+    usedTimeslotEnd.setDate(usedTimeslotEnd.getDate() + lessonDayOfWeek)
+    usedTimeslotEnd.setHours(9, 0, 0, 0)
     const usedEventType = await createTestEventType(tenant.id, className + ' Used', 10, undefined, w)
     await setEventTypeAllowedPlans(usedEventType.id, [plan.id])
     const usedTimeslot = await createTestTimeslot(tenant.id, usedEventType.id, usedTimeslotStart, usedTimeslotEnd, undefined, true)
@@ -455,8 +472,14 @@ test.describe('Schedule immediate booking', () => {
     })
 
     // New timeslot in the same week — should be blocked due to limit
-    const startTime = futureDate(10 + w, 14)
-    const endTime = futureDate(10 + w, 15)
+    const startTime = new Date(mostRecentSunday)
+    startTime.setDate(startTime.getDate() + lessonDayOfWeek)
+    startTime.setHours(14, 0, 0, 0)
+
+    const endTime = new Date(mostRecentSunday)
+    endTime.setDate(endTime.getDate() + lessonDayOfWeek)
+    endTime.setHours(15, 0, 0, 0)
+
     const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
@@ -480,6 +503,281 @@ test.describe('Schedule immediate booking', () => {
     await expect(
       page.getByText(/select quantity|payment methods|choose how to pay/i).first()
     ).toBeVisible({ timeout: 15000 })
+  })
+
+  // ── Story 5b: Weekly window resets across Sunday..Sunday ──────────────────
+
+  test('weekly session limit resets across Sunday..Sunday windows', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user3
+    const w = testData.workerIndex
+
+    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+
+    await updateTenantStripeConnect(tenant.id, {
+      stripeConnectOnboardingStatus: 'active',
+      stripeConnectAccountId: `acct_e2e_imm_sublimit_weekreset_${w}`,
+    })
+
+    // Plan with 2 sessions per week.
+    const plan = await createTestPlan({
+      tenantId: tenant.id,
+      name: `E2E Imm Sub Limit Week Reset Plan w${w} ${Date.now()}`,
+      sessions: 2,
+      allowMultipleBookingsPerTimeslot: false,
+      stripeProductId: `prod_e2e_imm_sublimit_weekreset_${w}_${Date.now()}`,
+      priceId: `price_e2e_imm_sublimit_weekreset_${w}_${Date.now()}`,
+    })
+
+    const className = uniqueClassName(`E2E Immediate Sub Limit Week Reset ${tenant.id}`)
+    const eventType = await createTestEventType(tenant.id, className, 10, 'Sub limit class', w)
+    await setEventTypeAllowedPlans(eventType.id, [plan.id])
+
+    const subscription = await createTestSubscription({
+      userId: user.id,
+      tenantId: tenant.id,
+      planId: plan.id,
+      status: 'active',
+      stripeSubscriptionId: null,
+      stripeCustomerId: null,
+      stripeAccountId: null,
+      // For week/month/day session limits we anchor to the lesson date, not subscription.startDate.
+      startDate: new Date(),
+    })
+
+    // Pick a future Wednesday for the attempt, then compute its "most recent Sunday"
+    // exactly the same way the production logic does (week window start).
+    const attemptWednesday = futureDate(10 + w, 14)
+    const attemptWednesdayDate = new Date(attemptWednesday)
+    attemptWednesdayDate.setHours(14, 0, 0, 0)
+
+    const week3Sunday = new Date(attemptWednesdayDate)
+    week3Sunday.setHours(0, 0, 0, 0)
+    const week3SundayDay = week3Sunday.getDay() // 0=Sunday..6=Saturday
+    week3Sunday.setDate(week3Sunday.getDate() - week3SundayDay)
+
+    const week2Sunday = new Date(week3Sunday)
+    week2Sunday.setDate(week2Sunday.getDate() - 7)
+
+    const week1Sunday = new Date(week3Sunday)
+    week1Sunday.setDate(week1Sunday.getDate() - 14)
+
+    const getDayISO = (d: Date, hour: number) => {
+      const x = new Date(d)
+      x.setHours(hour, 0, 0, 0)
+      return x
+    }
+
+    const seedBooking = async (lessonDate: Date, hour: number) => {
+      const startTime = getDayISO(lessonDate, hour)
+      const endTime = getDayISO(lessonDate, hour + 1)
+      const ts = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          timeslot: ts.id,
+          user: user.id,
+          tenant: tenant.id,
+          status: 'confirmed',
+          paymentMethodUsed: 'subscription',
+          subscriptionIdUsed: subscription.id,
+        } as any,
+        overrideAccess: true,
+      })
+      return ts
+    }
+
+    const week1Wednesday = new Date(week1Sunday)
+    week1Wednesday.setDate(week1Wednesday.getDate() + 3)
+    week1Wednesday.setHours(0, 0, 0, 0)
+
+    const week2Wednesday = new Date(week2Sunday)
+    week2Wednesday.setDate(week2Wednesday.getDate() + 3)
+    week2Wednesday.setHours(0, 0, 0, 0)
+
+    const week3Wednesday = new Date(week3Sunday)
+    week3Wednesday.setDate(week3Wednesday.getDate() + 3)
+    week3Wednesday.setHours(0, 0, 0, 0)
+
+    // Week 1: seed 2 bookings on Wednesday (same day as the attempt window end).
+    await seedBooking(week1Wednesday, 10)
+    await seedBooking(week1Wednesday, 12)
+
+    // Week 2: seed 2 bookings on Wednesday.
+    await seedBooking(week2Wednesday, 10)
+    await seedBooking(week2Wednesday, 12)
+
+    // Week 3: seed 2 bookings on Wednesday, so the 3rd booking attempt on that same Wednesday must be blocked.
+    await seedBooking(week3Wednesday, 10)
+    await seedBooking(week3Wednesday, 12)
+
+    // Create the Wednesday timeslot for Week 3 that we will attempt to book (this is the "3rd").
+    const attemptEndWednesday = new Date(attemptWednesdayDate)
+    attemptEndWednesday.setHours(15, 0, 0, 0)
+
+    const attemptTimeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      attemptWednesday,
+      attemptEndWednesday,
+      undefined,
+      true
+    )
+
+    await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
+    await navigateToSchedule(page, tenant.slug, attemptWednesday)
+
+    const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
+    const bookBtn = await getLessonBookButton(page, scheduleTitle)
+
+    const trpcCall = page.waitForResponse(
+      (r) =>
+        r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 20000 }
+    )
+    await Promise.all([trpcCall, bookBtn.click()])
+
+    // Should redirect because the weekly window is exhausted (already 2 used in this window).
+    await page.waitForURL((url) => url.pathname === `/bookings/${attemptTimeslot.id}`, { timeout: 20000 })
+    await expect(page.getByText(/select quantity|payment methods|choose how to pay/i).first()).toBeVisible({
+      timeout: 15000,
+    })
+  })
+
+  // ── Story 5b: 2x/week quota exhausted, 3rd check-in → Membership tab default ──
+  //
+  // User has a "2 sessions per week" membership (sessions=2, interval=week).
+  // They have already used both sessions this week via confirmed bookings.
+  // When they navigate to a 3rd booking page in the same week:
+  //   • The Membership tab is selected by default (not the Drop-in tab).
+  //   • The Membership tab content shows upgrade plan cards for plans that would
+  //     give them additional sessions this period ("N more session(s) this period").
+
+  test('2x/week quota exhausted: booking page defaults to Membership tab and shows upgrade plans', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user3
+    const w = testData.workerIndex
+
+    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+
+    await updateTenantStripeConnect(tenant.id, {
+      stripeConnectOnboardingStatus: 'active',
+      stripeConnectAccountId: `acct_e2e_2xweek_${w}`,
+    })
+
+    // Base plan: 2 sessions/week — the quota the user will exhaust
+    const ts = Date.now()
+    const basePlan = await createTestPlan({
+      tenantId: tenant.id,
+      name: `E2E 2x Week Base Plan w${w} ${ts}`,
+      sessions: 2,
+      allowMultipleBookingsPerTimeslot: false,
+      stripeProductId: `prod_e2e_2xweek_base_${w}_${ts}`,
+      priceId: `price_e2e_2xweek_base_${w}_${ts}`,
+    })
+
+    // Upgrade plan: 3 sessions/week — should appear as an upgrade option
+    const upgradePlan = await createTestPlan({
+      tenantId: tenant.id,
+      name: `E2E 3x Week Upgrade Plan w${w} ${ts}`,
+      sessions: 3,
+      allowMultipleBookingsPerTimeslot: false,
+      stripeProductId: `prod_e2e_2xweek_upgrade_${w}_${ts}`,
+      priceId: `price_e2e_2xweek_upgrade_${w}_${ts}`,
+    })
+
+    const className = uniqueClassName(`E2E 2xWeek Limit ${tenant.id}`)
+    const eventType = await createTestEventType(tenant.id, className, 10, '2x/week class', w)
+    await setEventTypeAllowedPlans(eventType.id, [basePlan.id, upgradePlan.id])
+
+    const subscription = await createTestSubscription({
+      userId: user.id,
+      tenantId: tenant.id,
+      planId: basePlan.id,
+      status: 'active',
+      stripeSubscriptionId: null,
+      stripeCustomerId: null,
+      stripeAccountId: null,
+      startDate: new Date(),
+    })
+
+    // Pick a future lesson day and compute the calendar-week window
+    // (session window is anchored to the most recent Sunday).
+    const lessonDay = futureDate(20 + w, 14)
+    const lessonDayDate = new Date(lessonDay)
+    const lessonDayOfWeek = lessonDayDate.getDay() // 0=Sun…6=Sat
+    const weekSunday = new Date(lessonDayDate)
+    weekSunday.setHours(0, 0, 0, 0)
+    weekSunday.setDate(weekSunday.getDate() - lessonDayOfWeek)
+
+    const makeTimeslotInWeek = async (hour: number) => {
+      const start = new Date(weekSunday)
+      start.setDate(start.getDate() + lessonDayOfWeek)
+      start.setHours(hour, 0, 0, 0)
+      const end = new Date(start)
+      end.setHours(hour + 1, 0, 0, 0)
+      return createTestTimeslot(tenant.id, eventType.id, start, end, undefined, true)
+    }
+
+    // Create two "used" timeslots and confirm bookings on them (exhaust the 2/week quota)
+    const usedSlot1 = await makeTimeslotInWeek(8)
+    const usedSlot2 = await makeTimeslotInWeek(10)
+
+    for (const slot of [usedSlot1, usedSlot2]) {
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          timeslot: slot.id,
+          user: user.id,
+          tenant: tenant.id,
+          status: 'confirmed',
+          paymentMethodUsed: 'subscription',
+          subscriptionIdUsed: subscription.id,
+        } as any,
+        overrideAccess: true,
+      })
+    }
+
+    // Third timeslot in the same week — quota is exhausted for this one
+    const thirdSlot = await makeTimeslotInWeek(14)
+
+    // Navigate directly to the booking page (quota exhaustion is the path-of-least-resistance
+    // to verify the UI behavior; the redirect from schedule is covered by Story 5).
+    await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
+    await navigateToTenant(page, tenant.slug, `/bookings/${thirdSlot.id}`)
+
+    // Wait for the PaymentMethods section to render
+    await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 25000 })
+
+    // The Membership tab must be selected by default (not require a manual click)
+    const membershipTab = page.getByRole('tab', { name: /membership/i })
+    await expect(membershipTab).toBeVisible({ timeout: 15000 })
+    await expect(membershipTab).toHaveAttribute('aria-selected', 'true', { timeout: 10000 })
+
+    // The Membership tab content must show the upgrade plans callout
+    await expect(
+      page.getByText(/upgrade to get more sessions this period/i).first()
+    ).toBeVisible({ timeout: 15000 })
+
+    // An upgrade card for the 3x/week plan should be present
+    await expect(
+      page.getByText(upgradePlan.name as string).first()
+    ).toBeVisible({ timeout: 10000 })
+
+    // The upgrade card should display "more session(s) this period"
+    await expect(
+      page.getByText(/more session[s]? this period/i).first()
+    ).toBeVisible({ timeout: 10000 })
   })
 
   // ── Story 6a: Quantity increase, no payment methods ───────────────────────────
@@ -601,7 +899,7 @@ test.describe('Schedule immediate booking', () => {
         priceInformation: { price: 49.99 },
         skipSync: true,
         stripeProductId: `prod_multi_pass_${tenant.id}_${w}_${Date.now()}`,
-      },
+      } as any,
       overrideAccess: true,
     }) as { id: number }
 

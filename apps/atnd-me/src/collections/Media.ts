@@ -13,6 +13,7 @@ import {
   tenantScopedDelete,
   tenantScopedMediaRead,
   tenantScopedUpdate,
+  resolveTenantIdFromRequest,
 } from '../access/tenant-scoped'
 import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../access/userTenantAccess'
 
@@ -63,15 +64,16 @@ export const Media: CollectionConfig = {
         if (data.tenant) return data
 
         const rawTenant = req.context?.tenant
-        if (!rawTenant) return data
-
         const id =
-          typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
-            ? (rawTenant as { id: number }).id
-            : rawTenant
-        if (typeof id === 'number') {
-          data.tenant = id
-        }
+          // Preferred: tenant already resolved into Payload request context
+          rawTenant
+            ? typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
+              ? (rawTenant as { id: number }).id
+              : rawTenant
+            : // Fallback: resolve tenant from host/cookies (fixes block-triggered uploads)
+              resolveTenantIdFromRequest(req as any)
+
+        if (typeof id === 'number') data.tenant = id
         return data
       },
     ],

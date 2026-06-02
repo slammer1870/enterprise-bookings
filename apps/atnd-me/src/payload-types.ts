@@ -235,6 +235,7 @@ export interface Page {
     | ThreeColumnLayoutBlock
     | TwoColumnLayoutBlock
     | AboutBlock
+    | SimpleAboutBlock
     | LocationBlock
     | ScheduleBlock
     | TenantScopedScheduleBlock
@@ -1293,6 +1294,7 @@ export interface ThreeColumnLayoutBlock {
         | HeroBlock
         | MarketingHeroBlock
         | AboutBlock
+        | SimpleAboutBlock
         | LocationBlock
         | ScheduleBlock
         | TenantScopedScheduleBlock
@@ -1385,6 +1387,32 @@ export interface AboutBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'about';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SimpleAboutBlock".
+ */
+export interface SimpleAboutBlock {
+  direction: 'ltr' | 'rtl';
+  image: number | Media;
+  content: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'simpleAbout';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2522,6 +2550,7 @@ export interface TwoColumnLayoutBlock {
         | HeroBlock
         | MarketingHeroBlock
         | AboutBlock
+        | SimpleAboutBlock
         | LocationBlock
         | ScheduleBlock
         | TenantScopedScheduleBlock
@@ -2591,6 +2620,7 @@ export interface TwoColumnLayoutBlock {
         | HeroBlock
         | MarketingHeroBlock
         | AboutBlock
+        | SimpleAboutBlock
         | LocationBlock
         | ScheduleBlock
         | TenantScopedScheduleBlock
@@ -3520,6 +3550,7 @@ export interface PagesSelect<T extends boolean = true> {
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
         twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
+        simpleAbout?: T | SimpleAboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
         tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
@@ -3751,6 +3782,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
+        simpleAbout?: T | SimpleAboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
         tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
@@ -3822,6 +3854,17 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
  */
 export interface AboutBlockSelect<T extends boolean = true> {
   title?: T;
+  image?: T;
+  content?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SimpleAboutBlock_select".
+ */
+export interface SimpleAboutBlockSelect<T extends boolean = true> {
+  direction?: T;
   image?: T;
   content?: T;
   id?: T;
@@ -4447,6 +4490,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
+        simpleAbout?: T | SimpleAboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
         tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;
@@ -4516,6 +4560,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         hero?: T | HeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
+        simpleAbout?: T | SimpleAboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
         schedule?: T | ScheduleBlockSelect<T>;
         tenantScopedSchedule?: T | TenantScopedScheduleBlockSelect<T>;

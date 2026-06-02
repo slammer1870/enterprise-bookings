@@ -2,7 +2,7 @@ import type { UIFieldServerComponent } from 'payload'
 import { resolve4 } from 'node:dns/promises'
 import React from 'react'
 import { stripFirstLabel } from '@/utilities/validateCustomDomain'
-import type { HostnameVerificationStatus } from '@/lib/cloudflare/customHostnames'
+import { getCustomHostnameStatus, type HostnameVerificationStatus } from '@/lib/cloudflare/customHostnames'
 
 // ---------------------------------------------------------------------------
 // Status badge
@@ -31,12 +31,18 @@ function StatusBadge({ status }: { status: HostnameVerificationStatus | null }) 
 /**
  * Admin UI panel shown on the Tenants edit view when redirectApex is enabled.
  *
- * The apex domain is handled entirely by the origin server (Traefik / Let's Encrypt) —
- * no Cloudflare TLS for SaaS registration is required. This works with any DNS
- * provider since the client only needs to add a plain A record to the server IP.
+ * The apex domain is handled by Cloudflare TLS for SaaS — the same mechanism
+ * used for the www custom domain — so SSL is managed at the Cloudflare edge
+ * independently of the hosting platform. Switching to serverless only requires
+ * updating the Cloudflare fallback origin; tenant DNS never changes.
  *
- * Set ORIGIN_SERVER_IP to your Hetzner (or other host) server's public IPv4.
- * The status indicator resolves the apex domain at render time to check propagation.
+ * Client DNS setup:
+ *   A  @                            → Cloudflare anycast IP (same network as cname.<platform>)
+ *   TXT _cf-custom-hostname.<apex>  → verification token (stored as apexDomainVerificationToken)
+ *
+ * Cloudflare uses anycast for this A record, so `cname.<platform>` may return
+ * multiple valid IPs. We sort the set to keep the displayed "Value" stable
+ * across reloads, and treat the apex as active if it matches *any* of them.
  */
 export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   const domain = typeof data?.domain === 'string' ? data.domain : null
@@ -45,34 +51,48 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   const apex = stripFirstLabel(domain)
   if (!apex) return null
 
-  const originIp = process.env.ORIGIN_SERVER_IP ?? null
+  const verificationToken =
+    typeof data?.apexDomainVerificationToken === 'string' && data.apexDomainVerificationToken
+      ? data.apexDomainVerificationToken
+      : null
 
-  // Check if the apex A record has propagated to the origin server IP
-  const aRecordStatus: HostnameVerificationStatus = await (async () => {
-    if (!originIp) return 'unknown'
-    try {
-      const ips = await resolve4(apex)
-      return ips.includes(originIp) ? 'active' : 'pending'
-    } catch {
-      return 'pending'
-    }
+  // Derive the Cloudflare anycast IP from cname.<platform> — this is the IP clients
+  // should set as their apex A record so traffic routes through Cloudflare.
+  const rootHostname = (() => {
+    const url = process.env.NEXT_PUBLIC_SERVER_URL
+    if (!url) return null
+    try { return new URL(url).hostname.toLowerCase() } catch { return null }
   })()
+  const cnameTarget = rootHostname ? `cname.${rootHostname}` : null
 
-  const isActive = aRecordStatus === 'active'
+  const [cloudflareIps, cfStatus] = await Promise.all([
+    cnameTarget
+      ? resolve4(cnameTarget).then((ips) => ips.filter(Boolean).sort()).catch(() => [] as string[])
+      : Promise.resolve([] as string[]),
+    getCustomHostnameStatus(apex),
+  ])
+
+  // A-record DNS propagation check: is the apex pointing to the Cloudflare IP?
+  const apexIps = await resolve4(apex).catch(() => [] as string[])
+  const aRecordStatus: HostnameVerificationStatus =
+    cloudflareIps.length > 0
+      ? cloudflareIps.some((ip) => apexIps.includes(ip)) ? 'active' : 'pending'
+      : 'unknown'
+
+  const isFullyActive = aRecordStatus === 'active' && cfStatus?.sslStatus === 'active'
 
   return (
     <div style={{ padding: '12px 0' }}>
-      <h4 style={{ marginBottom: 4 }}>Apex domain DNS setup</h4>
+      <h4 style={{ marginBottom: 4 }}>Apex domain setup</h4>
 
-      {isActive ? (
+      {isFullyActive ? (
         <p style={{ marginBottom: 12, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
-          ✓ {apex} A record is pointing to the server. SSL will be issued automatically on first visit.
+          ✓ {apex} is live — A record is pointing to Cloudflare and SSL is active.
         </p>
       ) : (
         <p style={{ marginBottom: 12, fontSize: 12, color: 'var(--theme-elevation-500)' }}>
-          The <strong>{domain}</strong> CNAME is already in place (see above).
-          Add one A record for the apex (<strong>{apex}</strong>) — the server issues
-          an SSL certificate automatically on first HTTPS request.
+          Add these two DNS records for <strong>{apex}</strong>. Cloudflare issues the SSL
+          certificate automatically once both records propagate.
         </p>
       )}
 
@@ -87,26 +107,70 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
           </tr>
         </thead>
         <tbody>
+          {/* A records — routes apex traffic through Cloudflare anycast */}
+          {cloudflareIps.length > 0 ? (
+            cloudflareIps.map((ip) => (
+              <tr key={ip}>
+                <td style={{ padding: '4px 8px' }}>A</td>
+                <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
+                <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{ip}</td>
+                <td style={{ padding: '4px 8px' }}>Auto</td>
+                <td style={{ padding: '4px 8px' }}>
+                  <StatusBadge status={aRecordStatus} />
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td style={{ padding: '4px 8px' }}>A</td>
+              <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
+              <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
+                <em style={{ color: 'var(--theme-error-500)' }}>
+                  Could not resolve — check NEXT_PUBLIC_SERVER_URL
+                </em>
+              </td>
+              <td style={{ padding: '4px 8px' }}>Auto</td>
+              <td style={{ padding: '4px 8px' }}>
+                <StatusBadge status={aRecordStatus} />
+              </td>
+            </tr>
+          )}
+
+          {/* TXT record — Cloudflare DCV to prove apex ownership for cert issuance */}
           <tr>
-            <td style={{ padding: '4px 8px' }}>A</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
-              {originIp ?? (
-                <em style={{ color: 'var(--theme-error-500)' }}>Set ORIGIN_SERVER_IP env var</em>
+            <td style={{ padding: '4px 8px' }}>TXT</td>
+            <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: 11 }}>
+              _cf-custom-hostname.{apex}
+            </td>
+            <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>
+              {verificationToken ?? (
+                <em style={{ color: 'var(--theme-error-500)' }}>
+                  Token not yet generated — save this tenant to generate
+                </em>
               )}
             </td>
             <td style={{ padding: '4px 8px' }}>Auto</td>
             <td style={{ padding: '4px 8px' }}>
-              <StatusBadge status={aRecordStatus} />
+              <StatusBadge status={cfStatus?.sslStatus ?? null} />
             </td>
           </tr>
         </tbody>
       </table>
 
       <p style={{ marginTop: 8, fontSize: 12, color: 'var(--theme-elevation-500)' }}>
-        That&apos;s it — just one record. Works with any DNS provider.
-        SSL is issued automatically by the server; no TXT records or Cloudflare tokens required.
+        The A record routes apex traffic through Cloudflare (same network as <code>{cnameTarget ?? 'cname.<platform>'}</code>).
+        The TXT record lets Cloudflare verify domain ownership and issue the SSL certificate.
+        Once both records are in place, SSL is active within a few minutes.
       </p>
+
+      {cfStatus && cfStatus.sslStatus !== 'active' && cfStatus.rawSslStatus && (
+        <p style={{ marginTop: 4, fontSize: 11, color: 'var(--theme-elevation-500)' }}>
+          Cloudflare SSL status: <code>{cfStatus.rawSslStatus}</code>
+          {cfStatus.rawHostnameStatus !== cfStatus.rawSslStatus && (
+            <> · Hostname: <code>{cfStatus.rawHostnameStatus}</code></>
+          )}
+        </p>
+      )}
     </div>
   )
 }

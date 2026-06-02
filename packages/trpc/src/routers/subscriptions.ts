@@ -13,7 +13,7 @@ import {
 } from "../utils/tenant";
 
 import { Subscription, Timeslot, Plan } from "@repo/shared-types";
-import { getIntervalStartAndEndDate } from "@repo/shared-utils";
+import { getIntervalStartAndEndDate, getSessionLimitWindowStartAndEndDate } from "@repo/shared-utils";
 import {
   hasReachedSubscriptionLimit,
   getRemainingSessionsInPeriod,
@@ -138,11 +138,17 @@ export const subscriptionsRouter = {
         return false;
       }
 
-      const { startDate, endDate } = getIntervalStartAndEndDate(
-        plan.sessionsInformation.interval,
-        plan.sessionsInformation.intervalCount || 1,
-        timeslotDate
-      );
+      const intervalType = plan.sessionsInformation.interval;
+      const intervalCount = plan.sessionsInformation.intervalCount || 1;
+
+      const { startDate, endDate } =
+        intervalType === "day" || intervalType === "week" || intervalType === "month"
+          ? getSessionLimitWindowStartAndEndDate({
+              intervalType,
+              intervalCount,
+              lessonDate: timeslotDate,
+            })
+          : getIntervalStartAndEndDate(intervalType, intervalCount, timeslotDate);
 
       // TODO: add a check to see if the subscription is a drop in or free
       // if it is, then we need to check the drop in limit
@@ -314,16 +320,19 @@ export const subscriptionsRouter = {
       // user may already hold N confirmed slots; adding M pending bookings
       // means N+M total, which must be checked against the plan's per-timeslot
       // cap — even when M=1 (single increase on the manage page).
-      const existingConfirmedResult = await payload.find({
-        collection: "bookings",
-        where: {
-          timeslot: { equals: input.timeslotId },
-          user: { equals: user.id },
-          status: { equals: "confirmed" },
-        },
-        limit: 0,
-        overrideAccess: true,
-      });
+      const existingConfirmedResult = await findSafe(
+        payload,
+        ctx.bookingsSlugs.bookings,
+        {
+          where: {
+            timeslot: { equals: input.timeslotId },
+            user: { equals: user.id },
+            status: { equals: "confirmed" },
+          },
+          limit: 0,
+          overrideAccess: true,
+        }
+      );
       const confirmedForTimeslot = existingConfirmedResult.totalDocs ?? 0;
 
       // The effective per-timeslot total is the already-held confirmed slots
@@ -371,8 +380,15 @@ export const subscriptionsRouter = {
             })()
           : null;
 
+      // Compute upgrade options when the subscription limit is reached OR when
+      // there aren't enough sessions remaining to cover the selected quantity.
+      // In both cases the UI should show plans the user can upgrade to.
+      const needsUpgradeOptions =
+        limitReached ||
+        (remainingSessions != null && remainingSessions < selectedQuantity);
+
       const upgradeOptions =
-        limitReached && allowedPlans.length > 0
+        needsUpgradeOptions && allowedPlans.length > 0
           ? await getSubscriptionUpgradeOptions(
               subscription as Subscription,
               (eligiblePlansForQuantity ?? allowedPlanDocs) as Plan[],
