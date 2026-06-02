@@ -939,12 +939,19 @@ export function PaymentMethods({
   }, [activeTab, availableTabs, defaultTab]);
 
   // When subscription data resolves and the user has a usable membership, default to
-  // the Membership tab. Skip if the user has already manually chosen a different tab.
+  // the Membership tab. Also default to Membership when the quota is exhausted or
+  // there aren't enough sessions left for the selected quantity — the tab then shows
+  // the available upgrade plans instead of the usual "use membership" button.
+  // Skip if the user has already manually chosen a different tab.
+  const shouldDefaultToMembershipTab =
+    canUseSubscriptionForQuantity ||
+    subscriptionLimitReached ||
+    (remainingSessions != null && remainingSessions < quantity);
   useEffect(() => {
-    if (canUseSubscriptionForQuantity && hasMembershipTab && !tabManuallySelected) {
+    if (shouldDefaultToMembershipTab && hasMembershipTab && !tabManuallySelected) {
       setActiveTab("membership");
     }
-  }, [canUseSubscriptionForQuantity, hasMembershipTab, tabManuallySelected]);
+  }, [shouldDefaultToMembershipTab, hasMembershipTab, tabManuallySelected]);
 
   // Important: keep this after hooks so changing quantity doesn't break hook order.
   if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {

@@ -380,8 +380,15 @@ export const subscriptionsRouter = {
             })()
           : null;
 
+      // Compute upgrade options when the subscription limit is reached OR when
+      // there aren't enough sessions remaining to cover the selected quantity.
+      // In both cases the UI should show plans the user can upgrade to.
+      const needsUpgradeOptions =
+        limitReached ||
+        (remainingSessions != null && remainingSessions < selectedQuantity);
+
       const upgradeOptions =
-        limitReached && allowedPlans.length > 0
+        needsUpgradeOptions && allowedPlans.length > 0
           ? await getSubscriptionUpgradeOptions(
               subscription as Subscription,
               (eligiblePlansForQuantity ?? allowedPlanDocs) as Plan[],

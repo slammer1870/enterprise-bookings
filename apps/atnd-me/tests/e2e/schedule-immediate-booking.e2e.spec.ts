@@ -12,6 +12,8 @@
  *  3. Valid class pass → immediate booking (1 credit deducted), button becomes "Modify Booking"
  *  4. Payment required (no entitlement) → redirect to /bookings/[id]
  *  5. Subscription limit reached → redirect to /bookings/[id]
+ *  5b. 2x/week limit exhausted (3rd check-in) → redirect to /bookings/[id], Membership tab
+ *      selected by default and upgrade plans displayed
  *  6a. Quantity increase (no payment methods) → additional slots confirmed immediately
  *  6b. Quantity increase (class pass, maxBookingsPerTimeslot: null) → checkout flow, credits deducted
  *  6c. Quantity increase blocked (maxBookingsPerTimeslot: 1) → public schedule shows "Cancel Booking"
@@ -646,6 +648,136 @@ test.describe('Schedule immediate booking', () => {
     await expect(page.getByText(/select quantity|payment methods|choose how to pay/i).first()).toBeVisible({
       timeout: 15000,
     })
+  })
+
+  // ── Story 5b: 2x/week quota exhausted, 3rd check-in → Membership tab default ──
+  //
+  // User has a "2 sessions per week" membership (sessions=2, interval=week).
+  // They have already used both sessions this week via confirmed bookings.
+  // When they navigate to a 3rd booking page in the same week:
+  //   • The Membership tab is selected by default (not the Drop-in tab).
+  //   • The Membership tab content shows upgrade plan cards for plans that would
+  //     give them additional sessions this period ("N more session(s) this period").
+
+  test('2x/week quota exhausted: booking page defaults to Membership tab and shows upgrade plans', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user3
+    const w = testData.workerIndex
+
+    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+
+    await updateTenantStripeConnect(tenant.id, {
+      stripeConnectOnboardingStatus: 'active',
+      stripeConnectAccountId: `acct_e2e_2xweek_${w}`,
+    })
+
+    // Base plan: 2 sessions/week — the quota the user will exhaust
+    const ts = Date.now()
+    const basePlan = await createTestPlan({
+      tenantId: tenant.id,
+      name: `E2E 2x Week Base Plan w${w} ${ts}`,
+      sessions: 2,
+      allowMultipleBookingsPerTimeslot: false,
+      stripeProductId: `prod_e2e_2xweek_base_${w}_${ts}`,
+      priceId: `price_e2e_2xweek_base_${w}_${ts}`,
+    })
+
+    // Upgrade plan: 3 sessions/week — should appear as an upgrade option
+    const upgradePlan = await createTestPlan({
+      tenantId: tenant.id,
+      name: `E2E 3x Week Upgrade Plan w${w} ${ts}`,
+      sessions: 3,
+      allowMultipleBookingsPerTimeslot: false,
+      stripeProductId: `prod_e2e_2xweek_upgrade_${w}_${ts}`,
+      priceId: `price_e2e_2xweek_upgrade_${w}_${ts}`,
+    })
+
+    const className = uniqueClassName(`E2E 2xWeek Limit ${tenant.id}`)
+    const eventType = await createTestEventType(tenant.id, className, 10, '2x/week class', w)
+    await setEventTypeAllowedPlans(eventType.id, [basePlan.id, upgradePlan.id])
+
+    const subscription = await createTestSubscription({
+      userId: user.id,
+      tenantId: tenant.id,
+      planId: basePlan.id,
+      status: 'active',
+      stripeSubscriptionId: null,
+      stripeCustomerId: null,
+      stripeAccountId: null,
+      startDate: new Date(),
+    })
+
+    // Pick a future lesson day and compute the calendar-week window
+    // (session window is anchored to the most recent Sunday).
+    const lessonDay = futureDate(20 + w, 14)
+    const lessonDayDate = new Date(lessonDay)
+    const lessonDayOfWeek = lessonDayDate.getDay() // 0=Sun…6=Sat
+    const weekSunday = new Date(lessonDayDate)
+    weekSunday.setHours(0, 0, 0, 0)
+    weekSunday.setDate(weekSunday.getDate() - lessonDayOfWeek)
+
+    const makeTimeslotInWeek = async (hour: number) => {
+      const start = new Date(weekSunday)
+      start.setDate(start.getDate() + lessonDayOfWeek)
+      start.setHours(hour, 0, 0, 0)
+      const end = new Date(start)
+      end.setHours(hour + 1, 0, 0, 0)
+      return createTestTimeslot(tenant.id, eventType.id, start, end, undefined, true)
+    }
+
+    // Create two "used" timeslots and confirm bookings on them (exhaust the 2/week quota)
+    const usedSlot1 = await makeTimeslotInWeek(8)
+    const usedSlot2 = await makeTimeslotInWeek(10)
+
+    for (const slot of [usedSlot1, usedSlot2]) {
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          timeslot: slot.id,
+          user: user.id,
+          tenant: tenant.id,
+          status: 'confirmed',
+          paymentMethodUsed: 'subscription',
+          subscriptionIdUsed: subscription.id,
+        } as any,
+        overrideAccess: true,
+      })
+    }
+
+    // Third timeslot in the same week — quota is exhausted for this one
+    const thirdSlot = await makeTimeslotInWeek(14)
+
+    // Navigate directly to the booking page (quota exhaustion is the path-of-least-resistance
+    // to verify the UI behavior; the redirect from schedule is covered by Story 5).
+    await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
+    await navigateToTenant(page, tenant.slug, `/bookings/${thirdSlot.id}`)
+
+    // Wait for the PaymentMethods section to render
+    await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 25000 })
+
+    // The Membership tab must be selected by default (not require a manual click)
+    const membershipTab = page.getByRole('tab', { name: /membership/i })
+    await expect(membershipTab).toBeVisible({ timeout: 15000 })
+    await expect(membershipTab).toHaveAttribute('aria-selected', 'true', { timeout: 10000 })
+
+    // The Membership tab content must show the upgrade plans callout
+    await expect(
+      page.getByText(/upgrade to get more sessions this period/i).first()
+    ).toBeVisible({ timeout: 15000 })
+
+    // An upgrade card for the 3x/week plan should be present
+    await expect(
+      page.getByText(upgradePlan.name as string).first()
+    ).toBeVisible({ timeout: 10000 })
+
+    // The upgrade card should display "more session(s) this period"
+    await expect(
+      page.getByText(/more session[s]? this period/i).first()
+    ).toBeVisible({ timeout: 10000 })
   })
 
   // ── Story 6a: Quantity increase, no payment methods ───────────────────────────
