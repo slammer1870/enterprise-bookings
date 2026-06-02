@@ -16,7 +16,6 @@ import {
 import { registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
-
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
   faqs: 'FAQs',
@@ -372,9 +371,9 @@ export const Tenants: CollectionConfig = {
           })
         }
 
-        // Apex domain: register with Apple Pay and store in DB when redirectApex is on.
-        // SSL for the apex is handled by Traefik/Let's Encrypt on the origin server —
-        // no Cloudflare custom hostname registration needed for apex domains.
+        // Apex domain: register with Apple Pay, register with Cloudflare TLS for SaaS
+        // (so Cloudflare issues and manages the SSL cert regardless of hosting platform),
+        // and store in DB when redirectApex is on.
         if (apexActions.registerApexApplePay) {
           await registerApplePayDomain(apexActions.registerApexApplePay).catch((err: unknown) => {
             console.error(
@@ -382,10 +381,27 @@ export const Tenants: CollectionConfig = {
               err,
             )
           })
+          // Register apex with Cloudflare TLS for SaaS using TXT DCV.
+          // Cloudflare issues and auto-renews the cert independently of the hosting platform —
+          // switching to serverless only requires updating the Cloudflare fallback origin.
+          const cfApexResult = await createOrGetCustomHostname(
+            apexActions.registerApexApplePay,
+            true,
+          ).catch((err: unknown) => {
+            console.error(
+              `[Tenants afterChange] Failed to register Cloudflare apex hostname "${apexActions.registerApexApplePay}":`,
+              err,
+            )
+            return null
+          })
           await req.payload.update({
             collection: 'tenants',
             id: doc.id,
-            data: { apexDomain: apexActions.apexDomainToStore },
+            data: {
+              apexDomain: apexActions.apexDomainToStore,
+              // Store the TXT DCV token so the admin UI can show it to the tenant.
+              apexDomainVerificationToken: cfApexResult?.verificationTxtValue ?? null,
+            },
             req,
             overrideAccess: true,
             context: { skipApexHook: true },
@@ -396,7 +412,7 @@ export const Tenants: CollectionConfig = {
           await req.payload.update({
             collection: 'tenants',
             id: doc.id,
-            data: { apexDomain: null },
+            data: { apexDomain: null, apexDomainVerificationToken: null },
             req,
             overrideAccess: true,
             context: { skipApexHook: true },

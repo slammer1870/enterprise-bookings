@@ -314,16 +314,19 @@ export const subscriptionsRouter = {
       // user may already hold N confirmed slots; adding M pending bookings
       // means N+M total, which must be checked against the plan's per-timeslot
       // cap — even when M=1 (single increase on the manage page).
-      const existingConfirmedResult = await payload.find({
-        collection: "bookings",
-        where: {
-          timeslot: { equals: input.timeslotId },
-          user: { equals: user.id },
-          status: { equals: "confirmed" },
-        },
-        limit: 0,
-        overrideAccess: true,
-      });
+      const existingConfirmedResult = await findSafe(
+        payload,
+        ctx.bookingsSlugs.bookings,
+        {
+          where: {
+            timeslot: { equals: input.timeslotId },
+            user: { equals: user.id },
+            status: { equals: "confirmed" },
+          },
+          limit: 0,
+          overrideAccess: true,
+        }
+      );
       const confirmedForTimeslot = existingConfirmedResult.totalDocs ?? 0;
 
       // The effective per-timeslot total is the already-held confirmed slots
