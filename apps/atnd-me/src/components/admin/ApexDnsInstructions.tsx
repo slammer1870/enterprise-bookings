@@ -40,8 +40,9 @@ function StatusBadge({ status }: { status: HostnameVerificationStatus | null }) 
  *   A  @                            → Cloudflare anycast IP (same network as cname.<platform>)
  *   TXT _cf-custom-hostname.<apex>  → verification token (stored as apexDomainVerificationToken)
  *
- * The Cloudflare anycast IP is resolved at render time from cname.<platform> so it
- * stays accurate if the zone IP ever changes.
+ * Cloudflare uses anycast for this A record, so `cname.<platform>` may return
+ * multiple valid IPs. We sort the set to keep the displayed "Value" stable
+ * across reloads, and treat the apex as active if it matches *any* of them.
  */
 export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   const domain = typeof data?.domain === 'string' ? data.domain : null
@@ -64,18 +65,23 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   })()
   const cnameTarget = rootHostname ? `cname.${rootHostname}` : null
 
-  const [cloudflareIp, cfStatus] = await Promise.all([
+  const [cloudflareIps, cfStatus] = await Promise.all([
     cnameTarget
-      ? resolve4(cnameTarget).then(ips => ips[0] ?? null).catch(() => null)
-      : Promise.resolve(null),
+      ? resolve4(cnameTarget).then((ips) => ips.filter(Boolean).sort()).catch(() => [] as string[])
+      : Promise.resolve([] as string[]),
     getCustomHostnameStatus(apex),
   ])
 
+  // Display a deterministic "primary" IP while still considering all possible
+  // anycast IPs for the propagation/active check.
+  const cloudflareIp = cloudflareIps[0] ?? null
+
   // A-record DNS propagation check: is the apex pointing to the Cloudflare IP?
   const apexIps = await resolve4(apex).catch(() => [] as string[])
-  const aRecordStatus: HostnameVerificationStatus = cloudflareIp
-    ? apexIps.includes(cloudflareIp) ? 'active' : 'pending'
-    : 'unknown'
+  const aRecordStatus: HostnameVerificationStatus =
+    cloudflareIps.length > 0
+      ? cloudflareIps.some((ip) => apexIps.includes(ip)) ? 'active' : 'pending'
+      : 'unknown'
 
   const isFullyActive = aRecordStatus === 'active' && cfStatus?.sslStatus === 'active'
 
