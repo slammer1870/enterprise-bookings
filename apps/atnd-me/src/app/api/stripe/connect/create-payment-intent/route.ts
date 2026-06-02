@@ -28,20 +28,67 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   const payload = await getPayload()
+
+  // Context bucket populated as the handler progresses — included in alert emails.
+  const _alertTo = process.env.ALERT_EMAIL || 'info@atnd.ie'
+  let _alertUserId: number | undefined
+  let _alertTenantId: number | null = null
+  let _alertTimeslotId: number | null = null
+  let _alertPrice: number | null = null
+
+  /**
+   * Replaces direct NextResponse.json calls for non-200 responses.
+   * Fires a fire-and-forget alert email for any status that is not 200.
+   */
+  function alertResponse<T extends object>(
+    data: T,
+    status: number,
+    extra?: { stack?: string },
+  ): NextResponse {
+    if (status !== 200) {
+      const occurredAt = new Date().toISOString()
+      const errorMsg = 'error' in data ? String((data as any).error) : JSON.stringify(data)
+      payload
+        .sendEmail({
+          to: _alertTo,
+          subject: `[ATND] create-payment-intent ${status} – ${errorMsg.slice(0, 80)}`,
+          html: `
+            <p>A <strong>create-payment-intent</strong> request returned <strong>${status}</strong>.</p>
+            <table cellpadding="6" style="border-collapse:collapse;font-family:monospace;font-size:13px">
+              <tr><td><strong>Time</strong></td><td>${occurredAt}</td></tr>
+              <tr><td><strong>Status</strong></td><td>${status}</td></tr>
+              ${_alertUserId != null ? `<tr><td><strong>User ID</strong></td><td>${_alertUserId}</td></tr>` : ''}
+              ${_alertTenantId != null ? `<tr><td><strong>Tenant ID</strong></td><td>${_alertTenantId}</td></tr>` : ''}
+              ${_alertTimeslotId != null ? `<tr><td><strong>Timeslot ID</strong></td><td>${_alertTimeslotId}</td></tr>` : ''}
+              ${_alertPrice != null ? `<tr><td><strong>Price (cents)</strong></td><td>${_alertPrice}</td></tr>` : ''}
+              <tr><td><strong>Error</strong></td><td style="color:#b00">${errorMsg}</td></tr>
+            </table>
+            ${extra?.stack ? `<pre style="background:#f4f4f4;padding:12px;margin-top:12px;font-size:12px;overflow:auto">${extra.stack}</pre>` : ''}
+          `,
+        })
+        .catch(() => {
+          // swallow — alert sending must never mask the original error response
+        })
+    }
+    return NextResponse.json(data, { status })
+  }
+
   const user = await getCurrentUser(payload, request)
   if (!user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return alertResponse({ error: 'Unauthorized' }, 401)
   }
+  _alertUserId = user.id
 
   const body = await request.json().catch(() => null)
   if (!body || typeof body !== 'object') {
-    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    return alertResponse({ error: 'Invalid JSON body' }, 400)
   }
 
   const price = typeof body.price === 'number' ? body.price : null
   if (price == null || Number.isNaN(price)) {
-    return NextResponse.json({ error: 'Missing price' }, { status: 400 })
+    return alertResponse({ error: 'Missing price' }, 400)
   }
+  _alertPrice = price
   const confirmOnly = body.confirmOnly === true
 
   const metadata = coerceMetadata(body.metadata)
@@ -49,8 +96,9 @@ export async function POST(request: NextRequest) {
   const timeslotId =
     timeslotIdRaw && /^\d+$/.test(timeslotIdRaw) ? parseInt(timeslotIdRaw, 10) : null
   if (!timeslotId) {
-    return NextResponse.json({ error: 'timeslotId is required in metadata' }, { status: 400 })
+    return alertResponse({ error: 'timeslotId is required in metadata' }, 400)
   }
+  _alertTimeslotId = timeslotId
 
   const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
 
@@ -82,9 +130,9 @@ export async function POST(request: NextRequest) {
     ownHoldQuantity = active?.quantity ?? 0
   }
   if (holdId == null) {
-    return NextResponse.json(
+    return alertResponse(
       { error: 'Checkout hold required. Reserve capacity before creating payment intent.' },
-      { status: 400 },
+      400,
     )
   }
 
@@ -100,7 +148,7 @@ export async function POST(request: NextRequest) {
   } | null
 
   if (!timeslot) {
-    return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
+    return alertResponse({ error: 'Timeslot not found' }, 404)
   }
 
   const remainingCapacity = await computeRemainingCapacityWithHolds(payload, timeslotId, {
@@ -156,19 +204,20 @@ export async function POST(request: NextRequest) {
 
     if (existingConfirmed + requestedForCap > maxPerViewer) {
       const remainingForUser = Math.max(0, maxPerViewer - existingConfirmed)
-      return NextResponse.json(
+      return alertResponse(
         {
           error:
             remainingForUser === 0
               ? 'You already have the maximum confirmed bookings for this timeslot with this payment option.'
               : `You can book up to ${maxPerViewer} confirmed bookings per timeslot with this payment option. You can add ${remainingForUser} more.`,
         },
-        { status: 400 },
+        400,
       )
     }
   }
 
   const classPriceAmountCents = formatAmountForStripe(price, 'eur')
+  _alertPrice = classPriceAmountCents
   // €0 bootstrap (e.g. 100% promo): skip capacity precheck so we can return { zeroAmount } before
   // any heavier checks; confirmOnly still reserves with real capacity.
   const skipCapacityPrecheck = classPriceAmountCents <= 0 && !confirmOnly
@@ -179,9 +228,9 @@ export async function POST(request: NextRequest) {
   // is the reservation they are paying for, not competing capacity).
   const capacityForPrecheck = remainingCapacity + ownHoldQuantity
   if (quantity > capacityForPrecheck && !skipCapacityPrecheck) {
-    return NextResponse.json(
+    return alertResponse(
       { error: formatCapacityError(capacityForPrecheck, quantity) },
-      { status: 400 }
+      400,
     )
   }
 
@@ -193,8 +242,9 @@ export async function POST(request: NextRequest) {
       : null
 
   if (!tenantId) {
-    return NextResponse.json({ error: 'Tenant context not found for timeslot' }, { status: 400 })
+    return alertResponse({ error: 'Tenant context not found for timeslot' }, 400)
   }
+  _alertTenantId = tenantId
 
   // Cross-tenant guard: if the request carries a specific tenant context (subdomain or cookie),
   // reject timeslot IDs that belong to a different tenant. This prevents a user on tenant A's
@@ -206,12 +256,12 @@ export async function POST(request: NextRequest) {
       : null
     if (requestNumericId != null) {
       if (requestNumericId !== tenantId) {
-        return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
+        return alertResponse({ error: 'Timeslot not found' }, 404)
       }
     } else {
       const requestTenant = await resolveTenantForConnect(payload, requestTenantSlugOrId)
       if (requestTenant != null && requestTenant.id !== tenantId) {
-        return NextResponse.json({ error: 'Timeslot not found' }, { status: 404 })
+        return alertResponse({ error: 'Timeslot not found' }, 404)
       }
     }
   }
@@ -229,7 +279,7 @@ export async function POST(request: NextRequest) {
   })) as TenantForConnect | null
 
   if (!tenant) {
-    return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    return alertResponse({ error: 'Tenant not found' }, 404)
   }
 
   const placeholderAccount =
@@ -246,7 +296,7 @@ export async function POST(request: NextRequest) {
     needsLiveStripeConnect &&
     (!tenant.stripeConnectAccountId || tenant.stripeConnectOnboardingStatus !== 'active')
   ) {
-    return NextResponse.json({ error: 'Tenant is not connected to Stripe' }, { status: 400 })
+    return alertResponse({ error: 'Tenant is not connected to Stripe' }, 400)
   }
 
   if (classPriceAmountCents <= 0) {
@@ -320,31 +370,7 @@ export async function POST(request: NextRequest) {
     )
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Payment intent failed'
-
-    const alertEmail = process.env.ALERT_EMAIL || 'info@atnd.ie'
-    if (alertEmail) {
-      const errorDetail = e instanceof Error && e.stack ? e.stack : message
-      const occurredAt = new Date().toISOString()
-      payload.sendEmail({
-        to: alertEmail,
-        subject: `[ATND] Payment intent failed – tenant ${tenantId}`,
-        html: `
-          <p>A <strong>create payment intent</strong> request failed in production.</p>
-          <table cellpadding="6" style="border-collapse:collapse;font-family:monospace;font-size:13px">
-            <tr><td><strong>Time</strong></td><td>${occurredAt}</td></tr>
-            <tr><td><strong>Tenant ID</strong></td><td>${tenantId}</td></tr>
-            <tr><td><strong>Timeslot ID</strong></td><td>${timeslotId}</td></tr>
-            <tr><td><strong>User ID</strong></td><td>${user.id}</td></tr>
-            <tr><td><strong>Price (cents)</strong></td><td>${classPriceAmountCents}</td></tr>
-            <tr><td><strong>Error</strong></td><td style="color:#b00">${message}</td></tr>
-          </table>
-          <pre style="background:#f4f4f4;padding:12px;margin-top:12px;font-size:12px;overflow:auto">${errorDetail}</pre>
-        `,
-      }).catch(() => {
-        // swallow — alert sending must never mask the original error response
-      })
-    }
-
-    return NextResponse.json({ error: message }, { status: 500 })
+    const stack = e instanceof Error && e.stack ? e.stack : message
+    return alertResponse({ error: message }, 500, { stack })
   }
 }
