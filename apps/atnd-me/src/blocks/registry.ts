@@ -15,6 +15,7 @@ import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
 import { HeroWithLocation } from './HeroWithLocation/config'
 import { MissionElements } from './MissionElements/config'
+import { SimpleAbout } from './SimpleAbout/config'
 import {
   Hero,
   About,
@@ -58,6 +59,7 @@ const allBlocks: Block[] = [
   Hero,
   MarketingHero,
   About,
+  SimpleAbout,
   Location,
   Schedule,
   TenantScopedSchedule,
@@ -110,6 +112,7 @@ export const defaultBlockSlugs: string[] = [
   'heroScheduleSanctuary',
   'hero',
   'about',
+  'simpleAbout',
   'schedule',
   'tenantScopedSchedule', // Root home page: filter schedule by tenant
   'content',

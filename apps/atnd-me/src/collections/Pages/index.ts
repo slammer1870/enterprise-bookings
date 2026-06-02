@@ -57,6 +57,7 @@ import { HeroSchedule } from '@/blocks/HeroSchedule/config'
 import { HeroWithLocation } from '@/blocks/HeroWithLocation/config'
 import { Schedule } from '@/blocks/Schedule/config'
 import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
+import { SimpleAbout } from '@/blocks/SimpleAbout/config'
 import { DhLiveSchedule } from '@/blocks/DhLiveSchedule/config'
 import { DhLiveMembership } from '@/blocks/DhLiveMembership/config'
 import { SectionTagline } from '@/blocks/SectionTagline/config'
@@ -82,6 +83,7 @@ const availableBlocks = [
   Hero,
   MarketingHero,
   About,
+  SimpleAbout,
   Location,
   Schedule,
   TenantScopedSchedule,
