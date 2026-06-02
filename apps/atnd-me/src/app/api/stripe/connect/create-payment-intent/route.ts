@@ -48,6 +48,20 @@ export async function POST(request: NextRequest) {
     if (status !== 200) {
       const occurredAt = new Date().toISOString()
       const errorMsg = 'error' in data ? String((data as any).error) : JSON.stringify(data)
+
+      // Always write to server logs so failures are visible even when email is down.
+      console.error(
+        `[create-payment-intent] ${status} at ${occurredAt}`,
+        {
+          error: errorMsg,
+          userId: _alertUserId,
+          tenantId: _alertTenantId,
+          timeslotId: _alertTimeslotId,
+          price: _alertPrice,
+        },
+        extra?.stack ?? '',
+      )
+
       payload
         .sendEmail({
           to: _alertTo,
@@ -66,8 +80,8 @@ export async function POST(request: NextRequest) {
             ${extra?.stack ? `<pre style="background:#f4f4f4;padding:12px;margin-top:12px;font-size:12px;overflow:auto">${extra.stack}</pre>` : ''}
           `,
         })
-        .catch(() => {
-          // swallow — alert sending must never mask the original error response
+        .catch((emailErr) => {
+          console.error('[create-payment-intent] alert email failed:', emailErr)
         })
     }
     return NextResponse.json(data, { status })
