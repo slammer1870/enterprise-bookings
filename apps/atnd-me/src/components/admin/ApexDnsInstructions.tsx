@@ -72,10 +72,6 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
     getCustomHostnameStatus(apex),
   ])
 
-  // Display a deterministic "primary" IP while still considering all possible
-  // anycast IPs for the propagation/active check.
-  const cloudflareIp = cloudflareIps[0] ?? null
-
   // A-record DNS propagation check: is the apex pointing to the Cloudflare IP?
   const apexIps = await resolve4(apex).catch(() => [] as string[])
   const aRecordStatus: HostnameVerificationStatus =
@@ -111,22 +107,34 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
           </tr>
         </thead>
         <tbody>
-          {/* A record — routes apex through Cloudflare */}
-          <tr>
-            <td style={{ padding: '4px 8px' }}>A</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
-            <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
-              {cloudflareIp ?? (
+          {/* A records — routes apex traffic through Cloudflare anycast */}
+          {cloudflareIps.length > 0 ? (
+            cloudflareIps.map((ip) => (
+              <tr key={ip}>
+                <td style={{ padding: '4px 8px' }}>A</td>
+                <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
+                <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>{ip}</td>
+                <td style={{ padding: '4px 8px' }}>Auto</td>
+                <td style={{ padding: '4px 8px' }}>
+                  <StatusBadge status={aRecordStatus} />
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td style={{ padding: '4px 8px' }}>A</td>
+              <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>@</td>
+              <td style={{ padding: '4px 8px', fontFamily: 'monospace' }}>
                 <em style={{ color: 'var(--theme-error-500)' }}>
                   Could not resolve — check NEXT_PUBLIC_SERVER_URL
                 </em>
-              )}
-            </td>
-            <td style={{ padding: '4px 8px' }}>Auto</td>
-            <td style={{ padding: '4px 8px' }}>
-              <StatusBadge status={aRecordStatus} />
-            </td>
-          </tr>
+              </td>
+              <td style={{ padding: '4px 8px' }}>Auto</td>
+              <td style={{ padding: '4px 8px' }}>
+                <StatusBadge status={aRecordStatus} />
+              </td>
+            </tr>
+          )}
 
           {/* TXT record — Cloudflare DCV to prove apex ownership for cert issuance */}
           <tr>
