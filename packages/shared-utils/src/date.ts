@@ -109,3 +109,61 @@ export const getIntervalStartAndEndDate = (
 
   return { startDate, endDate };
 };
+
+function startOfDay(datetimeInput: Date) {
+  const d = new Date(datetimeInput);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function endOfDay(datetimeInput: Date) {
+  const d = new Date(datetimeInput);
+  d.setHours(23, 59, 59, 999);
+  return d;
+}
+
+/**
+ * Session limit windows for plan `sessionsInformation`:
+ * - `interval='week'`: calendar week anchored to the most recent Sunday (inclusive)
+ * - `interval='month'`: calendar month anchored to the 1st day of the month (inclusive)
+ * - `interval='day'`: rolling N-day window ending on the lesson day (inclusive)
+ *
+ * All windows end at the end of the `lessonDate` day (local app timezone semantics).
+ */
+export function getSessionLimitWindowStartAndEndDate(opts: {
+  intervalType: "day" | "week" | "month";
+  intervalCount: number;
+  lessonDate: Date;
+}): { startDate: Date; endDate: Date } {
+  const { intervalType, lessonDate } = opts;
+  const intervalCount = Math.max(1, opts.intervalCount ?? 1);
+
+  const endDate = endOfDay(lessonDate);
+
+  switch (intervalType) {
+    case "day": {
+      // Rolling window: [lessonDate-(N-1) days, lessonDate]
+      const start = startOfDay(lessonDate);
+      start.setDate(start.getDate() - (intervalCount - 1));
+      return { startDate: start, endDate };
+    }
+
+    case "week": {
+      // Sunday-based calendar week:
+      // - most recent Sunday (inclusive), then go back (intervalCount-1) additional weeks
+      const d = startOfDay(lessonDate);
+      const day = d.getDay(); // 0=Sunday, 6=Saturday
+      d.setDate(d.getDate() - day);
+      d.setDate(d.getDate() - 7 * (intervalCount - 1));
+      return { startDate: d, endDate };
+    }
+
+    case "month": {
+      // Calendar month anchored to day 1 (inclusive), then go back (intervalCount-1) months
+      const d = startOfDay(lessonDate);
+      d.setDate(1);
+      d.setMonth(d.getMonth() - (intervalCount - 1));
+      return { startDate: d, endDate };
+    }
+  }
+}

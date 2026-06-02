@@ -13,7 +13,7 @@ import {
 } from "../utils/tenant";
 
 import { Subscription, Timeslot, Plan } from "@repo/shared-types";
-import { getIntervalStartAndEndDate } from "@repo/shared-utils";
+import { getIntervalStartAndEndDate, getSessionLimitWindowStartAndEndDate } from "@repo/shared-utils";
 import {
   hasReachedSubscriptionLimit,
   getRemainingSessionsInPeriod,
@@ -138,11 +138,17 @@ export const subscriptionsRouter = {
         return false;
       }
 
-      const { startDate, endDate } = getIntervalStartAndEndDate(
-        plan.sessionsInformation.interval,
-        plan.sessionsInformation.intervalCount || 1,
-        timeslotDate
-      );
+      const intervalType = plan.sessionsInformation.interval;
+      const intervalCount = plan.sessionsInformation.intervalCount || 1;
+
+      const { startDate, endDate } =
+        intervalType === "day" || intervalType === "week" || intervalType === "month"
+          ? getSessionLimitWindowStartAndEndDate({
+              intervalType,
+              intervalCount,
+              lessonDate: timeslotDate,
+            })
+          : getIntervalStartAndEndDate(intervalType, intervalCount, timeslotDate);
 
       // TODO: add a check to see if the subscription is a drop in or free
       // if it is, then we need to check the drop in limit
