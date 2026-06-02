@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
   // Context bucket populated as the handler progresses — included in alert emails.
   const _alertTo = process.env.ALERT_EMAIL || 'info@atnd.ie'
-  let _alertUserId: number | undefined
+  let _alertUserId: number | undefined = undefined
   let _alertTenantId: number | null = null
   let _alertTimeslotId: number | null = null
   let _alertPrice: number | null = null
