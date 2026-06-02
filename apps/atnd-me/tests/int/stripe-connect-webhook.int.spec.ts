@@ -221,6 +221,44 @@ describe('Stripe Connect webhook (step 2.5)', () => {
   )
 
   it(
+    'processes account.updated with currently_due requirements but charges still enabled as active',
+    async () => {
+      // Stripe sets currently_due when requirements have a future deadline but the
+      // account can still charge. This must NOT produce restricted status.
+      const event = {
+        id: 'evt_account_updated_currently_due_1',
+        type: 'account.updated',
+        account: webhookAccountId,
+        data: {
+          object: {
+            charges_enabled: true,
+            payouts_enabled: true,
+            details_submitted: true,
+            requirements: {
+              disabled_reason: null,
+              currently_due: ['individual.verification.document'],
+              eventually_due: ['individual.verification.document'],
+              past_due: [],
+              pending_verification: [],
+            },
+          },
+        },
+      }
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const updated = await payload.findByID({
+        collection: 'tenants',
+        id: testTenantId,
+        overrideAccess: true,
+      })
+      expect(updated.stripeConnectOnboardingStatus).toBe('active')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'processes account.application.deauthorized: marks tenant deauthorized and clears account id',
     async () => {
       const event = {

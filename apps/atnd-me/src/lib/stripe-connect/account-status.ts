@@ -4,7 +4,7 @@ import type { TenantStripeStatus } from '@/lib/stripe-connect/tenantStripe'
 
 type StripeAccountStatusLike = Pick<
   Stripe.Account,
-  'charges_enabled' | 'payouts_enabled' | 'details_submitted' | 'requirements'
+  'charges_enabled' | 'details_submitted'
 >
 
 export function getStripeConnectOnboardingStatus(
@@ -12,30 +12,16 @@ export function getStripeConnectOnboardingStatus(
 ): TenantStripeStatus {
   if (!account) return 'pending'
 
-  const requirements = account.requirements
-  // Only requirements that are currently blocking charges or past their deadline.
-  // `eventually_due` and `pending_verification` represent future deadlines or
-  // in-progress reviews — they do not currently prevent the account from taking
-  // payments, so they must not trigger restricted status.
-  const hasBlockingRequirements = Boolean(
-    requirements?.disabled_reason ||
-      requirements?.currently_due?.length ||
-      requirements?.past_due?.length,
-  )
-
-  // `payouts_enabled` being false means payouts are paused (e.g. documents needed
-  // within a future deadline) but the account can still accept charges. Only gate
-  // on `charges_enabled` so tenants can continue taking payments while they resolve
-  // their payout verification requirements.
-  if (
-    account.charges_enabled === true &&
-    account.details_submitted === true &&
-    !hasBlockingRequirements
-  ) {
+  // `charges_enabled` is Stripe's definitive signal that the account can accept
+  // payments. Requirements with future deadlines, paused payouts, and pending
+  // verifications do not affect this flag, so no additional checks are needed.
+  if (account.charges_enabled === true) {
     return 'active'
   }
 
-  if (account.details_submitted === true) {
+  // Details submitted but charges not yet enabled — account is in review or has
+  // outstanding requirements that Stripe has actioned.
+  if (account.charges_enabled === false) {
     return 'restricted'
   }
 
