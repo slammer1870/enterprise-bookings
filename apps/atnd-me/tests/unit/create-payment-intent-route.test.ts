@@ -15,6 +15,7 @@ const {
     findByID: vi.fn(),
     find: vi.fn().mockResolvedValue({ docs: [], totalDocs: 0 }),
     auth: vi.fn(),
+    sendEmail: vi.fn().mockResolvedValue(undefined),
   },
   mockGetActiveCheckoutHold: vi.fn(),
   mockComputeRemainingCapacityWithHolds: vi.fn().mockResolvedValue(10),

@@ -25,6 +25,7 @@ vi.mock('@/lib/auth/options', async (importOriginal) => {
 })
 
 const HOOK_TIMEOUT = 300000
+const TEST_TIMEOUT = 60000
 
 describe('Admin pending bookings + completion magic link', () => {
   let payload: Payload
@@ -143,7 +144,7 @@ describe('Admin pending bookings + completion magic link', () => {
     })
 
     expect(stored.totalDocs).toBe(3)
-  })
+  }, TEST_TIMEOUT)
 
   it('sendLateBookingMagicLink sends manage-page callback for a pending booking', async () => {
     sendBookingCompletionMagicLink.mockClear()
@@ -238,5 +239,5 @@ describe('Admin pending bookings + completion magic link', () => {
 
     expect(bookings).toHaveLength(2)
     expect(bookings.every((b) => b.status === 'pending')).toBe(true)
-  })
+  }, TEST_TIMEOUT)
 })

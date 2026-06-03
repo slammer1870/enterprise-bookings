@@ -15,6 +15,7 @@ const {
   mockPayload: {
     findByID: vi.fn(),
     find: vi.fn().mockResolvedValue({ docs: [], totalDocs: 0 }),
+    sendEmail: vi.fn().mockResolvedValue(undefined),
   },
 }))
 
