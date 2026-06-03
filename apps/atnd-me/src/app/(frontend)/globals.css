@@ -1,3 +1,7 @@
+/* Tailwind v4: typography plugin required for prose / heading styles in RichText */
+@plugin "@tailwindcss/typography";
+@config "../../../tailwind.config.mjs";
+
 /* Tailwind v4 source directives for this app */
 @source "../../../**/*.{ts,tsx}";
 

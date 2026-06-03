@@ -48,20 +48,23 @@ export const SimpleAboutBlock: React.FC<Props> = ({
         )}
         dir={direction}
       >
-        <div className="relative w-full max-w-[36rem] aspect-[4/3] rounded-lg overflow-hidden bg-card">
+        <div className="w-full max-w-[36rem] rounded-lg overflow-hidden bg-card">
           {imageResource ? (
             <ImageMedia
-              // `resource` is the Payload media object (includes `url`)
               resource={imageResource as any}
-              fill
               alt={alt}
-              imgClassName="object-cover"
+              imgClassName="w-full h-auto"
             />
           ) : null}
         </div>
 
-        <div className="flex-1">
-          <RichText data={content as any} enableGutter={false} className="max-w-none" />
+        <div className="flex-1 text-left">
+          <RichText
+            data={content as any}
+            enableGutter={false}
+            disableTextAlign
+            className="mx-0 max-w-none text-left"
+          />
         </div>
       </div>
     </section>

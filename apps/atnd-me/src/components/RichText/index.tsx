@@ -59,6 +59,7 @@ type Props = {
   data: DefaultTypedEditorState
   enableGutter?: boolean
   enableProse?: boolean
+  disableTextAlign?: boolean | string[]
 } & React.HTMLAttributes<HTMLDivElement>
 
 export default function RichText(props: Props) {
@@ -71,7 +72,7 @@ export default function RichText(props: Props) {
         {
           container: enableGutter,
           'max-w-none': !enableGutter,
-          'mx-auto prose md:prose-md dark:prose-invert': enableProse,
+          'mx-auto prose dark:prose-invert': enableProse,
         },
         className,
       )}
