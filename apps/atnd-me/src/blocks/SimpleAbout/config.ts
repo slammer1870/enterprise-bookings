@@ -2,8 +2,14 @@ import type { Block, Field } from 'payload'
 
 import {
   AlignFeature,
+  BlockquoteFeature,
   FixedToolbarFeature,
+  HeadingFeature,
+  HorizontalRuleFeature,
   InlineToolbarFeature,
+  LinkFeature,
+  OrderedListFeature,
+  UnorderedListFeature,
   lexicalEditor,
 } from '@payloadcms/richtext-lexical'
 
@@ -12,8 +18,18 @@ const contentField: Field = {
   type: 'richText',
   editor: lexicalEditor({
     features: ({ rootFeatures }) => {
-      // `AlignFeature()` adds the block editor alignment controls.
-      return [...rootFeatures, AlignFeature(), FixedToolbarFeature(), InlineToolbarFeature()]
+      return [
+        ...rootFeatures,
+        AlignFeature(),
+        FixedToolbarFeature(),
+        InlineToolbarFeature(),
+        HeadingFeature({ enabledHeadingSizes: ['h2', 'h3', 'h4'] }),
+        LinkFeature(),
+        UnorderedListFeature(),
+        OrderedListFeature(),
+        BlockquoteFeature(),
+        HorizontalRuleFeature(),
+      ]
     },
   }),
   required: true,
