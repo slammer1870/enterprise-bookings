@@ -520,8 +520,14 @@ describe("Booking tests", () => {
         location: "Test Location Limit 1",
       });
 
+      // createTimeslot may bump early-morning slots to tomorrow while later slots on the
+      // same baseDate stay today. Subscription limits use a lesson-date window, so every
+      // seeded booking and the attempt must share the resolved calendar day.
+      const timeslotDay = new Date(timeslot1.startTime);
+      timeslotDay.setHours(0, 0, 0, 0);
+
       const timeslot2 = await createTimeslot(payload, {
-        baseDate,
+        baseDate: timeslotDay,
         startHoursOffset: 12, // 12 PM
         durationHours: 1,
         eventType: eventType.id,
@@ -529,7 +535,7 @@ describe("Booking tests", () => {
       });
 
       const timeslot3 = await createTimeslot(payload, {
-        baseDate,
+        baseDate: timeslotDay,
         startHoursOffset: 14, // 2 PM
         durationHours: 1,
         eventType: eventType.id,
@@ -537,7 +543,7 @@ describe("Booking tests", () => {
       });
 
       const timeslot4 = await createTimeslot(payload, {
-        baseDate,
+        baseDate: timeslotDay,
         startHoursOffset: 16, // 4 PM
         durationHours: 1,
         eventType: eventType.id,
