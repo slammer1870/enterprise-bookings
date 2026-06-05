@@ -35,9 +35,23 @@ const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }) => {
   return relationTo === 'posts' ? `/posts/${slug}` : `/${slug}`
 }
 
+const headingClassByTag: Record<string, string> = {
+  h1: 'text-4xl font-bold mt-8 mb-4 text-foreground',
+  h2: 'text-3xl font-bold mt-8 mb-4 text-foreground',
+  h3: 'text-2xl font-semibold mt-6 mb-3 text-foreground',
+  h4: 'text-xl font-semibold mt-4 mb-2 text-foreground',
+  h5: 'text-lg font-semibold mt-4 mb-2 text-foreground',
+  h6: 'text-base font-semibold mt-4 mb-2 text-foreground',
+}
+
 const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) => ({
   ...defaultConverters,
   ...LinkJSXConverter({ internalDocToHref }),
+  heading: ({ node, nodesToJSX }) => {
+    const children = nodesToJSX({ nodes: node.children })
+    const Tag = node.tag
+    return <Tag className={headingClassByTag[Tag] ?? headingClassByTag.h2}>{children}</Tag>
+  },
   blocks: {
     banner: ({ node }) => <BannerBlock className="col-start-2 mb-4" {...node.fields} />,
     mediaBlock: ({ node }) => (

@@ -50,8 +50,8 @@ export const SimpleAbout: Block = {
       defaultValue: 'ltr',
       required: true,
       options: [
-        { label: 'Left to right', value: 'ltr' },
-        { label: 'Right to left', value: 'rtl' },
+        { label: 'Image on left', value: 'ltr' },
+        { label: 'Image on right', value: 'rtl' },
       ],
     },
     {
