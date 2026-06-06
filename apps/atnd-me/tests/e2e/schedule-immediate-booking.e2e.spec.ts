@@ -72,9 +72,20 @@ async function getLessonBookButton(
   scheduleTitle: string,
   buttonName: RegExp | string = /^book$/i
 ) {
-  const lessonTitle = page.getByText(scheduleTitle, { exact: true }).first()
-  await expect(lessonTitle).toBeVisible({ timeout: 20000 })
-  const lessonRow = lessonTitle.locator('xpath=ancestor::div[contains(@class,"border-b")]').first()
+  const lessonTitles = page.getByText(scheduleTitle, { exact: true })
+  await expect(lessonTitles.first()).toBeVisible({ timeout: 20000 })
+
+  const count = await lessonTitles.count()
+  for (let i = 0; i < count; i++) {
+    const lessonRow = lessonTitles.nth(i).locator('xpath=ancestor::div[contains(@class,"border-b")]').first()
+    const btn = lessonRow.getByRole('button', { name: buttonName })
+    if ((await btn.count()) > 0) {
+      return btn
+    }
+  }
+
+  // Fall back so Playwright surfaces a clear "button not found" error on the first row.
+  const lessonRow = lessonTitles.first().locator('xpath=ancestor::div[contains(@class,"border-b")]').first()
   return lessonRow.getByRole('button', { name: buttonName })
 }
 
@@ -549,13 +560,13 @@ test.describe('Schedule immediate booking', () => {
       startDate: new Date(),
     })
 
-    // Pick a future Wednesday for the attempt, then compute its "most recent Sunday"
-    // exactly the same way the production logic does (week window start).
-    const attemptWednesday = futureDate(10 + w, 14)
-    const attemptWednesdayDate = new Date(attemptWednesday)
-    attemptWednesdayDate.setHours(14, 0, 0, 0)
+    // Anchor far enough in the future, then snap to that week's Wednesday for the attempt.
+    // futureDate() is calendar-day based and is not guaranteed to land on Wednesday.
+    const attemptAnchor = futureDate(10 + w, 14)
+    const attemptAnchorDate = new Date(attemptAnchor)
+    attemptAnchorDate.setHours(14, 0, 0, 0)
 
-    const week3Sunday = new Date(attemptWednesdayDate)
+    const week3Sunday = new Date(attemptAnchorDate)
     week3Sunday.setHours(0, 0, 0, 0)
     const week3SundayDay = week3Sunday.getDay() // 0=Sunday..6=Saturday
     week3Sunday.setDate(week3Sunday.getDate() - week3SundayDay)
@@ -616,20 +627,20 @@ test.describe('Schedule immediate booking', () => {
     await seedBooking(week3Wednesday, 12)
 
     // Create the Wednesday timeslot for Week 3 that we will attempt to book (this is the "3rd").
-    const attemptEndWednesday = new Date(attemptWednesdayDate)
-    attemptEndWednesday.setHours(15, 0, 0, 0)
+    const attemptStart = getDayISO(week3Wednesday, 14)
+    const attemptEnd = getDayISO(week3Wednesday, 15)
 
     const attemptTimeslot = await createTestTimeslot(
       tenant.id,
       eventType.id,
-      attemptWednesday,
-      attemptEndWednesday,
+      attemptStart,
+      attemptEnd,
       undefined,
       true
     )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
-    await navigateToSchedule(page, tenant.slug, attemptWednesday)
+    await navigateToSchedule(page, tenant.slug, attemptStart)
 
     const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
     const bookBtn = await getLessonBookButton(page, scheduleTitle)

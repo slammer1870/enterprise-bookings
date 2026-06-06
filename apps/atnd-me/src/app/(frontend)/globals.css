@@ -132,3 +132,40 @@
   --closed: hsl(0 0% 50%);
   --closed-foreground: hsl(0 0% 98%);
 }
+
+/* RichText / prose: theme colors + heading styles (plugin lives in @repo/ui/globals.css) */
+@layer components {
+  .payload-richtext.prose {
+    --tw-prose-body: var(--foreground);
+    --tw-prose-headings: var(--foreground);
+    --tw-prose-bold: var(--foreground);
+    --tw-prose-links: var(--foreground);
+  }
+
+  .payload-richtext.prose :where(h2):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+    font-size: 1.5em;
+    font-weight: 700;
+    line-height: 1.3333333;
+    margin-top: 2em;
+    margin-bottom: 1em;
+  }
+
+  .payload-richtext.prose :where(h3):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+    font-size: 1.25em;
+    font-weight: 600;
+    line-height: 1.6;
+    margin-top: 1.6em;
+    margin-bottom: 0.6em;
+  }
+
+  .payload-richtext.prose :where(h4):not(:where([class~='not-prose'], [class~='not-prose'] *)) {
+    color: var(--foreground);
+    font-size: 1.125em;
+    font-weight: 600;
+    line-height: 1.5555556;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+  }
+}

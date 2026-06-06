@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 @source "../../../../apps/**/*.{ts,tsx}";
 @source "../../../../components/**/*.{ts,tsx}";
@@ -170,6 +171,40 @@
   --color-modify-foreground: var(--modify-foreground);
   --color-closed: var(--closed);
   --color-closed-foreground: var(--closed-foreground);
+}
+
+/*
+ * Tailwind v4 no longer reads tailwind.config `theme.container` unless @config is used.
+ * Restore v3-style centered container (matches apps/atnd-me/tailwind.config.mjs).
+ */
+@utility container {
+  width: 100%;
+  margin-inline: auto;
+  padding-inline: 1rem;
+
+  @variant sm {
+    max-width: 40rem;
+  }
+
+  @variant md {
+    max-width: 48rem;
+    padding-inline: 2rem;
+  }
+
+  @variant lg {
+    max-width: 64rem;
+    padding-inline: 2rem;
+  }
+
+  @variant xl {
+    max-width: 80rem;
+    padding-inline: 2rem;
+  }
+
+  @variant 2xl {
+    max-width: 86rem;
+    padding-inline: 2rem;
+  }
 }
 
 @layer base {

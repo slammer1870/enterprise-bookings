@@ -35,36 +35,50 @@ export const SimpleAboutBlock: React.FC<Props> = ({
   direction = 'ltr',
   image,
   content,
+  disableInnerContainer,
 }) => {
   const imageResource = resolveImageResource(image)
   const alt = resolveImageAlt(image)
 
-  return (
-    <section className="container px-4 py-12">
-      <div
-        className={cn(
-          'mx-auto max-w-6xl flex flex-col gap-12 md:flex-row md:items-center',
-          direction === 'rtl' && 'md:flex-row-reverse',
-        )}
-        dir={direction}
-      >
-        <div className="relative w-full max-w-[36rem] aspect-[4/3] rounded-lg overflow-hidden bg-card">
-          {imageResource ? (
-            <ImageMedia
-              // `resource` is the Payload media object (includes `url`)
-              resource={imageResource as any}
-              fill
-              alt={alt}
-              imgClassName="object-cover"
-            />
-          ) : null}
-        </div>
-
-        <div className="flex-1">
-          <RichText data={content as any} enableGutter={false} className="max-w-none" />
-        </div>
+  const inner = (
+    <div
+      className={cn(
+        'flex flex-col gap-12 md:flex-row md:items-center',
+        // RTL = image on the right, text on the left (layout only — not text direction)
+        direction === 'rtl' && 'md:flex-row-reverse',
+      )}
+    >
+      <div className="w-full max-w-[36rem] rounded-lg overflow-hidden bg-card">
+        {imageResource ? (
+          <ImageMedia
+            resource={imageResource as any}
+            alt={alt}
+            imgClassName="w-full h-auto"
+          />
+        ) : null}
       </div>
+
+      <div className="flex-1 text-left" dir="ltr">
+        <RichText
+          data={content as any}
+          enableGutter={false}
+          className="mx-0 max-w-none text-left"
+        />
+      </div>
+    </div>
+  )
+
+  if (disableInnerContainer) {
+    return (
+      <section className="w-full py-12">
+        <div className="mx-auto max-w-6xl px-8">{inner}</div>
+      </section>
+    )
+  }
+
+  return (
+    <section className="container py-12">
+      <div className="mx-auto max-w-6xl px-8">{inner}</div>
     </section>
   )
 }
-

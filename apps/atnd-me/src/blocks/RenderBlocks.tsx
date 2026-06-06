@@ -26,9 +26,11 @@ export const RenderBlocks: React.FC<{
             const Block = blockComponents[blockType as keyof typeof blockComponents]
 
             if (Block) {
+              // Layout blocks provide their own outer container (max-width, header offset).
+              const isLayoutBlock = blockType === 'twoColumnLayout' || blockType === 'threeColumnLayout'
               return (
                 <div key={index}>
-                  <Block {...block} disableInnerContainer />
+                  <Block {...block} {...(isLayoutBlock ? {} : { disableInnerContainer: true })} />
                 </div>
               )
             }
