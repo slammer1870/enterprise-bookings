@@ -141,7 +141,7 @@ async function findDiscountDocByCode(
     where: {
       and: [{ tenant: { equals: tenantId } }],
     },
-    limit: 100,
+    limit: 0,
     depth: 0,
     overrideAccess: true,
     select: { id: true, code: true } as any,
