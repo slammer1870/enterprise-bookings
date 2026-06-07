@@ -255,7 +255,15 @@ export const DiscountCodes: CollectionConfig = {
     },
   ],
   hooks: {
-    beforeValidate: [discountCodeBeforeValidateStripeConnect],
+    beforeValidate: [
+      discountCodeBeforeValidateStripeConnect,
+      async ({ data }) => {
+        if (data?.code && typeof data.code === 'string') {
+          data.code = data.code.trim().toUpperCase()
+        }
+        return data
+      },
+    ],
     beforeChange: [
       async ({ data, operation, originalDoc, req }) => {
         if (!data) return data

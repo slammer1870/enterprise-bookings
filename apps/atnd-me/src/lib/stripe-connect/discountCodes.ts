@@ -8,37 +8,56 @@ export type TenantDiscountCode = {
   stripePromotionCodeId?: string | null
 }
 
-export async function resolveTenantDiscountCode(
+type DiscountCodeDoc = {
+  code?: string | null
+  type?: TenantDiscountCode['type'] | null
+  value?: number | null
+  currency?: string | null
+  stripePromotionCodeId?: string | null
+}
+
+export function normalizeDiscountCode(code: string): string {
+  return code.trim().toUpperCase()
+}
+
+/** Active tenant discount codes are matched case-insensitively (legacy rows may be lowercase). */
+export async function findActiveTenantDiscountDocByCode(
   payload: Payload,
   tenantId: number,
   discountCode: string,
-): Promise<TenantDiscountCode | undefined> {
-  const code = discountCode.trim().toUpperCase()
-  if (!code) return undefined
+): Promise<DiscountCodeDoc | undefined> {
+  const normalizedCode = normalizeDiscountCode(discountCode)
+  if (!normalizedCode) return undefined
 
   const match = await payload.find({
     collection: 'discount-codes',
     depth: 0,
-    limit: 1,
+    limit: 0,
     overrideAccess: true,
     where: {
       and: [
         { tenant: { equals: tenantId } },
-        { code: { equals: code } },
         { status: { equals: 'active' } },
         { stripePromotionCodeId: { exists: true } },
       ],
     },
   })
 
-  const discountDoc = match.docs[0] as
-    | {
-        code?: string | null
-        type?: TenantDiscountCode['type'] | null
-        value?: number | null
-        currency?: string | null
-        stripePromotionCodeId?: string | null
-      }
+  return match.docs.find(
+    (doc) => normalizeDiscountCode(String((doc as DiscountCodeDoc).code ?? '')) === normalizedCode,
+  ) as DiscountCodeDoc | undefined
+}
+
+export async function resolveTenantDiscountCode(
+  payload: Payload,
+  tenantId: number,
+  discountCode: string,
+): Promise<TenantDiscountCode | undefined> {
+  const code = normalizeDiscountCode(discountCode)
+  if (!code) return undefined
+
+  const discountDoc = await findActiveTenantDiscountDocByCode(payload, tenantId, discountCode) as
+    | DiscountCodeDoc
     | undefined
 
   if (!discountDoc?.type || typeof discountDoc.value !== 'number') {

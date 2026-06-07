@@ -6,6 +6,7 @@ import type Stripe from 'stripe'
 import type { Payload } from 'payload'
 
 import { getPlatformStripe } from '@/lib/stripe/platform'
+import { normalizeDiscountCode } from '@/lib/stripe-connect/discountCodes'
 
 export type StripeCouponLike = {
   id?: string
@@ -133,19 +134,21 @@ async function findDiscountDocByCode(
   tenantId: number,
   code: string,
 ): Promise<{ id: number } | null> {
-  const normalized = code.trim().toUpperCase()
+  const normalized = normalizeDiscountCode(code)
   if (!normalized) return null
   const result = await payload.find({
     collection: 'discount-codes',
     where: {
-      and: [{ tenant: { equals: tenantId } }, { code: { equals: normalized } }],
+      and: [{ tenant: { equals: tenantId } }],
     },
-    limit: 1,
+    limit: 0,
     depth: 0,
     overrideAccess: true,
-    select: { id: true } as any,
+    select: { id: true, code: true } as any,
   })
-  const doc = result.docs[0] as { id: number } | undefined
+  const doc = result.docs.find(
+    (row) => normalizeDiscountCode(String((row as { code?: string | null }).code ?? '')) === normalized,
+  ) as { id: number } | undefined
   return doc ?? null
 }
 
