@@ -566,20 +566,22 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         const match = await ctx.payload.find({
           collection: "discount-codes" as any,
           depth: 0,
-          limit: 1,
+          limit: 0,
           overrideAccess: true,
           where: {
             and: [
               { tenant: { equals: tenantId } },
-              { code: { equals: code } },
               { status: { equals: "active" } },
               { stripePromotionCodeId: { exists: true } },
             ],
           },
         });
-        const doc = (match as any)?.docs?.[0] as
-          | { stripePromotionCodeId?: string | null }
-          | undefined;
+        const doc = (match as any)?.docs?.find(
+          (row: { code?: string | null }) =>
+            String(row.code ?? "")
+              .trim()
+              .toUpperCase() === code,
+        ) as { stripePromotionCodeId?: string | null } | undefined;
         promotionCodeId =
           doc?.stripePromotionCodeId && String(doc.stripePromotionCodeId).trim()
             ? String(doc.stripePromotionCodeId).trim()

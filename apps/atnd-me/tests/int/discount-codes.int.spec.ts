@@ -102,6 +102,34 @@ describe('Discount codes (Phase 4.5)', () => {
   })
 
   it(
+    'normalizes customer-facing codes to uppercase on create',
+    async () => {
+      const created = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Lowercase Input Promo',
+          code: `lower${Date.now()}`.slice(0, 24),
+          type: 'percentage_off',
+          value: 10,
+          duration: 'once',
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      expect(created.code).toBe(String(created.code).toUpperCase())
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'create discount code (tenant with Connect) → doc has stripeCouponId and stripePromotionCodeId',
     async () => {
       const code = `TEST${Date.now()}`.slice(0, 24)

@@ -156,6 +156,57 @@ describe('validate-discount-code API route', () => {
   )
 
   it(
+    'validates discount codes stored with lowercase letters (legacy production data)',
+    async () => {
+      const lowercaseCode = `lc${runId}`.slice(0, 24)
+      const legacyDiscount = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Legacy Lowercase Discount',
+          code: lowercaseCode,
+          type: 'percentage_off',
+          value: 15,
+          duration: 'once',
+          tenant: activeTenantId,
+          stripePromotionCodeId: `promo_legacy_${runId}`,
+          stripeCouponId: `coupon_legacy_${runId}`,
+          skipSync: true,
+        },
+        context: { skipStripeSync: true },
+        overrideAccess: true,
+      })
+
+      await payload.update({
+        collection: 'discount-codes',
+        id: legacyDiscount.id,
+        data: { code: lowercaseCode },
+        context: { stripeWebhookSync: true, skipStripeSync: true },
+        overrideAccess: true,
+      })
+
+      const res = await POST(request({ discountCode: lowercaseCode.toUpperCase() }))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body).toEqual({
+        valid: true,
+        discountCode: lowercaseCode.toUpperCase(),
+        discount: {
+          type: 'percentage_off',
+          value: 15,
+          currency: null,
+        },
+      })
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: legacyDiscount.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'returns amount-off discounts in currency units',
     async () => {
       const discountCode = await payload.findByID({
