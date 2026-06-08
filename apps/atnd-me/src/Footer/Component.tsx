@@ -103,7 +103,6 @@ export async function Footer() {
   const logoLink = footerData?.logoLink || '/'
   const copyrightText = footerData?.copyrightText
   const styling = footerData?.styling
-  const padding = styling?.padding || 'medium'
 
   // Get styling values
   const backgroundColor = styling?.backgroundColor || 'bg-card'
@@ -111,13 +110,6 @@ export async function Footer() {
 
   const logoUrl = typeof logo === 'object' && logo?.url ? logo.url : null
   const logoAlt = typeof logo === 'object' && logo?.alt ? logo.alt : 'Logo'
-
-  // Match navbar horizontal padding so edges align
-  const paddingXClasses = {
-    small: 'px-4',
-    medium: 'px-8',
-    large: 'px-8 lg:px-12',
-  }[padding]
 
   return (
     <footer
@@ -132,9 +124,7 @@ export async function Footer() {
       }}
     >
       <div className="container mx-auto">
-        <div
-          className={`${paddingXClasses} py-8 gap-8 flex flex-col md:flex-row md:justify-between`}
-        >
+        <div className="flex flex-col gap-8 py-4 md:flex-row md:justify-between">
           <Link className="flex items-center" href={logoLink}>
           {logoUrl ? (
             <Image
@@ -188,7 +178,7 @@ export async function Footer() {
       </div>
       {copyrightText && (
         <div className="container mx-auto border-t border-border/50">
-          <div className={`${paddingXClasses} py-4`}>
+          <div className="py-4">
             <p className={`text-sm text-center ${textColor} opacity-75`}>{copyrightText}</p>
           </div>
         </div>
