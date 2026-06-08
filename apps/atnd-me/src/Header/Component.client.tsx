@@ -63,7 +63,7 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
         ...(textColor ? { color: textColor } : {}),
       }}
     >
-      <div className="container mx-auto">
+      <div className="container mx-auto [padding-inline:1rem]">
         <div className="flex justify-between items-center py-4">
           <Link href={logoLink} className="flex items-center h-8">
             {logoUrl ? (
