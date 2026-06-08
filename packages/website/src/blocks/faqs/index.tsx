@@ -11,11 +11,10 @@ interface FaqsBlockProps {
     question: string
     answer: string
   }[]
-  disableInnerContainer?: boolean
 }
 
 export const FaqsBlock = (props: FaqsBlockProps) => {
-  const { title = 'FAQs', faqs, disableInnerContainer } = props
+  const { title = 'FAQs', faqs } = props
 
   const contentElement = (
     <>
@@ -30,14 +29,6 @@ export const FaqsBlock = (props: FaqsBlockProps) => {
       </Accordion>
     </>
   )
-
-  if (disableInnerContainer) {
-    return (
-      <section className="w-full py-12">
-        <div className="max-w-6xl mx-auto">{contentElement}</div>
-      </section>
-    )
-  }
 
   return (
     <section className="container py-12">
