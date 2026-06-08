@@ -38,7 +38,6 @@ interface HeroWithLocationBlockProps {
   socialFollowUrl?: string | null
   /** Croí Lán hero: paragraph below primary CTAs */
   introTagline?: string | null
-  disableInnerContainer?: boolean
 }
 
 function resolveMediaUrl(
@@ -132,7 +131,6 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   socialFollowLabel,
   socialFollowUrl,
   introTagline,
-  disableInnerContainer: _disableInnerContainer,
 }) => {
   const bgUrl = resolveMediaUrl(backgroundImage)
   const logoUrl = resolveMediaUrl(logo)
@@ -173,10 +171,10 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
         ) : null}
       </div>
 
-      {/* Align with HeaderClient: `container mx-auto` + inner padding; pt clears absolute header; items align to top */}
+      {/* Align with HeaderClient: `container mx-auto`; pt clears absolute header */}
       <div className="relative z-10 flex min-h-[500px] w-full flex-col md:min-h-[700px]">
         <div className="container mx-auto flex w-full flex-1 flex-col md:min-h-[700px]">
-          <div className="flex min-h-[500px] flex-1 flex-col gap-8 px-8 pb-10 pt-32 md:min-h-[700px] md:flex-row md:items-start md:gap-8 md:px-8 md:pb-8 md:pt-36 lg:gap-12 lg:pt-40">
+          <div className="flex min-h-[500px] flex-1 flex-col gap-8 pb-10 pt-28 md:min-h-[700px] md:flex-row md:items-start md:gap-8 md:pb-8 md:pt-32 lg:gap-12 lg:pt-32">
             <div className="flex min-h-[300px] flex-1 flex-col justify-center md:justify-start md:min-h-[700px] lg:basis-0 lg:flex-[2]">
               <div className="mx-auto flex w-full max-w-xl flex-col items-start gap-4 text-left lg:mx-0 lg:max-w-lg lg:gap-5">
                 {logoUrl && (

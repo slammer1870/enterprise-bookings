@@ -130,7 +130,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
               the logo sits in the flex flow with flex-1 and buttons pinned to bottom. */}
           <div className="flex h-[67vh] flex-col items-center pt-12 pb-8 md:h-auto md:flex-1 lg:flex-[2]">
             {/* Logo: mobile only — on md+ the absolute layer above handles this */}
-            <div className="flex w-full flex-1 items-center justify-center px-4 md:hidden">
+            <div className="flex w-full flex-1 items-center justify-center md:hidden">
               {logoUrl && (
                 <Image
                   src={logoUrl}
@@ -143,7 +143,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
             </div>
             {/* Buttons: mobile only — hidden on md+ where the schedule panel is visible */}
             {links && links.length > 0 && (
-              <div className="flex w-full flex-col gap-3 px-4 sm:flex-row sm:justify-center md:hidden">
+              <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center md:hidden">
                 {links.map((linkItem, index) => {
                   if (!linkItem?.link) return null
                   const { link } = linkItem

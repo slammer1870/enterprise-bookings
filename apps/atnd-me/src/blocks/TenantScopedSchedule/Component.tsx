@@ -37,7 +37,7 @@ export async function TenantScopedScheduleBlock({
   return (
     <section
       id="schedule"
-      className="mx-auto w-full max-w-2xl scroll-mt-6 px-4 py-8 text-foreground sm:px-6 sm:py-10"
+      className="w-full max-w-2xl mx-auto scroll-mt-6 py-8 text-foreground sm:py-10"
     >
       <h2 className="mb-4 text-center text-2xl font-semibold text-foreground">
         Schedule

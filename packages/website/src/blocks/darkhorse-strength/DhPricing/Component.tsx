@@ -20,7 +20,7 @@ export const DhPricingBlock: React.FC<PricingProps> = ({
 }) => {
   return (
     <section className="body-font text-muted-foreground">
-      <div className="container mx-auto px-4 py-12">
+      <div className="w-full py-12">
         <div className="mb-4 flex w-full flex-col text-left">
           <h1 className="mb-2 text-3xl font-medium text-foreground">{title}</h1>
           <p className="text-base leading-relaxed text-gray-600 lg:w-2/3">{description}</p>

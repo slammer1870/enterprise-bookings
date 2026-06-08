@@ -30,7 +30,6 @@ interface FeaturesBlockProps {
   columns?: '2' | '3' | '4'
   backgroundColor?: 'default' | 'subtle' | 'muted'
   className?: string
-  disableInnerContainer?: boolean
 }
 
 function mediaUrl(resource: MediaResource | undefined): string | null {
@@ -47,7 +46,6 @@ export const FeaturesBlock: React.FC<FeaturesBlockProps> = ({
   columns = '3',
   backgroundColor = 'default',
   className,
-  disableInnerContainer,
 }) => {
   const columnClasses = {
     '2': 'grid-cols-1 md:grid-cols-2',
@@ -65,11 +63,7 @@ export const FeaturesBlock: React.FC<FeaturesBlockProps> = ({
     <section
       className={cn('py-24 md:py-32', bgColorClasses[backgroundColor ?? 'default'], className)}
     >
-      <div
-        className={cn(
-          disableInnerContainer ? 'px-4 md:px-6 lg:px-8' : 'container',
-        )}
-      >
+      <div className="w-full">
         {(heading || description) && (
           <div className="text-center max-w-3xl mx-auto mb-16">
             {heading && (

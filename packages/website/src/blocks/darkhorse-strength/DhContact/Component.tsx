@@ -37,7 +37,7 @@ export const DhContactBlock: React.FC<ContactProps> = ({
 }) => {
   return (
     <>
-      <div className="container mx-auto flex flex-wrap px-4 py-12 sm:flex-nowrap">
+      <div className="w-full flex flex-wrap py-12 sm:flex-nowrap">
         <div className="mb-24 md:w-1/2">
           <h5 className="mb-4 text-3xl font-medium">{locationTitle}</h5>
           <p className="mb-4 text-gray-600">{locationDescription}</p>

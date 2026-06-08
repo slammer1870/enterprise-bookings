@@ -197,7 +197,7 @@ export const seed = async ({
           buttonVariant: 'default' as const,
         },
       ],
-      styling: { padding: 'medium' as const, sticky: false },
+      styling: { sticky: false },
     }
 
     if (existingNavbar.docs[0]) {

@@ -39,13 +39,13 @@ export const BruAboutBlock: React.FC<{
         return (
           <section
             key={index}
-            className="relative flex flex-col items-center justify-center py-20 lg:min-h-screen lg:flex-row overflow-hidden"
+            className="relative flex flex-col items-center justify-center pt-16 pb-10 lg:min-h-screen lg:flex-row lg:py-20 overflow-hidden"
           >
             <div
-              className={`container mx-auto mb-12 px-4 lg:mb-0 lg:relative lg:z-10 ${
+              className={`container mx-auto mb-10 lg:mb-0 lg:relative lg:z-10 ${
                 isLeft
-                  ? 'lg:flex lg:order-2 lg:pl-[calc(33.333%+2rem)] lg:pr-4'
-                  : 'lg:order-1 lg:pr-[calc(33.333%+2rem)] lg:pl-4'
+                  ? 'lg:flex lg:order-2 lg:pl-[calc(33.333%+2rem)]'
+                  : 'lg:order-1 lg:pr-[calc(33.333%+2rem)]'
               }`}
             >
               <div className={`${isLeft ? 'lg:ml-auto lg:w-2/3 xl:w-auto' : ''}`}>
@@ -60,11 +60,11 @@ export const BruAboutBlock: React.FC<{
             </div>
 
             <div
-              className={`w-2/3 lg:absolute lg:w-1/3 2xl:w-auto lg:h-full lg:z-0 lg:top-0 ${
+              className={`w-2/3 shrink-0 lg:absolute lg:inset-y-0 lg:z-0 lg:w-1/3 ${
                 !isLeft ? 'mr-0 ml-auto lg:right-0' : 'ml-0 mr-auto lg:left-0'
               }`}
             >
-              <div className="relative overflow-hidden w-full h-full min-h-[240px]">
+              <div className="relative h-full min-h-[240px] w-full overflow-hidden">
                 {imageUrl && (
                   <Image
                     src={imageUrl}

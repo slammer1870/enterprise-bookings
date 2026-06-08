@@ -34,18 +34,10 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
   const logo = data?.logo
   const logoLink = data?.logoLink || '/'
   const styling = data?.styling
-  const padding = styling?.padding || 'medium'
   const _sticky = styling?.sticky || false
 
   const logoUrl = typeof logo === 'object' && logo?.url ? logo.url : null
   const logoAlt = typeof logo === 'object' && logo?.alt ? logo.alt : 'Logo'
-
-  // Padding classes
-  const paddingClasses = {
-    small: 'p-4',
-    medium: 'p-8',
-    large: 'p-8 lg:p-12',
-  }[padding]
 
   // Styling (transparent by default if no color is set)
   const backgroundColor = styling?.backgroundColor ?? 'transparent'
@@ -72,7 +64,7 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
       }}
     >
       <div className="container mx-auto">
-        <div className={`${paddingClasses} flex justify-between items-center`}>
+        <div className="flex justify-between items-center py-4">
           <Link href={logoLink} className="flex items-center h-8">
             {logoUrl ? (
               <Image

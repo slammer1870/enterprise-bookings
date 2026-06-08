@@ -108,7 +108,6 @@ export type NavbarData = {
     backgroundColor?: string
     textColor?: string
     sticky?: boolean
-    padding?: string
   }
 }
 
@@ -128,7 +127,6 @@ export type FooterData = {
     backgroundColor?: string
     textColor?: string
     showThemeSelector?: boolean
-    padding?: string
   }
 }
 

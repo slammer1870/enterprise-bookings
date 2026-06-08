@@ -179,17 +179,6 @@ export const Navbar: CollectionConfig = {
                         description: 'Make header stick to top when scrolling',
                     },
                 },
-                {
-                    name: 'padding',
-                    type: 'select',
-                    label: 'Padding',
-                    options: [
-                        { label: 'Small', value: 'small' },
-                        { label: 'Medium', value: 'medium' },
-                        { label: 'Large', value: 'large' },
-                    ],
-                    defaultValue: 'medium',
-                },
             ],
         },
     ],

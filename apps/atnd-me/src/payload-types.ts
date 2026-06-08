@@ -2804,7 +2804,6 @@ export interface Navbar {
      * Make header stick to top when scrolling
      */
     sticky?: boolean | null;
-    padding?: ('small' | 'medium' | 'large') | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -2870,10 +2869,6 @@ export interface Footer {
      * Display theme selector in footer
      */
     showThemeSelector?: boolean | null;
-    /**
-     * Match navbar padding so edges align
-     */
-    padding?: ('small' | 'medium' | 'large') | null;
   };
   updatedAt: string;
   createdAt: string;
@@ -4892,7 +4887,6 @@ export interface NavbarSelect<T extends boolean = true> {
         backgroundColor?: T;
         textColor?: T;
         sticky?: T;
-        padding?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -4927,7 +4921,6 @@ export interface FooterSelect<T extends boolean = true> {
         backgroundColor?: T;
         textColor?: T;
         showThemeSelector?: T;
-        padding?: T;
       };
   updatedAt?: T;
   createdAt?: T;

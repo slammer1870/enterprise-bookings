@@ -7,6 +7,7 @@ import { HeroBlock } from './hero'
 import { ScheduleBlock } from './schedule'
 import { LocationBlock } from './location'
 import { FaqsBlock } from '@repo/website/src/blocks/faqs'
+import { getRenderBlockWrapperClassName } from '@repo/website/src/blocks/getRenderBlockWrapperClassName'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -31,9 +32,10 @@ export const RenderBlocks: React.FC<{
             const Block = blockComponents[blockType as keyof typeof blockComponents]
 
             if (Block) {
+              const wrapperClassName = getRenderBlockWrapperClassName(blockType)
               return (
-                <div key={index}>
-                  <Block {...block} disableInnerContainer />
+                <div key={index} className={wrapperClassName}>
+                  <Block {...block} />
                 </div>
               )
             }

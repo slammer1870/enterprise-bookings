@@ -47,7 +47,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
   }
 
   return (
-    <div className="container mx-auto max-w-screen-sm flex flex-col gap-6 px-4 py-12 min-h-screen pt-24">
+    <div className="container mx-auto max-w-screen-sm flex flex-col gap-6 py-12 min-h-screen pt-24">
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-semibold">Thank you!</h1>
         <p className="text-muted-foreground">

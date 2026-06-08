@@ -87,7 +87,7 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
     }
 
     return (
-      <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 px-4 py-8 min-h-screen pt-24">
+      <div className="container mx-auto max-w-screen-sm flex flex-col gap-4 py-8 min-h-screen pt-24">
         <ManageBookingPageClient
           timeslot={timeslot}
           initialBookings={userBookings}

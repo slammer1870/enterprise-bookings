@@ -125,7 +125,6 @@ export const HeaderNav: React.FC<{
   const { theme: siteTheme } = useTheme()
   const navItems = data?.navItems || []
   const hasNavLinks = navItems.length > 0
-  const mobilePadding = data?.styling?.padding || 'medium'
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [mobileMounted, setMobileMounted] = React.useState(false)
@@ -301,8 +300,7 @@ export const HeaderNav: React.FC<{
             <button
               type="button"
               className={cn(
-                'absolute z-20 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
-                mobilePadding === 'small' ? 'top-4 right-4' : 'top-8 right-8',
+                'absolute top-4 right-4 z-20 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm',
               )}
               aria-label="Close menu"
               onClick={closeMobileMenu}

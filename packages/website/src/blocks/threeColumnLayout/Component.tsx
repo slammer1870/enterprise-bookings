@@ -48,12 +48,8 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
 
   return (
     <section className="container mx-auto">
-      <div className="px-4 md:px-8">
-        {/* Small screens: single column stack */}
-        {/* Medium screens: 2 columns on first row, 1 centered on second row */}
-        {/* Large screens: 3 columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {blocks.map((block, index) => {
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {blocks.map((block, index) => {
             const { blockType, id } = block
 
             if (blockType && blockType in blockComponents) {
@@ -67,10 +63,16 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
                   <div key={blockKey} className={blockClasses}>
                     {index >= 2 ? (
                       <div className="w-full max-w-md mx-auto">
-                        <Block {...block} disableInnerContainer />
+                        <Block
+                          {...block}
+                          {...(blockType === 'twoColumnLayout' ? { nested: true } : {})}
+                        />
                       </div>
                     ) : (
-                      <Block {...block} disableInnerContainer />
+                      <Block
+                        {...block}
+                        {...(blockType === 'twoColumnLayout' ? { nested: true } : {})}
+                      />
                     )}
                   </div>
                 )
@@ -78,7 +80,6 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
             }
             return null
           })}
-        </div>
       </div>
     </section>
   )

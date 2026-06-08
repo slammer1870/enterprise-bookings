@@ -14,6 +14,7 @@ import { FormBlock } from '@repo/website/src/blocks/form'
 import { FaqsBlock } from '@repo/website/src/blocks/faqs'
 import { ContentBlock } from '@repo/website/src/blocks/content'
 import { HeroWaitlistBlock } from './hero-waitlist'
+import { getRenderBlockWrapperClassName } from '@repo/website/src/blocks/getRenderBlockWrapperClassName'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -45,9 +46,12 @@ export const RenderBlocks: React.FC<{
             const Block = blockComponents[blockType as keyof typeof blockComponents]
 
             if (Block) {
+              // Edge-bleed images use absolute positioning to the viewport edge.
+              const wrapperClassName =
+                blockType === 'about' ? undefined : getRenderBlockWrapperClassName(blockType)
               return (
-                <div key={index}>
-                  <Block {...block} disableInnerContainer />
+                <div key={index} className={wrapperClassName}>
+                  <Block {...block} />
                 </div>
               )
             }

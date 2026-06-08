@@ -65,7 +65,7 @@ export default async function NotFound() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-      <div className="container mx-auto px-4 py-16 text-center">
+      <div className="container mx-auto py-16 text-center">
         <h1 className="text-6xl font-bold mb-4">404</h1>
 
         <h2 className="text-3xl font-semibold mb-4">Page Not Found</h2>

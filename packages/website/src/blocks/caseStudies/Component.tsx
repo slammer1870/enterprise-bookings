@@ -37,7 +37,6 @@ interface CaseStudiesBlockProps {
   layout?: 'grid' | 'carousel'
   backgroundColor?: 'default' | 'subtle' | 'muted'
   className?: string
-  disableInnerContainer?: boolean
 }
 
 function mediaUrl(resource: MediaResource | undefined): string | null {
@@ -128,7 +127,6 @@ export const CaseStudiesBlock: React.FC<CaseStudiesBlockProps> = ({
   layout = 'grid',
   backgroundColor = 'default',
   className,
-  disableInnerContainer,
 }) => {
   const bgColorClasses = {
     default: 'bg-background',
@@ -148,11 +146,7 @@ export const CaseStudiesBlock: React.FC<CaseStudiesBlockProps> = ({
         className,
       )}
     >
-      <div
-        className={cn(
-          disableInnerContainer ? 'px-4 md:px-6 lg:px-8' : 'container',
-        )}
-      >
+      <div className="w-full">
         {(heading || description) && (
           <div className="text-center max-w-3xl mx-auto mb-16">
             {heading && (
