@@ -96,7 +96,6 @@ export const HeroScheduleBlock: React.FC<HeroScheduleBlockProps> = ({
                     logo={transformedLogo}
                     title={title || undefined}
                     links={links || undefined}
-                    disableInnerContainer={true}
                 />
             </div>
 

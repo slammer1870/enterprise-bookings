@@ -31,7 +31,7 @@ export const FaqsBlock = (props: FaqsBlockProps) => {
   )
 
   return (
-    <section className="container py-12">
+    <section className="w-full pt-12 pb-12 lg:py-12">
       <div className="max-w-3xl mx-auto">
         {contentElement}
       </div>

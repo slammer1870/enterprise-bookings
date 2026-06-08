@@ -62,7 +62,7 @@ export const DhGroupsBlock: React.FC<GroupsBlockProps> = ({ heroImage, benefits,
   const heroImageUrl = getImageUrl(heroImage)
 
   return (
-    <div className="container mx-auto min-w-0 p-4 pt-28">
+    <div className="w-full min-w-0 pt-28">
       <h1 className="mb-4 text-2xl font-medium md:mb-8 md:text-3xl">Personal Training</h1>
       <div className="grid min-w-0 gap-4 md:grid-cols-2 md:gap-x-40 md:gap-y-12">
         <div className="relative mb-6 aspect-video min-w-0 overflow-hidden rounded md:mb-0">

@@ -13,7 +13,8 @@ export type TwoColumnLayoutBlockProps = {
   rightColumnHeading?: string | null
   leftBlocks?: NestedBlock[]
   rightBlocks?: NestedBlock[]
-  disableInnerContainer?: boolean
+  /** When nested inside a layout block, stack columns vertically. */
+  nested?: boolean
   blockType?: string
   id?: string
   blockName?: string
@@ -39,7 +40,7 @@ function renderColumnBlocks(blocks: NestedBlock[] | undefined) {
           return null
         }
         const key = id ?? `nested-${index}`
-        return <Block key={key} {...block} disableInnerContainer />
+        return <Block key={key} {...block} {...(blockType === 'twoColumnLayout' ? { nested: true } : {})} />
       })}
     </div>
   )
@@ -50,7 +51,7 @@ export const TwoColumnLayoutBlock: React.FC<TwoColumnLayoutBlockProps> = ({
   rightColumnHeading = 'Column two',
   leftBlocks,
   rightBlocks,
-  disableInnerContainer,
+  nested,
 }) => {
   const left = renderColumnBlocks(leftBlocks)
   const right = renderColumnBlocks(rightBlocks)
@@ -59,12 +60,10 @@ export const TwoColumnLayoutBlock: React.FC<TwoColumnLayoutBlockProps> = ({
     return null
   }
 
-  // When nested inside another layout block, always stack vertically and omit the
-  // standalone top padding that clears the fixed header.
-  const gridClass = disableInnerContainer ? 'grid grid-cols-1 gap-1 items-start' : 'grid grid-cols-1 gap-1 items-start md:grid-cols-2 md:gap-4'
-  const wrapperClass = disableInnerContainer
-    ? 'w-full pt-12'
-    : 'container mx-auto pt-24 sm:pt-28'
+  const gridClass = nested
+    ? 'grid grid-cols-1 gap-1 items-start'
+    : 'grid grid-cols-1 gap-1 items-start md:grid-cols-2 md:gap-4'
+  const wrapperClass = nested ? 'w-full pt-12' : 'container mx-auto pt-24 sm:pt-28'
 
   return (
     <section className={wrapperClass}>

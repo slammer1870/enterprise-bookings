@@ -66,8 +66,8 @@ export const BruHeroWaitlistBlock: React.FC<{
         />
       )}
       <div className="relative lg:absolute inset-0 bg-white/50">
-        <div className="container relative mx-auto grid grid-cols-1 items-center gap-8 pt-8 pb-12 lg:min-h-screen lg:grid-cols-2 lg:gap-12 lg:py-20">
-          <div className="mx-auto w-full max-w-md justify-self-center p-12 lg:mx-0 lg:justify-self-auto lg:p-0 lg:flex lg:justify-center">
+        <div className="container relative mx-auto grid grid-cols-1 items-center content-center gap-4 pt-8 pb-12 lg:min-h-screen lg:grid-cols-2 lg:gap-12 lg:py-20">
+          <div className="mx-auto w-full max-w-md justify-self-center p-4 lg:mx-0 lg:justify-self-auto lg:p-0 lg:flex lg:justify-center">
             {logoUrl && (
               <Image
                 src={logoUrl}

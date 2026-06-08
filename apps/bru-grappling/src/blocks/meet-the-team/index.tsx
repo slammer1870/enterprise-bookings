@@ -18,7 +18,7 @@ type Props = {
 export const MeetTheTeamBlock: React.FC<Props> = ({ teamMembers }) => {
   return (
     <section>
-      <div className="container mx-auto px-4 py-20">
+      <div className="w-full py-20">
         <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">
           Meet the team
         </h3>

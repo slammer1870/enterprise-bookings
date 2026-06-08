@@ -19,7 +19,7 @@ type Props = {
 export const TestimonialsBlock: React.FC<Props> = ({ title, testimonials }) => {
   return (
     <section>
-      <div className="container mx-auto px-4 pt-20">
+      <div className="w-full pt-20">
         <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">
           {title}
         </h3>

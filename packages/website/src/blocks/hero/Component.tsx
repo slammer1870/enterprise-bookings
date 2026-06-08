@@ -28,7 +28,6 @@ interface HeroBlockProps {
       }
     }
   }>
-  disableInnerContainer?: boolean
 }
 
 export const HeroBlock: React.FC<HeroBlockProps> = ({
@@ -36,7 +35,6 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
   logo,
   title,
   links,
-  disableInnerContainer: _disableInnerContainer,
 }) => {
   const bgImageUrl =
     typeof backgroundImage === 'object' && backgroundImage?.url

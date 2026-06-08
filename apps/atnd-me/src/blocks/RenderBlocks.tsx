@@ -3,6 +3,7 @@ import React, { Fragment } from 'react'
 import type { Page } from '@/payload-types'
 
 import { blockComponents } from './blockComponents'
+import { getRenderBlockWrapperClassName } from '@repo/website/src/blocks/getRenderBlockWrapperClassName'
 import { registerBlockComponents } from '@repo/website/src/blocks/threeColumnLayout'
 
 // Register block components on the server side
@@ -26,11 +27,10 @@ export const RenderBlocks: React.FC<{
             const Block = blockComponents[blockType as keyof typeof blockComponents]
 
             if (Block) {
-              // Layout blocks provide their own outer container (max-width, header offset).
-              const isLayoutBlock = blockType === 'twoColumnLayout' || blockType === 'threeColumnLayout'
+              const wrapperClassName = getRenderBlockWrapperClassName(blockType)
               return (
-                <div key={index}>
-                  <Block {...block} {...(isLayoutBlock ? {} : { disableInnerContainer: true })} />
+                <div key={index} className={wrapperClassName}>
+                  <Block {...block} />
                 </div>
               )
             }

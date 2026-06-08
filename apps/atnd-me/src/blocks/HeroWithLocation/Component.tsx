@@ -38,7 +38,6 @@ interface HeroWithLocationBlockProps {
   socialFollowUrl?: string | null
   /** Croí Lán hero: paragraph below primary CTAs */
   introTagline?: string | null
-  disableInnerContainer?: boolean
 }
 
 function resolveMediaUrl(
@@ -132,7 +131,6 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
   socialFollowLabel,
   socialFollowUrl,
   introTagline,
-  disableInnerContainer: _disableInnerContainer,
 }) => {
   const bgUrl = resolveMediaUrl(backgroundImage)
   const logoUrl = resolveMediaUrl(logo)

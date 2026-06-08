@@ -11,6 +11,7 @@ import { ContactBlock } from './contact'
 import { GroupsBlock } from './groups'
 
 import { FormBlock } from '@repo/website/src/blocks/form/index'
+import { getRenderBlockWrapperClassName } from '@repo/website/src/blocks/getRenderBlockWrapperClassName'
 
 const blockComponents = {
   hero: HeroBlock,
@@ -39,9 +40,10 @@ export const RenderBlocks: React.FC<{
             const Block = blockComponents[blockType as keyof typeof blockComponents]
 
             if (Block) {
+              const wrapperClassName = getRenderBlockWrapperClassName(blockType)
               return (
-                <div key={index}>
-                  <Block {...block} disableInnerContainer />
+                <div key={index} className={wrapperClassName}>
+                  <Block {...block} />
                 </div>
               )
             }

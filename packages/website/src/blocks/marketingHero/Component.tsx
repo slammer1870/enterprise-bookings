@@ -20,7 +20,6 @@ interface MarketingHeroBlockProps {
   alignment?: 'left' | 'center' | 'right'
   backgroundColor?: 'default' | 'subtle' | 'muted'
   className?: string
-  disableInnerContainer?: boolean
 }
 
 function mediaUrl(resource: MediaResource | undefined): string | null {
@@ -39,7 +38,6 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
   alignment = 'center',
   backgroundColor = 'default',
   className,
-  disableInnerContainer,
 }) => {
   const alignmentClasses = {
     left: 'text-left items-start',
@@ -76,12 +74,7 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
         </div>
       )}
 
-      <div
-        className={cn(
-          disableInnerContainer ? 'px-4 md:px-6 lg:px-8' : 'container',
-          'relative z-10',
-        )}
-      >
+      <div className="container relative z-10">
         <div
           className={cn(
             'flex flex-col gap-8 max-w-4xl',

@@ -11,6 +11,8 @@ import { MarketingHeroBlock } from '@repo/website/src/blocks/marketingHero'
 import { FeaturesBlock } from '@repo/website/src/blocks/features'
 import { CaseStudiesBlock } from '@repo/website/src/blocks/caseStudies'
 import { MarketingCtaBlock } from '@repo/website/src/blocks/marketingCta'
+import { getRenderBlockWrapperClassName } from '@repo/website/src/blocks/getRenderBlockWrapperClassName'
+import { cn } from '@/utilities/ui'
 
 const blockComponents = {
   archive: ArchiveBlock,
@@ -41,10 +43,11 @@ export const RenderBlocks: React.FC<{
             const Block = blockComponents[blockType]
 
             if (Block) {
+              const wrapperClassName = getRenderBlockWrapperClassName(blockType)
               return (
-                <div className="my-16" key={index}>
+                <div className={cn('my-16', wrapperClassName)} key={index}>
                   {/* @ts-expect-error there may be some mismatch between the expected types here */}
-                  <Block {...block} disableInnerContainer />
+                  <Block {...block} />
                 </div>
               )
             }

@@ -63,10 +63,16 @@ export const ThreeColumnLayoutBlock: React.FC<ThreeColumnLayoutBlockProps> = (pr
                   <div key={blockKey} className={blockClasses}>
                     {index >= 2 ? (
                       <div className="w-full max-w-md mx-auto">
-                        <Block {...block} disableInnerContainer />
+                        <Block
+                          {...block}
+                          {...(blockType === 'twoColumnLayout' ? { nested: true } : {})}
+                        />
                       </div>
                     ) : (
-                      <Block {...block} disableInnerContainer />
+                      <Block
+                        {...block}
+                        {...(blockType === 'twoColumnLayout' ? { nested: true } : {})}
+                      />
                     )}
                   </div>
                 )

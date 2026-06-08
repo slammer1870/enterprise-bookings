@@ -14,7 +14,7 @@ export function ToggleDate(props: ToggleDateProps) {
 
   return (
     <>
-      <div className="mx-auto mb-8 flex w-full max-w-screen-sm items-center justify-between gap-4 px-4 text-foreground">
+      <div className="mx-auto mb-8 flex w-full max-w-screen-sm items-center justify-between gap-4 text-foreground">
         <svg
           onClick={() => handleChange(-1)}
           viewBox="0 0 13 15"

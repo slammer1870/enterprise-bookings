@@ -73,7 +73,7 @@ export const BruHeroBlock: React.FC<{
         />
       )}
       <div className="absolute inset-0 bg-white/50">
-        <div className="container relative mx-auto grid min-h-screen grid-cols-1 items-center gap-4 py-20 lg:mb-0 lg:grid-cols-2">
+        <div className="container relative mx-auto grid min-h-screen grid-cols-1 items-center content-center gap-4 py-12 lg:mb-0 lg:grid-cols-2 lg:gap-4 lg:py-20">
           <div className="mx-auto w-2/3 justify-self-center lg:mx-0 lg:w-full lg:justify-self-auto xl:w-auto">
             {logoUrl && (
               <Image

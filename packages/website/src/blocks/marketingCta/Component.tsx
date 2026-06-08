@@ -19,7 +19,6 @@ interface MarketingCtaBlockProps {
   variant?: 'default' | 'highlighted' | 'bordered'
   alignment?: 'left' | 'center' | 'right'
   className?: string
-  disableInnerContainer?: boolean
 }
 
 function mediaUrl(resource: MediaResource | undefined): string | null {
@@ -37,7 +36,6 @@ export const MarketingCtaBlock: React.FC<MarketingCtaBlockProps> = ({
   variant = 'default',
   alignment = 'center',
   className,
-  disableInnerContainer,
 }) => {
   const alignmentClasses = {
     left: 'text-left items-start',
@@ -67,11 +65,7 @@ export const MarketingCtaBlock: React.FC<MarketingCtaBlockProps> = ({
         </div>
       )}
 
-      <div
-        className={cn(
-          disableInnerContainer ? 'px-4 md:px-6 lg:px-8' : 'container',
-        )}
-      >
+      <div className="w-full">
         <div
           className={cn(
             'relative z-10 p-12 md:p-16 rounded-2xl',

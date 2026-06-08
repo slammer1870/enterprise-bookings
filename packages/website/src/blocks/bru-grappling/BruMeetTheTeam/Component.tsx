@@ -32,7 +32,7 @@ export const BruMeetTheTeamBlock: React.FC<{
 }> = ({ teamMembers }) => {
   return (
     <section>
-      <div className="container mx-auto py-20">
+      <div className="w-full pt-12 pb-0 lg:py-20">
         <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">
           Meet the team
         </h3>
@@ -42,7 +42,7 @@ export const BruMeetTheTeamBlock: React.FC<{
             return (
               <div
                 key={member.name}
-                className={`mb-4 w-full py-4 ${index % 2 === 0 ? 'pr-4' : ''} md:w-1/2`}
+                className={`mb-4 w-full py-4 last:mb-0 last:pb-0 ${index % 2 === 0 ? 'pr-4' : ''} md:w-1/2`}
               >
                 <div className="relative mx-auto mb-4 h-36 w-36 md:mb-8">
                   {imageUrl && (
