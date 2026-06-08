@@ -42,9 +42,9 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
 
   // Padding classes
   const paddingClasses = {
-    small: 'p-4',
-    medium: 'p-8',
-    large: 'p-8 lg:p-12',
+    small: 'py-4',
+    medium: 'py-8',
+    large: 'py-8 lg:py-12',
   }[padding]
 
   // Styling (transparent by default if no color is set)
