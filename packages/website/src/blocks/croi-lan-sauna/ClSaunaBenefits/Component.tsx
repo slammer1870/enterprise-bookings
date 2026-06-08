@@ -120,7 +120,7 @@ export const ClSaunaBenefitsBlock: React.FC<{
           aria-hidden
         />
 
-        <div className="relative mx-auto w-full max-w-6xl px-4 md:px-6">
+        <div className="container relative mx-auto max-w-6xl">
           {(tagline || sectionTitle) && (
             <div className="text-center">
               {tagline ? <div className="text-[0.72rem] tracking-[0.18em] text-[#d4a373]/90">{tagline}</div> : null}

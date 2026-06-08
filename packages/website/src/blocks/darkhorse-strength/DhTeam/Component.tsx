@@ -39,7 +39,7 @@ export const DhTeamBlock: React.FC<TeamProps> = ({
 }) => {
   return (
     <section className="body-font text-gray-900">
-      <div className="container mx-auto flex flex-col px-5 py-12">
+      <div className="container mx-auto flex flex-col py-12">
         <h5 className="mb-8 text-3xl font-medium ">{title}</h5>
         <div className="mx-auto">
           <div className="relative h-80 w-full overflow-hidden rounded-lg md:h-64">

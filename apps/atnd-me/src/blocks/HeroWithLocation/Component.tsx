@@ -173,7 +173,7 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
         ) : null}
       </div>
 
-      {/* Align with HeaderClient: `container mx-auto` + inner padding; pt clears absolute header; items align to top */}
+      {/* Align with HeaderClient: `container mx-auto`; pt clears absolute header */}
       <div className="relative z-10 flex min-h-[500px] w-full flex-col md:min-h-[700px]">
         <div className="container mx-auto flex w-full flex-1 flex-col md:min-h-[700px]">
           <div className="flex min-h-[500px] flex-1 flex-col gap-8 pb-10 pt-28 md:min-h-[700px] md:flex-row md:items-start md:gap-8 md:pb-8 md:pt-32 lg:gap-12 lg:pt-32">

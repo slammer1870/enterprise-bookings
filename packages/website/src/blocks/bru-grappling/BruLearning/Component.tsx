@@ -34,7 +34,7 @@ export const BruLearningBlock: React.FC<{
   const imageUrl = getImageUrl(image)
   return (
     <section className="py-20">
-      <div className="container mx-auto items-center justify-between px-4 lg:flex">
+      <div className="container mx-auto items-center justify-between lg:flex">
         <div className="mb-12 pr-4 lg:mb-0">
           <h3 className="mb-8 text-2xl font-medium uppercase text-gray-800 lg:text-3xl">{title}</h3>
           <RichText data={content} className="prose" />

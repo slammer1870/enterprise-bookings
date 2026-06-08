@@ -14,7 +14,7 @@ export default function BookingPageError({
   reset: () => void
 }) {
   return (
-    <div className="container mx-auto max-w-screen-sm px-4 py-8 pt-24 min-h-screen flex flex-col gap-4">
+    <div className="container mx-auto max-w-screen-sm py-8 pt-24 min-h-screen flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Booking page error</h1>
       <p className="text-muted-foreground">
         Something went wrong loading this booking. You can try again or go back to the home page.

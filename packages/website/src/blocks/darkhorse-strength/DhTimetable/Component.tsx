@@ -26,7 +26,7 @@ export const DhTimetableBlock: React.FC<TimetableProps> = ({
 }) => {
   return (
     <section>
-      <div className="container mx-auto px-5 py-12 text-foreground">
+      <div className="container mx-auto py-12 text-foreground">
         <div className="mb-4 flex w-full flex-col">
           <h5 className="mb-4 text-3xl font-medium">{title}</h5>
           <p className="text-base leading-relaxed text-gray-600">{description}</p>

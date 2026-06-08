@@ -42,10 +42,10 @@ export const BruAboutBlock: React.FC<{
             className="relative flex flex-col items-center justify-center py-20 lg:min-h-screen lg:flex-row overflow-hidden"
           >
             <div
-              className={`container mx-auto mb-12 px-4 lg:mb-0 lg:relative lg:z-10 ${
+              className={`container mx-auto mb-12 lg:mb-0 lg:relative lg:z-10 ${
                 isLeft
-                  ? 'lg:flex lg:order-2 lg:pl-[calc(33.333%+2rem)] lg:pr-4'
-                  : 'lg:order-1 lg:pr-[calc(33.333%+2rem)] lg:pl-4'
+                  ? 'lg:flex lg:order-2 lg:pl-[calc(33.333%+2rem)]'
+                  : 'lg:order-1 lg:pr-[calc(33.333%+2rem)]'
               }`}
             >
               <div className={`${isLeft ? 'lg:ml-auto lg:w-2/3 xl:w-auto' : ''}`}>

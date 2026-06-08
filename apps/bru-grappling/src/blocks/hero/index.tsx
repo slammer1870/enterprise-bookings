@@ -37,9 +37,9 @@ export const HeroBlock: React.FC<{
           objectFit: 'cover',
         }}
       />
-      <div className="absolute flex h-full w-full items-center justify-center bg-white/50">
-        <div className="container relative mx-auto flex min-h-screen flex-col flex-wrap items-center justify-start py-20 px-4 lg:-mt-20 lg:mb-0 lg:flex-row gap-4">
-          <div className="mx-auto w-2/3 lg:w-1/2 xl:w-auto">
+      <div className="absolute inset-0 bg-white/50">
+        <div className="container relative mx-auto grid min-h-screen grid-cols-1 items-center gap-4 py-20 lg:-mt-20 lg:mb-0 lg:grid-cols-2">
+          <div className="mx-auto w-2/3 justify-self-center lg:mx-0 lg:w-full lg:justify-self-auto xl:w-auto">
             <OptimizedImage
               media={logo}
               height={600}
@@ -53,18 +53,18 @@ export const HeroBlock: React.FC<{
               }}
             />
           </div>
-          <div className="lg:w-1/2">
+          <div className="w-full min-w-0">
             <div className="mb-8 lg:mb-0">
               <h1 className="text-lg font-medium text-gray-700">{title}</h1>
               <h2 className="mb-2 text-3xl font-medium uppercase leading-snug">{subtitle}</h2>
               <h3 className="mb-8 text-xl text-gray-700">{description}</h3>
             </div>
-            <div className="flex w-full flex-col lg:flex-row gap-4">
+            <div className="flex w-full flex-col gap-4 sm:flex-row">
               <Button
                 asChild
                 variant="default"
                 size="lg"
-                className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium"
+                className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium sm:flex-1"
                 onClick={() => {
                   trackEvent('Trial Button Clicked')
                 }}
@@ -72,7 +72,7 @@ export const HeroBlock: React.FC<{
                 <Link href={primaryButton.link}>{primaryButton.text}</Link>
               </Button>
               {secondaryButton?.link && secondaryButton.text && (
-                <Button asChild variant="secondary" size="lg" className="w-full font-medium">
+                <Button asChild variant="secondary" size="lg" className="w-full font-medium sm:flex-1">
                   <Link href={secondaryButton.link}>{secondaryButton.text}</Link>
                 </Button>
               )}

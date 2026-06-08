@@ -9,7 +9,7 @@ export const ClMissionBlock: React.FC<{
 }> = ({ heading, lede, body }) => {
   return (
     <section className="w-full bg-white py-16 md:py-24">
-      <div className="container mx-auto max-w-3xl px-6">
+      <div className="container mx-auto max-w-3xl">
         <h2 className="text-center text-3xl font-semibold tracking-tight text-stone-900 md:text-4xl">
           {heading}
         </h2>

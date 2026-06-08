@@ -64,18 +64,18 @@ export const TwoColumnLayoutBlock: React.FC<TwoColumnLayoutBlockProps> = ({
   const gridClass = disableInnerContainer ? 'grid grid-cols-1 gap-1 items-start' : 'grid grid-cols-1 gap-1 items-start md:grid-cols-2 md:gap-4'
   const wrapperClass = disableInnerContainer
     ? 'w-full pt-12'
-    : 'mx-auto w-full max-w-7xl px-4 pt-24 sm:pt-28'
+    : 'container mx-auto pt-24 sm:pt-28'
 
   return (
     <section className={wrapperClass}>
       <div className={gridClass}>
-        <div className="w-full px-2 pb-2">
+        <div className="w-full pb-2">
           {leftColumnHeading ? (
             <h2 className="mb-3 text-center text-2xl font-medium">{leftColumnHeading}</h2>
           ) : null}
           {left}
         </div>
-        <div className="w-full px-2 pb-2">
+        <div className="w-full pb-2">
           {rightColumnHeading ? (
             <h2 className="mb-3 text-center text-2xl font-medium">{rightColumnHeading}</h2>
           ) : null}

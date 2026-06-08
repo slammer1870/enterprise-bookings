@@ -27,14 +27,14 @@ export const SectionTaglineBlock: React.FC<SectionTaglineBlockProps> = ({
   if (disableInnerContainer) {
     return (
       <section className="w-full py-8">
-        <div className="max-w-4xl mx-auto px-8">{content}</div>
+        <div className="max-w-4xl mx-auto">{content}</div>
       </section>
     )
   }
 
   return (
     <section className="container py-8">
-      <div className="max-w-4xl mx-auto px-8">{content}</div>
+      <div className="max-w-4xl mx-auto">{content}</div>
     </section>
   )
 }

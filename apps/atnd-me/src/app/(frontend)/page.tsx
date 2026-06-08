@@ -81,7 +81,7 @@ export default async function RootPage() {
     // To make this editable: Create a page with slug "root" and leave tenant field empty (admin can do this)
     return (
       <div className="min-h-screen bg-background text-foreground">
-        <div className="container mx-auto px-4 py-16">
+        <div className="container mx-auto py-16">
           <div className="max-w-4xl mx-auto text-center">
             <h1 className="text-5xl font-bold mb-6">
               Welcome to ATND ME

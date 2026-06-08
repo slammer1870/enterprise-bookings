@@ -63,14 +63,14 @@ export const MissionElementsBlock: React.FC<{
   if (disableInnerContainer) {
     return (
       <section className="w-full py-12">
-        <div className="max-w-6xl mx-auto px-8">{content}</div>
+        <div className="max-w-6xl mx-auto">{content}</div>
       </section>
     )
   }
 
   return (
     <section className="container py-12">
-      <div className="max-w-6xl mx-auto px-8">{content}</div>
+      <div className="max-w-6xl mx-auto">{content}</div>
     </section>
   )
 }
