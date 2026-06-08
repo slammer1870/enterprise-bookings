@@ -60,11 +60,11 @@ export const BruAboutBlock: React.FC<{
             </div>
 
             <div
-              className={`w-2/3 lg:absolute lg:w-1/3 2xl:w-auto lg:h-full lg:z-0 lg:top-0 ${
+              className={`w-2/3 shrink-0 lg:absolute lg:inset-y-0 lg:z-0 lg:w-1/3 ${
                 !isLeft ? 'mr-0 ml-auto lg:right-0' : 'ml-0 mr-auto lg:left-0'
               }`}
             >
-              <div className="relative overflow-hidden w-full h-full min-h-[240px]">
+              <div className="relative h-full min-h-[240px] w-full overflow-hidden">
                 {imageUrl && (
                   <Image
                     src={imageUrl}
