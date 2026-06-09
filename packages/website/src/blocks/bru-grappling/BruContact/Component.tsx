@@ -22,7 +22,7 @@ export const BruContactBlock: React.FC<{
   }
 }> = ({ title, description, form }) => {
   return (
-    <section id="contact" className="z-10 pt-12 pb-0 lg:py-24">
+    <section id="contact" className="z-10 py-12 lg:py-24">
       <div className="w-full lg:flex lg:items-center lg:gap-16">
         <div className="mb-6 lg:mb-0 lg:flex-1">
           <h3 className="mb-2 text-xl font-medium lg:text-3xl">{title}</h3>
