@@ -40,7 +40,9 @@ interface CfCustomHostname {
   }
   ssl?: {
     status: string
+    method?: string
     validation_records?: CfSslValidationRecord[]
+    dcv_delegation_records?: CfSslValidationRecord[]
   }
 }
 
@@ -83,6 +85,11 @@ function getConfig(): { token: string; zoneId: string } | null {
   return { token, zoneId }
 }
 
+/** True when Cloudflare TLS for SaaS API credentials are available. */
+export function isCloudflareConfigured(): boolean {
+  return getConfig() != null
+}
+
 function authHeaders(token: string) {
   return {
     Authorization: `Bearer ${token}`,
@@ -96,6 +103,44 @@ function extractResult(record: CfCustomHostname): CustomHostnameResult {
     verificationTxtValue: record.ownership_verification?.value ?? '',
     status: record.status,
   }
+}
+
+function toHostnameStatus(s: string): HostnameVerificationStatus {
+  if (['active', 'staging_active', 'backup_issued'].includes(s)) return 'active'
+  if (['pending', 'initializing', 'pending_validation', 'pending_issuance', 'pending_deployment'].includes(s)) {
+    return 'pending'
+  }
+  if (['blocked', 'moved', 'deleted'].includes(s)) return 'error'
+  return 'unknown'
+}
+
+function extractSslValidationRecords(record: CfCustomHostname): SslValidationRecord[] {
+  const sources = [
+    ...(record.ssl?.validation_records ?? []),
+    ...(record.ssl?.dcv_delegation_records ?? []),
+  ]
+
+  return sources
+    .filter((r) => r.txt_name && r.txt_value)
+    .map((r) => ({
+      status: toHostnameStatus(r.status),
+      txtName: r.txt_name,
+      txtValue: r.txt_value,
+    }))
+}
+
+async function fetchCustomHostnameById(
+  zoneId: string,
+  token: string,
+  id: string,
+): Promise<CfCustomHostname | null> {
+  const res = await fetch(`${CF_API}/zones/${zoneId}/custom_hostnames/${id}`, {
+    headers: authHeaders(token),
+    cache: 'no-store',
+  })
+  if (!res.ok) return null
+  const body = (await res.json()) as CfApiResponse<CfCustomHostname>
+  return body.result ?? null
 }
 
 /**
@@ -152,6 +197,22 @@ export async function createOrGetCustomHostname(
     if (!existing) {
       throw new Error(`Cloudflare: hostname ${hostname} reported as existing but not found in list`)
     }
+
+    // Re-trigger TXT DCV for apex hostnames created earlier with HTTP validation.
+    if (isApex && existing.id) {
+      const patchRes = await fetch(`${CF_API}/zones/${zoneId}/custom_hostnames/${existing.id}`, {
+        method: 'PATCH',
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          ssl: { method: 'txt', type: 'dv', settings: { min_tls_version: '1.0' } },
+        }),
+      })
+      if (patchRes.ok) {
+        const patchBody = (await patchRes.json()) as CfApiResponse<CfCustomHostname>
+        return extractResult(patchBody.result)
+      }
+    }
+
     return extractResult(existing)
   }
 
@@ -178,27 +239,20 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
     if (!res.ok) return null
 
     const body = (await res.json()) as CfApiResponse<CfCustomHostname[]>
-    const record = body.result?.[0]
-    if (!record) return null
+    const listed = body.result?.[0]
+    if (!listed) return null
 
-    const toStatus = (s: string): HostnameVerificationStatus => {
-      if (s === 'active') return 'active'
-      if (['pending', 'initializing', 'pending_validation', 'pending_issuance', 'pending_deployment'].includes(s)) return 'pending'
-      if (['blocked', 'moved', 'deleted'].includes(s)) return 'error'
-      return 'unknown'
-    }
+    // Detail endpoint includes validation_records that the list endpoint may omit.
+    const record =
+      listed.id != null
+        ? (await fetchCustomHostnameById(zoneId, token, listed.id)) ?? listed
+        : listed
 
-    const sslValidationRecords = (record.ssl?.validation_records ?? [])
-      .filter((r) => r.txt_name && r.txt_value)
-      .map((r) => ({
-        status: toStatus(r.status),
-        txtName: r.txt_name,
-        txtValue: r.txt_value,
-      }))
+    const sslValidationRecords = extractSslValidationRecords(record)
 
     return {
-      hostnameStatus: toStatus(record.status),
-      sslStatus: toStatus(record.ssl?.status ?? ''),
+      hostnameStatus: toHostnameStatus(record.status),
+      sslStatus: toHostnameStatus(record.ssl?.status ?? ''),
       rawHostnameStatus: record.status,
       rawSslStatus: record.ssl?.status ?? '',
       ownershipTxtValue: record.ownership_verification?.value ?? null,

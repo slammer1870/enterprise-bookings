@@ -2,7 +2,12 @@ import type { UIFieldServerComponent } from 'payload'
 import { resolve4 } from 'node:dns/promises'
 import React from 'react'
 import { stripFirstLabel } from '@/utilities/validateCustomDomain'
-import { getCustomHostnameStatus, type HostnameVerificationStatus } from '@/lib/cloudflare/customHostnames'
+import { lookupLiveTxtRecords } from '@/lib/cloudflare/apexDnsLookup'
+import {
+  getCustomHostnameStatus,
+  isCloudflareConfigured,
+  type HostnameVerificationStatus,
+} from '@/lib/cloudflare/customHostnames'
 
 // ---------------------------------------------------------------------------
 // Status badge
@@ -55,11 +60,17 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   })()
   const cnameTarget = rootHostname ? `cname.${rootHostname}` : null
 
-  const [cloudflareIps, cfStatus] = await Promise.all([
+  const cfConfigured = isCloudflareConfigured()
+  const acmeHost = `_acme-challenge.${apex}`
+  const ownershipHost = `_cf-custom-hostname.${apex}`
+
+  const [cloudflareIps, cfStatus, liveAcmeRecords, liveOwnershipRecords] = await Promise.all([
     cnameTarget
       ? resolve4(cnameTarget).then((ips) => ips.filter(Boolean).sort()).catch(() => [] as string[])
       : Promise.resolve([] as string[]),
     getCustomHostnameStatus(apex),
+    lookupLiveTxtRecords(acmeHost, false),
+    lookupLiveTxtRecords(ownershipHost, false),
   ])
 
   const apexIps = await resolve4(apex).catch(() => [] as string[])
@@ -68,7 +79,21 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   const aRecordStatus: HostnameVerificationStatus =
     cloudflareIps.length > 0 ? (aRecordActive ? 'active' : 'pending') : 'unknown'
 
-  const acmeRecords = cfStatus?.sslValidationRecords ?? []
+  const sslActive = cfStatus?.sslStatus === 'active'
+
+  // Cloudflare omits validation_records once the cert is active — always supplement from live DNS.
+  let acmeRecords = cfStatus?.sslValidationRecords ?? []
+  if (acmeRecords.length === 0 && liveAcmeRecords.length > 0) {
+    acmeRecords = liveAcmeRecords.map((r) => ({
+      status: sslActive ? ('active' as const) : r.status,
+      txtName: r.host,
+      txtValue: r.value,
+    }))
+  }
+
+  const ownershipFromDns = liveOwnershipRecords[0]?.value ?? null
+  const ownershipValue = verificationToken ?? cfStatus?.ownershipTxtValue ?? ownershipFromDns
+
   const isFullyActive =
     aRecordActive &&
     cfStatus?.hostnameStatus === 'active' &&
@@ -81,6 +106,14 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   return (
     <div style={{ padding: '12px 0' }}>
       <h4 style={{ marginBottom: 4 }}>Apex domain setup</h4>
+
+      {!cfConfigured && (
+        <p style={{ marginBottom: 12, fontSize: 12, color: '#ca8a04', lineHeight: 1.5 }}>
+          Cloudflare API not configured on this server (set <code>CLOUDFLARE_API_TOKEN</code> and{' '}
+          <code>CLOUDFLARE_ZONE_ID</code>). Showing live DNS lookups below; save tenant to register
+          the hostname once credentials are set.
+        </p>
+      )}
 
       {cfIpConflict && (
         <p style={{ marginBottom: 12, fontSize: 12, color: '#ca8a04', lineHeight: 1.5 }}>
@@ -120,7 +153,7 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
               _cf-custom-hostname.{apex}
             </td>
             <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: 11, wordBreak: 'break-all' }}>
-              {verificationToken ?? cfStatus?.ownershipTxtValue ?? (
+              {ownershipValue ?? (
                 <em style={{ color: 'var(--theme-error-500)' }}>
                   Token not yet generated — save this tenant to generate
                 </em>
@@ -149,15 +182,31 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
                 </td>
               </tr>
             ))
+          ) : sslActive ? (
+            <tr>
+              <td style={{ padding: '4px 8px' }}>TXT</td>
+              <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: 11 }}>
+                {acmeHost}
+              </td>
+              <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: 11 }}>
+                <em style={{ color: '#16a34a' }}>Certificate issued — ACME TXT no longer required</em>
+              </td>
+              <td style={{ padding: '4px 8px' }}>Auto</td>
+              <td style={{ padding: '4px 8px' }}>
+                <StatusBadge status="active" />
+              </td>
+            </tr>
           ) : (
             <tr>
               <td style={{ padding: '4px 8px' }}>TXT</td>
               <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: 11 }}>
-                _acme-challenge.{apex}
+                {acmeHost}
               </td>
               <td style={{ padding: '4px 8px', fontFamily: 'monospace', fontSize: 11 }}>
                 <em style={{ color: 'var(--theme-elevation-500)' }}>
-                  {cfStatus ? 'No ACME tokens yet — save tenant and refresh' : 'Save tenant to fetch from Cloudflare'}
+                  {cfConfigured
+                    ? 'Not in DNS yet — Cloudflare will provide the token after tenant save'
+                    : 'Not in DNS yet — configure Cloudflare API env vars and save tenant'}
                 </em>
               </td>
               <td style={{ padding: '4px 8px' }}>Auto</td>
