@@ -47,7 +47,7 @@ export const SimpleAboutBlock: React.FC<Props> = ({
           direction === 'rtl' && 'md:flex-row-reverse',
         )}
       >
-        <div className="w-full min-w-0 md:flex-1 rounded-lg overflow-hidden bg-card">
+        <div className="order-2 w-full min-w-0 rounded-lg overflow-hidden bg-card md:order-none md:flex-1">
           {imageResource ? (
             <ImageMedia
               resource={imageResource as any}
@@ -57,7 +57,7 @@ export const SimpleAboutBlock: React.FC<Props> = ({
           ) : null}
         </div>
 
-        <div className="w-full min-w-0 md:flex-1 text-left" dir="ltr">
+        <div className="order-1 w-full min-w-0 text-left md:order-none md:flex-1" dir="ltr">
           <RichText
             data={content as any}
             enableGutter={false}
