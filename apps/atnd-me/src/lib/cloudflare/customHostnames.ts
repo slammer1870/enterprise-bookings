@@ -22,10 +22,17 @@ export interface CustomHostnameResult {
   status: string
 }
 
+interface CfSslValidationRecord {
+  status: string
+  txt_name: string
+  txt_value: string
+}
+
 interface CfCustomHostname {
   id: string
   hostname: string
   status: string
+  verification_errors?: string[]
   ownership_verification?: {
     type: string
     name: string
@@ -33,10 +40,17 @@ interface CfCustomHostname {
   }
   ssl?: {
     status: string
+    validation_records?: CfSslValidationRecord[]
   }
 }
 
 export type HostnameVerificationStatus = 'active' | 'pending' | 'error' | 'unknown'
+
+export interface SslValidationRecord {
+  status: HostnameVerificationStatus
+  txtName: string
+  txtValue: string
+}
 
 export interface CustomHostnameStatusResult {
   /** Overall hostname routing status — 'active' means traffic is flowing */
@@ -49,6 +63,10 @@ export interface CustomHostnameStatusResult {
   rawSslStatus: string
   /** The ownership TXT value (_cf-custom-hostname) if available */
   ownershipTxtValue: string | null
+  /** ACME DCV TXT records (_acme-challenge) required for apex TXT validation */
+  sslValidationRecords: SslValidationRecord[]
+  /** Cloudflare hostname activation errors, if any */
+  verificationErrors: string[]
 }
 
 interface CfApiResponse<T> {
@@ -85,13 +103,11 @@ function extractResult(record: CfCustomHostname): CustomHostnameResult {
  * or returns the existing one if it is already registered (idempotent).
  *
  * For subdomains (e.g. www.example.com) we use HTTP validation — Cloudflare
- * verifies ownership automatically once the CNAME is pointing to the zone,
- * so the client needs no extra DNS records beyond the CNAME itself.
+ * verifies ownership automatically once the CNAME is pointing to the zone.
  *
- * For apex domains (e.g. example.com) we use TXT validation — apex domains
- * cannot use CNAME so HTTP validation is unavailable. The returned
- * `verificationTxtValue` must be set as a TXT record at
- * `_cf-custom-hostname.{hostname}`.
+ * For apex domains (e.g. example.com) we use TXT validation. The client must
+ * add TXT records at `_cf-custom-hostname.{hostname}` (ownership) and
+ * `_acme-challenge.{hostname}` (SSL DCV) before the A record cutover.
  *
  * @param isApex - true for bare apex domains, false (default) for subdomains
  */
@@ -172,12 +188,22 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
       return 'unknown'
     }
 
+    const sslValidationRecords = (record.ssl?.validation_records ?? [])
+      .filter((r) => r.txt_name && r.txt_value)
+      .map((r) => ({
+        status: toStatus(r.status),
+        txtName: r.txt_name,
+        txtValue: r.txt_value,
+      }))
+
     return {
       hostnameStatus: toStatus(record.status),
       sslStatus: toStatus(record.ssl?.status ?? ''),
       rawHostnameStatus: record.status,
       rawSslStatus: record.ssl?.status ?? '',
       ownershipTxtValue: record.ownership_verification?.value ?? null,
+      sslValidationRecords,
+      verificationErrors: record.verification_errors ?? [],
     }
   } catch {
     return null

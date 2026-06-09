@@ -363,7 +363,7 @@ export const Tenants: CollectionConfig = {
         // and Cloudflare verifies ownership automatically — no TXT token needed.
         const apexActions = collectApexActionsFromHookArgs({ doc, previousDoc, operation })
         if (apexActions.registerDomain) {
-          await createOrGetCustomHostname(apexActions.registerDomain, false).catch((err: unknown) => {
+          await createOrGetCustomHostname(apexActions.registerDomain).catch((err: unknown) => {
             console.error(
               `[Tenants afterChange] Failed to register Cloudflare custom hostname "${apexActions.registerDomain}":`,
               err,
@@ -382,8 +382,6 @@ export const Tenants: CollectionConfig = {
             )
           })
           // Register apex with Cloudflare TLS for SaaS using TXT DCV.
-          // Cloudflare issues and auto-renews the cert independently of the hosting platform —
-          // switching to serverless only requires updating the Cloudflare fallback origin.
           const cfApexResult = await createOrGetCustomHostname(
             apexActions.registerApexApplePay,
             true,
@@ -399,7 +397,6 @@ export const Tenants: CollectionConfig = {
             id: doc.id,
             data: {
               apexDomain: apexActions.apexDomainToStore,
-              // Store the TXT DCV token so the admin UI can show it to the tenant.
               apexDomainVerificationToken: cfApexResult?.verificationTxtValue ?? null,
             },
             req,
