@@ -11,7 +11,7 @@ export const CollectionArchive: React.FC<Props> = (props) => {
   const { posts } = props
 
   return (
-    <div className={cn('w-full')}>
+    <div className={cn('container mx-auto')}>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {posts?.map((result, index) => {
           if (typeof result === 'object' && result !== null) {
