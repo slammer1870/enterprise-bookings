@@ -11,26 +11,23 @@ type LegalPage =
   | null
   | undefined;
 
+function linkFromPage(page: LegalPage, origin: string) {
+  if (!page || typeof page === "number") return undefined;
+  const slug = typeof page.slug === "string" ? page.slug.trim() : "";
+  const title = typeof page.title === "string" ? page.title.trim() : "";
+  if (!slug || !title) return undefined;
+  const base = origin.replace(/\/$/, "");
+  return { label: title, href: `${base}/${slug}` };
+}
+
 function resolveCheckoutLegal(
-  tenant: { checkoutLegal?: {
-    businessTermsPage?: LegalPage;
-    bookingTermsPage?: LegalPage;
-    privacyPage?: LegalPage;
-  } | null } | null | undefined,
+  tenant: {
+    checkoutLegalDocuments?: Array<{ page?: LegalPage }> | null;
+  } | null | undefined,
   origin: string,
 ): CheckoutLegalConfig | undefined {
-  const legal = tenant?.checkoutLegal;
-  if (!legal) return undefined;
-
-  const base = origin.replace(/\/$/, "");
-  const links = [legal.businessTermsPage, legal.bookingTermsPage, legal.privacyPage]
-    .map((page) => {
-      if (!page || typeof page === "number") return undefined;
-      const slug = typeof page.slug === "string" ? page.slug.trim() : "";
-      const title = typeof page.title === "string" ? page.title.trim() : "";
-      if (!slug || !title) return undefined;
-      return { label: title, href: `${base}/${slug}` };
-    })
+  const links = (tenant?.checkoutLegalDocuments ?? [])
+    .map((doc) => linkFromPage(doc.page, origin))
     .filter((link): link is NonNullable<typeof link> => Boolean(link));
 
   return links.length > 0 ? { links } : undefined;
@@ -52,11 +49,7 @@ export function PaymentMethodsConnect(props: ComponentProps<typeof PaymentMethod
         : process.env.NEXT_PUBLIC_SERVER_URL || "";
 
     return resolveCheckoutLegal(
-      tenant as { checkoutLegal?: {
-        businessTermsPage?: LegalPage;
-        bookingTermsPage?: LegalPage;
-        privacyPage?: LegalPage;
-      } | null },
+      tenant as { checkoutLegalDocuments?: Array<{ page?: LegalPage }> | null },
       origin,
     );
   }, [props.timeslot?.tenant]);

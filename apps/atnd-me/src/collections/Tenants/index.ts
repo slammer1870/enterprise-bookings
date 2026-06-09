@@ -299,33 +299,23 @@ export const Tenants: CollectionConfig = {
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
     {
-      name: 'checkoutLegal',
-      type: 'group',
-      label: 'Checkout legal',
-      admin: {
-        description:
-          'CMS pages shown on drop-in checkout (Stripe Payment Element). Membership and class pass use Stripe Checkout.',
-      },
+      name: 'checkoutLegalDocuments',
+      type: 'array',
+      label: 'Checkout legal documents',
       fields: [
         {
-          name: 'businessTermsPage',
+          name: 'page',
           type: 'relationship',
           relationTo: 'pages',
-          label: 'Business terms page',
-        },
-        {
-          name: 'bookingTermsPage',
-          type: 'relationship',
-          relationTo: 'pages',
-          label: 'Booking terms page',
-        },
-        {
-          name: 'privacyPage',
-          type: 'relationship',
-          relationTo: 'pages',
-          label: 'Privacy policy page',
+          required: true,
+          label: 'Page',
         },
       ],
+      admin: {
+        description:
+          'Pages linked below the drop-in payment form. Customers see: “By placing your booking, you agree to our …” — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).',
+        initCollapsed: false,
+      },
     },
   ],
   hooks: {
