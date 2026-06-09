@@ -298,6 +298,35 @@ export const Tenants: CollectionConfig = {
       admin: { description: 'When Connect was linked.' },
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
+    {
+      name: 'checkoutLegal',
+      type: 'group',
+      label: 'Checkout legal',
+      admin: {
+        description:
+          'CMS pages shown on drop-in checkout (Stripe Payment Element). Membership and class pass use Stripe Checkout.',
+      },
+      fields: [
+        {
+          name: 'businessTermsPage',
+          type: 'relationship',
+          relationTo: 'pages',
+          label: 'Business terms page',
+        },
+        {
+          name: 'bookingTermsPage',
+          type: 'relationship',
+          relationTo: 'pages',
+          label: 'Booking terms page',
+        },
+        {
+          name: 'privacyPage',
+          type: 'relationship',
+          relationTo: 'pages',
+          label: 'Privacy policy page',
+        },
+      ],
+    },
   ],
   hooks: {
     afterChange: [

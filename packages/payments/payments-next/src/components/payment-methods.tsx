@@ -18,6 +18,8 @@ import {
   DropInView,
   type FeeBreakdownComponentProps,
 } from "./drop-ins";
+import { CheckoutLegalAcceptance } from "./checkout-legal-acceptance";
+import type { CheckoutLegalConfig } from "../types/checkout-legal";
 import { toast } from "sonner";
 import { getMembershipPlansForView } from "./membership-plan-filter";
 
@@ -63,6 +65,7 @@ type PaymentMethodsProps = {
   onReserveCheckoutHold?: (
     _metadata: Record<string, string>
   ) => Promise<Record<string, string> | void>;
+  checkoutLegal?: CheckoutLegalConfig;
 };
 
 type CheckoutSessionInput = {
@@ -338,6 +341,7 @@ export function PaymentMethods({
   ClassPassFeeBreakdownComponent,
   successUrl: successUrlProp,
   onReserveCheckoutHold,
+  checkoutLegal,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
@@ -1110,29 +1114,34 @@ export function PaymentMethods({
               ) : null}
             </div>
             {allowedDropIn ? (
-              <DropInView
-                bookingStatus={timeslot.bookingStatus}
-                dropIn={allowedDropIn as DropIn}
-                quantity={quantity}
-                discountCode={appliedDiscountCode}
-                discount={appliedDiscount}
-                onPaymentRedirectStart={onPaymentRedirectStart}
-                onReserveCheckoutHold={onReserveCheckoutHold}
-                createPaymentIntentUrl={createPaymentIntentUrl}
-                FeeBreakdownComponent={FeeBreakdownComponent}
-                returnUrl={successUrlProp}
-                metadata={
-                  hasPendingBookings
-                    ? {
-                        bookingIds: pendingBookingIds.join(","),
-                        timeslotId: timeslot.id.toString(),
-                      }
-                    : {
-                        timeslotId: timeslot.id.toString(),
-                        quantity: String(quantity),
-                      }
-                }
-              />
+              <>
+                <DropInView
+                  bookingStatus={timeslot.bookingStatus}
+                  dropIn={allowedDropIn as DropIn}
+                  quantity={quantity}
+                  discountCode={appliedDiscountCode}
+                  discount={appliedDiscount}
+                  onPaymentRedirectStart={onPaymentRedirectStart}
+                  onReserveCheckoutHold={onReserveCheckoutHold}
+                  createPaymentIntentUrl={createPaymentIntentUrl}
+                  FeeBreakdownComponent={FeeBreakdownComponent}
+                  returnUrl={successUrlProp}
+                  metadata={
+                    hasPendingBookings
+                      ? {
+                          bookingIds: pendingBookingIds.join(","),
+                          timeslotId: timeslot.id.toString(),
+                        }
+                      : {
+                          timeslotId: timeslot.id.toString(),
+                          quantity: String(quantity),
+                        }
+                  }
+                />
+                {checkoutLegal ? (
+                  <CheckoutLegalAcceptance config={checkoutLegal} />
+                ) : null}
+              </>
             ) : (
               <div>Drop-in payment option is not available</div>
             )}
