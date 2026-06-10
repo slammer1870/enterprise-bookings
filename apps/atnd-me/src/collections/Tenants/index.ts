@@ -298,6 +298,25 @@ export const Tenants: CollectionConfig = {
       admin: { description: 'When Connect was linked.' },
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
+    {
+      name: 'checkoutLegalDocuments',
+      type: 'array',
+      label: 'Checkout legal documents',
+      fields: [
+        {
+          name: 'page',
+          type: 'relationship',
+          relationTo: 'pages',
+          required: true,
+          label: 'Page',
+        },
+      ],
+      admin: {
+        description:
+          'Pages linked below the drop-in payment form. Customers see: “By placing your booking, you agree to our …” — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).',
+        initCollapsed: false,
+      },
+    },
   ],
   hooks: {
     afterChange: [
@@ -363,7 +382,7 @@ export const Tenants: CollectionConfig = {
         // and Cloudflare verifies ownership automatically — no TXT token needed.
         const apexActions = collectApexActionsFromHookArgs({ doc, previousDoc, operation })
         if (apexActions.registerDomain) {
-          await createOrGetCustomHostname(apexActions.registerDomain, false).catch((err: unknown) => {
+          await createOrGetCustomHostname(apexActions.registerDomain).catch((err: unknown) => {
             console.error(
               `[Tenants afterChange] Failed to register Cloudflare custom hostname "${apexActions.registerDomain}":`,
               err,
@@ -382,8 +401,6 @@ export const Tenants: CollectionConfig = {
             )
           })
           // Register apex with Cloudflare TLS for SaaS using TXT DCV.
-          // Cloudflare issues and auto-renews the cert independently of the hosting platform —
-          // switching to serverless only requires updating the Cloudflare fallback origin.
           const cfApexResult = await createOrGetCustomHostname(
             apexActions.registerApexApplePay,
             true,
@@ -399,7 +416,6 @@ export const Tenants: CollectionConfig = {
             id: doc.id,
             data: {
               apexDomain: apexActions.apexDomainToStore,
-              // Store the TXT DCV token so the admin UI can show it to the tenant.
               apexDomainVerificationToken: cfApexResult?.verificationTxtValue ?? null,
             },
             req,
