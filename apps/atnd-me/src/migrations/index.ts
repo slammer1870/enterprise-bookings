@@ -1,6 +1,7 @@
 import * as migration_20260527_000001_tenants_apex_domain from './20260527_000001_tenants_apex_domain';
 import * as migration_20260602_180000_simple_about_block_tables from './20260602_180000_simple_about_block_tables';
 import * as migration_20260608_tenants_checkout_legal from './20260608_tenants_checkout_legal';
+import * as migration_20260610_repair_tenants_checkout_legal_documents from './20260610_repair_tenants_checkout_legal_documents';
 import * as migration_20260120_171611 from './20260120_171611';
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260121_111436 from './20260121_111436';
@@ -731,5 +732,10 @@ export const migrations = [
     up: migration_20260608_tenants_checkout_legal.up,
     down: migration_20260608_tenants_checkout_legal.down,
     name: '20260608_tenants_checkout_legal',
+  },
+  {
+    up: migration_20260610_repair_tenants_checkout_legal_documents.up,
+    down: migration_20260610_repair_tenants_checkout_legal_documents.down,
+    name: '20260610_repair_tenants_checkout_legal_documents',
   },
 ];

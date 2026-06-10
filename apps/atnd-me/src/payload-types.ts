@@ -431,6 +431,15 @@ export interface Tenant {
    * When Connect was linked.
    */
   stripeConnectConnectedAt?: string | null;
+  /**
+   * Pages linked below the drop-in payment form. Customers see: “By placing your booking, you agree to our …” — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).
+   */
+  checkoutLegalDocuments?:
+    | {
+        page: number | Page;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4831,6 +4840,12 @@ export interface TenantsSelect<T extends boolean = true> {
   stripeConnectOnboardingStatus?: T;
   stripeConnectLastError?: T;
   stripeConnectConnectedAt?: T;
+  checkoutLegalDocuments?:
+    | T
+    | {
+        page?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
