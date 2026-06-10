@@ -2,7 +2,7 @@ import type { UIFieldServerComponent } from 'payload'
 import { resolve4 } from 'node:dns/promises'
 import React from 'react'
 import { stripFirstLabel } from '@/utilities/validateCustomDomain'
-import { lookupLiveTxtRecords } from '@/lib/cloudflare/apexDnsLookup'
+import { isApexPointingToCloudflare, lookupLiveTxtRecords } from '@/lib/cloudflare/apexDnsLookup'
 import {
   getCustomHostnameStatus,
   isCloudflareConfigured,
@@ -74,10 +74,9 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
   ])
 
   const apexIps = await resolve4(apex).catch(() => [] as string[])
-  const aRecordActive =
-    cloudflareIps.length > 0 && cloudflareIps.some((ip) => apexIps.includes(ip))
+  const aRecordActive = isApexPointingToCloudflare(apexIps, cloudflareIps)
   const aRecordStatus: HostnameVerificationStatus =
-    cloudflareIps.length > 0 ? (aRecordActive ? 'active' : 'pending') : 'unknown'
+    apexIps.length === 0 ? 'pending' : aRecordActive ? 'active' : 'pending'
 
   const sslActive = cfStatus?.sslStatus === 'active'
 

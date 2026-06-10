@@ -88,6 +88,7 @@ import { getActiveR2Config } from '@/lib/storage/config'
 import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { sortAdminNavGroupsPlugin } from './sort-admin-nav-groups'
 
 const generateTitle: GenerateTitle<Post | Page> = ({ doc }) => {
   return doc?.title ? `${doc.title} | ATND` : 'ATND'
@@ -945,4 +946,6 @@ export const plugins: Plugin[] = [
       },
     }
   },
+  // Must run last so all plugin-added collections/globals get explicit groups and sort order.
+  sortAdminNavGroupsPlugin(),
 ]
