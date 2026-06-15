@@ -11,6 +11,9 @@ export { createGenerateTimeslotsFromScheduleHandler } from "./tasks/create-gener
 export {
   formatTimeslotGenerationProgressMessage,
   generationProgressPercent,
+  computeWeightedGenerationPercent,
+  estimateGenerationSecondsRemaining,
+  formatGenerationTimeRemaining,
   parseTimeslotGenerationProgress,
 } from "./tasks/generation-progress";
 export type {

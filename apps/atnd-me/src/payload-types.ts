@@ -2832,6 +2832,19 @@ export interface Scheduler {
   id: number;
   tenant?: (number | null) | Tenant;
   lastGenerationJobId?: number | null;
+  generationProgress?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
+   */
+  clearExisting?: boolean | null;
   /**
    * When this schedule becomes active
    */
@@ -2880,10 +2893,6 @@ export interface Scheduler {
         }[]
       | null;
   };
-  /**
-   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
-   */
-  clearExisting?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3557,6 +3566,8 @@ export interface TimeslotsSelect<T extends boolean = true> {
 export interface SchedulerSelect<T extends boolean = true> {
   tenant?: T;
   lastGenerationJobId?: T;
+  generationProgress?: T;
+  clearExisting?: T;
   startDate?: T;
   endDate?: T;
   lockOutTime?: T;
@@ -3583,7 +3594,6 @@ export interface SchedulerSelect<T extends boolean = true> {
               id?: T;
             };
       };
-  clearExisting?: T;
   updatedAt?: T;
   createdAt?: T;
 }

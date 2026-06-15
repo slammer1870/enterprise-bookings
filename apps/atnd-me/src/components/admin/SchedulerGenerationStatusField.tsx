@@ -50,6 +50,16 @@ function statusColors(status: SchedulerGenerationStatusResponse['status']): {
   }
 }
 
+function isIndeterminateProgress(status: SchedulerGenerationStatusResponse): boolean {
+  if (status.status !== 'processing') return false
+  const phase = status.progress?.phase
+  return (
+    phase === 'clearing' ||
+    status.progressPercent == null ||
+    status.progressPercent <= 3
+  )
+}
+
 export const SchedulerGenerationStatusField: React.FC = () => {
   const { id } = useDocumentInfo()
   const [status, setStatus] = useState<SchedulerGenerationStatusResponse | null>(null)
@@ -110,10 +120,13 @@ export const SchedulerGenerationStatusField: React.FC = () => {
 
   const colors = statusColors(status?.status ?? 'idle')
   const completedAt = formatTimestamp(status?.completedAt ?? status?.updatedAt)
-  const showProgressBar =
-    status?.status === 'processing' &&
-    status.progressPercent != null &&
-    status.progressPercent >= 0
+  const isProcessing = status?.status === 'processing'
+  const showProgressBar = isProcessing
+  const indeterminate = status != null && isIndeterminateProgress(status)
+  const progressPercent = Math.min(
+    100,
+    Math.max(indeterminate ? 35 : 0, status?.progressPercent ?? 0),
+  )
 
   return (
     <div
@@ -139,36 +152,51 @@ export const SchedulerGenerationStatusField: React.FC = () => {
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={status.progressPercent ?? 0}
+            aria-valuenow={indeterminate ? undefined : progressPercent}
+            aria-busy={indeterminate ? true : undefined}
             aria-label="Timeslot generation progress"
             style={{
               height: '8px',
               borderRadius: '999px',
               backgroundColor: 'rgba(255, 255, 255, 0.65)',
               overflow: 'hidden',
+              position: 'relative',
             }}
           >
-            <div
-              style={{
-                width: `${status.progressPercent}%`,
-                height: '100%',
-                borderRadius: '999px',
-                backgroundColor: colors.bar,
-                transition: 'width 0.4s ease',
-              }}
-            />
+            {indeterminate ? (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  width: '40%',
+                  borderRadius: '999px',
+                  backgroundColor: colors.bar,
+                  animation: 'scheduler-generation-indeterminate 1.4s ease-in-out infinite',
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: `${progressPercent}%`,
+                  height: '100%',
+                  borderRadius: '999px',
+                  backgroundColor: colors.bar,
+                  transition: 'width 0.4s ease',
+                }}
+              />
+            )}
           </div>
           <div style={{ fontSize: '0.8125rem', marginTop: '6px', opacity: 0.85 }}>
-            {status.progressPercent}% complete
-            {status.progress?.skipped != null && status.progress.skipped > 0
+            {indeterminate
+              ? 'Starting generation…'
+              : `${progressPercent}% complete`}
+            {status.etaMessage ? ` · ${status.etaMessage}` : ''}
+            {!indeterminate &&
+            status.progress?.skipped != null &&
+            status.progress.skipped > 0
               ? ` · ${status.progress.skipped.toLocaleString()} skipped (already exist)`
               : ''}
           </div>
-        </div>
-      ) : null}
-      {!fetchError && status?.status === 'processing' && !showProgressBar ? (
-        <div style={{ fontSize: '0.8125rem', marginTop: '6px', opacity: 0.85 }}>
-          This runs in the background after you save. Long date ranges can take several minutes.
         </div>
       ) : null}
       {!fetchError && status?.jobId != null ? (
@@ -178,6 +206,12 @@ export const SchedulerGenerationStatusField: React.FC = () => {
           {status.totalTried != null && status.totalTried > 1 ? ` · ${status.totalTried} attempts` : ''}
         </div>
       ) : null}
+      <style>{`
+        @keyframes scheduler-generation-indeterminate {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(320%); }
+        }
+      `}</style>
     </div>
   )
 }

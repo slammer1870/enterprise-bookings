@@ -119,6 +119,7 @@ import * as migration_20260526_000001_class_pass_types_drop_slug from './2026052
 import * as migration_20260622_000001_class_passes_drop_price from './20260622_000001_class_passes_drop_price';
 import * as migration_20260623_scheduler_last_generation_job_id from './20260623_scheduler_last_generation_job_id';
 import * as migration_20260615_ensure_production_schema_repairs from './20260615_ensure_production_schema_repairs';
+import * as migration_20260615_140000_scheduler_generation_progress from './20260615_140000_scheduler_generation_progress';
 import * as migration_20260522_drop_drop_ins_payment_methods from './20260522_drop_drop_ins_payment_methods';
 import * as migration_20260523_tenants_booking_theme from './20260523_tenants_booking_theme';
 import * as migration_20260523_000002_booking_checkout_holds from './20260523_000002_booking_checkout_holds';
@@ -749,5 +750,10 @@ export const migrations = [
     up: migration_20260615_ensure_production_schema_repairs.up,
     down: migration_20260615_ensure_production_schema_repairs.down,
     name: '20260615_ensure_production_schema_repairs',
+  },
+  {
+    up: migration_20260615_140000_scheduler_generation_progress.up,
+    down: migration_20260615_140000_scheduler_generation_progress.down,
+    name: '20260615_140000_scheduler_generation_progress',
   },
 ];

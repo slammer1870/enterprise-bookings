@@ -55,7 +55,12 @@ export const schedulerGenerationStatusEndpoint: Endpoint = {
       job = await findLatestGenerationJobForScheduler(req, scheduler)
     }
 
-    return Response.json(parseGenerationJobStatus(job))
+    return Response.json(
+      parseGenerationJobStatus(job, {
+        storedProgress: (scheduler as Scheduler & { generationProgress?: unknown })
+          .generationProgress,
+      }),
+    )
   },
 }
 

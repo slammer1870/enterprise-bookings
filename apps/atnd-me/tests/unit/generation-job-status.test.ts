@@ -27,6 +27,9 @@ describe('parseGenerationJobStatus', () => {
           phase: 'creating',
           created: 120,
           total: 480,
+          percent: 52,
+          startedAt: '2026-06-15T12:00:00.000Z',
+          updatedAt: '2026-06-15T12:01:00.000Z',
         },
       }),
     )
@@ -36,8 +39,37 @@ describe('parseGenerationJobStatus', () => {
       status: 'processing',
       message: 'Creating timeslots… 120 / 480',
       totalTried: 1,
-      progressPercent: 25,
+      progressPercent: 52,
     })
+    expect(result.etaMessage).toMatch(/remaining/)
+  })
+
+  it('prefers scheduler stored progress when newer than job taskStatus', () => {
+    const result = parseGenerationJobStatus(
+      baseJob({
+        processing: true,
+        taskStatus: {
+          phase: 'planning',
+          daysProcessed: 1,
+          daysTotal: 10,
+          percent: 8,
+          updatedAt: '2026-06-15T12:00:00.000Z',
+        },
+      }),
+      {
+        storedProgress: {
+          phase: 'creating',
+          created: 400,
+          total: 800,
+          percent: 68,
+          updatedAt: '2026-06-15T12:05:00.000Z',
+        },
+      },
+    )
+
+    expect(result.progress?.phase).toBe('creating')
+    expect(result.progressPercent).toBe(68)
+    expect(result.message).toBe('Creating timeslots… 400 / 800')
   })
 
   it('returns processing with default message when no taskStatus', () => {
@@ -53,6 +85,7 @@ describe('parseGenerationJobStatus', () => {
       status: 'processing',
       message: 'Generating timeslots…',
       totalTried: 1,
+      progressPercent: 2,
     })
   })
 

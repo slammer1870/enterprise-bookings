@@ -1,5 +1,8 @@
 import type { PayloadJob } from '@/payload-types'
 import {
+  computeWeightedGenerationPercent,
+  estimateGenerationSecondsRemaining,
+  formatGenerationTimeRemaining,
   formatTimeslotGenerationProgressMessage,
   generationProgressPercent,
   parseTimeslotGenerationProgress,
@@ -21,6 +24,8 @@ export type SchedulerGenerationStatusResponse = {
   totalTried?: number | null
   progress?: TimeslotGenerationProgress
   progressPercent?: number | null
+  estimatedSecondsRemaining?: number | null
+  etaMessage?: string | null
 }
 
 export type { TimeslotGenerationProgress }
@@ -71,15 +76,48 @@ function extractOutputMessage(job: PayloadJob): string | undefined {
   return undefined
 }
 
+function resolveProgress(args: {
+  job: PayloadJob
+  storedProgress?: unknown
+}): TimeslotGenerationProgress | undefined {
+  const fromScheduler = parseTimeslotGenerationProgress(args.storedProgress)
+  const fromJob = parseTimeslotGenerationProgress(args.job.taskStatus)
+
+  if (fromScheduler && fromJob) {
+    const schedulerUpdated = fromScheduler.updatedAt
+      ? new Date(fromScheduler.updatedAt).getTime()
+      : 0
+    const jobUpdated = fromJob.updatedAt ? new Date(fromJob.updatedAt).getTime() : 0
+    return schedulerUpdated >= jobUpdated ? fromScheduler : fromJob
+  }
+
+  return fromScheduler ?? fromJob
+}
+
 function buildStatusResponse(args: {
   job: PayloadJob
   status: SchedulerGenerationJobStatus
   message?: string
+  storedProgress?: unknown
 }): SchedulerGenerationStatusResponse {
-  const { job, status, message } = args
+  const { job, status, message, storedProgress } = args
   const jobId = relationId(job.id)
-  const progress = parseTimeslotGenerationProgress(job.taskStatus)
-  const progressPercent = generationProgressPercent(progress)
+  const progress = resolveProgress({ job, storedProgress })
+  const progressPercent =
+    progress != null
+      ? (generationProgressPercent(progress) ??
+        computeWeightedGenerationPercent(progress))
+      : status === 'processing'
+        ? 2
+        : null
+  const estimatedSecondsRemaining =
+    status === 'processing'
+      ? estimateGenerationSecondsRemaining({
+          percent: progressPercent,
+          startedAt: progress?.startedAt ?? job.createdAt,
+          updatedAt: progress?.updatedAt ?? job.updatedAt,
+        })
+      : null
   const progressMessage =
     status === 'processing'
       ? formatTimeslotGenerationProgressMessage(progress)
@@ -90,14 +128,19 @@ function buildStatusResponse(args: {
     status,
     message: message ?? progressMessage,
     completedAt: job.completedAt ?? null,
-    updatedAt: job.updatedAt ?? null,
+    updatedAt: progress?.updatedAt ?? job.updatedAt ?? null,
     totalTried: job.totalTried ?? null,
     progress,
     progressPercent,
+    estimatedSecondsRemaining,
+    etaMessage: formatGenerationTimeRemaining(estimatedSecondsRemaining),
   }
 }
 
-export function parseGenerationJobStatus(job: PayloadJob | null | undefined): SchedulerGenerationStatusResponse {
+export function parseGenerationJobStatus(
+  job: PayloadJob | null | undefined,
+  options?: { storedProgress?: unknown },
+): SchedulerGenerationStatusResponse {
   if (!job) {
     return { jobId: null, status: 'idle' }
   }
@@ -109,6 +152,7 @@ export function parseGenerationJobStatus(job: PayloadJob | null | undefined): Sc
       job,
       status: 'processing',
       message: message ?? undefined,
+      storedProgress: options?.storedProgress,
     })
   }
 
@@ -117,6 +161,7 @@ export function parseGenerationJobStatus(job: PayloadJob | null | undefined): Sc
       job,
       status: 'failed',
       message: message ?? 'Timeslot generation failed',
+      storedProgress: options?.storedProgress,
     })
   }
 
@@ -133,6 +178,7 @@ export function parseGenerationJobStatus(job: PayloadJob | null | undefined): Sc
       message:
         message ??
         (succeeded ? 'Timeslots generated successfully' : 'Timeslot generation failed'),
+      storedProgress: options?.storedProgress,
     })
   }
 
@@ -140,5 +186,6 @@ export function parseGenerationJobStatus(job: PayloadJob | null | undefined): Sc
     job,
     status: 'idle',
     message,
+    storedProgress: options?.storedProgress,
   })
 }

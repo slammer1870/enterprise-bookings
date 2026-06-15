@@ -327,9 +327,12 @@ export const Scheduler: CollectionConfig = {
                         defaultEventType: doc.defaultEventType,
                         lockOutTime: doc.lockOutTime,
                         tenant: tenantId,
+                        schedulerId: doc.id,
                         ...(branchId != null ? { branch: branchId } : {}),
                     } as Parameters<Payload['jobs']['queue']>[0]['input'],
                 })
+
+                const generationStartedAt = new Date().toISOString()
 
                 if (job.id) {
                     const jobId =
@@ -343,7 +346,15 @@ export const Scheduler: CollectionConfig = {
                         await req.payload.update({
                             collection: 'scheduler',
                             id: doc.id,
-                            data: { lastGenerationJobId: jobId } as Record<string, unknown>,
+                            data: {
+                                lastGenerationJobId: jobId,
+                                generationProgress: {
+                                    phase: 'clearing',
+                                    percent: 0,
+                                    startedAt: generationStartedAt,
+                                    updatedAt: generationStartedAt,
+                                },
+                            } as Record<string, unknown>,
                             context: { [SKIP_SCHEDULER_GENERATION]: true },
                             req,
                         })
@@ -375,6 +386,13 @@ export const Scheduler: CollectionConfig = {
         {
             name: 'lastGenerationJobId',
             type: 'number',
+            admin: {
+                hidden: true,
+            },
+        },
+        {
+            name: 'generationProgress',
+            type: 'json',
             admin: {
                 hidden: true,
             },

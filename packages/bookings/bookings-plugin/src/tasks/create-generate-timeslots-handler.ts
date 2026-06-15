@@ -352,10 +352,12 @@ export function createGenerateTimeslotsFromScheduleHandler(
   const numericTenantId =
     hasTenantForBranch && numericTenantIdForBranch != null ? numericTenantIdForBranch : null;
   const hasTenantContext = hasTenantForBranch;
+  const schedulerId = toId((input as { schedulerId?: unknown }).schedulerId);
   const progressReporter = new GenerationProgressReporter(
     payload,
     req,
     resolveGenerationJobId(req),
+    schedulerId,
   );
   let skippedCount = 0;
   const daysTotal = Math.max(
@@ -364,6 +366,15 @@ export function createGenerateTimeslotsFromScheduleHandler(
   );
   let daysProcessed = 0;
   let successMessage = "Timeslots generated successfully";
+
+  await progressReporter.report(
+    {
+      phase: clearExisting ? "clearing" : "planning",
+      daysProcessed: 0,
+      daysTotal,
+    },
+    { force: true },
+  );
 
   try {
     if (clearExisting) {
