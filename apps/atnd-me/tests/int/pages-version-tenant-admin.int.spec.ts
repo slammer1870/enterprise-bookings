@@ -98,7 +98,7 @@ describe('Pages versions and tenant-from-context (tenant-admin)', () => {
           title: 'Version Test Page',
           slug,
           tenant: testTenantId,
-          layout: [{ blockType: 'heroSchedule', blockName: 'Hero & Schedule' }],
+          layout: [{ blockType: 'heroScheduleSanctuary', blockName: 'Homepage — hero with schedule', title: 'Welcome' }],
           _status: 'published',
         },
         overrideAccess: true,
@@ -146,7 +146,7 @@ describe('Pages versions and tenant-from-context (tenant-admin)', () => {
         data: {
           title: 'Context Tenant Page',
           slug,
-          layout: [{ blockType: 'heroSchedule', blockName: 'Hero & Schedule' }],
+          layout: [{ blockType: 'heroScheduleSanctuary', blockName: 'Homepage — hero with schedule', title: 'Welcome' }],
           _status: 'published',
         },
         req,
@@ -174,7 +174,7 @@ describe('Pages versions and tenant-from-context (tenant-admin)', () => {
           title: 'Custom Block Test',
           slug,
           tenant: testTenantId,
-          layout: [{ blockType: 'heroSchedule', blockName: 'Hero & Schedule' }],
+          layout: [{ blockType: 'heroScheduleSanctuary', blockName: 'Homepage — hero with schedule', title: 'Welcome' }],
           _status: 'published',
         },
         overrideAccess: true,
@@ -185,7 +185,7 @@ describe('Pages versions and tenant-from-context (tenant-admin)', () => {
         id: created.id,
         data: {
           layout: [
-            { blockType: 'heroSchedule', blockName: 'Hero & Schedule' },
+            { blockType: 'heroScheduleSanctuary', blockName: 'Homepage — hero with schedule' },
             { blockType: 'location', blockName: 'Location', address: '123 Test St' },
           ],
         },

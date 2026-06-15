@@ -11,8 +11,8 @@ export const ClHeroScheduleSanctuary: Block = {
   dbName: 'hero_sched_sanc',
   interfaceName: 'HeroScheduleSanctuaryBlock',
   labels: {
-    singular: 'Hero & Schedule (Sanctuary)',
-    plural: 'Hero & Schedule (Sanctuary)',
+    singular: 'Homepage — hero with schedule',
+    plural: 'Homepage — hero with schedule',
   },
   fields: [
     {
