@@ -381,7 +381,17 @@ export function createGenerateTimeslotsFromScheduleHandler(
       const scheduleDay = week.days[scheduleIndex];
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
-        currentDate = addDays(currentDate, 1);
+        const next = addDays(currentInTZ, 1);
+        currentDate = new TZDate(
+          next.getFullYear(),
+          next.getMonth(),
+          next.getDate(),
+          0,
+          0,
+          0,
+          0,
+          timeZone
+        );
         continue;
       }
 

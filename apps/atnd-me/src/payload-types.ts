@@ -2831,6 +2831,7 @@ export interface Transaction {
 export interface Scheduler {
   id: number;
   tenant?: (number | null) | Tenant;
+  lastGenerationJobId?: number | null;
   /**
    * When this schedule becomes active
    */
@@ -3555,6 +3556,7 @@ export interface TimeslotsSelect<T extends boolean = true> {
  */
 export interface SchedulerSelect<T extends boolean = true> {
   tenant?: T;
+  lastGenerationJobId?: T;
   startDate?: T;
   endDate?: T;
   lockOutTime?: T;
