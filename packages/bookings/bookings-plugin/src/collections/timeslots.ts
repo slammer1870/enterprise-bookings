@@ -560,7 +560,12 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
     ],
     beforeChange: [
       async ({ data, req, operation }) => {
-        if (data && data.staffMember && operation === "create") {
+        if (
+          !req?.context?.skipStaffMemberResolution &&
+          data &&
+          data.staffMember &&
+          operation === "create"
+        ) {
           try {
             const staffMember = await req.payload
               .findByID({

@@ -23,6 +23,28 @@ describe('parseGenerationJobStatus', () => {
       baseJob({
         processing: true,
         totalTried: 1,
+        taskStatus: {
+          phase: 'creating',
+          created: 120,
+          total: 480,
+        },
+      }),
+    )
+
+    expect(result).toMatchObject({
+      jobId: 42,
+      status: 'processing',
+      message: 'Creating timeslots… 120 / 480',
+      totalTried: 1,
+      progressPercent: 25,
+    })
+  })
+
+  it('returns processing with default message when no taskStatus', () => {
+    const result = parseGenerationJobStatus(
+      baseJob({
+        processing: true,
+        totalTried: 1,
       }),
     )
 
@@ -71,7 +93,7 @@ describe('parseGenerationJobStatus', () => {
             taskSlug: 'generateTimeslotsFromSchedule',
             taskID: 'task-1',
             state: 'succeeded',
-            output: { message: 'Timeslots generated successfully' },
+            output: { message: 'Created 12 timeslots · 3 already existed' },
           },
         ],
       }),
@@ -80,7 +102,7 @@ describe('parseGenerationJobStatus', () => {
     expect(result).toMatchObject({
       jobId: 42,
       status: 'succeeded',
-      message: 'Timeslots generated successfully',
+      message: 'Created 12 timeslots · 3 already existed',
     })
   })
 

@@ -4,7 +4,10 @@ import { TZDate } from "@date-fns/tz";
 import { resolveTimeZone } from "@repo/shared-utils";
 
 import { TaskGenerateTimeslotsFromSchedule } from "../types";
-import { Timeslot } from "@repo/shared-types";
+import {
+  GenerationProgressReporter,
+  resolveGenerationJobId,
+} from "./generation-progress";
 
 import type { BookingCollectionSlugs } from "../resolve-slugs";
 
@@ -37,6 +40,116 @@ function hasLocationsCollection(
 }
 
 const LOCATIONS_COLLECTION_SLUG = "locations" as CollectionSlug;
+
+const EXISTING_TIMESLOTS_PAGE_SIZE = 500;
+const CREATE_BATCH_SIZE = 25;
+
+function existingTimeslotKey(
+  startTime: string,
+  endTime: string,
+  location: unknown,
+): string {
+  const locationKey =
+    location == null || location === "" ? "" : String(location);
+  return `${startTime}|${endTime}|${locationKey}`;
+}
+
+async function fetchExistingTimeslotKeys(args: {
+  payload: Payload;
+  req: PayloadRequest;
+  timeslotsSlug: CollectionSlug;
+  rangeStart: TZDate;
+  rangeEnd: TZDate;
+  tenantId: number | null;
+  branchId: number | null;
+}): Promise<Set<string>> {
+  const { payload, req, timeslotsSlug, rangeStart, rangeEnd, tenantId, branchId } =
+    args;
+
+  const whereConditions: Record<string, unknown>[] = [
+    { startTime: { greater_than_equal: rangeStart.toISOString() } },
+    { endTime: { less_than_equal: rangeEnd.toISOString() } },
+  ];
+
+  if (tenantId != null) {
+    whereConditions.push({ tenant: { equals: tenantId } });
+  }
+  if (branchId != null) {
+    whereConditions.push({ branch: { equals: branchId } });
+  }
+
+  const keys = new Set<string>();
+  let page = 1;
+
+  while (true) {
+    const result = await payload.find({
+      collection: timeslotsSlug,
+      where: { and: whereConditions },
+      depth: 0,
+      limit: EXISTING_TIMESLOTS_PAGE_SIZE,
+      page,
+      select: {
+        startTime: true,
+        endTime: true,
+        location: true,
+      },
+      overrideAccess: true,
+      req,
+    });
+
+    for (const doc of result.docs as Array<{
+      startTime?: string;
+      endTime?: string;
+      location?: unknown;
+    }>) {
+      if (doc.startTime && doc.endTime) {
+        keys.add(existingTimeslotKey(doc.startTime, doc.endTime, doc.location));
+      }
+    }
+
+    if (!result.hasNextPage) break;
+    page += 1;
+  }
+
+  return keys;
+}
+
+async function createTimeslotsInBatches(args: {
+  payload: Payload;
+  req: PayloadRequest;
+  timeslotsSlug: CollectionSlug;
+  records: Record<string, unknown>[];
+  onBatchComplete?: (created: number, total: number) => Promise<void>;
+}): Promise<void> {
+  const { payload, req, timeslotsSlug, records, onBatchComplete } = args;
+  const baseContext = {
+    ...(req.context || {}),
+    skipTimeslotTimeNormalization: true,
+    skipStaffMemberResolution: true,
+    triggerAfterChange: false,
+  };
+
+  let created = 0;
+  for (let i = 0; i < records.length; i += CREATE_BATCH_SIZE) {
+    const batch = records.slice(i, i + CREATE_BATCH_SIZE);
+    await Promise.all(
+      batch.map((data) =>
+        payload.create({
+          collection: timeslotsSlug,
+          data: data as any,
+          context: baseContext,
+          draft: false,
+          req,
+          overrideAccess: true,
+        }),
+      ),
+    );
+    created += batch.length;
+    if (onBatchComplete) {
+      await onBatchComplete(created, records.length);
+    }
+  }
+}
 
 async function resolveTimeslotBranchId(args: {
   payload: Payload;
@@ -111,6 +224,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
   slugs: BookingCollectionSlugs,
 ): TaskHandler<"generateTimeslotsFromSchedule"> {
   const timeslotsSlug = slugs.timeslots as CollectionSlug;
+  const bookingsSlug = slugs.bookings as CollectionSlug;
 
   return async ({ input, req }) => {
   const {
@@ -238,10 +352,23 @@ export function createGenerateTimeslotsFromScheduleHandler(
   const numericTenantId =
     hasTenantForBranch && numericTenantIdForBranch != null ? numericTenantIdForBranch : null;
   const hasTenantContext = hasTenantForBranch;
+  const progressReporter = new GenerationProgressReporter(
+    payload,
+    req,
+    resolveGenerationJobId(req),
+  );
+  let skippedCount = 0;
+  const daysTotal = Math.max(
+    1,
+    Math.ceil((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)) + 1,
+  );
+  let daysProcessed = 0;
+  let successMessage = "Timeslots generated successfully";
 
   try {
     if (clearExisting) {
       payload.logger.info("Clearing existing timeslots");
+      await progressReporter.report({ phase: "clearing" }, { force: true });
       try {
       // Get tenant from context if available (for multi-tenant support)
       const tenantId = tenantIdForBranch;
@@ -283,30 +410,47 @@ export function createGenerateTimeslotsFromScheduleHandler(
         and: whereConditions,
       }
 
-        // First find timeslots that have no bookings
         const timeslotQuery = await payload.find({
           collection: timeslotsSlug,
           where: whereClause as any,
-          depth: 4,
+          depth: 0,
           limit: 0,
           overrideAccess: true,
           req,
         });
 
-        const timeslots = timeslotQuery.docs as unknown as Timeslot[];
+        const timeslotIds = (timeslotQuery.docs as Array<{ id?: unknown }>)
+          .map((doc) => toId(doc.id))
+          .filter((id): id is number => id != null);
 
-        let timeslotsToNotDelete: number[] = [];
-        // Filter timeslots that have no bookings
-        timeslotsToNotDelete = timeslots.reduce((acc: number[], timeslot: Timeslot) => {
-          if (
-            timeslot.bookings?.docs?.some(
-              (booking: any) => booking.status === "confirmed"
-            )
-          ) {
-            acc.push(timeslot.id);
+        const timeslotsToNotDelete: number[] = [];
+        const BOOKING_ID_BATCH = 500;
+        for (let i = 0; i < timeslotIds.length; i += BOOKING_ID_BATCH) {
+          const batchIds = timeslotIds.slice(i, i + BOOKING_ID_BATCH);
+          if (batchIds.length === 0) continue;
+
+          const confirmedBookings = await payload.find({
+            collection: bookingsSlug,
+            where: {
+              and: [
+                { timeslot: { in: batchIds } },
+                { status: { equals: "confirmed" } },
+              ],
+            },
+            depth: 0,
+            limit: 0,
+            select: { timeslot: true },
+            overrideAccess: true,
+            req,
+          });
+
+          for (const booking of confirmedBookings.docs as Array<{ timeslot?: unknown }>) {
+            const timeslotId = toId(booking.timeslot);
+            if (timeslotId != null) {
+              timeslotsToNotDelete.push(timeslotId);
+            }
           }
-          return acc;
-        }, []);
+        }
 
         // Build delete where clause with tenant filter if available
         const deleteWhereClause: any = {
@@ -362,6 +506,23 @@ export function createGenerateTimeslotsFromScheduleHandler(
       }
     }
 
+    await progressReporter.report(
+      { phase: "planning", daysProcessed: 0, daysTotal },
+      { force: true },
+    );
+
+    const existingTimeslotKeys = await fetchExistingTimeslotKeys({
+      payload,
+      req,
+      timeslotsSlug,
+      rangeStart: start,
+      rangeEnd: end,
+      tenantId: hasTenantContext ? numericTenantId : null,
+      branchId: resolvedBranchId,
+    });
+
+    const pendingCreates: Record<string, unknown>[] = [];
+
     // IMPORTANT: Keep `currentDate` as a timezone-aware date.
     // Converting to a plain `Date` and then reading Y/M/D via getters will use the
     // server timezone (often UTC) and can shift the calendar day after DST starts.
@@ -381,6 +542,12 @@ export function createGenerateTimeslotsFromScheduleHandler(
       const scheduleDay = week.days[scheduleIndex];
 
       if (!scheduleDay || !scheduleDay.timeSlot) {
+        daysProcessed += 1;
+        await progressReporter.report({
+          phase: "planning",
+          daysProcessed,
+          daysTotal,
+        });
         const next = addDays(currentInTZ, 1);
         currentDate = new TZDate(
           next.getFullYear(),
@@ -441,44 +608,16 @@ export function createGenerateTimeslotsFromScheduleHandler(
           timeZone
         )
 
-        // Build where clause for existing timeslot check
-        const existingTimeslotWhere: any = {
-          and: [
-            {
-              startTime: {
-                greater_than_equal: timeslotStartTime.toISOString(),
-              },
-            },
-            {
-              endTime: {
-                less_than_equal: timeslotEndTime.toISOString(),
-              },
-            },
-            {
-              location: {
-                equals: timeSlot.location,
-              },
-            },
-          ],
-        }
+        const startIso = timeslotStartTime.toISOString();
+        const endIso = timeslotEndTime.toISOString();
+        const duplicateKey = existingTimeslotKey(
+          startIso,
+          endIso,
+          timeSlot.location,
+        );
 
-        // Add tenant filter if tenant context is available
-        if (hasTenantContext) {
-          existingTimeslotWhere.and.push({
-            tenant: {
-              equals: numericTenantId,
-            },
-          })
-        }
-
-        const existingTimeslot = await payload.find({
-          collection: timeslotsSlug,
-          where: existingTimeslotWhere,
-          overrideAccess: true,
-          req,
-        });
-
-        if (existingTimeslot.docs.length > 0) {
+        if (existingTimeslotKeys.has(duplicateKey)) {
+          skippedCount += 1;
           continue;
         }
 
@@ -515,37 +654,38 @@ export function createGenerateTimeslotsFromScheduleHandler(
           continue;
         }
 
+        const lockOut = Number(timeSlot.lockOutTime) || Number(lockOutTime);
         const timeslotData: Record<string, unknown> = {
           date: timeslotDate.toISOString(),
-          startTime: timeslotStartTime.toISOString(),
-          endTime: timeslotEndTime.toISOString(),
+          startTime: startIso,
+          endTime: endIso,
           eventType: eventTypeIdNum,
           location: timeSlot.location || null,
           staffMember: toId(timeSlot.staffMember) ?? undefined,
-          lockOutTime: Number(timeSlot.lockOutTime) || Number(lockOutTime),
+          lockOutTime: lockOut,
+          originalLockOutTime: lockOut,
           active: timeSlot.active !== false,
-        }
+        };
 
         if (hasTenantContext) {
-          timeslotData.tenant = numericTenantId
+          timeslotData.tenant = numericTenantId;
         }
 
         if (resolvedBranchId != null) {
-          timeslotData.branch = resolvedBranchId
+          timeslotData.branch = resolvedBranchId;
         }
 
-        await payload.create({
-          collection: timeslotsSlug,
-          data: timeslotData as any,
-          context: {
-            ...(req.context || {}),
-            skipTimeslotTimeNormalization: true,
-          },
-          draft: false,
-          req,
-          overrideAccess: true,
-        });
+        pendingCreates.push(timeslotData);
+        existingTimeslotKeys.add(duplicateKey);
       }
+
+      daysProcessed += 1;
+      await progressReporter.report({
+        phase: "planning",
+        daysProcessed,
+        daysTotal,
+        skipped: skippedCount,
+      });
 
       // Advance by calendar days in the scheduler timezone, then normalize back to
       // midnight to keep the loop stable across DST transitions.
@@ -561,6 +701,63 @@ export function createGenerateTimeslotsFromScheduleHandler(
         timeZone
       );
     }
+
+    const createdCount = pendingCreates.length;
+
+    if (createdCount > 0) {
+      payload.logger.info(
+        `Creating ${createdCount} timeslots in batches of ${CREATE_BATCH_SIZE}`,
+      );
+      await progressReporter.report(
+        {
+          phase: "creating",
+          created: 0,
+          total: createdCount,
+          skipped: skippedCount,
+        },
+        { force: true },
+      );
+      await createTimeslotsInBatches({
+        payload,
+        req,
+        timeslotsSlug,
+        records: pendingCreates,
+        onBatchComplete: async (created, total) => {
+          await progressReporter.report({
+            phase: "creating",
+            created,
+            total,
+            skipped: skippedCount,
+          });
+        },
+      });
+    }
+
+    const messageParts: string[] = [];
+    if (createdCount > 0) {
+      messageParts.push(
+        `Created ${createdCount.toLocaleString()} timeslot${createdCount === 1 ? "" : "s"}`,
+      );
+    }
+    if (skippedCount > 0) {
+      messageParts.push(
+        `${skippedCount.toLocaleString()} already existed`,
+      );
+    }
+    successMessage =
+      messageParts.length > 0
+        ? messageParts.join(" · ")
+        : "Timeslots generated successfully";
+
+    await progressReporter.report(
+      {
+        phase: "done",
+        created: createdCount,
+        total: createdCount,
+        skipped: skippedCount,
+      },
+      { force: true },
+    );
   } catch (error) {
     console.error("Error generating timeslots:", error);
     return {
@@ -574,7 +771,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
   return {
     output: {
       success: true,
-      message: "Timeslots generated successfully",
+      message: successMessage,
     },
   };
   };

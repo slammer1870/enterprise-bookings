@@ -91,7 +91,7 @@ describe('runSchedulerGenerationJob', () => {
     expect(runByID).toHaveBeenCalledWith({
       id: 99,
       req: expect.objectContaining({
-        context: { tenant: 5 },
+        context: { tenant: 5, generationJobId: 99 },
         payload,
       }),
     })

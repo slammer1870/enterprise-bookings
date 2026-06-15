@@ -39,6 +39,10 @@ export function runSchedulerGenerationJob(args: {
       user: args.user,
       tenantId: args.tenantId,
     })
+    req.context = {
+      ...(req.context ?? {}),
+      generationJobId: args.jobId,
+    }
     await args.payload.jobs.runByID({
       id: args.jobId,
       req,

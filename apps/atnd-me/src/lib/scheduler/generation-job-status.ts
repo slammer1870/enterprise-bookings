@@ -1,4 +1,10 @@
 import type { PayloadJob } from '@/payload-types'
+import {
+  formatTimeslotGenerationProgressMessage,
+  generationProgressPercent,
+  parseTimeslotGenerationProgress,
+  type TimeslotGenerationProgress,
+} from '@repo/bookings-plugin'
 
 export type SchedulerGenerationJobStatus =
   | 'idle'
@@ -13,7 +19,11 @@ export type SchedulerGenerationStatusResponse = {
   completedAt?: string | null
   updatedAt?: string | null
   totalTried?: number | null
+  progress?: TimeslotGenerationProgress
+  progressPercent?: number | null
 }
+
+export type { TimeslotGenerationProgress }
 
 function relationId(value: unknown): number | null {
   if (value == null || value === '') return null
@@ -61,58 +71,74 @@ function extractOutputMessage(job: PayloadJob): string | undefined {
   return undefined
 }
 
+function buildStatusResponse(args: {
+  job: PayloadJob
+  status: SchedulerGenerationJobStatus
+  message?: string
+}): SchedulerGenerationStatusResponse {
+  const { job, status, message } = args
+  const jobId = relationId(job.id)
+  const progress = parseTimeslotGenerationProgress(job.taskStatus)
+  const progressPercent = generationProgressPercent(progress)
+  const progressMessage =
+    status === 'processing'
+      ? formatTimeslotGenerationProgressMessage(progress)
+      : undefined
+
+  return {
+    jobId,
+    status,
+    message: message ?? progressMessage,
+    completedAt: job.completedAt ?? null,
+    updatedAt: job.updatedAt ?? null,
+    totalTried: job.totalTried ?? null,
+    progress,
+    progressPercent,
+  }
+}
+
 export function parseGenerationJobStatus(job: PayloadJob | null | undefined): SchedulerGenerationStatusResponse {
   if (!job) {
     return { jobId: null, status: 'idle' }
   }
 
-  const jobId = relationId(job.id)
   const message = extractOutputMessage(job)
 
   if (job.processing) {
-    return {
-      jobId,
+    return buildStatusResponse({
+      job,
       status: 'processing',
-      message: message ?? 'Generating timeslots…',
-      completedAt: job.completedAt ?? null,
-      updatedAt: job.updatedAt ?? null,
-      totalTried: job.totalTried ?? null,
-    }
+      message: message ?? undefined,
+    })
   }
 
   if (job.hasError) {
-    return {
-      jobId,
+    return buildStatusResponse({
+      job,
       status: 'failed',
       message: message ?? 'Timeslot generation failed',
-      completedAt: job.completedAt ?? null,
-      updatedAt: job.updatedAt ?? null,
-      totalTried: job.totalTried ?? null,
-    }
+    })
   }
 
   if (job.completedAt) {
     const succeeded =
       message == null ||
       /success/i.test(message) ||
+      message.startsWith('Created ') ||
       message === 'Timeslots generated successfully'
 
-    return {
-      jobId,
+    return buildStatusResponse({
+      job,
       status: succeeded ? 'succeeded' : 'failed',
-      message: message ?? (succeeded ? 'Timeslots generated successfully' : 'Timeslot generation failed'),
-      completedAt: job.completedAt,
-      updatedAt: job.updatedAt ?? null,
-      totalTried: job.totalTried ?? null,
-    }
+      message:
+        message ??
+        (succeeded ? 'Timeslots generated successfully' : 'Timeslot generation failed'),
+    })
   }
 
-  return {
-    jobId,
+  return buildStatusResponse({
+    job,
     status: 'idle',
     message,
-    completedAt: job.completedAt ?? null,
-    updatedAt: job.updatedAt ?? null,
-    totalTried: job.totalTried ?? null,
-  }
+  })
 }

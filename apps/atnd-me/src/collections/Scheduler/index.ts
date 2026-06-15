@@ -380,6 +380,16 @@ export const Scheduler: CollectionConfig = {
             },
         },
         {
+            name: 'clearExisting',
+            type: 'checkbox',
+            label: 'Clear Existing Timeslots',
+            defaultValue: false,
+            admin: {
+                description:
+                    'Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)',
+            },
+        },
+        {
             name: 'startDate',
             type: 'date',
             required: true,
@@ -472,16 +482,6 @@ export const Scheduler: CollectionConfig = {
             },
             type: 'group',
             fields: [days],
-        },
-        {
-            name: 'clearExisting',
-            type: 'checkbox',
-            label: 'Clear Existing Timeslots',
-            defaultValue: false,
-            admin: {
-                description:
-                    'Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)',
-            },
         },
     ],
     timestamps: true,

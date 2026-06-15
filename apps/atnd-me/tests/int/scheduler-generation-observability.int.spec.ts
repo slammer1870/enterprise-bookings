@@ -260,6 +260,10 @@ describe('Scheduler generation observability', () => {
         user,
         tenantId: testTenant.id,
       })
+      req.context = {
+        ...(req.context ?? {}),
+        generationJobId: job.id,
+      }
 
       await payload.jobs.runByID({
         id: job.id,

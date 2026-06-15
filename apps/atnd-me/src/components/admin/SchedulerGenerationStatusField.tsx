@@ -31,16 +31,22 @@ function statusColors(status: SchedulerGenerationStatusResponse['status']): {
   background: string
   border: string
   text: string
+  bar: string
 } {
   switch (status) {
     case 'processing':
-      return { background: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8' }
+      return { background: '#eff6ff', border: '#bfdbfe', text: '#1d4ed8', bar: '#2563eb' }
     case 'succeeded':
-      return { background: '#f0fdf4', border: '#bbf7d0', text: '#166534' }
+      return { background: '#f0fdf4', border: '#bbf7d0', text: '#166534', bar: '#16a34a' }
     case 'failed':
-      return { background: '#fef2f2', border: '#fecaca', text: '#b91c1c' }
+      return { background: '#fef2f2', border: '#fecaca', text: '#b91c1c', bar: '#dc2626' }
     default:
-      return { background: 'var(--theme-elevation-50)', border: 'var(--theme-elevation-150)', text: 'var(--theme-text)' }
+      return {
+        background: 'var(--theme-elevation-50)',
+        border: 'var(--theme-elevation-150)',
+        text: 'var(--theme-text)',
+        bar: 'var(--theme-elevation-400)',
+      }
   }
 }
 
@@ -104,6 +110,10 @@ export const SchedulerGenerationStatusField: React.FC = () => {
 
   const colors = statusColors(status?.status ?? 'idle')
   const completedAt = formatTimestamp(status?.completedAt ?? status?.updatedAt)
+  const showProgressBar =
+    status?.status === 'processing' &&
+    status.progressPercent != null &&
+    status.progressPercent >= 0
 
   return (
     <div
@@ -123,7 +133,40 @@ export const SchedulerGenerationStatusField: React.FC = () => {
       {!fetchError && status?.message ? (
         <div style={{ fontSize: '0.875rem', marginTop: '4px' }}>{status.message}</div>
       ) : null}
-      {!fetchError && status?.status === 'processing' ? (
+      {showProgressBar ? (
+        <div style={{ marginTop: '10px' }}>
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={status.progressPercent ?? 0}
+            aria-label="Timeslot generation progress"
+            style={{
+              height: '8px',
+              borderRadius: '999px',
+              backgroundColor: 'rgba(255, 255, 255, 0.65)',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                width: `${status.progressPercent}%`,
+                height: '100%',
+                borderRadius: '999px',
+                backgroundColor: colors.bar,
+                transition: 'width 0.4s ease',
+              }}
+            />
+          </div>
+          <div style={{ fontSize: '0.8125rem', marginTop: '6px', opacity: 0.85 }}>
+            {status.progressPercent}% complete
+            {status.progress?.skipped != null && status.progress.skipped > 0
+              ? ` · ${status.progress.skipped.toLocaleString()} skipped (already exist)`
+              : ''}
+          </div>
+        </div>
+      ) : null}
+      {!fetchError && status?.status === 'processing' && !showProgressBar ? (
         <div style={{ fontSize: '0.8125rem', marginTop: '6px', opacity: 0.85 }}>
           This runs in the background after you save. Long date ranges can take several minutes.
         </div>
