@@ -36,12 +36,15 @@ export function hasPayloadJobsCollection(payload: Payload): boolean {
 
 export class GenerationProgressReporter {
   private lastWriteAt = 0;
+  private readonly payload: Payload;
+  private readonly req: PayloadRequest;
+  private readonly jobId: number | null;
 
-  constructor(
-    private readonly payload: Payload,
-    private readonly req: PayloadRequest,
-    private readonly jobId: number | null,
-  ) {}
+  constructor(payload: Payload, req: PayloadRequest, jobId: number | null) {
+    this.payload = payload;
+    this.req = req;
+    this.jobId = jobId;
+  }
 
   async report(
     progress: TimeslotGenerationProgress,

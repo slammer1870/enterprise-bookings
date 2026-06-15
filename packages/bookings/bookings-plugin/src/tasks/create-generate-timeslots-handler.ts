@@ -119,7 +119,7 @@ async function createTimeslotsInBatches(args: {
   req: PayloadRequest;
   timeslotsSlug: CollectionSlug;
   records: Record<string, unknown>[];
-  onBatchComplete?: (created: number, total: number) => Promise<void>;
+  onBatchComplete?: (_created: number, _total: number) => Promise<void>;
 }): Promise<void> {
   const { payload, req, timeslotsSlug, records, onBatchComplete } = args;
   const baseContext = {
