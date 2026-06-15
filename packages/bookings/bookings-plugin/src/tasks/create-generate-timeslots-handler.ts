@@ -1,4 +1,4 @@
-import type { CollectionSlug, Payload, PayloadRequest, TaskHandler } from "payload";
+import type { CollectionSlug, Payload, PayloadRequest, TaskHandler, Where } from "payload";
 import { addDays } from "date-fns";
 import { TZDate } from "@date-fns/tz";
 import { resolveTimeZone } from "@repo/shared-utils";
@@ -66,7 +66,7 @@ async function fetchExistingTimeslotKeys(args: {
   const { payload, req, timeslotsSlug, rangeStart, rangeEnd, tenantId, branchId } =
     args;
 
-  const whereConditions: Record<string, unknown>[] = [
+  const whereConditions: Where[] = [
     { startTime: { greater_than_equal: rangeStart.toISOString() } },
     { endTime: { less_than_equal: rangeEnd.toISOString() } },
   ];
