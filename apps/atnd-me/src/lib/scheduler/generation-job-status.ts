@@ -115,7 +115,6 @@ function buildStatusResponse(args: {
       ? estimateGenerationSecondsRemaining({
           percent: progressPercent,
           startedAt: progress?.startedAt ?? job.createdAt,
-          updatedAt: progress?.updatedAt ?? job.updatedAt,
         })
       : null
   const progressMessage =

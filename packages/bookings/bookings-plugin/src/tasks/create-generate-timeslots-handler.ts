@@ -43,6 +43,8 @@ const LOCATIONS_COLLECTION_SLUG = "locations" as CollectionSlug;
 
 const EXISTING_TIMESLOTS_PAGE_SIZE = 500;
 const CREATE_BATCH_SIZE = 25;
+const CLEAR_TIMESLOT_BATCH_SIZE = 100;
+const CLEAR_BOOKING_BATCH_SIZE = 500;
 
 function existingTimeslotKey(
   startTime: string,
@@ -434,10 +436,9 @@ export function createGenerateTimeslotsFromScheduleHandler(
           .map((doc) => toId(doc.id))
           .filter((id): id is number => id != null);
 
-        const timeslotsToNotDelete: number[] = [];
-        const BOOKING_ID_BATCH = 500;
-        for (let i = 0; i < timeslotIds.length; i += BOOKING_ID_BATCH) {
-          const batchIds = timeslotIds.slice(i, i + BOOKING_ID_BATCH);
+        const timeslotsToNotDelete = new Set<number>();
+        for (let i = 0; i < timeslotIds.length; i += CLEAR_BOOKING_BATCH_SIZE) {
+          const batchIds = timeslotIds.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
           if (batchIds.length === 0) continue;
 
           const confirmedBookings = await payload.find({
@@ -458,60 +459,64 @@ export function createGenerateTimeslotsFromScheduleHandler(
           for (const booking of confirmedBookings.docs as Array<{ timeslot?: unknown }>) {
             const timeslotId = toId(booking.timeslot);
             if (timeslotId != null) {
-              timeslotsToNotDelete.push(timeslotId);
+              timeslotsToNotDelete.add(timeslotId);
             }
           }
         }
 
-        // Build delete where clause with tenant filter if available
-        const deleteWhereClause: any = {
-          and: [
-            {
-              startTime: {
-                greater_than_equal: start.toISOString(),
-              },
+        const idsToDelete = timeslotIds.filter((id) => !timeslotsToNotDelete.has(id));
+        const totalToClear = idsToDelete.length;
+
+        await progressReporter.report(
+          { phase: "clearing", cleared: 0, total: totalToClear },
+          { force: true },
+        );
+
+        for (let i = 0; i < idsToDelete.length; i += CLEAR_BOOKING_BATCH_SIZE) {
+          const batchIds = idsToDelete.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
+          if (batchIds.length === 0) continue;
+
+          await payload.delete({
+            collection: bookingsSlug,
+            where: {
+              timeslot: { in: batchIds },
             },
-            {
-              endTime: {
-                less_than_equal: end.toISOString(),
-              },
+            context: {
+              triggerAfterChange: false,
             },
-            {
-              id: {
-                not_in: timeslotsToNotDelete,
-              },
-            },
-          ],
+            overrideAccess: true,
+            req,
+          });
         }
 
-        // Add tenant filter if tenant context is available
-        if (tenantId) {
-          deleteWhereClause.and.push({
-            tenant: {
-              equals: tenantId,
-            },
-          })
-        }
+        let cleared = 0;
+        for (let i = 0; i < idsToDelete.length; i += CLEAR_TIMESLOT_BATCH_SIZE) {
+          const batchIds = idsToDelete.slice(i, i + CLEAR_TIMESLOT_BATCH_SIZE);
+          if (batchIds.length === 0) continue;
 
-        // Scope delete to the specific branch so that sibling locations within
-        // the same tenant are not affected when their scheduler is saved independently.
-        if (resolvedBranchId != null) {
-          deleteWhereClause.and.push({
-            branch: {
-              equals: resolvedBranchId,
+          await payload.delete({
+            collection: timeslotsSlug,
+            where: {
+              id: { in: batchIds },
             },
-          })
-        }
+            context: {
+              triggerAfterChange: false,
+              skipTimeslotBookingCascade: true,
+            },
+            overrideAccess: true,
+            req,
+          });
 
-        await payload.delete({
-          collection: timeslotsSlug,
-          where: deleteWhereClause,
-          context: {
-            triggerAfterChange: false,
-          },
-          overrideAccess: true,
-          req,
-        });
+          cleared += batchIds.length;
+          await progressReporter.report(
+            {
+              phase: "clearing",
+              cleared,
+              total: totalToClear,
+            },
+            { force: cleared >= totalToClear },
+          );
+        }
       } catch (error) {
         console.error("Error clearing existing timeslots:", error);
       }

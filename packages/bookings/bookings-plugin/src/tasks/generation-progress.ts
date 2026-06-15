@@ -9,6 +9,7 @@ export type TimeslotGenerationPhase =
 export type TimeslotGenerationProgress = {
   phase: TimeslotGenerationPhase;
   created?: number;
+  cleared?: number;
   total?: number;
   skipped?: number;
   daysProcessed?: number;
@@ -166,6 +167,7 @@ export function parseTimeslotGenerationProgress(
   return {
     phase,
     created: toCount(record.created),
+    cleared: toCount(record.cleared),
     total: toCount(record.total),
     skipped: toCount(record.skipped),
     daysProcessed: toCount(record.daysProcessed),
@@ -186,6 +188,13 @@ export function formatTimeslotGenerationProgressMessage(
 
   switch (progress.phase) {
     case "clearing":
+      if (
+        progress.total != null &&
+        progress.cleared != null &&
+        progress.total > 0
+      ) {
+        return `Clearing existing timeslots… ${progress.cleared.toLocaleString()} / ${progress.total.toLocaleString()}`;
+      }
       return "Clearing existing timeslots…";
     case "planning":
       if (
@@ -215,6 +224,14 @@ export function computeWeightedGenerationPercent(
 
   switch (progress.phase) {
     case "clearing":
+      if (
+        progress.total != null &&
+        progress.cleared != null &&
+        progress.total > 0
+      ) {
+        const clearingRatio = progress.cleared / progress.total;
+        return Math.min(35, Math.round(3 + clearingRatio * 32));
+      }
       return 3;
     case "planning":
       if (
@@ -246,41 +263,29 @@ export function computeWeightedGenerationPercent(
 export function estimateGenerationSecondsRemaining(args: {
   percent: number | null | undefined;
   startedAt?: string | null;
-  updatedAt?: string | null;
 }): number | null {
-  const { percent, startedAt, updatedAt } = args;
+  const { percent, startedAt } = args;
   if (percent == null || percent <= 0 || percent >= 100) return null;
 
   const remainingPercent = 100 - percent;
   if (remainingPercent <= 0) return null;
 
-  let estimatedMs: number | null = null;
+  if (!startedAt) return null;
 
-  if (startedAt) {
-    const startedMs = new Date(startedAt).getTime();
-    const endMs = updatedAt ? new Date(updatedAt).getTime() : Date.now();
-    if (
-      !Number.isNaN(startedMs) &&
-      !Number.isNaN(endMs) &&
-      endMs > startedMs &&
-      percent > 0
-    ) {
-      const totalElapsedMs = endMs - startedMs;
-      estimatedMs = (remainingPercent / percent) * totalElapsedMs;
-    }
+  const startedMs = new Date(startedAt).getTime();
+  const endMs = Date.now();
+  if (
+    Number.isNaN(startedMs) ||
+    endMs <= startedMs ||
+    percent <= 0
+  ) {
+    return null;
   }
 
-  if (estimatedMs == null && updatedAt) {
-    const anchorMs = new Date(updatedAt).getTime();
-    if (!Number.isNaN(anchorMs)) {
-      const elapsedMs = Date.now() - anchorMs;
-      if (elapsedMs > 0) {
-        estimatedMs = (remainingPercent / percent) * elapsedMs;
-      }
-    }
-  }
+  const totalElapsedMs = endMs - startedMs;
+  const estimatedMs = (remainingPercent / percent) * totalElapsedMs;
 
-  if (estimatedMs == null || !Number.isFinite(estimatedMs) || estimatedMs <= 0) {
+  if (!Number.isFinite(estimatedMs) || estimatedMs <= 0) {
     return null;
   }
   return Math.max(1, Math.round(estimatedMs / 1000));
@@ -305,7 +310,8 @@ export function generationProgressPercent(
   if (
     progress &&
     typeof progress.percent === "number" &&
-    Number.isFinite(progress.percent)
+    Number.isFinite(progress.percent) &&
+    progress.percent > 0
   ) {
     return Math.min(100, Math.max(0, Math.round(progress.percent)));
   }

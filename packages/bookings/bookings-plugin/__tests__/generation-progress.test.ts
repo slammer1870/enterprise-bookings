@@ -65,6 +65,24 @@ describe("generation progress helpers", () => {
         phase: "clearing",
       }),
     ).toBe(3);
+
+    expect(
+      computeWeightedGenerationPercent({
+        phase: "clearing",
+        cleared: 500,
+        total: 1000,
+      }),
+    ).toBe(19);
+  });
+
+  it("formats clearing progress messages", () => {
+    expect(
+      formatTimeslotGenerationProgressMessage({
+        phase: "clearing",
+        cleared: 250,
+        total: 1000,
+      }),
+    ).toBe("Clearing existing timeslots… 250 / 1,000");
   });
 
   it("prefers stored percent when present", () => {
@@ -80,11 +98,9 @@ describe("generation progress helpers", () => {
 
   it("estimates remaining time from progress rate", () => {
     const startedAt = new Date(Date.now() - 60_000).toISOString();
-    const updatedAt = new Date().toISOString();
     const seconds = estimateGenerationSecondsRemaining({
       percent: 25,
       startedAt,
-      updatedAt,
     });
     expect(seconds).not.toBeNull();
     expect(seconds!).toBeGreaterThan(60);

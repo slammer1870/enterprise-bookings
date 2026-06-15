@@ -343,14 +343,14 @@ export const Scheduler: CollectionConfig = {
                               : null
 
                     if (jobId != null) {
+                        const initialPhase = doc.clearExisting ? 'clearing' : 'planning'
                         await req.payload.update({
                             collection: 'scheduler',
                             id: doc.id,
                             data: {
                                 lastGenerationJobId: jobId,
                                 generationProgress: {
-                                    phase: 'clearing',
-                                    percent: 0,
+                                    phase: initialPhase,
                                     startedAt: generationStartedAt,
                                     updatedAt: generationStartedAt,
                                 },

@@ -545,6 +545,10 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
     ],
     beforeDelete: [
       async ({ req, id }) => {
+        if (req.context?.skipTimeslotBookingCascade) {
+          return;
+        }
+
         await req.payload.delete({
           collection: bookingsSlug,
           where: {

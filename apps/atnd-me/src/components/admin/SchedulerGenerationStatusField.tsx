@@ -53,11 +53,12 @@ function statusColors(status: SchedulerGenerationStatusResponse['status']): {
 function isIndeterminateProgress(status: SchedulerGenerationStatusResponse): boolean {
   if (status.status !== 'processing') return false
   const phase = status.progress?.phase
-  return (
-    phase === 'clearing' ||
-    status.progressPercent == null ||
-    status.progressPercent <= 3
-  )
+  if (phase === 'clearing') {
+    const total = status.progress?.total
+    const cleared = status.progress?.cleared
+    return total == null || total <= 0 || cleared == null
+  }
+  return status.progressPercent == null || status.progressPercent <= 3
 }
 
 export const SchedulerGenerationStatusField: React.FC = () => {
