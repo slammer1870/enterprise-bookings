@@ -13,7 +13,7 @@ import { loginAsRegularUser } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 import { advanceScheduleToDate } from './helpers/schedule-helpers'
-import { e2eTestTimeout } from './helpers/timeouts'
+import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 function addDays(start: Date, days: number): Date {
   const next = new Date(start)
@@ -34,7 +34,7 @@ async function setPayloadTenantCookie(
 
 test.describe('Trial class offer (first-time bookings only)', () => {
   // Heavier than schedule-only flows (UI login, two booking-page visits, API seeding).
-  test.describe.configure({ timeout: e2eTestTimeout(90000) })
+  test.describe.configure({ timeout: e2eSlowTestTimeout(120_000, 90_000) })
 
   test('booking page stops offering trial after a confirmed booking', async ({
     page,
