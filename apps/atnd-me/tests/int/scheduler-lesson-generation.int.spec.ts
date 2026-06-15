@@ -96,6 +96,20 @@ describe('Scheduler Timeslot Generation with Tenant Context', () => {
       endDate.setDate(endDate.getDate() + 3)
       endDate.setHours(23, 59, 59, 999)
 
+      const tenantLocations = await payload.find({
+        collection: 'locations',
+        where: {
+          and: [{ tenant: { equals: testTenant.id } }, { active: { equals: true } }],
+        },
+        limit: 2,
+        overrideAccess: true,
+      })
+      const resolvedBranchId =
+        tenantLocations.docs.length === 1
+          ? ((tenantLocations.docs[0] as { id: number }).id ?? null)
+          : null
+      const branchField = resolvedBranchId != null ? { branch: resolvedBranchId } : {}
+
       // Create existing timeslots for the test tenant (some with bookings, some without)
       const existingTimeslotWithoutBooking = (await payload.create({
         collection: 'timeslots',
@@ -106,6 +120,7 @@ describe('Scheduler Timeslot Generation with Tenant Context', () => {
           eventType: eventType.id,
           tenant: Number(testTenant.id),
           active: true,
+          ...branchField,
         },
         overrideAccess: true,
       })) as Timeslot
@@ -119,6 +134,7 @@ describe('Scheduler Timeslot Generation with Tenant Context', () => {
           eventType: eventType.id,
           tenant: Number(testTenant.id),
           active: true,
+          ...branchField,
         },
         overrideAccess: true,
       })) as Timeslot
@@ -203,6 +219,7 @@ describe('Scheduler Timeslot Generation with Tenant Context', () => {
           clearExisting: true, // Should delete timeslots without bookings
           defaultEventType: eventType.id,
           lockOutTime: 60,
+          ...branchField,
           week: {
             days: [
               {
@@ -256,15 +273,20 @@ describe('Scheduler Timeslot Generation with Tenant Context', () => {
         overrideAccess: true,
       })
 
-      // Wait for the job to complete (it runs synchronously via runByID)
-      // Give it some time to process
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Wait for the background job to finish (queued fire-and-forget from scheduler afterChange)
+      let deletedTimeslot: Timeslot | null = { id: existingTimeslotWithoutBooking.id } as Timeslot
+      for (let i = 0; i < 20; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        deletedTimeslot = await payload
+          .findByID({
+            collection: 'timeslots',
+            id: existingTimeslotWithoutBooking.id,
+          })
+          .catch(() => null)
+        if (deletedTimeslot == null) break
+      }
 
       // Verify: Timeslot without booking should be deleted (clearExisting: true)
-      const deletedTimeslot = await payload.findByID({
-        collection: 'timeslots',
-        id: existingTimeslotWithoutBooking.id,
-      }).catch(() => null)
       expect(deletedTimeslot).toBeNull()
 
       // Verify: Timeslot with active booking should still exist
