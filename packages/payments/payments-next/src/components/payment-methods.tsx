@@ -653,6 +653,7 @@ export function PaymentMethods({
   const { mutateAsync: createBookingsWithClassPass } = useMutation(
     trpc.bookings.createBookings.mutationOptions({
       onSuccess: () => {
+        _onPaymentSuccess?.();
         onPaymentRedirectStart?.();
         const url = successUrlProp ?? "/dashboard";
         router.push(url.startsWith("http") ? url : `${typeof window !== "undefined" ? window.location.origin : ""}${url.startsWith("/") ? url : `/${url}`}`);

@@ -1020,6 +1020,29 @@ export const bookingsRouter = {
         }
       }
 
+      // Manage-page checkout holds: class-pass confirmation creates confirmed bookings
+      // directly (not via Stripe fulfill). Mark the active hold consumed so capacity
+      // is not double-counted and the hold does not linger after payment.
+      if (paymentMethodUsed === "class_pass" && confirmedBookings.length > 0) {
+        const viewerIdRaw: unknown = (ctx.user as { id?: unknown })?.id;
+        const viewerId =
+          typeof viewerIdRaw === "string" ? parseInt(viewerIdRaw, 10) : viewerIdRaw;
+        if (Number.isFinite(viewerId)) {
+          const activeHold = await getActiveCheckoutHoldService(ctx.payload, {
+            timeslotId,
+            userId: viewerId as number,
+          });
+          if (activeHold?.id != null && activeHold.status === "active") {
+            await ctx.payload.update({
+              collection: CHECKOUT_HOLD_COLLECTION_SLUG,
+              id: activeHold.id,
+              data: { status: "consumed" },
+              overrideAccess: true,
+            });
+          }
+        }
+      }
+
       return confirmedBookings;
     }),
 

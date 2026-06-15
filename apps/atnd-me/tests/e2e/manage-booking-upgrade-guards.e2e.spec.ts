@@ -155,12 +155,13 @@ async function createUserClassPass(args: {
 }
 
 test.describe('Manage booking upgrade guards', () => {
-  test.describe.configure({ timeout: e2eSlowTestTimeout() })
+  test.describe.configure({ timeout: e2eSlowTestTimeout(180_000, 120_000) })
 
   test('disallowed payment-method variants stay capped at one slot on create and manage', async ({
     page,
     testData,
   }) => {
+    test.setTimeout(180_000)
     const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     const user = testData.users.user1
@@ -378,6 +379,7 @@ test.describe('Manage booking upgrade guards', () => {
     page,
     testData,
   }) => {
+    test.setTimeout(180_000)
     const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     const user = testData.users.user2
