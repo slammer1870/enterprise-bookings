@@ -115,10 +115,7 @@ export const ScheduleBlock = async ({ defaultLocation }: ScheduleBlockProps = {}
         : (defaultLocation as number)
 
   const defaultLocationId =
-    explicitDefaultLocationId ??
-    locations.find((l) => l.defaultForSchedule)?.id ??
-    locations[0]?.id ??
-    null
+    explicitDefaultLocationId ?? locations.find((l) => l.defaultForSchedule)?.id ?? null
 
   const safeDefaultLocationId =
     (() => {
