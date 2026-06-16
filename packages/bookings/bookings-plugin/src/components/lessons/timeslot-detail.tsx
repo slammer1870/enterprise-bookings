@@ -26,6 +26,7 @@ export const TimeslotDetail = ({
   const [expandedTimeslots, setExpandedTimeslots] = useState<Set<number>>(new Set());
   const [expandedBookings, setExpandedBookings] = useState<Booking[] | null>(null);
   const [isLoadingExpandedBookings, setIsLoadingExpandedBookings] = useState(false);
+  const [isLoadingBookingCount, setIsLoadingBookingCount] = useState(false);
   const [localBookingTotal, setLocalBookingTotal] = useState<number | null>(null);
   const timeZone = resolveTimeslotTimeZone(timeslot);
 
@@ -59,6 +60,47 @@ export const TimeslotDetail = ({
         ? bookingsContainer.docs.length
         : 0;
   const bookingCount = localBookingTotal ?? bookingCountFromProps;
+
+  const fetchBookingTotal = useCallback(async () => {
+    if (isLoadingBookingCount) return;
+    setIsLoadingBookingCount(true);
+    try {
+      // Admin list view provides `bookings: { docs: [] }` and relies on `totalDocs`.
+      // If that aggregation is stale/incorrect, fetch the authoritative value.
+      const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
+        method: "GET",
+        credentials: "include",
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const total =
+        typeof data?.bookings?.totalDocs === "number"
+          ? data.bookings.totalDocs
+          : Array.isArray(data?.bookings?.docs)
+            ? data.bookings.docs.length
+            : 0;
+      setLocalBookingTotal(total);
+    } catch {
+      // Ignore errors; the UI will fall back to the list-provided count.
+    } finally {
+      setIsLoadingBookingCount(false);
+    }
+  }, [isLoadingBookingCount, timeslot.id]);
+
+  // Only override list-provided totals when they look suspicious (0 while list has no docs).
+  // Expanding a row still fetches booking docs; this just fixes the displayed badge count.
+  useEffect(() => {
+    const docs = (timeslot.bookings as any)?.docs as Booking[] | undefined;
+    const shouldFetch =
+      bookingCountFromProps === 0 &&
+      Array.isArray(docs) &&
+      docs.length === 0 &&
+      localBookingTotal == null;
+    if (!shouldFetch) return;
+
+    void fetchBookingTotal();
+  }, [bookingCountFromProps, fetchBookingTotal, localBookingTotal, timeslot.bookings]);
 
   const refetchExpandedBookings = useCallback(async () => {
     try {
