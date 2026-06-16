@@ -3,11 +3,32 @@
  */
 import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
-import { navigateToTenant, getBranchSlugFromCookies, clearBranchCookies } from './helpers/subdomain-helpers'
+import { navigateToTenant, getBranchSlugFromCookies } from './helpers/subdomain-helpers'
 import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 import { loginAsLocationManager, loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
-import { advanceScheduleToDate } from './helpers/schedule-helpers'
+
+async function advanceScheduleToDate(page: Page, targetDate: Date) {
+  // p.text-center.text-lg is rendered inside ScheduleLazy (ssr: false) — scope to page
+  const dateLabel = page.locator('p.text-center.text-lg').first()
+  await expect(dateLabel).toBeVisible({ timeout: 20000 })
+
+  // The wrapper div contains: left-svg  p  right-svg (nth(1))
+  const wrapper = dateLabel.locator('xpath=..')
+  const rightArrow = wrapper.locator('svg').nth(1)
+  await expect(rightArrow).toBeVisible({ timeout: 5000 })
+
+  const targetLabel = targetDate.toDateString()
+  for (let i = 0; i < 45; i += 1) {
+    const currentLabel = (await dateLabel.textContent())?.trim()
+    if (currentLabel === targetLabel) return
+
+    await rightArrow.click({ force: true })
+    await page.waitForTimeout(200)
+  }
+
+  await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
+}
 
 test.describe('Multi-location branches', () => {
   test.setTimeout(180_000)
@@ -66,7 +87,6 @@ test.describe('Multi-location branches', () => {
     await createTestTimeslot(tenant.id, etNorth.id, startTime, endTime, undefined, true, north.id)
     await createTestTimeslot(tenant.id, etSouth.id, startTime, endTime, undefined, true, south.id)
 
-    await clearBranchCookies(page, tenant.slug)
     await navigateToTenant(page, tenant.slug, '/home')
     await page.waitForURL((url) => url.pathname === '/' || url.pathname === '/home', {
       timeout: 15000,

@@ -23,4 +23,3 @@ export { PaymentDetailsForm } from "./components/ui/payment-details-form";
 
 // Hooks
 export { usePayment } from "./hooks/use-payment";
-export type { CheckoutLegalConfig } from "./types/checkout-legal";

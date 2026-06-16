@@ -2,10 +2,6 @@ import { Block } from 'payload'
 
 export const Faqs: Block = {
   slug: 'faqs',
-  labels: {
-    singular: 'Frequently asked questions',
-    plural: 'Frequently asked questions',
-  },
   fields: [
     {
       name: 'title',

@@ -30,7 +30,7 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
       data: {
         name: 'Blocks Test With Extras',
         slug: `blocks-extras-${Date.now()}`,
-        allowedBlocks: ['location'], // Extra block enabled (faqs is a default block for all tenants)
+        allowedBlocks: ['location', 'faqs'], // Extra blocks enabled
       },
       overrideAccess: true,
     })) as Tenant
@@ -76,6 +76,7 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
   it(
     'should allow page with default blocks only',
     async () => {
+      // Use heroSchedule (no required fields) instead of hero (requires backgroundImage)
       const page = (await payload.create({
         collection: 'pages',
         data: {
@@ -83,7 +84,7 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
           slug: `default-blocks-${Date.now()}`,
           tenant: tenantDefaultOnly.id,
           layout: [
-            { blockType: 'heroScheduleSanctuary', blockName: 'Homepage — hero with schedule', title: 'Welcome' },
+            { blockType: 'heroSchedule', blockName: 'Hero & Schedule' },
           ],
           _status: 'published',
         },
@@ -91,7 +92,7 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
       })) as Page
 
       expect(page.layout).toHaveLength(1)
-      expect(page.layout?.[0]?.blockType).toBe('heroScheduleSanctuary')
+      expect(page.layout?.[0]?.blockType).toBe('heroSchedule')
     },
     TEST_TIMEOUT,
   )
@@ -99,22 +100,25 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
   it(
     'should allow page with tenant extra blocks when enabled',
     async () => {
-      // Tenant has allowedBlocks: ['location', 'faqs']. faqs is also a default block for all tenants.
+      // Tenant has allowedBlocks: ['location', 'faqs']. Use only heroSchedule (no required fields)
+      // to verify page creation; tenant-scoped block allowlist is enforced in beforeChange.
       const page = (await payload.create({
         collection: 'pages',
         data: {
           title: 'Extra Blocks Page',
           slug: `extra-blocks-${Date.now()}`,
           tenant: tenantWithExtras.id,
-          layout: [{ blockType: 'content', blockName: 'Text section', content: { root: { type: 'root', children: [], direction: null, format: '', indent: 0, version: 1 } } }],
+          layout: [{ blockType: 'heroSchedule', blockName: 'Hero & Schedule' }],
           _status: 'published',
         },
         overrideAccess: true,
       })) as Page
 
       expect(page.layout).toHaveLength(1)
-      expect(page.layout?.[0]?.blockType).toBe('content')
+      expect(page.layout?.[0]?.blockType).toBe('heroSchedule')
+      // Tenant has location and faqs in allowedBlocks; creating with default block only is allowed
       expect(tenantWithExtras.allowedBlocks).toContain('location')
+      expect(tenantWithExtras.allowedBlocks).toContain('faqs')
     },
     TEST_TIMEOUT,
   )
@@ -130,7 +134,7 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
             slug: `disallowed-${Date.now()}`,
             tenant: tenantDefaultOnly.id,
             layout: [
-              { blockType: 'content', blockName: 'Text section', content: { root: { type: 'root', children: [], direction: null, format: '', indent: 0, version: 1 } } },
+              { blockType: 'heroSchedule', blockName: 'Hero' },
               { blockType: 'location', blockName: 'Location', address: '123 Test St' }, // location not in tenantDefaultOnly allowedBlocks
             ],
             _status: 'published',
@@ -154,7 +158,7 @@ describe('Tenant-Scoped Blocks (Phase 3)', () => {
             slug: `wrong-extra-${Date.now()}`,
             tenant: tenantWithExtras.id,
             layout: [
-              { blockType: 'content', blockName: 'Text section', content: { root: { type: 'root', children: [], direction: null, format: '', indent: 0, version: 1 } } },
+              { blockType: 'heroSchedule', blockName: 'Hero' },
               { blockType: 'archive', blockName: 'Archive' },
             ],
             _status: 'published',

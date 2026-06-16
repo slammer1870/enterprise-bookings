@@ -176,7 +176,7 @@ isProject: false
 | **Phase 4.6** – Class pass UI in bookings | **Main + manage flows shipped**; children booking route **out of scope**; polish items may remain in *Current Implementation To-Do* | [Phase 4.6](#phase-46-class-pass-ui-in-bookings-page) |
 | **Phase 5** – Bulk admin / Payload timeslots UI | **Not planned** (baseline admin only); numbering kept for 5.5 / 6 | [Phase 5](#phase-5-admin-ux-current-app-not-planned) |
 | **Next infra milestone** | **Phase 5.5** – Media on R2/S3 (plugin + env in code; tests & Media `staticDir` polish per plan) | [Phase 5.5](#phase-55-image-storage-s3--cloudflare-r2) |
-| **Next large product milestone** | **Phase 8 MVP** – Claim-domain self-onboarding (production); [remaining work](#remaining-work--prerequisites) not started in code | [Phase 8 MVP](#phase-8-self-onboarding-mvp-production) · [Phase 6](#phase-6-authentication-across-subdomains-and-custom-domains) |
+| **Next large product milestone** | **Phase 6** – Auth across subdomain ↔ custom domain (**session propagation** and named E2E gaps remain) | [Phase 6](#phase-6-authentication-across-subdomains-and-custom-domains) |
 | **Closeout / polish** | *Current Implementation To-Do* (access review, webhooks, booking UX parity where listed) | [Current Implementation To-Do](#current-implementation-to-do) |
 
 **Where you are on the roadmap:** Phases **1**, **2**, and **2.5** are in place in code, with **4.5** and the scoped **4.6** class-pass surfaces shipped. **Phase 5** is intentionally not a build target. The next **infrastructure** chunk is **Phase 5.5** (object storage for Media). The next **product/security** chunk is **Phase 6**, mainly **single sign-on across a tenant’s platform subdomain and custom domain** (session handoff or equivalent), on top of validation, middleware, and trusted origins that are already largely implemented.
@@ -207,7 +207,7 @@ isProject: false
 - [Phase 4.5 – Product sync](#phase-45-stripe-product-sync--discount-codes) · [Phase 4.6 – Class pass UI](#phase-46-class-pass-ui-in-bookings-page)
 - [Phase 5 – Admin UX (current app; not planned)](#phase-5-admin-ux-current-app-not-planned) · [5.5 – R2 media](#phase-55-image-storage-s3--cloudflare-r2)
 - [Phase 6 – Auth across domains](#phase-6-authentication-across-subdomains-and-custom-domains) · [Phase 7 – Multi-location](#phase-7-multi-location-architecture) · [Phase 7 TDD chunks](#phase-7-tdd-build-plan-chunks-tests-cadence) · [Phase 7 user stories & tests](#phase-7-user-stories-and-associated-tests) · [Phase 7 implementation context](#phase-7-implementation-context) · [7.5 – Organisations](#phase-75-organisation-brand-above-tenants-future) · [7.5 roadmap / Stripe](#roadmap-and-stripe-hierarchy-decision-record)
-- [Phase 8 – Self-onboarding MVP](#phase-8-self-onboarding-mvp-production) · [Phase 8.1 – MCP personalisation](#phase-81-self-onboarding-ai--mcp-driven-personalisation-future) · [Phase 9 – Analytics](#phase-9-dashboard-analytics-future) · [Phase 10 – UTM](#phase-10-event-tracking--marketing-attribution-utm-future)
+- [Phase 8 – Self-onboarding](#phase-8-self-onboarding-with-mcp-driven-personalisation) · [Phase 9 – Analytics](#phase-9-dashboard-analytics-future) · [Phase 10 – UTM](#phase-10-event-tracking--marketing-attribution-utm-future)
 - [Phase 11 – App fees (deferred)](#phase-11-application-fee-management--platform-revenue-tracking-future-deferred)
 
 ## Document map
@@ -288,8 +288,7 @@ The MVP will be structured to easily add payment functionality later:
 | 6 | **Phase 6** | Auth across subdomains + custom domains; session propagation |
 | 7 | **Phase 7** | Multi-location (sub-subdomain, Locations, location-manager) |
 | 7.5 | **Phase 7.5** | Organisation (brand) above tenants; org domain & combined schedule |
-| 8 | **Phase 8** | Self-onboarding **MVP** (claim domain → user + tenant + magic link → admin checklist) — **ship to production first** |
-| 8.1 | **Phase 8.1** | Self-onboarding **AI / MCP** (personalised prepopulation, schedule import, Stripe MCP) — after MVP is live |
+| 8 | **Phase 8** | Self-onboarding + MCP-driven personalisation |
 | 9 | **Phase 9** | Tenant-scoped dashboard analytics |
 | 10 | **Phase 10** | Event tracking & UTM attribution |
 | 11 | **Phase 11** | Application fees & platform revenue *(deferred)* |
@@ -1307,27 +1306,20 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 42. **Phase 7**: `apps/atnd-me/src/lib/auth/options.ts` – Add `location-manager` to roles and `adminRoles`
 43. **Phase 7**: `apps/atnd-me/src/collections/Users/index.ts` – Add `locations` relationship (location-manager assignment)
 44. **Phase 7**: Timeslots (and optionally bookings, staffMembers, event-types) – Add `location` relationship; access/listing filter by location
-45. **Phase 8 (MVP)**: `packages/website/src/blocks/marketingHero/` – claim-domain subdomain input + CTA on marketing hero (or atnd-me override component)
-46. **Phase 8 (MVP)**: `apps/atnd-me/src/components/marketing/ClaimDomainModal.tsx` – modal (name, business name, email, terms checkbox)
-47. **Phase 8 (MVP)**: `apps/atnd-me/src/app/api/claim-domain/route.ts` – create user + tenant + assign admin + send magic link
-48. **Phase 8 (MVP)**: `apps/atnd-me/src/lib/onboarding/claimDomain.ts` – claim orchestration (user create → provision → magic link)
-49. **Phase 8 (MVP)**: `apps/atnd-me/src/lib/onboarding/claimSlug.ts` – slug normalisation, reserved words, availability
-50. **Phase 8 (MVP)**: `apps/atnd-me/src/lib/onboarding/provisionClaimedTenantPlaceholders.ts` – full placeholder bundle
-51. **Phase 8 (MVP)**: `apps/atnd-me/src/components/admin/dashboard/OnboardingSteps.tsx` – checklist above analytics
-52. **Phase 8 (MVP)**: `apps/atnd-me/src/collections/Tenants/index.ts` – optional `onboardingPreviewedAt`, `onboardingViewedScheduleAt`
-53. **Phase 8 (MVP)**: First-login tenant context – `payload-tenant` cookie after magic link; hide/replace `BeforeDashboard`
-54. **Phase 8.1**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (personalised prepopulation tools)
-55. **Phase 8.1**: Stripe MCP config - `@stripe/mcp` in orchestration for Connect/products during enriched onboarding
-56. **Phase 8.1**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
-57. **Phase 9**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
-58. **Phase 9**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
-59. **Phase 9**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
-60. **Phase 10**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
-61. **Phase 10**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
-62. **Phase 10**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
-63. **Phase 10**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
-64. **Phase 10**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
-65. **Phase 10**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
+45. **Phase 8**: `apps/atnd-me/src/app/(frontend)/onboard/` - Self-onboarding route(s)
+46. **Phase 8**: `apps/atnd-me/src/app/api/onboarding/route.ts` - Onboarding API
+47. **Phase 8**: `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` - MCP server (tenant creation + prepopulation tools)
+48. **Phase 8**: Stripe MCP config - Use `@stripe/mcp` in same flow for Connect/products during onboarding
+49. **Phase 8**: Prepopulation helpers - e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)` called by MCP tools
+50. **Phase 9**: `apps/atnd-me/src/app/api/analytics/route.ts` or tRPC `analytics` router – analytics API (date + tenant filter)
+51. **Phase 9**: `apps/atnd-me/src/lib/analytics/` – bookingsPerWeek, topCustomers, notSeenSince, etc.
+52. **Phase 9**: `apps/atnd-me/src/components/admin/analytics/` – date range picker, metrics cards/tables, tenant selector
+53. **Phase 10**: `apps/atnd-me/src/collections/MarketingEvents/index.ts` – tenant-scoped event tracking (UTM + eventType)
+54. **Phase 10**: `apps/atnd-me/src/lib/utm/` – parseUtmFromQuery, getOrSetFirstTouch, session helpers
+55. **Phase 10**: `apps/atnd-me/src/app/api/track/route.ts` or tRPC `analytics.trackEvent` – event ingest with UTM + tenant
+56. **Phase 10**: `apps/atnd-me/src/lib/attribution/` – conversionsBySource, funnelByMedium, CAC/CPA by campaign (with spend)
+57. **Phase 10**: User first-touch UTM fields (or userAttribution block) – set on first interaction/signup
+58. **Phase 10**: Optional SpendEntries or “Marketing spend” – cost per campaign/medium/date for CAC/ROAS
 
 ## Test Files to Create
 
@@ -1385,14 +1377,10 @@ Modify `apps/atnd-me/scripts/seed.ts`:
 - **Phase 7**: `apps/atnd-me/tests/int/location-context.int.spec.ts` - getLocationContext from path, cookie, invalid slug
 - **Phase 7**: `apps/atnd-me/tests/unit/getLocationContext.test.ts` - Location context unit tests
 - **Phase 7**: `apps/atnd-me/tests/e2e/multi-location.e2e.spec.ts` - tenant subdomain + path or selector, tenant + location context, location-manager scope
-- **Phase 8 (MVP)**: `apps/atnd-me/tests/unit/claim-domain-slug.test.ts` - Slug format, reserved words, normalisation
-- **Phase 8 (MVP)**: `apps/atnd-me/tests/int/claim-domain-api.int.spec.ts` - API creates user + tenant + admin link; duplicate slug/email handling
-- **Phase 8 (MVP)**: `apps/atnd-me/tests/int/claim-domain-provisioning.int.spec.ts` - Placeholder home, event types, 4-week timeslots with business name
-- **Phase 8 (MVP)**: `apps/atnd-me/tests/int/claim-domain-magic-link.int.spec.ts` - Magic link issued; callback lands on tenant admin
-- **Phase 8 (MVP)**: `apps/atnd-me/tests/e2e/claim-domain.e2e.spec.ts` - Hero input → modal → magic link → admin dashboard with onboarding steps
-- **Phase 8.1**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
-- **Phase 8.1**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (personalised collections)
-- **Phase 8.1**: `apps/atnd-me/tests/e2e/self-onboarding-enriched.e2e.spec.ts` - Enriched onboarding with personalised defaults
+- **Phase 8**: `apps/atnd-me/tests/unit/onboarding-mcp-tools.test.ts` - MCP tool handlers (prepopulate logic)
+- **Phase 8**: `apps/atnd-me/tests/int/onboarding-api.int.spec.ts` - Onboarding payload validation, slug idempotency
+- **Phase 8**: `apps/atnd-me/tests/int/onboarding-mcp-int.int.spec.ts` - MCP tools + test Payload (tenant + collections created)
+- **Phase 8**: `apps/atnd-me/tests/e2e/self-onboarding.e2e.spec.ts` - Full self-onboarding flow, tenant + personalised data
 - **Phase 9**: `apps/atnd-me/tests/unit/analytics/bookings-per-week.test.ts` - Bookings-per-week aggregation
 - **Phase 9**: `apps/atnd-me/tests/unit/analytics/top-customers.test.ts` - Top-customers query
 - **Phase 9**: `apps/atnd-me/tests/unit/analytics/not-seen-since.test.ts` - Not-seen-since (lapsed users) query
@@ -2086,7 +2074,7 @@ In Stripe Connect, this is implemented as a **destination charge**:
 - Tenants can manage their own Stripe dashboard independently
 - Supports both Express and Custom Connect accounts (flexibility)
 
-**Roadmap order (next phases):** Phases 1–4.6 largely shipped. Remaining infra/product order: Phase 5.5 (R2) → Phase 6 (cross-domain auth) → Phase 7 / 7.5 as needed → **Phase 8 MVP (Self-Onboarding — production)** → Phase 8.1 (MCP personalisation) → Phase 9 (Analytics polish) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred). **Phase 8 MVP can be prioritised ahead of 5.5–7.5** when the goal is getting claim-domain live in production.
+**Roadmap order (next phases):** Next = Phase 2.5 (Stripe sync for Stripe-backed collections) → Phase 3 (Custom Tenant-Scoped Blocks) → Phase 4 (Custom Admin Dashboard Homepage) → Phase 4.5 / 4.6 as needed → **Phase 5** (baseline admin only; [see Phase 5](#phase-5-admin-ux-current-app-not-planned)) → Phase 5.5 (Image Storage S3/Cloudflare R2) → Phase 6 (Authentication across subdomains and custom domains) → Phase 7 (Multi-Location Architecture) → Phase 7.5 (Organisation / brand above tenants) → Phase 8 (Self-Onboarding) → Phase 9 (Analytics) → Phase 10 (UTM) → Phase 11 (Application Fees, deferred).
 
 ---
 
@@ -3491,7 +3479,7 @@ Introduce an **Organisation** (brand) entity that sits **above** tenants. One or
 | **Resolution**        | Host → organisation (if org.domain) or tenant (if tenant.domain).   |
 | **Org homepage**      | C1: aggregate blocks only; C2: org-level pages; C3: global per org. |
 | **Combined schedule** | On org domain: merge all org tenants’ Scheduler slots; public.      |
-| **Placement**         | After Phase 7 (Multi-Location); before Phase 8 MVP (Self-Onboarding).   |
+| **Placement**         | After Phase 7 (Multi-Location); before Phase 8 (Self-Onboarding).   |
 
 
 ---
@@ -3526,7 +3514,7 @@ Phase 2 core is complete. Remaining work is mostly verification and test stabili
 
 ## Phase 11: Application Fee Management & Platform Revenue Tracking (Future, Deferred)
 
-*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Stripe product sync & related admin (Phases 4.5 / 2.5 as applicable), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Organisation (Phase 7.5), Self-Onboarding MVP (Phase 8) and MCP enrichment (Phase 8.1), Analytics (Phase 9), and UTM (Phase 10).*
+*Deferred to later in roadmap. Implement after Custom Tenant-Scoped Blocks (Phase 3), Custom Admin Dashboard (Phase 4), Stripe product sync & related admin (Phases 4.5 / 2.5 as applicable), Authentication across subdomains and custom domains (Phase 6), Multi-Location Architecture (Phase 7), Organisation (Phase 7.5), Self-Onboarding (Phase 8), Analytics (Phase 9), and UTM (Phase 10).*
 
 When implementing flexible application fees:
 
@@ -3536,7 +3524,7 @@ When implementing flexible application fees:
 - Per-tenant overrides
 - Stripe Connect implementation via `application_fee_amount`
 
-Phase 11 extends this with **advanced management**, not the core fee model:
+Phase 8 extends this with **advanced management**, not the core fee model:
 
 - Per-tenant self-service (optional, tenant-admin visibility/edit rules)
 - Fee preview tooling + audit logs
@@ -3654,417 +3642,108 @@ const paymentIntent = await stripe.paymentIntents.create({
 
 ---
 
-## Phase 8: Self-Onboarding MVP (Production)
+## Phase 8: Self-Onboarding with MCP-Driven Personalisation
 
 ### Overview
 
-Ship a **minimal, production-ready** self-onboarding path: a business owner claims a subdomain from the marketing homepage, submits basic details, and lands in their tenant admin via **magic link** — no super-admin, no MCP, no AI.
-
-**Release this MVP to production first.** Phase 8.1 adds MCP-driven personalisation on top.
-
-### User journey (MVP)
-
-```mermaid
-sequenceDiagram
-  participant Visitor
-  participant Hero as Marketing Hero
-  participant Modal as Claim Domain Modal
-  participant API as POST /api/claim-domain
-  participant Auth as Better Auth
-  participant Admin as Tenant Admin Dashboard
-
-  Visitor->>Hero: Types slug in [input].atnd.me
-  Visitor->>Hero: Clicks "Claim your domain"
-  Hero->>Modal: Opens with slug pre-filled
-  Visitor->>Modal: Enters name, business name, email
-  Modal->>API: Submit
-  API->>API: Create tenant + user (admin) + default data
-  API->>Auth: Send magic link (redirect to tenant /admin)
-  Auth-->>Visitor: Email with magic link
-  Visitor->>Admin: Magic link → authenticated dashboard
-  Admin->>Visitor: Checklist preview site then Connect Stripe then Analytics
-```
-
-### Goals (MVP)
-
-- **Claim domain on marketing hero** — subdomain input showing `[slug].{platformHost}` (e.g. `studio.atnd.me`) and a **Claim your domain** button.
-- **Lightweight modal** — on CTA click, collect **name**, **business name**, **email** (slug carried from hero input).
-- **Provision in one API call** — create **user**, create **tenant** (name = business name, slug), assign user as **tenant admin** (`role: admin`, `tenants` relationship), run **personalised placeholder provisioning** (see [Provision strategy](#provision-strategy-placeholder-first-not-empty-admin) below).
-- **Magic link auth** — send Better Auth magic link; callback redirects to `https://{slug}.{platformHost}/admin` (reuse existing magic-link infra + `registrationTenant` hooks).
-- **Admin onboarding checklist** — guided steps **above** Analytics; optimise for **time-to-value** (see [Onboarding checklist (conversion-optimised)](#onboarding-checklist-conversion-optimised) below). Do **not** ask users to build schedule, event types, or homepage during the claim modal.
-
-### Provision strategy: placeholder-first, not empty admin
-
-**Principle:** Highest conversion comes from showing a **working, branded preview** within minutes — not from asking new users to configure CMS collections before they’ve seen value. Collect only slug + identity at claim; **auto-provision** everything else using `businessName` (and slug).
-
-**Do not ask at claim time:** schedule, event types, homepage layout, logo upload, or Stripe. Those are **post-login checklist** items (edit/customise), not signup fields.
-
-**Placeholder bundle** (created synchronously in `claimDomain` / tenant afterChange hook):
-
-| Asset | MVP placeholder content |
-|-------|-------------------------|
-| **Home page** (`slug: home`, published) | **`heroScheduleSanctuary`** (“**Homepage — hero with schedule**”): `title` = **business name**, `subtitle` = “Book your first class”, optional `tagline`, CTA link → `/bookings`. Embedded schedule panel via `ScheduleBlock`. `logo` / `backgroundImage` = null until upload. Navbar: Home + Book Now. Footer: © {businessName}. Tenant `allowedBlocks` empty → [simplified default blocks](#simplified-default-blocks-self-service-page-builder) only. |
-| **Event types** (2) | `{businessName} Session` (12 places) + `Intro Class` (8 places) — generic enough for any vertical; user renames later. |
-| **Timeslots** (~4 weeks) | Recurring pattern: **3 slots/week** (e.g. Mon/Wed/Fri 10:00–11:00) from **next Monday** through **+28 days**, attached to primary event type. Enough to fill the public schedule widget and demo bookings without manual entry. |
-| **Navbar / footer / scheduler** | Minimal nav (Home, Bookings); footer with business name; default scheduler global if applicable. |
-| **Staff** | Skip for MVP (optional single “Instructor” later). |
-
-**Naming:** Prefer `{businessName}` in hero title and one class name over generic “Yoga Class” — feels personalised with zero extra signup fields.
-
-**Logo:** If user has no logo at claim, homepage still works (text-only hero). Checklist step “Upload logo” updates tenant + navbar; optional fetch from website URL deferred to Phase 8.1.
-
-**Volume guardrails:** Cap generated timeslots (e.g. max 12–15 over 4 weeks) to keep claim API fast; expand in 8.1 if importing real schedules.
-
-### Simplified default blocks (self-service page builder)
-
-New tenants get a **small, descriptive** block set in the Pages layout picker (`defaultBlockSlugs` in `apps/atnd-me/src/blocks/registry.ts`). Names explain what each block does — no training required. Super-admin enables anything else via **Tenants → Allowed blocks** (brand packs, classic hero, platform blocks, etc.).
-
-| Slug | Picker label | Use for |
-|------|--------------|---------|
-| `heroScheduleSanctuary` | **Homepage — hero with schedule** | Main landing: name, photo, book button, timetable |
-| `simpleAbout` | **About your business** | Image + text about you |
-| `content` | **Text section** | Headings and paragraphs |
-| `cta` | **Call to action button** | Prominent button (e.g. Book now) |
-| `faqs` | **Frequently asked questions** | Q&A list |
-| `mediaBlock` | **Image or video** | Full-width media |
-| `twoColumnLayout` | **Two columns side by side** | Split content left/right |
-
-**Removed from defaults** (super-admin can re-enable per tenant): `heroSchedule`, `hero`, `about`, `schedule`, `tenantScopedSchedule` — duplicates or too technical for day-one users.
-
-**Checklist step 5** (“Customise your homepage”) deep-links to Pages → home; picker only shows the seven blocks above so users can add FAQ / About / CTA sections without overwhelm.
-
-### Onboarding checklist (conversion-optimised)
-
-Order steps by **motivation before friction**: let users *see* their live site and sample schedule before pushing Stripe Connect (high-friction, required for payments).
-
-| # | Step | Type | Complete when | Why this order |
-|---|------|------|---------------|----------------|
-| 1 | **Preview your live site** | Required (auto) | Placeholder home with **`heroScheduleSanctuary`** + timeslots exist (true immediately after claim) | Instant “wow” — `{slug}.{host}` shows hero **and** live schedule panel in one view |
-| 2 | **Review your sample schedule** | Required | User opens Timeslots list **or** dismisses after first visit (track `onboardingViewedScheduleAt` on tenant/user) | Shows bookable classes without asking them to create from scratch |
-| 3 | **Connect Stripe** | Required for payments | `stripeConnectOnboardingStatus === 'active'` | Monetisation gate; after they’ve seen value |
-| 4 | **Upload your logo** | Optional | `tenant.logo` set | Quick branding win; homepage/navbar update |
-| 5 | **Customise your homepage** | Optional | User saves home page once **or** explicit dismiss | Deep link to Pages → home (`heroScheduleSanctuary` block pre-filled) |
-| 6 | **Adjust class types** | Optional | User edits event-types **or** dismiss | Deep link to Event types; placeholders are clearly labelled as samples |
-
-**UI behaviour:**
-
-- Show **progress** (e.g. 2/3 required complete) and celebrate when required steps done.
-- **Hide** optional steps behind “More setup” until required steps complete, or show all with optional badges.
-- **Hide entire checklist** when all required steps complete (MVP: steps 1–3).
-- Step 1 can auto-check on first dashboard load since provisioning already ran.
-
-**What we explicitly avoid (hurts conversion):**
-
-- Empty tenant (no pages, no timeslots) — feels broken.
-- Long claim modal (schedule builder, block picker).
-- Stripe as step 1 before preview — drops completion rate.
-- Forcing homepage edit before they’ve previewed the placeholder.
-
-**Phase 8.1 enhancement:** Optional post-claim wizard (“Paste your Calendly link”, “Upload schedule CSV”) to *replace* placeholders — not required for MVP.
-
-### Non-goals (MVP)
-
-- Collecting schedule, event types, or homepage layout **during** the claim modal.
-- Social links, schedule import, geolocation, booking-software integrations (8.1).
-- MCP server, AI personalisation, Stripe MCP orchestration (8.1).
-- Multi-step wizard beyond the single claim modal.
-- Public `/tenants` listing or “near me” map.
-- Custom domain setup during claim (subdomain only).
-
-### Architecture (MVP)
-
-#### 1. Marketing hero — claim domain CTA
-
-Extend the shared **Marketing Hero** block (`packages/website/src/blocks/marketingHero/`) **or** add an atnd-me-specific wrapper:
-
-- **Subdomain input** — single text field; live preview suffix `.atnd.me` (derive host from `NEXT_PUBLIC_SERVER_URL` / platform config, not hard-coded).
-- **Claim your domain** button — disabled until slug passes client-side format check; opens modal.
-- Optional admin field: `showClaimDomainCta: boolean` on the block so editors can toggle on the root marketing page only.
-
-Placement: root marketing page (`slug: root`, `tenant: null`) — already loaded at `/` when no tenant subdomain is detected.
-
-#### 2. Claim domain modal
-
-Client component (e.g. `apps/atnd-me/src/components/marketing/ClaimDomainModal.tsx`):
-
-| Field | Notes |
-|-------|--------|
-| Slug | Pre-filled from hero; editable; validated `^[a-z0-9-]+$`, min/max length, reserved slugs (`admin`, `api`, `www`, …) |
-| Name | User display name |
-| Business name | → `tenants.name` |
-| Email | → user email; magic link recipient |
-| Terms accepted | Required checkbox; links to platform terms + privacy |
-
-Submit → `POST /api/claim-domain`. On success → show “Check your email” state (same UX pattern as `/magic-link-sent`).
-
-#### 3. Claim domain API
-
-`POST /api/claim-domain` (public, rate-limited):
-
-1. Validate slug availability (unique), email format, required fields.
-2. **Create tenant** via Payload Local API (`overrideAccess: true`) — bypasses super-admin-only `tenants.create` access.
-3. **Create user first** — `magicLinkDisableSignUp: true` in Better Auth (`lib/auth/options.ts`), so the magic link **cannot** create accounts. Claim API must `payload.create` the user, then request the link. MVP: **reject duplicate email** with a clear error (no merge).
-4. Set user `role: ['admin']`, `tenants: [{ tenant: id }]`, `registrationTenant: id`.
-5. Run **`provisionClaimedTenantPlaceholders`** — full bundle per [Provision strategy](#provision-strategy-placeholder-first-not-empty-admin) and [Provisioning completeness](#provisioning-completeness).
-6. Send **magic link** via Better Auth with tenant-scoped `callbackURL` built via `getTenantSiteURL` (same pattern as `send-late-booking-magic-link.ts`) → `https://{slug}.{platformHost}/admin`.
-7. Return `{ ok: true }` (no tenant secrets in response).
-
-Security: rate limit by IP + email; slug reservation TTL optional (defer if not needed for MVP).
-
-#### 4. Admin dashboard — onboarding steps
-
-Insert **`OnboardingSteps`** at the top of `AnalyticsDashboardClient` (before the “Analytics” heading and charts). Full step order and rationale: [Onboarding checklist (conversion-optimised)](#onboarding-checklist-conversion-optimised).
-
-**Required steps (MVP):** (1) Preview live site → (2) Review sample schedule → (3) Connect Stripe.
-
-**Optional steps:** Upload logo, Customise homepage, Adjust class types — shown after required or under “More setup”.
-
-Persist lightweight progress on tenant (e.g. `onboardingPreviewedAt`, `onboardingViewedScheduleAt`) or derive from existing data (Stripe status, logo present).
-
-Reuse: `getStripeConnectNoticeFromSearch`, tenant Stripe fields, existing Connect E2E patterns, deep links to Pages / event-types / timeslots / tenant logo field.
-
-### Implementation outline (MVP, TDD-friendly)
-
-- **8.1** – Slug validation helpers  
-  - `normalizeClaimSlug`, reserved list, availability check.  
-  - Tests: `tests/unit/claim-domain-slug.test.ts`
-- **8.2** – Claim domain API  
-  - `POST /api/claim-domain` + `lib/onboarding/claimDomain.ts`.  
-  - **Create user before magic link** (`magicLinkDisableSignUp: true`).  
-  - Build `callbackURL` with `getTenantSiteURL` → `{slug}.{host}/admin`.  
-  - Tests: `tests/int/claim-domain-api.int.spec.ts` (user + tenant + admin link; duplicate slug/email)
-- **8.3** – Magic link integration  
-  - Magic link after provision; callback to tenant admin.  
-  - Tests: `tests/int/claim-domain-magic-link.int.spec.ts`
-- **8.4** – Marketing hero + modal UI  
-  - Hero input/CTA + modal wired to API.  
-  - Tests: component tests optional; cover in E2E.
-- **8.5** – Placeholder provisioning  
-  - `provisionClaimedTenantPlaceholders(tenant, businessName)` — home page with **`heroScheduleSanctuary`** layout row, 2 event types, 4-week sample timeslots (feed the sanctuary schedule panel), navbar, footer.  
-  - Example layout row: `{ blockType: 'heroScheduleSanctuary', blockName: 'Hero & Schedule', title, subtitle, tagline, links: [{ link: { type: 'custom', label: 'Book Now', url: '/bookings' } }] }`.  
-  - Tests: `tests/int/claim-domain-provisioning.int.spec.ts` — assert `heroScheduleSanctuary` on home, personalised names + timeslot count/date range.
-- **8.6** – Admin onboarding steps  
-  - `OnboardingSteps.tsx` — preview → review schedule → Connect Stripe (+ optional logo/homepage/classes).  
-  - Tests: int test for step completion logic; E2E asserts checklist before analytics.
-- **8.7** – E2E claim-domain flow  
-  - `tests/e2e/claim-domain.e2e.spec.ts` — hero → modal → magic link → admin checklist → preview site shows business name + bookable schedule.
-
-### Files / areas (MVP)
-
-| Area | Path |
-|------|------|
-| Hero CTA | `packages/website/src/blocks/marketingHero/Component.tsx` (+ config field) or `apps/atnd-me/src/blocks/ClaimDomainHero/` |
-| Modal | `apps/atnd-me/src/components/marketing/ClaimDomainModal.tsx` |
-| API | `apps/atnd-me/src/app/api/claim-domain/route.ts` |
-| Service | `apps/atnd-me/src/lib/onboarding/claimDomain.ts` |
-| Placeholder provisioning | `apps/atnd-me/src/lib/onboarding/provisionClaimedTenantPlaceholders.ts` |
-| Dashboard steps | `apps/atnd-me/src/components/admin/dashboard/OnboardingSteps.tsx` |
-| Wire into dashboard | `apps/atnd-me/src/components/admin/dashboard/AnalyticsDashboardClient.tsx` |
-| Slug helpers | `apps/atnd-me/src/lib/onboarding/claimSlug.ts` |
-| Tenant onboarding fields | `apps/atnd-me/src/collections/Tenants/index.ts` (optional progress timestamps) |
-| First-login tenant context | Ensure `payload-tenant` cookie / selector after magic link (middleware + admin) |
-
-### Implementation status
-
-| Area | Status |
-|------|--------|
-| Phase 8 plan + simplified default blocks | **Done** (plan + `defaultBlockSlugs` / labels in code) |
-| Claim hero, modal, API, provisioning, checklist | **Not started** (no `claim-domain` routes or `lib/onboarding/` yet) |
-| Legacy `createDefaultTenantData` hook | **Not in repo** — use new `provisionClaimedTenantPlaceholders` only |
-
-### Remaining work & prerequisites
-
-#### Auth & first login
-
-- **`magicLinkDisableSignUp: true`** — document in API: user must exist before sending magic link.
-- **Tenant-scoped `callbackURL`** — `getTenantSiteURL(tenant, headers)` + `/admin`; verify in prod on `*.atnd.me`.
-- **First admin visit** — after magic link, tenant context must be set (`payload-tenant` cookie / selector) so admin is not stuck on “no tenant selected”.
-- **Branded magic-link email** — reuse `resolveMagicLinkFrom` / `resolveTenantForMagicLinkUrl` (already resolves tenant from subdomain in link URL).
-
-#### Provisioning completeness
-
-`provisionClaimedTenantPlaceholders` must create **all** of the following (not only home + timeslots):
-
-| Asset | Notes |
-|-------|--------|
-| Home page | `heroScheduleSanctuary`, published, business name |
-| Event types (2) | Personalised names; **no payment methods** until Stripe (free bookings OK for demo) |
-| Timeslots (~4 weeks) | Mon/Wed/Fri pattern; tenant timezone for slot times |
-| Navbar / footer | Home + Book Now; © business name |
-| **Scheduler** collection/global | If schedule widget depends on it — create tenant-scoped default |
-| **Tenant timezone** | Sensible default (e.g. `Europe/Dublin` or from platform config) |
-| **Booking theme** | Defaults if homepage/bookings read `bookingTheme` on tenant |
-| **`/bookings` route** | Hero CTA and nav link here — verify tenant middleware + page work on new subdomain |
-
-There is **no** existing tenant afterChange default-data hook in the codebase; provisioning runs **inside claim API** (or a shared helper called only from claim), not from Tenants collection hooks.
-
-#### Marketing & content ops
-
-- **Root marketing page** — `slug: root`, `tenant: null`, layout includes `marketingHero` with `showClaimDomainCta: true` (seed script or manual in prod).
-- **Claim success UX** — modal → “Check your email” (reuse `/magic-link-sent` copy/pattern).
-- **Platform host** — derive suffix from `NEXT_PUBLIC_SERVER_URL` (`studio.atnd.me`), not hard-coded.
-
-#### Legal & trust
-
-- **Terms + privacy** at claim — checkbox required before submit; link to platform terms/privacy pages.
-- **Duplicate-email policy** — MVP: reject with message (“Sign in to add another space” or similar).
-- Optional: notify super-admin (email/Slack) on successful claim.
-
-#### Tenant schema (checklist progress)
-
-Add optional fields on **Tenants** (or track on user) for checklist completion:
-
-- `onboardingPreviewedAt` — set when user clicks “Preview your live site” (or auto on first dashboard load).
-- `onboardingViewedScheduleAt` — set when user opens Timeslots admin (step 2).
-
-Alternatively derive progress only from existing data (Stripe status, `tenant.logo`, etc.) and skip new fields for MVP.
-
-#### Admin UX polish
-
-- **Replace `BeforeDashboard`** — remove Seed button / dev instructions for self-onboarded tenants (or all tenant-admins).
-- **Single-tenant admin** — pre-select the one tenant in admin nav on first login.
-- **Checklist deep links** — Pages → home, Timeslots, Event types, Tenant edit (logo), Connect Stripe OAuth URL.
-
-#### Security & operations
-
-See expanded [Production checklist](#production-checklist-before-go-live) below.
-
-#### Phase dependencies (MVP can ship without full completion)
-
-| Phase | Onboarding impact |
-|-------|-------------------|
-| **6** – Cross-domain auth | MVP uses `{slug}.atnd.me` only; custom domain + session handoff is post-MVP |
-| **5.5** – R2 / object storage | Logo upload works in dev; prod media storage should be ready before pushing logo step hard |
-| **8.1** – MCP | Schedule import, logo from URL, enriched placeholders — after MVP is live |
-
-#### Suggested build order
-
-1. **8.1** Slug validation  
-2. **8.5** Provisioning (sanctuary home + full bundle)  
-3. **8.2** Claim API (user create → provision → magic link)  
-4. **8.6** OnboardingSteps  
-5. **8.4** Hero + modal (+ terms checkbox)  
-6. **8.3** Magic-link int test  
-7. **8.7** E2E  
-8. Production checklist + root page seed  
-
-### Building blocks already in codebase
-
-- **Marketing Hero** block on root page (`packages/website`, registered in `apps/atnd-me/src/blocks/registry.ts`).
-- **Better Auth magic link** (`enableMagicLink: true`, E2E helpers in `@repo/testing-config`).
-- **Stripe Connect** OAuth + `stripeConnectOnboardingStatus` on tenants.
-- **Custom analytics dashboard** (`AnalyticsDashboard` / `AnalyticsDashboardClient`).
-- **`heroScheduleSanctuary`** block (`packages/website/.../ClHeroScheduleSanctuary`, slug `heroScheduleSanctuary`; in `defaultBlockSlugs` and wired in `blockComponents.ts` with embedded `ScheduleBlock`).
-- **`getTenantSiteURL`** + magic-link callback patterns (`endpoints/admin/bookings/send-late-booking-magic-link.ts`).
-- **`magicLinkDisableSignUp: true`** — claim flow must create user before sending link.
-- **User ↔ tenant admin** model (`role: admin`, `tenants` array, `registrationTenant`).
-
-### MVP summary
+Enable **self-onboarding**: a prospective tenant (business owner) signs up, provides information about their business, and the platform uses that to **prepopulate all tenant-scoped collections** with personalised data so onboarding feels tailored rather than generic.
+
+An **MCP server** is the central integration point: it accepts the onboarding payload (social links, current booking software, schedule, etc.) and exposes **tools/resources** that the backend or an agent uses to create the tenant and fill pages, timeslots, staffMembers, event-types, navbar, footer, scheduler, and—where applicable—Stripe-side config.
+
+### Goals
+
+- **Self sign-up**: Business owners can start onboarding without super-admin involvement.
+- **Structured onboarding inputs**: Collect e.g. social media URLs, current booking/scheduling tool name or export, business name, slug, contact, and **business location** (address and/or coordinates) for **geolocation filtering** on the tenants listing (e.g. “studios near me”).
+- **MCP-driven personalisation**: An MCP server accepts that info and drives prepopulation so tenant collections are filled with **personalised** defaults (e.g. class names, schedule patterns, branding hints from social) instead of generic “Yoga Class” / “Fitness Class”.
+- **Stripe MCP in the loop**: Use the [Stripe MCP server](https://docs.stripe.com/mcp) (e.g. `@stripe/mcp`) in the same flow so onboarding can create/configure Stripe Connect accounts, products, or prices as part of tenant setup, consistent with the rest of the plan.
+
+### Non-goals (for this phase)
+
+- Full AI hallucination of business data; personalisation is based on **user-supplied + optionally enriched** data (e.g. rules, templates, or controlled AI tools fed by MCP).
+- Deep integrations with every possible “current booking software”; start with a small set (e.g. “none”, “other”, “Calendly”, “Acuity”) or file upload, then expand.
+
+### Architecture
+
+1. **Onboarding UI**
+  - Public or semi-public route(s) where the user enters:
+    - Business name, preferred subdomain/slug
+    - Social media links (e.g. Instagram, Facebook, website)
+    - Current booking software / schedule source (select or “paste export / link”)
+    - **Business location** for geolocation filtering: address (for display + geocoding) and/or latitude/longitude (for “near me” / distance sorting on `/tenants`)
+    - Optional: contact email, timezone, currency
+  - Submits to a backend **onboarding API**.
+2. **MCP server**
+  - **Configure an MCP server** that:
+    - Accepts structured **onboarding context** (the above payload).
+    - Exposes **tools** (or resources) such as:
+      - `create_tenant_from_onboarding(context)` → returns tenant id + suggested slug
+      - `prepopulate_pages(tenantId, context)` → uses social/branding to suggest hero text, colours, logo URL
+      - `prepopulate_schedule(tenantId, context)` → uses “current software” / schedule export to suggest timeslots, class names, times
+      - `prepopulate_class_options(tenantId, context)` → suggests class types and capacities
+    - Can call **Stripe MCP** tools (or a shared Stripe MCP plugin) to e.g. create Connect account, products, or placeholder prices during tenant creation.
+  - Implementation options:
+    - **Custom MCP server** in-repo that implements these tools and, under the hood, calls Payload APIs + optionally `@stripe/mcp` or Stripe REST.
+    - **Stripe MCP** configured alongside (e.g. in Cursor / same runtime) so agents or backend services can use Stripe tools in the same context as “create tenant / prepopulate” tools.
+3. **Data flow**
+  - Onboarding API receives form payload → builds **onboarding context**.
+  - Calls MCP server tools (or an agent using those tools) with that context.
+  - MCP tools (or agent):
+    - Create tenant (and optionally trigger Stripe Connect onboarding link).
+    - Create default pages, timeslots, staffMembers, event-types, navbar, footer, scheduler using **personalised** values derived from context (e.g. class names from schedule export, hero text from social/business name).
+  - Tenant collections are **prepopulated**; user lands in admin to review/edit and complete Stripe Connect if not done in-flow.
+
+### Implementation outline (TDD-friendly)
+
+- **Step 3.1** – Onboarding schema and API  
+  - Define **onboarding payload** (business name, slug, social links, current software, schedule export/link, **business location** for geolocation: `address`, `latitude`, `longitude`, etc.).
+  - Add `POST /api/onboarding` (or similar) that validates payload and returns a job id or token.
+  - Persist `businessLocation` (address, latitude, longitude) on the tenant when creating from onboarding so `/tenants` (and future “near me” / map UIs) can filter or sort by location.
+  - Tests: validation, sanitisation, idempotency for duplicate slugs.
+- **Step 3.2** – MCP server for onboarding  
+  - Implement an MCP server (e.g. in `apps/atnd-me/mcp/` or `packages/onboarding-mcp/`) that:
+    - Accepts onboarding context.
+    - Exposes tools: `create_tenant_from_onboarding`, `prepopulate_pages`, `prepopulate_schedule`, `prepopulate_class_options`, etc.
+  - Tools should call Payload (local or HTTP) to create/update tenant and collections; no direct DB.
+  - Tests: unit tests for tool handlers with mocked Payload; integration tests with test Payload.
+- **Step 3.3** – Stripe MCP integration  
+  - Configure **Stripe MCP** (e.g. `@stripe/mcp`) so the same process or agent can:
+    - Create Connect accounts or generate Connect onboarding links for the new tenant.
+    - Create products/prices if needed for class types.
+  - Document how onboarding orchestrator invokes Stripe MCP tools (e.g. via MCP client in Node, or via an agent loop).
+  - Tests: ensure tenant+Stripe linkage and that Connect onboarding link is correctly associated with tenant.
+- **Step 3.4** – Personalisation rules  
+  - Implement **prepopulation logic** that uses:
+    - **Social / website**: business name, branding hints, logo URL (if derivable), hero text suggestions.
+    - **Current booking software / schedule**: map to class names, weekdays/times, capacities (template or heuristic).
+  - Keep logic in MCP tool handlers or in shared helpers called by those tools.
+  - Tests: given fixture onboarding payloads, assert created tenant and collection docs match expected personalised defaults.
+- **Step 3.5** – End-to-end self-onboarding  
+  - UI: wizard or single form → submit → “Setting up your space…” → redirect to tenant admin or “next step” (e.g. Connect Stripe).
+  - E2E tests: run through self-onboarding with sample data and assert tenant + key collections are created and personalised.
+
+### Files / areas to add (later)
+
+- `apps/atnd-me/src/app/(frontend)/onboard/` – onboarding route(s).
+- `apps/atnd-me/src/app/api/onboarding/route.ts` – onboarding API.
+- `apps/atnd-me/mcp/` or `packages/onboarding-mcp/` – MCP server with tools for tenant creation and prepopulation.
+- Configuration for **Stripe MCP** in the app or agent runtime (e.g. Cursor MCP config pointing at `@stripe/mcp` or a local Stripe MCP wrapper).
+- Shared prepopulation helpers invoked by MCP tools (e.g. `prepopulateFromScheduleExport(tenantId, exportPayload)`).
+
+### Summary
 
 | Aspect | Notes |
+
 |--------|--------|
-| **Who** | Visitor on marketing homepage |
-| **Inputs** | Slug, name, business name, email |
-| **Output** | Tenant + tenant-admin user + **personalised placeholders** (home, schedule, class types) + magic link |
-| **Post-login** | Checklist: preview site → review schedule → Connect Stripe (+ optional customise steps), then analytics |
-| **Green gates** | Slug unit tests, claim API int tests, magic-link int test, claim-domain E2E |
 
-### Provisioning completeness
+| **Who** | Prospective tenant (business owner) self-signs up. |
 
-Reference for **8.5** / `provisionClaimedTenantPlaceholders` — everything a new tenant needs before first login:
+| **Inputs** | Social links, current booking software/schedule, business name, slug, contact, **business location** (address + lat/lng for geolocation filtering). |
 
-1. Tenant record (name, slug, timezone, empty `allowedBlocks` → [simplified default blocks](#simplified-default-blocks-self-service-page-builder) only).
-2. User + tenant-admin link + `registrationTenant`.
-3. Published home page (`heroScheduleSanctuary`).
-4. Two event types (no priced payment methods until Stripe).
-5. Sample timeslots (4 weeks, tenant timezone).
-6. Navbar + footer.
-7. Scheduler global/collection if required by schedule widget.
-8. Verify `{slug}.{host}/`, `{slug}.{host}/bookings`, `{slug}.{host}/admin` resolve after DNS propagates.
+| **MCP** | Custom MCP server receives onboarding context and exposes tools to create tenant + prepopulate collections; Stripe MCP used for Connect/products where needed. |
 
-### Production checklist (before go-live)
+| **Output** | New tenant + personalised pages, timeslots, event-types, navbar, footer, scheduler; optional Stripe Connect onboarding link or account. |
 
-**API & security**
-
-- [ ] Rate limiting on `POST /api/claim-domain` (per IP + per email)
-- [ ] Reserved slug list + min/max slug length enforced
-- [ ] Duplicate-email rejection tested and documented
-- [ ] Terms + privacy checkbox on claim modal; links live
-- [ ] Feature flag or env to enable/disable claim CTA in prod
-
-**Auth & email**
-
-- [ ] User created **before** magic link (`magicLinkDisableSignUp`)
-- [ ] `callbackURL` uses `getTenantSiteURL` → tenant subdomain `/admin`
-- [ ] Email deliverability (magic link From address; tenant-branded subject)
-- [ ] First login sets `payload-tenant` / admin tenant selector correctly
-
-**Infrastructure**
-
-- [ ] Wildcard DNS + TLS for `*.atnd.me` (or platform host)
-- [ ] New tenant subdomain works immediately after claim (middleware)
-- [ ] Cloudflare custom hostname / Apple Pay hooks on tenant create — failures logged, do not fail claim
-- [ ] Media storage (Phase 5.5) ready if promoting logo upload step
-
-**Content & UX**
-
-- [ ] Root page (`slug: root`) has `marketingHero` + claim CTA enabled
-- [ ] Placeholder site shows business name + bookable schedule on preview
-- [ ] `BeforeDashboard` seed/dev copy removed or hidden for tenant-admins
-- [ ] Onboarding checklist visible above analytics; hides when required steps done
-
-**Monitoring**
-
-- [ ] Log/metric: claims started, claims succeeded, magic links sent, magic link logins, Stripe connected
-- [ ] Alert on spike in failed claims / duplicate slug attempts
-- [ ] Optional: super-admin notification on new tenant claim
-
----
-
-## Phase 8.1: Self-Onboarding AI / MCP-Driven Personalisation (Future)
-
-### Overview
-
-**After Phase 8 MVP is live in production**, enrich onboarding with structured business inputs and an **MCP server** that prepopulates tenant collections with **personalised** defaults (not generic “Yoga Class” placeholders). Stripe MCP can participate in Connect/product setup during the enriched flow.
-
-This is the **AI-optimised** path — not required for the first production release.
-
-### Goals (8.1)
-
-- **Extended onboarding inputs**: social links, current booking software, schedule export/link, business location (address + lat/lng).
-- **MCP-driven personalisation**: tools such as `create_tenant_from_onboarding`, `prepopulate_pages`, `prepopulate_schedule`, `prepopulate_class_options`.
-- **Stripe MCP in the loop**: Connect accounts / products via `@stripe/mcp` where appropriate.
-- **Optional enriched UI**: expand modal into wizard or `/onboard` route; MVP claim flow remains the entry point.
-
-### Non-goals (8.1)
-
-- Full AI hallucination of business data; personalisation from **user-supplied + optionally enriched** data only.
-- Deep integrations with every booking platform (start with small set: none, other, Calendly, Acuity).
-
-### Implementation outline (8.1, TDD-friendly)
-
-- **8.1.1** – Extended onboarding schema + optional `POST /api/onboarding/enrich` (or expand claim API behind feature flag).
-- **8.1.2** – MCP server (`apps/atnd-me/mcp/` or `packages/onboarding-mcp/`) with prepopulation tools calling Payload APIs.
-- **8.1.3** – Stripe MCP integration for Connect/products during enriched setup.
-- **8.1.4** – Personalisation rules (social → hero/branding; schedule export → class names/times).
-- **8.1.5** – E2E enriched self-onboarding with fixture payloads.
-
-### Files / areas (8.1)
-
-- `apps/atnd-me/mcp/` or `packages/onboarding-mcp/`
-- `apps/atnd-me/src/app/(frontend)/onboard/` (optional enriched wizard)
-- Shared helpers: `prepopulateFromScheduleExport(tenantId, exportPayload)`
-- Stripe MCP runtime config
-
-### 8.1 summary
-
-| Aspect | Notes |
-|--------|--------|
-| **Prerequisite** | Phase 8 MVP in production |
-| **Inputs** | Social, schedule, location, + MVP fields |
-| **MCP** | Custom server + Stripe MCP for Connect/products |
-| **Output** | Personalised pages, timeslots, event-types, navbar, footer, scheduler |
-| **Green gates** | MCP tool unit/int tests, prepopulation regression, enriched E2E |
+| **Green gates** | Validation API tests, MCP tool unit/int tests, prepopulation regression tests, E2E self-onboarding test. |
 
 ---
 

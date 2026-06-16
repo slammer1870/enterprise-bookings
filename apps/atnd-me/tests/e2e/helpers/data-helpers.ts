@@ -89,56 +89,29 @@ export async function createTestTenant(
 /**
  * Create a minimal "home" page for a tenant so /home resolves (required when
  * PW_E2E_SKIP_DEFAULT_TENANT_DATA is set and the tenant hook doesn't run).
- *
- * Always ensures the published home page uses `heroScheduleSanctuary` so the public
- * schedule embeds without the multi-location branch picker (Schedule block).
  */
 async function createTestTenantHomePage(tenantId: number, tenantName: string): Promise<void> {
   const payload = await getPayloadInstance()
-  const expectedLayout = [
-    {
-      blockType: 'heroScheduleSanctuary',
-      blockName: 'Homepage — hero with schedule',
-      title: tenantName,
-    },
-  ]
-
   const existing = await payload.find({
     collection: 'pages',
     where: { slug: { equals: 'home' }, tenant: { equals: tenantId } },
     limit: 1,
     overrideAccess: true,
   })
+  if (existing.docs?.[0]) return
 
-  const doc = existing.docs?.[0]
-  if (doc?.id) {
-    const layout = doc.layout as { blockType?: string }[] | undefined
-    const alreadyCorrect =
-      layout?.length === 1 && layout[0]?.blockType === 'heroScheduleSanctuary'
-    if (alreadyCorrect && doc._status === 'published') return
-
-    await payload.update({
-      collection: 'pages',
-      id: doc.id,
-      data: {
-        layout: expectedLayout,
-        _status: 'published',
-        title: doc.title ?? `Welcome to ${tenantName}`,
-      },
-      overrideAccess: true,
-    })
-    return
+  const homePageData: Record<string, unknown> = {
+    slug: 'home',
+    title: `Welcome to ${tenantName}`,
+    _status: 'published',
+    tenant: tenantId,
+    layout: [
+      { blockType: 'heroSchedule', blockName: 'Hero Schedule', title: tenantName },
+    ],
   }
-
   await payload.create({
     collection: 'pages',
-    data: {
-      slug: 'home',
-      title: `Welcome to ${tenantName}`,
-      _status: 'published',
-      tenant: tenantId,
-      layout: expectedLayout,
-    },
+    data: homePageData,
     overrideAccess: true,
   })
 }
@@ -330,25 +303,6 @@ export async function createTestTimeslot(
   // Timeslot validation combines sibling `date` with wall-clock times in tenant TZ; UTC YYYY-MM-DD can disagree.
   const date = formatInTimeZone(startTime, 'yyyy-MM-dd', timeZone)
 
-  let resolvedBranchId = branchId
-  if (resolvedBranchId == null) {
-    const activeLocations = await payload.find({
-      collection: 'locations',
-      where: {
-        and: [{ tenant: { equals: tenantIdNumber } }, { active: { equals: true } }],
-      },
-      limit: 2,
-      depth: 0,
-      overrideAccess: true,
-    })
-    if (activeLocations.docs.length === 1) {
-      const onlyId = activeLocations.docs[0]?.id
-      if (typeof onlyId === 'number' && Number.isFinite(onlyId)) {
-        resolvedBranchId = onlyId
-      }
-    }
-  }
-
   return (await payload.create({
     collection: 'timeslots',
     data: {
@@ -359,9 +313,7 @@ export async function createTestTimeslot(
       endTime: endTime.toISOString(),
       lockOutTime: 60, // Default: 60 minutes before lesson
       active,
-      ...(resolvedBranchId != null && Number.isFinite(resolvedBranchId)
-        ? { branch: resolvedBranchId }
-        : {}),
+      ...(branchId != null && Number.isFinite(branchId) ? { branch: branchId } : {}),
       ...(instructorId && {
         staffMember: typeof instructorId === 'string' ? Number(instructorId) : instructorId,
       }),
@@ -571,51 +523,6 @@ export async function createTestSubscription(params: {
     },
     overrideAccess: true,
   })) as Subscription
-}
-
-/** Default content block layout with visible paragraph text (for e2e assertions). */
-export function contentLayoutWithText(text: string): Record<string, unknown>[] {
-  return [
-    {
-      blockType: 'content',
-      blockName: 'Text section',
-      columns: [
-        {
-          size: 'full',
-          richText: {
-            root: {
-              type: 'root',
-              children: [
-                {
-                  type: 'paragraph',
-                  children: [
-                    {
-                      type: 'text',
-                      detail: 0,
-                      format: 0,
-                      mode: 'normal',
-                      style: '',
-                      text,
-                      version: 1,
-                    },
-                  ],
-                  direction: 'ltr',
-                  format: '',
-                  indent: 0,
-                  textFormat: 0,
-                  version: 1,
-                },
-              ],
-              direction: 'ltr',
-              format: '',
-              indent: 0,
-              version: 1,
-            },
-          },
-        },
-      ],
-    },
-  ]
 }
 
 /**
@@ -851,14 +758,6 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     ['user'],
     tenant3.id,
   )) as User
-
-  // Reconcile home pages after locations exist — older rows may still use the `schedule`
-  // block (branch picker) from prior provisioning; tests expect heroScheduleSanctuary.
-  await Promise.all([
-    createTestTenantHomePage(tenant1.id, tenant1.name ?? 'Test Tenant 1'),
-    createTestTenantHomePage(tenant2.id, tenant2.name ?? 'Test Tenant 2'),
-    createTestTenantHomePage(tenant3.id, tenant3.name ?? 'Test Tenant 3'),
-  ])
 
   return {
     tenants: [tenant1, tenant2, tenant3],

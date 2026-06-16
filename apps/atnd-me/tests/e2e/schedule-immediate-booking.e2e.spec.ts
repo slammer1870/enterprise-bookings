@@ -522,7 +522,6 @@ test.describe('Schedule immediate booking', () => {
     page,
     testData,
   }) => {
-    test.setTimeout(120_000)
     const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     const user = testData.users.user3

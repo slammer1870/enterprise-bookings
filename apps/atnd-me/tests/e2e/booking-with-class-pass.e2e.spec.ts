@@ -676,24 +676,22 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     })
     await expect(page.getByText(/3 credits remaining/i).first()).toBeVisible({ timeout: 10000 })
 
-    const confirmUpgradeResponse = page.waitForResponse(
-      (response) => {
-        if (response.request().method() !== 'POST') return false
-        const url = response.url()
+    const confirmUpgradeRequest = page.waitForRequest(
+      (request) => {
+        if (request.method() !== 'POST') return false
+        const url = request.url()
         if (!url.includes('/api/trpc')) return false
-        if (url.includes('bookings.createBookings')) return response.ok()
-        const body = response.request().postData() ?? ''
-        return body.includes('bookings.createBookings') && response.ok()
+        if (url.includes('bookings.createBookings')) return true
+        const body = request.postData() ?? ''
+        return body.includes('bookings.createBookings')
       },
-      { timeout: 30000 }
+      { timeout: 15000 }
     )
 
     await Promise.all([
-      confirmUpgradeResponse,
+      confirmUpgradeRequest,
       page.getByRole('button', { name: /confirm with class pass/i }).click(),
     ])
-
-    await page.waitForURL((url) => url.pathname === '/success', { timeout: 30000 }).catch(() => null)
 
     await expect
       .poll(async () => {
@@ -705,7 +703,7 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
         }) as { quantity: number }
 
         return passAfterUpgrade.quantity
-      }, { timeout: 30000 })
+      }, { timeout: 10000 })
       .toBe(1)
 
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)

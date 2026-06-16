@@ -186,20 +186,6 @@ export default buildConfig({
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
   jobs: {
-    // Keep completed scheduler jobs in production so generation failures can be inspected.
-    deleteJobOnComplete: process.env.NODE_ENV === 'production' ? false : true,
-    // Retry queued jobs if a worker dies mid-run (Coolify/Docker — not for serverless).
-    ...(process.env.NODE_ENV === 'production'
-      ? {
-          autoRun: [
-            {
-              cron: '0 * * * * *',
-              limit: 5,
-              queue: 'default',
-            },
-          ],
-        }
-      : {}),
     access: {
       run: ({ req }: { req: PayloadRequest }): boolean => {
         // Allow logged in users to execute this endpoint (default)

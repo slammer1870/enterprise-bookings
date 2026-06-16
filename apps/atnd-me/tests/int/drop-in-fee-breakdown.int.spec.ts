@@ -9,10 +9,6 @@ import { createTRPCContext } from '@repo/trpc'
 import { appRouter } from '@/trpc/router'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import type { User } from '@repo/shared-types'
-import {
-  updatePlatformFeesGlobal,
-  withExclusivePlatformFees,
-} from './helpers/exclusive-platform-fees'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -51,6 +47,16 @@ describe('Drop-in fee breakdown total', () => {
       overrideAccess: true,
     } as Parameters<typeof payload.create>[0])) as User
     userId = user.id as number
+
+    await payload.updateGlobal({
+      slug: 'platform-fees',
+      data: {
+        defaults: { dropInPercent: 10, classPassPercent: 3, subscriptionPercent: 4 },
+        overrides: [{ tenant: tenantId, dropInPercent: 10 }],
+      },
+      depth: 0,
+      overrideAccess: true,
+    } as Parameters<typeof payload.updateGlobal>[0])
 
     const co = await payload.create({
       collection: 'event-types',
@@ -118,32 +124,24 @@ describe('Drop-in fee breakdown total', () => {
   it(
     'getDropInFeeBreakdown returns totalCents = classPriceCents + bookingFeeCents',
     async () => {
-      await withExclusivePlatformFees(async () => {
-        await updatePlatformFeesGlobal(payload, {
-          defaults: { dropInPercent: 10, classPassPercent: 3, subscriptionPercent: 4 },
-          overrides: [{ tenant: tenantId, dropInPercent: 10 }],
-          bounds: { minCents: null, maxCents: null },
-        })
-
-        const ctx = await createTRPCContext({
-          headers: new Headers(),
-          payload,
-          user: { id: userId },
-          bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
-        })
-        const caller = appRouter.createCaller(ctx)
-
-        const classPriceCents = 1000
-        const result = await caller.payments.getDropInFeeBreakdown({
-          timeslotId: lessonId,
-          classPriceCents,
-        })
-
-        expect(result.classPriceCents).toBe(1000)
-        expect(result.bookingFeeCents).toBe(100)
-        expect(result.totalCents).toBe(1100)
-        expect(result.totalCents).toBe(result.classPriceCents + result.bookingFeeCents)
+      const ctx = await createTRPCContext({
+        headers: new Headers(),
+        payload,
+        user: { id: userId },
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
       })
+      const caller = appRouter.createCaller(ctx)
+
+      const classPriceCents = 1000
+      const result = await caller.payments.getDropInFeeBreakdown({
+        timeslotId: lessonId,
+        classPriceCents,
+      })
+
+      expect(result.classPriceCents).toBe(1000)
+      expect(result.bookingFeeCents).toBe(100)
+      expect(result.totalCents).toBe(1100)
+      expect(result.totalCents).toBe(result.classPriceCents + result.bookingFeeCents)
     },
     TEST_TIMEOUT,
   )
