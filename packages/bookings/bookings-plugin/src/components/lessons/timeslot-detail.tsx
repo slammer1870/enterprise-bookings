@@ -6,7 +6,7 @@ import { ManageTimeslot } from "./manage-timeslot";
 import { Button, SelectRow } from "@payloadcms/ui";
 import { TableRow, TableCell } from "@repo/ui/components/ui/table";
 import { cn } from "@repo/ui/lib/utils";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddBooking } from "../bookings/add-booking";
@@ -200,7 +200,14 @@ export const TimeslotDetail = ({
             buttonStyle="secondary"
             onClick={() => toggleBookings(timeslot.id)}
           >
-            {bookingCount}
+            {isLoadingBookingCount ? (
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Loading…
+              </span>
+            ) : (
+              bookingCount
+            )}
             {expandedTimeslots.has(timeslot.id) ? (
               <ChevronUp className="ml-2 h-4 w-4" />
             ) : (
