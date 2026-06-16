@@ -14,8 +14,8 @@ import { FormBlock } from "../form/config";
 export const Content: Block = {
   slug: "content",
   labels: {
-    singular: 'Text section',
-    plural: 'Text sections',
+    singular: "Content",
+    plural: "Content",
   },
   fields: [
     {

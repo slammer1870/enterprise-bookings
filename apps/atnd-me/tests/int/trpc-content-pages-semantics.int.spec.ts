@@ -52,7 +52,7 @@ describe('tRPC content: pages root vs tenant semantics', () => {
         title: tenantTitle,
         tenant: tenant.id,
         _status: 'published',
-        layout: [{ blockType: 'heroScheduleSanctuary', blockName: 'Homepage — hero with schedule', title: tenantTitle }],
+        layout: [{ blockType: 'heroSchedule', title: tenantTitle }],
       },
       overrideAccess: true,
     })

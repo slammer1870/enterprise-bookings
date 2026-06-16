@@ -17,23 +17,19 @@ import { registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
-  heroSchedule: 'Hero & schedule (classic)',
-  hero: 'Hero banner (image + buttons)',
-  about: 'About section (rich layout)',
-  schedule: 'Class schedule only',
-  location: 'Location & map',
-  tenantScopedSchedule: 'Multi-tenant schedule picker (platform pages)',
-  heroWithLocation: 'Hero with location & map',
-  healthBenefits: 'Health benefits grid',
-  sectionTagline: 'Section tagline',
-  missionElements: 'Mission elements',
-  archive: 'Blog / archive listing',
-  formBlock: 'Contact form',
-  threeColumnLayout: 'Three columns side by side',
-  marketingHero: 'Marketing hero (platform landing)',
-  features: 'Feature grid',
-  caseStudies: 'Case studies',
-  marketingCta: 'Marketing call to action',
+  location: 'Location',
+  faqs: 'FAQs',
+  tenantScopedSchedule: 'Schedule by Tenant',
+  heroScheduleSanctuary: 'Hero & Schedule (Sanctuary)',
+  heroWithLocation: 'Hero with Location',
+  healthBenefits: 'Health Benefits',
+  sectionTagline: 'Section Tagline',
+  missionElements: 'Mission Elements',
+  mediaBlock: 'Media Block',
+  archive: 'Archive',
+  formBlock: 'Form Block',
+  threeColumnLayout: 'Three Column Layout',
+  twoColumnLayout: 'Two Column Layout',
   bruHero: 'Hero (Brú)',
   bruAbout: 'About (Brú)',
   bruSchedule: 'Schedule (Brú)',
@@ -302,25 +298,6 @@ export const Tenants: CollectionConfig = {
       admin: { description: 'When Connect was linked.' },
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
-    {
-      name: 'checkoutLegalDocuments',
-      type: 'array',
-      label: 'Checkout legal documents',
-      fields: [
-        {
-          name: 'page',
-          type: 'relationship',
-          relationTo: 'pages',
-          required: true,
-          label: 'Page',
-        },
-      ],
-      admin: {
-        description:
-          'Pages linked below the drop-in payment form. Customers see: “By placing your booking, you agree to our …” — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).',
-        initCollapsed: false,
-      },
-    },
   ],
   hooks: {
     afterChange: [
@@ -386,7 +363,7 @@ export const Tenants: CollectionConfig = {
         // and Cloudflare verifies ownership automatically — no TXT token needed.
         const apexActions = collectApexActionsFromHookArgs({ doc, previousDoc, operation })
         if (apexActions.registerDomain) {
-          await createOrGetCustomHostname(apexActions.registerDomain).catch((err: unknown) => {
+          await createOrGetCustomHostname(apexActions.registerDomain, false).catch((err: unknown) => {
             console.error(
               `[Tenants afterChange] Failed to register Cloudflare custom hostname "${apexActions.registerDomain}":`,
               err,
@@ -405,6 +382,8 @@ export const Tenants: CollectionConfig = {
             )
           })
           // Register apex with Cloudflare TLS for SaaS using TXT DCV.
+          // Cloudflare issues and auto-renews the cert independently of the hosting platform —
+          // switching to serverless only requires updating the Cloudflare fallback origin.
           const cfApexResult = await createOrGetCustomHostname(
             apexActions.registerApexApplePay,
             true,
@@ -420,6 +399,7 @@ export const Tenants: CollectionConfig = {
             id: doc.id,
             data: {
               apexDomain: apexActions.apexDomainToStore,
+              // Store the TXT DCV token so the admin UI can show it to the tenant.
               apexDomainVerificationToken: cfApexResult?.verificationTxtValue ?? null,
             },
             req,

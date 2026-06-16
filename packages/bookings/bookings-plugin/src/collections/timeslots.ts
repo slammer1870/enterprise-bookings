@@ -545,10 +545,6 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
     ],
     beforeDelete: [
       async ({ req, id }) => {
-        if (req.context?.skipTimeslotBookingCascade) {
-          return;
-        }
-
         await req.payload.delete({
           collection: bookingsSlug,
           where: {
@@ -564,12 +560,7 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
     ],
     beforeChange: [
       async ({ data, req, operation }) => {
-        if (
-          !req?.context?.skipStaffMemberResolution &&
-          data &&
-          data.staffMember &&
-          operation === "create"
-        ) {
+        if (data && data.staffMember && operation === "create") {
           try {
             const staffMember = await req.payload
               .findByID({

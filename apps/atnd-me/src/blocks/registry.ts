@@ -106,31 +106,18 @@ const allBlocks: Block[] = [
 const TwoColumnLayout = createTwoColumnLayout(allBlocks)
 const ThreeColumnLayout = createThreeColumnLayout([...allBlocks, TwoColumnLayout])
 
-/**
- * Blocks every tenant can use when building pages (no super-admin enablement).
- * Keep this set small and self-explanatory — new users should assemble pages without training.
- * Brand-specific and advanced blocks stay in `extraBlockSlugs` (Tenants.allowedBlocks).
- */
+/** Block slugs that all tenants always have access to. */
 export const defaultBlockSlugs: string[] = [
-  'heroScheduleSanctuary', // Homepage — hero with schedule
-  'simpleAbout', // About your business
-  'content', // Text section
-  'cta', // Call to action button
-  'faqs', // Frequently asked questions
-  'mediaBlock', // Image or video
-  'twoColumnLayout', // Two columns side by side
+  'heroSchedule',
+  'heroScheduleSanctuary',
+  'hero',
+  'about',
+  'simpleAbout',
+  'schedule',
+  'tenantScopedSchedule', // Root home page: filter schedule by tenant
+  'content',
+  'cta',
 ]
-
-/** Expected Payload picker labels for default blocks (keep in sync with block config `labels.singular`). */
-export const defaultBlockDisplayLabels: Record<(typeof defaultBlockSlugs)[number], string> = {
-  heroScheduleSanctuary: 'Homepage — hero with schedule',
-  simpleAbout: 'About your business',
-  content: 'Text section',
-  cta: 'Call to action button',
-  faqs: 'Frequently asked questions',
-  mediaBlock: 'Image or video',
-  twoColumnLayout: 'Two columns side by side',
-}
 
 /** Map of block slug to block config. Includes threeColumnLayout. */
 const blockMap = new Map<string, Block>()

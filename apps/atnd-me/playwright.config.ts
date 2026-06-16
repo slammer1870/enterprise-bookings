@@ -68,7 +68,7 @@ export default defineConfig({
   maxFailures: bailE2E ? 1 : undefined,
   // Override with PW_E2E_WORKERS=1 if multi-worker runs flake on shared DB state.
   workers: resolveWorkers(),
-  timeout: 60_000,
+  timeout: fastE2E ? 35_000 : 60_000,
   // Console-first output (no HTML report).
   reporter: [['list']],
   expect: {

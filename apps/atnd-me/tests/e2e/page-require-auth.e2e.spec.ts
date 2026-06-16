@@ -2,7 +2,7 @@
  * E2E: CMS `requireAuth` on pages — anonymous visitors redirect to sign-in; signed-in users see content.
  */
 import { test, expect } from './helpers/fixtures'
-import { createTestPage, contentLayoutWithText } from './helpers/data-helpers'
+import { createTestPage } from './helpers/data-helpers'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 
 test.describe('Page requireAuth (CMS)', () => {
@@ -16,7 +16,13 @@ test.describe('Page requireAuth (CMS)', () => {
 
     await createTestPage(tenant.id, slug, 'E2E protected page', {
       requireAuth: true,
-      layout: contentLayoutWithText(visibleTitle),
+      layout: [
+        {
+          blockType: 'heroSchedule',
+          blockName: 'E2E',
+          title: visibleTitle,
+        },
+      ],
     })
 
     const origin = `http://${tenant.slug}.localhost:3000`
@@ -38,7 +44,13 @@ test.describe('Page requireAuth (CMS)', () => {
 
     await createTestPage(tenant.id, slug, 'E2E protected page (signed-in)', {
       requireAuth: true,
-      layout: contentLayoutWithText(visibleTitle),
+      layout: [
+        {
+          blockType: 'heroSchedule',
+          blockName: 'E2E',
+          title: visibleTitle,
+        },
+      ],
     })
 
     const origin = `http://${tenant.slug}.localhost:3000`

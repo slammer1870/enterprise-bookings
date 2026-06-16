@@ -23,10 +23,7 @@ export function e2eExpectTimeout(normalMs: number): number {
 /** Default expect timeout for assertions without an explicit timeout. */
 export const defaultExpectTimeoutMs = isE2EFast ? 8_000 : 15_000
 
-/** Multi-step flows: generous in CI, tighter locally; scales down mildly with PW_E2E_FAST. */
+/** Multi-step flows: generous in CI, tighter locally; scales down with PW_E2E_FAST. */
 export function e2eSlowTestTimeout(ciMs = 120_000, localMs = 60_000): number {
-  const base = process.env.CI ? ciMs : localMs
-  if (!isE2EFast) return base
-  // Admin + checkout flows routinely exceed 30s; keep a 60s floor in fast mode.
-  return Math.max(60_000, Math.round(base * 0.75))
+  return e2eTestTimeout(process.env.CI ? ciMs : localMs)
 }

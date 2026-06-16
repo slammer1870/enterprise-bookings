@@ -183,6 +183,7 @@ export async function seedBookings({
   const defaultAllowedBlocks: NonNullable<Tenant['allowedBlocks']> = [
     'threeColumnLayout',
     'location',
+    'faqs',
     'clHeroLoc',
     'clFindSanctuary',
     'clMission',

@@ -11,10 +11,6 @@ import {
   getEffectiveBookingFeePercent,
   calculateBookingFeeAmount,
 } from '@/lib/stripe-connect/bookingFee'
-import {
-  updatePlatformFeesGlobal,
-  withExclusivePlatformFees,
-} from './helpers/exclusive-platform-fees'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -67,17 +63,19 @@ describe('Platform fees global (step 2.7.1)', () => {
     } as Parameters<typeof payload.create>[0])) as User
 
     // Ensure platform-fees global exists with defaults (admin setup)
-    await withExclusivePlatformFees(async () => {
-      await updatePlatformFeesGlobal(payload, {
+    await payload.updateGlobal({
+      slug: 'platform-fees',
+      data: {
         defaults: {
           dropInPercent: 2,
           classPassPercent: 3,
           subscriptionPercent: 4,
         },
         overrides: [],
-        bounds: { minCents: null, maxCents: null },
-      })
-    })
+      },
+      depth: 0,
+      overrideAccess: true,
+    } as Parameters<typeof payload.updateGlobal>[0])
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -145,32 +143,24 @@ describe('Platform fees global (step 2.7.1)', () => {
   it(
     'resolves effective fee percent: default for product type when no override',
     async () => {
-      await withExclusivePlatformFees(async () => {
-        await updatePlatformFeesGlobal(payload, {
-          defaults: { dropInPercent: 2, classPassPercent: 3, subscriptionPercent: 4 },
-          overrides: [],
-          bounds: { minCents: null, maxCents: null },
-        })
-
-        const dropIn = await getEffectiveBookingFeePercent({
-          tenantId: testTenantId,
-          productType: 'drop-in',
-          payload,
-        })
-        const classPass = await getEffectiveBookingFeePercent({
-          tenantId: testTenantId,
-          productType: 'class-pass',
-          payload,
-        })
-        const sub = await getEffectiveBookingFeePercent({
-          tenantId: testTenantId,
-          productType: 'subscription',
-          payload,
-        })
-        expect(dropIn).toBe(2)
-        expect(classPass).toBe(3)
-        expect(sub).toBe(4)
+      const dropIn = await getEffectiveBookingFeePercent({
+        tenantId: testTenantId,
+        productType: 'drop-in',
+        payload,
       })
+      const classPass = await getEffectiveBookingFeePercent({
+        tenantId: testTenantId,
+        productType: 'class-pass',
+        payload,
+      })
+      const sub = await getEffectiveBookingFeePercent({
+        tenantId: testTenantId,
+        productType: 'subscription',
+        payload,
+      })
+      expect(dropIn).toBe(2)
+      expect(classPass).toBe(3)
+      expect(sub).toBe(4)
     },
     TEST_TIMEOUT,
   )
@@ -178,8 +168,9 @@ describe('Platform fees global (step 2.7.1)', () => {
   it(
     'resolves effective fee percent: tenant override wins over default',
     async () => {
-      await withExclusivePlatformFees(async () => {
-        await updatePlatformFeesGlobal(payload, {
+      await payload.updateGlobal({
+        slug: 'platform-fees',
+        data: {
           defaults: { dropInPercent: 2, classPassPercent: 3, subscriptionPercent: 4 },
           overrides: [
             {
@@ -189,28 +180,29 @@ describe('Platform fees global (step 2.7.1)', () => {
               subscriptionPercent: null,
             },
           ],
-          bounds: { minCents: null, maxCents: null },
-        })
+        },
+        depth: 0,
+        overrideAccess: true,
+      } as Parameters<typeof payload.updateGlobal>[0])
 
-        const dropIn = await getEffectiveBookingFeePercent({
-          tenantId: testTenantId,
-          productType: 'drop-in',
-          payload,
-        })
-        const classPass = await getEffectiveBookingFeePercent({
-          tenantId: testTenantId,
-          productType: 'class-pass',
-          payload,
-        })
-        const sub = await getEffectiveBookingFeePercent({
-          tenantId: testTenantId,
-          productType: 'subscription',
-          payload,
-        })
-        expect(dropIn).toBe(5)
-        expect(classPass).toBe(6)
-        expect(sub).toBe(4)
+      const dropIn = await getEffectiveBookingFeePercent({
+        tenantId: testTenantId,
+        productType: 'drop-in',
+        payload,
       })
+      const classPass = await getEffectiveBookingFeePercent({
+        tenantId: testTenantId,
+        productType: 'class-pass',
+        payload,
+      })
+      const sub = await getEffectiveBookingFeePercent({
+        tenantId: testTenantId,
+        productType: 'subscription',
+        payload,
+      })
+      expect(dropIn).toBe(5)
+      expect(classPass).toBe(6)
+      expect(sub).toBe(4)
     },
     TEST_TIMEOUT,
   )
@@ -218,29 +210,32 @@ describe('Platform fees global (step 2.7.1)', () => {
   it(
     'calculateBookingFeeAmount uses effective percent and optional bounds',
     async () => {
-      await withExclusivePlatformFees(async () => {
-        await updatePlatformFeesGlobal(payload, {
+      await payload.updateGlobal({
+        slug: 'platform-fees',
+        data: {
           defaults: { dropInPercent: 2, classPassPercent: 3, subscriptionPercent: 4 },
           overrides: [{ tenant: testTenantId, dropInPercent: 10, classPassPercent: null, subscriptionPercent: null }],
           bounds: { minCents: 25, maxCents: 500 },
-        })
+        },
+        depth: 0,
+        overrideAccess: true,
+      } as Parameters<typeof payload.updateGlobal>[0])
 
-        const feeDropIn = await calculateBookingFeeAmount({
-          tenantId: testTenantId,
-          productType: 'drop-in',
-          classPriceAmount: 1000,
-          payload,
-        })
-        expect(feeDropIn).toBe(100)
-
-        const feeClamped = await calculateBookingFeeAmount({
-          tenantId: testTenantId,
-          productType: 'drop-in',
-          classPriceAmount: 100,
-          payload,
-        })
-        expect(feeClamped).toBe(25)
+      const feeDropIn = await calculateBookingFeeAmount({
+        tenantId: testTenantId,
+        productType: 'drop-in',
+        classPriceAmount: 1000,
+        payload,
       })
+      expect(feeDropIn).toBe(100)
+
+      const feeClamped = await calculateBookingFeeAmount({
+        tenantId: testTenantId,
+        productType: 'drop-in',
+        classPriceAmount: 100,
+        payload,
+      })
+      expect(feeClamped).toBe(25)
     },
     TEST_TIMEOUT,
   )
