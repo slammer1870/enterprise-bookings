@@ -14,8 +14,8 @@ export const createTwoColumnLayout = (availableBlocks: Block[]): Block => {
     slug: 'twoColumnLayout',
     interfaceName: 'TwoColumnLayoutBlock',
     labels: {
-      singular: 'Two columns side by side',
-      plural: 'Two columns side by side',
+      singular: 'Two Column Layout',
+      plural: 'Two Column Layouts',
     },
     fields: [
       {

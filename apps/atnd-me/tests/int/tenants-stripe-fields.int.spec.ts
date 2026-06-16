@@ -210,7 +210,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
       await payload.update({
         collection: 'tenants',
         id: testTenantId,
-        data: { allowedBlocks: ['archive', 'formBlock'] },
+        data: { allowedBlocks: ['faqs', 'archive'] },
         user: tenantAdminUser,
         overrideAccess: false,
       })

@@ -7,7 +7,6 @@ import {
   setTimeslotDateAndTime,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
-import { advanceScheduleToDate } from './helpers/schedule-helpers'
 
 function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -163,6 +162,28 @@ async function chooseTenantInCreateModal(
   await page.waitForLoadState('load').catch(() => null)
   await expect(dialog).not.toBeVisible({ timeout: 15000 })
   await waitForModalOverlayToClear(page)
+}
+
+async function advanceScheduleToDate(
+  page: Page,
+  targetDate: Date,
+) {
+  const dateLabel = page.locator('p.text-center.text-lg').first()
+  await expect(dateLabel).toBeVisible({ timeout: 15000 })
+
+  const toggle = dateLabel.locator('xpath=..')
+  const nextDayButton = toggle.locator('svg').nth(1)
+  const targetLabel = targetDate.toDateString()
+
+  for (let i = 0; i < 14; i += 1) {
+    const currentLabel = (await dateLabel.textContent())?.trim()
+    if (currentLabel === targetLabel) return
+
+    await nextDayButton.click()
+    await expect(dateLabel).toHaveText(targetLabel, { timeout: 10000 }).catch(() => null)
+  }
+
+  await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
 }
 
 test.describe('Tenant admin lesson creation appears on public schedule', () => {

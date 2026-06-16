@@ -13,7 +13,6 @@ import { FeaturesBlock } from '@repo/website/src/blocks/features'
 import { CaseStudiesBlock } from '@repo/website/src/blocks/caseStudies'
 import { MarketingCtaBlock } from '@repo/website/src/blocks/marketingCta'
 import { ScheduleBlock } from '@/blocks/Schedule/Component'
-import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import { TenantScopedScheduleBlock } from '@/blocks/TenantScopedSchedule/Component'
 import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
 import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
@@ -51,11 +50,7 @@ function HeroScheduleSanctuaryBlock(
 ) {
   return React.createElement(ClHeroScheduleSanctuaryBlock, {
     ...props,
-    schedulePanel: React.createElement(
-      'div',
-      { className: 'w-full min-w-0' },
-      React.createElement(ScheduleLazy),
-    ),
+    schedulePanel: React.createElement('div', { className: 'w-full min-w-0' }, React.createElement(ScheduleBlock)),
   })
 }
 

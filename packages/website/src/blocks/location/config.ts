@@ -4,8 +4,8 @@ export const Location: Block = {
   slug: 'location',
   interfaceName: 'LocationBlock',
   labels: {
-    singular: 'Location & map',
-    plural: 'Location & map sections',
+    singular: 'Location',
+    plural: 'Location Sections',
   },
   fields: [
     {

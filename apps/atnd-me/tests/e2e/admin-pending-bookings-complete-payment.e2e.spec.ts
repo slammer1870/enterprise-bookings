@@ -35,11 +35,10 @@ import {
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 test.describe('Admin-created pending bookings: user is prompted to pay on manage page', () => {
-  test.describe.configure({ timeout: e2eSlowTestTimeout() })
-
   test(
     'manage page auto-creates checkout hold for pending bookings and user can complete payment',
     async ({ page, testData }) => {
+      test.setTimeout(e2eSlowTestTimeout())
 
       const payload = await getPayloadInstance()
       const tenant = testData.tenants[0]!
@@ -146,9 +145,6 @@ test.describe('Admin-created pending bookings: user is prompted to pay on manage
 
       // ── Step 3: apply 100% promo code so amount drops to €0 ──────────────
 
-      // Let checkout-hold debounce settle before applying promo (matches drop-in e2e tests).
-      await page.waitForTimeout(600)
-
       const zeroAmountPI = page.waitForResponse(
         (res) => {
           if (!res.url().includes('/api/stripe/connect/create-payment-intent')) return false
@@ -168,10 +164,7 @@ test.describe('Admin-created pending bookings: user is prompted to pay on manage
       await page.getByLabel('Promo code').fill(promoCode)
       await page.getByRole('button', { name: /^Apply$/i }).click()
 
-      await Promise.all([
-        expect(page.getByText(/promo code applied/i)).toBeVisible({ timeout: 15_000 }),
-        zeroAmountPI,
-      ])
+      await expect(page.getByText(/promo code applied/i)).toBeVisible({ timeout: 15_000 })
 
       const piRes = await zeroAmountPI
       expect(
@@ -186,7 +179,7 @@ test.describe('Admin-created pending bookings: user is prompted to pay on manage
       await expect(page.getByTestId('complete-free-booking')).toBeVisible({ timeout: 10_000 })
       await page.getByTestId('complete-free-booking').click()
 
-      await page.waitForURL((url) => url.pathname === '/success', { timeout: 30_000 })
+      await page.waitForURL(/\/success\?/, { timeout: 20_000 })
       await expect(page.getByRole('heading', { name: /thank you!/i })).toBeVisible({
         timeout: 15_000,
       })
@@ -234,6 +227,8 @@ test.describe('Admin-created pending bookings: user is prompted to pay on manage
   test(
     'manage page with admin-created pending bookings shows checkout form (not stuck quantity selector)',
     async ({ page, testData }) => {
+      test.setTimeout(60_000)
+
       const payload = await getPayloadInstance()
       const tenant = testData.tenants[0]!
       const user = testData.users.user1

@@ -261,7 +261,7 @@ describe('location-manager timeslots + locations scope', () => {
           title: 'LM pages deny',
           slug: `lm-pages-${Date.now()}`,
           tenant: tenant.id,
-          layout: [{ blockType: 'heroScheduleSanctuary', blockName: 'Homepage — hero with schedule' }],
+          layout: [{ blockType: 'heroSchedule', blockName: 'Hero & Schedule' }],
           _status: 'published',
         },
         user: bootstrap,

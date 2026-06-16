@@ -1,12 +1,8 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import type { ComponentProps } from 'react'
-import type { Schedule } from '@repo/bookings-next'
 
-type ScheduleProps = ComponentProps<typeof Schedule>
-
-export const ScheduleLazy = dynamic<ScheduleProps>(
+export const ScheduleLazy = dynamic(
   () => import('@repo/bookings-next').then((mod) => mod.Schedule),
   {
     ssr: false,
