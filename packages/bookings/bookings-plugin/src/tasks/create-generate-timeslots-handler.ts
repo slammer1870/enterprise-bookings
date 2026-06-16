@@ -493,7 +493,9 @@ export function createGenerateTimeslotsFromScheduleHandler(
 
   await progressReporter.report(
     {
-      phase: clearExisting ? "clearing" : "planning",
+      // We always plan first because `clearExisting` needs to know which incoming
+      // timeslots are "fundamentally identical" so we can keep them.
+      phase: "planning",
       daysProcessed: 0,
       daysTotal,
     },
@@ -501,134 +503,13 @@ export function createGenerateTimeslotsFromScheduleHandler(
   );
 
   try {
-    if (clearExisting) {
-      payload.logger.info("Clearing existing timeslots");
-      await progressReporter.report({ phase: "clearing" }, { force: true });
-      try {
-        const whereConditions = buildTimeslotRangeWhereConditions({
-          rangeStart: start,
-          rangeEnd: end,
-          tenantId: numericTenantId,
-          branchId: resolvedBranchId,
-          includeLegacyNullBranch,
-        });
+    type PlannedTimeslot = {
+      dedupeKey: string;
+      data: Record<string, unknown>;
+    };
 
-        const timeslotDocs = await paginateTimeslotsInRange<{ id?: unknown }>({
-          payload,
-          req,
-          timeslotsSlug,
-          whereConditions,
-          select: { id: true },
-        });
-
-        const timeslotIds = timeslotDocs
-          .map((doc) => toId(doc.id))
-          .filter((id): id is number => id != null);
-
-        const timeslotsToNotDelete = new Set<number>();
-        for (let i = 0; i < timeslotIds.length; i += CLEAR_BOOKING_BATCH_SIZE) {
-          const batchIds = timeslotIds.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
-          if (batchIds.length === 0) continue;
-
-          const protectedBookings = await payload.find({
-            collection: bookingsSlug,
-            where: {
-              and: [
-                { timeslot: { in: batchIds } },
-                { status: { in: [...BOOKING_STATUSES_BLOCKING_CLEAR] } },
-              ],
-            },
-            depth: 0,
-            limit: 0,
-            pagination: false,
-            overrideAccess: true,
-            req,
-          });
-
-          for (const booking of protectedBookings.docs as unknown as Array<Record<string, unknown>>) {
-            const timeslotId = resolveBookingTimeslotId(booking);
-            if (timeslotId != null) {
-              timeslotsToNotDelete.add(timeslotId);
-            }
-          }
-        }
-
-        const idsToDelete = timeslotIds.filter((id) => !timeslotsToNotDelete.has(id));
-        const totalToClear = idsToDelete.length;
-
-        await progressReporter.report(
-          { phase: "clearing", cleared: 0, total: totalToClear },
-          { force: true },
-        );
-
-        for (let i = 0; i < idsToDelete.length; i += CLEAR_BOOKING_BATCH_SIZE) {
-          const batchIds = idsToDelete.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
-          if (batchIds.length === 0) continue;
-
-          await payload.delete({
-            collection: bookingsSlug,
-            where: {
-              timeslot: { in: batchIds },
-            },
-            context: {
-              triggerAfterChange: false,
-            },
-            overrideAccess: true,
-            req,
-          });
-        }
-
-        let cleared = 0;
-        for (let i = 0; i < idsToDelete.length; i += CLEAR_TIMESLOT_BATCH_SIZE) {
-          const batchIds = idsToDelete.slice(i, i + CLEAR_TIMESLOT_BATCH_SIZE);
-          if (batchIds.length === 0) continue;
-
-          await payload.delete({
-            collection: timeslotsSlug,
-            where: {
-              id: { in: batchIds },
-            },
-            context: {
-              triggerAfterChange: false,
-              skipTimeslotBookingCascade: true,
-            },
-            overrideAccess: true,
-            req,
-          });
-
-          cleared += batchIds.length;
-          await progressReporter.report(
-            {
-              phase: "clearing",
-              cleared,
-              total: totalToClear,
-            },
-            { force: cleared >= totalToClear },
-          );
-        }
-      } catch (error) {
-        console.error("Error clearing existing timeslots:", error);
-      }
-    }
-
-    await progressReporter.report(
-      { phase: "planning", daysProcessed: 0, daysTotal },
-      { force: true },
-    );
-
-    const existingTimeslotKeys = await fetchExistingTimeslotKeys({
-      payload,
-      req,
-      timeslotsSlug,
-      rangeStart: start,
-      rangeEnd: end,
-      tenantId: hasTenantContext ? numericTenantId : null,
-      branchId: resolvedBranchId,
-      includeLegacyNullBranch,
-      timeZone,
-    });
-
-    const pendingCreates: Record<string, unknown>[] = [];
+    const plannedTimeslotKeys = new Set<string>();
+    const plannedTimeslots: PlannedTimeslot[] = [];
 
     // IMPORTANT: Keep `currentDate` as a timezone-aware date.
     // Converting to a plain `Date` and then reading Y/M/D via getters will use the
@@ -672,17 +553,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
       const timeSlots = scheduleDay.timeSlot;
 
       for (const timeSlot of timeSlots) {
-        // Extract time components from the stored time slots
-        // The scheduler stores times as timestamps, but we only care about the wall-clock time
-        // We MUST interpret these instants in the tenant timezone.
-        //
-        // Why: Payload time-only fields are stored as real Date instants. The underlying UTC time
-        // can differ depending on whether the slot was created/edited during DST. If we read UTC
-        // hours (getUTCHours), a slot that was entered as 18:45 in Europe/Dublin during DST may
-        // appear as 17:45 and generate timeslots one hour early after DST boundaries.
-        //
-        // By converting the stored instant into the tenant timezone and then extracting local
-        // hours/minutes, we preserve the wall-clock time the admin selected.
+        // Interpret the stored instants in the scheduler's timezone.
         const startInTZ = new TZDate(new Date(timeSlot.startTime), timeZone);
         const endInTZ = new TZDate(new Date(timeSlot.endTime), timeZone);
 
@@ -691,8 +562,6 @@ export function createGenerateTimeslotsFromScheduleHandler(
         const endHours = endInTZ.getHours();
         const endMinutes = endInTZ.getMinutes();
 
-        // Use TZDate to create dates in the specified timezone
-        // This ensures that times remain consistent across DST boundaries
         const timeslotStartTime = new TZDate(
           currentInTZ.getFullYear(),
           currentInTZ.getMonth(),
@@ -713,16 +582,15 @@ export function createGenerateTimeslotsFromScheduleHandler(
           0,
           0,
           timeZone
-        )
+        );
 
         const startIso = timeslotStartTime.toISOString();
         const endIso = timeslotEndTime.toISOString();
 
-        const eventTypeId =
-          toId(timeSlot.eventType) ?? defaultEventTypeId;
+        const eventTypeId = toId(timeSlot.eventType) ?? defaultEventTypeId;
         if (eventTypeId == null) {
           payload.logger.warn(
-            `Skipping timeslot: no valid eventType for slot ${timeSlot.startTime}`
+            `Skipping timeslot: no valid eventType for slot ${timeSlot.startTime}`,
           );
           continue;
         }
@@ -734,7 +602,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
             : Number(eventTypeId);
         if (Number.isNaN(eventTypeIdNum)) {
           payload.logger.warn(
-            `Skipping timeslot: eventType id is not a valid number for slot ${timeSlot.startTime}`
+            `Skipping timeslot: eventType id is not a valid number for slot ${timeSlot.startTime}`,
           );
           continue;
         }
@@ -747,12 +615,13 @@ export function createGenerateTimeslotsFromScheduleHandler(
           timeZone,
         );
 
-        if (existingTimeslotKeys.has(duplicateKey)) {
+        // De-dupe within the incoming schedule itself.
+        if (plannedTimeslotKeys.has(duplicateKey)) {
           skippedCount += 1;
           continue;
         }
+        plannedTimeslotKeys.add(duplicateKey);
 
-        // Create a timezone-aware date for the timeslot date field
         const timeslotDate = new TZDate(
           currentInTZ.getFullYear(),
           currentInTZ.getMonth(),
@@ -785,8 +654,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
           timeslotData.branch = resolvedBranchId;
         }
 
-        pendingCreates.push(timeslotData);
-        existingTimeslotKeys.add(duplicateKey);
+        plannedTimeslots.push({ dedupeKey: duplicateKey, data: timeslotData });
       }
 
       daysProcessed += 1;
@@ -797,8 +665,6 @@ export function createGenerateTimeslotsFromScheduleHandler(
         skipped: skippedCount,
       });
 
-      // Advance by calendar days in the scheduler timezone, then normalize back to
-      // midnight to keep the loop stable across DST transitions.
       const next = addDays(currentInTZ, 1);
       currentDate = new TZDate(
         next.getFullYear(),
@@ -808,11 +674,179 @@ export function createGenerateTimeslotsFromScheduleHandler(
         0,
         0,
         0,
-        timeZone
+        timeZone,
       );
     }
 
-    const createdCount = pendingCreates.length;
+    // Decide which planned keys already exist (and optionally clear others).
+    let existingPlannedTimeslotKeys = new Set<string>();
+
+    if (clearExisting) {
+      payload.logger.info("Clearing existing timeslots");
+      await progressReporter.report({ phase: "clearing" }, { force: true });
+
+      try {
+        const whereConditions = buildTimeslotRangeWhereConditions({
+          rangeStart: start,
+          rangeEnd: end,
+          tenantId: hasTenantContext ? numericTenantId : null,
+          branchId: resolvedBranchId,
+          includeLegacyNullBranch,
+        });
+
+        const existingTimeslotDocs = await paginateTimeslotsInRange<{
+          id?: unknown;
+          startTime?: string;
+          endTime?: string;
+          location?: unknown;
+          eventType?: unknown;
+        }>({
+          payload,
+          req,
+          timeslotsSlug,
+          whereConditions,
+          select: {
+            id: true,
+            startTime: true,
+            endTime: true,
+            location: true,
+            eventType: true,
+          },
+        });
+
+        const candidateDeleteIds: number[] = [];
+
+        for (const doc of existingTimeslotDocs) {
+          const existingId = toId(doc.id);
+          if (existingId == null) continue;
+          if (!doc.startTime || !doc.endTime) continue;
+
+          const key = existingTimeslotKey(
+            doc.startTime,
+            doc.endTime,
+            doc.location,
+            toId(doc.eventType),
+            timeZone,
+          );
+
+          if (plannedTimeslotKeys.has(key)) {
+            existingPlannedTimeslotKeys.add(key);
+          } else {
+            candidateDeleteIds.push(existingId);
+          }
+        }
+
+        // Only look for protected bookings among the candidate IDs we're willing to delete.
+        const protectedTimeslotIds = new Set<number>();
+        for (let i = 0; i < candidateDeleteIds.length; i += CLEAR_BOOKING_BATCH_SIZE) {
+          const batchIds = candidateDeleteIds.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
+          if (batchIds.length === 0) continue;
+
+          const protectedBookings = await payload.find({
+            collection: bookingsSlug,
+            where: {
+              and: [
+                { timeslot: { in: batchIds } },
+                { status: { in: [...BOOKING_STATUSES_BLOCKING_CLEAR] } },
+              ],
+            },
+            depth: 0,
+            limit: 0,
+            pagination: false,
+            overrideAccess: true,
+            req,
+          });
+
+          for (const booking of protectedBookings.docs as unknown as Array<
+            Record<string, unknown>
+          >) {
+            const timeslotId = resolveBookingTimeslotId(booking);
+            if (timeslotId != null) {
+              protectedTimeslotIds.add(timeslotId);
+            }
+          }
+        }
+
+        const idsToDelete = candidateDeleteIds.filter(
+          (id) => !protectedTimeslotIds.has(id),
+        );
+        const totalToClear = idsToDelete.length;
+
+        await progressReporter.report(
+          { phase: "clearing", cleared: 0, total: totalToClear },
+          { force: true },
+        );
+
+        // Delete bookings first (unprotected only).
+        for (let i = 0; i < idsToDelete.length; i += CLEAR_BOOKING_BATCH_SIZE) {
+          const batchIds = idsToDelete.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
+          if (batchIds.length === 0) continue;
+
+          await payload.db.deleteMany({
+            collection: bookingsSlug,
+            where: {
+              timeslot: { in: batchIds },
+            },
+            req,
+          });
+        }
+
+        // Then delete the timeslots themselves.
+        let cleared = 0;
+        for (let i = 0; i < idsToDelete.length; i += CLEAR_TIMESLOT_BATCH_SIZE) {
+          const batchIds = idsToDelete.slice(i, i + CLEAR_TIMESLOT_BATCH_SIZE);
+          if (batchIds.length === 0) continue;
+
+          await payload.db.deleteMany({
+            collection: timeslotsSlug,
+            where: {
+              id: { in: batchIds },
+            },
+            req,
+          });
+
+          cleared += batchIds.length;
+          await progressReporter.report(
+            {
+              phase: "clearing",
+              cleared,
+              total: totalToClear,
+            },
+            { force: cleared >= totalToClear },
+          );
+        }
+      } catch (error) {
+        console.error("Error clearing existing timeslots:", error);
+      }
+    } else {
+      const existingTimeslotKeys = await fetchExistingTimeslotKeys({
+        payload,
+        req,
+        timeslotsSlug,
+        rangeStart: start,
+        rangeEnd: end,
+        tenantId: hasTenantContext ? numericTenantId : null,
+        branchId: resolvedBranchId,
+        includeLegacyNullBranch,
+        timeZone,
+      });
+
+      existingPlannedTimeslotKeys = new Set(
+        [...existingTimeslotKeys].filter((k) => plannedTimeslotKeys.has(k)),
+      );
+    }
+
+    const recordsToCreate = plannedTimeslots
+      .filter((planned) => {
+        if (existingPlannedTimeslotKeys.has(planned.dedupeKey)) {
+          skippedCount += 1;
+          return false;
+        }
+        return true;
+      })
+      .map((planned) => planned.data);
+
+    const createdCount = recordsToCreate.length;
 
     if (createdCount > 0) {
       payload.logger.info(
@@ -827,11 +861,12 @@ export function createGenerateTimeslotsFromScheduleHandler(
         },
         { force: true },
       );
+
       await createTimeslotsInBatches({
         payload,
         req,
         timeslotsSlug,
-        records: pendingCreates,
+        records: recordsToCreate,
         onBatchComplete: async (created, total) => {
           await progressReporter.report({
             phase: "creating",
@@ -850,9 +885,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
       );
     }
     if (skippedCount > 0) {
-      messageParts.push(
-        `${skippedCount.toLocaleString()} already existed`,
-      );
+      messageParts.push(`${skippedCount.toLocaleString()} already existed`);
     }
     successMessage =
       messageParts.length > 0
