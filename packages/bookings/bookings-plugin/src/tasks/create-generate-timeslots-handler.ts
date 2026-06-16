@@ -56,31 +56,53 @@ function existingTimeslotKey(
   return `${startTime}|${endTime}|${locationKey}`;
 }
 
-async function fetchExistingTimeslotKeys(args: {
-  payload: Payload;
-  req: PayloadRequest;
-  timeslotsSlug: CollectionSlug;
+/** Active booking statuses that should prevent a timeslot from being cleared. */
+const BOOKING_STATUSES_BLOCKING_CLEAR = ["pending", "confirmed", "waiting"] as const;
+
+function buildTimeslotRangeWhereConditions(args: {
   rangeStart: TZDate;
   rangeEnd: TZDate;
   tenantId: number | null;
   branchId: number | null;
-}): Promise<Set<string>> {
-  const { payload, req, timeslotsSlug, rangeStart, rangeEnd, tenantId, branchId } =
+  includeLegacyNullBranch: boolean;
+}): Where[] {
+  const { rangeStart, rangeEnd, tenantId, branchId, includeLegacyNullBranch } =
     args;
 
   const whereConditions: Where[] = [
-    { startTime: { greater_than_equal: rangeStart.toISOString() } },
-    { endTime: { less_than_equal: rangeEnd.toISOString() } },
+    { startTime: { less_than_equal: rangeEnd.toISOString() } },
+    { endTime: { greater_than_equal: rangeStart.toISOString() } },
   ];
 
   if (tenantId != null) {
     whereConditions.push({ tenant: { equals: tenantId } });
   }
+
   if (branchId != null) {
-    whereConditions.push({ branch: { equals: branchId } });
+    if (includeLegacyNullBranch) {
+      whereConditions.push({
+        or: [
+          { branch: { equals: branchId } },
+          { branch: { exists: false } },
+        ],
+      });
+    } else {
+      whereConditions.push({ branch: { equals: branchId } });
+    }
   }
 
-  const keys = new Set<string>();
+  return whereConditions;
+}
+
+async function paginateTimeslotsInRange<T extends Record<string, unknown>>(args: {
+  payload: Payload;
+  req: PayloadRequest;
+  timeslotsSlug: CollectionSlug;
+  whereConditions: Where[];
+  select?: Record<string, boolean>;
+}): Promise<T[]> {
+  const { payload, req, timeslotsSlug, whereConditions, select } = args;
+  const docs: T[] = [];
   let page = 1;
 
   while (true) {
@@ -90,27 +112,70 @@ async function fetchExistingTimeslotKeys(args: {
       depth: 0,
       limit: EXISTING_TIMESLOTS_PAGE_SIZE,
       page,
-      select: {
-        startTime: true,
-        endTime: true,
-        location: true,
-      },
+      ...(select ? { select } : {}),
       overrideAccess: true,
       req,
     });
 
-    for (const doc of result.docs as Array<{
-      startTime?: string;
-      endTime?: string;
-      location?: unknown;
-    }>) {
-      if (doc.startTime && doc.endTime) {
-        keys.add(existingTimeslotKey(doc.startTime, doc.endTime, doc.location));
-      }
-    }
+    docs.push(...(result.docs as T[]));
 
     if (!result.hasNextPage) break;
     page += 1;
+  }
+
+  return docs;
+}
+
+async function fetchExistingTimeslotKeys(args: {
+  payload: Payload;
+  req: PayloadRequest;
+  timeslotsSlug: CollectionSlug;
+  rangeStart: TZDate;
+  rangeEnd: TZDate;
+  tenantId: number | null;
+  branchId: number | null;
+  includeLegacyNullBranch: boolean;
+}): Promise<Set<string>> {
+  const {
+    payload,
+    req,
+    timeslotsSlug,
+    rangeStart,
+    rangeEnd,
+    tenantId,
+    branchId,
+    includeLegacyNullBranch,
+  } = args;
+
+  const whereConditions = buildTimeslotRangeWhereConditions({
+    rangeStart,
+    rangeEnd,
+    tenantId,
+    branchId,
+    includeLegacyNullBranch,
+  });
+
+  const docs = await paginateTimeslotsInRange<{
+    startTime?: string;
+    endTime?: string;
+    location?: unknown;
+  }>({
+    payload,
+    req,
+    timeslotsSlug,
+    whereConditions,
+    select: {
+      startTime: true,
+      endTime: true,
+      location: true,
+    },
+  });
+
+  const keys = new Set<string>();
+  for (const doc of docs) {
+    if (doc.startTime && doc.endTime) {
+      keys.add(existingTimeslotKey(doc.startTime, doc.endTime, doc.location));
+    }
   }
 
   return keys;
@@ -158,17 +223,21 @@ async function resolveTimeslotBranchId(args: {
   req: PayloadRequest;
   numericTenantId: number | null;
   inputBranch: unknown;
-}): Promise<{ branchId: number | null; errorMessage?: string }> {
+}): Promise<{
+  branchId: number | null;
+  errorMessage?: string;
+  activeLocationCount: number;
+}> {
   const { payload, req, numericTenantId, inputBranch } = args;
 
   if (!hasLocationsCollection(payload)) {
-    return { branchId: null };
+    return { branchId: null, activeLocationCount: 0 };
   }
 
   const explicit = toId(inputBranch);
 
   if (numericTenantId == null || Number.isNaN(numericTenantId)) {
-    if (explicit == null) return { branchId: null };
+    if (explicit == null) return { branchId: null, activeLocationCount: 0 };
     const doc = await payload
       .findByID({
         collection: LOCATIONS_COLLECTION_SLUG,
@@ -179,9 +248,13 @@ async function resolveTimeslotBranchId(args: {
       })
       .catch(() => null);
     if (!doc) {
-      return { branchId: null, errorMessage: `Branch location id ${explicit} was not found.` };
+      return {
+        branchId: null,
+        activeLocationCount: 0,
+        errorMessage: `Branch location id ${explicit} was not found.`,
+      };
     }
-    return { branchId: explicit };
+    return { branchId: explicit, activeLocationCount: 1 };
   }
 
   const locs = await payload.find({
@@ -198,25 +271,28 @@ async function resolveTimeslotBranchId(args: {
   const activeIds = (locs.docs as { id?: unknown }[])
     .map((d) => toId(d.id))
     .filter((id): id is number => id != null);
+  const activeLocationCount = activeIds.length;
 
   if (explicit != null) {
     if (!activeIds.includes(explicit)) {
       return {
         branchId: null,
+        activeLocationCount,
         errorMessage: `Branch ${explicit} is not an active location for this tenant (or does not exist).`,
       };
     }
-    return { branchId: explicit };
+    return { branchId: explicit, activeLocationCount };
   }
 
   if (activeIds.length === 0) {
-    return { branchId: null };
+    return { branchId: null, activeLocationCount: 0 };
   }
   if (activeIds.length === 1) {
-    return { branchId: activeIds[0]! };
+    return { branchId: activeIds[0]!, activeLocationCount: 1 };
   }
   return {
     branchId: null,
+    activeLocationCount,
     errorMessage:
       "This tenant has more than one active site/branch. Set the task input field `branch` to a location id (or add a default branch on the scheduler) before generating timeslots.",
   };
@@ -350,6 +426,8 @@ export function createGenerateTimeslotsFromScheduleHandler(
     };
   }
   const resolvedBranchId = branchResolution.branchId;
+  const includeLegacyNullBranch =
+    resolvedBranchId != null && branchResolution.activeLocationCount <= 1;
 
   const numericTenantId =
     hasTenantForBranch && numericTenantIdForBranch != null ? numericTenantIdForBranch : null;
@@ -383,56 +461,24 @@ export function createGenerateTimeslotsFromScheduleHandler(
       payload.logger.info("Clearing existing timeslots");
       await progressReporter.report({ phase: "clearing" }, { force: true });
       try {
-      // Get tenant from context if available (for multi-tenant support)
-      const tenantId = tenantIdForBranch;
-
-      // Build where clause with tenant filter if available
-      const whereConditions: any[] = [
-        {
-          startTime: {
-            greater_than_equal: start.toISOString(),
-          },
-        },
-        {
-          endTime: {
-            less_than_equal: end.toISOString(),
-          },
-        },
-      ]
-
-      // Add tenant filter if tenant context is available
-      if (tenantId) {
-        whereConditions.push({
-          tenant: {
-            equals: tenantId,
-          },
-        })
-      }
-
-      // Scope clear to the specific branch so that sibling locations within the
-      // same tenant are not affected when their scheduler is saved independently.
-      if (resolvedBranchId != null) {
-        whereConditions.push({
-          branch: {
-            equals: resolvedBranchId,
-          },
-        })
-      }
-
-      const whereClause = {
-        and: whereConditions,
-      }
-
-        const timeslotQuery = await payload.find({
-          collection: timeslotsSlug,
-          where: whereClause as any,
-          depth: 0,
-          limit: 0,
-          overrideAccess: true,
-          req,
+        const tenantId = tenantIdForBranch;
+        const whereConditions = buildTimeslotRangeWhereConditions({
+          rangeStart: start,
+          rangeEnd: end,
+          tenantId: tenantId ?? null,
+          branchId: resolvedBranchId,
+          includeLegacyNullBranch,
         });
 
-        const timeslotIds = (timeslotQuery.docs as Array<{ id?: unknown }>)
+        const timeslotDocs = await paginateTimeslotsInRange<{ id?: unknown }>({
+          payload,
+          req,
+          timeslotsSlug,
+          whereConditions,
+          select: { id: true },
+        });
+
+        const timeslotIds = timeslotDocs
           .map((doc) => toId(doc.id))
           .filter((id): id is number => id != null);
 
@@ -441,12 +487,12 @@ export function createGenerateTimeslotsFromScheduleHandler(
           const batchIds = timeslotIds.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
           if (batchIds.length === 0) continue;
 
-          const confirmedBookings = await payload.find({
+          const protectedBookings = await payload.find({
             collection: bookingsSlug,
             where: {
               and: [
                 { timeslot: { in: batchIds } },
-                { status: { equals: "confirmed" } },
+                { status: { in: [...BOOKING_STATUSES_BLOCKING_CLEAR] } },
               ],
             },
             depth: 0,
@@ -456,7 +502,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
             req,
           });
 
-          for (const booking of confirmedBookings.docs as Array<{ timeslot?: unknown }>) {
+          for (const booking of protectedBookings.docs as Array<{ timeslot?: unknown }>) {
             const timeslotId = toId(booking.timeslot);
             if (timeslotId != null) {
               timeslotsToNotDelete.add(timeslotId);
@@ -535,6 +581,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
       rangeEnd: end,
       tenantId: hasTenantContext ? numericTenantId : null,
       branchId: resolvedBranchId,
+      includeLegacyNullBranch,
     });
 
     const pendingCreates: Record<string, unknown>[] = [];
