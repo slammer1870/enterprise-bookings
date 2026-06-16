@@ -195,6 +195,9 @@ async function attachBookingCountsForTimeslots(
   // Single query: fetch only the timeslot FK for all bookings across all timeslot IDs at
   // once, then tally counts in JS. One round-trip regardless of how many timeslots are on
   // the page — far cheaper than the previous approach of one COUNT per timeslot.
+  // Payload 3.x treats `limit: 0` as "return no rows" unless `pagination: false`
+  // (see getRedirects / DatabaseKVAdapter). We need every matching booking row to
+  // tally per-timeslot counts in memory.
   const allBookings = await payload.find({
     collection: bookingsSlug as CollectionSlug,
     where: {
@@ -206,6 +209,7 @@ async function attachBookingCountsForTimeslots(
     select: { timeslot: true } as any,
     depth: 0,
     limit: 0,
+    pagination: false,
     ...(access as object),
     context: { triggerAfterChange: false },
   } as Parameters<BasePayload["find"]>[0]);

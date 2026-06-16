@@ -117,7 +117,7 @@ async function paginateTimeslotsInRange<T extends Record<string, unknown>>(args:
       req,
     });
 
-    docs.push(...(result.docs as T[]));
+    docs.push(...(result.docs as unknown as T[]));
 
     if (!result.hasNextPage) break;
     page += 1;
@@ -461,11 +461,10 @@ export function createGenerateTimeslotsFromScheduleHandler(
       payload.logger.info("Clearing existing timeslots");
       await progressReporter.report({ phase: "clearing" }, { force: true });
       try {
-        const tenantId = tenantIdForBranch;
         const whereConditions = buildTimeslotRangeWhereConditions({
           rangeStart: start,
           rangeEnd: end,
-          tenantId: tenantId ?? null,
+          tenantId: numericTenantId,
           branchId: resolvedBranchId,
           includeLegacyNullBranch,
         });
