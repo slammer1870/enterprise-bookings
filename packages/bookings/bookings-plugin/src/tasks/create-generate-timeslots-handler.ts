@@ -545,7 +545,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
             req,
           });
 
-          for (const booking of protectedBookings.docs as Array<Record<string, unknown>>) {
+          for (const booking of protectedBookings.docs as unknown as Array<Record<string, unknown>>) {
             const timeslotId = resolveBookingTimeslotId(booking);
             if (timeslotId != null) {
               timeslotsToNotDelete.add(timeslotId);
