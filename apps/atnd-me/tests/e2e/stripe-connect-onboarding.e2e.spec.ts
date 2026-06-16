@@ -25,7 +25,9 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
 
     const co = await createTestEventType(tenant.id, 'Onboarding Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, { waitUntil: 'networkidle' })
+    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, {
+      waitUntil: 'domcontentloaded',
+    })
 
     await page.waitForResponse(
       (resp) => resp.url().includes('/api/stripe/connect/status') && resp.status() === 200,
@@ -72,7 +74,9 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
 
     const co = await createTestEventType(tenant.id, 'OAuth Redirect Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, { waitUntil: 'networkidle' })
+    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, {
+      waitUntil: 'domcontentloaded',
+    })
 
     await page.waitForResponse(
       (resp) => resp.url().includes('/api/stripe/connect/status') && resp.status() === 200,
@@ -134,7 +138,9 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
 
     const co = await createTestEventType(tenant1.id, 'Connected Status Test Class', 5)
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, { request })
-    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, { waitUntil: 'networkidle' })
+    await page.goto(`${BASE_URL}/admin/collections/event-types/${co.id}`, {
+      waitUntil: 'domcontentloaded',
+    })
 
     await page.waitForResponse(
       (resp) => resp.url().includes('/api/stripe/connect/status') && resp.status() === 200,

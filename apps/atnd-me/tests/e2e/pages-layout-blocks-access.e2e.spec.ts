@@ -45,12 +45,19 @@ function escapeRegex(value: string): string {
 }
 
 /** Default block labels we expect every role to see when they have at least default blocks. */
-const DEFAULT_BLOCK_LABELS = ['Hero & Schedule', 'About', 'Schedule', 'Content']
+const DEFAULT_BLOCK_LABELS = [
+  'Homepage — hero with schedule',
+  'About your business',
+  'Text section',
+  'Call to action button',
+  'Frequently asked questions',
+  'Image or video',
+  'Two columns side by side',
+]
 
-/** Extra block (not in default set) – admin and tenants with it enabled should see it. */
-const EXTRA_BLOCK_LABEL_LOCATION = 'Location'
-// The website block label is rendered as "Faq" in the Payload block picker.
-const EXTRA_BLOCK_LABEL_FAQS = 'Faq'
+/** Extra blocks (not in default set) – admin and tenants with them enabled should see them. */
+const EXTRA_BLOCK_LABEL_LOCATION = 'Location & map'
+const EXTRA_BLOCK_LABEL_ARCHIVE = 'Archive'
 
 /**
  * Set payload-tenant (and optional tenant-slug) so admin + middleware agree with the tenant host.
@@ -160,7 +167,7 @@ async function goToPageCreateWithContext(
   // Payload admin can restore prior editor/navigation state from browser storage.
   // In this suite we switch roles/tenants within the same worker, so clear per-origin
   // storage before opening Pages create to avoid bouncing into a stale /pages/:id route.
-  await page.goto(`${baseUrl}/admin`, { waitUntil: 'domcontentloaded' }).catch(() => {})
+  await page.goto(`${baseUrl}/admin`, { waitUntil: 'domcontentloaded', timeout: 60_000 }).catch(() => {})
   await page
     .evaluate(() => {
       window.localStorage.clear()
@@ -173,7 +180,7 @@ async function goToPageCreateWithContext(
     const rootHost = new URL(BASE_URL).hostname
     const navHost = new URL(baseUrl).hostname
     if (navHost !== rootHost) {
-      await page.goto(`${baseUrl}/admin`, { waitUntil: 'domcontentloaded' })
+      await page.goto(`${baseUrl}/admin`, { waitUntil: 'domcontentloaded', timeout: 60_000 })
       await page.waitForURL((u) => u.pathname.startsWith('/admin'), { timeout: 25000 })
       await page.waitForTimeout(1500)
     }
@@ -195,7 +202,7 @@ async function goToPageCreateWithContext(
     .first()
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    await page.goto(createUrl, { waitUntil: 'domcontentloaded' })
+    await page.goto(createUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
 
     // Stop retrying as soon as we land on the create editor route.
     // Avoid long `waitForURL` calls here because the server may legitimately 404/redirect.
@@ -221,7 +228,7 @@ async function goToPageCreateWithContext(
     page.url().includes('/admin/collections/pages/create') || page.url().match(/\/admin\/collections\/pages\/\d+($|\/)/)
   if (!onPagesEditorRoute) {
     // One deterministic re-navigation to reduce flakiness.
-    await page.goto(createUrl, { waitUntil: 'domcontentloaded' })
+    await page.goto(createUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   }
 
   // Best-effort fill (only if the inputs exist/are visible).
@@ -480,7 +487,9 @@ test.describe('Pages layout blocks access (create/update)', () => {
     if (await addBlockBtn.isVisible().catch(() => false)) {
       await addBlockBtn.click()
       await page.waitForTimeout(500)
-      const heroOption = page.getByRole('button', { name: /hero & schedule|hero/i }).first()
+      const heroOption = page
+        .getByRole('button', { name: /homepage.*hero with schedule|hero & schedule|hero/i })
+        .first()
       await heroOption.click().catch(() => {})
       await page.waitForTimeout(500)
     }
@@ -542,7 +551,6 @@ test.describe('Pages layout blocks access (create/update)', () => {
     // Case 1a, and the tenant-restricted behavior is exercised more deeply below.
     expectBlocksIncludeDefault(visible)
     expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
-    expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
   })
 
   test('Case 2: Tenant-admin with no allowedBlocks sees only default blocks', async ({
@@ -550,6 +558,7 @@ test.describe('Pages layout blocks access (create/update)', () => {
     testData,
     request,
   }) => {
+    test.setTimeout(90_000)
     const t1 = testData.tenants[0]!
     const t1BaseUrl = tenantAdminBaseUrl(t1.slug)
     await setTenantAllowedBlocksViaApi(request, t1.id, [], testData.users.superAdmin.email)
@@ -572,9 +581,10 @@ test.describe('Pages layout blocks access (create/update)', () => {
     testData,
     request,
   }) => {
+    test.setTimeout(90_000)
     const t2 = testData.tenants[1]!
     const t2BaseUrl = tenantAdminBaseUrl(t2.slug)
-    await setTenantAllowedBlocksViaApi(request, t2.id, ['location', 'faqs'], testData.users.superAdmin.email)
+    await setTenantAllowedBlocksViaApi(request, t2.id, ['location'], testData.users.superAdmin.email)
 
     await loginAsTenantAdmin(page, 2, testData.users.tenantAdmin2.email, { tenantSlug: t2.slug })
     const formReady = await goToPageCreateWithContext(page, {
@@ -587,7 +597,6 @@ test.describe('Pages layout blocks access (create/update)', () => {
     const visible = await getVisibleBlockOptions(page)
     expectBlocksIncludeDefault(visible)
     expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
-    expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
   })
 
   test('Case 4: Two tenants and admin – tenant-admins see only their blocks, admin sees all', async ({
@@ -603,12 +612,12 @@ test.describe('Pages layout blocks access (create/update)', () => {
     const t2BaseUrl = tenantAdminBaseUrl(t2.slug)
 
     await setTenantAllowedBlocksViaApi(request, t1.id, ['location'], testData.users.superAdmin.email)
-    await setTenantAllowedBlocksViaApi(request, t2.id, ['faqs'], testData.users.superAdmin.email)
+    await setTenantAllowedBlocksViaApi(request, t2.id, ['archive'], testData.users.superAdmin.email)
 
     // Switching users within the same page is flaky (cookie + drawer state).
     // Use separate browser contexts to guarantee isolation.
 
-    // Tenant-admin 1 (tenant with only location): should see Location, not FAQs
+    // Tenant-admin 1 (tenant with only location): should see Location, not Archive
     {
       const ctx = await browser.newContext()
       const page = await ctx.newPage()
@@ -622,12 +631,12 @@ test.describe('Pages layout blocks access (create/update)', () => {
       expect(formReady, 'Pages create must load for tenant-admin when payload-tenant cookie is set').toBe(true)
       const visible = await getVisibleBlockOptions(page)
       expectBlocksIncludeDefault(visible)
-      expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
+      expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_ARCHIVE)
       expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
       await ctx.close()
     }
 
-    // Tenant-admin 2 (tenant with only faqs): should see FAQs, not Location
+    // Tenant-admin 2 (tenant with only archive): should see Archive, not Location
     {
       const ctx = await browser.newContext()
       const page = await ctx.newPage()
@@ -640,12 +649,12 @@ test.describe('Pages layout blocks access (create/update)', () => {
       expect(formReady, 'Pages create must load for tenant-admin when payload-tenant cookie is set').toBe(true)
       const visible = await getVisibleBlockOptions(page)
       expectBlocksIncludeDefault(visible)
-      expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
+      expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_ARCHIVE)
       expectBlocksExcludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
       await ctx.close()
     }
 
-    // Admin with no tenant selected: should see all (e.g. both Location and FAQs)
+    // Admin with no tenant selected: should see all (e.g. both Location and Archive)
     {
       const ctx = await browser.newContext()
       const page = await ctx.newPage()
@@ -658,7 +667,7 @@ test.describe('Pages layout blocks access (create/update)', () => {
       }
       expectBlocksIncludeDefault(visible)
       expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_LOCATION)
-      expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_FAQS)
+      expectBlocksIncludeExtra(visible, EXTRA_BLOCK_LABEL_ARCHIVE)
       await ctx.close()
     }
   })

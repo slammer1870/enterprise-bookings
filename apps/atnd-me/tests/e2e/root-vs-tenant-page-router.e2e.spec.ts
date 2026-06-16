@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/fixtures'
 import { navigateToRoot, navigateToTenant } from './helpers/subdomain-helpers'
-import { getPayloadInstance, createTestPage } from './helpers/data-helpers'
+import { getPayloadInstance, createTestPage, contentLayoutWithText } from './helpers/data-helpers'
 
 test.describe('Root vs tenant page routing', () => {
   test('renders root page on base host and tenant page on tenant subdomain', async ({
@@ -30,7 +30,7 @@ test.describe('Root vs tenant page routing', () => {
 
     // Tenant page with same slug
     await createTestPage(tenant1.id, slug, tenantTitle, {
-      layout: [{ blockType: 'heroSchedule', title: tenantTitle }],
+      layout: contentLayoutWithText(tenantTitle),
     })
 
     // Root domain should show the root/global page.

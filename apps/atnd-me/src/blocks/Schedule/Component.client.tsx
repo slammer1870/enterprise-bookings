@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
-import { PAYLOAD_LOCATION_COOKIE } from '@/utilities/tenantRequest'
+import { PAYLOAD_LOCATION_COOKIE, PUBLIC_BRANCH_SLUG_COOKIE } from '@/utilities/tenantRequest'
 import {
   Select,
   SelectContent,
@@ -24,11 +24,27 @@ export interface LocationScopedScheduleClientProps {
   tenantId: number
 }
 
-const EMPTY_VALUE = '__none__'
-
 function matchSlug(param: string | null, slug: string): boolean {
   if (!param?.trim()) return false
   return param.trim().toLowerCase() === slug.toLowerCase()
+}
+
+function readCookieValue(name: string): string | null {
+  if (typeof document === 'undefined') return null
+  const segments = document.cookie.split(';')
+  for (const segment of segments) {
+    const idx = segment.indexOf('=')
+    if (idx === -1) continue
+    if (segment.slice(0, idx).trim() !== name) continue
+    const raw = segment.slice(idx + 1).trim()
+    if (!raw) return null
+    try {
+      return decodeURIComponent(raw).trim() || null
+    } catch {
+      return raw.trim() || null
+    }
+  }
+  return null
 }
 
 /** Parse ?location= from hash since query-after-hash is not in useSearchParams() */
@@ -47,12 +63,22 @@ export function LocationScopedScheduleClient({
   const searchParams = useSearchParams()
   const locationFromSearch = searchParams.get('location')
   const [locationFromHash, setLocationFromHash] = useState(getLocationFromHash)
+  const [branchSlugFromCookie, setBranchSlugFromCookie] = useState<string | null>(() =>
+    readCookieValue(PUBLIC_BRANCH_SLUG_COOKIE),
+  )
 
   useEffect(() => {
     const sync = () => setLocationFromHash(getLocationFromHash())
     window.addEventListener('hashchange', sync)
     return () => window.removeEventListener('hashchange', sync)
   }, [])
+
+  useEffect(() => {
+    const sync = () => setBranchSlugFromCookie(readCookieValue(PUBLIC_BRANCH_SLUG_COOKIE))
+    sync()
+    window.addEventListener('focus', sync)
+    return () => window.removeEventListener('focus', sync)
+  }, [locationFromSearch, locationFromHash])
 
   const locationSlug = locationFromSearch ?? locationFromHash
 
@@ -67,58 +93,61 @@ export function LocationScopedScheduleClient({
       return Number.isFinite(n) ? n : null
     }
     if (typeof v === 'object' && v != null && 'id' in v) {
-      // Some Payload shapes may pass relationship-like objects.
-      return coerceLocationId((v as any).id)
+      return coerceLocationId((v as { id: unknown }).id)
     }
     return null
   }
-
-  const firstLocationId = coerceLocationId(locations[0]?.id)
-  const initialSelectedLocationId = coerceLocationId(defaultLocationId) ?? firstLocationId
-
-  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(
-    initialSelectedLocationId,
-  )
-  const [userHasChosen, setUserHasChosen] = useState(false)
 
   const locationFromSlug = useMemo(() => {
     if (!locationSlug?.trim() || locations.length === 0) return null
     return locations.find((l) => matchSlug(locationSlug, l.slug)) ?? null
   }, [locationSlug, locations])
 
+  const locationFromCookie = useMemo(() => {
+    if (!branchSlugFromCookie?.trim() || locations.length === 0) return null
+    return locations.find((l) => matchSlug(branchSlugFromCookie, l.slug)) ?? null
+  }, [branchSlugFromCookie, locations])
+
+  const cmsDefaultLocationId = coerceLocationId(defaultLocationId)
+  const firstLocationId = coerceLocationId(locations[0]?.id)
+
+  const resolveBranchId = (): number | null =>
+    coerceLocationId(locationFromSlug?.id) ??
+    coerceLocationId(locationFromCookie?.id) ??
+    cmsDefaultLocationId ??
+    firstLocationId
+
+  const [selectedBranchId, setSelectedBranchId] = useState<number | null>(resolveBranchId)
+  const [userHasChosen, setUserHasChosen] = useState(false)
+
   useEffect(() => {
-    setUserHasChosen(false)
-    setSelectedLocationId(
-      coerceLocationId(locationFromSlug?.id) ?? coerceLocationId(defaultLocationId) ?? firstLocationId,
-    )
-  }, [locationSlug, locationFromSlug?.id, defaultLocationId])
+    if (userHasChosen) return
+    setSelectedBranchId(resolveBranchId())
+  }, [
+    locationSlug,
+    locationFromSlug?.id,
+    locationFromCookie?.id,
+    cmsDefaultLocationId,
+    firstLocationId,
+    userHasChosen,
+  ])
 
-  const effectiveLocationIdRaw = userHasChosen
-    ? (selectedLocationId ?? defaultLocationId)
-    : (locationFromSlug?.id ?? selectedLocationId ?? defaultLocationId)
+  const scheduleBranchId = selectedBranchId ?? undefined
 
-  // Guard against any non-finite values (e.g. `NaN`) so we always trigger strict
-  // branch filtering server-side.
-  const effectiveLocationId = coerceLocationId(effectiveLocationIdRaw) ?? firstLocationId
-
-  const value = effectiveLocationId != null ? String(effectiveLocationId) : EMPTY_VALUE
+  const selectValue =
+    selectedBranchId != null ? String(selectedBranchId) : String(firstLocationId ?? '')
 
   const onValueChange = (v: string) => {
-    const id = v === EMPTY_VALUE ? null : Number(v)
-    setSelectedLocationId(id)
+    setSelectedBranchId(Number(v))
     setUserHasChosen(true)
   }
 
   // Keep Payload's admin-style `payload-location` cookie aligned with the
   // currently selected public schedule location.
-  // This prevents "You are not allowed to perform this action" when navigating
-  // to `/bookings/[id]` while a stale `payload-location` cookie is set.
   useEffect(() => {
     if (typeof window === 'undefined') return
 
     const setCookie = (name: string, value: string | null) => {
-      // Keep it simple: host-only cookie (same host as the current request).
-      // `timeslotsRead` only needs the cookie value to scope reads for admin/staff.
       const base = `; Path=/; SameSite=Lax`
       if (value == null) {
         document.cookie = `${name}=; Max-Age=0${base}`
@@ -127,13 +156,18 @@ export function LocationScopedScheduleClient({
       document.cookie = `${name}=${encodeURIComponent(value)}${base}`
     }
 
-    if (effectiveLocationId == null) {
+    if (selectedBranchId == null) {
       setCookie(PAYLOAD_LOCATION_COOKIE, null)
+      setCookie(PUBLIC_BRANCH_SLUG_COOKIE, null)
       return
     }
 
-    setCookie(PAYLOAD_LOCATION_COOKIE, String(effectiveLocationId))
-  }, [effectiveLocationId])
+    setCookie(PAYLOAD_LOCATION_COOKIE, String(selectedBranchId))
+    const slug = locations.find((l) => l.id === selectedBranchId)?.slug
+    if (slug) {
+      setCookie(PUBLIC_BRANCH_SLUG_COOKIE, slug)
+    }
+  }, [selectedBranchId, locations])
 
   if (locations.length === 0) {
     return (
@@ -150,7 +184,7 @@ export function LocationScopedScheduleClient({
           Show schedule for
         </label>
         <div className="w-full sm:flex-1">
-          <Select value={value} onValueChange={onValueChange}>
+          <Select value={selectValue} onValueChange={onValueChange}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -164,10 +198,7 @@ export function LocationScopedScheduleClient({
           </Select>
         </div>
       </div>
-      <ScheduleLazy
-        tenantId={tenantId}
-        branchId={effectiveLocationId ?? undefined /* omit branch filter when unknown */}
-      />
+      <ScheduleLazy tenantId={tenantId} branchId={scheduleBranchId} />
     </div>
   )
 }

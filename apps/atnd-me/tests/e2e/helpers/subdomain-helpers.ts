@@ -51,6 +51,21 @@ export async function getTenantContext(page: Page): Promise<string | null> {
   return tenantSlugCookie?.value || null
 }
 
+/** Clear public branch / admin location cookies before schedule assertions. */
+export async function clearBranchCookies(page: Page, tenantSlug?: string): Promise<void> {
+  const urls = tenantSlug
+    ? [`http://${tenantSlug}.localhost:3000/`, 'http://localhost:3000/']
+    : undefined
+  const cookies = await page.context().cookies(urls)
+  const keep = cookies.filter(
+    (c) => c.name !== 'branch-slug' && c.name !== 'payload-location',
+  )
+  await page.context().clearCookies()
+  if (keep.length > 0) {
+    await page.context().addCookies(keep)
+  }
+}
+
 /** Public branch cookie set when visiting `/locations/{slug}` (see middleware + Chunk 8). */
 export async function getBranchSlugFromCookies(page: Page): Promise<string | null> {
   const cookies = await page.context().cookies()

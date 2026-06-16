@@ -191,4 +191,89 @@ describe("Scheduler tests", () => {
     }
   });
 
+  it("iterates every calendar day across a multi-month range when only Saturday has slots", async () => {
+    const timeZone = "Europe/Dublin";
+
+    const createdTimeslots: Array<{ id: number; startTime: string }> = [];
+
+    const payload = {
+      config: {
+        admin: {
+          timezones: {
+            defaultTimezone: timeZone,
+          },
+        },
+      },
+      logger: {
+        info: () => undefined,
+        warn: () => undefined,
+      },
+      find: async (args: any) => {
+        if (args?.collection === "timeslots") return { docs: [] };
+        return { docs: [] };
+      },
+      delete: async () => ({ docs: [] }),
+      create: async (args: any) => {
+        if (args?.collection !== "timeslots") {
+          throw new Error(`Unexpected create on ${String(args?.collection)}`);
+        }
+        const next = {
+          id: createdTimeslots.length + 1,
+          startTime: String(args.data.startTime),
+        };
+        createdTimeslots.push(next);
+        return next;
+      },
+    };
+
+    const startDate = new TZDate(2026, 0, 1, 0, 0, 0, 0, timeZone);
+    const endDate = new TZDate(2026, 2, 31, 23, 59, 59, 999, timeZone);
+
+    const slotStart = new TZDate(2000, 0, 1, 10, 0, 0, 0, timeZone);
+    const slotEnd = new TZDate(2000, 0, 1, 11, 0, 0, 0, timeZone);
+
+    await (generateTimeslotsFromSchedule as any)({
+      input: {
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
+        clearExisting: false,
+        defaultEventType: 1,
+        lockOutTime: 60,
+        week: {
+          days: [
+            { timeSlot: [] },
+            { timeSlot: [] },
+            { timeSlot: [] },
+            { timeSlot: [] },
+            { timeSlot: [] },
+            {
+              timeSlot: [
+                {
+                  startTime: slotStart.toISOString(),
+                  endTime: slotEnd.toISOString(),
+                  eventType: 1,
+                  location: "Test Location",
+                  active: true,
+                },
+              ],
+            },
+            { timeSlot: [] },
+          ],
+        },
+      },
+      req: {
+        payload,
+        context: {},
+      } as any,
+    });
+
+    // Jan–Mar 2026 has 13 Saturdays in Europe/Dublin.
+    expect(createdTimeslots.length).toBe(13);
+
+    for (const lesson of createdTimeslots) {
+      const start = new TZDate(new Date(lesson.startTime), timeZone);
+      expect(start.getDay()).toBe(6);
+    }
+  });
+
 });

@@ -183,6 +183,13 @@ export function createSchedulerGlobal(
             // doesn't hold the request open for the entire generation duration.
             void req.payload.jobs.runByID({
               id: job.id,
+              req: {
+                ...req,
+                context: {
+                  ...(req.context ?? {}),
+                  generationJobId: job.id,
+                },
+              },
             });
           }
 

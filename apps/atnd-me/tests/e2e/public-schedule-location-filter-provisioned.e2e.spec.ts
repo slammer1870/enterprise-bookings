@@ -80,8 +80,8 @@ test.describe('Public schedule filtering by location (provisioned)', () => {
         _status: 'published',
         layout: [
           {
-            blockType: 'heroSchedule',
-            blockName: 'E2E Hero Schedule',
+            blockType: 'heroScheduleSanctuary',
+            blockName: 'Homepage — hero with schedule',
             title: 'E2E Hero Schedule',
           },
         ],

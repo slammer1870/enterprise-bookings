@@ -175,7 +175,9 @@ async function attachBookingCountsForTimeslots(
   if (ids.length === 0) return;
 
   const bookingsSlug = resolveBookingsCollectionSlug(payload, timeslotsSlug);
-  const access = req ? { req, overrideAccess: false } : { overrideAccess: true };
+  // Timeslots were already access-filtered by getTimeslots; counts are admin-only aggregates
+  // over those ids (staff pending filter still applied in where below).
+  const access = req ? { req, overrideAccess: true } : { overrideAccess: true };
 
   // Staff-only users should not see `pending` bookings in admin UI.
   // Filtering at the query level is both faster (less data pulled) and keeps
