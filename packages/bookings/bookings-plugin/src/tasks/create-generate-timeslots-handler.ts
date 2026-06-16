@@ -1,4 +1,11 @@
-import type { CollectionSlug, Payload, PayloadRequest, TaskHandler, Where } from "payload";
+import type {
+  CollectionSlug,
+  Payload,
+  PayloadRequest,
+  SelectType,
+  TaskHandler,
+  Where,
+} from "payload";
 import { addDays } from "date-fns";
 import { TZDate } from "@date-fns/tz";
 import { resolveTimeZone } from "@repo/shared-utils";
@@ -99,7 +106,7 @@ async function paginateTimeslotsInRange<T extends Record<string, unknown>>(args:
   req: PayloadRequest;
   timeslotsSlug: CollectionSlug;
   whereConditions: Where[];
-  select?: Record<string, boolean>;
+  select?: SelectType;
 }): Promise<T[]> {
   const { payload, req, timeslotsSlug, whereConditions, select } = args;
   const docs: T[] = [];
