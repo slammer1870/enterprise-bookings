@@ -37,6 +37,7 @@ import { DiscountCodeValueField as DiscountCodeValueField_41b58f2146d9fbeafdf93d
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
 import { DayRowLabel as DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7 } from '@repo/bookings-plugin/src/components/scheduler/day-row-label'
+import { SchedulerGenerationStatusField as SchedulerGenerationStatusField_c37ffb6f251eeb86340ae663ecf1fc0e } from '@/components/admin/SchedulerGenerationStatusField'
 import { default as default_dca537aa9082f5d27941b2b7b6483a3c } from '@/components/admin/SchedulerListView'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
@@ -103,6 +104,7 @@ export const importMap = {
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
   "@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel": DayRowLabel_bf4a9f7c4bc467c644792a695730a6e7,
+  "@/components/admin/SchedulerGenerationStatusField#SchedulerGenerationStatusField": SchedulerGenerationStatusField_c37ffb6f251eeb86340ae663ecf1fc0e,
   "@/components/admin/SchedulerListView#default": default_dca537aa9082f5d27941b2b7b6483a3c,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,

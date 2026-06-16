@@ -8,6 +8,8 @@ import {
 } from '../../access/tenant-scoped'
 import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
 import { getPayloadLocationIdFromRequest } from '../../utilities/tenantRequest'
+import { schedulerGenerationStatusEndpoint } from '../../endpoints/admin/scheduler-generation-status'
+import { runSchedulerGenerationJob } from '../../lib/scheduler/run-generation-job'
 
 function relationId(value: unknown): number | null {
     if (value == null || value === '') return null
@@ -155,8 +157,11 @@ const days: Field = {
     ],
 }
 
+const SKIP_SCHEDULER_GENERATION = 'skipSchedulerGeneration'
+
 export const Scheduler: CollectionConfig = {
     slug: 'scheduler',
+    endpoints: [schedulerGenerationStatusEndpoint],
     labels: {
         singular: 'Scheduler',
         plural: 'Scheduler',
@@ -283,7 +288,11 @@ export const Scheduler: CollectionConfig = {
             },
         ],
         afterChange: [
-            async ({ req, doc }) => {
+            async ({ req, doc, context }) => {
+                if (context?.[SKIP_SCHEDULER_GENERATION]) {
+                    return doc
+                }
+
                 // Extract tenant from scheduler document
                 const tenantId = typeof doc.tenant === 'object' && doc.tenant !== null ? doc.tenant.id : doc.tenant
 
@@ -318,22 +327,45 @@ export const Scheduler: CollectionConfig = {
                         defaultEventType: doc.defaultEventType,
                         lockOutTime: doc.lockOutTime,
                         tenant: tenantId,
+                        schedulerId: doc.id,
                         ...(branchId != null ? { branch: branchId } : {}),
                     } as Parameters<Payload['jobs']['queue']>[0]['input'],
                 })
 
+                const generationStartedAt = new Date().toISOString()
+
                 if (job.id) {
-                    // Fire-and-forget: run in the background so the save response is
-                    // returned to the browser immediately. Without this the HTTP request
-                    // stays open for the entire generation duration, which (a) shows an
-                    // indefinite "saving…" state and (b) lets the browser's leave-page
-                    // guard cancel the request mid-job if the user navigates away.
-                    // The job is already persisted in the DB by jobs.queue() above, so
-                    // it can also be retried by a cron runner if the process exits early.
-                    void req.payload.jobs.runByID({
-                        id: job.id,
-                        // Pass req to maintain tenant context
-                        req,
+                    const jobId =
+                        typeof job.id === 'number'
+                            ? job.id
+                            : typeof job.id === 'string' && /^\d+$/.test(job.id)
+                              ? parseInt(job.id, 10)
+                              : null
+
+                    if (jobId != null) {
+                        const initialPhase = doc.clearExisting ? 'clearing' : 'planning'
+                        await req.payload.update({
+                            collection: 'scheduler',
+                            id: doc.id,
+                            data: {
+                                lastGenerationJobId: jobId,
+                                generationProgress: {
+                                    phase: initialPhase,
+                                    startedAt: generationStartedAt,
+                                    updatedAt: generationStartedAt,
+                                },
+                            } as Record<string, unknown>,
+                            context: { [SKIP_SCHEDULER_GENERATION]: true },
+                            req,
+                        })
+                    }
+
+                    runSchedulerGenerationJob({
+                        payload: req.payload,
+                        jobId: job.id,
+                        user: req.user,
+                        tenantId,
+                        schedulerId: doc.id,
                     })
                 }
 
@@ -342,6 +374,39 @@ export const Scheduler: CollectionConfig = {
         ],
     },
     fields: [
+        {
+            name: 'generationStatus',
+            type: 'ui',
+            admin: {
+                components: {
+                    Field: '@/components/admin/SchedulerGenerationStatusField#SchedulerGenerationStatusField',
+                },
+            },
+        },
+        {
+            name: 'lastGenerationJobId',
+            type: 'number',
+            admin: {
+                hidden: true,
+            },
+        },
+        {
+            name: 'generationProgress',
+            type: 'json',
+            admin: {
+                hidden: true,
+            },
+        },
+        {
+            name: 'clearExisting',
+            type: 'checkbox',
+            label: 'Clear Existing Timeslots',
+            defaultValue: false,
+            admin: {
+                description:
+                    'Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)',
+            },
+        },
         {
             name: 'startDate',
             type: 'date',
@@ -435,16 +500,6 @@ export const Scheduler: CollectionConfig = {
             },
             type: 'group',
             fields: [days],
-        },
-        {
-            name: 'clearExisting',
-            type: 'checkbox',
-            label: 'Clear Existing Timeslots',
-            defaultValue: false,
-            admin: {
-                description:
-                    'Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)',
-            },
         },
     ],
     timestamps: true,
