@@ -8,7 +8,7 @@ import type {
 } from "payload";
 import { addDays } from "date-fns";
 import { TZDate } from "@date-fns/tz";
-import { resolveTimeZone } from "@repo/shared-utils";
+import { formatInTimeZone, resolveTimeZone } from "@repo/shared-utils";
 
 import { TaskGenerateTimeslotsFromSchedule } from "../types";
 import {
@@ -22,12 +22,42 @@ import type { BookingCollectionSlugs } from "../resolve-slugs";
 function toId(value: unknown): number | null {
   if (value == null) return null;
   if (typeof value === "number" && !Number.isNaN(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) return parseInt(value, 10);
   if (typeof value === "object" && value !== null && "id" in value) {
-    const id = (value as { id: number }).id;
-    return typeof id === "number" ? id : null;
+    const id = (value as { id: unknown }).id;
+    if (typeof id === "number" && !Number.isNaN(id)) return id;
+    if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
   }
   const n = Number(value);
   return Number.isNaN(n) ? null : n;
+}
+
+function resolveBookingTimeslotId(booking: Record<string, unknown>): number | null {
+  return (
+    toId(booking.timeslot) ??
+    toId(booking.timeslot_id) ??
+    toId((booking as { timeslotId?: unknown }).timeslotId)
+  );
+}
+
+/**
+ * Stable dedupe key for timeslots in a tenant timezone.
+ * Uses wall-clock start/end + location + event type so migrated ISO instants still match
+ * newly generated slots with the same local time and class option.
+ */
+export function existingTimeslotKey(
+  startTime: string,
+  endTime: string,
+  location: unknown,
+  eventTypeId: number | null,
+  timeZone: string,
+): string {
+  const locationKey =
+    location == null || location === "" ? "" : String(location);
+  const startKey = formatInTimeZone(startTime, "yyyy-MM-dd'T'HH:mm", timeZone);
+  const endKey = formatInTimeZone(endTime, "yyyy-MM-dd'T'HH:mm", timeZone);
+  const eventKey = eventTypeId != null ? String(eventTypeId) : "";
+  return `${startKey}|${endKey}|${locationKey}|${eventKey}`;
 }
 
 function hasTenantsCollection(
@@ -52,16 +82,6 @@ const EXISTING_TIMESLOTS_PAGE_SIZE = 500;
 const CREATE_BATCH_SIZE = 25;
 const CLEAR_TIMESLOT_BATCH_SIZE = 100;
 const CLEAR_BOOKING_BATCH_SIZE = 500;
-
-function existingTimeslotKey(
-  startTime: string,
-  endTime: string,
-  location: unknown,
-): string {
-  const locationKey =
-    location == null || location === "" ? "" : String(location);
-  return `${startTime}|${endTime}|${locationKey}`;
-}
 
 /** Active booking statuses that should prevent a timeslot from being cleared. */
 const BOOKING_STATUSES_BLOCKING_CLEAR = ["pending", "confirmed", "waiting"] as const;
@@ -90,7 +110,11 @@ function buildTimeslotRangeWhereConditions(args: {
       whereConditions.push({
         or: [
           { branch: { equals: branchId } },
+          // Legacy rows may store `branch_id` as NULL rather than missing.
+          // Include both "not present" and explicit NULL to avoid skipping
+          // existing legacy timeslots during clearExisting/dedupe.
           { branch: { exists: false } },
+          { branch: { equals: null } },
         ],
       });
     } else {
@@ -142,6 +166,7 @@ async function fetchExistingTimeslotKeys(args: {
   tenantId: number | null;
   branchId: number | null;
   includeLegacyNullBranch: boolean;
+  timeZone: string;
 }): Promise<Set<string>> {
   const {
     payload,
@@ -152,6 +177,7 @@ async function fetchExistingTimeslotKeys(args: {
     tenantId,
     branchId,
     includeLegacyNullBranch,
+    timeZone,
   } = args;
 
   const whereConditions = buildTimeslotRangeWhereConditions({
@@ -166,6 +192,7 @@ async function fetchExistingTimeslotKeys(args: {
     startTime?: string;
     endTime?: string;
     location?: unknown;
+    eventType?: unknown;
   }>({
     payload,
     req,
@@ -175,13 +202,22 @@ async function fetchExistingTimeslotKeys(args: {
       startTime: true,
       endTime: true,
       location: true,
+      eventType: true,
     },
   });
 
   const keys = new Set<string>();
   for (const doc of docs) {
     if (doc.startTime && doc.endTime) {
-      keys.add(existingTimeslotKey(doc.startTime, doc.endTime, doc.location));
+      keys.add(
+        existingTimeslotKey(
+          doc.startTime,
+          doc.endTime,
+          doc.location,
+          toId(doc.eventType),
+          timeZone,
+        ),
+      );
     }
   }
 
@@ -433,8 +469,9 @@ export function createGenerateTimeslotsFromScheduleHandler(
     };
   }
   const resolvedBranchId = branchResolution.branchId;
-  const includeLegacyNullBranch =
-    resolvedBranchId != null && branchResolution.activeLocationCount <= 1;
+  // Include legacy timeslots with no branch whenever clearing/generating for a
+  // specific branch. They are unmigrated rows, not another site's slots.
+  const includeLegacyNullBranch = resolvedBranchId != null;
 
   const numericTenantId =
     hasTenantForBranch && numericTenantIdForBranch != null ? numericTenantIdForBranch : null;
@@ -503,13 +540,13 @@ export function createGenerateTimeslotsFromScheduleHandler(
             },
             depth: 0,
             limit: 0,
-            select: { timeslot: true },
+            pagination: false,
             overrideAccess: true,
             req,
           });
 
-          for (const booking of protectedBookings.docs as Array<{ timeslot?: unknown }>) {
-            const timeslotId = toId(booking.timeslot);
+          for (const booking of protectedBookings.docs as Array<Record<string, unknown>>) {
+            const timeslotId = resolveBookingTimeslotId(booking);
             if (timeslotId != null) {
               timeslotsToNotDelete.add(timeslotId);
             }
@@ -588,6 +625,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
       tenantId: hasTenantContext ? numericTenantId : null,
       branchId: resolvedBranchId,
       includeLegacyNullBranch,
+      timeZone,
     });
 
     const pendingCreates: Record<string, unknown>[] = [];
@@ -679,28 +717,6 @@ export function createGenerateTimeslotsFromScheduleHandler(
 
         const startIso = timeslotStartTime.toISOString();
         const endIso = timeslotEndTime.toISOString();
-        const duplicateKey = existingTimeslotKey(
-          startIso,
-          endIso,
-          timeSlot.location,
-        );
-
-        if (existingTimeslotKeys.has(duplicateKey)) {
-          skippedCount += 1;
-          continue;
-        }
-
-        // Create a timezone-aware date for the timeslot date field
-        const timeslotDate = new TZDate(
-          currentInTZ.getFullYear(),
-          currentInTZ.getMonth(),
-          currentInTZ.getDate(),
-          0,
-          0,
-          0,
-          0,
-          timeZone
-        );
 
         const eventTypeId =
           toId(timeSlot.eventType) ?? defaultEventTypeId;
@@ -722,6 +738,31 @@ export function createGenerateTimeslotsFromScheduleHandler(
           );
           continue;
         }
+
+        const duplicateKey = existingTimeslotKey(
+          startIso,
+          endIso,
+          timeSlot.location,
+          eventTypeIdNum,
+          timeZone,
+        );
+
+        if (existingTimeslotKeys.has(duplicateKey)) {
+          skippedCount += 1;
+          continue;
+        }
+
+        // Create a timezone-aware date for the timeslot date field
+        const timeslotDate = new TZDate(
+          currentInTZ.getFullYear(),
+          currentInTZ.getMonth(),
+          currentInTZ.getDate(),
+          0,
+          0,
+          0,
+          0,
+          timeZone
+        );
 
         const lockOut = Number(timeSlot.lockOutTime) || Number(lockOutTime);
         const timeslotData: Record<string, unknown> = {
