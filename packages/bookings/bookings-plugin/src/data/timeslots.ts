@@ -192,12 +192,17 @@ async function attachBookingCountsForTimeslots(
   const countByTimeslot = new Map<number, number>();
   for (const id of ids) countByTimeslot.set(id, 0);
 
-  // Single query: fetch only the timeslot FK for all bookings across all timeslot IDs at
-  // once, then tally counts in JS. One round-trip regardless of how many timeslots are on
-  // the page — far cheaper than the previous approach of one COUNT per timeslot.
-  // Payload 3.x treats `limit: 0` as "return no rows" unless `pagination: false`
-  // (see getRedirects / DatabaseKVAdapter). We need every matching booking row to
-  // tally per-timeslot counts in memory.
+  // Single query: fetch all booking rows for the given timeslot IDs, then tally counts
+  // in JS. One round-trip regardless of how many timeslots are on the page.
+  //
+  // We intentionally omit `select` here. Using `select: { timeslot: true }` causes
+  // Payload's drizzle adapter to skip joining the _rels table and inline relationship
+  // columns can be unreliable — `booking.timeslot` ends up undefined for many rows,
+  // making the count show 0 even when bookings exist. Without `select`, all columns
+  // are returned and `booking.timeslot` is reliably the integer FK at depth: 0.
+  //
+  // `limit: 0` with the drizzle adapter sets `limit = undefined` internally (no SQL LIMIT),
+  // so all matching rows are returned regardless of `pagination`.
   const allBookings = await payload.find({
     collection: bookingsSlug as CollectionSlug,
     where: {
@@ -206,7 +211,6 @@ async function attachBookingCountsForTimeslots(
         ...(excludePendingForStaffOnly ? [{ status: { not_equals: "pending" } }] : []),
       ],
     },
-    select: { timeslot: true } as any,
     depth: 0,
     limit: 0,
     pagination: false,
