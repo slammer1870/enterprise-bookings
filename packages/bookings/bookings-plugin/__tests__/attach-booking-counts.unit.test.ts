@@ -1,9 +1,8 @@
 /**
  * Regression: admin timeslot list booking counts must not read as 0 when bookings exist.
  *
- * attachBookingCountsForTimeslots uses `limit: 0` to fetch all booking rows in one query.
- * Payload 3.x treats `limit: 0` as "return no rows" unless `pagination: false` is set,
- * which made the admin UI show 0 for every timeslot.
+ * attachBookingCountsForTimeslots uses per-timeslot payload.count() so counts match the
+ * join field used when expanding a row, including legacy migrated bookings.
  */
 import { describe, expect, it, vi } from "vitest";
 import type { BasePayload } from "payload";
@@ -13,7 +12,10 @@ import { getTimeslots } from "../src/data/timeslots";
 const TIMESLOT_A = 101;
 const TIMESLOT_B = 102;
 
-function createMockPayload(find: ReturnType<typeof vi.fn>): BasePayload {
+function createMockPayload(args: {
+  find: ReturnType<typeof vi.fn>;
+  count: ReturnType<typeof vi.fn>;
+}): BasePayload {
   return {
     config: {
       collections: [
@@ -32,36 +34,13 @@ function createMockPayload(find: ReturnType<typeof vi.fn>): BasePayload {
         },
       ],
     },
-    find,
+    find: args.find,
+    count: args.count,
   } as unknown as BasePayload;
 }
 
-function bookingRowsForCountsQuery(args: {
-  collection: string;
-  limit?: number;
-  pagination?: boolean;
-}) {
-  if (args.collection !== "bookings" || args.limit !== 0) {
-    return null;
-  }
-
-  // Mirror Payload 3.x: limit 0 without pagination: false returns no rows.
-  if (args.pagination !== false) {
-    return { docs: [], totalDocs: 0 };
-  }
-
-  return {
-    docs: [
-      { timeslot: TIMESLOT_A },
-      { timeslot: TIMESLOT_A },
-      { timeslot: TIMESLOT_B },
-    ],
-    totalDocs: 3,
-  };
-}
-
 describe("getTimeslots — attachBookingCountsForTimeslots", () => {
-  it("requests all booking rows with pagination: false and attaches per-timeslot totals", async () => {
+  it("counts bookings per timeslot with overrideAccess and attaches totals", async () => {
     const listTimeslots = [
       {
         id: TIMESLOT_A,
@@ -81,17 +60,10 @@ describe("getTimeslots — attachBookingCountsForTimeslots", () => {
 
     const find = vi.fn().mockImplementation((args: {
       collection: string;
-      limit?: number;
-      pagination?: boolean;
       where?: { id?: { in?: number[] } };
     }) => {
       if (args.collection === "timeslots") {
         return Promise.resolve({ docs: listTimeslots, totalDocs: 2, hasNextPage: false });
-      }
-
-      const bookingRows = bookingRowsForCountsQuery(args);
-      if (bookingRows) {
-        return Promise.resolve(bookingRows);
       }
 
       if (args.collection === "tenants" || args.collection === "event-types") {
@@ -105,7 +77,21 @@ describe("getTimeslots — attachBookingCountsForTimeslots", () => {
       return Promise.resolve({ docs: [], totalDocs: 0 });
     });
 
-    const payload = createMockPayload(find);
+    const count = vi.fn().mockImplementation((args: {
+      collection: string;
+      where?: { and?: Array<{ timeslot?: { equals?: number } }> };
+    }) => {
+      if (args.collection !== "bookings") {
+        return Promise.resolve({ totalDocs: 0 });
+      }
+
+      const timeslotId = args.where?.and?.[0]?.timeslot?.equals;
+      if (timeslotId === TIMESLOT_A) return Promise.resolve({ totalDocs: 2 });
+      if (timeslotId === TIMESLOT_B) return Promise.resolve({ totalDocs: 1 });
+      return Promise.resolve({ totalDocs: 0 });
+    });
+
+    const payload = createMockPayload({ find, count });
     const startOfDay = new Date("2026-06-16T00:00:00.000Z");
 
     const timeslots = await getTimeslots(
@@ -116,11 +102,9 @@ describe("getTimeslots — attachBookingCountsForTimeslots", () => {
       { segments: ["admin", "collections", "timeslots"] },
     );
 
-    const bookingsFindCall = find.mock.calls.find(([args]) => args.collection === "bookings");
-    expect(bookingsFindCall).toBeDefined();
-    expect(bookingsFindCall![0]).toMatchObject({
-      limit: 0,
-      pagination: false,
+    expect(count).toHaveBeenCalledTimes(2);
+    expect(count.mock.calls[0]?.[0]).toMatchObject({
+      collection: "bookings",
       overrideAccess: true,
     });
 

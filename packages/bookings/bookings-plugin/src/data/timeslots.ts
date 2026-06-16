@@ -194,43 +194,31 @@ async function attachBookingCountsForTimeslots(
   const countByTimeslot = new Map<number, number>();
   for (const id of ids) countByTimeslot.set(id, 0);
 
-  // Single query: fetch all booking rows for the given timeslot IDs, then tally counts
-  // in JS. One round-trip regardless of how many timeslots are on the page.
-  //
-  // We intentionally omit `select` here. Using `select: { timeslot: true }` causes
-  // Payload's drizzle adapter to skip joining the _rels table and inline relationship
-  // columns can be unreliable — `booking.timeslot` ends up undefined for many rows,
-  // making the count show 0 even when bookings exist. Without `select`, all columns
-  // are returned and `booking.timeslot` is reliably the integer FK at depth: 0.
-  //
-  // `limit: 0` with the drizzle adapter sets `limit = undefined` internally (no SQL LIMIT),
-  // so all matching rows are returned regardless of `pagination`.
-  const allBookings = await payload.find({
-    collection: bookingsSlug as CollectionSlug,
-    where: {
-      and: [
-        { timeslot: { in: ids } },
-        ...(excludePendingForStaffOnly ? [{ status: { not_equals: "pending" } }] : []),
-      ],
-    },
-    depth: 0,
-    limit: 0,
-    pagination: false,
-    ...(access as object),
-    context: { triggerAfterChange: false },
-  } as Parameters<BasePayload["find"]>[0]);
+  const statusFilter = excludePendingForStaffOnly
+    ? [{ status: { not_equals: "pending" } }]
+    : [];
 
-  for (const booking of allBookings.docs) {
-    const rawTimeslot = (booking as any).timeslot;
-    const timeslotId =
-      typeof rawTimeslot === "number"
-        ? rawTimeslot
-        : rawTimeslot && typeof rawTimeslot === "object"
-          ? (rawTimeslot as { id: number }).id
-          : null;
-    if (timeslotId != null && countByTimeslot.has(timeslotId)) {
-      countByTimeslot.set(timeslotId, (countByTimeslot.get(timeslotId) ?? 0) + 1);
-    }
+  // Use per-timeslot `count()` rather than one bulk `find()` + in-memory tally.
+  // Bulk find is fragile with migrated data: drizzle may omit `booking.timeslot` on
+  // returned docs even without `select`, and a busy day can hit implicit result caps.
+  // `count()` always filters on the timeslot relationship column in SQL, matching the
+  // join field used when expanding a row in the admin UI.
+  const COUNT_BATCH_SIZE = 25;
+  for (let i = 0; i < ids.length; i += COUNT_BATCH_SIZE) {
+    const batch = ids.slice(i, i + COUNT_BATCH_SIZE);
+    await Promise.all(
+      batch.map(async (timeslotId) => {
+        const result = await payload.count({
+          collection: bookingsSlug as CollectionSlug,
+          where: {
+            and: [{ timeslot: { equals: timeslotId } }, ...statusFilter],
+          },
+          ...(access as object),
+          context: { triggerAfterChange: false },
+        } as Parameters<BasePayload["count"]>[0]);
+        countByTimeslot.set(timeslotId, result.totalDocs ?? 0);
+      }),
+    );
   }
 
   for (const t of timeslots) {
