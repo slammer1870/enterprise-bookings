@@ -191,7 +191,12 @@ async function attachBookingCountsForTimeslots(
 ): Promise<void> {
   const ids = timeslots
     .map((t) => t.id)
-    .filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    .map((id) => {
+      if (typeof id === "number" && Number.isFinite(id)) return id;
+      if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
+      return null;
+    })
+    .filter((id): id is number => id != null);
   if (ids.length === 0) return;
 
   const bookingsSlug = resolveBookingsCollectionSlug(payload, timeslotsSlug);
@@ -238,7 +243,15 @@ async function attachBookingCountsForTimeslots(
 
   for (const t of timeslots) {
     const total =
-      typeof t.id === "number" ? countByTimeslot.get(t.id) ?? 0 : 0;
+      (() => {
+        const rawId = t.id as unknown;
+        if (typeof rawId === "number" && Number.isFinite(rawId)) return countByTimeslot.get(rawId) ?? 0;
+        if (typeof rawId === "string" && /^\d+$/.test(rawId)) {
+          const n = parseInt(rawId, 10);
+          return countByTimeslot.get(n) ?? 0;
+        }
+        return 0;
+      })();
     (t as Timeslot).bookings = { docs: [], totalDocs: total } as Timeslot["bookings"];
   }
 }

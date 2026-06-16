@@ -43,7 +43,7 @@ describe("getTimeslots — attachBookingCountsForTimeslots", () => {
         eventType: 1,
       },
       {
-        id: TIMESLOT_B,
+        id: String(TIMESLOT_B),
         startTime: "2026-06-16T11:00:00.000Z",
         endTime: "2026-06-16T12:00:00.000Z",
         tenant: 1,
