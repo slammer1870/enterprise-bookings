@@ -140,7 +140,51 @@ export function parseGenerationJobStatus(
   job: PayloadJob | null | undefined,
   options?: { storedProgress?: unknown },
 ): SchedulerGenerationStatusResponse {
+  const storedProgress = options?.storedProgress
   if (!job) {
+    const parsedStoredProgress = parseTimeslotGenerationProgress(storedProgress)
+    if (parsedStoredProgress) {
+      const status: SchedulerGenerationStatusResponse['status'] =
+        parsedStoredProgress.phase === 'done' ? 'succeeded' : 'processing'
+
+      const estimatedSecondsRemaining =
+        status === 'processing'
+          ? estimateGenerationSecondsRemaining({
+              percent: generationProgressPercent(parsedStoredProgress) ??
+                computeWeightedGenerationPercent(parsedStoredProgress) ??
+                2,
+              startedAt: parsedStoredProgress.startedAt ?? new Date().toISOString(),
+            })
+          : null
+
+      return {
+        jobId: null,
+        status,
+        message:
+          status === 'processing'
+            ? formatTimeslotGenerationProgressMessage(parsedStoredProgress)
+            : 'Generation complete',
+        completedAt: null,
+        updatedAt: parsedStoredProgress.updatedAt ?? null,
+        totalTried: null,
+        progress: parsedStoredProgress,
+        progressPercent:
+          status === 'processing'
+            ? Math.min(
+                100,
+                Math.max(
+                  generationProgressPercent(parsedStoredProgress) ??
+                    computeWeightedGenerationPercent(parsedStoredProgress) ??
+                    2,
+                  2,
+                ),
+              )
+            : 100,
+        estimatedSecondsRemaining,
+        etaMessage: formatGenerationTimeRemaining(estimatedSecondsRemaining),
+      }
+    }
+
     return { jobId: null, status: 'idle' }
   }
 

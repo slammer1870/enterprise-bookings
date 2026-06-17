@@ -545,16 +545,17 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
     ],
     beforeDelete: [
       async ({ req, id }) => {
-        await req.payload.delete({
+        // Deleting related bookings as part of a background/batch timeslot clear.
+        // Use the direct DB delete to bypass `bookings` access control (which
+        // requires `super-admin` and may not exist in background jobs).
+        await req.payload.db.deleteMany({
           collection: bookingsSlug,
           where: {
             timeslot: {
               equals: id,
             },
           },
-          context: {
-            triggerAfterChange: false,
-          },
+          req,
         });
       },
     ],

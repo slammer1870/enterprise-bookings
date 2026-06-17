@@ -18,6 +18,37 @@ describe('parseGenerationJobStatus', () => {
     expect(parseGenerationJobStatus(undefined)).toEqual({ jobId: null, status: 'idle' })
   })
 
+  it('falls back to scheduler stored progress when job is missing', () => {
+    const result = parseGenerationJobStatus(null, {
+      storedProgress: {
+        phase: 'planning',
+        daysProcessed: 1,
+        daysTotal: 10,
+        percent: 8,
+        updatedAt: '2026-06-15T12:00:00.000Z',
+        startedAt: '2026-06-15T11:55:00.000Z',
+      },
+    })
+
+    expect(result.jobId).toBeNull()
+    expect(result.status).toBe('processing')
+    expect(result.progress?.phase).toBe('planning')
+    expect(result.progressPercent).toBe(8)
+    expect(result.message).toMatch(/Planning timeslots/)
+  })
+
+  it('treats stored progress phase=done as succeeded when job is missing', () => {
+    const result = parseGenerationJobStatus(null, {
+      storedProgress: {
+        phase: 'done',
+        updatedAt: '2026-06-15T12:05:00.000Z',
+      },
+    })
+
+    expect(result.status).toBe('succeeded')
+    expect(result.message).toBe('Generation complete')
+  })
+
   it('returns processing when job.processing is true', () => {
     const result = parseGenerationJobStatus(
       baseJob({
