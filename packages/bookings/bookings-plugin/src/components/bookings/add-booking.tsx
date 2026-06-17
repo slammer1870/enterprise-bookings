@@ -22,6 +22,26 @@ const statusOptions = [
   { label: "Cancelled", value: "cancelled" },
 ] as { label: string; value: string }[];
 
+let cachedUsers: User[] | null = null;
+let usersPromise: Promise<User[]> | null = null;
+
+async function fetchAllUsersOnce(): Promise<User[]> {
+  if (cachedUsers) return cachedUsers;
+  if (usersPromise) return usersPromise;
+
+  usersPromise = (async () => {
+    const res = await fetch(`/api/users?limit=0`, {
+      credentials: "include",
+    });
+    const data = await res.json();
+    const docs = data.docs ?? [];
+    cachedUsers = docs;
+    return docs;
+  })();
+
+  return usersPromise;
+}
+
 export const AddBooking = ({
   timeslotId,
   onBookingCreated,
@@ -42,29 +62,26 @@ export const AddBooking = ({
   const [lateMagicBookingId, setLateMagicBookingId] = useState<number | string | null>(null);
 
   useEffect(() => {
+    if (cachedUsers) {
+      setUsers(cachedUsers);
+      return;
+    }
+
     let cancelled = false;
-    const fetchUsers = async () => {
-      try {
-        setIsLoading(true);
-        const res = await fetch(`/api/users?limit=0`, {
-          credentials: "include",
-        });
-        const data = await res.json();
-        if (!cancelled) {
-          setUsers(data.docs ?? []);
-        }
-      } catch (e) {
+    setIsLoading(true);
+
+    fetchAllUsersOnce()
+      .then((docs) => {
+        if (!cancelled) setUsers(docs);
+      })
+      .catch((e) => {
         console.error(e);
-        if (!cancelled) {
-          toast.error("Failed to load users");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
-    void fetchUsers();
+        if (!cancelled) toast.error("Failed to load users");
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
     return () => {
       cancelled = true;
     };

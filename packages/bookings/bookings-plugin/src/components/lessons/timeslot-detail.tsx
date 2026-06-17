@@ -7,7 +7,7 @@ import { Button, SelectRow } from "@payloadcms/ui";
 import { TableRow, TableCell } from "@repo/ui/components/ui/table";
 import { cn } from "@repo/ui/lib/utils";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddBooking } from "../bookings/add-booking";
 import { formatInTimeZone, resolveTimeslotTimeZone } from "@repo/shared-utils/timezone";
@@ -29,6 +29,7 @@ export const TimeslotDetail = ({
   const [isLoadingBookingCount, setIsLoadingBookingCount] = useState(false);
   const [localBookingTotal, setLocalBookingTotal] = useState<number | null>(null);
   const timeZone = resolveTimeslotTimeZone(timeslot);
+  const expandAbortRef = useRef<AbortController | null>(null);
 
   const isActive = (timeslot as Timeslot & { active?: boolean }).active !== false;
 
@@ -66,20 +67,23 @@ export const TimeslotDetail = ({
     setIsLoadingBookingCount(true);
     try {
       // Admin list view provides `bookings: { docs: [] }` and relies on `totalDocs`.
-      // If that aggregation is stale/incorrect, fetch the authoritative value.
-      const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
+      // If that aggregation is stale/incorrect, fetch an authoritative count.
+      //
+      // Use Payload's lightweight count endpoint rather than expanding the full
+      // `timeslots/:id?depth=3` graph.
+      const res = await fetch(
+        `/api/bookings/count?where[timeslot][equals]=${encodeURIComponent(
+          String(timeslot.id),
+        )}`,
+        {
         method: "GET",
         credentials: "include",
-      });
+        }
+      );
       if (!res.ok) return;
 
       const data = await res.json();
-      const total =
-        typeof data?.bookings?.totalDocs === "number"
-          ? data.bookings.totalDocs
-          : Array.isArray(data?.bookings?.docs)
-            ? data.bookings.docs.length
-            : 0;
+      const total = typeof data?.totalDocs === "number" ? data.totalDocs : 0;
       setLocalBookingTotal(total);
     } catch {
       // Ignore errors; the UI will fall back to the list-provided count.
@@ -93,6 +97,7 @@ export const TimeslotDetail = ({
   useEffect(() => {
     const docs = (timeslot.bookings as any)?.docs as Booking[] | undefined;
     const shouldFetch =
+      !isExpanded &&
       bookingCountFromProps === 0 &&
       Array.isArray(docs) &&
       docs.length === 0 &&
@@ -100,13 +105,18 @@ export const TimeslotDetail = ({
     if (!shouldFetch) return;
 
     void fetchBookingTotal();
-  }, [bookingCountFromProps, fetchBookingTotal, localBookingTotal, timeslot.bookings]);
+  }, [bookingCountFromProps, fetchBookingTotal, isExpanded, localBookingTotal, timeslot.bookings]);
 
   const refetchExpandedBookings = useCallback(async () => {
+    // Avoid racing older expand requests (collapse/re-expand can otherwise reorder responses).
+    expandAbortRef.current?.abort();
+    const controller = new AbortController();
+    expandAbortRef.current = controller;
     try {
       const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
         method: "GET",
         credentials: "include",
+        signal: controller.signal,
       });
       if (!res.ok) {
         router.refresh();
@@ -122,6 +132,9 @@ export const TimeslotDetail = ({
       setLocalBookingTotal(total);
     } catch {
       router.refresh();
+    } finally {
+      // Clear after resolution; if another request started, it will set a new controller.
+      if (expandAbortRef.current === controller) expandAbortRef.current = null;
     }
   }, [timeslot.id, router]);
 
@@ -139,6 +152,14 @@ export const TimeslotDetail = ({
     }
 
     let isCancelled = false;
+    // Abort previous inflight expand fetches so the next expand feels immediate.
+    expandAbortRef.current?.abort();
+    const controller = new AbortController();
+    expandAbortRef.current = controller;
+
+    const shouldLoadBookingCount =
+      bookingCountFromProps === 0 && localBookingTotal == null;
+    if (shouldLoadBookingCount) setIsLoadingBookingCount(true);
     setIsLoadingExpandedBookings(true);
     setExpandedBookings(null);
 
@@ -148,20 +169,38 @@ export const TimeslotDetail = ({
         const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
           method: "GET",
           credentials: "include",
+          signal: controller.signal,
         });
         if (!res.ok) return;
         const data = await res.json();
         const docs = (data?.bookings?.docs ?? []) as Booking[];
         if (!isCancelled) setExpandedBookings(docs);
+
+        const total =
+          typeof data?.bookings?.totalDocs === "number"
+            ? data.bookings.totalDocs
+            : docs.length;
+        setLocalBookingTotal(total);
       } finally {
-        if (!isCancelled) setIsLoadingExpandedBookings(false);
+        if (!isCancelled) {
+          setIsLoadingExpandedBookings(false);
+          if (shouldLoadBookingCount) setIsLoadingBookingCount(false);
+        }
       }
     })();
 
     return () => {
       isCancelled = true;
+      controller.abort();
+      if (expandAbortRef.current === controller) expandAbortRef.current = null;
     };
-  }, [isExpanded, timeslot.id, expandedBookings]); // timeslot.bookings is intentionally excluded: changes can be frequent.
+  }, [
+    isExpanded,
+    timeslot.id,
+    expandedBookings,
+    bookingCountFromProps,
+    localBookingTotal,
+  ]); // timeslot.bookings is intentionally excluded: changes can be frequent.
 
   return (
     <>
@@ -239,10 +278,12 @@ export const TimeslotDetail = ({
                   onBookingUpdated={refetchExpandedBookings}
                 />
               )}
-              <AddBooking
-                timeslotId={timeslot.id}
-                onBookingCreated={refetchExpandedBookings}
-              />
+              {!isLoadingExpandedBookings && (
+                <AddBooking
+                  timeslotId={timeslot.id}
+                  onBookingCreated={refetchExpandedBookings}
+                />
+              )}
             </div>
           </TableCell>
         </TableRow>
