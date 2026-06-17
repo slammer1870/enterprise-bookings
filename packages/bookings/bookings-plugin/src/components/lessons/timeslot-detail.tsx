@@ -201,10 +201,7 @@ export const TimeslotDetail = ({
             onClick={() => toggleBookings(timeslot.id)}
           >
             {isLoadingBookingCount ? (
-              <span className="inline-flex items-center gap-1">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                Loading…
-              </span>
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               bookingCount
             )}
@@ -221,8 +218,8 @@ export const TimeslotDetail = ({
               timeslotId={timeslot.id}
               tenantSlug={
                 timeslot.tenant &&
-                typeof timeslot.tenant === "object" &&
-                "slug" in timeslot.tenant
+                  typeof timeslot.tenant === "object" &&
+                  "slug" in timeslot.tenant
                   ? (timeslot.tenant as { slug?: string }).slug ?? null
                   : undefined
               }
