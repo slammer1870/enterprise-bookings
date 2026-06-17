@@ -298,6 +298,25 @@ export const Tenants: CollectionConfig = {
       admin: { description: 'When Connect was linked.' },
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
+    {
+      name: 'checkoutLegalDocuments',
+      type: 'array',
+      label: 'Checkout legal documents',
+      fields: [
+        {
+          name: 'page',
+          type: 'relationship',
+          relationTo: 'pages',
+          required: true,
+          label: 'Page',
+        },
+      ],
+      admin: {
+        description:
+          'Pages linked below the drop-in payment form. Customers see: "By placing your booking, you agree to our …" — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).',
+        initCollapsed: false,
+      },
+    },
   ],
   hooks: {
     afterChange: [

@@ -148,8 +148,10 @@ test.describe('Scheduler clearExisting dedupe', () => {
     await waitForSchedulerGenerationSettled()
     await assertSchedulerDedupeExpectations({ seed })
 
-    const sampleBookedId = seed.bookedTimeslotIds[0]
-    if (sampleBookedId == null) throw new Error('Expected at least one booked timeslot in seed data')
+    // Use a future booked timeslot for the calendar UI check — the calendar widget
+    // disables past-date buttons so clicking them would time out.
+    const sampleBookedId = seed.futureBookedTimeslotIds[0]
+    if (sampleBookedId == null) throw new Error('Expected at least one future booked timeslot in seed data')
 
     const payload = await getPayloadInstance()
     const sampleBookedTimeslot = await payload.findByID({

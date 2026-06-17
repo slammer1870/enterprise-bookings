@@ -19,6 +19,8 @@ export type SchedulerDedupeSeed = {
   startDate: Date
   endDate: Date
   bookedTimeslotIds: number[]
+  /** Subset of bookedTimeslotIds whose startTime is in the future — safe to navigate to in the calendar. */
+  futureBookedTimeslotIds: number[]
   clearedTimeslotIds: number[]
   protectedKeys: string[]
   mondayTemplateStart: string
@@ -156,7 +158,9 @@ export async function seedSchedulerClearExistingDedupeScenario(args: {
   const wednesdayTemplateStart = scheduleTemplateIso(startDate, 14, 0)
   const wednesdayTemplateEnd = scheduleTemplateIso(startDate, 15, 0)
 
+  const now = new Date()
   const bookedTimeslotIds: number[] = []
+  const futureBookedTimeslotIds: number[] = []
   const clearedTimeslotIds: number[] = []
   const protectedKeys: string[] = []
 
@@ -179,6 +183,9 @@ export async function seedSchedulerClearExistingDedupeScenario(args: {
       )
       await createTestBooking(args.bookingUserId, bookedTimeslot.id, 'confirmed')
       bookedTimeslotIds.push(Number(bookedTimeslot.id))
+      if (bookedWindow.start > now) {
+        futureBookedTimeslotIds.push(Number(bookedTimeslot.id))
+      }
       protectedKeys.push(
         timeslotDedupeKey({
           startTime: bookedTimeslot.startTime as string,
@@ -214,6 +221,9 @@ export async function seedSchedulerClearExistingDedupeScenario(args: {
       )
       await createTestBooking(args.bookingUserId, bookedTimeslot.id, 'confirmed')
       bookedTimeslotIds.push(Number(bookedTimeslot.id))
+      if (bookedWindow.start > now) {
+        futureBookedTimeslotIds.push(Number(bookedTimeslot.id))
+      }
       protectedKeys.push(
         timeslotDedupeKey({
           startTime: bookedTimeslot.startTime as string,
@@ -247,6 +257,7 @@ export async function seedSchedulerClearExistingDedupeScenario(args: {
     startDate,
     endDate,
     bookedTimeslotIds,
+    futureBookedTimeslotIds,
     clearedTimeslotIds,
     protectedKeys,
     mondayTemplateStart,

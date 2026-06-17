@@ -365,6 +365,15 @@ export interface Tenant {
    * When Connect was linked.
    */
   stripeConnectConnectedAt?: string | null;
+  /**
+   * Pages linked below the drop-in payment form. Customers see: "By placing your booking, you agree to our …" — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).
+   */
+  checkoutLegalDocuments?:
+    | {
+        page: number | Page;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -463,56 +472,216 @@ export interface Media {
   };
 }
 /**
- * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
- *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "locations".
+ * via the `definition` "pages".
  */
-export interface Location {
+export interface Page {
   id: number;
+  title: string;
+  /**
+   * Optional. Leave empty for global pages (e.g. root landing page on the main domain).
+   */
   tenant?: (number | null) | Tenant;
-  name: string;
+  /**
+   * Add blocks to build your page. Blocks available depend on your tenant settings.
+   */
+  layout: (
+    | HeroScheduleBlock
+    | HeroScheduleSanctuaryBlock
+    | HeroWithLocationBlock
+    | HeroBlock
+    | MarketingHeroBlock
+    | ThreeColumnLayoutBlock
+    | TwoColumnLayoutBlock
+    | AboutBlock
+    | SimpleAboutBlock
+    | LocationBlock
+    | ScheduleBlock
+    | TenantScopedScheduleBlock
+    | HealthBenefitsBlock
+    | SectionTaglineBlock
+    | {
+        /**
+         * Optional title displayed above the FAQs. Defaults to "FAQs".
+         */
+        title?: string | null;
+        faqs?:
+          | {
+              question?: string | null;
+              answer?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'faqs';
+      }
+    | FeaturesBlock
+    | CaseStudiesBlock
+    | CallToActionBlock
+    | MarketingCtaBlock
+    | ContentBlock
+    | MediaBlock
+    | ArchiveBlock
+    | FormBlock
+    | BruHeroBlock
+    | BruAboutBlock
+    | BruScheduleBlock
+    | BruLearningBlock
+    | BruMeetTheTeamBlock
+    | BruTestimonialsBlock
+    | BruContactBlock
+    | BruHeroWaitlistBlock
+    | DhHeroBlock
+    | DhTeamBlock
+    | DhTimetableBlock
+    | DhTestimonialsBlock
+    | DhPricingBlock
+    | DhContactBlock
+    | DhGroupsBlock
+    | {
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveSchedule';
+      }
+    | {
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveMembership';
+      }
+    | CroiLanHeroWithLocationBlock
+    | ClFindSanctuaryBlock
+    | ClMissionBlock
+    | ClPillarsBlock
+    | ClSaunaBenefitsBlock
+  )[];
+  meta?: {
+    title?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+    description?: string | null;
+  };
+  publishedAt?: string | null;
+  /**
+   * When enabled, only signed-in users can view this page on the website. Draft / live preview still works for editors.
+   */
+  requireAuth?: boolean | null;
   slug: string;
-  address?: string | null;
-  /**
-   * Optional IANA timezone for this branch (e.g. Europe/Dublin). If empty, the tenant default is used.
-   */
-  timeZone?: string | null;
-  /**
-   * Inactive locations can be hidden from scheduling and public UIs later.
-   */
-  active?: boolean | null;
-  /**
-   * Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.
-   */
-  defaultForSchedule?: boolean | null;
   updatedAt: string;
   createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "staff-members".
+ * via the `definition` "HeroScheduleBlock".
  */
-export interface StaffMember {
+export interface HeroScheduleBlock {
+  backgroundImage?: (number | null) | Media;
+  logo?: (number | null) | Media;
+  title?: string | null;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'heroSchedule';
+}
+/**
+ * Blog posts. Assign a tenant so the article appears on that site; leave tenant empty for platform-wide posts on the root domain only.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "posts".
+ */
+export interface Post {
   id: number;
+  title: string;
   /**
-   * Controlled by the tenant selector when creating tenant-scoped documents.
+   * Optional. Leave empty for posts on the main platform domain only (root site). Only super-admins can change this after the post exists.
    */
-  tenant: number | Tenant;
+  tenant?: (number | null) | Tenant;
+  heroImage?: (number | null) | Media;
+  content: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  relatedPosts?: (number | Post)[] | null;
+  categories?: (number | Category)[] | null;
+  meta?: {
+    title?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+    description?: string | null;
+  };
+  publishedAt?: string | null;
+  authors?: (number | User)[] | null;
+  populatedAuthors?:
+    | {
+        id?: string | null;
+        name?: string | null;
+      }[]
+    | null;
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories".
+ */
+export interface Category {
+  id: number;
+  title: string;
   /**
-   * The user associated with this staffMember
+   * When enabled, the slug will auto-generate from the title field on save and autosave.
    */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * StaffMember profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this staffMember is active and can be assigned to timeslots
-   */
-  active?: boolean | null;
+  generateSlug?: boolean | null;
+  slug: string;
+  parent?: (number | null) | Category;
+  breadcrumbs?:
+    | {
+        doc?: (number | null) | Category;
+        url?: string | null;
+        label?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -607,6 +776,33 @@ export interface User {
       }[]
     | null;
   password?: string | null;
+}
+/**
+ * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "locations".
+ */
+export interface Location {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  slug: string;
+  address?: string | null;
+  /**
+   * Optional IANA timezone for this branch (e.g. Europe/Dublin). If empty, the tenant default is used.
+   */
+  timeZone?: string | null;
+  /**
+   * Inactive locations can be hidden from scheduling and public UIs later.
+   */
+  active?: boolean | null;
+  /**
+   * Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.
+   */
+  defaultForSchedule?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Accounts are used to store user accounts for authentication providers
@@ -908,474 +1104,6 @@ export interface ClassPassType {
    */
   skipSync?: boolean | null;
   deletedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  user: number | User;
-  timeslot: number | Timeslot;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  /**
-   * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
-   */
-  paymentMethodUsed?: ('stripe' | 'class_pass' | 'subscription') | null;
-  /**
-   * Set when paymentMethodUsed is class_pass; used to decrement the correct pass.
-   */
-  classPassIdUsed?: number | null;
-  /**
-   * Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.
-   */
-  subscriptionIdUsed?: number | null;
-  /**
-   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
-   */
-  transactions?: (number | Transaction)[] | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
- */
-export interface Transaction {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  /**
-   * The booking this transaction applies to.
-   */
-  booking: number | Booking;
-  /**
-   * How the booking was paid.
-   */
-  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
-  /**
-   * The class pass id used when paymentMethod is class_pass.
-   */
-  classPassId?: number | null;
-  /**
-   * Stripe payment intent id when paymentMethod is stripe.
-   */
-  stripePaymentIntentId?: string | null;
-  /**
-   * Subscription id when paymentMethod is subscription (booking created by subscription).
-   */
-  subscriptionId?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Create recurring timeslots for each location. Select a site in the sidebar to view or edit that location's schedule.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "scheduler".
- */
-export interface Scheduler {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  lastGenerationJobId?: number | null;
-  generationProgress?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
-  /**
-   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
-   */
-  clearExisting?: boolean | null;
-  /**
-   * When this schedule becomes active
-   */
-  startDate: string;
-  /**
-   * When this schedule stops generating timeslots
-   */
-  endDate: string;
-  /**
-   * Minutes before start time when booking closes (can be overridden per slot)
-   */
-  lockOutTime: number;
-  /**
-   * Default class type to use when creating timeslots (can be overridden per slot)
-   */
-  defaultEventType: number | EventType;
-  branch?: (number | null) | Location;
-  /**
-   * The days of the week and their time slots
-   */
-  week?: {
-    days?:
-      | {
-          timeSlot?:
-            | {
-                startTime: string;
-                endTime: string;
-                /**
-                 * Overrides the default class option
-                 */
-                eventType?: (number | null) | EventType;
-                location?: string | null;
-                staffMember?: (number | null) | StaffMember;
-                /**
-                 * Overrides the default lock out time
-                 */
-                lockOutTime?: number | null;
-                /**
-                 * Whether the time slot is active and will be shown on the schedule
-                 */
-                active?: boolean | null;
-                id?: string | null;
-              }[]
-            | null;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "discount-codes".
- */
-export interface DiscountCode {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  /**
-   * Admin label only (e.g. Summer 2025 – 20% off)
-   */
-  name: string;
-  /**
-   * Customer-facing code (e.g. SUMMER20). Uppercase alphanumeric.
-   */
-  code: string;
-  type: 'percentage_off' | 'amount_off';
-  /**
-   * For percentage: 1-100. For amount off: amount with up to 2 decimal places (e.g. 5.00).
-   */
-  value: number;
-  /**
-   * Required for amount off.
-   */
-  currency?: ('eur' | 'gbp' | 'usd') | null;
-  duration: 'once' | 'forever' | 'repeating';
-  durationInMonths?: number | null;
-  /**
-   * Leave empty for unlimited
-   */
-  maxRedemptions?: number | null;
-  /**
-   * No redemptions after this date
-   */
-  redeemBy?: string | null;
-  /**
-   * Set after sync to Stripe
-   */
-  stripeCouponId?: string | null;
-  /**
-   * Set after sync to Stripe
-   */
-  stripePromotionCodeId?: string | null;
-  /**
-   * Skip Stripe sync (imports only). Requires super-admin to set.
-   */
-  skipSync?: boolean | null;
-  status: 'active' | 'archived';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Class passes / credits for drop-in classes
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-passes".
- */
-export interface ClassPass {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  /**
-   * Owner of the class pass
-   */
-  user: number | User;
-  /**
-   * The type of pass (e.g. Fitness Only, Sauna Only)
-   */
-  type: number | ClassPassType;
-  /**
-   * Number of passes/credits remaining (original is on the pass type)
-   */
-  quantity: number;
-  /**
-   * Date when passes expire
-   */
-  expirationDate: string;
-  /**
-   * When the pass was purchased
-   */
-  purchasedAt: string;
-  /**
-   * External transaction id (e.g. Stripe payment intent id).
-   */
-  transactionId?: string | null;
-  status: 'active' | 'expired' | 'used' | 'cancelled';
-  /**
-   * Admin notes
-   */
-  notes?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Temporary capacity reservations during checkout. Bookings are created only after payment succeeds.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "booking-checkout-holds".
- */
-export interface BookingCheckoutHold {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  user: number | User;
-  timeslot: number | Timeslot;
-  quantity: number;
-  expiresAt: string;
-  /**
-   * When the hold was first created; used for max lifetime cap.
-   */
-  firstUpsertedAt?: string | null;
-  status: 'active' | 'consumed' | 'expired';
-  stripePaymentIntentId?: string | null;
-  /**
-   * Set when hold expires without fulfillment (e.g. refund path).
-   */
-  failureReason?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pages".
- */
-export interface Page {
-  id: number;
-  title: string;
-  /**
-   * Optional. Leave empty for global pages (e.g. root landing page on the main domain).
-   */
-  tenant?: (number | null) | Tenant;
-  /**
-   * Add blocks to build your page. Blocks available depend on your tenant settings.
-   */
-  layout: (
-    | HeroScheduleBlock
-    | HeroScheduleSanctuaryBlock
-    | HeroWithLocationBlock
-    | HeroBlock
-    | MarketingHeroBlock
-    | ThreeColumnLayoutBlock
-    | TwoColumnLayoutBlock
-    | AboutBlock
-    | SimpleAboutBlock
-    | LocationBlock
-    | ScheduleBlock
-    | TenantScopedScheduleBlock
-    | HealthBenefitsBlock
-    | SectionTaglineBlock
-    | {
-        /**
-         * Optional title displayed above the FAQs. Defaults to "FAQs".
-         */
-        title?: string | null;
-        faqs?:
-          | {
-              question?: string | null;
-              answer?: string | null;
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'faqs';
-      }
-    | FeaturesBlock
-    | CaseStudiesBlock
-    | CallToActionBlock
-    | MarketingCtaBlock
-    | ContentBlock
-    | MediaBlock
-    | ArchiveBlock
-    | FormBlock
-    | BruHeroBlock
-    | BruAboutBlock
-    | BruScheduleBlock
-    | BruLearningBlock
-    | BruMeetTheTeamBlock
-    | BruTestimonialsBlock
-    | BruContactBlock
-    | BruHeroWaitlistBlock
-    | DhHeroBlock
-    | DhTeamBlock
-    | DhTimetableBlock
-    | DhTestimonialsBlock
-    | DhPricingBlock
-    | DhContactBlock
-    | DhGroupsBlock
-    | {
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'dhLiveSchedule';
-      }
-    | {
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'dhLiveMembership';
-      }
-    | CroiLanHeroWithLocationBlock
-    | ClFindSanctuaryBlock
-    | ClMissionBlock
-    | ClPillarsBlock
-    | ClSaunaBenefitsBlock
-  )[];
-  meta?: {
-    title?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-    description?: string | null;
-  };
-  publishedAt?: string | null;
-  /**
-   * When enabled, only signed-in users can view this page on the website. Draft / live preview still works for editors.
-   */
-  requireAuth?: boolean | null;
-  slug: string;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "HeroScheduleBlock".
- */
-export interface HeroScheduleBlock {
-  backgroundImage?: (number | null) | Media;
-  logo?: (number | null) | Media;
-  title?: string | null;
-  links?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-          /**
-           * Choose how the link should be rendered.
-           */
-          appearance?: ('default' | 'outline') | null;
-        };
-        id?: string | null;
-      }[]
-    | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'heroSchedule';
-}
-/**
- * Blog posts. Assign a tenant so the article appears on that site; leave tenant empty for platform-wide posts on the root domain only.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts".
- */
-export interface Post {
-  id: number;
-  title: string;
-  /**
-   * Optional. Leave empty for posts on the main platform domain only (root site). Only super-admins can change this after the post exists.
-   */
-  tenant?: (number | null) | Tenant;
-  heroImage?: (number | null) | Media;
-  content: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  };
-  relatedPosts?: (number | Post)[] | null;
-  categories?: (number | Category)[] | null;
-  meta?: {
-    title?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-    description?: string | null;
-  };
-  publishedAt?: string | null;
-  authors?: (number | User)[] | null;
-  populatedAuthors?:
-    | {
-        id?: string | null;
-        name?: string | null;
-      }[]
-    | null;
-  slug: string;
-  updatedAt: string;
-  createdAt: string;
-  _status?: ('draft' | 'published') | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
- */
-export interface Category {
-  id: number;
-  title: string;
-  /**
-   * When enabled, the slug will auto-generate from the title field on save and autosave.
-   */
-  generateSlug?: boolean | null;
-  slug: string;
-  parent?: (number | null) | Category;
-  breadcrumbs?:
-    | {
-        doc?: (number | null) | Category;
-        url?: string | null;
-        label?: string | null;
-        id?: string | null;
-      }[]
-    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3005,6 +2733,287 @@ export interface TwoColumnLayoutBlock {
   blockType: 'twoColumnLayout';
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "staff-members".
+ */
+export interface StaffMember {
+  id: number;
+  /**
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
+  /**
+   * The user associated with this staffMember
+   */
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  /**
+   * StaffMember profile image
+   */
+  profileImage?: (number | null) | Media;
+  /**
+   * Whether this staffMember is active and can be assigned to timeslots
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  timeslot: number | Timeslot;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  /**
+   * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
+   */
+  paymentMethodUsed?: ('stripe' | 'class_pass' | 'subscription') | null;
+  /**
+   * Set when paymentMethodUsed is class_pass; used to decrement the correct pass.
+   */
+  classPassIdUsed?: number | null;
+  /**
+   * Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.
+   */
+  subscriptionIdUsed?: number | null;
+  /**
+   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
+   */
+  transactions?: (number | Transaction)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * The booking this transaction applies to.
+   */
+  booking: number | Booking;
+  /**
+   * How the booking was paid.
+   */
+  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
+  /**
+   * The class pass id used when paymentMethod is class_pass.
+   */
+  classPassId?: number | null;
+  /**
+   * Stripe payment intent id when paymentMethod is stripe.
+   */
+  stripePaymentIntentId?: string | null;
+  /**
+   * Subscription id when paymentMethod is subscription (booking created by subscription).
+   */
+  subscriptionId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Create recurring timeslots for each location. Select a site in the sidebar to view or edit that location's schedule.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler".
+ */
+export interface Scheduler {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  lastGenerationJobId?: number | null;
+  generationProgress?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
+   */
+  clearExisting?: boolean | null;
+  /**
+   * When this schedule becomes active
+   */
+  startDate: string;
+  /**
+   * When this schedule stops generating timeslots
+   */
+  endDate: string;
+  /**
+   * Minutes before start time when booking closes (can be overridden per slot)
+   */
+  lockOutTime: number;
+  /**
+   * Default class type to use when creating timeslots (can be overridden per slot)
+   */
+  defaultEventType: number | EventType;
+  branch?: (number | null) | Location;
+  /**
+   * The days of the week and their time slots
+   */
+  week?: {
+    days?:
+      | {
+          timeSlot?:
+            | {
+                startTime: string;
+                endTime: string;
+                /**
+                 * Overrides the default class option
+                 */
+                eventType?: (number | null) | EventType;
+                location?: string | null;
+                staffMember?: (number | null) | StaffMember;
+                /**
+                 * Overrides the default lock out time
+                 */
+                lockOutTime?: number | null;
+                /**
+                 * Whether the time slot is active and will be shown on the schedule
+                 */
+                active?: boolean | null;
+                id?: string | null;
+              }[]
+            | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "discount-codes".
+ */
+export interface DiscountCode {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Admin label only (e.g. Summer 2025 – 20% off)
+   */
+  name: string;
+  /**
+   * Customer-facing code (e.g. SUMMER20). Uppercase alphanumeric.
+   */
+  code: string;
+  type: 'percentage_off' | 'amount_off';
+  /**
+   * For percentage: 1-100. For amount off: amount with up to 2 decimal places (e.g. 5.00).
+   */
+  value: number;
+  /**
+   * Required for amount off.
+   */
+  currency?: ('eur' | 'gbp' | 'usd') | null;
+  duration: 'once' | 'forever' | 'repeating';
+  durationInMonths?: number | null;
+  /**
+   * Leave empty for unlimited
+   */
+  maxRedemptions?: number | null;
+  /**
+   * No redemptions after this date
+   */
+  redeemBy?: string | null;
+  /**
+   * Set after sync to Stripe
+   */
+  stripeCouponId?: string | null;
+  /**
+   * Set after sync to Stripe
+   */
+  stripePromotionCodeId?: string | null;
+  /**
+   * Skip Stripe sync (imports only). Requires super-admin to set.
+   */
+  skipSync?: boolean | null;
+  status: 'active' | 'archived';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Class passes / credits for drop-in classes
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-passes".
+ */
+export interface ClassPass {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Owner of the class pass
+   */
+  user: number | User;
+  /**
+   * The type of pass (e.g. Fitness Only, Sauna Only)
+   */
+  type: number | ClassPassType;
+  /**
+   * Number of passes/credits remaining (original is on the pass type)
+   */
+  quantity: number;
+  /**
+   * Date when passes expire
+   */
+  expirationDate: string;
+  /**
+   * When the pass was purchased
+   */
+  purchasedAt: string;
+  /**
+   * External transaction id (e.g. Stripe payment intent id).
+   */
+  transactionId?: string | null;
+  status: 'active' | 'expired' | 'used' | 'cancelled';
+  /**
+   * Admin notes
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Temporary capacity reservations during checkout. Bookings are created only after payment succeeds.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-checkout-holds".
+ */
+export interface BookingCheckoutHold {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  timeslot: number | Timeslot;
+  quantity: number;
+  expiresAt: string;
+  /**
+   * When the hold was first created; used for max lifetime cap.
+   */
+  firstUpsertedAt?: string | null;
+  status: 'active' | 'consumed' | 'expired';
+  stripePaymentIntentId?: string | null;
+  /**
+   * Set when hold expires without fulfillment (e.g. refund path).
+   */
+  failureReason?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Navigation bar per tenant. To show a navbar when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3684,6 +3693,12 @@ export interface TenantsSelect<T extends boolean = true> {
   stripeConnectOnboardingStatus?: T;
   stripeConnectLastError?: T;
   stripeConnectConnectedAt?: T;
+  checkoutLegalDocuments?:
+    | T
+    | {
+        page?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
