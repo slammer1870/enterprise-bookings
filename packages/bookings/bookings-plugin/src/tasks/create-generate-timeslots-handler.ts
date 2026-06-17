@@ -83,9 +83,6 @@ const CREATE_BATCH_SIZE = 25;
 const CLEAR_TIMESLOT_BATCH_SIZE = 100;
 const CLEAR_BOOKING_BATCH_SIZE = 500;
 
-/** Active booking statuses that should prevent a timeslot from being cleared. */
-const BOOKING_STATUSES_BLOCKING_CLEAR = ["pending", "confirmed", "waiting"] as const;
-
 function buildTimeslotRangeWhereConditions(args: {
   rangeStart: TZDate;
   rangeEnd: TZDate;

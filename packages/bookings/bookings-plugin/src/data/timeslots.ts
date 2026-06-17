@@ -47,26 +47,6 @@ function resolveRelatedCollectionSlug(
 type TenantListStub = { id: number; slug?: string; timeZone?: string | null };
 type EventTypeListStub = { id: number; name: string };
 
-function coerceRelationId(value: unknown): number | null {
-  if (value == null) return null;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && /^\d+$/.test(value)) return parseInt(value, 10);
-  if (typeof value === "object" && value !== null && "id" in value) {
-    const id = (value as { id: unknown }).id;
-    if (typeof id === "number" && Number.isFinite(id)) return id;
-    if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
-  }
-  return null;
-}
-
-function resolveBookingTimeslotId(booking: Record<string, unknown>): number | null {
-  return (
-    coerceRelationId(booking.timeslot) ??
-    coerceRelationId(booking.timeslot_id) ??
-    coerceRelationId((booking as { timeslotId?: unknown }).timeslotId)
-  );
-}
-
 /**
  * With `depth: 0`, relationships are ids only. Re-hydrate the small shapes the admin list needs
  * in two batched finds (avoids Payload expanding nested paymentMethods, join bookings, etc.).

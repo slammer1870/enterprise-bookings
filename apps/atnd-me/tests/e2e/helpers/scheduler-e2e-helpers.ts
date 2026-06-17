@@ -330,7 +330,7 @@ export async function createSchedulerViaAdminRequest(
 export async function waitForSchedulerGenerationSettled(args: {
   payload?: Payload
   timeoutMs?: number
-}): Promise<void> {
+} = {}): Promise<void> {
   const payload = args.payload ?? (await getPayloadInstance())
   const timeoutMs = args.timeoutMs ?? (process.env.CI ? 180_000 : 120_000)
   const started = Date.now()

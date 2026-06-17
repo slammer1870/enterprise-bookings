@@ -49,11 +49,19 @@ async function openTimeslotsDashboardForDate(page: import('@playwright/test').Pa
     year: 'numeric',
   })
   const nextMonthButton = page.getByRole('button', { name: /go to the next month/i })
+  const prevMonthButton = page.getByRole('button', { name: /go to the previous month/i })
 
-  for (let i = 0; i < 12; i += 1) {
+  // Navigate the calendar in either direction (past or future timeslots) up to 24 months.
+  const now = new Date()
+  const targetIsBeforeNow = targetDate < now
+  for (let i = 0; i < 24; i += 1) {
     const monthCaption = calendar.getByText(targetMonthLabel, { exact: true })
     if (await monthCaption.isVisible().catch(() => false)) break
-    await nextMonthButton.click()
+    if (targetIsBeforeNow) {
+      await prevMonthButton.click()
+    } else {
+      await nextMonthButton.click()
+    }
   }
 
   await expect(calendar.getByText(targetMonthLabel, { exact: true })).toBeVisible({
@@ -102,7 +110,10 @@ test.describe('Scheduler clearExisting dedupe', () => {
       waitUntil: 'domcontentloaded',
       timeout: process.env.CI ? 120_000 : 60_000,
     })
-    await expect(page.getByRole('heading', { name: /scheduler/i }).first()).toBeVisible({
+    // The create page breadcrumb shows "Creating new Scheduler"; use that as a
+    // reliable page-load guard instead of the h1 which renders as "[Untitled]"
+    // until the user sets a title-bearing field.
+    await expect(page.getByText('Creating new Scheduler').first()).toBeVisible({
       timeout: process.env.CI ? 120_000 : 60_000,
     })
 
