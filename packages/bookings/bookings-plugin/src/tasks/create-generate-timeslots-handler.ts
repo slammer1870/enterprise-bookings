@@ -749,18 +749,18 @@ export function createGenerateTimeslotsFromScheduleHandler(
               timeslot: { in: batchIds },
             },
             depth: 0,
-            limit: CLEAR_BOOKING_BATCH_SIZE * 2,
+          limit: 0,
             pagination: false,
             overrideAccess: true,
             req,
           });
-          // Conservative safety: if the DB reports any bookings for this batch,
-          // do not hard-delete any of the timeslots in the batch. This prevents
-          // partial-page fetches from causing accidental deletion of timeslots
-          // that still have bookings attached.
-          if (protectedBookings.totalDocs > 0) {
-            for (const id of batchIds) {
-              protectedTimeslotIds.add(id);
+
+          for (const booking of protectedBookings.docs as unknown as Array<
+            Record<string, unknown>
+          >) {
+            const timeslotId = resolveBookingTimeslotId(booking);
+            if (timeslotId != null) {
+              protectedTimeslotIds.add(timeslotId);
             }
           }
         }
