@@ -10,23 +10,50 @@ export interface LiveTxtRecord {
 /**
  * Returns true when an IPv4 address belongs to Cloudflare's published anycast ranges.
  * @see https://www.cloudflare.com/ips-v4/
+ *
+ * Ranges (as of 2026):
+ *   103.21.244.0/22  103.22.200.0/22  103.31.4.0/22
+ *   104.16.0.0/13    104.24.0.0/14
+ *   131.0.72.0/22    141.101.64.0/18  162.158.0.0/15
+ *   172.64.0.0/13    188.114.96.0/20  190.93.240.0/20
+ *   197.234.240.0/22 198.41.128.0/17
+ *   Legacy (still seen): 108.162.192.0/18  173.245.48.0/20
  */
 export function isCloudflareEdgeIp(ip: string): boolean {
   const octets = ip.split('.').map(Number)
   if (octets.length !== 4 || octets.some((n) => Number.isNaN(n) || n < 0 || n > 255)) {
     return false
   }
-  const [a, b] = octets as [number, number, number, number]
-  if (a === 104 && b >= 16 && b <= 31) return true
+  const [a, b, c] = octets as [number, number, number, number]
+  // 104.16.0.0/13
+  if (a === 104 && b >= 16 && b <= 23) return true
+  // 104.24.0.0/14
+  if (a === 104 && b >= 24 && b <= 27) return true
+  // 172.64.0.0/13
   if (a === 172 && b >= 64 && b <= 71) return true
-  if (a === 173 && b === 245) return true
-  if (a === 103 && b === 21) return true
-  if (a === 141 && b === 101) return true
-  if (a === 108 && b === 162) return true
-  if (a === 190 && b === 93) return true
-  if (a === 188 && b === 114) return true
-  if (a === 197 && b === 234) return true
-  if (a === 198 && b === 41) return true
+  // 162.158.0.0/15 — common anycast range, was missing
+  if (a === 162 && (b === 158 || b === 159)) return true
+  // 103.21.244.0/22
+  if (a === 103 && b === 21 && c >= 244 && c <= 247) return true
+  // 103.22.200.0/22
+  if (a === 103 && b === 22 && c >= 200 && c <= 203) return true
+  // 103.31.4.0/22
+  if (a === 103 && b === 31 && c >= 4 && c <= 7) return true
+  // 131.0.72.0/22
+  if (a === 131 && b === 0 && c >= 72 && c <= 75) return true
+  // 141.101.64.0/18
+  if (a === 141 && b === 101 && c >= 64 && c <= 127) return true
+  // 188.114.96.0/20
+  if (a === 188 && b === 114 && c >= 96 && c <= 111) return true
+  // 190.93.240.0/20
+  if (a === 190 && b === 93 && c >= 240) return true
+  // 197.234.240.0/22
+  if (a === 197 && b === 234 && c >= 240 && c <= 243) return true
+  // 198.41.128.0/17
+  if (a === 198 && b === 41 && c >= 128) return true
+  // Legacy: 173.245.48.0/20 and 108.162.192.0/18 (still seen in practice)
+  if (a === 173 && b === 245 && c >= 48 && c <= 63) return true
+  if (a === 108 && b === 162 && c >= 192) return true
   return false
 }
 
