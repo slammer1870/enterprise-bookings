@@ -736,7 +736,8 @@ export function createGenerateTimeslotsFromScheduleHandler(
           }
         }
 
-        // Only look for protected bookings among the candidate IDs we're willing to delete.
+        // Scheduler "clearExisting" is only supposed to hard-delete timeslots when
+        // there are no bookings attached (admin field description).
         const protectedTimeslotIds = new Set<number>();
         for (let i = 0; i < candidateDeleteIds.length; i += CLEAR_BOOKING_BATCH_SIZE) {
           const batchIds = candidateDeleteIds.slice(i, i + CLEAR_BOOKING_BATCH_SIZE);
@@ -745,24 +746,21 @@ export function createGenerateTimeslotsFromScheduleHandler(
           const protectedBookings = await payload.find({
             collection: bookingsSlug,
             where: {
-              and: [
-                { timeslot: { in: batchIds } },
-                { status: { in: [...BOOKING_STATUSES_BLOCKING_CLEAR] } },
-              ],
+              timeslot: { in: batchIds },
             },
             depth: 0,
-            limit: 0,
+            limit: CLEAR_BOOKING_BATCH_SIZE * 2,
             pagination: false,
             overrideAccess: true,
             req,
           });
-
-          for (const booking of protectedBookings.docs as unknown as Array<
-            Record<string, unknown>
-          >) {
-            const timeslotId = resolveBookingTimeslotId(booking);
-            if (timeslotId != null) {
-              protectedTimeslotIds.add(timeslotId);
+          // Conservative safety: if the DB reports any bookings for this batch,
+          // do not hard-delete any of the timeslots in the batch. This prevents
+          // partial-page fetches from causing accidental deletion of timeslots
+          // that still have bookings attached.
+          if (protectedBookings.totalDocs > 0) {
+            for (const id of batchIds) {
+              protectedTimeslotIds.add(id);
             }
           }
         }

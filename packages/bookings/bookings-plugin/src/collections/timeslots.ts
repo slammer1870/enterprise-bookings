@@ -545,18 +545,50 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
     ],
     beforeDelete: [
       async ({ req, id }) => {
-        // Deleting related bookings as part of a background/batch timeslot clear.
-        // Use the direct DB delete to bypass `bookings` access control (which
-        // requires `super-admin` and may not exist in background jobs).
+        // Deleting a timeslot should also clean up its payment transactions.
+        // If we delete bookings first, `booking_transactions.booking_id` can
+        // hit a NOT NULL constraint when the FK isn't yet ON DELETE CASCADE
+        // (observed in production).
+        const bookingDocs = await req.payload.find({
+          collection: bookingsSlug,
+          where: {
+            timeslot: { equals: id },
+          },
+          depth: 0,
+          pagination: false,
+          limit: 5000,
+          select: { id: true } as any,
+          overrideAccess: true,
+          req,
+        })
+
+        const bookingIds = (bookingDocs.docs as Array<{ id?: unknown }>)
+          .map((d) => d.id)
+          .filter((v): v is string | number => v != null)
+
+        if (bookingIds.length > 0) {
+          try {
+            // `transactions` is the slug used by @repo/bookings-payments.
+            await req.payload.db.deleteMany({
+              collection: "transactions" as unknown as CollectionSlug,
+              where: {
+                booking: { in: bookingIds },
+              },
+              req,
+            })
+          } catch {
+            // Best-effort: if transactions collection is disabled, bookings delete will proceed.
+          }
+        }
+
+        // Finally delete the bookings themselves.
         await req.payload.db.deleteMany({
           collection: bookingsSlug,
           where: {
-            timeslot: {
-              equals: id,
-            },
+            timeslot: { equals: id },
           },
           req,
-        });
+        })
       },
     ],
     beforeChange: [
