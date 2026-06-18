@@ -1,4 +1,5 @@
 import { Booking } from "@repo/shared-types";
+import { useMemo } from "react";
 
 import { BookingDetail } from "./booking-detail";
 import { EditBooking } from "./edit-booking";
@@ -30,7 +31,7 @@ export const BookingList = ({
 }) => {
   if (!bookings || bookings.length === 0) return null;
 
-  const sorted = sortBookings(bookings);
+  const sorted = useMemo(() => sortBookings(bookings), [bookings]);
 
   return (
     <div className="w-full">

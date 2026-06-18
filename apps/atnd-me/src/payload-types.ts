@@ -67,36 +67,36 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    'admin-invitations': AdminInvitation;
+    timeslots: Timeslot;
+    scheduler: Scheduler;
+    'staff-members': StaffMember;
+    'event-types': EventType;
+    tenants: Tenant;
+    locations: Location;
+    'discount-codes': DiscountCode;
+    'drop-ins': DropIn;
+    'class-pass-types': ClassPassType;
+    plans: Plan;
+    'class-passes': ClassPass;
+    subscriptions: Subscription;
+    transactions: Transaction;
+    'booking-checkout-holds': BookingCheckoutHold;
     pages: Page;
     posts: Post;
-    media: Media;
-    categories: Category;
-    tenants: Tenant;
-    'discount-codes': DiscountCode;
     navbar: Navbar;
     footer: Footer;
-    scheduler: Scheduler;
-    locations: Location;
-    redirects: Redirect;
     forms: Form;
-    search: Search;
+    'form-submissions': FormSubmission;
+    'admin-invitations': AdminInvitation;
     accounts: Account;
     sessions: Session;
     verifications: Verification;
-    'staff-members': StaffMember;
-    timeslots: Timeslot;
-    'event-types': EventType;
-    bookings: Booking;
-    'drop-ins': DropIn;
-    'class-pass-types': ClassPassType;
-    'class-passes': ClassPass;
-    subscriptions: Subscription;
-    plans: Plan;
-    transactions: Transaction;
-    'booking-checkout-holds': BookingCheckoutHold;
     users: User;
-    'form-submissions': FormSubmission;
+    media: Media;
+    categories: Category;
+    redirects: Redirect;
+    search: Search;
+    bookings: Booking;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -120,36 +120,36 @@ export interface Config {
     };
   };
   collectionsSelect: {
-    'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
+    timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
+    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
+    'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
+    'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
+    tenants: TenantsSelect<false> | TenantsSelect<true>;
+    locations: LocationsSelect<false> | LocationsSelect<true>;
+    'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
+    'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
+    plans: PlansSelect<false> | PlansSelect<true>;
+    'class-passes': ClassPassesSelect<false> | ClassPassesSelect<true>;
+    subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
+    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
+    'booking-checkout-holds': BookingCheckoutHoldsSelect<false> | BookingCheckoutHoldsSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
-    categories: CategoriesSelect<false> | CategoriesSelect<true>;
-    tenants: TenantsSelect<false> | TenantsSelect<true>;
-    'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
     navbar: NavbarSelect<false> | NavbarSelect<true>;
     footer: FooterSelect<false> | FooterSelect<true>;
-    scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
-    locations: LocationsSelect<false> | LocationsSelect<true>;
-    redirects: RedirectsSelect<false> | RedirectsSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
-    search: SearchSelect<false> | SearchSelect<true>;
+    'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
-    timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
-    'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
-    bookings: BookingsSelect<false> | BookingsSelect<true>;
-    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
-    'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
-    'class-passes': ClassPassesSelect<false> | ClassPassesSelect<true>;
-    subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
-    plans: PlansSelect<false> | PlansSelect<true>;
-    transactions: TransactionsSelect<false> | TransactionsSelect<true>;
-    'booking-checkout-holds': BookingCheckoutHoldsSelect<false> | BookingCheckoutHoldsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
-    'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
+    categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    redirects: RedirectsSelect<false> | RedirectsSelect<true>;
+    search: SearchSelect<false> | SearchSelect<true>;
+    bookings: BookingsSelect<false> | BookingsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -202,117 +202,51 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations".
+ * via the `definition` "timeslots".
  */
-export interface AdminInvitation {
+export interface Timeslot {
   id: number;
-  role: 'super-admin' | 'admin' | 'staff' | 'location-manager' | 'user';
-  token: string;
-  url?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "pages".
- */
-export interface Page {
-  id: number;
-  title: string;
   /**
-   * Optional. Leave empty for global pages (e.g. root landing page on the main domain).
+   * Controlled by the tenant selector when creating tenant-scoped documents.
    */
-  tenant?: (number | null) | Tenant;
+  tenant: number | Tenant;
+  date: string;
+  startTime: string;
+  endTime: string;
   /**
-   * Add blocks to build your page. Blocks available depend on your tenant settings.
+   * The time in minutes before the timeslot will be closed for new bookings.
    */
-  layout: (
-    | HeroScheduleBlock
-    | HeroScheduleSanctuaryBlock
-    | HeroWithLocationBlock
-    | HeroBlock
-    | MarketingHeroBlock
-    | ThreeColumnLayoutBlock
-    | TwoColumnLayoutBlock
-    | AboutBlock
-    | SimpleAboutBlock
-    | LocationBlock
-    | ScheduleBlock
-    | TenantScopedScheduleBlock
-    | HealthBenefitsBlock
-    | SectionTaglineBlock
-    | {
-        /**
-         * Optional title displayed above the FAQs. Defaults to "FAQs".
-         */
-        title?: string | null;
-        faqs?:
-          | {
-              question?: string | null;
-              answer?: string | null;
-              id?: string | null;
-            }[]
-          | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'faqs';
-      }
-    | FeaturesBlock
-    | CaseStudiesBlock
-    | CallToActionBlock
-    | MarketingCtaBlock
-    | ContentBlock
-    | MediaBlock
-    | ArchiveBlock
-    | FormBlock
-    | BruHeroBlock
-    | BruAboutBlock
-    | BruScheduleBlock
-    | BruLearningBlock
-    | BruMeetTheTeamBlock
-    | BruTestimonialsBlock
-    | BruContactBlock
-    | BruHeroWaitlistBlock
-    | DhHeroBlock
-    | DhTeamBlock
-    | DhTimetableBlock
-    | DhTestimonialsBlock
-    | DhPricingBlock
-    | DhContactBlock
-    | DhGroupsBlock
-    | {
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'dhLiveSchedule';
-      }
-    | {
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'dhLiveMembership';
-      }
-    | CroiLanHeroWithLocationBlock
-    | ClFindSanctuaryBlock
-    | ClMissionBlock
-    | ClPillarsBlock
-    | ClSaunaBenefitsBlock
-  )[];
-  meta?: {
-    title?: string | null;
-    /**
-     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
-     */
-    image?: (number | null) | Media;
-    description?: string | null;
+  lockOutTime: number;
+  originalLockOutTime?: number | null;
+  /**
+   * Physical site or branch for this slot (optional). Use “Room or area” for room/studio labels.
+   */
+  branch?: (number | null) | Location;
+  /**
+   * Room or area within the branch (e.g. Sauna 1). Not the branch name.
+   */
+  location?: string | null;
+  staffMember?: (number | null) | StaffMember;
+  eventType: number | EventType;
+  /**
+   * The number of places remaining
+   */
+  remainingCapacity?: number | null;
+  bookings?: {
+    docs?: (number | Booking)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
   };
-  publishedAt?: string | null;
   /**
-   * When enabled, only signed-in users can view this page on the website. Draft / live preview still works for editors.
+   * Status of the timeslot
    */
-  requireAuth?: boolean | null;
-  slug: string;
+  bookingStatus?: string | null;
+  /**
+   * Whether the timeslot is active and will be shown on the schedule
+   */
+  active?: boolean | null;
   updatedAt: string;
   createdAt: string;
-  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -431,6 +365,15 @@ export interface Tenant {
    * When Connect was linked.
    */
   stripeConnectConnectedAt?: string | null;
+  /**
+   * Pages linked below the drop-in payment form. Customers see: "By placing your booking, you agree to our …" — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).
+   */
+  checkoutLegalDocuments?:
+    | {
+        page: number | Page;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -527,6 +470,108 @@ export interface Media {
       filename?: string | null;
     };
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pages".
+ */
+export interface Page {
+  id: number;
+  title: string;
+  /**
+   * Optional. Leave empty for global pages (e.g. root landing page on the main domain).
+   */
+  tenant?: (number | null) | Tenant;
+  /**
+   * Add blocks to build your page. Blocks available depend on your tenant settings.
+   */
+  layout: (
+    | HeroScheduleBlock
+    | HeroScheduleSanctuaryBlock
+    | HeroWithLocationBlock
+    | HeroBlock
+    | MarketingHeroBlock
+    | ThreeColumnLayoutBlock
+    | TwoColumnLayoutBlock
+    | AboutBlock
+    | SimpleAboutBlock
+    | LocationBlock
+    | ScheduleBlock
+    | TenantScopedScheduleBlock
+    | HealthBenefitsBlock
+    | SectionTaglineBlock
+    | {
+        /**
+         * Optional title displayed above the FAQs. Defaults to "FAQs".
+         */
+        title?: string | null;
+        faqs?:
+          | {
+              question?: string | null;
+              answer?: string | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'faqs';
+      }
+    | FeaturesBlock
+    | CaseStudiesBlock
+    | CallToActionBlock
+    | MarketingCtaBlock
+    | ContentBlock
+    | MediaBlock
+    | ArchiveBlock
+    | FormBlock
+    | BruHeroBlock
+    | BruAboutBlock
+    | BruScheduleBlock
+    | BruLearningBlock
+    | BruMeetTheTeamBlock
+    | BruTestimonialsBlock
+    | BruContactBlock
+    | BruHeroWaitlistBlock
+    | DhHeroBlock
+    | DhTeamBlock
+    | DhTimetableBlock
+    | DhTestimonialsBlock
+    | DhPricingBlock
+    | DhContactBlock
+    | DhGroupsBlock
+    | {
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveSchedule';
+      }
+    | {
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'dhLiveMembership';
+      }
+    | CroiLanHeroWithLocationBlock
+    | ClFindSanctuaryBlock
+    | ClMissionBlock
+    | ClPillarsBlock
+    | ClSaunaBenefitsBlock
+  )[];
+  meta?: {
+    title?: string | null;
+    /**
+     * Maximum upload file size: 12MB. Recommended file size for images is <500KB.
+     */
+    image?: (number | null) | Media;
+    description?: string | null;
+  };
+  publishedAt?: string | null;
+  /**
+   * When enabled, only signed-in users can view this page on the website. Draft / live preview still works for editors.
+   */
+  requireAuth?: boolean | null;
+  slug: string;
+  updatedAt: string;
+  createdAt: string;
+  _status?: ('draft' | 'published') | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2688,6 +2733,168 @@ export interface TwoColumnLayoutBlock {
   blockType: 'twoColumnLayout';
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "staff-members".
+ */
+export interface StaffMember {
+  id: number;
+  /**
+   * Controlled by the tenant selector when creating tenant-scoped documents.
+   */
+  tenant: number | Tenant;
+  /**
+   * The user associated with this staffMember
+   */
+  user: number | User;
+  name?: string | null;
+  description?: string | null;
+  /**
+   * StaffMember profile image
+   */
+  profileImage?: (number | null) | Media;
+  /**
+   * Whether this staffMember is active and can be assigned to timeslots
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings".
+ */
+export interface Booking {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  timeslot: number | Timeslot;
+  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
+  /**
+   * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
+   */
+  paymentMethodUsed?: ('stripe' | 'class_pass' | 'subscription') | null;
+  /**
+   * Set when paymentMethodUsed is class_pass; used to decrement the correct pass.
+   */
+  classPassIdUsed?: number | null;
+  /**
+   * Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.
+   */
+  subscriptionIdUsed?: number | null;
+  /**
+   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
+   */
+  transactions?: (number | Transaction)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions".
+ */
+export interface Transaction {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * The booking this transaction applies to.
+   */
+  booking: number | Booking;
+  /**
+   * How the booking was paid.
+   */
+  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
+  /**
+   * The class pass id used when paymentMethod is class_pass.
+   */
+  classPassId?: number | null;
+  /**
+   * Stripe payment intent id when paymentMethod is stripe.
+   */
+  stripePaymentIntentId?: string | null;
+  /**
+   * Subscription id when paymentMethod is subscription (booking created by subscription).
+   */
+  subscriptionId?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Create recurring timeslots for each location. Select a site in the sidebar to view or edit that location's schedule.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler".
+ */
+export interface Scheduler {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  lastGenerationJobId?: number | null;
+  generationProgress?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
+   */
+  clearExisting?: boolean | null;
+  /**
+   * When this schedule becomes active
+   */
+  startDate: string;
+  /**
+   * When this schedule stops generating timeslots
+   */
+  endDate: string;
+  /**
+   * Minutes before start time when booking closes (can be overridden per slot)
+   */
+  lockOutTime: number;
+  /**
+   * Default class type to use when creating timeslots (can be overridden per slot)
+   */
+  defaultEventType: number | EventType;
+  branch?: (number | null) | Location;
+  /**
+   * The days of the week and their time slots
+   */
+  week?: {
+    days?:
+      | {
+          timeSlot?:
+            | {
+                startTime: string;
+                endTime: string;
+                /**
+                 * Overrides the default class option
+                 */
+                eventType?: (number | null) | EventType;
+                location?: string | null;
+                staffMember?: (number | null) | StaffMember;
+                /**
+                 * Overrides the default lock out time
+                 */
+                lockOutTime?: number | null;
+                /**
+                 * Whether the time slot is active and will be shown on the schedule
+                 */
+                active?: boolean | null;
+                id?: string | null;
+              }[]
+            | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2736,6 +2943,73 @@ export interface DiscountCode {
    */
   skipSync?: boolean | null;
   status: 'active' | 'archived';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Class passes / credits for drop-in classes
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-passes".
+ */
+export interface ClassPass {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Owner of the class pass
+   */
+  user: number | User;
+  /**
+   * The type of pass (e.g. Fitness Only, Sauna Only)
+   */
+  type: number | ClassPassType;
+  /**
+   * Number of passes/credits remaining (original is on the pass type)
+   */
+  quantity: number;
+  /**
+   * Date when passes expire
+   */
+  expirationDate: string;
+  /**
+   * When the pass was purchased
+   */
+  purchasedAt: string;
+  /**
+   * External transaction id (e.g. Stripe payment intent id).
+   */
+  transactionId?: string | null;
+  status: 'active' | 'expired' | 'used' | 'cancelled';
+  /**
+   * Admin notes
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Temporary capacity reservations during checkout. Bookings are created only after payment succeeds.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-checkout-holds".
+ */
+export interface BookingCheckoutHold {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  timeslot: number | Timeslot;
+  quantity: number;
+  expiresAt: string;
+  /**
+   * When the hold was first created; used for max lifetime cap.
+   */
+  firstUpsertedAt?: string | null;
+  status: 'active' | 'consumed' | 'expired';
+  stripePaymentIntentId?: string | null;
+  /**
+   * Set when hold expires without fulfillment (e.g. refund path).
+   */
+  failureReason?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2874,95 +3148,57 @@ export interface Footer {
   createdAt: string;
 }
 /**
- * Create recurring timeslots for each location. Select a site in the sidebar to view or edit that location's schedule.
- *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "scheduler".
+ * via the `definition` "form-submissions".
  */
-export interface Scheduler {
+export interface FormSubmission {
   id: number;
   tenant?: (number | null) | Tenant;
-  /**
-   * When this schedule becomes active
-   */
-  startDate: string;
-  /**
-   * When this schedule stops generating timeslots
-   */
-  endDate: string;
-  /**
-   * Minutes before start time when booking closes (can be overridden per slot)
-   */
-  lockOutTime: number;
-  /**
-   * Default class type to use when creating timeslots (can be overridden per slot)
-   */
-  defaultEventType: number | EventType;
-  branch?: (number | null) | Location;
-  /**
-   * The days of the week and their time slots
-   */
-  week?: {
-    days?:
-      | {
-          timeSlot?:
-            | {
-                startTime: string;
-                endTime: string;
-                /**
-                 * Overrides the default class option
-                 */
-                eventType?: (number | null) | EventType;
-                location?: string | null;
-                staffMember?: (number | null) | StaffMember;
-                /**
-                 * Overrides the default lock out time
-                 */
-                lockOutTime?: number | null;
-                /**
-                 * Whether the time slot is active and will be shown on the schedule
-                 */
-                active?: boolean | null;
-                id?: string | null;
-              }[]
-            | null;
-          id?: string | null;
-        }[]
-      | null;
-  };
-  /**
-   * Clear existing timeslots before generating new ones (this will not delete timeslots that have any bookings)
-   */
-  clearExisting?: boolean | null;
+  form: number | Form;
+  submissionData?:
+    | {
+        field: string;
+        value: string;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "staff-members".
+ * via the `definition` "admin-invitations".
  */
-export interface StaffMember {
+export interface AdminInvitation {
   id: number;
-  /**
-   * Controlled by the tenant selector when creating tenant-scoped documents.
-   */
-  tenant: number | Tenant;
-  /**
-   * The user associated with this staffMember
-   */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * StaffMember profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this staffMember is active and can be assigned to timeslots
-   */
-  active?: boolean | null;
+  role: 'super-admin' | 'admin' | 'staff' | 'location-manager' | 'user';
+  token: string;
+  url?: string | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * Verifications are used to verify authentication requests
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications".
+ */
+export interface Verification {
+  id: number;
+  /**
+   * The identifier of the verification request
+   */
+  identifier: string;
+  /**
+   * The value to be verified
+   */
+  value: string;
+  /**
+   * The date and time when the verification request will expire
+   */
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3015,223 +3251,6 @@ export interface Search {
         relationTo?: string | null;
         categoryID?: string | null;
         title?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Verifications are used to verify authentication requests
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications".
- */
-export interface Verification {
-  id: number;
-  /**
-   * The identifier of the verification request
-   */
-  identifier: string;
-  /**
-   * The value to be verified
-   */
-  value: string;
-  /**
-   * The date and time when the verification request will expire
-   */
-  expiresAt: string;
-  createdAt: string;
-  updatedAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "timeslots".
- */
-export interface Timeslot {
-  id: number;
-  /**
-   * Controlled by the tenant selector when creating tenant-scoped documents.
-   */
-  tenant: number | Tenant;
-  date: string;
-  startTime: string;
-  endTime: string;
-  /**
-   * The time in minutes before the timeslot will be closed for new bookings.
-   */
-  lockOutTime: number;
-  originalLockOutTime?: number | null;
-  /**
-   * Physical site or branch for this slot (optional). Use “Room or area” for room/studio labels.
-   */
-  branch?: (number | null) | Location;
-  /**
-   * Room or area within the branch (e.g. Sauna 1). Not the branch name.
-   */
-  location?: string | null;
-  staffMember?: (number | null) | StaffMember;
-  eventType: number | EventType;
-  /**
-   * The number of places remaining
-   */
-  remainingCapacity?: number | null;
-  bookings?: {
-    docs?: (number | Booking)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
-  /**
-   * Status of the timeslot
-   */
-  bookingStatus?: string | null;
-  /**
-   * Whether the timeslot is active and will be shown on the schedule
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings".
- */
-export interface Booking {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  user: number | User;
-  timeslot: number | Timeslot;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'waiting';
-  /**
-   * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
-   */
-  paymentMethodUsed?: ('stripe' | 'class_pass' | 'subscription') | null;
-  /**
-   * Set when paymentMethodUsed is class_pass; used to decrement the correct pass.
-   */
-  classPassIdUsed?: number | null;
-  /**
-   * Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.
-   */
-  subscriptionIdUsed?: number | null;
-  /**
-   * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
-   */
-  transactions?: (number | Transaction)[] | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions".
- */
-export interface Transaction {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  /**
-   * The booking this transaction applies to.
-   */
-  booking: number | Booking;
-  /**
-   * How the booking was paid.
-   */
-  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
-  /**
-   * The class pass id used when paymentMethod is class_pass.
-   */
-  classPassId?: number | null;
-  /**
-   * Stripe payment intent id when paymentMethod is stripe.
-   */
-  stripePaymentIntentId?: string | null;
-  /**
-   * Subscription id when paymentMethod is subscription (booking created by subscription).
-   */
-  subscriptionId?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Class passes / credits for drop-in classes
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-passes".
- */
-export interface ClassPass {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  /**
-   * Owner of the class pass
-   */
-  user: number | User;
-  /**
-   * The type of pass (e.g. Fitness Only, Sauna Only)
-   */
-  type: number | ClassPassType;
-  /**
-   * Number of passes/credits remaining (original is on the pass type)
-   */
-  quantity: number;
-  /**
-   * Date when passes expire
-   */
-  expirationDate: string;
-  /**
-   * When the pass was purchased
-   */
-  purchasedAt: string;
-  /**
-   * External transaction id (e.g. Stripe payment intent id).
-   */
-  transactionId?: string | null;
-  status: 'active' | 'expired' | 'used' | 'cancelled';
-  /**
-   * Admin notes
-   */
-  notes?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Temporary capacity reservations during checkout. Bookings are created only after payment succeeds.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "booking-checkout-holds".
- */
-export interface BookingCheckoutHold {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  user: number | User;
-  timeslot: number | Timeslot;
-  quantity: number;
-  expiresAt: string;
-  /**
-   * When the hold was first created; used for max lifetime cap.
-   */
-  firstUpsertedAt?: string | null;
-  status: 'active' | 'consumed' | 'expired';
-  stripePaymentIntentId?: string | null;
-  /**
-   * Set when hold expires without fulfillment (e.g. refund path).
-   */
-  failureReason?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "form-submissions".
- */
-export interface FormSubmission {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  form: number | Form;
-  submissionData?:
-    | {
-        field: string;
-        value: string;
         id?: string | null;
       }[]
     | null;
@@ -3355,8 +3374,60 @@ export interface PayloadLockedDocument {
   id: number;
   document?:
     | ({
-        relationTo: 'admin-invitations';
-        value: number | AdminInvitation;
+        relationTo: 'timeslots';
+        value: number | Timeslot;
+      } | null)
+    | ({
+        relationTo: 'scheduler';
+        value: number | Scheduler;
+      } | null)
+    | ({
+        relationTo: 'staff-members';
+        value: number | StaffMember;
+      } | null)
+    | ({
+        relationTo: 'event-types';
+        value: number | EventType;
+      } | null)
+    | ({
+        relationTo: 'tenants';
+        value: number | Tenant;
+      } | null)
+    | ({
+        relationTo: 'locations';
+        value: number | Location;
+      } | null)
+    | ({
+        relationTo: 'discount-codes';
+        value: number | DiscountCode;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
+      } | null)
+    | ({
+        relationTo: 'class-pass-types';
+        value: number | ClassPassType;
+      } | null)
+    | ({
+        relationTo: 'plans';
+        value: number | Plan;
+      } | null)
+    | ({
+        relationTo: 'class-passes';
+        value: number | ClassPass;
+      } | null)
+    | ({
+        relationTo: 'subscriptions';
+        value: number | Subscription;
+      } | null)
+    | ({
+        relationTo: 'transactions';
+        value: number | Transaction;
+      } | null)
+    | ({
+        relationTo: 'booking-checkout-holds';
+        value: number | BookingCheckoutHold;
       } | null)
     | ({
         relationTo: 'pages';
@@ -3367,22 +3438,6 @@ export interface PayloadLockedDocument {
         value: number | Post;
       } | null)
     | ({
-        relationTo: 'media';
-        value: number | Media;
-      } | null)
-    | ({
-        relationTo: 'categories';
-        value: number | Category;
-      } | null)
-    | ({
-        relationTo: 'tenants';
-        value: number | Tenant;
-      } | null)
-    | ({
-        relationTo: 'discount-codes';
-        value: number | DiscountCode;
-      } | null)
-    | ({
         relationTo: 'navbar';
         value: number | Navbar;
       } | null)
@@ -3391,24 +3446,16 @@ export interface PayloadLockedDocument {
         value: number | Footer;
       } | null)
     | ({
-        relationTo: 'scheduler';
-        value: number | Scheduler;
-      } | null)
-    | ({
-        relationTo: 'locations';
-        value: number | Location;
-      } | null)
-    | ({
-        relationTo: 'redirects';
-        value: number | Redirect;
-      } | null)
-    | ({
         relationTo: 'forms';
         value: number | Form;
       } | null)
     | ({
-        relationTo: 'search';
-        value: number | Search;
+        relationTo: 'form-submissions';
+        value: number | FormSubmission;
+      } | null)
+    | ({
+        relationTo: 'admin-invitations';
+        value: number | AdminInvitation;
       } | null)
     | ({
         relationTo: 'accounts';
@@ -3423,56 +3470,28 @@ export interface PayloadLockedDocument {
         value: number | Verification;
       } | null)
     | ({
-        relationTo: 'staff-members';
-        value: number | StaffMember;
-      } | null)
-    | ({
-        relationTo: 'timeslots';
-        value: number | Timeslot;
-      } | null)
-    | ({
-        relationTo: 'event-types';
-        value: number | EventType;
-      } | null)
-    | ({
-        relationTo: 'bookings';
-        value: number | Booking;
-      } | null)
-    | ({
-        relationTo: 'drop-ins';
-        value: number | DropIn;
-      } | null)
-    | ({
-        relationTo: 'class-pass-types';
-        value: number | ClassPassType;
-      } | null)
-    | ({
-        relationTo: 'class-passes';
-        value: number | ClassPass;
-      } | null)
-    | ({
-        relationTo: 'subscriptions';
-        value: number | Subscription;
-      } | null)
-    | ({
-        relationTo: 'plans';
-        value: number | Plan;
-      } | null)
-    | ({
-        relationTo: 'transactions';
-        value: number | Transaction;
-      } | null)
-    | ({
-        relationTo: 'booking-checkout-holds';
-        value: number | BookingCheckoutHold;
-      } | null)
-    | ({
         relationTo: 'users';
         value: number | User;
       } | null)
     | ({
-        relationTo: 'form-submissions';
-        value: number | FormSubmission;
+        relationTo: 'media';
+        value: number | Media;
+      } | null)
+    | ({
+        relationTo: 'categories';
+        value: number | Category;
+      } | null)
+    | ({
+        relationTo: 'redirects';
+        value: number | Redirect;
+      } | null)
+    | ({
+        relationTo: 'search';
+        value: number | Search;
+      } | null)
+    | ({
+        relationTo: 'bookings';
+        value: number | Booking;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -3518,12 +3537,360 @@ export interface PayloadMigration {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations_select".
+ * via the `definition` "timeslots_select".
  */
-export interface AdminInvitationsSelect<T extends boolean = true> {
-  role?: T;
-  token?: T;
-  url?: T;
+export interface TimeslotsSelect<T extends boolean = true> {
+  tenant?: T;
+  date?: T;
+  startTime?: T;
+  endTime?: T;
+  lockOutTime?: T;
+  originalLockOutTime?: T;
+  branch?: T;
+  location?: T;
+  staffMember?: T;
+  eventType?: T;
+  remainingCapacity?: T;
+  bookings?: T;
+  bookingStatus?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "scheduler_select".
+ */
+export interface SchedulerSelect<T extends boolean = true> {
+  tenant?: T;
+  lastGenerationJobId?: T;
+  generationProgress?: T;
+  clearExisting?: T;
+  startDate?: T;
+  endDate?: T;
+  lockOutTime?: T;
+  defaultEventType?: T;
+  branch?: T;
+  week?:
+    | T
+    | {
+        days?:
+          | T
+          | {
+              timeSlot?:
+                | T
+                | {
+                    startTime?: T;
+                    endTime?: T;
+                    eventType?: T;
+                    location?: T;
+                    staffMember?: T;
+                    lockOutTime?: T;
+                    active?: T;
+                    id?: T;
+                  };
+              id?: T;
+            };
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "staff-members_select".
+ */
+export interface StaffMembersSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  name?: T;
+  description?: T;
+  profileImage?: T;
+  active?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "event-types_select".
+ */
+export interface EventTypesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  places?: T;
+  description?: T;
+  paymentMethods?:
+    | T
+    | {
+        allowedDropIn?: T;
+        allowedClassPasses?: T;
+        allowedPlans?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants_select".
+ */
+export interface TenantsSelect<T extends boolean = true> {
+  name?: T;
+  slug?: T;
+  timeZone?: T;
+  domain?: T;
+  redirectApex?: T;
+  apexDomain?: T;
+  apexDomainVerificationToken?: T;
+  description?: T;
+  allowedBlocks?: T;
+  logo?: T;
+  bookingTheme?:
+    | T
+    | {
+        checkin?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        trialable?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        cancel?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        childrenBooked?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        modify?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        closed?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+      };
+  stripeConnectAccountId?: T;
+  stripeConnectOnboardingStatus?: T;
+  stripeConnectLastError?: T;
+  stripeConnectConnectedAt?: T;
+  checkoutLegalDocuments?:
+    | T
+    | {
+        page?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "locations_select".
+ */
+export interface LocationsSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  slug?: T;
+  address?: T;
+  timeZone?: T;
+  active?: T;
+  defaultForSchedule?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "discount-codes_select".
+ */
+export interface DiscountCodesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  code?: T;
+  type?: T;
+  value?: T;
+  currency?: T;
+  duration?: T;
+  durationInMonths?: T;
+  maxRedemptions?: T;
+  redeemBy?: T;
+  stripeCouponId?: T;
+  stripePromotionCodeId?: T;
+  skipSync?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "drop-ins_select".
+ */
+export interface DropInsSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  description?: T;
+  isActive?: T;
+  price?: T;
+  adjustable?: T;
+  maxBookingsPerTimeslot?: T;
+  discountTiers?:
+    | T
+    | {
+        minQuantity?: T;
+        discountPercent?: T;
+        type?: T;
+        id?: T;
+      };
+  'event-typesPaymentMethods'?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-pass-types_select".
+ */
+export interface ClassPassTypesSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  description?: T;
+  quantity?: T;
+  daysUntilExpiration?: T;
+  maxBookingsPerTimeslot?: T;
+  allowMultipleBookingsPerTimeslot?: T;
+  stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+      };
+  priceJSON?: T;
+  status?: T;
+  skipSync?: T;
+  deletedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "plans_select".
+ */
+export interface PlansSelect<T extends boolean = true> {
+  tenant?: T;
+  name?: T;
+  features?:
+    | T
+    | {
+        feature?: T;
+        id?: T;
+      };
+  sessionsInformation?:
+    | T
+    | {
+        sessions?: T;
+        intervalCount?: T;
+        interval?: T;
+        maxBookingsPerTimeslot?: T;
+        allowMultipleBookingsPerTimeslot?: T;
+      };
+  stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+        intervalCount?: T;
+        interval?: T;
+      };
+  priceJSON?: T;
+  footerText?: T;
+  status?: T;
+  skipSync?: T;
+  deletedAt?: T;
+  'event-typesPaymentMethods'?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-passes_select".
+ */
+export interface ClassPassesSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  type?: T;
+  quantity?: T;
+  expirationDate?: T;
+  purchasedAt?: T;
+  transactionId?: T;
+  status?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions_select".
+ */
+export interface SubscriptionsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  plan?: T;
+  status?: T;
+  startDate?: T;
+  endDate?: T;
+  cancelAt?: T;
+  stripeSubscriptionId?: T;
+  skipSync?: T;
+  stripeAccountId?: T;
+  stripeCustomerId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  tenant?: T;
+  booking?: T;
+  paymentMethod?: T;
+  classPassId?: T;
+  stripePaymentIntentId?: T;
+  subscriptionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-checkout-holds_select".
+ */
+export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  timeslot?: T;
+  quantity?: T;
+  expiresAt?: T;
+  firstUpsertedAt?: T;
+  status?: T;
+  stripePaymentIntentId?: T;
+  failureReason?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4653,211 +5020,6 @@ export interface PostsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
- */
-export interface MediaSelect<T extends boolean = true> {
-  tenant?: T;
-  isPublic?: T;
-  alt?: T;
-  caption?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-  sizes?:
-    | T
-    | {
-        thumbnail?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        square?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        small?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        medium?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        large?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        xlarge?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-        og?:
-          | T
-          | {
-              url?: T;
-              width?: T;
-              height?: T;
-              mimeType?: T;
-              filesize?: T;
-              filename?: T;
-            };
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories_select".
- */
-export interface CategoriesSelect<T extends boolean = true> {
-  title?: T;
-  generateSlug?: T;
-  slug?: T;
-  parent?: T;
-  breadcrumbs?:
-    | T
-    | {
-        doc?: T;
-        url?: T;
-        label?: T;
-        id?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tenants_select".
- */
-export interface TenantsSelect<T extends boolean = true> {
-  name?: T;
-  slug?: T;
-  timeZone?: T;
-  domain?: T;
-  redirectApex?: T;
-  apexDomain?: T;
-  apexDomainVerificationToken?: T;
-  description?: T;
-  allowedBlocks?: T;
-  logo?: T;
-  bookingTheme?:
-    | T
-    | {
-        checkin?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        trialable?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        cancel?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        waitlist?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        childrenBooked?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        modify?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        closed?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-      };
-  stripeConnectAccountId?: T;
-  stripeConnectOnboardingStatus?: T;
-  stripeConnectLastError?: T;
-  stripeConnectConnectedAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "discount-codes_select".
- */
-export interface DiscountCodesSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  code?: T;
-  type?: T;
-  value?: T;
-  currency?: T;
-  duration?: T;
-  durationInMonths?: T;
-  maxRedemptions?: T;
-  redeemBy?: T;
-  stripeCouponId?: T;
-  stripePromotionCodeId?: T;
-  skipSync?: T;
-  status?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "navbar_select".
  */
 export interface NavbarSelect<T extends boolean = true> {
@@ -4921,73 +5083,6 @@ export interface FooterSelect<T extends boolean = true> {
         backgroundColor?: T;
         textColor?: T;
         showThemeSelector?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "scheduler_select".
- */
-export interface SchedulerSelect<T extends boolean = true> {
-  tenant?: T;
-  startDate?: T;
-  endDate?: T;
-  lockOutTime?: T;
-  defaultEventType?: T;
-  branch?: T;
-  week?:
-    | T
-    | {
-        days?:
-          | T
-          | {
-              timeSlot?:
-                | T
-                | {
-                    startTime?: T;
-                    endTime?: T;
-                    eventType?: T;
-                    location?: T;
-                    staffMember?: T;
-                    lockOutTime?: T;
-                    active?: T;
-                    id?: T;
-                  };
-              id?: T;
-            };
-      };
-  clearExisting?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "locations_select".
- */
-export interface LocationsSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  slug?: T;
-  address?: T;
-  timeZone?: T;
-  active?: T;
-  defaultForSchedule?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "redirects_select".
- */
-export interface RedirectsSelect<T extends boolean = true> {
-  from?: T;
-  to?:
-    | T
-    | {
-        type?: T;
-        reference?: T;
-        url?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -5128,28 +5223,29 @@ export interface FormsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "search_select".
+ * via the `definition` "form-submissions_select".
  */
-export interface SearchSelect<T extends boolean = true> {
-  title?: T;
-  priority?: T;
-  doc?: T;
-  slug?: T;
-  meta?:
+export interface FormSubmissionsSelect<T extends boolean = true> {
+  tenant?: T;
+  form?: T;
+  submissionData?:
     | T
     | {
-        title?: T;
-        description?: T;
-        image?: T;
-      };
-  categories?:
-    | T
-    | {
-        relationTo?: T;
-        categoryID?: T;
-        title?: T;
+        field?: T;
+        value?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations_select".
+ */
+export interface AdminInvitationsSelect<T extends boolean = true> {
+  role?: T;
+  token?: T;
+  url?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5195,232 +5291,6 @@ export interface VerificationsSelect<T extends boolean = true> {
   expiresAt?: T;
   createdAt?: T;
   updatedAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "staff-members_select".
- */
-export interface StaffMembersSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  name?: T;
-  description?: T;
-  profileImage?: T;
-  active?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "timeslots_select".
- */
-export interface TimeslotsSelect<T extends boolean = true> {
-  tenant?: T;
-  date?: T;
-  startTime?: T;
-  endTime?: T;
-  lockOutTime?: T;
-  originalLockOutTime?: T;
-  branch?: T;
-  location?: T;
-  staffMember?: T;
-  eventType?: T;
-  remainingCapacity?: T;
-  bookings?: T;
-  bookingStatus?: T;
-  active?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "event-types_select".
- */
-export interface EventTypesSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  places?: T;
-  description?: T;
-  paymentMethods?:
-    | T
-    | {
-        allowedDropIn?: T;
-        allowedClassPasses?: T;
-        allowedPlans?: T;
-      };
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "bookings_select".
- */
-export interface BookingsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  timeslot?: T;
-  status?: T;
-  paymentMethodUsed?: T;
-  classPassIdUsed?: T;
-  subscriptionIdUsed?: T;
-  transactions?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "drop-ins_select".
- */
-export interface DropInsSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  description?: T;
-  isActive?: T;
-  price?: T;
-  adjustable?: T;
-  maxBookingsPerTimeslot?: T;
-  discountTiers?:
-    | T
-    | {
-        minQuantity?: T;
-        discountPercent?: T;
-        type?: T;
-        id?: T;
-      };
-  'event-typesPaymentMethods'?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-pass-types_select".
- */
-export interface ClassPassTypesSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  description?: T;
-  quantity?: T;
-  daysUntilExpiration?: T;
-  maxBookingsPerTimeslot?: T;
-  allowMultipleBookingsPerTimeslot?: T;
-  stripeProductId?: T;
-  priceInformation?:
-    | T
-    | {
-        price?: T;
-      };
-  priceJSON?: T;
-  status?: T;
-  skipSync?: T;
-  deletedAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-passes_select".
- */
-export interface ClassPassesSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  type?: T;
-  quantity?: T;
-  expirationDate?: T;
-  purchasedAt?: T;
-  transactionId?: T;
-  status?: T;
-  notes?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions_select".
- */
-export interface SubscriptionsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  plan?: T;
-  status?: T;
-  startDate?: T;
-  endDate?: T;
-  cancelAt?: T;
-  stripeSubscriptionId?: T;
-  skipSync?: T;
-  stripeAccountId?: T;
-  stripeCustomerId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "plans_select".
- */
-export interface PlansSelect<T extends boolean = true> {
-  tenant?: T;
-  name?: T;
-  features?:
-    | T
-    | {
-        feature?: T;
-        id?: T;
-      };
-  sessionsInformation?:
-    | T
-    | {
-        sessions?: T;
-        intervalCount?: T;
-        interval?: T;
-        maxBookingsPerTimeslot?: T;
-        allowMultipleBookingsPerTimeslot?: T;
-      };
-  stripeProductId?: T;
-  priceInformation?:
-    | T
-    | {
-        price?: T;
-        intervalCount?: T;
-        interval?: T;
-      };
-  priceJSON?: T;
-  footerText?: T;
-  status?: T;
-  skipSync?: T;
-  deletedAt?: T;
-  'event-typesPaymentMethods'?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  tenant?: T;
-  booking?: T;
-  paymentMethod?: T;
-  classPassId?: T;
-  stripePaymentIntentId?: T;
-  subscriptionId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "booking-checkout-holds_select".
- */
-export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  timeslot?: T;
-  quantity?: T;
-  expiresAt?: T;
-  firstUpsertedAt?: T;
-  status?: T;
-  stripePaymentIntentId?: T;
-  failureReason?: T;
-  updatedAt?: T;
-  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -5472,18 +5342,175 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "form-submissions_select".
+ * via the `definition` "media_select".
  */
-export interface FormSubmissionsSelect<T extends boolean = true> {
+export interface MediaSelect<T extends boolean = true> {
   tenant?: T;
-  form?: T;
-  submissionData?:
+  isPublic?: T;
+  alt?: T;
+  caption?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+  sizes?:
     | T
     | {
-        field?: T;
-        value?: T;
+        thumbnail?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        square?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        small?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        medium?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        large?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        xlarge?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        og?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "categories_select".
+ */
+export interface CategoriesSelect<T extends boolean = true> {
+  title?: T;
+  generateSlug?: T;
+  slug?: T;
+  parent?: T;
+  breadcrumbs?:
+    | T
+    | {
+        doc?: T;
+        url?: T;
+        label?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "redirects_select".
+ */
+export interface RedirectsSelect<T extends boolean = true> {
+  from?: T;
+  to?:
+    | T
+    | {
+        type?: T;
+        reference?: T;
+        url?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "search_select".
+ */
+export interface SearchSelect<T extends boolean = true> {
+  title?: T;
+  priority?: T;
+  doc?: T;
+  slug?: T;
+  meta?:
+    | T
+    | {
+        title?: T;
+        description?: T;
+        image?: T;
+      };
+  categories?:
+    | T
+    | {
+        relationTo?: T;
+        categoryID?: T;
+        title?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "bookings_select".
+ */
+export interface BookingsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  timeslot?: T;
+  status?: T;
+  paymentMethodUsed?: T;
+  classPassIdUsed?: T;
+  subscriptionIdUsed?: T;
+  transactions?: T;
   updatedAt?: T;
   createdAt?: T;
 }

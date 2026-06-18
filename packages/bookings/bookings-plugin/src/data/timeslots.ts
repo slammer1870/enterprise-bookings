@@ -171,11 +171,18 @@ async function attachBookingCountsForTimeslots(
 ): Promise<void> {
   const ids = timeslots
     .map((t) => t.id)
-    .filter((id): id is number => typeof id === "number" && Number.isFinite(id));
+    .map((id) => {
+      if (typeof id === "number" && Number.isFinite(id)) return id;
+      if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
+      return null;
+    })
+    .filter((id): id is number => id != null);
   if (ids.length === 0) return;
 
   const bookingsSlug = resolveBookingsCollectionSlug(payload, timeslotsSlug);
-  const access = req ? { req, overrideAccess: false } : { overrideAccess: true };
+  // overrideAccess: true is required so legacy bookings without a `tenant` field are not
+  // excluded by tenantScopedPublicReadStrict, which would return 0 for migrated data.
+  const access = req ? { req, overrideAccess: true } : { overrideAccess: true };
 
   // Staff-only users should not see `pending` bookings in admin UI.
   // Filtering at the query level is both faster (less data pulled) and keeps
@@ -190,39 +197,41 @@ async function attachBookingCountsForTimeslots(
   const countByTimeslot = new Map<number, number>();
   for (const id of ids) countByTimeslot.set(id, 0);
 
-  // Single query: fetch only the timeslot FK for all bookings across all timeslot IDs at
-  // once, then tally counts in JS. One round-trip regardless of how many timeslots are on
-  // the page — far cheaper than the previous approach of one COUNT per timeslot.
-  const allBookings = await payload.find({
-    collection: bookingsSlug as CollectionSlug,
-    where: {
-      and: [
-        { timeslot: { in: ids } },
-        ...(excludePendingForStaffOnly ? [{ status: { not_equals: "pending" } }] : []),
-      ],
-    },
-    select: { timeslot: true } as any,
-    depth: 0,
-    limit: 0,
-    ...(access as object),
-    context: { triggerAfterChange: false },
-  } as Parameters<BasePayload["find"]>[0]);
+  const statusFilter =
+    excludePendingForStaffOnly ? [{ status: { not_equals: "pending" } }] : [];
 
-  for (const booking of allBookings.docs) {
-    const rawTimeslot = (booking as any).timeslot;
-    const timeslotId =
-      typeof rawTimeslot === "number"
-        ? rawTimeslot
-        : rawTimeslot && typeof rawTimeslot === "object"
-          ? (rawTimeslot as { id: number }).id
-          : null;
-    if (timeslotId != null && countByTimeslot.has(timeslotId)) {
-      countByTimeslot.set(timeslotId, (countByTimeslot.get(timeslotId) ?? 0) + 1);
-    }
+  // Payload/Drizzle behavior around `find({ limit: 0 })` can be brittle depending on adapter.
+  // Per-timeslot `count()` is stable and still batched to keep query count reasonable.
+  const COUNT_BATCH_SIZE = 25;
+  for (let i = 0; i < ids.length; i += COUNT_BATCH_SIZE) {
+    const batchIds = ids.slice(i, i + COUNT_BATCH_SIZE);
+    await Promise.all(
+      batchIds.map(async (timeslotId) => {
+        const result = await payload.count({
+          collection: bookingsSlug as CollectionSlug,
+          where: {
+            and: [{ timeslot: { equals: timeslotId } }, ...statusFilter],
+          },
+          ...(access as object),
+          context: { triggerAfterChange: false },
+        } as Parameters<BasePayload["count"]>[0]);
+
+        countByTimeslot.set(timeslotId, result.totalDocs ?? 0);
+      }),
+    );
   }
 
   for (const t of timeslots) {
-    const total = typeof t.id === "number" ? (countByTimeslot.get(t.id) ?? 0) : 0;
+    const total =
+      (() => {
+        const rawId = t.id as unknown;
+        if (typeof rawId === "number" && Number.isFinite(rawId)) return countByTimeslot.get(rawId) ?? 0;
+        if (typeof rawId === "string" && /^\d+$/.test(rawId)) {
+          const n = parseInt(rawId, 10);
+          return countByTimeslot.get(n) ?? 0;
+        }
+        return 0;
+      })();
     (t as Timeslot).bookings = { docs: [], totalDocs: total } as Timeslot["bookings"];
   }
 }

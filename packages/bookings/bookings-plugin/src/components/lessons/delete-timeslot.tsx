@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@repo/ui/components/ui/dialog";
-import { Button } from "@payloadcms/ui";
+import { Button } from "@repo/ui/components/ui/button";
 import { DropdownMenuItem } from "@repo/ui/components/ui/dropdown-menu";
 
 export const DeleteTimeslot = ({ timeslotId }: { timeslotId: number }) => {
@@ -69,16 +69,16 @@ export const DeleteTimeslot = ({ timeslotId }: { timeslotId: number }) => {
           </DialogHeader>
           <DialogFooter>
             <Button
-              buttonStyle="secondary"
-              size="small"
+              variant="outline"
+              size="sm"
               onClick={() => setOpen(false)}
               disabled={deleting}
             >
               Cancel
             </Button>
             <Button
-              buttonStyle="error"
-              size="small"
+              variant="destructive"
+              size="sm"
               onClick={handleConfirm}
               disabled={deleting}
             >

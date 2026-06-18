@@ -22,10 +22,17 @@ export interface CustomHostnameResult {
   status: string
 }
 
+interface CfSslValidationRecord {
+  status: string
+  txt_name: string
+  txt_value: string
+}
+
 interface CfCustomHostname {
   id: string
   hostname: string
   status: string
+  verification_errors?: string[]
   ownership_verification?: {
     type: string
     name: string
@@ -33,10 +40,19 @@ interface CfCustomHostname {
   }
   ssl?: {
     status: string
+    method?: string
+    validation_records?: CfSslValidationRecord[]
+    dcv_delegation_records?: CfSslValidationRecord[]
   }
 }
 
 export type HostnameVerificationStatus = 'active' | 'pending' | 'error' | 'unknown'
+
+export interface SslValidationRecord {
+  status: HostnameVerificationStatus
+  txtName: string
+  txtValue: string
+}
 
 export interface CustomHostnameStatusResult {
   /** Overall hostname routing status — 'active' means traffic is flowing */
@@ -49,6 +65,10 @@ export interface CustomHostnameStatusResult {
   rawSslStatus: string
   /** The ownership TXT value (_cf-custom-hostname) if available */
   ownershipTxtValue: string | null
+  /** ACME DCV TXT records (_acme-challenge) required for apex TXT validation */
+  sslValidationRecords: SslValidationRecord[]
+  /** Cloudflare hostname activation errors, if any */
+  verificationErrors: string[]
 }
 
 interface CfApiResponse<T> {
@@ -63,6 +83,11 @@ function getConfig(): { token: string; zoneId: string } | null {
 
   if (!token || !zoneId) return null
   return { token, zoneId }
+}
+
+/** True when Cloudflare TLS for SaaS API credentials are available. */
+export function isCloudflareConfigured(): boolean {
+  return getConfig() != null
 }
 
 function authHeaders(token: string) {
@@ -80,18 +105,54 @@ function extractResult(record: CfCustomHostname): CustomHostnameResult {
   }
 }
 
+function toHostnameStatus(s: string): HostnameVerificationStatus {
+  if (['active', 'staging_active', 'backup_issued'].includes(s)) return 'active'
+  if (['pending', 'initializing', 'pending_validation', 'pending_issuance', 'pending_deployment'].includes(s)) {
+    return 'pending'
+  }
+  if (['blocked', 'moved', 'deleted'].includes(s)) return 'error'
+  return 'unknown'
+}
+
+function extractSslValidationRecords(record: CfCustomHostname): SslValidationRecord[] {
+  const sources = [
+    ...(record.ssl?.validation_records ?? []),
+    ...(record.ssl?.dcv_delegation_records ?? []),
+  ]
+
+  return sources
+    .filter((r) => r.txt_name && r.txt_value)
+    .map((r) => ({
+      status: toHostnameStatus(r.status),
+      txtName: r.txt_name,
+      txtValue: r.txt_value,
+    }))
+}
+
+async function fetchCustomHostnameById(
+  zoneId: string,
+  token: string,
+  id: string,
+): Promise<CfCustomHostname | null> {
+  const res = await fetch(`${CF_API}/zones/${zoneId}/custom_hostnames/${id}`, {
+    headers: authHeaders(token),
+    cache: 'no-store',
+  })
+  if (!res.ok) return null
+  const body = (await res.json()) as CfApiResponse<CfCustomHostname>
+  return body.result ?? null
+}
+
 /**
  * Creates a Cloudflare TLS for SaaS custom hostname for the given domain,
  * or returns the existing one if it is already registered (idempotent).
  *
  * For subdomains (e.g. www.example.com) we use HTTP validation — Cloudflare
- * verifies ownership automatically once the CNAME is pointing to the zone,
- * so the client needs no extra DNS records beyond the CNAME itself.
+ * verifies ownership automatically once the CNAME is pointing to the zone.
  *
- * For apex domains (e.g. example.com) we use TXT validation — apex domains
- * cannot use CNAME so HTTP validation is unavailable. The returned
- * `verificationTxtValue` must be set as a TXT record at
- * `_cf-custom-hostname.{hostname}`.
+ * For apex domains (e.g. example.com) we use TXT validation. The client must
+ * add TXT records at `_cf-custom-hostname.{hostname}` (ownership) and
+ * `_acme-challenge.{hostname}` (SSL DCV) before the A record cutover.
  *
  * @param isApex - true for bare apex domains, false (default) for subdomains
  */
@@ -136,6 +197,22 @@ export async function createOrGetCustomHostname(
     if (!existing) {
       throw new Error(`Cloudflare: hostname ${hostname} reported as existing but not found in list`)
     }
+
+    // Re-trigger TXT DCV for apex hostnames created earlier with HTTP validation.
+    if (isApex && existing.id) {
+      const patchRes = await fetch(`${CF_API}/zones/${zoneId}/custom_hostnames/${existing.id}`, {
+        method: 'PATCH',
+        headers: authHeaders(token),
+        body: JSON.stringify({
+          ssl: { method: 'txt', type: 'dv', settings: { min_tls_version: '1.0' } },
+        }),
+      })
+      if (patchRes.ok) {
+        const patchBody = (await patchRes.json()) as CfApiResponse<CfCustomHostname>
+        return extractResult(patchBody.result)
+      }
+    }
+
     return extractResult(existing)
   }
 
@@ -162,22 +239,25 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
     if (!res.ok) return null
 
     const body = (await res.json()) as CfApiResponse<CfCustomHostname[]>
-    const record = body.result?.[0]
-    if (!record) return null
+    const listed = body.result?.[0]
+    if (!listed) return null
 
-    const toStatus = (s: string): HostnameVerificationStatus => {
-      if (s === 'active') return 'active'
-      if (['pending', 'initializing', 'pending_validation', 'pending_issuance', 'pending_deployment'].includes(s)) return 'pending'
-      if (['blocked', 'moved', 'deleted'].includes(s)) return 'error'
-      return 'unknown'
-    }
+    // Detail endpoint includes validation_records that the list endpoint may omit.
+    const record =
+      listed.id != null
+        ? (await fetchCustomHostnameById(zoneId, token, listed.id)) ?? listed
+        : listed
+
+    const sslValidationRecords = extractSslValidationRecords(record)
 
     return {
-      hostnameStatus: toStatus(record.status),
-      sslStatus: toStatus(record.ssl?.status ?? ''),
+      hostnameStatus: toHostnameStatus(record.status),
+      sslStatus: toHostnameStatus(record.ssl?.status ?? ''),
       rawHostnameStatus: record.status,
       rawSslStatus: record.ssl?.status ?? '',
       ownershipTxtValue: record.ownership_verification?.value ?? null,
+      sslValidationRecords,
+      verificationErrors: record.verification_errors ?? [],
     }
   } catch {
     return null

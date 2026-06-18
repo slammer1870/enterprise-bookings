@@ -116,6 +116,28 @@ describe('createOrGetCustomHostname', () => {
     expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(2)
   })
 
+  it('PATCHes apex hostnames to txt validation when Cloudflare responds 409', async () => {
+    const existing = makeHostnameResponse({ id: 'csh_existing', status: 'pending' })
+    const patched = makeHostnameResponse({ id: 'csh_existing', status: 'pending' })
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(
+        JSON.stringify({ errors: [{ code: 1414, message: 'hostname already exists' }], success: false }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } },
+      ))
+      .mockResolvedValueOnce(makeApiResponse([existing], 200))
+      .mockResolvedValueOnce(makeApiResponse(patched, 200))
+
+    const { createOrGetCustomHostname } = await import('@/lib/cloudflare/customHostnames')
+    await createOrGetCustomHostname('croilan.com', true)
+
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(3)
+    const patchCall = vi.mocked(globalThis.fetch).mock.calls[2]
+    expect(patchCall[0]).toContain('/custom_hostnames/csh_existing')
+    expect((patchCall[1] as RequestInit).method).toBe('PATCH')
+    const patchBody = JSON.parse((patchCall[1] as RequestInit).body as string)
+    expect(patchBody.ssl.method).toBe('txt')
+  })
+
   it('throws a descriptive error on non-409 HTTP failure', async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(
@@ -149,5 +171,100 @@ describe('createOrGetCustomHostname', () => {
 
     const { createOrGetCustomHostname } = await import('@/lib/cloudflare/customHostnames')
     await expect(createOrGetCustomHostname('croilan.com')).rejects.toThrow('ECONNREFUSED')
+  })
+})
+
+describe('getCustomHostnameStatus', () => {
+  const origEnv = process.env
+  const originalFetch = globalThis.fetch
+
+  beforeEach(() => {
+    process.env = { ...origEnv, CLOUDFLARE_API_TOKEN: API_TOKEN, CLOUDFLARE_ZONE_ID: ZONE_ID }
+  })
+
+  afterEach(() => {
+    process.env = origEnv
+    globalThis.fetch = originalFetch
+    vi.resetModules()
+  })
+
+  it('returns ssl validation records for apex TXT DCV', async () => {
+    const record = {
+      ...makeHostnameResponse({ status: 'pending' }),
+      ssl: {
+        status: 'pending_validation',
+        validation_records: [
+          {
+            status: 'pending',
+            txt_name: '_acme-challenge.croilan.com',
+            txt_value: 'acme-token-1',
+          },
+          {
+            status: 'pending',
+            txt_name: '_acme-challenge.croilan.com',
+            txt_value: 'acme-token-2',
+          },
+        ],
+      },
+    }
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(makeApiResponse([record], 200))
+      .mockResolvedValueOnce(makeApiResponse(record, 200))
+
+    const { getCustomHostnameStatus } = await import('@/lib/cloudflare/customHostnames')
+    const status = await getCustomHostnameStatus('croilan.com')
+
+    expect(status).toEqual({
+      hostnameStatus: 'pending',
+      sslStatus: 'pending',
+      rawHostnameStatus: 'pending',
+      rawSslStatus: 'pending_validation',
+      ownershipTxtValue: 'txt-token-abc',
+      sslValidationRecords: [
+        { status: 'pending', txtName: '_acme-challenge.croilan.com', txtValue: 'acme-token-1' },
+        { status: 'pending', txtName: '_acme-challenge.croilan.com', txtValue: 'acme-token-2' },
+      ],
+      verificationErrors: [],
+    })
+  })
+
+  it('returns verification errors from Cloudflare', async () => {
+    const record = {
+      ...makeHostnameResponse({ status: 'pending' }),
+      verification_errors: [
+        'The hostname is using Cloudflare and cannot be activated with an TXT or HTTP validation token.',
+      ],
+    }
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(makeApiResponse([record], 200))
+      .mockResolvedValueOnce(makeApiResponse(record, 200))
+
+    const { getCustomHostnameStatus } = await import('@/lib/cloudflare/customHostnames')
+    const status = await getCustomHostnameStatus('croilan.com')
+
+    expect(status?.verificationErrors).toEqual([
+      'The hostname is using Cloudflare and cannot be activated with an TXT or HTTP validation token.',
+    ])
+  })
+
+  it('returns empty ssl validation records when none are present', async () => {
+    const record = makeHostnameResponse({ status: 'active' })
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(makeApiResponse([record], 200))
+      .mockResolvedValueOnce(makeApiResponse(record, 200))
+
+    const { getCustomHostnameStatus } = await import('@/lib/cloudflare/customHostnames')
+    const status = await getCustomHostnameStatus('croilan.com')
+
+    expect(status?.sslValidationRecords).toEqual([])
+  })
+
+  it('returns null when credentials are missing', async () => {
+    delete process.env.CLOUDFLARE_API_TOKEN
+
+    const { getCustomHostnameStatus } = await import('@/lib/cloudflare/customHostnames')
+    const status = await getCustomHostnameStatus('croilan.com')
+
+    expect(status).toBeNull()
   })
 })
