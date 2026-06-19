@@ -1,10 +1,9 @@
-import type { CollectionSlug, Field, RelationshipField } from "payload";
+import type { Field, RelationshipField } from "payload";
 import { BasePayload, PayloadRequest } from "payload";
 
 import { getTimeslotsQuery } from "@repo/shared-utils";
 import { Timeslot } from "@repo/shared-types";
 
-import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 import { getTimeslotStartTimeFilter, normalizeTimeslotSearchParams } from "../utils/timeslot-search-params";
 import {
   findBookingsForTimeslots,
