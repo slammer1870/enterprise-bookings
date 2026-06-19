@@ -25,6 +25,7 @@ import { timeslotReadAccess } from "../access/timeslots";
 import { createSetLockout } from "../hooks/set-lockout";
 
 import type { BookingCollectionSlugs } from "../resolve-slugs";
+import { createTimeslotBookingsEndpoint } from "../endpoints/timeslot-bookings";
 
 const hasTenantsCollection = (req: any): boolean => {
   const collections = req?.payload?.config?.collections;
@@ -711,6 +712,10 @@ export const generateTimeslotCollection = (
   const timeslotConfig: CollectionConfig = {
     ...(overrides || {}),
     slug: slugs.timeslots,
+    endpoints: [
+      ...(Array.isArray(overrides?.endpoints) ? overrides.endpoints : []),
+      createTimeslotBookingsEndpoint(slugs),
+    ],
     labels: {
       ...(overrides?.labels || defaultLabels),
     },

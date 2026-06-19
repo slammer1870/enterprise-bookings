@@ -6,7 +6,7 @@ import { ManageTimeslot } from "./manage-timeslot";
 import { Button, SelectRow } from "@payloadcms/ui";
 import { TableRow, TableCell } from "@repo/ui/components/ui/table";
 import { cn } from "@repo/ui/lib/utils";
-import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddBooking } from "../bookings/add-booking";
@@ -26,7 +26,6 @@ export const TimeslotDetail = ({
   const [expandedTimeslots, setExpandedTimeslots] = useState<Set<number>>(new Set());
   const [expandedBookings, setExpandedBookings] = useState<Booking[] | null>(null);
   const [isLoadingExpandedBookings, setIsLoadingExpandedBookings] = useState(false);
-  const [isLoadingBookingCount, setIsLoadingBookingCount] = useState(false);
   const [localBookingTotal, setLocalBookingTotal] = useState<number | null>(null);
   const timeZone = resolveTimeslotTimeZone(timeslot);
   const expandAbortRef = useRef<AbortController | null>(null);
@@ -50,8 +49,10 @@ export const TimeslotDetail = ({
   const bookingsContainer = timeslot.bookings as unknown as
     | { docs?: Booking[]; totalDocs?: number }
     | undefined;
+
   useEffect(() => {
     setLocalBookingTotal(null);
+    setExpandedBookings(null);
   }, [timeslot.id]);
 
   const bookingCountFromProps =
@@ -62,89 +63,45 @@ export const TimeslotDetail = ({
         : 0;
   const bookingCount = localBookingTotal ?? bookingCountFromProps;
 
-  const fetchBookingTotal = useCallback(async () => {
-    if (isLoadingBookingCount) return;
-    setIsLoadingBookingCount(true);
-    try {
-      // Admin list view provides `bookings: { docs: [] }` and relies on `totalDocs`.
-      // If that aggregation is stale/incorrect, fetch an authoritative count.
-      //
-      // Use Payload's lightweight count endpoint rather than expanding the full
-      // `timeslots/:id?depth=3` graph.
-      const res = await fetch(
-        `/api/bookings/count?where[timeslot][equals]=${encodeURIComponent(
-          String(timeslot.id),
-        )}`,
-        {
+  const fetchTimeslotBookings = useCallback(
+    async (signal?: AbortSignal) => {
+      const res = await fetch(`/api/timeslots/${timeslot.id}/bookings`, {
         method: "GET",
         credentials: "include",
-        }
-      );
-      if (!res.ok) return;
-
+        signal,
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to fetch bookings for timeslot ${timeslot.id}`);
+      }
       const data = await res.json();
-      const total = typeof data?.totalDocs === "number" ? data.totalDocs : 0;
-      setLocalBookingTotal(total);
-    } catch {
-      // Ignore errors; the UI will fall back to the list-provided count.
-    } finally {
-      setIsLoadingBookingCount(false);
-    }
-  }, [isLoadingBookingCount, timeslot.id]);
-
-  // Only override list-provided totals when they look suspicious (0 while list has no docs).
-  // Expanding a row still fetches booking docs; this just fixes the displayed badge count.
-  useEffect(() => {
-    const docs = (timeslot.bookings as any)?.docs as Booking[] | undefined;
-    const shouldFetch =
-      !isExpanded &&
-      bookingCountFromProps === 0 &&
-      Array.isArray(docs) &&
-      docs.length === 0 &&
-      localBookingTotal == null;
-    if (!shouldFetch) return;
-
-    void fetchBookingTotal();
-  }, [bookingCountFromProps, fetchBookingTotal, isExpanded, localBookingTotal, timeslot.bookings]);
+      const docs = (data?.docs ?? []) as Booking[];
+      const total =
+        typeof data?.totalDocs === "number" ? data.totalDocs : docs.length;
+      return { docs, total };
+    },
+    [timeslot.id],
+  );
 
   const refetchExpandedBookings = useCallback(async () => {
-    // Avoid racing older expand requests (collapse/re-expand can otherwise reorder responses).
     expandAbortRef.current?.abort();
     const controller = new AbortController();
     expandAbortRef.current = controller;
     try {
-      const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
-        method: "GET",
-        credentials: "include",
-        signal: controller.signal,
-      });
-      if (!res.ok) {
-        router.refresh();
-        return;
-      }
-      const data = await res.json();
-      const docs = (data?.bookings?.docs ?? []) as Booking[];
+      const { docs, total } = await fetchTimeslotBookings(controller.signal);
       setExpandedBookings(docs);
-      const total =
-        typeof data?.bookings?.totalDocs === "number"
-          ? data.bookings.totalDocs
-          : docs.length;
       setLocalBookingTotal(total);
     } catch {
       router.refresh();
     } finally {
-      // Clear after resolution; if another request started, it will set a new controller.
       if (expandAbortRef.current === controller) expandAbortRef.current = null;
     }
-  }, [timeslot.id, router]);
+  }, [fetchTimeslotBookings, router]);
 
   useEffect(() => {
     if (!isExpanded) return;
 
-    // Bookings were already loaded once (even if empty) - don't re-fetch.
     if (expandedBookings != null) return;
 
-    // If the list already included docs (rare after we made the list shallow), use them.
     const existingDocs = bookingsContainer?.docs;
     if (Array.isArray(existingDocs) && existingDocs.length > 0) {
       setExpandedBookings(existingDocs);
@@ -152,39 +109,25 @@ export const TimeslotDetail = ({
     }
 
     let isCancelled = false;
-    // Abort previous inflight expand fetches so the next expand feels immediate.
     expandAbortRef.current?.abort();
     const controller = new AbortController();
     expandAbortRef.current = controller;
 
-    const shouldLoadBookingCount =
-      bookingCountFromProps === 0 && localBookingTotal == null;
-    if (shouldLoadBookingCount) setIsLoadingBookingCount(true);
     setIsLoadingExpandedBookings(true);
     setExpandedBookings(null);
 
     (async () => {
       try {
-        // Fetch the selected timeslot with bookings populated.
-        const res = await fetch(`/api/timeslots/${timeslot.id}?depth=3`, {
-          method: "GET",
-          credentials: "include",
-          signal: controller.signal,
-        });
-        if (!res.ok) return;
-        const data = await res.json();
-        const docs = (data?.bookings?.docs ?? []) as Booking[];
-        if (!isCancelled) setExpandedBookings(docs);
-
-        const total =
-          typeof data?.bookings?.totalDocs === "number"
-            ? data.bookings.totalDocs
-            : docs.length;
-        setLocalBookingTotal(total);
+        const { docs, total } = await fetchTimeslotBookings(controller.signal);
+        if (!isCancelled) {
+          setExpandedBookings(docs);
+          setLocalBookingTotal(total);
+        }
+      } catch {
+        if (!isCancelled) router.refresh();
       } finally {
         if (!isCancelled) {
           setIsLoadingExpandedBookings(false);
-          if (shouldLoadBookingCount) setIsLoadingBookingCount(false);
         }
       }
     })();
@@ -194,13 +137,7 @@ export const TimeslotDetail = ({
       controller.abort();
       if (expandAbortRef.current === controller) expandAbortRef.current = null;
     };
-  }, [
-    isExpanded,
-    timeslot.id,
-    expandedBookings,
-    bookingCountFromProps,
-    localBookingTotal,
-  ]); // timeslot.bookings is intentionally excluded: changes can be frequent.
+  }, [isExpanded, timeslot.id, expandedBookings, fetchTimeslotBookings, router]);
 
   return (
     <>
@@ -239,11 +176,7 @@ export const TimeslotDetail = ({
             buttonStyle="secondary"
             onClick={() => toggleBookings(timeslot.id)}
           >
-            {isLoadingBookingCount ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              bookingCount
-            )}
+            {bookingCount}
             {expandedTimeslots.has(timeslot.id) ? (
               <ChevronUp className="ml-2 h-4 w-4" />
             ) : (
