@@ -1,32 +1,15 @@
-import type { CollectionSlug, Field, RelationshipField } from "payload";
+import type { Field, RelationshipField } from "payload";
 import { BasePayload, PayloadRequest } from "payload";
-import { checkRole } from "@repo/shared-utils";
-import type { User as SharedUser } from "@repo/shared-types";
 
 import { getTimeslotsQuery } from "@repo/shared-utils";
 import { Timeslot } from "@repo/shared-types";
 
-import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 import { getTimeslotStartTimeFilter, normalizeTimeslotSearchParams } from "../utils/timeslot-search-params";
-
-function resolveBookingsCollectionSlug(
-  payload: BasePayload,
-  timeslotsSlug: string,
-): string {
-  const collections = payload.config.collections ?? [];
-  for (const col of collections) {
-    if (!col?.fields || col.slug === timeslotsSlug) continue;
-    for (const field of col.fields as Field[]) {
-      if (field.type !== "relationship" || field.name !== "timeslot") continue;
-      const rel = (field as RelationshipField).relationTo;
-      const targets = (Array.isArray(rel) ? rel : [rel]) as string[];
-      if (targets.includes(timeslotsSlug)) {
-        return col.slug;
-      }
-    }
-  }
-  return DEFAULT_BOOKING_COLLECTION_SLUGS.bookings;
-}
+import {
+  findBookingsForTimeslots,
+  parseNumericId,
+  resolveBookingsCollectionSlug,
+} from "../utils/timeslot-booking-queries";
 
 function resolveRelatedCollectionSlug(
   payload: BasePayload,
@@ -159,9 +142,8 @@ async function attachShallowTenantAndEventType(
  * Populate `bookings.totalDocs` without using the timeslot join field (which resolves
  * per-document in Payload and can mean hundreds of queries for a single day view).
  *
- * Issues a single `payload.find()` across all timeslot IDs (selecting only the timeslot
- * FK), then aggregates counts in memory. This replaces the previous approach of one
- * `payload.count()` per timeslot (e.g. 100 DB round-trips for a full-day page).
+ * Uses one batched `payload.find()` across all timeslot IDs (same query path as the
+ * expand endpoint) and aggregates counts in memory.
  */
 async function attachBookingCountsForTimeslots(
   payload: BasePayload,
@@ -171,66 +153,25 @@ async function attachBookingCountsForTimeslots(
 ): Promise<void> {
   const ids = timeslots
     .map((t) => t.id)
-    .map((id) => {
-      if (typeof id === "number" && Number.isFinite(id)) return id;
-      if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
-      return null;
-    })
+    .map((id) => parseNumericId(id))
     .filter((id): id is number => id != null);
   if (ids.length === 0) return;
 
   const bookingsSlug = resolveBookingsCollectionSlug(payload, timeslotsSlug);
-  // overrideAccess: true is required so legacy bookings without a `tenant` field are not
-  // excluded by tenantScopedPublicReadStrict, which would return 0 for migrated data.
-  const access = req ? { req, overrideAccess: true } : { overrideAccess: true };
-
-  // Staff-only users should not see `pending` bookings in admin UI.
-  // Filtering at the query level is both faster (less data pulled) and keeps
-  // `bookings.totalDocs` consistent with what we show elsewhere.
-  const requester = (req?.user ? (req.user as unknown as SharedUser) : null) as SharedUser | null;
-  const excludePendingForStaffOnly =
-    requester != null &&
-    checkRole(["staff"], requester) &&
-    !checkRole(["admin"], requester) &&
-    !checkRole(["super-admin"], requester);
-
-  const countByTimeslot = new Map<number, number>();
-  for (const id of ids) countByTimeslot.set(id, 0);
-
-  const statusFilter =
-    excludePendingForStaffOnly ? [{ status: { not_equals: "pending" } }] : [];
-
-  // Payload/Drizzle behavior around `find({ limit: 0 })` can be brittle depending on adapter.
-  // Per-timeslot `count()` is stable and still batched to keep query count reasonable.
-  const COUNT_BATCH_SIZE = 25;
-  for (let i = 0; i < ids.length; i += COUNT_BATCH_SIZE) {
-    const batchIds = ids.slice(i, i + COUNT_BATCH_SIZE);
-    await Promise.all(
-      batchIds.map(async (timeslotId) => {
-        const result = await payload.count({
-          collection: bookingsSlug as CollectionSlug,
-          where: {
-            and: [{ timeslot: { equals: timeslotId } }, ...statusFilter],
-          },
-          ...(access as object),
-          context: { triggerAfterChange: false },
-        } as Parameters<BasePayload["count"]>[0]);
-
-        countByTimeslot.set(timeslotId, result.totalDocs ?? 0);
-      }),
-    );
-  }
+  const { countByTimeslot } = await findBookingsForTimeslots(
+    payload,
+    bookingsSlug,
+    ids,
+    req,
+    { depth: 0, overrideAccess: true },
+  );
 
   for (const t of timeslots) {
     const total =
       (() => {
         const rawId = t.id as unknown;
-        if (typeof rawId === "number" && Number.isFinite(rawId)) return countByTimeslot.get(rawId) ?? 0;
-        if (typeof rawId === "string" && /^\d+$/.test(rawId)) {
-          const n = parseInt(rawId, 10);
-          return countByTimeslot.get(n) ?? 0;
-        }
-        return 0;
+        const parsed = parseNumericId(rawId);
+        return parsed != null ? countByTimeslot.get(parsed) ?? 0 : 0;
       })();
     (t as Timeslot).bookings = { docs: [], totalDocs: total } as Timeslot["bookings"];
   }

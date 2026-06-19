@@ -18,6 +18,17 @@ function createMockPayload(find: ReturnType<typeof vi.fn>): BasePayload {
           fields: [
             { type: "relationship", name: "tenant", relationTo: "tenants" },
             { type: "relationship", name: "eventType", relationTo: "event-types" },
+            {
+              type: "join",
+              name: "bookings",
+              collection: "bookings",
+            },
+          ],
+        },
+        {
+          slug: "booking-checkout-holds",
+          fields: [
+            { type: "relationship", name: "timeslot", relationTo: "timeslots" },
           ],
         },
         {
@@ -51,7 +62,7 @@ describe("getTimeslots — attachBookingCountsForTimeslots", () => {
       },
     ];
 
-    const find = vi.fn().mockImplementation((args: { collection: string }) => {
+    const find = vi.fn().mockImplementation((args: { collection: string; where?: any }) => {
       if (args.collection === "timeslots") {
         return Promise.resolve({
           docs: listTimeslots,
@@ -67,20 +78,21 @@ describe("getTimeslots — attachBookingCountsForTimeslots", () => {
         });
       }
 
+      if (args.collection === "bookings") {
+        return Promise.resolve({
+          docs: [
+            { id: 1, timeslot: TIMESLOT_A, status: "confirmed" },
+            { id: 2, timeslot: TIMESLOT_A, status: "confirmed" },
+            { id: 3, timeslot: TIMESLOT_B, status: "confirmed" },
+          ],
+          totalDocs: 3,
+        });
+      }
+
       return Promise.resolve({ docs: [], totalDocs: 0 });
     });
 
-    const count = vi.fn().mockImplementation((args: any) => {
-      const timeslotId = args?.where?.and?.[0]?.timeslot?.equals;
-      if (timeslotId === TIMESLOT_A) return Promise.resolve({ totalDocs: 2 });
-      if (timeslotId === TIMESLOT_B) return Promise.resolve({ totalDocs: 1 });
-      return Promise.resolve({ totalDocs: 0 });
-    });
-
-    const payload = {
-      ...(createMockPayload(find) as any),
-      count,
-    } as BasePayload;
+    const payload = createMockPayload(find);
 
     const startOfDay = new Date("2026-06-16T00:00:00.000Z");
 
@@ -92,7 +104,14 @@ describe("getTimeslots — attachBookingCountsForTimeslots", () => {
       { segments: ["admin", "collections", "timeslots"] },
     );
 
-    expect(count).toHaveBeenCalledTimes(2);
+    const bookingFindCalls = find.mock.calls.filter(
+      (call) => call[0]?.collection === "bookings",
+    );
+    expect(bookingFindCalls).toHaveLength(1);
+    expect(bookingFindCalls[0]?.[0]?.where?.and?.[0]?.timeslot?.in).toEqual([
+      TIMESLOT_A,
+      TIMESLOT_B,
+    ]);
 
     const byId = Object.fromEntries(timeslots.map((t) => [t.id, t]));
     expect((byId[TIMESLOT_A]?.bookings as { totalDocs?: number })?.totalDocs).toBe(2);
