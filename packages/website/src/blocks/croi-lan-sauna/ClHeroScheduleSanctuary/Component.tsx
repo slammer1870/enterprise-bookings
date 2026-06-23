@@ -174,7 +174,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
 
           {/* Schedule panel — on md+ the absolute bg supplies the card colour so we go transparent here;
               on mobile bg-card keeps the stacked panel white. pt-28 on md+ clears the fixed header. */}
-          <div className="flex flex-col justify-start bg-card md:bg-transparent pb-10 pt-8 md:pt-28 md:flex-1 md:min-w-0 lg:flex-[1]">
+          <div className="flex flex-col justify-start bg-card md:bg-transparent pb-10 pt-8 md:pt-28 md:pl-12 lg:pl-0 md:flex-1 md:min-w-0 lg:flex-[1]">
             <div className="w-full min-w-0 text-card-foreground">
               <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-card-foreground">
                 Schedule

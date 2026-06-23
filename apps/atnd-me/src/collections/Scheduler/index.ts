@@ -280,7 +280,31 @@ export const Scheduler: CollectionConfig = {
                             const bt = extractUtcWallClock(b.startTime)
                             return (at.hours * 60 + at.minutes) - (bt.hours * 60 + bt.minutes)
                         })
-                        return { ...day, timeSlot: filtered }
+                        // Deduplicate row IDs. When a complete row is copied/pasted,
+                        // Payload assigns the original's numeric id to the copy — both
+                        // rows then share the same id, causing the relational adapter to
+                        // throw "Invalid ID". Also strip non-numeric (UUID) ids that the
+                        // admin generates client-side for brand-new rows; those are not
+                        // valid integer primary keys and trigger the same error.
+                        // In both cases we remove the id so Payload INSERTs a fresh row.
+                        const seenIds = new Set<number>()
+                        const deduped = filtered.map((slot: any) => {
+                            const rawId = slot?.id
+                            const numericId =
+                                typeof rawId === 'number' && Number.isFinite(rawId)
+                                    ? rawId
+                                    : typeof rawId === 'string' && /^\d+$/.test(rawId)
+                                      ? parseInt(rawId, 10)
+                                      : null
+                            if (numericId == null || seenIds.has(numericId)) {
+                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                                const { id: _id, ...rest } = slot
+                                return rest
+                            }
+                            seenIds.add(numericId)
+                            return slot
+                        })
+                        return { ...day, timeSlot: deduped }
                     })
                 }
 

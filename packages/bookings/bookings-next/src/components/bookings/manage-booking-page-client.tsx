@@ -856,6 +856,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     viewerMaxPerTimeslot === Infinity
       ? maxTotalQuantityBase
       : Math.min(viewerMaxPerTimeslot, maxTotalQuantityBase)
+  // Spots still available = how many more the user can add (venue remaining, capped by
+  // any per-user limit). Excludes bookings the user already holds so the label reads
+  // as "X spots still open" rather than "you can hold up to X in total".
+  const remainingCapacityForLabel = maxTotalQuantity - activeBookings.length
 
   return (
     <div className="space-y-6">
@@ -878,7 +882,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
               <p className="text-sm text-muted-foreground">
                 {hasPaymentMethodsConfigured && viewerMaxPerTimeslot === 1
                   ? 'Only 1 slot per timeslot per user.'
-                  : `Up to ${maxTotalQuantity} total booking${maxTotalQuantity !== 1 ? 's' : ''} available for this timeslot.`}
+                  : `Up to ${remainingCapacityForLabel} more booking${remainingCapacityForLabel !== 1 ? 's' : ''} available for this timeslot.`}
               </p>
             </div>
             <div className="flex items-center gap-3">
