@@ -175,8 +175,11 @@ describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
       { overrideAccess: true }
     ))
 
-    // Create timeslots for both tenants
+    // Create timeslots for both tenants.
+    // Use a far-future date unique to this test to avoid the default 10-result pagination
+    // limit hiding these specific timeslots when the shared DB has many timeslots for today.
     const today = new Date()
+    today.setFullYear(today.getFullYear() + 10) // 10 years in the future
     today.setHours(0, 0, 0, 0)
     const startTime = new Date(today)
     startTime.setHours(10, 0, 0, 0) // 10 AM
@@ -223,16 +226,13 @@ describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
         // Create req object for admin user without tenant context
         const req = await createLocalReq({ user: { ...adminUser, collection: 'users' } }, payload)
 
-        // Build search params that match the date range
-        // The getTimeslots function expects a specific query parameter format
-        const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
-        const endOfDay = new Date()
-        endOfDay.setHours(23, 59, 59, 999)
+        // Use the same far-future date as the timeslots so pagination doesn't hide them.
+        const futureDate = new Date()
+        futureDate.setFullYear(futureDate.getFullYear() + 10)
+        futureDate.setHours(0, 0, 0, 0)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getTimeslots checks for
-        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
+        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = futureDate.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
@@ -255,14 +255,12 @@ describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
         const req = await createLocalReq({ user: { ...tenantAdminUser, collection: 'users' } }, payload)
         // Don't set tenant context - access control should filter by user's assigned tenants
 
-        // Build search params that match the date range
-        // The getTimeslots function expects a specific query parameter format
-        const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
+        const futureDate = new Date()
+        futureDate.setFullYear(futureDate.getFullYear() + 10)
+        futureDate.setHours(0, 0, 0, 0)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getTimeslots checks for
-        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
+        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = futureDate.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
@@ -297,14 +295,12 @@ describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
         }
         req.context.tenant = testTenant.id
 
-        // Build search params that match the date range
-        // The getTimeslots function expects a specific query parameter format
-        const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
+        const futureDate = new Date()
+        futureDate.setFullYear(futureDate.getFullYear() + 10)
+        futureDate.setHours(0, 0, 0, 0)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getTimeslots checks for
-        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
+        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = futureDate.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
@@ -334,14 +330,12 @@ describe('Timeslot Admin View - Multi-Tenant Filtering', () => {
         // Test that access control is enforced
         const req = await createLocalReq({ user: { ...tenantAdminUser, collection: 'users' } }, payload)
 
-        // Build search params that match the date range
-        // The getTimeslots function expects a specific query parameter format
-        const startOfDay = new Date()
-        startOfDay.setHours(0, 0, 0, 0)
+        const futureDate = new Date()
+        futureDate.setFullYear(futureDate.getFullYear() + 10)
+        futureDate.setHours(0, 0, 0, 0)
 
         const searchParams: { [key: string]: string | string[] | undefined } = {}
-        // This is the key that getTimeslots checks for
-        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = startOfDay.toISOString()
+        searchParams['where[or][0][and][0][startTime][greater_than_equal]'] = futureDate.toISOString()
 
         const params = {
           segments: ['admin', 'collections', 'timeslots'],
