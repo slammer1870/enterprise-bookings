@@ -641,14 +641,15 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     'Tenant Admin 1',
     ['admin']
   )
-  // Assign tenant-admin to tenant1 (tenants array + registrationTenant so status API can resolve tenant)
+  // Assign tenant-admin to tenant1 — set tenantRoles so authorize-tenant uses the per-tenant model
   await payload.update({
     collection: 'users',
     where: { email: { equals: tenantAdmin1.email } },
     data: {
       tenants: [{ tenant: tenant1.id }],
       registrationTenant: tenant1.id,
-    },
+      tenantRoles: [{ tenant: tenant1.id, roles: ['admin'] }],
+    } as Parameters<typeof payload.update>[0]['data'],
     overrideAccess: true,
   })
 
@@ -665,7 +666,8 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     data: {
       tenants: [{ tenant: tenant2.id }],
       registrationTenant: tenant2.id,
-    },
+      tenantRoles: [{ tenant: tenant2.id, roles: ['admin'] }],
+    } as Parameters<typeof payload.update>[0]['data'],
     overrideAccess: true,
   })
 
@@ -746,8 +748,9 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     data: {
       tenants: [{ tenant: tenant1.id }],
       registrationTenant: tenant1.id,
+      tenantRoles: [{ tenant: tenant1.id, roles: ['location-manager'] }],
       locations: [branchNorth.id],
-    },
+    } as Parameters<typeof payload.update>[0]['data'],
     overrideAccess: true,
   })
 

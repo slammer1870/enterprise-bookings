@@ -41,7 +41,14 @@ test.describe('Admin cross-tenant booking', () => {
         // Better Auth's tenant resolution uses `registrationTenant`, so set it to
         // the target tenant we sign into (tenant A) for this cross-tenant booking test.
         registrationTenant: tenantA.id,
-      },
+        // tenantRoles is now the authoritative per-tenant model used by resolveTenantAdminTenantIds.
+        // Without including tenantA here, the access control would only see tenant B
+        // and deny the timeslot lookup (NOT_FOUND → redirect to /).
+        tenantRoles: [
+          { tenant: tenantA.id, roles: ['admin'] },
+          { tenant: tenantB.id, roles: ['admin'] },
+        ],
+      } as Parameters<typeof payload.update>[0]['data'],
       overrideAccess: true,
     })
 

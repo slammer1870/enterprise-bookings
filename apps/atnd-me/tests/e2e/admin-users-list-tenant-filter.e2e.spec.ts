@@ -28,15 +28,31 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
   }) => {
     const tenant1 = testData.tenants[0]
     const tenant2 = testData.tenants[1]
-    const user1 = testData.users.user1
-    const user2 = testData.users.user2
 
     if (!tenant1?.id || !tenant1?.name) throw new Error('Test setup requires tenant1')
     if (!tenant2?.id || !tenant2?.name) throw new Error('Test setup requires tenant2')
-    if (!user1?.email || !user2?.email) throw new Error('Test setup requires user1 and user2')
 
     const emailSuffix = testData.workerIndex > 0 ? `w${testData.workerIndex}` : ''
     const multiAdminEmail = `mtadmin${emailSuffix}@test.com`
+
+    // Use dedicated, isolated users for this test. Shared fixture users (user1, user2)
+    // may accumulate bookings at unexpected tenants across the worker's test run
+    // (e.g. full-timeslot-waitlist-join-leave.e2e.spec.ts books user2 at tenant1),
+    // which causes userTenantRead to include them via the booking-user OR clause.
+    const isoUser1 = await createTestUser(
+      `filtertest1${emailSuffix}@test.com`,
+      'password',
+      'Filter Test User 1',
+      ['user'],
+      tenant1.id,
+    )
+    const isoUser2 = await createTestUser(
+      `filtertest2${emailSuffix}@test.com`,
+      'password',
+      'Filter Test User 2',
+      ['user'],
+      tenant2.id,
+    )
 
     await createTestUser(multiAdminEmail, 'password', 'Multi-Tenant Admin', ['admin'], tenant1.id)
 
@@ -71,8 +87,8 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
       getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant1.name), 'i')).first(),
     ).toBeVisible({ timeout: 20_000 })
 
-    await expect(usersEmailCell(page, user1.email).first()).toBeVisible({ timeout: 20_000 })
-    await expect(usersEmailCell(page, user2.email)).toHaveCount(0)
+    await expect(usersEmailCell(page, isoUser1.email).first()).toBeVisible({ timeout: 20_000 })
+    await expect(usersEmailCell(page, isoUser2.email)).toHaveCount(0)
 
     await page.context().addCookies([
       { name: 'payload-tenant', value: String(tenant2.id), url: `${origin}/` },
@@ -85,8 +101,8 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
       getTenantSelector(page).getByText(new RegExp(escapeRegex(tenant2.name), 'i')).first(),
     ).toBeVisible({ timeout: 20_000 })
 
-    await expect(usersEmailCell(page, user2.email).first()).toBeVisible({ timeout: 20_000 })
-    await expect(usersEmailCell(page, user1.email)).toHaveCount(0)
+    await expect(usersEmailCell(page, isoUser2.email).first()).toBeVisible({ timeout: 20_000 })
+    await expect(usersEmailCell(page, isoUser1.email)).toHaveCount(0)
   })
 
   test('on root-domain admin, clearing tenant shows users from all org-admin tenants (not other sites)', async ({
@@ -96,18 +112,32 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
   }) => {
     const tenant1 = testData.tenants[0]
     const tenant2 = testData.tenants[1]
-    const user1 = testData.users.user1
-    const user2 = testData.users.user2
     const user3 = testData.users.user3
 
     if (!tenant1?.id || !tenant1?.slug || !tenant1?.name) throw new Error('Test setup requires tenant1')
     if (!tenant2?.id || !tenant2?.name) throw new Error('Test setup requires tenant2')
-    if (!user1?.email || !user2?.email || !user3?.email) {
-      throw new Error('Test setup requires user1, user2, and user3')
+    if (!user3?.email) {
+      throw new Error('Test setup requires user3')
     }
 
     const emailSuffix = testData.workerIndex > 0 ? `w${testData.workerIndex}` : ''
     const multiAdminEmail = `mtadmin${emailSuffix}@test.com`
+
+    // Re-use isolated users from the first test (idempotent creation).
+    const isoUser1 = await createTestUser(
+      `filtertest1${emailSuffix}@test.com`,
+      'password',
+      'Filter Test User 1',
+      ['user'],
+      tenant1.id,
+    )
+    const isoUser2 = await createTestUser(
+      `filtertest2${emailSuffix}@test.com`,
+      'password',
+      'Filter Test User 2',
+      ['user'],
+      tenant2.id,
+    )
 
     await createTestUser(multiAdminEmail, 'password', 'Multi-Tenant Admin', ['admin'], tenant1.id)
 
@@ -144,8 +174,8 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
     await page.goto(usersListUrl, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
 
-    await expect(usersEmailCell(page, user1.email).first()).toBeVisible({ timeout: 20_000 })
-    await expect(usersEmailCell(page, user2.email)).toHaveCount(0)
+    await expect(usersEmailCell(page, isoUser1.email).first()).toBeVisible({ timeout: 20_000 })
+    await expect(usersEmailCell(page, isoUser2.email)).toHaveCount(0)
 
     const getPayloadTenantCookie = async () => {
       const cookieURLs = [`${origin}/`, `${origin}/admin/`, `${origin}/admin/collections/`, page.url()]
@@ -161,23 +191,23 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
     await page.goto(usersListUrl, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
 
-    await expect(usersEmailCell(page, user1.email).first()).toBeVisible({ timeout: 20_000 })
-    await expect(usersEmailCell(page, user2.email).first()).toBeVisible({ timeout: 20_000 })
+    await expect(usersEmailCell(page, isoUser1.email).first()).toBeVisible({ timeout: 20_000 })
+    await expect(usersEmailCell(page, isoUser2.email).first()).toBeVisible({ timeout: 20_000 })
     await expect(usersEmailCell(page, user3.email)).toHaveCount(0)
 
     const clearedStateStart = Date.now()
     while (Date.now() - clearedStateStart < adminTenantSelectorCI.clearedStateDurationMs) {
       await expect.poll(async () => await getPayloadTenantCookie(), { timeout: 2_000 }).toBe('')
-      await expect(usersEmailCell(page, user1.email).first()).toBeVisible({ timeout: 2_000 })
-      await expect(usersEmailCell(page, user2.email).first()).toBeVisible({ timeout: 2_000 })
+      await expect(usersEmailCell(page, isoUser1.email).first()).toBeVisible({ timeout: 2_000 })
+      await expect(usersEmailCell(page, isoUser2.email).first()).toBeVisible({ timeout: 2_000 })
       await page.waitForTimeout(500)
     }
 
     await page.reload({ waitUntil: 'load' })
     await ensureSidebarOpen(page)
 
-    await expect(usersEmailCell(page, user1.email).first()).toBeVisible({ timeout: 20_000 })
-    await expect(usersEmailCell(page, user2.email).first()).toBeVisible({ timeout: 20_000 })
+    await expect(usersEmailCell(page, isoUser1.email).first()).toBeVisible({ timeout: 20_000 })
+    await expect(usersEmailCell(page, isoUser2.email).first()).toBeVisible({ timeout: 20_000 })
     await expect(usersEmailCell(page, user3.email)).toHaveCount(0)
   })
 })

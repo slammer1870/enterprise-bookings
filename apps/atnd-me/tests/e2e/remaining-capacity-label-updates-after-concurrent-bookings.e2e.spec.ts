@@ -5,13 +5,13 @@
  *  1. Timeslot with CAPACITY = 12, no other users.
  *  2. User1 has no bookings yet.
  *     Manage page formula: maxTotalQuantity = activeBookings(0) + remainingCapacity(12) = 12
- *     → "Up to 12 total bookings available for this timeslot."
+ *     → "Up to 12 more bookings available for this timeslot."
  *  3. User1 books 2 slots (via API).
  *     Manage page: maxTotalQuantity = 2 + 10 = ?
- *     → expected: "Up to 10 total bookings available for this timeslot."
+ *     → expected: "Up to 10 more bookings available for this timeslot."
  *  4. User1 adds 2 more via the manage UI (total = 4).
  *     Manage page: maxTotalQuantity = 4 + 8 = ?
- *     → expected: "Up to 8 total bookings available for this timeslot."
+ *     → expected: "Up to 8 more bookings available for this timeslot."
  *
  * NOTE: The manage page computes:
  *   maxTotalQuantity = activeBookings.length + timeslot.remainingCapacity
@@ -147,7 +147,7 @@ test.describe('Remaining capacity label decreases as User1 adds bookings', () =>
       await expect(bookingQty).toHaveText('2', { timeout: 10_000 })
 
       await expect(
-        page.getByText(/Up to 10 total bookings available for this timeslot/i),
+        page.getByText(/Up to 10 more bookings available for this timeslot/i),
       ).toBeVisible({ timeout: 10_000 })
 
       // ── Phase 3: add 2 more via manage UI → Up to 8 ──────────────────────
@@ -181,7 +181,7 @@ test.describe('Remaining capacity label decreases as User1 adds bookings', () =>
       await expect(bookingQty).toHaveText('4', { timeout: 10_000 })
 
       await expect(
-        page.getByText(/Up to 8 total bookings available for this timeslot/i),
+        page.getByText(/Up to 8 more bookings available for this timeslot/i),
       ).toBeVisible({ timeout: 10_000 })
     },
   )

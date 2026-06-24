@@ -620,6 +620,9 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     await openBookingPage({ page, tenantSlug, lessonId: lesson.id })
 
     const increaseQuantity = page.getByRole('button', { name: /increase quantity/i }).first()
+    // In PW_E2E_FAST mode the action timeout is 10 s; the booking page can take longer
+    // to hydrate on a loaded server, so wait explicitly before clicking.
+    await expect(increaseQuantity).toBeVisible({ timeout: 25_000 })
     await increaseQuantity.click()
     await page.waitForTimeout(2000)
 
