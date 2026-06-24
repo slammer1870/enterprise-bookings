@@ -119,6 +119,7 @@ import * as migration_20260522_drop_drop_ins_payment_methods from './20260522_dr
 import * as migration_20260523_tenants_booking_theme from './20260523_tenants_booking_theme';
 import * as migration_20260523_000002_booking_checkout_holds from './20260523_000002_booking_checkout_holds';
 import * as migration_20260523_000003_booking_checkout_holds_lock_rels from './20260523_000003_booking_checkout_holds_lock_rels';
+import * as migration_20260624_000001_users_tenant_roles from './20260624_000001_users_tenant_roles';
 
 export const migrations = [
   {
@@ -725,5 +726,10 @@ export const migrations = [
     up: migration_20260602_180000_simple_about_block_tables.up,
     down: migration_20260602_180000_simple_about_block_tables.down,
     name: '20260602_180000_simple_about_block_tables',
+  },
+  {
+    up: migration_20260624_000001_users_tenant_roles.up,
+    down: migration_20260624_000001_users_tenant_roles.down,
+    name: '20260624_000001_users_tenant_roles',
   },
 ];

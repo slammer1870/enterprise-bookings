@@ -23,6 +23,94 @@ import {
   resolvePureLocationManagerBranchIds,
 } from '@/access/locationManagerScope'
 
+// ---------------------------------------------------------------------------
+// Per-tenant role helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the tenant IDs where the user document has at least one of the
+ * specified `elevatedRoles` in the `tenantRoles` array.
+ *
+ * Returns an empty array when `tenantRoles` is absent or empty (migration window —
+ * callers should fall back to the global `role` + `tenants` approach in that case).
+ */
+export function getElevatedTenantIdsFromTenantRoles(
+  user: unknown,
+  elevatedRoles: string[] = ['admin', 'staff', 'location-manager'],
+): number[] {
+  if (!user || typeof user !== 'object') return []
+  const tenantRoles = (user as Record<string, unknown>).tenantRoles
+  if (!Array.isArray(tenantRoles) || tenantRoles.length === 0) return []
+
+  const elevated = new Set(elevatedRoles)
+  const ids: number[] = []
+
+  for (const entry of tenantRoles) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+
+    const tenantRaw = e.tenant
+    const tenantId =
+      typeof tenantRaw === 'number' && Number.isFinite(tenantRaw)
+        ? tenantRaw
+        : typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw
+          ? (() => {
+              const id = (tenantRaw as { id: unknown }).id
+              return typeof id === 'number' && Number.isFinite(id) ? id : null
+            })()
+          : typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)
+            ? parseInt(tenantRaw, 10)
+            : null
+
+    if (tenantId == null) continue
+
+    const roles = Array.isArray(e.roles) ? (e.roles as unknown[]) : []
+    const hasElevated = roles.some((r) => typeof r === 'string' && elevated.has(r))
+    if (hasElevated) ids.push(tenantId)
+  }
+
+  return ids
+}
+
+/**
+ * Returns the roles assigned to a user for a specific tenant from `tenantRoles`.
+ * Returns `[]` if no entry exists for that tenant (not populated or user is a
+ * plain member with no explicit role assignment).
+ */
+export function getRolesForTenant(user: unknown, tenantId: number): string[] {
+  if (!user || typeof user !== 'object') return []
+  const tenantRoles = (user as Record<string, unknown>).tenantRoles
+  if (!Array.isArray(tenantRoles)) return []
+
+  for (const entry of tenantRoles) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+
+    const tenantRaw = e.tenant
+    const tid =
+      typeof tenantRaw === 'number' && Number.isFinite(tenantRaw)
+        ? tenantRaw
+        : typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw
+          ? (() => {
+              const id = (tenantRaw as { id: unknown }).id
+              return typeof id === 'number' && Number.isFinite(id) ? id : null
+            })()
+          : typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)
+            ? parseInt(tenantRaw, 10)
+            : null
+
+    if (tid === tenantId) {
+      return Array.isArray(e.roles)
+        ? (e.roles.filter((r) => typeof r === 'string') as string[])
+        : []
+    }
+  }
+
+  return []
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Tenant IDs from `tenants` + `registrationTenant` only (no role-based shortcuts).
  * Used when resolving membership for tenant portal access while `isAdmin(session)` is false,
@@ -189,18 +277,28 @@ export async function resolveTenantAdminTenantIds(args: {
   if (direct === null) {
     return finish([])
   }
-  if (direct.length > 0) {
-    return finish(direct)
-  }
 
   // Session/JWT user often lacks relationships like `tenants` — fetch full user and retry.
   const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
   const id = typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
   if (!Number.isFinite(id)) {
-    return finish([])
+    return finish(direct.length > 0 ? direct : [])
   }
 
   const fullUser = await loadUserDocForTenantMembership(payload, id)
+
+  // Primary: if tenantRoles is populated, derive admin-scope from it rather than the global role.
+  // This is the authoritative per-tenant model. The fallback (global role + tenants) is only
+  // used during the migration window before db:migrate-to-tenant-roles has been run.
+  if (fullUser) {
+    const fromTenantRoles = getElevatedTenantIdsFromTenantRoles(fullUser)
+    if (fromTenantRoles.length > 0) {
+      return finish(fromTenantRoles)
+    }
+  }
+
+  // Fallback: global role + tenant membership (pre-migration behaviour).
+  if (direct.length > 0) return finish(direct)
 
   let fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
   if (fromDb === null && fullUser && !checkRole(['super-admin'], user as SharedUser)) {

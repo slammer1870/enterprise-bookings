@@ -458,8 +458,29 @@ function resolveLoginRouteRedirect(args: {
 }): NextResponse | null {
   const { request, response, isLoginRoute, authStatus } = args
   if (!isLoginRoute) return null
-  if (authStatus === 401) return null
-  if (authStatus === 403) return null
+  // Only redirect when we have CONFIRMED authentication (204). Any other status —
+  // including 5xx errors from authorize-tenant — must not trigger a redirect to /admin,
+  // as that creates a loop: /admin/login → /admin → Payload 302 back to /admin/login.
+  if (authStatus !== 204) return null
+
+  // Loop-break: if the browser came from /admin (Payload just redirected them back here),
+  // don't bounce them back to /admin again — let the login page render so the user can
+  // re-authenticate or the session can be refreshed.
+  const referer = request.headers.get('referer') ?? ''
+  if (referer) {
+    try {
+      const refUrl = new URL(referer)
+      const sameHost =
+        refUrl.hostname === request.nextUrl.hostname ||
+        (request.nextUrl.hostname === 'localhost' && refUrl.hostname === 'localhost')
+      if (sameHost && (refUrl.pathname === '/admin' || refUrl.pathname === '/admin/')) {
+        // Already bounced once — show login page to break the cycle.
+        return null
+      }
+    } catch {
+      // Unparseable Referer; proceed with the redirect.
+    }
+  }
 
   // Authenticated users should not remain on /admin/login; keep host context.
   const adminUrl = request.nextUrl.clone()

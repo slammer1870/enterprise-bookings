@@ -909,8 +909,10 @@ export const plugins: Plugin[] = [
     // Used by the selector→document sync hook. We want tenant-admin autosave drafts
     // (Pages create flow) to pick up the selected tenant automatically, while still
     // keeping "no tenant" (base pages) effectively admin-only via the UI.
+    // With per-tenant roles, admin/staff users no longer have global access — they are
+    // scoped to their assigned tenants via tenantRoles. Only super-admin is truly global.
     userHasAccessToAllTenants: (user) =>
-      checkRole(['super-admin', 'admin', 'staff'], user as SharedUser),
+      checkRole(['super-admin'], user as SharedUser),
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,

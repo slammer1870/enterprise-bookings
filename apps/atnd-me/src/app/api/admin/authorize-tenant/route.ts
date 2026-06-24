@@ -2,7 +2,11 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { findTenantByDomainNormalized, findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
-import { getUserTenantIds, loadUserDocForTenantMembership } from '@/access/tenant-scoped'
+import {
+  getUserTenantIds,
+  loadUserDocForTenantMembership,
+  getElevatedTenantIdsFromTenantRoles,
+} from '@/access/tenant-scoped'
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
 import { getPlatformHostname } from '@/utilities/getURL'
@@ -104,22 +108,28 @@ async function resolveRequestedTenantId(args: {
 async function resolveTenantIdsForUser(args: {
   payload: Awaited<ReturnType<typeof getPayload>>
   user: SharedUser
-}): Promise<number[] | null> {
+}): Promise<{ tenantIds: number[] | null; fullUser: unknown }> {
   const { payload, user } = args
   const direct = getUserTenantIds(user)
-  if (direct === null) return null // admin: all tenants
-  if (direct.length > 0) return direct
+  if (direct === null) return { tenantIds: null, fullUser: user } // super-admin: all tenants
 
-  // Session/JWT user may omit relationships like `tenants`. Fetch full user doc and retry.
+  // Always load the full user doc to get tenantRoles populated.
   const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
   const id =
     typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' && /^\d+$/.test(idRaw) ? parseInt(idRaw, 10) : NaN
-  if (!Number.isFinite(id)) return direct
 
-  const fullUser = await loadUserDocForTenantMembership(payload, id)
+  const fullUser = Number.isFinite(id) ? await loadUserDocForTenantMembership(payload, id) : null
 
+  // Primary: use tenantRoles when populated (per-tenant model).
+  const fromTenantRoles = fullUser ? getElevatedTenantIdsFromTenantRoles(fullUser) : []
+  if (fromTenantRoles.length > 0) {
+    return { tenantIds: fromTenantRoles, fullUser }
+  }
+
+  // Fallback: global role + tenants membership (pre-migration window).
+  if (direct.length > 0) return { tenantIds: direct, fullUser }
   const fromDb = fullUser ? getUserTenantIds(fullUser as unknown as SharedUser) : direct
-  return fromDb === null ? null : fromDb
+  return { tenantIds: fromDb === null ? null : fromDb, fullUser }
 }
 
 /**
@@ -134,8 +144,22 @@ async function resolveTenantIdsForUser(args: {
  *   from loading the admin UI on a tenant they don't have access to.
  */
 export async function GET(request: NextRequest) {
-  const payload = await getPayload()
-  const { user } = await payload.auth({ headers: request.headers })
+  let payload: Awaited<ReturnType<typeof getPayload>>
+  try {
+    payload = await getPayload()
+  } catch {
+    // Payload initialisation failed (e.g. DB unavailable). Return 500 so middleware
+    // knows this is an error and does not redirect /admin/login → /admin.
+    return NextResponse.json({ error: 'Service unavailable' }, { status: 500 })
+  }
+
+  let authResult: Awaited<ReturnType<typeof payload.auth>>
+  try {
+    authResult = await payload.auth({ headers: request.headers })
+  } catch {
+    return NextResponse.json({ error: 'Auth check failed' }, { status: 500 })
+  }
+  const { user } = authResult
 
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -146,8 +170,14 @@ export async function GET(request: NextRequest) {
     return new NextResponse(null, { status: 204 })
   }
 
-  const isTenantPortalUser = checkRole(['admin', 'staff', 'location-manager'], sharedUser)
-  if (!isTenantPortalUser) {
+  // A user is a tenant portal user if they have a global elevated role OR
+  // any elevated role in the per-tenant tenantRoles array (post-migration).
+  const { tenantIds: allowedTenantIds, fullUser } = await resolveTenantIdsForUser({ payload, user: sharedUser })
+
+  const hasGlobalElevatedRole = checkRole(['admin', 'staff', 'location-manager'], sharedUser)
+  const hasTenantRoleElevation = fullUser ? getElevatedTenantIdsFromTenantRoles(fullUser).length > 0 : false
+
+  if (!hasGlobalElevatedRole && !hasTenantRoleElevation) {
     // Non-admin users should not be in the Payload admin UI at all.
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
@@ -160,9 +190,8 @@ export async function GET(request: NextRequest) {
     return new NextResponse(null, { status: 204 })
   }
 
-  const allowedTenantIds = await resolveTenantIdsForUser({ payload, user: sharedUser })
   if (allowedTenantIds === null) {
-    // Shouldn't happen for tenant-admin, but keep semantics: null = all tenants
+    // Shouldn't happen for non-super-admin, but keep semantics: null = all tenants
     return new NextResponse(null, { status: 204 })
   }
 

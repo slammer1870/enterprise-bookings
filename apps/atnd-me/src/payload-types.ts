@@ -700,6 +700,19 @@ export interface User {
    */
   locations?: (number | Location)[] | null;
   /**
+   * Role assignments per tenant. Automatically maintained — edit with care.
+   */
+  tenantRoles?:
+    | {
+        /**
+         * The tenant this role applies to.
+         */
+        tenant: number | Tenant;
+        roles: ('admin' | 'staff' | 'location-manager' | 'user')[];
+        id?: string | null;
+      }[]
+    | null;
+  /**
    * Users chosen display name
    */
   name: string;
@@ -5299,6 +5312,13 @@ export interface VerificationsSelect<T extends boolean = true> {
 export interface UsersSelect<T extends boolean = true> {
   registrationTenant?: T;
   locations?: T;
+  tenantRoles?:
+    | T
+    | {
+        tenant?: T;
+        roles?: T;
+        id?: T;
+      };
   name?: T;
   emailVerified?: T;
   image?: T;

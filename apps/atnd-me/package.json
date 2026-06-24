@@ -30,7 +30,8 @@
     "test:unit": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.unit.config.mts",
     "db:fix-users-role": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec tsx scripts/fix-users-role-tenant-admin.ts",
     "seed": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec tsx scripts/seed.ts",
-    "ci": "pnpm run payload migrate:fresh --force-accept-warning && sleep 2 && pnpm run build"
+    "ci": "pnpm run payload migrate:fresh --force-accept-warning && sleep 2 && pnpm run build",
+    "db:audit-escalated-privileges": "cross-env NODE_OPTIONS=--no-deprecation pnpm exec tsx scripts/audit-escalated-privileges.ts"
   },
   "dependencies": {
     "@date-fns/tz": "^1.4.1",

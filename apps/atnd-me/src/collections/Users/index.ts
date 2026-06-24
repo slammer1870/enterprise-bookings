@@ -3,7 +3,12 @@ import { checkRole, getEffectiveUserRoles } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
 import { authenticated } from '../../access/authenticated'
-import { getTenantMembershipIdsFromUserDoc, getUserTenantIds } from '../../access/tenant-scoped'
+import {
+  getTenantMembershipIdsFromUserDoc,
+  getUserTenantIds,
+  loadUserDocForTenantMembership,
+  resolveTenantAdminTenantIds,
+} from '../../access/tenant-scoped'
 import { userSensitiveFieldReadForStaffRoster } from '../../access/staffRosterUserFieldAccess'
 import {
   userTenantRead,
@@ -99,7 +104,11 @@ export const Users: CollectionConfig = {
         return data
       },
       // Prevent non–super-admins from granting super-admin. Tenant org admins may assign `user`, `admin`, `staff`, and `location-manager` only.
-      ({ data, req, originalDoc, operation }) => {
+      // Also prevents cross-tenant privilege escalation: a tenant admin cannot grant elevated roles
+      // (admin / location-manager) to users whose tenant memberships extend beyond the granting
+      // admin's own tenants. Without this guard, Tenant A's admin could promote a user registered
+      // at Tenant B, which would give that user Tenant B admin panel access.
+      async ({ data, req, originalDoc, operation }) => {
         if (!data) return data
         if (req.user && isAdmin(req.user)) return data
         const d = data as { role?: string | string[] }
@@ -128,12 +137,137 @@ export const Users: CollectionConfig = {
         }
 
         const TENANT_ASSIGNABLE_ROLES = new Set(['user', 'admin', 'staff', 'location-manager'])
+        // Roles that grant Payload admin panel access – elevating a cross-tenant user to these
+        // would give them admin access to a tenant the granting admin does not control.
+        const CROSS_TENANT_BLOCKED_ROLES = new Set(['admin', 'location-manager'])
 
         if (req.user && isTenantAdmin(req.user) && d.role !== undefined) {
           const desiredRaw = Array.isArray(d.role) ? d.role : [d.role]
           const desired = desiredRaw.filter((r): r is string => typeof r === 'string' && r.length > 0)
-          const allowedOnly = [...new Set(desired.filter((r) => TENANT_ASSIGNABLE_ROLES.has(r)))]
+          let allowedOnly = [...new Set(desired.filter((r) => TENANT_ASSIGNABLE_ROLES.has(r)))]
+
+          // Cross-tenant escalation guard: if assigning an elevated role, ensure all of the
+          // target user's tenant memberships fall within the granting admin's own tenants.
+          const isGrantingElevatedRole = allowedOnly.some((r) => CROSS_TENANT_BLOCKED_ROLES.has(r))
+          if (isGrantingElevatedRole) {
+            const grantingAdminTenantIds = await resolveTenantAdminTenantIds({
+              user: req.user,
+              payload: req.payload,
+              context: req.context as Record<string, unknown> | undefined,
+            })
+
+            if (grantingAdminTenantIds.length > 0) {
+              let targetMemberships: number[] = []
+
+              if (operation === 'update' && originalDoc) {
+                // Load the full user doc so tenants join-table fields are populated
+                // (originalDoc is fetched at depth 0 and may omit relationship arrays).
+                const targetIdRaw = (originalDoc as { id?: unknown }).id
+                const targetId =
+                  typeof targetIdRaw === 'number'
+                    ? targetIdRaw
+                    : typeof targetIdRaw === 'string' && /^\d+$/.test(targetIdRaw)
+                      ? parseInt(targetIdRaw, 10)
+                      : null
+
+                if (targetId != null) {
+                  const fullDoc = await loadUserDocForTenantMembership(req.payload, targetId)
+                  targetMemberships = getTenantMembershipIdsFromUserDoc(fullDoc ?? originalDoc)
+                } else {
+                  targetMemberships = getTenantMembershipIdsFromUserDoc(originalDoc)
+                }
+              } else if (operation === 'create') {
+                // On creates, check the registrationTenant being set in this request.
+                // The first beforeChange hook already set data.registrationTenant from the
+                // admin's context, but an admin could have overridden it explicitly.
+                const regRaw = (data as { registrationTenant?: unknown }).registrationTenant
+                const regId =
+                  typeof regRaw === 'number'
+                    ? regRaw
+                    : typeof regRaw === 'object' && regRaw !== null && 'id' in regRaw
+                      ? (regRaw as { id: number }).id
+                      : typeof regRaw === 'string' && /^\d+$/.test(regRaw)
+                        ? parseInt(regRaw, 10)
+                        : null
+                if (regId != null) targetMemberships = [regId]
+              }
+
+              const hasExternalMembership = targetMemberships.some(
+                (tid) => !grantingAdminTenantIds.includes(tid),
+              )
+              if (hasExternalMembership) {
+                allowedOnly = allowedOnly.filter((r) => !CROSS_TENANT_BLOCKED_ROLES.has(r))
+              }
+            }
+          }
+
           d.role = allowedOnly.length > 0 ? allowedOnly : ['user']
+
+          // Maintain tenantRoles in parallel with the global role field.
+          // This keeps the per-tenant roles structure in sync whenever a tenant admin assigns
+          // a role via the admin UI or API.
+          const finalRoles = Array.isArray(d.role) ? (d.role as string[]) : ([d.role].filter(Boolean) as string[])
+          const tenantScopedRoles = finalRoles.filter((r) => TENANT_ASSIGNABLE_ROLES.has(r))
+
+          const grantingIds = await resolveTenantAdminTenantIds({
+            user: req.user,
+            payload: req.payload,
+            context: req.context as Record<string, unknown> | undefined,
+          })
+
+          if (grantingIds.length > 0) {
+            // Load current tenantRoles from the DB doc (originalDoc may be depth-0).
+            let currentTenantRoles: Array<{ tenant: number; roles: string[] }> = []
+            const targetIdRaw = (originalDoc as { id?: unknown } | undefined)?.id
+            const targetId =
+              typeof targetIdRaw === 'number'
+                ? targetIdRaw
+                : typeof targetIdRaw === 'string' && /^\d+$/.test(targetIdRaw)
+                  ? parseInt(targetIdRaw, 10)
+                  : null
+
+            if (targetId != null) {
+              const fullDoc = await loadUserDocForTenantMembership(req.payload, targetId)
+              if (fullDoc) {
+                const raw = (fullDoc as Record<string, unknown>).tenantRoles
+                if (Array.isArray(raw)) {
+                  currentTenantRoles = raw
+                    .map((entry) => {
+                      if (!entry || typeof entry !== 'object') return null
+                      const e = entry as Record<string, unknown>
+                      const tenantRaw = e.tenant
+                      const tenantId =
+                        typeof tenantRaw === 'number'
+                          ? tenantRaw
+                          : typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw
+                            ? (tenantRaw as { id: number }).id
+                            : typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)
+                              ? parseInt(tenantRaw, 10)
+                              : null
+                      if (tenantId == null) return null
+                      const roles = Array.isArray(e.roles)
+                        ? (e.roles.filter((r) => typeof r === 'string') as string[])
+                        : []
+                      return { tenant: tenantId, roles }
+                    })
+                    .filter((e): e is { tenant: number; roles: string[] } => e !== null)
+                }
+              }
+            }
+
+            // Upsert: for each of the granting admin's tenants, set the roles to the final value.
+            const updated = [...currentTenantRoles]
+            for (const tid of grantingIds) {
+              const existingIdx = updated.findIndex((e) => e.tenant === tid)
+              const entry = { tenant: tid, roles: tenantScopedRoles.length > 0 ? tenantScopedRoles : ['user'] }
+              if (existingIdx >= 0) {
+                updated[existingIdx] = entry
+              } else {
+                updated.push(entry)
+              }
+            }
+            ;(data as Record<string, unknown>).tenantRoles = updated
+          }
         }
 
         // Only enforce super-admin add/remove rules on updates. On creates, stripping here removed
@@ -222,6 +356,55 @@ export const Users: CollectionConfig = {
         if (!tenantIds.length) return false
         return { tenant: { in: tenantIds } }
       },
+    },
+    // Per-tenant role assignments. This is the authoritative source for "what role does this
+    // user have at a specific tenant?" and replaces the blunt global `role` field for all
+    // non-super-admin purposes. Maintained automatically by the role-assignment beforeChange hook.
+    //
+    // During the migration window this field may be empty, in which case access control falls
+    // back to the global `role` + `tenants` membership (existing behaviour). After the
+    // db:migrate-to-tenant-roles script is run in production the fallback is never hit.
+    {
+      name: 'tenantRoles',
+      type: 'array',
+      label: 'Per-tenant roles',
+      admin: {
+        description:
+          'Role assignments per tenant. Automatically maintained — edit with care.',
+        position: 'sidebar',
+      },
+      access: {
+        read: ({ req: { user } }) => {
+          if (!user) return false
+          return isAdmin(user) || isTenantAdmin(user)
+        },
+        update: ({ req: { user } }) => {
+          if (!user) return false
+          return isAdmin(user) || isTenantAdmin(user)
+        },
+      },
+      fields: [
+        {
+          name: 'tenant',
+          type: 'relationship',
+          relationTo: 'tenants',
+          required: true,
+          admin: { description: 'The tenant this role applies to.' },
+        },
+        {
+          name: 'roles',
+          type: 'select',
+          hasMany: true,
+          required: true,
+          defaultValue: ['user'],
+          options: [
+            { label: 'Admin', value: 'admin' },
+            { label: 'Staff', value: 'staff' },
+            { label: 'Location Manager', value: 'location-manager' },
+            { label: 'User', value: 'user' },
+          ],
+        },
+      ],
     },
     // Note: 'tenants' field is automatically added by @payloadcms/plugin-multi-tenant
     // This field tracks which tenants the user has access to (for tenant-admins or cross-tenant users)
