@@ -526,5 +526,51 @@ describe('Middleware', () => {
       expect(res.status).toBe(307)
       expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
     })
+
+    it('does not redirect /admin/login to /admin when authorize-tenant returns 5xx (prevents loop)', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(JSON.stringify({ error: 'Internal Server Error' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://atnd-me.com/admin/login', {
+        headers: { host: 'atnd-me.com' },
+      })
+
+      const res = await middleware(req)
+      // Must not redirect to /admin — that would loop with Payload's own login redirect.
+      expect(res.headers.get('location')).toBeNull()
+    })
+
+    it('does not redirect /admin/login to /admin when Referer is /admin (breaks bounce loop)', async () => {
+      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+        if (String(url).includes('/api/admin/authorize-tenant')) {
+          return new Response(null, { status: 204 }) as Response
+        }
+
+        return new Response(null, { status: 404 })
+      }
+
+      const req = new NextRequest('http://atnd-me.com/admin/login', {
+        headers: {
+          host: 'atnd-me.com',
+          referer: 'http://atnd-me.com/admin',
+        },
+      })
+
+      const res = await middleware(req)
+      // Referer is /admin — we already bounced once. Must not redirect again.
+      expect(res.headers.get('location')).toBeNull()
+    })
   })
 })

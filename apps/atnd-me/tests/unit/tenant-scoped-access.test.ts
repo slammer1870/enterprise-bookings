@@ -24,7 +24,14 @@ function createTenantAdminReq(cookieValues: Record<string, string | undefined> =
       role: ['admin'],
       tenants: [1, 2],
     },
-    payload: {},
+    payload: {
+      findByID: async () => ({
+        id: 99,
+        role: ['admin'],
+        tenants: [{ tenant: 1 }, { tenant: 2 }],
+        tenantRoles: [],
+      }),
+    },
     cookies: createCookies(cookieValues),
     headers: new Headers(),
     context: {},
