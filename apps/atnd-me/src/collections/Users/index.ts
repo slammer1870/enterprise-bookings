@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload'
 import { checkRole, getEffectiveUserRoles } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
+import { tenantsArrayField } from '@payloadcms/plugin-multi-tenant/fields'
 
 import { authenticated } from '../../access/authenticated'
 import {
@@ -20,9 +21,60 @@ import {
 } from '../../access/userTenantAccess'
 
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
+import {
+  filterTenantsForTenantAdmin,
+  mergeTenantEntriesForAdmin,
+  deriveRoleFromTenants,
+  type TenantEntry,
+} from './tenantHookHelpers'
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { cookiesFromHeaders } from '@/utilities/cookiesFromHeaders'
 import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForDocumentWrite'
+
+/**
+ * Consolidated tenants membership field: replaces the separate `tenantRoles` array.
+ * Each entry captures both tenant membership AND per-tenant role assignments in one place.
+ * The `roles` rowField is the authoritative source for per-tenant access decisions.
+ */
+const tenantsMembershipField = {
+  ...tenantsArrayField({
+    tenantsArrayFieldName: 'tenants',
+    tenantsArrayTenantFieldName: 'tenant',
+    tenantsCollectionSlug: 'tenants',
+    rowFields: [
+      {
+        name: 'roles',
+        type: 'select',
+        hasMany: true,
+        required: true,
+        defaultValue: ['user'],
+        options: [
+          { label: 'Admin', value: 'admin' },
+          { label: 'Staff', value: 'staff' },
+          { label: 'Location Manager', value: 'location-manager' },
+          { label: 'User', value: 'user' },
+        ],
+        access: {
+          // Role values within the tenants array: super-admins and tenant-admins may set.
+          // The beforeChange write guard is the authoritative enforcement; this is a UX guard.
+          update: ({ req }: { req: { user?: unknown } }) =>
+            !req.user || isAdmin(req.user) || isTenantAdmin(req.user),
+        },
+      },
+    ],
+    arrayFieldAccess: {
+      read: ({ req: { user } }: { req: { user?: unknown } }) => {
+        if (!user) return false
+        return isAdmin(user) || isTenantAdmin(user)
+      },
+      update: ({ req: { user } }: { req: { user?: unknown } }) => {
+        if (!user) return false
+        return isAdmin(user) || isTenantAdmin(user)
+      },
+    },
+  }),
+  admin: { position: 'sidebar' as const },
+}
 
 const FIRST_USER_CREATE_CTX = '__atndFirstUserCreate' as const
 
@@ -41,6 +93,30 @@ export const Users: CollectionConfig = {
     update: userTenantUpdate,
   },
   hooks: {
+    afterRead: [
+      // Filter tenants[] and registrationTenant to only entries the requesting user controls.
+      // Prevents tenant admins from seeing cross-tenant membership rows when viewing a shared user.
+      // Super-admins and system reads are unaffected.
+      async ({ doc, req }) => {
+        if (!req.user) return doc
+        if (isAdmin(req.user)) return doc // super-admin: see everything
+
+        if (!isTenantAdmin(req.user)) return doc // only applies to tenant admins
+
+        const adminTenantIds = await resolveTenantAdminTenantIds({
+          user: req.user,
+          payload: req.payload,
+          context: req.context as Record<string, unknown> | undefined,
+        })
+
+        if (adminTenantIds.length === 0) return doc
+
+        return filterTenantsForTenantAdmin({
+          doc: doc as Record<string, unknown>,
+          adminTenantIds,
+        })
+      },
+    ],
     beforeChange: [
       // Must run in beforeChange (not beforeValidate): payload-auth's Better Auth merge replaces
       // `hooks` and drops `beforeValidate`. Better Auth user creates also omit `req` on `payload.create`
@@ -202,22 +278,19 @@ export const Users: CollectionConfig = {
           }
 
           d.role = allowedOnly.length > 0 ? allowedOnly : ['user']
+        }
 
-          // Maintain tenantRoles in parallel with the global role field.
-          // This keeps the per-tenant roles structure in sync whenever a tenant admin assigns
-          // a role via the admin UI or API.
-          const finalRoles = Array.isArray(d.role) ? (d.role as string[]) : ([d.role].filter(Boolean) as string[])
-          const tenantScopedRoles = finalRoles.filter((r) => TENANT_ASSIGNABLE_ROLES.has(r))
-
-          const grantingIds = await resolveTenantAdminTenantIds({
+        // Tenants write guard: tenant admins can only modify their own tenant entries.
+        // Foreign entries are preserved from DB; injected foreign entries are stripped.
+        if (req.user && isTenantAdmin(req.user) && !isAdmin(req.user) &&
+            (data as Record<string, unknown>).tenants !== undefined) {
+          const grantingAdminTenantIds = await resolveTenantAdminTenantIds({
             user: req.user,
             payload: req.payload,
             context: req.context as Record<string, unknown> | undefined,
           })
 
-          if (grantingIds.length > 0) {
-            // Load current tenantRoles from the DB doc (originalDoc may be depth-0).
-            let currentTenantRoles: Array<{ tenant: number; roles: string[] }> = []
+          if (grantingAdminTenantIds.length > 0) {
             const targetIdRaw = (originalDoc as { id?: unknown } | undefined)?.id
             const targetId =
               typeof targetIdRaw === 'number'
@@ -226,47 +299,42 @@ export const Users: CollectionConfig = {
                   ? parseInt(targetIdRaw, 10)
                   : null
 
+            let dbTenants: TenantEntry[] = []
             if (targetId != null) {
               const fullDoc = await loadUserDocForTenantMembership(req.payload, targetId)
               if (fullDoc) {
-                const raw = (fullDoc as Record<string, unknown>).tenantRoles
-                if (Array.isArray(raw)) {
-                  currentTenantRoles = raw
-                    .map((entry) => {
-                      if (!entry || typeof entry !== 'object') return null
-                      const e = entry as Record<string, unknown>
-                      const tenantRaw = e.tenant
-                      const tenantId =
-                        typeof tenantRaw === 'number'
-                          ? tenantRaw
-                          : typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw
-                            ? (tenantRaw as { id: number }).id
-                            : typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)
-                              ? parseInt(tenantRaw, 10)
-                              : null
-                      if (tenantId == null) return null
-                      const roles = Array.isArray(e.roles)
-                        ? (e.roles.filter((r) => typeof r === 'string') as string[])
-                        : []
-                      return { tenant: tenantId, roles }
-                    })
-                    .filter((e): e is { tenant: number; roles: string[] } => e !== null)
-                }
+                const raw = (fullDoc as Record<string, unknown>).tenants
+                if (Array.isArray(raw)) dbTenants = raw as TenantEntry[]
               }
             }
 
-            // Upsert: for each of the granting admin's tenants, set the roles to the final value.
-            const updated = [...currentTenantRoles]
-            for (const tid of grantingIds) {
-              const existingIdx = updated.findIndex((e) => e.tenant === tid)
-              const entry = { tenant: tid, roles: tenantScopedRoles.length > 0 ? tenantScopedRoles : ['user'] }
-              if (existingIdx >= 0) {
-                updated[existingIdx] = entry
-              } else {
-                updated.push(entry)
-              }
+            const incoming = (data as Record<string, unknown>).tenants as TenantEntry[]
+            ;(data as Record<string, unknown>).tenants = mergeTenantEntriesForAdmin({
+              incoming: Array.isArray(incoming) ? incoming : [],
+              adminTenantIds: grantingAdminTenantIds,
+              dbTenants,
+            })
+          }
+        }
+
+        // Derive the canonical global role from tenants[n].roles (JWT fast-path sync).
+        // After the tenants write guard above, data.tenants reflects the final merged state.
+        // We re-derive data.role from it so the JWT stays accurate without an extra DB call.
+        // super-admin users are excluded — their global role is never in per-tenant entries.
+        //
+        // Only runs for authenticated HTTP API requests (req.user present). Local API operations
+        // with overrideAccess:true (seeds, test setup, admin tooling) set req.user=null and must
+        // not inadvertently downgrade a user's global role when tenant entries lack explicit roles.
+        const finalTenants = (data as Record<string, unknown>).tenants
+        if (req.user && Array.isArray(finalTenants) && finalTenants.length > 0) {
+          const existingRoles = operation === 'update'
+            ? getEffectiveUserRoles(originalDoc as SharedUser)
+            : (Array.isArray(d.role) ? d.role : d.role ? [d.role] : []) as string[]
+          if (!existingRoles.includes('super-admin')) {
+            const derived = deriveRoleFromTenants(finalTenants as TenantEntry[], existingRoles)
+            if (d.role === undefined || !existingRoles.includes('super-admin')) {
+              d.role = derived as typeof d.role
             }
-            ;(data as Record<string, unknown>).tenantRoles = updated
           }
         }
 
@@ -357,57 +425,11 @@ export const Users: CollectionConfig = {
         return { tenant: { in: tenantIds } }
       },
     },
-    // Per-tenant role assignments. This is the authoritative source for "what role does this
-    // user have at a specific tenant?" and replaces the blunt global `role` field for all
-    // non-super-admin purposes. Maintained automatically by the role-assignment beforeChange hook.
-    //
-    // During the migration window this field may be empty, in which case access control falls
-    // back to the global `role` + `tenants` membership (existing behaviour). After the
-    // db:migrate-to-tenant-roles script is run in production the fallback is never hit.
-    {
-      name: 'tenantRoles',
-      type: 'array',
-      label: 'Per-tenant roles',
-      admin: {
-        description:
-          'Role assignments per tenant. Automatically maintained — edit with care.',
-        position: 'sidebar',
-      },
-      access: {
-        read: ({ req: { user } }) => {
-          if (!user) return false
-          return isAdmin(user) || isTenantAdmin(user)
-        },
-        update: ({ req: { user } }) => {
-          if (!user) return false
-          return isAdmin(user) || isTenantAdmin(user)
-        },
-      },
-      fields: [
-        {
-          name: 'tenant',
-          type: 'relationship',
-          relationTo: 'tenants',
-          required: true,
-          admin: { description: 'The tenant this role applies to.' },
-        },
-        {
-          name: 'roles',
-          type: 'select',
-          hasMany: true,
-          required: true,
-          defaultValue: ['user'],
-          options: [
-            { label: 'Admin', value: 'admin' },
-            { label: 'Staff', value: 'staff' },
-            { label: 'Location Manager', value: 'location-manager' },
-            { label: 'User', value: 'user' },
-          ],
-        },
-      ],
-    },
-    // Note: 'tenants' field is automatically added by @payloadcms/plugin-multi-tenant
-    // This field tracks which tenants the user has access to (for tenant-admins or cross-tenant users)
+    // Consolidated tenants membership + per-tenant roles array.
+    // Replaces the now-removed standalone `tenantRoles` field.
+    // The multi-tenant plugin's auto-add is disabled (includeDefaultField: false in plugins/index.ts)
+    // so we place this field manually here with the `roles` rowField for full control.
+    tenantsMembershipField,
     {
       name: 'tenantStripeCustomerMapping',
       type: 'ui',

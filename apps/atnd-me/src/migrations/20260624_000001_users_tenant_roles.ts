@@ -1,104 +1,75 @@
 import { MigrateDownArgs, MigrateUpArgs, sql } from '@payloadcms/db-postgres'
 
 /**
- * Schema + data migration for per-tenant role assignments.
+ * Schema + data migration for the consolidated tenants[n].roles structure.
  *
  * Schema changes
  * --------------
- * Creates the `users_tenant_roles` array table and the `users_tenant_roles_roles` hasMany-select
- * join table, matching the shape Payload generates for the `tenantRoles` field on the Users
- * collection.
+ * Creates `users_tenants_roles` — a hasMany-select join table that stores per-tenant role
+ * assignments as rows keyed to `users_tenants.id`. This replaces the now-removed
+ * `tenantRoles` / `users_tenant_roles` approach where roles lived in a separate array.
  *
  * Data migration (runs immediately after the schema is created)
  * -------------------------------------------------------------
- * For every non-super-admin user whose `tenantRoles` is still empty:
+ * For every non-super-admin user, for each `users_tenants` membership row:
  *   1. Reads their current global `role` values from `users_role`.
- *   2. Reads their tenant memberships from `users_tenants` (with `registration_tenant_id` fallback).
- *   3. Inserts one `users_tenant_roles` row per tenant membership and one `users_tenant_roles_roles`
- *      row per assignable role (admin / staff / location-manager / user).
+ *   2. Copies assignable roles (admin / staff / location-manager / user) into
+ *      `users_tenants_roles` rows keyed to the corresponding `users_tenants.id`.
+ *   3. Falls back to `registration_tenant_id` when no explicit `users_tenants` rows exist.
+ *   4. Defaults to `user` when no assignable role is found.
  *
- * This is fully idempotent — the INSERT … WHERE NOT EXISTS guard prevents duplicates.
+ * This is fully idempotent — the `WHERE NOT EXISTS` guard prevents duplicate rows on re-run.
+ *
+ * Backward compat
+ * ---------------
+ * The old `users_tenant_roles` / `users_tenant_roles_roles` tables (if they exist from a
+ * previous local migration run) are left in place and not dropped. They are no longer
+ * referenced by any code path after this migration.
  */
 export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
     -- ----------------------------------------------------------------
-    -- 1. Enum for tenantRoles.roles (subset of enum_users_role — no super-admin)
+    -- 1. Enum for per-tenant roles (subset of enum_users_role — no super-admin)
     -- ----------------------------------------------------------------
     DO $$ BEGIN
-      CREATE TYPE "public"."enum_users_tenant_roles_roles"
+      CREATE TYPE "public"."enum_users_tenants_roles"
         AS ENUM('admin', 'staff', 'location-manager', 'user');
     EXCEPTION
       WHEN duplicate_object THEN NULL;
     END $$;
 
     -- ----------------------------------------------------------------
-    -- 2. Array sub-document table: one row per (user, tenant) pair
+    -- 2. HasMany-select join table: one row per (users_tenants row, role value)
+    --    NOTE: hasMany-select tables use "order"/"parent_id" (no leading underscore).
     -- ----------------------------------------------------------------
-    CREATE TABLE IF NOT EXISTS "users_tenant_roles" (
-      "_order"     integer           NOT NULL,
-      "_parent_id" integer           NOT NULL,
-      "id"         character varying NOT NULL,
-      "tenant_id"  integer,
-      CONSTRAINT "users_tenant_roles_pkey" PRIMARY KEY ("id")
+    CREATE TABLE IF NOT EXISTS "users_tenants_roles" (
+      "order"      integer                               NOT NULL,
+      "parent_id"  character varying                     NOT NULL,
+      "id"         serial                                NOT NULL,
+      "value"      "public"."enum_users_tenants_roles",
+      CONSTRAINT "users_tenants_roles_pkey" PRIMARY KEY ("id")
     );
 
     DO $$ BEGIN
-      ALTER TABLE "users_tenant_roles"
-        ADD CONSTRAINT "users_tenant_roles_parent_id_fk"
-        FOREIGN KEY ("_parent_id") REFERENCES "public"."users"("id")
+      ALTER TABLE "users_tenants_roles"
+        ADD CONSTRAINT "users_tenants_roles_parent_fk"
+        FOREIGN KEY ("parent_id") REFERENCES "public"."users_tenants"("id")
         ON DELETE CASCADE ON UPDATE NO ACTION;
     EXCEPTION
       WHEN duplicate_object THEN NULL;
     END $$;
 
-    DO $$ BEGIN
-      ALTER TABLE "users_tenant_roles"
-        ADD CONSTRAINT "users_tenant_roles_tenant_id_tenants_id_fk"
-        FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id")
-        ON DELETE SET NULL ON UPDATE NO ACTION;
-    EXCEPTION
-      WHEN duplicate_object THEN NULL;
-    END $$;
-
-    CREATE INDEX IF NOT EXISTS "users_tenant_roles_order_idx"
-      ON "users_tenant_roles" ("_order");
-    CREATE INDEX IF NOT EXISTS "users_tenant_roles_parent_id_idx"
-      ON "users_tenant_roles" ("_parent_id");
-    CREATE INDEX IF NOT EXISTS "users_tenant_roles_tenant_idx"
-      ON "users_tenant_roles" ("tenant_id");
+    CREATE INDEX IF NOT EXISTS "users_tenants_roles_order_idx"
+      ON "users_tenants_roles" ("order");
+    CREATE INDEX IF NOT EXISTS "users_tenants_roles_parent_idx"
+      ON "users_tenants_roles" ("parent_id");
 
     -- ----------------------------------------------------------------
-    -- 3. HasMany-select join table: one row per (tenantRole row, role value)
-    --    NOTE: hasMany-select tables use "order"/"parent_id" (no leading underscore),
-    --    unlike array sub-document tables which use "_order"/"_parent_id".
-    -- ----------------------------------------------------------------
-    CREATE TABLE IF NOT EXISTS "users_tenant_roles_roles" (
-      "order"      integer                                    NOT NULL,
-      "parent_id"  character varying                         NOT NULL,
-      "id"         serial                                     NOT NULL,
-      "value"      "public"."enum_users_tenant_roles_roles",
-      CONSTRAINT "users_tenant_roles_roles_pkey" PRIMARY KEY ("id")
-    );
-
-    DO $$ BEGIN
-      ALTER TABLE "users_tenant_roles_roles"
-        ADD CONSTRAINT "users_tenant_roles_roles_parent_fk"
-        FOREIGN KEY ("parent_id") REFERENCES "public"."users_tenant_roles"("id")
-        ON DELETE CASCADE ON UPDATE NO ACTION;
-    EXCEPTION
-      WHEN duplicate_object THEN NULL;
-    END $$;
-
-    CREATE INDEX IF NOT EXISTS "users_tenant_roles_roles_order_idx"
-      ON "users_tenant_roles_roles" ("order");
-    CREATE INDEX IF NOT EXISTS "users_tenant_roles_roles_parent_idx"
-      ON "users_tenant_roles_roles" ("parent_id");
-
-    -- ----------------------------------------------------------------
-    -- 4. Backfill: populate tenantRoles from role + tenants/registrationTenant
-    --    Idempotent — skips users who already have rows in users_tenant_roles.
+    -- 3. Backfill: populate users_tenants_roles from role + tenants/registrationTenant
+    --    Idempotent — skips users_tenants rows that already have role entries.
     -- ----------------------------------------------------------------
     WITH
+
     -- All assignable role values per user, excluding super-admins entirely.
     user_assignable_roles AS (
       SELECT DISTINCT ur.parent_id AS user_id, ur.value AS role_value
@@ -110,72 +81,59 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
              )
     ),
 
-    -- Tenant memberships via the multi-tenant plugin join table.
-    explicit_memberships AS (
-      SELECT ut._parent_id AS user_id, ut.tenant_id
-      FROM   users_tenants ut
-      JOIN   user_assignable_roles uar ON uar.user_id = ut._parent_id
+    -- Ensure registration_tenant users have a users_tenants row.
+    -- INSERT ... ON CONFLICT DO NOTHING is safe because users_tenants has a unique constraint
+    -- on (_parent_id, tenant_id) in most Payload installs.
+    registration_fallback AS (
+      INSERT INTO users_tenants ("_order", "_parent_id", "id", "tenant_id")
+      SELECT
+        0,
+        u.id,
+        gen_random_uuid()::text,
+        u.registration_tenant_id
+      FROM users u
+      JOIN user_assignable_roles uar ON uar.user_id = u.id
+      WHERE u.registration_tenant_id IS NOT NULL
+        AND NOT EXISTS (
+              SELECT 1 FROM users_tenants ut2 WHERE ut2._parent_id = u.id
+            )
+      ON CONFLICT DO NOTHING
+      RETURNING "id", "_parent_id"
     ),
 
-    -- Fall back to registrationTenant when a user has no explicit tenants entry.
-    registration_memberships AS (
-      SELECT u.id AS user_id, u.registration_tenant_id AS tenant_id
-      FROM   users u
-      JOIN   user_assignable_roles uar ON uar.user_id = u.id
-      WHERE  u.registration_tenant_id IS NOT NULL
-        AND  NOT EXISTS (
-               SELECT 1 FROM users_tenants ut2 WHERE ut2._parent_id = u.id
+    -- All users_tenants rows that have no roles yet (covers both pre-existing and just-inserted).
+    memberships_without_roles AS (
+      SELECT ut.id AS tenants_row_id, ut._parent_id AS user_id
+      FROM   users_tenants ut
+      JOIN   user_assignable_roles uar ON uar.user_id = ut._parent_id
+      WHERE  NOT EXISTS (
+               SELECT 1 FROM users_tenants_roles r WHERE r.parent_id = ut.id
              )
     ),
 
-    -- Union of all memberships to process.
-    all_memberships AS (
-      SELECT user_id, tenant_id FROM explicit_memberships
-      UNION
-      SELECT user_id, tenant_id FROM registration_memberships
-    ),
-
-    -- Only process users who do not yet have any tenantRoles rows.
-    memberships_to_insert AS (
-      SELECT
-        am.user_id,
-        am.tenant_id,
-        -- _order: position within this user's tenantRoles array (0-based)
-        (ROW_NUMBER() OVER (PARTITION BY am.user_id ORDER BY am.tenant_id) - 1)::integer AS tenant_order
-      FROM all_memberships am
-      WHERE NOT EXISTS (
-        SELECT 1 FROM users_tenant_roles utr WHERE utr._parent_id = am.user_id
-      )
-    ),
-
-    -- Insert the array sub-document rows and capture their generated UUIDs.
-    inserted_rows AS (
-      INSERT INTO users_tenant_roles ("_order", "_parent_id", "id", "tenant_id")
-      SELECT tenant_order, user_id, gen_random_uuid()::text, tenant_id
-      FROM   memberships_to_insert
-      RETURNING "_parent_id", "id", "tenant_id"
-    ),
-
-    -- Pair each inserted row with the user's assignable roles.
+    -- Pair each membership row with the user's assignable roles.
     roles_to_insert AS (
       SELECT
-        ir."id"           AS parent_id,
-        uar.role_value,
-        (ROW_NUMBER() OVER (PARTITION BY ir."id" ORDER BY uar.role_value) - 1)::integer AS role_order
-      FROM   inserted_rows ir
-      JOIN   user_assignable_roles uar ON uar.user_id = ir."_parent_id"
+        mwr.tenants_row_id AS parent_id,
+        COALESCE(uar.role_value, 'user')::text AS role_value,
+        (ROW_NUMBER() OVER (PARTITION BY mwr.tenants_row_id ORDER BY uar.role_value NULLS LAST) - 1)::integer AS role_order
+      FROM   memberships_without_roles mwr
+      LEFT JOIN user_assignable_roles uar ON uar.user_id = mwr.user_id
     )
 
-    INSERT INTO users_tenant_roles_roles ("order", "parent_id", "value")
-    SELECT role_order, parent_id, role_value::text::"public"."enum_users_tenant_roles_roles"
+    INSERT INTO users_tenants_roles ("order", "parent_id", "value")
+    SELECT
+      role_order,
+      parent_id,
+      role_value::"public"."enum_users_tenants_roles"
     FROM   roles_to_insert;
   `)
 }
 
 export async function down({ db }: MigrateDownArgs): Promise<void> {
   await db.execute(sql`
-    DROP TABLE IF EXISTS "users_tenant_roles_roles";
-    DROP TABLE IF EXISTS "users_tenant_roles";
-    DROP TYPE  IF EXISTS "public"."enum_users_tenant_roles_roles";
+    DROP TABLE  IF EXISTS "users_tenants_roles";
+    DROP TYPE   IF EXISTS "public"."enum_users_tenants_roles";
+    -- users_tenants itself is never touched — memberships survive a rollback
   `)
 }

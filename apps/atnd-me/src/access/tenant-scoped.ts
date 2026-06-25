@@ -27,78 +27,74 @@ import {
 // Per-tenant role helpers
 // ---------------------------------------------------------------------------
 
+/** Coerce a raw tenant field value to a numeric ID. */
+function coerceTenantId(tenantRaw: unknown): number | null {
+  if (typeof tenantRaw === 'number' && Number.isFinite(tenantRaw)) return tenantRaw
+  if (typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw) {
+    const id = (tenantRaw as { id: unknown }).id
+    return typeof id === 'number' && Number.isFinite(id)
+      ? id
+      : typeof id === 'string' && /^\d+$/.test(id)
+        ? parseInt(id, 10)
+        : null
+  }
+  if (typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)) return parseInt(tenantRaw, 10)
+  return null
+}
+
 /**
- * Returns the tenant IDs where the user document has at least one of the
- * specified `elevatedRoles` in the `tenantRoles` array.
+ * Returns the tenant IDs from `user.tenants[n]` where the entry has at least one
+ * of the specified roles (or all tenant IDs when no role filter is given).
  *
- * Returns an empty array when `tenantRoles` is absent or empty (migration window —
- * callers should fall back to the global `role` + `tenants` approach in that case).
+ * This reads from the consolidated `tenants[n].roles` structure introduced in the
+ * schema consolidation migration — the successor to `getElevatedTenantIdsFromTenantRoles`.
  */
-export function getElevatedTenantIdsFromTenantRoles(
+export function getUserTenantIDs(
   user: unknown,
-  elevatedRoles: string[] = ['admin', 'staff', 'location-manager'],
+  role?: string | string[],
 ): number[] {
   if (!user || typeof user !== 'object') return []
-  const tenantRoles = (user as Record<string, unknown>).tenantRoles
-  if (!Array.isArray(tenantRoles) || tenantRoles.length === 0) return []
+  const tenants = (user as Record<string, unknown>).tenants
+  if (!Array.isArray(tenants) || tenants.length === 0) return []
 
-  const elevated = new Set(elevatedRoles)
+  const roleFilter = role
+    ? new Set(Array.isArray(role) ? role : [role])
+    : null
+
   const ids: number[] = []
 
-  for (const entry of tenantRoles) {
+  for (const entry of tenants) {
     if (!entry || typeof entry !== 'object') continue
     const e = entry as Record<string, unknown>
-
-    const tenantRaw = e.tenant
-    const tenantId =
-      typeof tenantRaw === 'number' && Number.isFinite(tenantRaw)
-        ? tenantRaw
-        : typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw
-          ? (() => {
-              const id = (tenantRaw as { id: unknown }).id
-              return typeof id === 'number' && Number.isFinite(id) ? id : null
-            })()
-          : typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)
-            ? parseInt(tenantRaw, 10)
-            : null
-
+    const tenantId = coerceTenantId(e.tenant)
     if (tenantId == null) continue
 
-    const roles = Array.isArray(e.roles) ? (e.roles as unknown[]) : []
-    const hasElevated = roles.some((r) => typeof r === 'string' && elevated.has(r))
-    if (hasElevated) ids.push(tenantId)
+    if (roleFilter === null) {
+      ids.push(tenantId)
+    } else {
+      const roles = Array.isArray(e.roles) ? (e.roles as unknown[]) : []
+      if (roles.some((r) => typeof r === 'string' && roleFilter.has(r))) {
+        ids.push(tenantId)
+      }
+    }
   }
 
   return ids
 }
 
 /**
- * Returns the roles assigned to a user for a specific tenant from `tenantRoles`.
- * Returns `[]` if no entry exists for that tenant (not populated or user is a
- * plain member with no explicit role assignment).
+ * Returns the roles assigned to a user for a specific tenant from `tenants[n].roles`.
+ * Returns `[]` if no entry exists for that tenant.
  */
 export function getRolesForTenant(user: unknown, tenantId: number): string[] {
   if (!user || typeof user !== 'object') return []
-  const tenantRoles = (user as Record<string, unknown>).tenantRoles
-  if (!Array.isArray(tenantRoles)) return []
+  const tenants = (user as Record<string, unknown>).tenants
+  if (!Array.isArray(tenants)) return []
 
-  for (const entry of tenantRoles) {
+  for (const entry of tenants) {
     if (!entry || typeof entry !== 'object') continue
     const e = entry as Record<string, unknown>
-
-    const tenantRaw = e.tenant
-    const tid =
-      typeof tenantRaw === 'number' && Number.isFinite(tenantRaw)
-        ? tenantRaw
-        : typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw
-          ? (() => {
-              const id = (tenantRaw as { id: unknown }).id
-              return typeof id === 'number' && Number.isFinite(id) ? id : null
-            })()
-          : typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)
-            ? parseInt(tenantRaw, 10)
-            : null
-
+    const tid = coerceTenantId(e.tenant)
     if (tid === tenantId) {
       return Array.isArray(e.roles)
         ? (e.roles.filter((r) => typeof r === 'string') as string[])
@@ -107,6 +103,17 @@ export function getRolesForTenant(user: unknown, tenantId: number): string[] {
   }
 
   return []
+}
+
+/**
+ * @deprecated Use {@link getUserTenantIDs} instead.
+ * Kept for backward compatibility during the migration window.
+ */
+export function getElevatedTenantIdsFromTenantRoles(
+  user: unknown,
+  elevatedRoles: string[] = ['admin', 'staff', 'location-manager'],
+): number[] {
+  return getUserTenantIDs(user, elevatedRoles)
 }
 
 // ---------------------------------------------------------------------------
@@ -287,11 +294,10 @@ export async function resolveTenantAdminTenantIds(args: {
 
   const fullUser = await loadUserDocForTenantMembership(payload, id)
 
-  // Primary: if tenantRoles is populated, derive admin-scope from it rather than the global role.
-  // This is the authoritative per-tenant model. The fallback (global role + tenants) is only
-  // used during the migration window before db:migrate-to-tenant-roles has been run.
+  // Primary: derive elevated-tenant scope from the consolidated tenants[n].roles structure.
+  // After the schema migration, roles live here rather than in the removed tenantRoles array.
   if (fullUser) {
-    const fromTenantRoles = getElevatedTenantIdsFromTenantRoles(fullUser)
+    const fromTenantRoles = getUserTenantIDs(fullUser, ['admin', 'staff', 'location-manager'])
     if (fromTenantRoles.length > 0) {
       return finish(fromTenantRoles)
     }

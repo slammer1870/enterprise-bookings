@@ -796,6 +796,9 @@ export const plugins: Plugin[] = [
     cleanupAfterTenantDelete: false,
     // Opt out of baseListFilter on users so tenant selector doesn't filter the list.
     useUsersTenantFilter: false,
+    // Do not auto-add the tenants array to users — we place it manually in the Users collection
+    // with a `roles` rowField so the consolidated tenants[n].roles structure is authoritative.
+    tenantsArrayField: { includeDefaultField: false },
     // Bypass the plugin's default users constraint (tenants.tenant in [...]) so tenant-admins
     // can see users who registered at their domain or have a booking there, not only themselves.
     usersAccessResultOverride: async ({ accessKey, accessResult, ...args }) => {
@@ -910,7 +913,7 @@ export const plugins: Plugin[] = [
     // (Pages create flow) to pick up the selected tenant automatically, while still
     // keeping "no tenant" (base pages) effectively admin-only via the UI.
     // With per-tenant roles, admin/staff users no longer have global access — they are
-    // scoped to their assigned tenants via tenantRoles. Only super-admin is truly global.
+    // scoped to their assigned tenants via tenants[n].roles. Only super-admin is truly global.
     userHasAccessToAllTenants: (user) =>
       checkRole(['super-admin'], user as SharedUser),
   }),

@@ -1,28 +1,28 @@
-/** Per-tenant role entry. Determines what a user can do within a specific tenant. */
-export interface UserTenantRole {
-  tenant: number | { id: number; [key: string]: unknown };
-  roles?: string[];
-  id?: string | number;
-}
-
 export interface User {
   id: number;
   name: string;
   email: string;
   /**
    * Better Auth / Payload Auth canonical RBAC field (select, hasMany).
-   * For non-super-admin users this field is gradually superseded by `tenantRoles`.
-   * The only globally meaningful value going forward is `super-admin`.
+   * For non-super-admin users this is a denormalized "highest role" summary derived from
+   * `tenants[n].roles` by the Users beforeChange hook. The only globally meaningful value
+   * going forward is `super-admin` — per-tenant precision lives in `tenants[n].roles`.
    */
   role?: string | string[];
   /** @deprecated Use `role`; kept for older docs/tests during migration. */
   roles?: string[];
   /**
-   * Per-tenant role assignments. Authoritative when populated; falls back to the
-   * global `role` field when empty (migration window). A user can have a different
-   * role at each tenant — e.g. admin at Tenant A, staff at Tenant B, user at Tenant C.
+   * Consolidated tenant memberships with per-tenant role assignments.
+   * Each entry captures both "this user belongs to this tenant" and
+   * "this user has these roles at this tenant" in one structure.
+   *
+   * Replaces the now-removed `tenantRoles` array.
    */
-  tenantRoles?: UserTenantRole[];
+  tenants?: Array<{
+    tenant: number | { id: number; [key: string]: unknown };
+    roles?: string[];
+    id?: string | number;
+  }>;
   stripeCustomerId?: string;
   image?: {
     url: string;

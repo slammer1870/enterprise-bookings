@@ -4,8 +4,8 @@ import { getPayload } from '@/lib/payload'
 import { findTenantByDomainNormalized, findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
 import {
   getUserTenantIds,
+  getUserTenantIDs,
   loadUserDocForTenantMembership,
-  getElevatedTenantIdsFromTenantRoles,
 } from '@/access/tenant-scoped'
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
@@ -113,15 +113,15 @@ async function resolveTenantIdsForUser(args: {
   const direct = getUserTenantIds(user)
   if (direct === null) return { tenantIds: null, fullUser: user } // super-admin: all tenants
 
-  // Always load the full user doc to get tenantRoles populated.
+  // Always load the full user doc to get tenants[n].roles populated.
   const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
   const id =
     typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' && /^\d+$/.test(idRaw) ? parseInt(idRaw, 10) : NaN
 
   const fullUser = Number.isFinite(id) ? await loadUserDocForTenantMembership(payload, id) : null
 
-  // Primary: use tenantRoles when populated (per-tenant model).
-  const fromTenantRoles = fullUser ? getElevatedTenantIdsFromTenantRoles(fullUser) : []
+  // Primary: use tenants[n].roles (consolidated per-tenant model).
+  const fromTenantRoles = fullUser ? getUserTenantIDs(fullUser, ['admin', 'staff', 'location-manager']) : []
   if (fromTenantRoles.length > 0) {
     return { tenantIds: fromTenantRoles, fullUser }
   }
@@ -171,11 +171,11 @@ export async function GET(request: NextRequest) {
   }
 
   // A user is a tenant portal user if they have a global elevated role OR
-  // any elevated role in the per-tenant tenantRoles array (post-migration).
+  // any elevated role in the per-tenant tenants[n].roles array.
   const { tenantIds: allowedTenantIds, fullUser } = await resolveTenantIdsForUser({ payload, user: sharedUser })
 
   const hasGlobalElevatedRole = checkRole(['admin', 'staff', 'location-manager'], sharedUser)
-  const hasTenantRoleElevation = fullUser ? getElevatedTenantIdsFromTenantRoles(fullUser).length > 0 : false
+  const hasTenantRoleElevation = fullUser ? getUserTenantIDs(fullUser, ['admin', 'staff', 'location-manager']).length > 0 : false
 
   if (!hasGlobalElevatedRole && !hasTenantRoleElevation) {
     // Non-admin users should not be in the Payload admin UI at all.

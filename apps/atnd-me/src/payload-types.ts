@@ -699,14 +699,8 @@ export interface User {
    * Branches this user manages (location manager). Org admins assign these; managers cannot self-assign.
    */
   locations?: (number | Location)[] | null;
-  /**
-   * Role assignments per tenant. Automatically maintained — edit with care.
-   */
-  tenantRoles?:
+  tenants?:
     | {
-        /**
-         * The tenant this role applies to.
-         */
         tenant: number | Tenant;
         roles: ('admin' | 'staff' | 'location-manager' | 'user')[];
         id?: string | null;
@@ -765,12 +759,6 @@ export interface User {
     hasNextPage?: boolean;
     totalDocs?: number;
   };
-  tenants?:
-    | {
-        tenant: number | Tenant;
-        id?: string | null;
-      }[]
-    | null;
   /**
    * The email of the user
    */
@@ -5312,7 +5300,7 @@ export interface VerificationsSelect<T extends boolean = true> {
 export interface UsersSelect<T extends boolean = true> {
   registrationTenant?: T;
   locations?: T;
-  tenantRoles?:
+  tenants?:
     | T
     | {
         tenant?: T;
@@ -5339,12 +5327,6 @@ export interface UsersSelect<T extends boolean = true> {
         id?: T;
       };
   userSubscription?: T;
-  tenants?:
-    | T
-    | {
-        tenant?: T;
-        id?: T;
-      };
   email?: T;
   resetPasswordToken?: T;
   resetPasswordExpiration?: T;

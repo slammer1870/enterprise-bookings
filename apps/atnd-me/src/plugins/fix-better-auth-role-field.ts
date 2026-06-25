@@ -1,6 +1,6 @@
 import type { CollectionConfig, Config, PayloadRequest, Plugin } from 'payload'
 
-import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
+import { isAdmin, isTenantAdmin } from '@/access/userTenantAccess'
 
 /**
  * Restrict Better Auth `role` so tenant portal users cannot escalate to super-admin
@@ -23,12 +23,13 @@ export const fixBetterAuthRoleField = (): Plugin => (incomingConfig: Config): Co
       const access = {
         // Local API / seeds / `overrideAccess` creates often have no session user. Without this,
         // `role` is stripped and the first-user bootstrap hook + integration tests cannot persist RBAC.
-        // Only platform super-admins and tenant org admins may set roles in the admin UI; staff cannot
-        // assign admin or super-admin. (Hooks enforce the same for API/local edge cases.)
+        // Only platform super-admins may set roles in the admin UI; tenant admins now manage roles
+        // exclusively via tenants[n].roles. (Hooks enforce the same for API/local edge cases.)
         create: ({ req }: { req: PayloadRequest }) =>
           !req.user || isAdmin(req.user) || isTenantAdmin(req.user),
-        read: ({ req }: { req: PayloadRequest }) =>
-          isAdmin(req.user) || isTenantAdmin(req.user) || isStaff(req.user),
+        // Restricted to super-admin only — tenant admins and staff see roles via tenants[n].roles.
+        // This prevents leaking the global role field to tenant admins in API responses.
+        read: ({ req }: { req: PayloadRequest }) => isAdmin(req.user),
         update: ({ req }: { req: PayloadRequest }) =>
           !req.user || isAdmin(req.user) || isTenantAdmin(req.user),
       }
