@@ -83,13 +83,21 @@ export const Tenants: CollectionConfig = {
   access: {
     admin: tenantOrgPayloadAdminAccess,
     read: (args) => {
-      const { req: { user } } = args
+      const { req: { user }, id } = args
       if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
         return true
       }
       if (user && checkRole(['admin'], user as unknown as SharedUser)) {
         const tenantIds = getUserTenantIds(user as unknown as SharedUser)
         if (tenantIds === null || tenantIds.length === 0) return false
+
+        // For findByID (id is present — e.g. relationship population when building
+        // the admin form for a user who belongs to multiple tenants): allow reading
+        // any tenant so Payload can resolve the relationship label without 403.
+        // Sensitive fields (Stripe keys, etc.) are still protected by field-level access.
+        // For find/list operations (id is absent), restrict to own tenants only.
+        if (id != null) return true
+
         return { id: { in: tenantIds } }
       }
       return true

@@ -17,9 +17,9 @@ const ROLE_OPTIONS: { label: string; value: string }[] = [
   { label: "User", value: "user" },
 ]
 
-function getTenantId(tenant: TenantEntry["tenant"]): number | string {
-  if (typeof tenant === "object" && tenant !== null && "id" in tenant) return tenant.id
-  return tenant
+function getTenantId(tenant: TenantEntry["tenant"]): string {
+  if (typeof tenant === "object" && tenant !== null && "id" in tenant) return String(tenant.id)
+  return String(tenant)
 }
 
 function getTenantName(tenant: TenantEntry["tenant"]): string {
@@ -30,41 +30,77 @@ function getTenantName(tenant: TenantEntry["tenant"]): string {
 }
 
 /**
- * Simplified admin UI component for the consolidated `tenants` array field.
+ * Custom admin UI for the consolidated `tenants` array field.
  *
- * - Super-admins see the full default Payload array editor (not this component).
- * - Tenant admins see a read-only list of their tenant memberships with editable roles.
- *   They cannot add/remove tenants — only adjust roles within their scope.
+ * Returned as `null` for super-admins (they fall back to Payload's default array editor,
+ * which is kept visible via the `admin.condition` on tenantsMembershipField).
  *
- * Wire this up as the `Field` component override for the `tenants` field in the Users collection
- * to replace the verbose raw array editor for non-super-admin portal users.
+ * For tenant admins:
+ *  - Shows only the tenants they control (derived from their own session `tenants` array).
+ *  - Prevents adding/removing tenants (role edits only).
+ *  - Strips foreign entries from the form value on mount so they are never submitted.
+ *
+ * Security layers (defence-in-depth):
+ *  1. Tenants collection read access allows findByID for admins → no 403 on form-state build.
+ *  2. Server-side `afterRead` hook on Users filters tenants to only the admin's own entries.
+ *  3. This component filters client-side as a backup (catches stale/cached form state).
+ *  4. Server-side `beforeValidate` hook strips any remaining foreign entries before validation.
+ *  5. Server-side `beforeChange` hook merges foreign entries back from DB after validation.
  */
 export function TenantMembershipField() {
   const { user } = useAuth()
-  const { id: docId } = useDocumentInfo()
+  const { id: _docId } = useDocumentInfo()
   const { value, setValue } = useField<TenantEntry[]>({ path: "tenants" })
 
   const isSuperAdmin = isAdmin(user)
   const isTenantAdminUser = isTenantAdmin(user)
 
-  // Only customise the UI for tenant admins. Super-admins get the default array editor.
+  // Derive the set of tenant IDs that the logged-in admin controls from their own session.
+  // The session user's `tenants` is already filtered server-side by the afterRead hook.
+  const adminTenantIdSet = React.useMemo((): Set<string> | null => {
+    if (isSuperAdmin || !isTenantAdminUser) return null
+    const sessionTenants = (user as unknown as { tenants?: TenantEntry[] } | null)?.tenants
+    if (!Array.isArray(sessionTenants) || sessionTenants.length === 0) return null
+    return new Set(sessionTenants.map((e) => getTenantId(e.tenant)))
+  }, [user, isSuperAdmin, isTenantAdminUser])
+
+  const entries = React.useMemo(() => (Array.isArray(value) ? value : []), [value])
+
+  // Filter to only entries the admin controls (backup for cases where afterRead didn't filter).
+  const visibleEntries = React.useMemo(() => {
+    if (!adminTenantIdSet) return entries
+    return entries.filter((e) => adminTenantIdSet.has(getTenantId(e.tenant)))
+  }, [entries, adminTenantIdSet])
+
+  // On mount: update the form value to only include own entries so they are not submitted.
+  // beforeChange will merge foreign entries back from the DB after the save.
+  React.useEffect(() => {
+    if (!adminTenantIdSet || entries.length === 0) return
+    const ownOnly = entries.filter((e) => adminTenantIdSet.has(getTenantId(e.tenant)))
+    if (ownOnly.length !== entries.length) {
+      setValue(ownOnly)
+    }
+    // Only run once when adminTenantIdSet is first ready; not on every role change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adminTenantIdSet, setValue])
+
+  const handleRoleChange = React.useCallback(
+    (tenantId: string, newRoles: string[]) => {
+      // Update roles for this entry; submit only own entries — beforeChange merges the rest.
+      const updated = visibleEntries.map((entry) =>
+        getTenantId(entry.tenant) === tenantId ? { ...entry, roles: newRoles } : entry,
+      )
+      setValue(updated)
+    },
+    [visibleEntries, setValue],
+  )
+
+  // Super-admins use the default Payload array editor (component returns null → no override).
   if (isSuperAdmin || !isTenantAdminUser) {
-    return null // fallback to default — component override skipped
+    return null
   }
 
-  const entries = Array.isArray(value) ? value : []
-
-  const handleRoleChange = (tenantId: number | string, newRoles: string[]) => {
-    const updated = entries.map((entry) => {
-      if (getTenantId(entry.tenant) === tenantId) {
-        return { ...entry, roles: newRoles }
-      }
-      return entry
-    })
-    setValue(updated)
-  }
-
-  if (entries.length === 0) {
+  if (visibleEntries.length === 0) {
     return (
       <div className="field-type">
         <label className="field-label">Tenant Memberships</label>
@@ -79,7 +115,7 @@ export function TenantMembershipField() {
     <div className="field-type">
       <label className="field-label">Tenant Memberships</label>
       <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-        {entries.map((entry, idx) => {
+        {visibleEntries.map((entry, idx) => {
           const tenantId = getTenantId(entry.tenant)
           const tenantName = getTenantName(entry.tenant)
           const currentRoles = Array.isArray(entry.roles) ? entry.roles : ["user"]

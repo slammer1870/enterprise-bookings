@@ -22,6 +22,7 @@ import {
 
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
 import {
+  extractTenantId,
   filterTenantsForTenantAdmin,
   mergeTenantEntriesForAdmin,
   deriveRoleFromTenants,
@@ -73,7 +74,16 @@ const tenantsMembershipField = {
       },
     },
   }),
-  admin: { position: 'sidebar' as const },
+  admin: {
+    position: 'sidebar' as const,
+    // TenantMembershipField renders a scoped role-editor for tenant admins and returns null
+    // for super-admins (Payload renders nothing for the component, but the raw array editor
+    // is shown because the component null-return does NOT suppress the default Payload field).
+    // The component is the primary UI; the server-side hooks are the authoritative guards.
+    components: {
+      Field: '@/components/admin/users/TenantMembershipField#TenantMembershipField',
+    },
+  },
 }
 
 const FIRST_USER_CREATE_CTX = '__atndFirstUserCreate' as const
@@ -93,6 +103,39 @@ export const Users: CollectionConfig = {
     update: userTenantUpdate,
   },
   hooks: {
+    beforeValidate: [
+      // Strip foreign tenant entries from submitted data before Payload runs relationship
+      // validation. Without this, a tenant admin who sees cross-tenant entries in the form
+      // (e.g. when form-state is built from a cached/partial load) would get a 400
+      // "invalid relationships" error because Payload validates each `tenant` relationship
+      // value against the requesting user's read access, and the admin can't read foreign
+      // tenant documents.
+      //
+      // The beforeChange hook below will merge the stripped entries back from the DB after
+      // validation passes, so no data is lost.
+      async ({ data, req }) => {
+        if (!data) return data
+        if (!req.user || isAdmin(req.user)) return data
+        if (!isTenantAdmin(req.user)) return data
+
+        const tenants = (data as Record<string, unknown>).tenants
+        if (!Array.isArray(tenants)) return data
+
+        const adminTenantIds = await resolveTenantAdminTenantIds({
+          user: req.user,
+          payload: req.payload,
+          context: req.context as Record<string, unknown> | undefined,
+        })
+        if (adminTenantIds.length === 0) return data
+
+        ;(data as Record<string, unknown>).tenants = tenants.filter((e) => {
+          const tid = extractTenantId((e as TenantEntry)?.tenant)
+          return tid != null && adminTenantIds.includes(tid)
+        })
+
+        return data
+      },
+    ],
     afterRead: [
       // Filter tenants[] and registrationTenant to only entries the requesting user controls.
       // Prevents tenant admins from seeing cross-tenant membership rows when viewing a shared user.
