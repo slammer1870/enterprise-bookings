@@ -5,6 +5,7 @@ import config from '@/payload.config'
 import type { EventType, Timeslot, User } from '@repo/shared-types'
 import { createTRPCContext, appRouter } from '@repo/trpc'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { generateTimeslotsFromScheduleWithTenant } from '@/tasks/generate-timeslots-with-tenant'
 import { TZDate } from '@date-fns/tz'
 
 const TEST_TIMEOUT = 120000
@@ -110,25 +111,6 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       // If Monday is shifted to Sunday, this assertion pattern catches it immediately.
       const hourByScheduleIndex = [10, 11] as const
 
-      const existing = await payload.find({
-        collection: 'scheduler',
-        where: { tenant: { equals: testTenant.id } },
-        limit: 10,
-        overrideAccess: true,
-      })
-      for (const doc of existing.docs) {
-        await payload.delete({
-          collection: 'scheduler',
-          id: doc.id,
-          overrideAccess: true,
-        })
-      }
-
-      const req = {
-        ...payload,
-        context: { tenant: testTenant.id },
-      } as any
-
       const mkSlot = (hour: number) => {
         const start = new TZDate(2000, 0, 1, hour, 0, 0, 0, timeZone)
         const end = new TZDate(2000, 0, 1, hour, 30, 0, 0, timeZone)
@@ -141,34 +123,35 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         }
       }
 
-      await payload.create({
-        collection: 'scheduler',
-        data: {
-          tenant: Number(testTenant.id),
+      const week = {
+        // week.days is Monday-first: 0=Mon ... 6=Sun
+        days: [
+          { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
+          { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
+          { timeSlot: [] }, // Wed
+          { timeSlot: [] }, // Thu
+          { timeSlot: [] }, // Fri
+          { timeSlot: [] }, // Sat
+          { timeSlot: [] }, // Sun
+        ],
+      }
+
+      // Run the generation task directly (synchronously) to avoid the fire-and-forget
+      // race condition that arises when creating a scheduler document and waiting for
+      // the background job to complete within a fixed timeout.
+      await generateTimeslotsFromScheduleWithTenant({
+        input: {
           startDate,
           endDate,
+          week,
           clearExisting: true,
           defaultEventType: eventType.id,
           lockOutTime: 0,
-          week: {
-            // week.days is Monday-first: 0=Mon ... 6=Sun
-            days: [
-              { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
-              { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
-              { timeSlot: [] }, // Wed
-              { timeSlot: [] }, // Thu
-              { timeSlot: [] }, // Fri
-              { timeSlot: [] }, // Sat
-              { timeSlot: [] }, // Sun
-            ],
-          },
-        },
-        req,
-        overrideAccess: true,
-      })
-
-      // Job runs synchronously (runByID), but give DB a moment.
-      await new Promise((r) => setTimeout(r, 2000))
+          tenant: Number(testTenant.id),
+        } as any,
+        req: { payload, context: { tenant: Number(testTenant.id) } } as any,
+        job: {} as any,
+      } as any)
 
       const caller = await createCaller()
 
@@ -261,25 +244,6 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       // Keep a narrow schedule for Monday and Tuesday only.
       const hourByScheduleIndex = [9, 10] as const
 
-      const existing = await payload.find({
-        collection: 'scheduler',
-        where: { tenant: { equals: testTenant.id } },
-        limit: 10,
-        overrideAccess: true,
-      })
-      for (const doc of existing.docs) {
-        await payload.delete({
-          collection: 'scheduler',
-          id: doc.id,
-          overrideAccess: true,
-        })
-      }
-
-      const req = {
-        ...payload,
-        context: { tenant: testTenant.id },
-      } as any
-
       const mkSlot = (hour: number) => {
         const start = new TZDate(2000, 0, 1, hour, 0, 0, 0, timeZone)
         const end = new TZDate(2000, 0, 1, hour, 30, 0, 0, timeZone)
@@ -292,33 +256,35 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         }
       }
 
-      await payload.create({
-        collection: 'scheduler',
-        data: {
-          tenant: Number(testTenant.id),
+      const week = {
+        // week.days is Monday-first: 0=Mon ... 6=Sun
+        days: [
+          { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
+          { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
+          { timeSlot: [] }, // Wed
+          { timeSlot: [] }, // Thu
+          { timeSlot: [] }, // Fri
+          { timeSlot: [] }, // Sat
+          { timeSlot: [] }, // Sun
+        ],
+      }
+
+      // Run the generation task directly (synchronously) to avoid the fire-and-forget
+      // race condition that arises when creating a scheduler document and waiting for
+      // the background job to complete within a fixed timeout.
+      await generateTimeslotsFromScheduleWithTenant({
+        input: {
           startDate,
           endDate,
+          week,
           clearExisting: true,
           defaultEventType: eventType.id,
           lockOutTime: 0,
-          week: {
-            // week.days is Monday-first: 0=Mon ... 6=Sun
-            days: [
-              { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
-              { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
-              { timeSlot: [] }, // Wed
-              { timeSlot: [] }, // Thu
-              { timeSlot: [] }, // Fri
-              { timeSlot: [] }, // Sat
-              { timeSlot: [] }, // Sun
-            ],
-          },
-        },
-        req,
-        overrideAccess: true,
-      })
-
-      await new Promise((r) => setTimeout(r, 2000))
+          tenant: Number(testTenant.id),
+        } as any,
+        req: { payload, context: { tenant: Number(testTenant.id) } } as any,
+        job: {} as any,
+      } as any)
 
       const caller = await createCaller()
 
