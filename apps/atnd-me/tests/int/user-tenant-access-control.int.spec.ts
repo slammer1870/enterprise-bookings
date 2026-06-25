@@ -91,7 +91,7 @@ describe('User Tenant Access Control', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: testTenant.id }], // Array of objects with 'tenant' property
+        tenants: [{ tenant: testTenant.id, roles: ['admin'] }], // Array of objects with 'tenant' property
       },
       draft: false,
       overrideAccess: true,
@@ -975,16 +975,15 @@ describe('User Tenant Access Control', () => {
             user: tenantAdminUser,
           } as any
 
-          const updated = (await payload.update({
+          await payload.update({
             collection: 'users',
             id: userInTestTenant.id,
             data: { role: ['user', 'admin'] },
             req,
             overrideAccess: false,
-          })) as User
+          })
 
-          expect(updated.role).toContain('admin')
-
+          // role is redacted for non-super-admins; verify persisted value via overrideAccess.
           const refetched = (await payload.findByID({
             collection: 'users',
             id: userInTestTenant.id,

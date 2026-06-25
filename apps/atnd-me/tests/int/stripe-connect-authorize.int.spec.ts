@@ -66,7 +66,7 @@ describe('Stripe Connect authorize route (step 2.3)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: testTenantId }],
+        tenants: [{ tenant: testTenantId, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,

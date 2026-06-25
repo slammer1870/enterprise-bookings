@@ -41,7 +41,7 @@ describe('Pages versions and tenant-from-context (tenant-admin)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: testTenantId }],
+        tenants: [{ tenant: testTenantId, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,
