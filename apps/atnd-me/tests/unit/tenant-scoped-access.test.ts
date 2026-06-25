@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   tenantScopedPublicReadStrict,
   tenantScopedReadFiltered,
+  getUserTenantIDs,
 } from '../../src/access/tenant-scoped'
 
 type CookieStore = {
@@ -22,14 +23,19 @@ function createTenantAdminReq(cookieValues: Record<string, string | undefined> =
     user: {
       id: 99,
       role: ['admin'],
-      tenants: [1, 2],
+      tenants: [
+        { tenant: 1, roles: ['admin'] },
+        { tenant: 2, roles: ['staff'] },
+      ],
     },
     payload: {
       findByID: async () => ({
         id: 99,
         role: ['admin'],
-        tenants: [{ tenant: 1 }, { tenant: 2 }],
-        tenantRoles: [],
+        tenants: [
+          { tenant: 1, roles: ['admin'] },
+          { tenant: 2, roles: ['staff'] },
+        ],
       }),
     },
     cookies: createCookies(cookieValues),
@@ -37,6 +43,45 @@ function createTenantAdminReq(cookieValues: Record<string, string | undefined> =
     context: {},
   }
 }
+
+describe('getUserTenantIDs', () => {
+  it('returns tenant IDs where user has the requested role', () => {
+    const user = { tenants: [{ tenant: 1, roles: ['admin'] }, { tenant: 2, roles: ['user'] }] }
+    expect(getUserTenantIDs(user, 'admin')).toEqual([1])
+  })
+
+  it('returns all tenant IDs when no role filter provided', () => {
+    const user = { tenants: [{ tenant: 1, roles: ['admin'] }, { tenant: 2, roles: ['user'] }] }
+    expect(getUserTenantIDs(user)).toEqual([1, 2])
+  })
+
+  it('handles populated tenant objects (depth > 0)', () => {
+    const user = { tenants: [{ tenant: { id: 1 }, roles: ['staff'] }] }
+    expect(getUserTenantIDs(user, 'staff')).toEqual([1])
+  })
+
+  it('handles array role filter', () => {
+    const user = {
+      tenants: [
+        { tenant: 1, roles: ['admin'] },
+        { tenant: 2, roles: ['staff'] },
+        { tenant: 3, roles: ['user'] },
+      ],
+    }
+    expect(getUserTenantIDs(user, ['admin', 'staff'])).toEqual([1, 2])
+  })
+
+  it('returns [] for user with no tenants', () => {
+    expect(getUserTenantIDs({ tenants: [] }, 'admin')).toEqual([])
+    expect(getUserTenantIDs({ tenants: null }, 'admin')).toEqual([])
+    expect(getUserTenantIDs(null, 'admin')).toEqual([])
+  })
+
+  it('returns [] when role not matched', () => {
+    const user = { tenants: [{ tenant: 1, roles: ['user'] }] }
+    expect(getUserTenantIDs(user, 'admin')).toEqual([])
+  })
+})
 
 describe('tenant scoped access', () => {
   it('scopes tenant-admin filtered reads to the active tenant cookie', async () => {
@@ -69,7 +114,7 @@ describe('tenant scoped access', () => {
         user: {
           id: 42,
           role: ['location-manager'],
-          tenants: [{ tenant: 1 }],
+          tenants: [{ tenant: 1, roles: ['location-manager'] }],
         },
         payload: {},
         cookies: createCookies({}),
