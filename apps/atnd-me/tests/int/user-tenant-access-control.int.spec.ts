@@ -994,6 +994,217 @@ describe('User Tenant Access Control', () => {
         TEST_TIMEOUT,
       )
     })
+
+    // -------------------------------------------------------------------------
+    // Regression: cross-tenant user privacy + save bugs
+    // Fixed by:
+    //   1. Tenants collection read access allowing findByID for any admin
+    //      (prevents 403 during Payload depth-1 relationship population, which
+    //      was killing the form-state builder before afterRead could filter).
+    //   2. afterRead hook filtering the tenants array to only the admin's entries.
+    //   3. beforeValidate hook stripping foreign tenant entries before Payload
+    //      validates relationship fields (prevents 400 "invalid relationships").
+    //   4. beforeChange hook merging foreign entries back from DB after validation.
+    // -------------------------------------------------------------------------
+    describe('Cross-tenant user privacy (regression)', () => {
+      let crossTenantUser: User
+
+      beforeAll(async () => {
+        // A user who belongs to BOTH testTenant and secondTenant.
+        // This is the exact scenario that triggered the production bugs.
+        crossTenantUser = (await payload.create({
+          collection: 'users',
+          data: {
+            name: 'Cross-Tenant User',
+            email: `cross-tenant-${Date.now()}@test.com`,
+            password: 'test',
+            role: ['user'],
+            emailVerified: true,
+            tenants: [
+              { tenant: testTenant.id, roles: ['user'] },
+              { tenant: secondTenant.id, roles: ['user'] },
+            ],
+          },
+          overrideAccess: true,
+        } as Parameters<typeof payload.create>[0])) as User
+      })
+
+      it(
+        'tenant admin reading a cross-tenant user only sees their own tenant entries (afterRead filter)',
+        async () => {
+          // Use the same req pattern as the other passing tests in this file.
+          const req = {
+            ...payload,
+            context: { tenant: testTenant.id },
+            user: tenantAdminUser,
+          } as any
+
+          const results = await payload.find({
+            collection: 'users',
+            where: { id: { equals: crossTenantUser.id } },
+            limit: 1,
+            depth: 0,
+            req,
+            overrideAccess: false,
+          })
+
+          const result = results.docs[0] as User | undefined
+          expect(result).toBeDefined()
+          // Should see their own tenant entry
+          const tenantIds = (result?.tenants ?? []).map((e: any) => {
+            const t = e.tenant
+            return typeof t === 'object' && t !== null && 'id' in t ? t.id : t
+          })
+          expect(tenantIds).toContain(testTenant.id)
+          // Must NOT see the second tenant's entry
+          expect(tenantIds).not.toContain(secondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant admin can update a cross-tenant user without a 400 validation error (beforeChange strip)',
+        async () => {
+          // This reproduces the production bug: the admin submits the full tenants array
+          // including entries for tenants outside their scope.  The beforeChange hook strips
+          // foreign entries before field-level validation runs (otherwise the admin gets:
+          // "The following fields are invalid: Tenants 2 > Tenant").
+          const req = {
+            ...payload,
+            context: { tenant: testTenant.id },
+            user: tenantAdminUser,
+          } as any
+
+          // Submit with a foreign tenant entry intentionally included (simulates stale form state).
+          const updated = await payload.update({
+            collection: 'users',
+            id: crossTenantUser.id,
+            data: {
+              name: 'Updated By Tenant Admin',
+              tenants: [
+                { tenant: testTenant.id, roles: ['admin'] },
+                { tenant: secondTenant.id, roles: ['admin'] }, // foreign — stripped by beforeChange
+              ],
+            } as any,
+            req,
+            overrideAccess: false,
+          }) as User
+
+          // Update should succeed (no 400 thrown).
+          expect(updated.name).toBe('Updated By Tenant Admin')
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'foreign tenant entry is preserved in DB after tenant admin saves (beforeChange merge)',
+        async () => {
+          // After the update above, the DB should still have both tenant entries.
+          // The beforeChange hook merges the stripped foreign entry back from DB.
+          const refetched = (await payload.findByID({
+            collection: 'users',
+            id: crossTenantUser.id,
+            depth: 1,
+            overrideAccess: true, // bypass access control to see the full document
+          })) as User
+
+          const tenantIds = (refetched.tenants ?? []).map((e: any) => {
+            const t = e.tenant
+            return typeof t === 'object' && t !== null && 'id' in t ? t.id : t
+          })
+          expect(tenantIds).toContain(testTenant.id)
+          expect(tenantIds).toContain(secondTenant.id) // must have been restored by beforeChange
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'beforeChange prevents foreign tenant roles from being escalated by the tenant admin',
+        async () => {
+          // Verify the admin could not change the foreign tenant 2 entry's roles to 'admin'
+          // (the beforeChange guard should have restored the DB value for the foreign entry).
+          const refetched = (await payload.findByID({
+            collection: 'users',
+            id: crossTenantUser.id,
+            depth: 1,
+            overrideAccess: true,
+          })) as User
+
+          const t2Entry = (refetched.tenants ?? []).find((e: any) => {
+            const t = e.tenant
+            const tid = typeof t === 'object' && t !== null && 'id' in t ? t.id : t
+            return tid === secondTenant.id || tid === String(secondTenant.id)
+          }) as any
+
+          expect(t2Entry).toBeDefined()
+          // The admin tried to set 'admin' on the secondTenant entry; should still be 'user'.
+          expect(t2Entry?.roles ?? []).not.toContain('admin')
+        },
+        TEST_TIMEOUT,
+      )
+    })
+
+    describe('Tenants collection read access (regression: admin read access)', () => {
+      it(
+        'tenant admin can read any tenant by ID (required for Payload relationship population, avoids 403 on form-state build)',
+        async () => {
+          // Before the fix, findByID for a tenant outside the admin's scope would return
+          // a 403, killing Payload's form-state builder before afterRead could filter.
+          const result = await payload.findByID({
+            collection: 'tenants',
+            id: secondTenant.id, // a tenant the admin does NOT belong to
+            user: tenantAdminUser,
+            overrideAccess: false,
+          })
+
+          expect(result).toBeDefined()
+          expect(result.id).toBe(secondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant admin can read any tenant (required for relationship field validation on cross-tenant user saves)',
+        async () => {
+          // Tenant admins need to be able to read ANY tenant so that Payload's field-level
+          // relationship validation passes when a cross-tenant user's merged tenants array
+          // contains foreign tenant IDs (preserved from DB by the write guard).
+          const result = await payload.find({
+            collection: 'tenants',
+            where: { id: { equals: secondTenant.id } },
+            limit: 1,
+            user: tenantAdminUser,
+            overrideAccess: false,
+          })
+
+          expect(result.docs).toHaveLength(1)
+          expect(result.docs[0]?.id).toBe(secondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant admin CANNOT update a tenant they do not belong to (write guard still enforced)',
+        async () => {
+          // Read access is open to allow relationship validation; update access is still restricted.
+          const req = {
+            ...payload,
+            user: tenantAdminUser,
+          } as any
+
+          await expect(
+            payload.update({
+              collection: 'tenants',
+              id: secondTenant.id,
+              data: { name: 'Attempted Hijack' },
+              req,
+              overrideAccess: false,
+            }),
+          ).rejects.toThrow()
+        },
+        TEST_TIMEOUT,
+      )
+    })
   })
 
   describe('Regular user access', () => {

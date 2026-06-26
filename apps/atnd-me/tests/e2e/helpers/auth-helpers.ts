@@ -195,6 +195,25 @@ export async function loginToAdminPanel(
         await page.context().addCookies(tenantScoped)
       }
     }
+    // Single-tenant admin redirect: middleware bounces root-host /admin to the tenant subdomain
+    // (X-Tenant-Redirect feature). Pre-copy session cookies to that subdomain so the redirect
+    // lands authenticated — cookies set under `localhost` are not sent to `slug.localhost`.
+    if (!opts?.adminOrigin && state.cookies.length) {
+      try {
+        const authCheckRes = await apiRequest.get(`${BASE_URL}/api/admin/authorize-tenant`)
+        if (authCheckRes.status() === 204) {
+          const tenantRedirectSlug = authCheckRes.headers()['x-tenant-redirect']
+          if (tenantRedirectSlug && /^[a-z0-9-]+$/.test(tenantRedirectSlug)) {
+            const tenantScoped = copySessionCookiesToTenantDomain(state.cookies, tenantRedirectSlug)
+            if (tenantScoped.length) {
+              await page.context().addCookies(tenantScoped)
+            }
+          }
+        }
+      } catch {
+        // Ignore: if the pre-check fails, continue — the UI login fallback will handle it.
+      }
+    }
     await page.goto(`${origin}/admin`, { waitUntil: 'domcontentloaded' })
     await page
       .waitForURL((url) => url.pathname.startsWith('/admin') && !url.pathname.startsWith('/admin/login'), {

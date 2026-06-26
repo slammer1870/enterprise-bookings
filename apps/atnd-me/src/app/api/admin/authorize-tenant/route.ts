@@ -184,9 +184,40 @@ export async function GET(request: NextRequest) {
 
   const requestedTenantId = await resolveRequestedTenantId({ payload, request })
   if (!requestedTenantId) {
-    // Root-host admin navigation (e.g. localhost/admin in tests) may not carry payload-tenant.
-    // In that case, allow the session and rely on collection access controls / tenant selectors.
-    // Cross-tenant host access is still blocked because middleware sets payload-tenant from host.
+    // Root/platform-host navigation with no tenant cookie.
+    //
+    // For non-super-admin tenant admins, send a redirect hint so middleware can bounce them to
+    // their primary tenant's subdomain (e.g. atnd.me/admin → tenant-a.atnd.me/admin).
+    // This matches the Payload multi-tenant example pattern: admins always operate from their
+    // own tenant subdomain, never from the shared root host.
+    //
+    // We pick allowedTenantIds[0] as the "primary" tenant (the first entry in their tenants
+    // array). For single-tenant admins this is always correct; for multi-tenant admins it lands
+    // them on a reasonable default and they can switch via the Payload tenant selector.
+    if (allowedTenantIds !== null && allowedTenantIds.length === 1) {
+      const primaryTenantId = allowedTenantIds[0]!
+      const tenant = await payload
+        .findByID({
+          collection: 'tenants',
+          id: primaryTenantId,
+          depth: 0,
+          overrideAccess: true,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          select: { slug: true } as any,
+        })
+        .catch(() => null)
+      const slug =
+        tenant && typeof tenant === 'object' && 'slug' in tenant
+          ? String((tenant as { slug?: unknown }).slug ?? '').trim()
+          : ''
+      if (slug) {
+        const res = new NextResponse(null, { status: 204 })
+        res.headers.set('X-Tenant-Redirect', slug)
+        return res
+      }
+    }
+
+    // Fallback: allow root-host admin access (e.g. super-admin-only or test envs).
     return new NextResponse(null, { status: 204 })
   }
 

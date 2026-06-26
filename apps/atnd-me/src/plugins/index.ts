@@ -78,6 +78,7 @@ import {
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
+import { fixBetterAuthAfterReadHooks } from './fix-better-auth-after-read-hooks'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
 import { hideWebsiteCollectionsFromTenantAdmins } from './hide-website-collections-from-tenant-admins'
 import { staffRosterUsersFieldAccessPlugin } from './staff-roster-users-field-access'
@@ -350,6 +351,9 @@ export const plugins: Plugin[] = [
   fixBetterAuthTimestamps(),
   // Restrict who can edit the Better Auth `role` field (RBAC lives on `role` only).
   fixBetterAuthRoleField(),
+  // Must run after fixBetterAuthRoleField and all other plugins so the
+  // afterRead hooks aren't dropped again by a later plugin pass.
+  fixBetterAuthAfterReadHooks(),
   // Hide Better Auth collections (accounts, sessions, verifications) from tenant-admins; only full admins see them
   hideBetterAuthCollectionsFromTenantAdmins(),
   // Hide platform website management collections from tenant-admins.

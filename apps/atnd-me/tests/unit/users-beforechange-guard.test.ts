@@ -89,7 +89,10 @@ describe('mergeTenantEntriesForAdmin', () => {
     expect(result).toEqual(incoming)
   })
 
-  it('handles populated tenant objects in both incoming and DB', () => {
+  it('handles populated tenant objects in both incoming and DB — foreign tenants coerced to bare IDs', () => {
+    // DB entries loaded with depth > 0 have `tenant` as a populated object.
+    // mergeTenantEntriesForAdmin coerces foreign entries' `tenant` to a bare numeric ID
+    // so that Payload's field-level relationship validator accepts the value without a 400.
     const incoming: TenantEntry[] = [{ tenant: { id: 1 }, roles: ['admin'] }]
     const dbTenants: TenantEntry[] = [
       { tenant: { id: 1 }, roles: ['user'] },
@@ -103,11 +106,8 @@ describe('mergeTenantEntriesForAdmin', () => {
     })
 
     expect(result).toHaveLength(2)
-    // Foreign tenant 2 preserved
-    const t2 = result.find((e) => {
-      const t = e.tenant
-      return typeof t === 'object' && t !== null && 'id' in t && (t as { id: number }).id === 2
-    })
+    // Foreign tenant 2 is preserved but tenant field is coerced to a bare number
+    const t2 = result.find((e) => e.tenant === 2)
     expect(t2).toBeDefined()
     expect(t2?.roles).toContain('staff')
   })

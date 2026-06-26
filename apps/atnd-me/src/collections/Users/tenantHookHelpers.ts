@@ -82,10 +82,18 @@ export function mergeTenantEntriesForAdmin({
     return tid != null && adminSet.has(tid)
   })
 
-  const foreignFromDb = dbTenants.filter((e) => {
-    const tid = extractTenantId(e?.tenant)
-    return tid == null || !adminSet.has(tid)
-  })
+  // Coerce `tenant` to a bare numeric ID when the DB entry was loaded with depth > 0
+  // (populated as a full object). Payload's field-level beforeChange validator expects a
+  // plain ID for relationship fields; passing a populated object causes a 400 validation error.
+  const foreignFromDb = dbTenants
+    .filter((e) => {
+      const tid = extractTenantId(e?.tenant)
+      return tid == null || !adminSet.has(tid)
+    })
+    .map((e) => {
+      const tid = extractTenantId(e?.tenant)
+      return tid != null ? { ...e, tenant: tid } : e
+    })
 
   return [...ownFromIncoming, ...foreignFromDb]
 }

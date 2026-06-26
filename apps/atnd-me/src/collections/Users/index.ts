@@ -144,15 +144,18 @@ export const Users: CollectionConfig = {
         if (!req.user) return doc
         if (isAdmin(req.user)) return doc // super-admin: see everything
 
-        if (!isTenantAdmin(req.user)) return doc // only applies to tenant admins
-
+        // Do NOT use isTenantAdmin(req.user) as a gate here: session/JWT users and users
+        // created via the Local API with overrideAccess:true may have their `role` field
+        // stripped by field-level access control (fixBetterAuthRoleField plugin). Instead,
+        // let resolveTenantAdminTenantIds be the single source of truth — it loads the full
+        // user doc from DB (with overrideAccess:true) and checks tenants[n].roles directly.
         const adminTenantIds = await resolveTenantAdminTenantIds({
           user: req.user,
           payload: req.payload,
           context: req.context as Record<string, unknown> | undefined,
         })
 
-        if (adminTenantIds.length === 0) return doc
+        if (adminTenantIds.length === 0) return doc // not a tenant admin; return as-is
 
         return filterTenantsForTenantAdmin({
           doc: doc as Record<string, unknown>,
@@ -325,7 +328,17 @@ export const Users: CollectionConfig = {
 
         // Tenants write guard: tenant admins can only modify their own tenant entries.
         // Foreign entries are preserved from DB; injected foreign entries are stripped.
-        if (req.user && isTenantAdmin(req.user) && !isAdmin(req.user) &&
+        //
+        // The Tenants collection `read` access returns `true` for all authenticated admins so
+        // Payload's field-level relationship validation (which uses `find`) accepts the foreign
+        // tenant IDs in the merged result without a 400 error.
+        //
+        // We do NOT gate this on isTenantAdmin(req.user): the `role` field may be stripped
+        // from the session user by field-level access control (fixBetterAuthRoleField plugin),
+        // making isTenantAdmin return false even for legitimate tenant admins. Instead we call
+        // resolveTenantAdminTenantIds unconditionally and only apply the guard when it returns
+        // a non-empty list (it loads the full user from DB and checks tenants[n].roles).
+        if (req.user && !isAdmin(req.user) &&
             (data as Record<string, unknown>).tenants !== undefined) {
           const grantingAdminTenantIds = await resolveTenantAdminTenantIds({
             user: req.user,

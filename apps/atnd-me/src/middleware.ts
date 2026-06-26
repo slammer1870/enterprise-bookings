@@ -559,6 +559,45 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     return null
   }
 
+  // Base-domain redirect for tenant admins (Payload multi-tenant example pattern).
+  //
+  // When a non-super-admin tenant admin navigates to the platform root /admin they should
+  // land on their own tenant's subdomain (e.g. atnd.me/admin → tenant-a.atnd.me/admin),
+  // not on the root admin with no tenant context.
+  //
+  // authorize-tenant signals this by returning an X-Tenant-Redirect header alongside the
+  // usual 204 response. We check this before the login-route redirect so authenticated
+  // admins visiting {base}/admin/login are also sent directly to their tenant subdomain.
+  //
+  // IMPORTANT: only act on X-Tenant-Redirect when the *browser* request is actually to the
+  // root/base host. When middleware calls authorize-tenant internally from a tenant subdomain,
+  // the fetch() overwrites the Host header with the platform origin (e.g. localhost:3000), so
+  // authorize-tenant cannot detect the subdomain and may emit X-Tenant-Redirect even on
+  // subdomain routes — which would cause an infinite redirect loop. We detect the real browser
+  // hostname from the original request headers (before the internal fetch rewrites Host).
+  const tenantRedirectSlug = res.status === 204 ? res.headers.get('X-Tenant-Redirect') : null
+  if (tenantRedirectSlug && rootHostname) {
+    const fwd = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || ''
+    const rawHost = request.headers.get('host')?.trim() || ''
+    const currentHost = ((fwd || rawHost).split(':')[0] ?? '').toLowerCase()
+    const onBaseHost = currentHost === rootHostname
+    if (onBaseHost) {
+      const redirectUrl = request.nextUrl.clone()
+      // Preserve the original pathname (deep-link) so e.g. /admin/collections/timeslots
+      // stays intact — only the hostname is swapped to the tenant subdomain.
+      if (rootHostname.includes('localhost')) {
+        redirectUrl.hostname = `${tenantRedirectSlug}.localhost`
+        redirectUrl.port = request.nextUrl.port || redirectUrl.port
+      } else {
+        redirectUrl.hostname = `${tenantRedirectSlug}.${rootHostname}`
+        redirectUrl.port = ''
+      }
+      const redirectResponse = NextResponse.redirect(redirectUrl)
+      copySetCookieHeaders(response, redirectResponse)
+      return redirectResponse
+    }
+  }
+
   const loginRouteRedirect = resolveLoginRouteRedirect({
     request,
     response,

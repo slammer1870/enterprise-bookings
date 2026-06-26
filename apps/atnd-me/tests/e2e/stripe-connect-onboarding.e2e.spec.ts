@@ -109,7 +109,19 @@ test.describe('Stripe Connect onboarding (tenant-admin)', () => {
 
     // Use request context (sends cookies) and do not follow redirects so we assert our 302
     const fullUrl = href!.startsWith('http') ? href! : `${BASE_URL}${href}`
-    const response = await page.request.get(fullUrl, { maxRedirects: 0 })
+    // Node.js can't DNS-resolve *.localhost subdomains (e.g. test-tenant-1.localhost).
+    // When the page is on a tenant subdomain the link href uses that origin, so we route
+    // via loopback (127.0.0.1 / localhost) with a Host header — same as resolveLoopbackTenantApiRequest.
+    let fetchUrl = fullUrl
+    let fetchHeaders: Record<string, string> | undefined
+    try {
+      const u = new URL(fullUrl)
+      if (u.hostname !== 'localhost' && u.hostname !== '127.0.0.1' && u.hostname.endsWith('.localhost')) {
+        fetchUrl = fullUrl.replace(u.hostname, 'localhost')
+        fetchHeaders = { Host: u.host }
+      }
+    } catch { /* ignore malformed URL */ }
+    const response = await page.request.get(fetchUrl, { maxRedirects: 0, ...(fetchHeaders && { headers: fetchHeaders }) })
     expect(response.status()).toBe(302)
     const location = response.headers()['location'] ?? ''
     expect(location).toMatch(/connect\.stripe\.com|stripe\.com/)
