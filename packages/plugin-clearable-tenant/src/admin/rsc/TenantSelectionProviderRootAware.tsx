@@ -39,6 +39,34 @@ function isHostLockedServer(hostHeader: string | null): boolean {
   return true
 }
 
+/**
+ * Extract the tenant slug from the Host header for subdomain-based tenants.
+ * Used as a last-resort fallback when neither `payload-tenant` nor `tenant-slug`
+ * cookies are present in the request (e.g. on the very first navigation to a
+ * tenant subdomain, when middleware sets cookies in Set-Cookie but they have not
+ * yet reached the next request's cookie jar).
+ */
+function tenantSlugFromHost(hostHeader: string | null): string | null {
+  const root = getRootHostnameFromEnv()?.toLowerCase() ?? null
+  if (!root) return null
+  const host = ((hostHeader ?? '').split(':')[0] ?? '').toLowerCase()
+  if (!host) return null
+
+  if (root === 'localhost') {
+    // e.g. "test-tenant-1.localhost:3000" → "test-tenant-1"
+    const parts = host.split('.')
+    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') return parts[0]
+    return null
+  }
+
+  if (host.endsWith('.' + root)) {
+    const prefix = host.slice(0, -(root.length + 1))
+    return prefix.split('.')[0] || null
+  }
+
+  return null
+}
+
 async function getTenantOptions({
   payload,
   tenantsArrayFieldName,
@@ -186,11 +214,28 @@ export async function TenantSelectionProviderRootAware(props: Props) {
       initialValue = match?.value
     } else {
       const h = await getHeaders()
-      const isHostLocked = isHostLockedServer(h.get('host'))
+      const hostHeader = h.get('host')
+      const isHostLocked = isHostLockedServer(hostHeader)
+
+      // Priority 1: tenant-slug cookie (set by middleware on earlier requests)
       const tenantSlug = isHostLocked ? cookieStore.get('tenant-slug')?.value : undefined
       if (tenantSlug) {
         const matchBySlug = tenantOptions.find((o) => o.slug === tenantSlug)
         initialValue = matchBySlug?.value
+      } else if (isHostLocked) {
+        // Priority 2: derive slug directly from the Host header.
+        // This handles the very first navigation to a tenant subdomain: middleware sets
+        // `tenant-slug` and `payload-tenant` in Set-Cookie but they have not reached
+        // the *request* cookie jar yet, so cookies().get() returns undefined. The Host
+        // header is always present and reliably identifies the current tenant.
+        const slugFromHost = tenantSlugFromHost(hostHeader)
+        if (slugFromHost) {
+          const matchByHost = tenantOptions.find((o) => o.slug === slugFromHost)
+          initialValue = matchByHost?.value
+        } else {
+          initialValue = undefined
+          if (tenantOptions.length <= 1) initialValue = tenantOptions[0]?.value
+        }
       } else {
         initialValue = undefined
         if (tenantOptions.length <= 1) initialValue = tenantOptions[0]?.value

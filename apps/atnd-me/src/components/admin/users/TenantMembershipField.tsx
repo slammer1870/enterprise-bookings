@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useAuth, useDocumentInfo, useField } from "@payloadcms/ui"
+import { useAuth, useDocumentInfo, useField, ArrayField } from "@payloadcms/ui"
 import { isAdmin, isTenantAdmin } from "@/utilities/check-admin-role"
 
 type TenantEntry = {
@@ -32,8 +32,11 @@ function getTenantName(tenant: TenantEntry["tenant"]): string {
 /**
  * Custom admin UI for the consolidated `tenants` array field.
  *
- * Returned as `null` for super-admins (they fall back to Payload's default array editor,
- * which is kept visible via the `admin.condition` on tenantsMembershipField).
+ * For super-admins: delegates to Payload's built-in `ArrayField` so they get the full default
+ * array editor with all entries visible and editable. We do NOT call `useField` here — if both
+ * this component and `ArrayField` subscribe to the same path the double-registration can leave
+ * the array rows empty. By rendering `ArrayField` directly without holding our own field slot,
+ * only one subscriber owns the path and rows populate correctly.
  *
  * For tenant admins:
  *  - Shows only the tenants they control (derived from their own session `tenants` array).
@@ -47,8 +50,34 @@ function getTenantName(tenant: TenantEntry["tenant"]): string {
  *  4. Server-side `beforeValidate` hook strips any remaining foreign entries before validation.
  *  5. Server-side `beforeChange` hook merges foreign entries back from DB after validation.
  */
-export function TenantMembershipField() {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function TenantMembershipField(props: Record<string, unknown>) {
   const { user } = useAuth()
+
+  const isSuperAdmin = isAdmin(user)
+  const isTenantAdminUser = isTenantAdmin(user)
+
+  // Super-admins and non-tenant-admin users get the full default Payload array editor.
+  // IMPORTANT: do not call useField here before this check — ArrayField manages its own
+  // field subscription and a second useField call on the same path causes the row state
+  // to be owned by the wrong subscriber, making rows appear empty.
+  if (isSuperAdmin || !isTenantAdminUser) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return <ArrayField {...(props as any)} />
+  }
+
+  // Tenant admins get a scoped role-editor rendered by the inner component.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return <TenantMembershipFieldInner {...(props as any)} user={user} />
+}
+
+/**
+ * Inner component rendered only for tenant admins. Isolating `useField` here prevents
+ * the hook from interfering with `ArrayField`'s own field subscription for super-admins.
+ */
+function TenantMembershipFieldInner({
+  user,
+}: Record<string, unknown> & { user: unknown }) {
   const { id: _docId } = useDocumentInfo()
   const { value, setValue } = useField<TenantEntry[]>({ path: "tenants" })
 
@@ -94,11 +123,6 @@ export function TenantMembershipField() {
     },
     [visibleEntries, setValue],
   )
-
-  // Super-admins use the default Payload array editor (component returns null → no override).
-  if (isSuperAdmin || !isTenantAdminUser) {
-    return null
-  }
 
   if (visibleEntries.length === 0) {
     return (
