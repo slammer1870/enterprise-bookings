@@ -474,12 +474,20 @@ test.describe('Booking page: payment method tab filtering by quantity', () => {
         page.getByText(/update booking quantity/i).first()
       ).toBeVisible({ timeout: 25000 })
 
-      // Increase quantity by 1 — this should enter checkout mode
+      // Increase quantity by 1, then confirm to enter checkout mode
       const increaseBtn = page
         .getByRole('button', { name: /increase quantity/i })
         .first()
       await expect(increaseBtn).toBeEnabled({ timeout: 10000 })
       await increaseBtn.click()
+
+      // Wait for the quantity display to reflect the new value before submitting
+      await expect(page.getByTestId('booking-quantity')).toHaveText('2', {
+        timeout: 10000,
+      })
+
+      // Click "Update Bookings" to enter checkout mode
+      await page.getByRole('button', { name: /update bookings/i }).click()
 
       // Wait for checkout UI (payment methods become visible)
       await expect(
