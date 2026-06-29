@@ -74,12 +74,18 @@ const tenantsMembershipField = {
       },
     },
   }),
+  validate: (value: unknown) => {
+    if (!Array.isArray(value)) return true
+    const ids = (value as { tenant?: unknown }[]).map((entry) => {
+      const t = entry?.tenant
+      if (t && typeof t === 'object' && 'id' in t) return String((t as { id: unknown }).id)
+      return t != null ? String(t) : null
+    }).filter((id): id is string => id != null)
+    if (new Set(ids).size !== ids.length) return 'Each tenant may only be added once.'
+    return true
+  },
   admin: {
     position: 'sidebar' as const,
-    // TenantMembershipField renders a scoped role-editor for tenant admins and returns null
-    // for super-admins (Payload renders nothing for the component, but the raw array editor
-    // is shown because the component null-return does NOT suppress the default Payload field).
-    // The component is the primary UI; the server-side hooks are the authoritative guards.
     components: {
       Field: '@/components/admin/users/TenantMembershipField#TenantMembershipField',
     },
@@ -268,59 +274,80 @@ export const Users: CollectionConfig = {
           const desired = desiredRaw.filter((r): r is string => typeof r === 'string' && r.length > 0)
           let allowedOnly = [...new Set(desired.filter((r) => TENANT_ASSIGNABLE_ROLES.has(r)))]
 
-          // Cross-tenant escalation guard: if assigning an elevated role, ensure all of the
-          // target user's tenant memberships fall within the granting admin's own tenants.
-          const isGrantingElevatedRole = allowedOnly.some((r) => CROSS_TENANT_BLOCKED_ROLES.has(r))
+          // Cross-tenant escalation guard: if assigning an elevated role to a user who has
+          // memberships in tenants the granting admin does not control, strip the elevated role.
+          //
+          // Important: for updates, only trigger when the elevated role is being NEWLY GRANTED
+          // (not already present on the target user). Without this, any edit to a user who holds
+          // admin in one tenant and location-manager in another would downgrade their global role
+          // to 'user' — because the location-manager tenant is "external" to the admin granting
+          // the admin role, but that role was legitimately assigned by a super-admin.
+          const elevatedRolesBeingAssigned = allowedOnly.filter((r) => CROSS_TENANT_BLOCKED_ROLES.has(r))
+          const isGrantingElevatedRole = elevatedRolesBeingAssigned.length > 0
           if (isGrantingElevatedRole) {
-            const grantingAdminTenantIds = await resolveTenantAdminTenantIds({
-              user: req.user,
-              payload: req.payload,
-              context: req.context as Record<string, unknown> | undefined,
-            })
+            // For updates, compare against the target user's current roles to detect true escalation.
+            const existingTargetRoles =
+              operation === 'update' && originalDoc
+                ? getEffectiveUserRoles(originalDoc as SharedUser)
+                : []
+            const isActualEscalation = elevatedRolesBeingAssigned.some(
+              (r) => !existingTargetRoles.includes(r),
+            )
 
-            if (grantingAdminTenantIds.length > 0) {
-              let targetMemberships: number[] = []
+            if (isActualEscalation) {
+              const grantingAdminTenantIds = await resolveTenantAdminTenantIds({
+                user: req.user,
+                payload: req.payload,
+                context: req.context as Record<string, unknown> | undefined,
+              })
 
-              if (operation === 'update' && originalDoc) {
-                // Load the full user doc so tenants join-table fields are populated
-                // (originalDoc is fetched at depth 0 and may omit relationship arrays).
-                const targetIdRaw = (originalDoc as { id?: unknown }).id
-                const targetId =
-                  typeof targetIdRaw === 'number'
-                    ? targetIdRaw
-                    : typeof targetIdRaw === 'string' && /^\d+$/.test(targetIdRaw)
-                      ? parseInt(targetIdRaw, 10)
-                      : null
+              if (grantingAdminTenantIds.length > 0) {
+                let targetMemberships: number[] = []
 
-                if (targetId != null) {
-                  const fullDoc = await loadUserDocForTenantMembership(req.payload, targetId)
-                  targetMemberships = getTenantMembershipIdsFromUserDoc(fullDoc ?? originalDoc)
-                } else {
-                  targetMemberships = getTenantMembershipIdsFromUserDoc(originalDoc)
-                }
-              } else if (operation === 'create') {
-                // On creates, check the registrationTenant being set in this request.
-                // The first beforeChange hook already set data.registrationTenant from the
-                // admin's context, but an admin could have overridden it explicitly.
-                const regRaw = (data as { registrationTenant?: unknown }).registrationTenant
-                const regId =
-                  typeof regRaw === 'number'
-                    ? regRaw
-                    : typeof regRaw === 'object' && regRaw !== null && 'id' in regRaw
-                      ? (regRaw as { id: number }).id
-                      : typeof regRaw === 'string' && /^\d+$/.test(regRaw)
-                        ? parseInt(regRaw, 10)
+                if (operation === 'update' && originalDoc) {
+                  // Load the full user doc so tenants join-table fields are populated
+                  // (originalDoc is fetched at depth 0 and may omit relationship arrays).
+                  const targetIdRaw = (originalDoc as { id?: unknown }).id
+                  const targetId =
+                    typeof targetIdRaw === 'number'
+                      ? targetIdRaw
+                      : typeof targetIdRaw === 'string' && /^\d+$/.test(targetIdRaw)
+                        ? parseInt(targetIdRaw, 10)
                         : null
-                if (regId != null) targetMemberships = [regId]
-              }
 
-              const hasExternalMembership = targetMemberships.some(
-                (tid) => !grantingAdminTenantIds.includes(tid),
-              )
-              if (hasExternalMembership) {
-                allowedOnly = allowedOnly.filter((r) => !CROSS_TENANT_BLOCKED_ROLES.has(r))
+                  if (targetId != null) {
+                    const fullDoc = await loadUserDocForTenantMembership(req.payload, targetId)
+                    targetMemberships = getTenantMembershipIdsFromUserDoc(fullDoc ?? originalDoc)
+                  } else {
+                    targetMemberships = getTenantMembershipIdsFromUserDoc(originalDoc)
+                  }
+                } else if (operation === 'create') {
+                  // On creates, check the registrationTenant being set in this request.
+                  // The first beforeChange hook already set data.registrationTenant from the
+                  // admin's context, but an admin could have overridden it explicitly.
+                  const regRaw = (data as { registrationTenant?: unknown }).registrationTenant
+                  const regId =
+                    typeof regRaw === 'number'
+                      ? regRaw
+                      : typeof regRaw === 'object' && regRaw !== null && 'id' in regRaw
+                        ? (regRaw as { id: number }).id
+                        : typeof regRaw === 'string' && /^\d+$/.test(regRaw)
+                          ? parseInt(regRaw, 10)
+                          : null
+                  if (regId != null) targetMemberships = [regId]
+                }
+
+                const hasExternalMembership = targetMemberships.some(
+                  (tid) => !grantingAdminTenantIds.includes(tid),
+                )
+                if (hasExternalMembership) {
+                  allowedOnly = allowedOnly.filter((r) => !CROSS_TENANT_BLOCKED_ROLES.has(r))
+                }
               }
             }
+            // else: all elevated roles are already present on the target user — role
+            // preservation, not escalation. Skip the cross-tenant membership check so
+            // legitimate multi-tenant users are not downgraded on every save.
           }
 
           d.role = allowedOnly.length > 0 ? allowedOnly : ['user']
