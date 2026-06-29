@@ -249,6 +249,39 @@ export async function seedSchedulerClearExistingDedupeScenario(args: {
     }
   }
 
+  // Guarantee at least one future booked timeslot for the calendar UI check.
+  //
+  // The main loop caps Monday slots at 4 and Wednesday slots at 3. When today happens to
+  // be a Monday (or Wednesday), all of those days fall within the past portion of the seed
+  // window — leaving futureBookedTimeslotIds empty and causing the test to throw at the
+  // "Expected at least one future booked timeslot" guard.
+  //
+  // Fix: after the loop, if no future slot was captured, create one extra booked timeslot
+  // on the next Monday *after* endDate. That date is guaranteed to be in the future and is
+  // outside the scheduler's [startDate, endDate] range, so the scheduler never touches it
+  // and none of the deduplication assertions include it.
+  if (futureBookedTimeslotIds.length === 0) {
+    const extraDay = new Date(endDate)
+    extraDay.setDate(extraDay.getDate() + 1)
+    while (extraDay.getDay() !== 1) {
+      extraDay.setDate(extraDay.getDate() + 1)
+    }
+    const extraWindow = calendarDayAtWallClock(extraDay, 10, 0, timeZone)
+    const extraSlot = await createTestTimeslot(
+      args.tenantId,
+      eventType.id,
+      extraWindow.start,
+      extraWindow.end,
+      undefined,
+      true,
+      args.branchId,
+    )
+    await createTestBooking(args.bookingUserId, extraSlot.id, 'confirmed')
+    // Only push to futureBookedTimeslotIds — not to bookedTimeslotIds or protectedKeys.
+    // This slot is outside the scheduler range and is not part of the dedupe assertions.
+    futureBookedTimeslotIds.push(Number(extraSlot.id))
+  }
+
   return {
     tenantId: args.tenantId,
     branchId: args.branchId,

@@ -48,6 +48,17 @@ async function openBookingPage(args: {
       continue
     }
 
+    // Fast-path: if a redirect landed us anywhere other than the booking page (e.g. the
+    // tenant home), skip the 15 s UI-wait and re-auth immediately so the remaining
+    // attempts have a real chance of loading the page correctly.
+    if (!page.url().includes(`/bookings/${lessonId}`)) {
+      if (attempt < 2) {
+        await loginAsRegularUser(page, 1, userEmail, 'password', { tenantSlug })
+        await page.waitForTimeout(process.env.CI ? 3000 : 1500)
+      }
+      continue
+    }
+
     await page.waitForLoadState('load').catch(() => null)
 
     const outcome = await Promise.race([
@@ -88,6 +99,16 @@ async function openManagePage(args: {
     if (page.url().includes('/auth/sign-in')) {
       await loginAsRegularUser(page, 1, userEmail, 'password', { tenantSlug })
       await page.waitForTimeout(process.env.CI ? 3000 : 1500)
+      continue
+    }
+
+    // Fast-path: if a redirect landed us anywhere other than the manage page, re-auth and
+    // retry without burning the full UI-wait timeout.
+    if (!page.url().includes(`/bookings/${lessonId}/manage`)) {
+      if (attempt < 2) {
+        await loginAsRegularUser(page, 1, userEmail, 'password', { tenantSlug })
+        await page.waitForTimeout(process.env.CI ? 3000 : 1500)
+      }
       continue
     }
 
