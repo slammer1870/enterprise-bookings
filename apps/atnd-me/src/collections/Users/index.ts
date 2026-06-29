@@ -238,11 +238,19 @@ export const Users: CollectionConfig = {
       // at Tenant B, which would give that user Tenant B admin panel access.
       async ({ data, req, originalDoc, operation }) => {
         if (!data) return data
-        if (req.user && isAdmin(req.user)) return data
         const d = data as { role?: string | string[] }
         const skipSuperAdminStrip =
           (req.context as Record<string, unknown> | undefined)?.[FIRST_USER_CREATE_CTX] === true
 
+        // Security guards: only apply to non-super-admins.
+        //
+        // Super-admins bypass the escalation guard and tenants write guard but still go through
+        // the derive-role logic below so that saving a user's per-tenant roles (tenants[n].roles)
+        // always keeps the global `role` field in sync. Without this, a super-admin creating or
+        // updating a user via the admin panel would leave the global role as 'user' even when the
+        // per-tenant roles are admin/location-manager, because the early-return previously skipped
+        // the entire hook (including derive-role).
+        if (!(req.user && isAdmin(req.user))) {
         // Staff cannot assign org admin or platform super-admin (defense in depth beside field access).
         if (req.user && isStaff(req.user) && !isTenantAdmin(req.user) && d.role !== undefined) {
           if (operation === 'update' && originalDoc) {
@@ -400,10 +408,12 @@ export const Users: CollectionConfig = {
           }
         }
 
+        } // end non-super-admin guards
+
         // Derive the canonical global role from tenants[n].roles (JWT fast-path sync).
-        // After the tenants write guard above, data.tenants reflects the final merged state.
-        // We re-derive data.role from it so the JWT stays accurate without an extra DB call.
-        // super-admin users are excluded — their global role is never in per-tenant entries.
+        // Runs for ALL authenticated users (including super-admins) when the `tenants` field is
+        // present in the write payload. This ensures the global `role` is always kept in sync
+        // with per-tenant role assignments regardless of who saved the user.
         //
         // Only runs for authenticated HTTP API requests (req.user present). Local API operations
         // with overrideAccess:true (seeds, test setup, admin tooling) set req.user=null and must
