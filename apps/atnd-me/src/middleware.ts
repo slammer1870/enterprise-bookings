@@ -598,6 +598,49 @@ async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextR
     }
   }
 
+  // Base-domain redirect for super-admins with no tenant memberships.
+  //
+  // authorize-tenant returns X-Base-Domain-Redirect when such a super-admin is on a
+  // tenant subdomain (they have a tenant-slug cookie but no actual tenant memberships).
+  // We redirect them to the base-domain admin/login — their natural home — during the
+  // post-login navigation (Referer: /admin/login) or when they visit a tenant login page
+  // while already authenticated.
+  //
+  // This does NOT restrict access: super-admins can freely navigate to any tenant admin
+  // directly (no Referer from /admin/login → this block is skipped).
+  const baseDomainRedirectSignal = res.status === 204 ? res.headers.get('X-Base-Domain-Redirect') : null
+  if (baseDomainRedirectSignal && rootHostname) {
+    const fwd = request.headers.get('x-forwarded-host')?.split(',')[0]?.trim() || ''
+    const rawHost = request.headers.get('host')?.trim() || ''
+    const currentHost = ((fwd || rawHost).split(':')[0] ?? '').toLowerCase()
+    const onBaseHost = currentHost === rootHostname
+    if (!onBaseHost) {
+      const referer = request.headers.get('referer') ?? ''
+      let refererIsLoginPage = false
+      try {
+        const refUrl = new URL(referer)
+        refererIsLoginPage =
+          refUrl.pathname === '/admin/login' || refUrl.pathname.startsWith('/admin/login/')
+      } catch {
+        // ignore unparseable referer
+      }
+      if (isLoginRoute || refererIsLoginPage) {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/admin/login'
+        redirectUrl.search = ''
+        redirectUrl.hostname = rootHostname
+        if (rootHostname.includes('localhost')) {
+          redirectUrl.port = request.nextUrl.port || redirectUrl.port
+        } else {
+          redirectUrl.port = ''
+        }
+        const redirectResponse = NextResponse.redirect(redirectUrl)
+        copySetCookieHeaders(response, redirectResponse)
+        return redirectResponse
+      }
+    }
+  }
+
   const loginRouteRedirect = resolveLoginRouteRedirect({
     request,
     response,

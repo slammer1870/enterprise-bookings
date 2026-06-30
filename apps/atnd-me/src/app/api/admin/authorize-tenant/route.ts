@@ -167,6 +167,38 @@ export async function GET(request: NextRequest) {
 
   const sharedUser = user as unknown as SharedUser
   if (checkRole(['super-admin'], sharedUser)) {
+    // Super-admins have unrestricted access to all admin areas.
+    // UX redirect: when a super-admin who has no tenant memberships is on a
+    // tenant-subdomain context (browser carries a tenant-slug cookie), signal middleware
+    // to redirect them to the base-domain admin/login on the post-login navigation —
+    // their natural home. This is a navigation aid only; super-admins can always navigate
+    // back to any tenant admin directly without restriction.
+    const tenantSlugCookieValue = request.cookies.get('tenant-slug')?.value?.trim() ?? null
+    if (tenantSlugCookieValue) {
+      const idRaw =
+        typeof sharedUser === 'object' && sharedUser !== null && 'id' in sharedUser
+          ? (sharedUser as { id: unknown }).id
+          : null
+      const userId =
+        typeof idRaw === 'number'
+          ? idRaw
+          : typeof idRaw === 'string' && /^\d+$/.test(idRaw)
+            ? parseInt(idRaw, 10)
+            : NaN
+      const fullUser = Number.isFinite(userId)
+        ? await loadUserDocForTenantMembership(payload, userId).catch(() => null)
+        : null
+      const tenants =
+        fullUser && typeof fullUser === 'object' && 'tenants' in fullUser
+          ? (fullUser as { tenants?: unknown[] }).tenants
+          : null
+      const hasTenantMemberships = Array.isArray(tenants) && tenants.length > 0
+      if (!hasTenantMemberships) {
+        const redirectSignalRes = new NextResponse(null, { status: 204 })
+        redirectSignalRes.headers.set('X-Base-Domain-Redirect', '1')
+        return redirectSignalRes
+      }
+    }
     return new NextResponse(null, { status: 204 })
   }
 
