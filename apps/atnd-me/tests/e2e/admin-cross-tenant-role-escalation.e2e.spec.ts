@@ -163,18 +163,15 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
   })
 
   /**
-   * Defence-in-depth browser test: even if a user with `admin` role has memberships
-   * ONLY in Tenant 2, they cannot access Tenant 1's admin panel.
-   * This validates that the authorize-tenant middleware correctly gates the panel by
-   * the user's actual tenant memberships, not merely by having any `admin` role.
+   * Browser test: a user with `admin` role scoped to Tenant 2 navigates to Tenant 1's
+   * admin panel. The `usersPayloadAdminAccess` function now checks the tenant from the
+   * request hostname, so Payload sets canAccessAdmin=false and redirects to
+   * /admin/unauthorized for this cross-tenant attempt.
    */
   test('user with admin role scoped to tenant2 is denied access to tenant1 admin panel', async ({
     page,
     testData,
   }) => {
-    // loginToAdminPanel waits up to 20 s for a successful login, then 20 s more via the
-    // UI fallback — 40 s total for a login that can never succeed.  With PW_E2E_FAST the
-    // test timeout is only 35 s, so we must use a lightweight path for the denied-access check.
     test.setTimeout(90_000)
 
     const tenant1 = testData.tenants[0]!
@@ -183,8 +180,7 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
     const payload = await getPayloadInstance()
 
     // Directly elevate user2 to admin (simulating a DB misconfiguration or super-admin action).
-    // Their tenant memberships remain [tenant2] — they should NOT gain access to tenant1's admin.
-    // Use overrideAccess + direct role field since this simulates a super-admin DB intervention.
+    // Their tenant memberships remain [tenant2] only.
     await payload.update({
       collection: 'users',
       id: user2.id,
@@ -195,11 +191,7 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
     })
 
     try {
-      // ── Part 1: verify tenant1 access is DENIED ──────────────────────────────
-      // Authenticate user2 via the root Payload login endpoint (subdomain URLs don't
-      // resolve via DNS in the test API context, so we always hit localhost:3000).
-      // Then copy the session cookies to the tenant1 subdomain context so the
-      // authorize-tenant middleware can read them when the browser navigates there.
+      // ── Part 1: tenant2 admin tries to access tenant1 admin — should be blocked ──
       const loginRes = await page.request.post('http://localhost:3000/api/users/login', {
         data: { email: user2.email, password: 'password' },
         failOnStatusCode: false,
@@ -207,9 +199,7 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
       if (loginRes.ok()) {
         const state = await page.request.storageState()
         if (state.cookies.length) {
-          // Root-domain cookies
           await page.context().addCookies(state.cookies)
-          // Subdomain-scoped copies so the tenant1 admin request carries the session
           const tenantScopedCookies = state.cookies.map((c) => ({
             ...c,
             domain: `${tenant1.slug}.localhost`,
@@ -225,26 +215,25 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
         })
         .catch(() => null)
 
+      // Wait for Payload's redirect to /admin/unauthorized to settle.
       await page
         .waitForURL(
           (u) =>
-            u.hostname !== `${tenant1.slug}.localhost` ||
-            u.pathname.startsWith('/admin/login'),
-          { timeout: 10_000 },
+            u.hostname === `${tenant1.slug}.localhost` &&
+            (u.pathname.startsWith('/admin/unauthorized') || u.pathname.startsWith('/admin/login')),
+          { timeout: 15_000 },
         )
         .catch(() => null)
 
       const url = new URL(page.url())
-      const wasGrantedAccess =
-        url.hostname === `${tenant1.slug}.localhost` &&
-        url.pathname.startsWith('/admin') &&
-        !url.pathname.startsWith('/admin/login')
+      // usersPayloadAdminAccess returns false for cross-tenant access, so Payload sets
+      // canAccessAdmin=false and redirects to /admin/unauthorized.
+      expect(
+        url.pathname.startsWith('/admin/unauthorized'),
+        `Expected /admin/unauthorized for cross-tenant access, got: ${page.url()}`,
+      ).toBe(true)
 
-      // user2's tenants = [tenant2], so tenant1 admin access must be denied.
-      expect(wasGrantedAccess).toBe(false)
-
-      // ── Part 2: verify tenant2 access IS granted ─────────────────────────────
-      // loginToAdminPanel is fine here because the login is expected to succeed.
+      // ── Part 2: verify tenant2 access IS granted on the correct subdomain ──
       await loginToAdminPanel(page, user2.email, 'password', {
         adminOrigin: `http://${tenant2.slug}.localhost:3000`,
       })
@@ -264,7 +253,7 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
         url2.pathname.startsWith('/admin') &&
         !url2.pathname.startsWith('/admin/login')
 
-      expect(isOnTenant2Admin).toBe(true)
+      expect(isOnTenant2Admin, `Expected tenant2 admin to be accessible on ${tenant2.slug}.localhost`).toBe(true)
     } finally {
       // Restore user2 to the plain `user` role regardless of test outcome.
       await payload.update({

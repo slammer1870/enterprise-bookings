@@ -20,6 +20,7 @@ import {
   usersPayloadAdminAccess,
 } from '../../access/userTenantAccess'
 
+import { afterLoginRedirect } from './hooks/afterLoginRedirect'
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
 import {
   extractTenantId,
@@ -109,6 +110,7 @@ export const Users: CollectionConfig = {
     update: userTenantUpdate,
   },
   hooks: {
+    afterLogin: [afterLoginRedirect],
     beforeValidate: [
       // Strip foreign tenant entries from submitted data before Payload runs relationship
       // validation. Without this, a tenant admin who sees cross-tenant entries in the form

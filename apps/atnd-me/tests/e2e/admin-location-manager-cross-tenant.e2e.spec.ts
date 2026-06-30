@@ -209,12 +209,13 @@ test.describe('Location-manager + admin cross-tenant admin access', () => {
 
       const url = new URL(page.url())
       // The user should be blocked — they should NOT land on the admin dashboard for T3.
-      // Acceptable outcomes: still on /admin/login, or redirected away from T3 entirely.
+      // Acceptable outcomes: on /admin/login, on /admin/unauthorized (Payload's own access
+      // control), or redirected away from T3 entirely.
       const blockedFromT3AdminDashboard =
         url.pathname.startsWith('/admin/login') ||
+        url.pathname.startsWith('/admin/unauthorized') ||
         url.hostname !== `${tenant3.slug}.localhost` ||
-        !url.pathname.startsWith('/admin') ||
-        url.pathname.startsWith('/admin/login')
+        !url.pathname.startsWith('/admin')
 
       expect(
         blockedFromT3AdminDashboard,
