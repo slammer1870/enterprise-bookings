@@ -8,12 +8,33 @@ import type { CollectionBeforeChangeHook } from 'payload'
 function hasAnyPaymentMethod(pm: Record<string, unknown> | null | undefined): boolean {
   if (!pm || typeof pm !== 'object') return false
   const allowedDropIn = pm.allowedDropIn
-  const hasDropIn = allowedDropIn != null && (typeof allowedDropIn === 'number' || (typeof allowedDropIn === 'object' && allowedDropIn !== null))
+  const hasDropIn =
+    allowedDropIn != null &&
+    (typeof allowedDropIn === 'number' ||
+      (typeof allowedDropIn === 'string' && allowedDropIn !== '') ||
+      (typeof allowedDropIn === 'object' && allowedDropIn !== null))
   const allowedPlans = pm.allowedPlans
   const hasPlans = Array.isArray(allowedPlans) && allowedPlans.length > 0
   const allowedClassPasses = pm.allowedClassPasses
   const hasClassPasses = Array.isArray(allowedClassPasses) && allowedClassPasses.length > 0
   return hasDropIn || hasPlans || hasClassPasses
+}
+
+/**
+ * Extracts a tenant ID from a raw field value which may be a number, string, or
+ * populated relationship object. The Payload admin can submit string IDs when the
+ * tenant selector initialises from a cookie before the options list has loaded.
+ */
+function extractTenantId(value: unknown): number | string | null {
+  if (value == null) return null
+  if (typeof value === 'number') return value
+  if (typeof value === 'string' && value !== '') return value
+  if (typeof value === 'object' && 'id' in (value as object)) {
+    const id = (value as { id: unknown }).id
+    if (typeof id === 'number') return id
+    if (typeof id === 'string' && id !== '') return id
+  }
+  return null
 }
 
 export const requireStripeConnectForPayments: CollectionBeforeChangeHook = async ({
@@ -30,18 +51,8 @@ export const requireStripeConnectForPayments: CollectionBeforeChangeHook = async
   if (!enablingPayments) return data
 
   const tenantId =
-    (typeof data?.tenant === 'object' && data?.tenant != null && 'id' in data.tenant
-      ? (data.tenant as { id: number }).id
-      : typeof data?.tenant === 'number'
-        ? data.tenant
-        : null) ??
-    (operation === 'update' && originalDoc
-      ? typeof originalDoc.tenant === 'object' && originalDoc.tenant != null && 'id' in originalDoc.tenant
-        ? (originalDoc.tenant as { id: number }).id
-        : typeof originalDoc.tenant === 'number'
-          ? originalDoc.tenant
-          : null
-      : null)
+    extractTenantId(data?.tenant) ??
+    (operation === 'update' && originalDoc ? extractTenantId(originalDoc.tenant) : null)
 
   if (tenantId == null) {
     throw new Error('Tenant context required to enable payments')

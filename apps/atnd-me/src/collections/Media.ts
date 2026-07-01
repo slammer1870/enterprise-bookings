@@ -58,22 +58,25 @@ export const Media: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [
-      ({ data, req, operation }) => {
+      async ({ data, req, operation }) => {
         if (operation !== 'create') return data
         if (!data) return data
         if (data.tenant) return data
 
         const rawTenant = req.context?.tenant
-        const id =
-          // Preferred: tenant already resolved into Payload request context
-          rawTenant
-            ? typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
-              ? (rawTenant as { id: number }).id
-              : rawTenant
-            : // Fallback: resolve tenant from host/cookies (fixes block-triggered uploads)
-              resolveTenantIdFromRequest(req as any)
+        const resolved: unknown = rawTenant
+          ? // Preferred: tenant already resolved into Payload request context
+            typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
+            ? (rawTenant as { id: unknown }).id
+            : rawTenant
+          : // Fallback: resolve tenant from host/cookies (fixes block-triggered uploads)
+            await resolveTenantIdFromRequest(req as any)
 
-        if (typeof id === 'number') data.tenant = id
+        if (typeof resolved === 'number' && Number.isFinite(resolved)) {
+          data.tenant = resolved
+        } else if (typeof resolved === 'string' && resolved !== '') {
+          data.tenant = resolved
+        }
         return data
       },
     ],

@@ -147,7 +147,18 @@ async function openTimeslotsDashboardForDate(
     timeout: process.env.CI ? 120000 : 60000,
   })
 
-  // react-day-picker v9: no `role="status"` caption; day buttons use `data-day="YYYY-MM-DD"`.
+  // The DatePickerInner mounts with no date filter and immediately fires router.replace()
+  // with today's date. That replace() changes selectedDateFromUrl, which triggers a
+  // setMonth(today) reset. If we start navigating months before this settles, the reset
+  // will undo our click — causing the loop to run all 12 iterations with no progress.
+  // Wait for the URL to gain a startTime filter (indicating the replace() has landed)
+  // so the calendar month state is stable before we attempt to navigate it.
+  await page
+    .waitForURL((url) => url.search.includes('startTime'), {
+      timeout: process.env.CI ? 30000 : 15000,
+    })
+    .catch(() => {})
+
   const calendar = page.locator('[data-slot="calendar"]').first()
   await expect(calendar).toBeVisible({ timeout: process.env.CI ? 120000 : 60000 })
 

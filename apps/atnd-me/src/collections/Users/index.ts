@@ -420,14 +420,48 @@ export const Users: CollectionConfig = {
         // Only runs for authenticated HTTP API requests (req.user present). Local API operations
         // with overrideAccess:true (seeds, test setup, admin tooling) set req.user=null and must
         // not inadvertently downgrade a user's global role when tenant entries lack explicit roles.
+
+        // Authoritative existing roles — used by BOTH the derive-role block and the re-injection
+        // block below. Normally sourced from originalDoc (which Payload fetches with
+        // overrideAccess:true). As a safety net, if super-admin is not found there, we do an
+        // explicit DB lookup with overrideAccess:true to guard against any edge case where
+        // originalDoc.role was unexpectedly absent (e.g. a prior migration stripping the field).
+        let authoritativeExistingRoles = operation === 'update'
+          ? getEffectiveUserRoles(originalDoc as SharedUser)
+          : (Array.isArray(d.role) ? d.role : d.role ? [d.role] : []) as string[]
+
+        if (
+          operation === 'update' &&
+          originalDoc &&
+          !authoritativeExistingRoles.includes('super-admin')
+        ) {
+          const targetIdRaw = (originalDoc as { id?: unknown }).id
+          const targetId =
+            typeof targetIdRaw === 'number'
+              ? targetIdRaw
+              : typeof targetIdRaw === 'string' && /^\d+$/.test(targetIdRaw)
+                ? parseInt(targetIdRaw, 10)
+                : null
+          if (targetId != null) {
+            try {
+              const freshDoc = await req.payload.findByID({
+                collection: 'users',
+                id: targetId,
+                depth: 0,
+                overrideAccess: true,
+              })
+              if (freshDoc) {
+                authoritativeExistingRoles = getEffectiveUserRoles(freshDoc as SharedUser)
+              }
+            } catch { /* fall through and use existingRoles */ }
+          }
+        }
+
         const finalTenants = (data as Record<string, unknown>).tenants
         if (req.user && Array.isArray(finalTenants) && finalTenants.length > 0) {
-          const existingRoles = operation === 'update'
-            ? getEffectiveUserRoles(originalDoc as SharedUser)
-            : (Array.isArray(d.role) ? d.role : d.role ? [d.role] : []) as string[]
-          if (!existingRoles.includes('super-admin')) {
-            const derived = deriveRoleFromTenants(finalTenants as TenantEntry[], existingRoles)
-            if (d.role === undefined || !existingRoles.includes('super-admin')) {
+          if (!authoritativeExistingRoles.includes('super-admin')) {
+            const derived = deriveRoleFromTenants(finalTenants as TenantEntry[], authoritativeExistingRoles)
+            if (d.role === undefined || !authoritativeExistingRoles.includes('super-admin')) {
               d.role = derived as typeof d.role
             }
           }
@@ -436,8 +470,7 @@ export const Users: CollectionConfig = {
         // Only enforce super-admin add/remove rules on updates. On creates, stripping here removed
         // `super-admin` from every seeded/admin user after the first DB row (tests + Local API).
         if (operation === 'update') {
-          const existingRoles = getEffectiveUserRoles(originalDoc as SharedUser)
-          const existingHasSuperAdmin = existingRoles.includes('super-admin')
+          const existingHasSuperAdmin = authoritativeExistingRoles.includes('super-admin')
 
           if (!skipSuperAdminStrip && d.role !== undefined) {
             const arr = Array.isArray(d.role) ? d.role : [d.role]
@@ -451,7 +484,7 @@ export const Users: CollectionConfig = {
               // Do not re-inject super-admin when the row mixes org/staff with super-admin (invalid);
               // otherwise a tenant org admin could not clear a mistaken super-admin assignment.
               const invalidSuperAdminCombo =
-                existingRoles.includes('admin') || existingRoles.includes('staff')
+                authoritativeExistingRoles.includes('admin') || authoritativeExistingRoles.includes('staff')
               if (!invalidSuperAdminCombo) {
                 d.role = [...arr, 'super-admin'] as typeof d.role
               }
