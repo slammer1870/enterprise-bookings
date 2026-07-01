@@ -140,7 +140,7 @@ describe('Navbar collection (converted from Header global)', () => {
           password: 'test',
           role: ['admin'],
           emailVerified: true,
-          tenants: [{ tenant: testTenant.id }], // Array of objects with 'tenant' property
+          tenants: [{ tenant: testTenant.id, roles: ['admin'] }], // Array of objects with 'tenant' property
         },
         draft: false,
         overrideAccess: true,

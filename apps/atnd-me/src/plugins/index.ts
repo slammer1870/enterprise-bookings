@@ -78,6 +78,7 @@ import {
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
+import { fixBetterAuthAfterReadHooks } from './fix-better-auth-after-read-hooks'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
 import { hideWebsiteCollectionsFromTenantAdmins } from './hide-website-collections-from-tenant-admins'
 import { staffRosterUsersFieldAccessPlugin } from './staff-roster-users-field-access'
@@ -350,6 +351,9 @@ export const plugins: Plugin[] = [
   fixBetterAuthTimestamps(),
   // Restrict who can edit the Better Auth `role` field (RBAC lives on `role` only).
   fixBetterAuthRoleField(),
+  // Must run after fixBetterAuthRoleField and all other plugins so the
+  // afterRead hooks aren't dropped again by a later plugin pass.
+  fixBetterAuthAfterReadHooks(),
   // Hide Better Auth collections (accounts, sessions, verifications) from tenant-admins; only full admins see them
   hideBetterAuthCollectionsFromTenantAdmins(),
   // Hide platform website management collections from tenant-admins.
@@ -796,6 +800,9 @@ export const plugins: Plugin[] = [
     cleanupAfterTenantDelete: false,
     // Opt out of baseListFilter on users so tenant selector doesn't filter the list.
     useUsersTenantFilter: false,
+    // Do not auto-add the tenants array to users — we place it manually in the Users collection
+    // with a `roles` rowField so the consolidated tenants[n].roles structure is authoritative.
+    tenantsArrayField: { includeDefaultField: false },
     // Bypass the plugin's default users constraint (tenants.tenant in [...]) so tenant-admins
     // can see users who registered at their domain or have a booking there, not only themselves.
     usersAccessResultOverride: async ({ accessKey, accessResult, ...args }) => {
@@ -909,8 +916,10 @@ export const plugins: Plugin[] = [
     // Used by the selector→document sync hook. We want tenant-admin autosave drafts
     // (Pages create flow) to pick up the selected tenant automatically, while still
     // keeping "no tenant" (base pages) effectively admin-only via the UI.
+    // With per-tenant roles, admin/staff users no longer have global access — they are
+    // scoped to their assigned tenants via tenants[n].roles. Only super-admin is truly global.
     userHasAccessToAllTenants: (user) =>
-      checkRole(['super-admin', 'admin', 'staff'], user as SharedUser),
+      checkRole(['super-admin'], user as SharedUser),
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,

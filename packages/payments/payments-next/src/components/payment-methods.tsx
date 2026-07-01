@@ -921,6 +921,14 @@ export function PaymentMethods({
       hasDropInTab && dropInAllowsQuantity(allowedDropIn as DropIn, quantity);
   }
 
+  // Hide drop-in when the effective total (existing confirmed + requested delta) would exceed
+  // the per-timeslot cap. Mirrors the membership plan check above which uses
+  // `quantity + confirmedForTimeslot` so that a cap-1 drop-in is correctly hidden when
+  // modifying an existing booking rather than showing an option that will fail at checkout.
+  if (hasDropInTab && allowedDropIn && confirmedForTimeslot > 0) {
+    hasDropInTab = dropInAllowsQuantity(allowedDropIn as DropIn, quantity + confirmedForTimeslot);
+  }
+
   const availableTabs = useMemo(() => {
     const tabs: string[] = [];
     if (hasDropInTab) tabs.push("dropin");

@@ -11,11 +11,16 @@ import { getTenantStripeContext, type TenantStripeLike } from '@/lib/stripe-conn
 function resolveTenantId(
   data: Record<string, unknown>,
   originalDoc: Record<string, unknown> | null | undefined,
-): number | null {
+): number | string | null {
   const raw = data.tenant !== undefined ? data.tenant : originalDoc?.tenant
   if (raw == null) return null
   if (typeof raw === 'number') return raw
-  if (typeof raw === 'object' && raw !== null && 'id' in raw) return (raw as { id: number }).id
+  if (typeof raw === 'string' && raw !== '') return raw
+  if (typeof raw === 'object' && raw !== null && 'id' in raw) {
+    const id = (raw as { id: unknown }).id
+    if (typeof id === 'number') return id
+    if (typeof id === 'string' && id !== '') return id
+  }
   return null
 }
 
@@ -72,7 +77,7 @@ function saveSubjectPhrase(label: StripeConnectSaveLabel): string {
 
 async function assertTenantHasActiveStripeConnect(args: {
   payload: import('payload').Payload
-  tenantId: number
+  tenantId: number | string
   label: StripeConnectSaveLabel
 }): Promise<void> {
   const { payload, tenantId, label } = args

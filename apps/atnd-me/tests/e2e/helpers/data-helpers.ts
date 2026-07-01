@@ -641,14 +641,14 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     'Tenant Admin 1',
     ['admin']
   )
-  // Assign tenant-admin to tenant1 (tenants array + registrationTenant so status API can resolve tenant)
+  // Assign tenant-admin to tenant1 using consolidated tenants[n].roles structure
   await payload.update({
     collection: 'users',
     where: { email: { equals: tenantAdmin1.email } },
     data: {
-      tenants: [{ tenant: tenant1.id }],
+      tenants: [{ tenant: tenant1.id, roles: ['admin'] }],
       registrationTenant: tenant1.id,
-    },
+    } as Parameters<typeof payload.update>[0]['data'],
     overrideAccess: true,
   })
 
@@ -663,9 +663,9 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     collection: 'users',
     where: { email: { equals: tenantAdmin2.email } },
     data: {
-      tenants: [{ tenant: tenant2.id }],
+      tenants: [{ tenant: tenant2.id, roles: ['admin'] }],
       registrationTenant: tenant2.id,
-    },
+    } as Parameters<typeof payload.update>[0]['data'],
     overrideAccess: true,
   })
 
@@ -744,10 +744,10 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     collection: 'users',
     where: { email: { equals: locationManager1.email } },
     data: {
-      tenants: [{ tenant: tenant1.id }],
+      tenants: [{ tenant: tenant1.id, roles: ['location-manager'] }],
       registrationTenant: tenant1.id,
       locations: [branchNorth.id],
-    },
+    } as Parameters<typeof payload.update>[0]['data'],
     overrideAccess: true,
   })
 

@@ -43,7 +43,7 @@ describe('Payment methods require Stripe Connect (step 2.6.1)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: testTenantId }],
+        tenants: [{ tenant: testTenantId, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,

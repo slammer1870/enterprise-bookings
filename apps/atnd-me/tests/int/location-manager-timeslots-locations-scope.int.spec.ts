@@ -80,7 +80,7 @@ describe('location-manager timeslots + locations scope', () => {
         password: 'test',
         role: ['location-manager'],
         emailVerified: true,
-        tenants: [{ tenant: tenant.id }],
+        tenants: [{ tenant: tenant.id, roles: ['location-manager'] }],
         locations: [locA.id],
       },
       draft: false,

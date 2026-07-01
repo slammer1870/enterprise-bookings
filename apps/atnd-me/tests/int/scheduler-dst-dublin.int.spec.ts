@@ -5,6 +5,7 @@ import config from '@/payload.config'
 import type { EventType, Timeslot, User } from '@repo/shared-types'
 import { createTRPCContext, appRouter } from '@repo/trpc'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { generateTimeslotsFromScheduleWithTenant } from '@/tasks/generate-timeslots-with-tenant'
 import { TZDate } from '@date-fns/tz'
 
 const TEST_TIMEOUT = 120000
@@ -92,40 +93,23 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
   it(
     'reproduces the DST boundary regression when scheduler is configured on 29th March from a 26th March planning date',
     async () => {
-      const nowSpy = fixCurrentTimeForSchedulerWindow('2026-03-30T12:00:00.000Z')
+      // 2026 dates are now in the past; updated to 2027. Ireland DST spring boundary:
+      // last Sunday of March 2027 = March 28, 2027.
+      const nowSpy = fixCurrentTimeForSchedulerWindow('2027-03-29T12:00:00.000Z')
 
       try {
       const timeZone = 'Europe/Dublin'
       // Simulate scheduler being configured with a start date that sits on the
-      // first Monday after DST starts (29 March), while the admin is planning it
+      // first Monday after DST starts (28 March), while the admin is planning it
       // on 26 March.
-      const startDate = '2026-03-29' // Sunday in production examples, DST boundary date
-      const endDate = '2026-04-04' // Saturday
+      const startDate = '2027-03-28' // Sunday — DST boundary date for 2027
+      const endDate = '2027-04-03' // Saturday
 
       // Keep this to the two active weekdays in the regression scenario:
       // - Monday timeslots at 10:00
       // - Tuesday timeslots at 11:00
       // If Monday is shifted to Sunday, this assertion pattern catches it immediately.
       const hourByScheduleIndex = [10, 11] as const
-
-      const existing = await payload.find({
-        collection: 'scheduler',
-        where: { tenant: { equals: testTenant.id } },
-        limit: 10,
-        overrideAccess: true,
-      })
-      for (const doc of existing.docs) {
-        await payload.delete({
-          collection: 'scheduler',
-          id: doc.id,
-          overrideAccess: true,
-        })
-      }
-
-      const req = {
-        ...payload,
-        context: { tenant: testTenant.id },
-      } as any
 
       const mkSlot = (hour: number) => {
         const start = new TZDate(2000, 0, 1, hour, 0, 0, 0, timeZone)
@@ -139,46 +123,47 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         }
       }
 
-      await payload.create({
-        collection: 'scheduler',
-        data: {
-          tenant: Number(testTenant.id),
+      const week = {
+        // week.days is Monday-first: 0=Mon ... 6=Sun
+        days: [
+          { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
+          { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
+          { timeSlot: [] }, // Wed
+          { timeSlot: [] }, // Thu
+          { timeSlot: [] }, // Fri
+          { timeSlot: [] }, // Sat
+          { timeSlot: [] }, // Sun
+        ],
+      }
+
+      // Run the generation task directly (synchronously) to avoid the fire-and-forget
+      // race condition that arises when creating a scheduler document and waiting for
+      // the background job to complete within a fixed timeout.
+      await generateTimeslotsFromScheduleWithTenant({
+        input: {
           startDate,
           endDate,
+          week,
           clearExisting: true,
           defaultEventType: eventType.id,
           lockOutTime: 0,
-          week: {
-            // week.days is Monday-first: 0=Mon ... 6=Sun
-            days: [
-              { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
-              { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
-              { timeSlot: [] }, // Wed
-              { timeSlot: [] }, // Thu
-              { timeSlot: [] }, // Fri
-              { timeSlot: [] }, // Sat
-              { timeSlot: [] }, // Sun
-            ],
-          },
-        },
-        req,
-        overrideAccess: true,
-      })
-
-      // Job runs synchronously (runByID), but give DB a moment.
-      await new Promise((r) => setTimeout(r, 2000))
+          tenant: Number(testTenant.id),
+        } as any,
+        req: { payload, context: { tenant: Number(testTenant.id) } } as any,
+        job: {} as any,
+      } as any)
 
       const caller = await createCaller()
 
       // Query each calendar day using a midday instant in Dublin to avoid boundary ambiguity.
       const calendarDates = [
-        { y: 2026, m: 2, d: 29 }, // Sun Mar 29
-        { y: 2026, m: 2, d: 30 }, // Mon Mar 30
-        { y: 2026, m: 2, d: 31 }, // Tue Mar 31
-        { y: 2026, m: 3, d: 1 }, // Wed Apr 1
-        { y: 2026, m: 3, d: 2 }, // Thu Apr 2
-        { y: 2026, m: 3, d: 3 }, // Fri Apr 3
-        { y: 2026, m: 3, d: 4 }, // Sat Apr 4
+        { y: 2027, m: 2, d: 28 }, // Sun Mar 28 — DST boundary
+        { y: 2027, m: 2, d: 29 }, // Mon Mar 29
+        { y: 2027, m: 2, d: 30 }, // Tue Mar 30
+        { y: 2027, m: 2, d: 31 }, // Wed Mar 31
+        { y: 2027, m: 3, d: 1 },  // Thu Apr 1
+        { y: 2027, m: 3, d: 2 },  // Fri Apr 2
+        { y: 2027, m: 3, d: 3 },  // Sat Apr 3
       ] as const
 
       for (const { y, m, d } of calendarDates) {
@@ -228,14 +213,14 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       // 2) If this test is green, Monday is still being created on Monday
       // (not on Sunday) after crossing the DST boundary.
       const mondayTimeslots = await caller.timeslots.getByDate({
-        date: new TZDate(2026, 2, 30, 12, 0, 0, 0, timeZone).toISOString(),
+        date: new TZDate(2027, 2, 29, 12, 0, 0, 0, timeZone).toISOString(), // Mon Mar 29 2027
         tenantId: Number(testTenant.id),
       })
       expect(mondayTimeslots.length).toBe(1)
       const mondayStart = new TZDate(new Date((mondayTimeslots[0] as any).startTime as any), timeZone)
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(10)
-      expect(mondayStart.getDate()).toBe(30)
+      expect(mondayStart.getDate()).toBe(29)
       } finally {
         nowSpy.mockRestore()
       }
@@ -246,35 +231,18 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
   it(
     'handles the Autumn DST boundary in Europe/Dublin without day drift',
     async () => {
-      const nowSpy = fixCurrentTimeForSchedulerWindow('2026-10-26T12:00:00.000Z')
+      // 2026 dates are now in the past; updated to 2027. Ireland DST autumn boundary:
+      // last Sunday of October 2027 = October 31, 2027.
+      const nowSpy = fixCurrentTimeForSchedulerWindow('2027-11-01T12:00:00.000Z')
 
       try {
       const timeZone = 'Europe/Dublin'
       // Simulate a scheduler configured at the start of the autumn fallback window.
-      const startDate = '2026-10-25' // Sunday in production examples, DST ends this weekend
-      const endDate = '2026-10-31' // Saturday
+      const startDate = '2027-10-31' // Sunday — DST ends this day in 2027
+      const endDate = '2027-11-06' // Saturday
 
       // Keep a narrow schedule for Monday and Tuesday only.
       const hourByScheduleIndex = [9, 10] as const
-
-      const existing = await payload.find({
-        collection: 'scheduler',
-        where: { tenant: { equals: testTenant.id } },
-        limit: 10,
-        overrideAccess: true,
-      })
-      for (const doc of existing.docs) {
-        await payload.delete({
-          collection: 'scheduler',
-          id: doc.id,
-          overrideAccess: true,
-        })
-      }
-
-      const req = {
-        ...payload,
-        context: { tenant: testTenant.id },
-      } as any
 
       const mkSlot = (hour: number) => {
         const start = new TZDate(2000, 0, 1, hour, 0, 0, 0, timeZone)
@@ -288,45 +256,47 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
         }
       }
 
-      await payload.create({
-        collection: 'scheduler',
-        data: {
-          tenant: Number(testTenant.id),
+      const week = {
+        // week.days is Monday-first: 0=Mon ... 6=Sun
+        days: [
+          { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
+          { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
+          { timeSlot: [] }, // Wed
+          { timeSlot: [] }, // Thu
+          { timeSlot: [] }, // Fri
+          { timeSlot: [] }, // Sat
+          { timeSlot: [] }, // Sun
+        ],
+      }
+
+      // Run the generation task directly (synchronously) to avoid the fire-and-forget
+      // race condition that arises when creating a scheduler document and waiting for
+      // the background job to complete within a fixed timeout.
+      await generateTimeslotsFromScheduleWithTenant({
+        input: {
           startDate,
           endDate,
+          week,
           clearExisting: true,
           defaultEventType: eventType.id,
           lockOutTime: 0,
-          week: {
-            // week.days is Monday-first: 0=Mon ... 6=Sun
-            days: [
-              { timeSlot: [mkSlot(hourByScheduleIndex[0])] }, // Mon
-              { timeSlot: [mkSlot(hourByScheduleIndex[1])] }, // Tue
-              { timeSlot: [] }, // Wed
-              { timeSlot: [] }, // Thu
-              { timeSlot: [] }, // Fri
-              { timeSlot: [] }, // Sat
-              { timeSlot: [] }, // Sun
-            ],
-          },
-        },
-        req,
-        overrideAccess: true,
-      })
-
-      await new Promise((r) => setTimeout(r, 2000))
+          tenant: Number(testTenant.id),
+        } as any,
+        req: { payload, context: { tenant: Number(testTenant.id) } } as any,
+        job: {} as any,
+      } as any)
 
       const caller = await createCaller()
 
       // Query each calendar day using a midday instant in Dublin to avoid boundary ambiguity.
       const calendarDates = [
-        { y: 2026, m: 9, d: 25 }, // Sun Oct 25
-        { y: 2026, m: 9, d: 26 }, // Mon Oct 26
-        { y: 2026, m: 9, d: 27 }, // Tue Oct 27
-        { y: 2026, m: 9, d: 28 }, // Wed Oct 28
-        { y: 2026, m: 9, d: 29 }, // Thu Oct 29
-        { y: 2026, m: 9, d: 30 }, // Fri Oct 30
-        { y: 2026, m: 9, d: 31 }, // Sat Oct 31
+        { y: 2027, m: 9, d: 31 }, // Sun Oct 31 — DST boundary
+        { y: 2027, m: 10, d: 1 }, // Mon Nov 1
+        { y: 2027, m: 10, d: 2 }, // Tue Nov 2
+        { y: 2027, m: 10, d: 3 }, // Wed Nov 3
+        { y: 2027, m: 10, d: 4 }, // Thu Nov 4
+        { y: 2027, m: 10, d: 5 }, // Fri Nov 5
+        { y: 2027, m: 10, d: 6 }, // Sat Nov 6
       ] as const
 
       for (const { y, m, d } of calendarDates) {
@@ -370,14 +340,14 @@ describe('Scheduler DST (Europe/Dublin) regression', () => {
       }
 
       const mondayTimeslots = await caller.timeslots.getByDate({
-        date: new TZDate(2026, 9, 26, 12, 0, 0, 0, timeZone).toISOString(),
+        date: new TZDate(2027, 10, 1, 12, 0, 0, 0, timeZone).toISOString(), // Mon Nov 1 2027
         tenantId: Number(testTenant.id),
       })
       expect(mondayTimeslots.length).toBe(1)
       const mondayStart = new TZDate(new Date((mondayTimeslots[0] as any).startTime as any), timeZone)
       expect(mondayStart.getDay()).toBe(1) // Monday
       expect(mondayStart.getHours()).toBe(9)
-      expect(mondayStart.getDate()).toBe(26)
+      expect(mondayStart.getDate()).toBe(1)
       } finally {
         nowSpy.mockRestore()
       }

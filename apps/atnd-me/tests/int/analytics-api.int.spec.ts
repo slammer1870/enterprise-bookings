@@ -73,7 +73,7 @@ describe('Analytics API (Phase 4)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: testTenantId }],
+        tenants: [{ tenant: testTenantId, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,

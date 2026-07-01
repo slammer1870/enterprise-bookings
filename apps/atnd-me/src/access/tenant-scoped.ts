@@ -23,6 +23,101 @@ import {
   resolvePureLocationManagerBranchIds,
 } from '@/access/locationManagerScope'
 
+// ---------------------------------------------------------------------------
+// Per-tenant role helpers
+// ---------------------------------------------------------------------------
+
+/** Coerce a raw tenant field value to a numeric ID. */
+function coerceTenantId(tenantRaw: unknown): number | null {
+  if (typeof tenantRaw === 'number' && Number.isFinite(tenantRaw)) return tenantRaw
+  if (typeof tenantRaw === 'object' && tenantRaw !== null && 'id' in tenantRaw) {
+    const id = (tenantRaw as { id: unknown }).id
+    return typeof id === 'number' && Number.isFinite(id)
+      ? id
+      : typeof id === 'string' && /^\d+$/.test(id)
+        ? parseInt(id, 10)
+        : null
+  }
+  if (typeof tenantRaw === 'string' && /^\d+$/.test(tenantRaw)) return parseInt(tenantRaw, 10)
+  return null
+}
+
+/**
+ * Returns the tenant IDs from `user.tenants[n]` where the entry has at least one
+ * of the specified roles (or all tenant IDs when no role filter is given).
+ *
+ * This reads from the consolidated `tenants[n].roles` structure introduced in the
+ * schema consolidation migration — the successor to `getElevatedTenantIdsFromTenantRoles`.
+ */
+export function getUserTenantIDs(
+  user: unknown,
+  role?: string | string[],
+): number[] {
+  if (!user || typeof user !== 'object') return []
+  const tenants = (user as Record<string, unknown>).tenants
+  if (!Array.isArray(tenants) || tenants.length === 0) return []
+
+  const roleFilter = role
+    ? new Set(Array.isArray(role) ? role : [role])
+    : null
+
+  const ids: number[] = []
+
+  for (const entry of tenants) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+    const tenantId = coerceTenantId(e.tenant)
+    if (tenantId == null) continue
+
+    if (roleFilter === null) {
+      ids.push(tenantId)
+    } else {
+      const roles = Array.isArray(e.roles) ? (e.roles as unknown[]) : []
+      if (roles.some((r) => typeof r === 'string' && roleFilter.has(r))) {
+        ids.push(tenantId)
+      }
+    }
+  }
+
+  return ids
+}
+
+/**
+ * Returns the roles assigned to a user for a specific tenant from `tenants[n].roles`.
+ * Returns `[]` if no entry exists for that tenant.
+ */
+export function getRolesForTenant(user: unknown, tenantId: number): string[] {
+  if (!user || typeof user !== 'object') return []
+  const tenants = (user as Record<string, unknown>).tenants
+  if (!Array.isArray(tenants)) return []
+
+  for (const entry of tenants) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+    const tid = coerceTenantId(e.tenant)
+    if (tid === tenantId) {
+      return Array.isArray(e.roles)
+        ? (e.roles.filter((r) => typeof r === 'string') as string[])
+        : []
+    }
+  }
+
+  return []
+}
+
+/**
+ * @deprecated Use {@link getUserTenantIDs} instead.
+ * Kept for backward compatibility during the migration window.
+ */
+export function getElevatedTenantIdsFromTenantRoles(
+  user: unknown,
+  elevatedRoles: string[] = ['admin', 'staff', 'location-manager'],
+): number[] {
+  return getUserTenantIDs(user, elevatedRoles)
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Tenant IDs from `tenants` + `registrationTenant` only (no role-based shortcuts).
  * Used when resolving membership for tenant portal access while `isAdmin(session)` is false,
@@ -189,18 +284,27 @@ export async function resolveTenantAdminTenantIds(args: {
   if (direct === null) {
     return finish([])
   }
-  if (direct.length > 0) {
-    return finish(direct)
-  }
 
   // Session/JWT user often lacks relationships like `tenants` — fetch full user and retry.
   const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
   const id = typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
   if (!Number.isFinite(id)) {
-    return finish([])
+    return finish(direct.length > 0 ? direct : [])
   }
 
   const fullUser = await loadUserDocForTenantMembership(payload, id)
+
+  // Primary: derive elevated-tenant scope from the consolidated tenants[n].roles structure.
+  // After the schema migration, roles live here rather than in the removed tenantRoles array.
+  if (fullUser) {
+    const fromTenantRoles = getUserTenantIDs(fullUser, ['admin', 'staff', 'location-manager'])
+    if (fromTenantRoles.length > 0) {
+      return finish(fromTenantRoles)
+    }
+  }
+
+  // Fallback: global role + tenant membership (pre-migration behaviour).
+  if (direct.length > 0) return finish(direct)
 
   let fromDb = fullUser ? getUserTenantIds(fullUser as SharedUser) : []
   if (fromDb === null && fullUser && !checkRole(['super-admin'], user as SharedUser)) {

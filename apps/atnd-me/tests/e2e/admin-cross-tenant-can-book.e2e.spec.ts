@@ -37,11 +37,14 @@ test.describe('Admin cross-tenant booking', () => {
       collection: 'users',
       where: { email: { equals: adminB.email } },
       data: {
-        tenants: [{ tenant: tenantA.id }, { tenant: tenantB.id }],
+        tenants: [
+          { tenant: tenantA.id, roles: ['admin'] },
+          { tenant: tenantB.id, roles: ['admin'] },
+        ],
         // Better Auth's tenant resolution uses `registrationTenant`, so set it to
         // the target tenant we sign into (tenant A) for this cross-tenant booking test.
         registrationTenant: tenantA.id,
-      },
+      } as Parameters<typeof payload.update>[0]['data'],
       overrideAccess: true,
     })
 

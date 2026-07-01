@@ -244,6 +244,24 @@ export const subscriptionsRouter = {
         (p): p is Plan => typeof p === "object" && p != null && "id" in p
       );
 
+      // Count the user's existing confirmed bookings for this timeslot before any
+      // early returns, so that the drop-in tab-visibility check in PaymentMethods
+      // always has an accurate effective-total even when there is no subscription.
+      const existingConfirmedEarly = await findSafe(
+        payload,
+        ctx.bookingsSlugs.bookings,
+        {
+          where: {
+            timeslot: { equals: input.timeslotId },
+            user: { equals: user.id },
+            status: { equals: "confirmed" },
+          },
+          limit: 0,
+          overrideAccess: true,
+        }
+      );
+      const confirmedForTimeslotEarly = existingConfirmedEarly.totalDocs ?? 0;
+
       if (allowedPlans.length === 0) {
         return {
           subscription: null,
@@ -252,6 +270,7 @@ export const subscriptionsRouter = {
           needsCustomerPortal: false,
           upgradeOptions: [],
           eligiblePlansForQuantity: null,
+          confirmedForTimeslot: confirmedForTimeslotEarly,
         };
       }
 
@@ -292,6 +311,7 @@ export const subscriptionsRouter = {
           needsCustomerPortal: false,
           upgradeOptions: [],
           eligiblePlansForQuantity: null,
+          confirmedForTimeslot: confirmedForTimeslotEarly,
         };
       }
 

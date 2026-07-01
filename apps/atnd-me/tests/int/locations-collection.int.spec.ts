@@ -52,7 +52,7 @@ describe('Locations collection (Phase 7 — branches per tenant)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: tenantA.id }],
+        tenants: [{ tenant: tenantA.id, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,

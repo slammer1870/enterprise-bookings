@@ -33,7 +33,30 @@ function formatLocalYmd(d: Date): string {
 }
 
 async function openTimeslotsDashboardForDate(page: import('@playwright/test').Page, targetDate: Date) {
-  await page.goto('/admin/collections/timeslots', {
+  // Navigate with the date filter pre-applied in the query string.
+  //
+  // If we navigate to /admin/collections/timeslots with NO query params, the
+  // DatePicker component mounts with selectedDateISO=undefined and immediately
+  // calls router.replace() inside startTransition to redirect to today's date.
+  // While that server-side navigation is pending, isPending=true and the
+  // DayPicker renders with disabled={true} — ALL calendar day buttons are
+  // disabled. In CI the server re-render can take several seconds, causing the
+  // subsequent click to time out even though the button is visible.
+  //
+  // By pre-loading the date filter in the URL, selectedDateISO is set on first
+  // render so the redirect effect never fires, isPending stays false, and every
+  // calendar day button is immediately clickable.
+  const startOfDay = new Date(targetDate)
+  startOfDay.setHours(0, 0, 0, 0)
+  const endOfDay = new Date(targetDate)
+  endOfDay.setHours(23, 59, 59, 999)
+  const gte = startOfDay.toISOString()
+  const lte = endOfDay.toISOString()
+  // Matches the format produced by getTimeslotsQuery (qs.stringify, encode: false)
+  // and parsed by getTimeslotStartTimeFilter (where.or[0].and[0].startTime.gte).
+  const preloadedQuery = `depth=0&limit=100&sort=startTime&where[or][0][and][0][startTime][greater_than_equal]=${gte}&where[or][0][and][1][startTime][less_than_equal]=${lte}`
+
+  await page.goto(`/admin/collections/timeslots?${preloadedQuery}`, {
     waitUntil: 'domcontentloaded',
     timeout: process.env.CI ? 120_000 : 60_000,
   })
@@ -51,7 +74,8 @@ async function openTimeslotsDashboardForDate(page: import('@playwright/test').Pa
   const nextMonthButton = page.getByRole('button', { name: /go to the next month/i })
   const prevMonthButton = page.getByRole('button', { name: /go to the previous month/i })
 
-  // Navigate the calendar in either direction (past or future timeslots) up to 24 months.
+  // The calendar initialises to the month of targetDate when selectedDateISO is
+  // pre-loaded, but navigate if needed (safety net for edge cases).
   const now = new Date()
   const targetIsBeforeNow = targetDate < now
   for (let i = 0; i < 24; i += 1) {
@@ -71,6 +95,9 @@ async function openTimeslotsDashboardForDate(page: import('@playwright/test').Pa
   const ymd = formatLocalYmd(targetDate)
   const dayButton = calendar.locator(`button[data-day="${ymd}"]`)
   await expect(dayButton).toBeVisible({ timeout: process.env.CI ? 120_000 : 60_000 })
+  // Wait for the button to be enabled before clicking. The first-effect in
+  // DatePicker adds depth=0 if missing; if it fires it briefly sets isPending.
+  await expect(dayButton).toBeEnabled({ timeout: process.env.CI ? 30_000 : 15_000 })
   await dayButton.click()
 }
 

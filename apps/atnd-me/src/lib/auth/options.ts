@@ -1,4 +1,5 @@
 import { createBetterAuthPluginOptions, createCustomExpiryMagicLinkSender } from '@repo/better-auth-config/server'
+import { customSession } from 'better-auth/plugins'
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
@@ -360,7 +361,53 @@ const betterAuthConfig = {
     : {}),
 }
 
-export const betterAuthPluginOptions = createBetterAuthPluginOptions(betterAuthConfig)
+const _betterAuthPluginOptionsBase = createBetterAuthPluginOptions(betterAuthConfig)
+
+/**
+ * `customSession` injects `tenants` (with per-tenant roles) into Better Auth sessions for
+ * portal users. This makes `req.user.tenants` reliably available in access control helpers
+ * without a per-request DB lookup, eliminating `loadUserDocForTenantMembership` as a
+ * primary path for tenant admin scope resolution.
+ *
+ * Scope guard: only portal users (admin, staff, location-manager, super-admin) incur the
+ * extra DB query. Regular booking users are skipped entirely.
+ */
+const PORTAL_ROLES = new Set(['admin', 'staff', 'location-manager', 'super-admin'])
+
+const customSessionPlugin = customSession(async ({ user, session }: {
+  user: Record<string, unknown>
+  session: Record<string, unknown>
+}) => {
+  const roles = Array.isArray(user.role) ? user.role : user.role ? [user.role] : []
+  const isPortalUser = (roles as string[]).some((r) => PORTAL_ROLES.has(r))
+  if (!isPortalUser) return { user, session }
+
+  try {
+    const { getPayload } = await import('@/lib/payload')
+    const payload = await getPayload()
+    const full = await payload.findByID({
+      collection: 'users',
+      id: Number(user.id),
+      depth: 0,
+      overrideAccess: true,
+      select: { tenants: true } as Record<string, boolean>,
+    })
+    return { user: { ...user, tenants: (full as unknown as Record<string, unknown>)?.tenants ?? [] }, session }
+  } catch {
+    return { user, session }
+  }
+})
+
+export const betterAuthPluginOptions = {
+  ..._betterAuthPluginOptionsBase,
+  betterAuthOptions: {
+    ..._betterAuthPluginOptionsBase.betterAuthOptions,
+    plugins: [
+      ...(_betterAuthPluginOptionsBase.betterAuthOptions?.plugins ?? []),
+      customSessionPlugin,
+    ],
+  },
+}
 
 /**
  * Sends a booking completion magic link with a 36-hour expiry,

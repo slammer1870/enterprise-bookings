@@ -296,8 +296,8 @@ export const Posts: CollectionConfig<'posts'> = {
         if (rawTenant) {
           data.tenant =
             typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
-              ? (rawTenant as { id: number }).id
-              : (rawTenant as number)
+              ? (rawTenant as { id: number | string }).id
+              : (rawTenant as number | string)
         }
         return data
       },

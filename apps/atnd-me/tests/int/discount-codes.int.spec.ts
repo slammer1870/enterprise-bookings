@@ -76,7 +76,7 @@ describe('Discount codes (Phase 4.5)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: tenantWithConnectId }],
+        tenants: [{ tenant: tenantWithConnectId, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,

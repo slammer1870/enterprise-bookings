@@ -7,7 +7,7 @@
  *  2. The user books 2 slots in a single session via the drop-in tab using a 100%-off
  *     promo code (avoids Stripe card entry while exercising the real payment flow).
  *  3. The user navigates to the manage page for the same timeslot.
- *  4. The "Up to X total bookings available for this timeslot." label must display
+ *  4. The "Up to X more bookings available for this timeslot." label must display
  *     X = places (the full venue capacity), because:
  *       X = activeBookings.length + timeslot.remainingCapacity
  *         = 2             + (places − 2)
@@ -77,7 +77,7 @@ test.describe('Drop-in booking (qty 2) then manage: capacity label reflects actu
   test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
   test(
-    '"Up to X total bookings available" on manage page shows X = timeslot capacity after booking 2 slots via drop-in',
+    '"Up to X more bookings available" on manage page shows X = timeslot capacity after booking 2 slots via drop-in',
     async ({ page, testData }) => {
       /** Total venue capacity configured on the event-type. */
       const CAPACITY = 5
@@ -361,26 +361,23 @@ test.describe('Drop-in booking (qty 2) then manage: capacity label reflects actu
       const bookingQty = page.getByTestId('booking-quantity')
       await expect(bookingQty).toHaveText(String(BOOKED_QTY), { timeout: 10_000 })
 
-      // ── Key assertion: the capacity label shows the full venue capacity ──────
+      // ── Key assertion: the capacity label shows the remaining venue spots ───────
       //
-      //   "Up to X total bookings available for this timeslot."
+      //   "Up to X more bookings available for this timeslot."
       //
-      // The component computes:
-      //   maxTotalQuantityBase = activeBookings.length + timeslot.remainingCapacity + ownInitialHoldQty
-      //                        = BOOKED_QTY          + (CAPACITY − BOOKED_QTY)    + 0 (no pre-existing hold)
-      //                        = CAPACITY
+      // The component now shows remainingCapacityForLabel = maxTotalQuantity − activeBookings:
+      //   maxTotalQuantity       = BOOKED_QTY + (CAPACITY − BOOKED_QTY) + 0 = CAPACITY = 5
+      //   remainingCapacityForLabel = CAPACITY − BOOKED_QTY = 5 − 2 = 3
       //
-      // Since viewerMaxPerTimeslot = Infinity (adjustable drop-in, no per-user cap),
-      // maxTotalQuantity = maxTotalQuantityBase = CAPACITY.
-      //
-      // If the label shows a number smaller than CAPACITY, the remaining-capacity
+      // This equals the number of spots still open in the venue (not a user-total ceiling).
+      // If the label shows anything other than CAPACITY − BOOKED_QTY, the remaining-capacity
       // calculation is wrong (e.g. confirmed bookings are being double-counted).
-      const expectedMax: number = CAPACITY
-      const bookingPlural = expectedMax !== 1 ? 's' : ''
+      const expectedRemaining: number = CAPACITY - BOOKED_QTY
+      const bookingPlural = expectedRemaining !== 1 ? 's' : ''
       await expect(
         page.getByText(
           new RegExp(
-            `Up to ${expectedMax} total booking${bookingPlural} available for this timeslot`,
+            `Up to ${expectedRemaining} more booking${bookingPlural} available for this timeslot`,
             'i',
           ),
         ),

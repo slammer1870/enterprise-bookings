@@ -103,7 +103,13 @@ export function TenantSelectionProviderRootAwareClient({
   const router = useRouter()
   const [selectedTenantID, setSelectedTenantID] = React.useState<string | number | undefined>(() => {
     if (initialValue != null && initialValue !== '') return initialValue
-    return getTenantCookie()
+    // Fallback: read from document.cookie. The cookie is always a string, but option
+    // values may be numbers. Coerce by finding the matching option so react-select's
+    // strict === comparison succeeds (avoids showing the raw ID string instead of the label).
+    const cookieStr = getTenantCookie()
+    if (!cookieStr) return undefined
+    const match = initialTenantOptions.find((o) => String(o.value) === cookieStr)
+    return match?.value ?? cookieStr
   })
   const [modified, setModified] = React.useState(false)
   const [entityType, setEntityType] = React.useState<'document' | 'global' | undefined>(undefined)

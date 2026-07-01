@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 
 import { parseBranchSlugFromPathname } from '@/utilities/getLocationContext'
 import { PAYLOAD_LOCATION_COOKIE, PUBLIC_BRANCH_SLUG_COOKIE } from '@/utilities/tenantRequest'
+import { POST_LOGIN_REDIRECT_COOKIE } from '@/collections/Users/hooks/constants'
 
 /** Root hostname from NEXT_PUBLIC_SERVER_URL (e.g. atnd-me.com) for cookie domain and subdomain logic. */
 function getRootHostname(): string | null {
@@ -110,6 +111,50 @@ export async function middleware(request: NextRequest) {
     // reliable Referer header, and clearing here wipes the sidebar tenant selection after route
     // changes. Stale cookie cleanup is handled on real frontend page requests below.
     return NextResponse.next()
+  }
+
+  // Post-login redirect: afterLogin hook sets this cookie once after login to signal where the
+  // browser should land. Consume it here (fires on the /admin navigation that follows login)
+  // and redirect immediately — before any tenant cookie logic runs.
+  if (isPayloadAdmin && rootHostname) {
+    const postLoginRedirect = request.cookies.get(POST_LOGIN_REDIRECT_COOKIE)?.value?.trim()
+    if (postLoginRedirect) {
+      const clearCookie = `${POST_LOGIN_REDIRECT_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax`
+
+      if (postLoginRedirect === 'base') {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/admin/login'
+        redirectUrl.search = ''
+        redirectUrl.hostname = rootHostname
+        if (rootHostname.includes('localhost')) {
+          redirectUrl.port = request.nextUrl.port || redirectUrl.port
+        } else {
+          redirectUrl.port = ''
+        }
+        const res = NextResponse.redirect(redirectUrl)
+        res.headers.append('Set-Cookie', clearCookie)
+        return res
+      }
+
+      if (postLoginRedirect.startsWith('tenant:')) {
+        const slug = postLoginRedirect.slice('tenant:'.length).trim()
+        if (slug) {
+          const redirectUrl = request.nextUrl.clone()
+          redirectUrl.pathname = '/admin'
+          redirectUrl.search = ''
+          if (rootHostname.includes('localhost')) {
+            redirectUrl.hostname = `${slug}.localhost`
+            redirectUrl.port = request.nextUrl.port || redirectUrl.port
+          } else {
+            redirectUrl.hostname = `${slug}.${rootHostname}`
+            redirectUrl.port = ''
+          }
+          const res = NextResponse.redirect(redirectUrl)
+          res.headers.append('Set-Cookie', clearCookie)
+          return res
+        }
+      }
+    }
   }
 
   const parts = hostname.split('.')
@@ -261,16 +306,6 @@ export async function middleware(request: NextRequest) {
     if (!pathname.startsWith('/admin')) {
       clearTenantContextCookies(response)
     }
-    // Enforce tenant-admin tenant isolation in admin UI (root domain = no tenant).
-    if (isPayloadAdmin) {
-      const authCheck = await enforceAdminTenantAuthorization({
-        request,
-        response,
-        rootHostname,
-        platformOrigin,
-      })
-      if (authCheck) return authCheck
-    }
     return response
   }
 
@@ -417,17 +452,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Enforce tenant-admin tenant isolation in admin UI.
-  if (isPayloadAdmin) {
-    const authCheck = await enforceAdminTenantAuthorization({
-      request,
-      response,
-      rootHostname,
-      platformOrigin,
-    })
-    if (authCheck) return authCheck
-  }
-
   return response
 }
 
@@ -441,33 +465,6 @@ export const config = {
      */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
-}
-
-type EnforceArgs = {
-  request: NextRequest
-  response: NextResponse
-  rootHostname: string | null
-  platformOrigin: string | null
-}
-
-function resolveLoginRouteRedirect(args: {
-  request: NextRequest
-  response: NextResponse
-  isLoginRoute: boolean
-  authStatus: number
-}): NextResponse | null {
-  const { request, response, isLoginRoute, authStatus } = args
-  if (!isLoginRoute) return null
-  if (authStatus === 401) return null
-  if (authStatus === 403) return null
-
-  // Authenticated users should not remain on /admin/login; keep host context.
-  const adminUrl = request.nextUrl.clone()
-  adminUrl.pathname = '/admin'
-  adminUrl.search = ''
-  const redirectResponse = NextResponse.redirect(adminUrl)
-  copySetCookieHeaders(response, redirectResponse)
-  return redirectResponse
 }
 
 function clearCookieHeader(name: string, path: string, domain?: string | null): string {
@@ -497,119 +494,3 @@ function clearCookieEverywhere(args: {
   }
 }
 
-function copySetCookieHeaders(source: NextResponse, target: NextResponse) {
-  const getSetCookie = (source.headers as Headers & { getSetCookie?: () => string[] }).getSetCookie
-  const setCookies = typeof getSetCookie === 'function'
-    ? getSetCookie.call(source.headers)
-    : []
-
-  if (setCookies.length > 0) {
-    for (const cookie of setCookies) {
-      target.headers.append('Set-Cookie', cookie)
-    }
-    return
-  }
-
-  const setCookieHeader = source.headers.get('set-cookie')
-  if (setCookieHeader) {
-    target.headers.append('Set-Cookie', setCookieHeader)
-  }
-}
-
-async function enforceAdminTenantAuthorization(args: EnforceArgs): Promise<NextResponse | null> {
-  const { request, response, rootHostname, platformOrigin } = args
-
-  const { pathname } = request.nextUrl
-  const isLoginRoute = pathname === '/admin/login' || pathname.startsWith('/admin/login/')
-
-  const origin = platformOrigin ?? request.nextUrl.origin
-  const url = `${origin}/api/admin/authorize-tenant`
-
-  const signal = internalFetchSignal()
-  let res: Response
-  try {
-    res = await fetch(url, {
-      cache: 'no-store',
-      headers: request.headers,
-      ...(signal && { signal }),
-    })
-  } catch {
-    // If the check fails (network/runtime), fail open so admin isn't bricked.
-    return null
-  }
-
-  const loginRouteRedirect = resolveLoginRouteRedirect({
-    request,
-    response,
-    isLoginRoute,
-    authStatus: res.status,
-  })
-  if (loginRouteRedirect) return loginRouteRedirect
-
-  if (res.status === 401) {
-    if (isLoginRoute) return null
-    // Keep unauthenticated admin access on the current host (tenant/custom domain).
-    // Without this explicit redirect, Payload may resolve login via platform root URL.
-    const loginUrl = request.nextUrl.clone()
-    loginUrl.pathname = '/admin/login'
-    loginUrl.search = ''
-    const redirectResponse = NextResponse.redirect(loginUrl)
-    copySetCookieHeaders(response, redirectResponse)
-    return redirectResponse
-  }
-
-  if (res.status !== 403) return null
-
-  const appendTenantCookieClears = (redirectResponse: NextResponse) => {
-    const adminPaths = ['/', '/admin', '/admin/', '/admin/collections', '/admin/collections/'] as const
-    for (const p of adminPaths) {
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', p))
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader(PAYLOAD_LOCATION_COOKIE, p))
-    }
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/'))
-    redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/'))
-
-    if (rootHostname && !rootHostname.includes('localhost')) {
-      const domain = `.${rootHostname}`
-      for (const p of adminPaths) {
-        redirectResponse.headers.append('Set-Cookie', clearCookieHeader('payload-tenant', p, domain))
-        redirectResponse.headers.append('Set-Cookie', clearCookieHeader(PAYLOAD_LOCATION_COOKIE, p, domain))
-      }
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-slug', '/', domain))
-      redirectResponse.headers.append('Set-Cookie', clearCookieHeader('tenant-id', '/', domain))
-    }
-  }
-
-  // On login, stay on this URL: a redirect to the same path loops. Clear stale tenant cookies and
-  // render the login page so the next navigation gets a consistent401/204 from authorize-tenant.
-  if (isLoginRoute) {
-    const res = NextResponse.next()
-    appendTenantCookieClears(res)
-    return res
-  }
-
-  // Forbidden on other admin routes: clear tenant cookies and send user to platform root admin.
-  const redirectUrl = request.nextUrl.clone()
-  redirectUrl.pathname = '/admin'
-  redirectUrl.search = ''
-
-  if (rootHostname) {
-    redirectUrl.hostname = rootHostname
-    if (rootHostname.includes('localhost')) {
-      redirectUrl.port = request.nextUrl.port || redirectUrl.port
-    } else {
-      redirectUrl.port = ''
-    }
-  }
-  if (redirectUrl.toString() === request.nextUrl.toString()) {
-    // 403 means the user is authenticated but not allowed in the admin UI. Sending them to
-    // /admin/login causes Payload to redirect logged-in users back to /admin, which re-triggers
-    // this 403 redirect and loops until the browser exhausts resources.
-    redirectUrl.pathname = '/'
-    redirectUrl.search = ''
-  }
-
-  const redirectResponse = NextResponse.redirect(redirectUrl)
-  appendTenantCookieClears(redirectResponse)
-  return redirectResponse
-}

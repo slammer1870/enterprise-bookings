@@ -3,9 +3,10 @@ import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 
 import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
-import { getPayloadTenantIdFromRequest } from '../utilities/tenantRequest'
+import { getPayloadTenantIdFromRequest, getTenantSlugFromHost } from '../utilities/tenantRequest'
 import {
   getTenantMembershipIdsFromUserDoc,
+  getUserTenantIDs,
   getUserTenantIds,
   loadUserDocForTenantMembership,
 } from './tenant-scoped'
@@ -77,10 +78,47 @@ export const tenantOrgPayloadAdminAccess = ({ req: { user } }: AccessArgs): bool
   return isAdmin(user) || isTenantAdmin(user)
 }
 
-/** Users collection: super-admin, org admin, and staff (minimal roster in admin). */
-export const usersPayloadAdminAccess = ({ req: { user } }: AccessArgs): boolean => {
+/**
+ * Users collection `access.admin` — also the source of `permissions.canAccessAdmin` for the
+ * entire Payload admin panel (Payload derives `canAccessAdmin` from this function).
+ *
+ * On a tenant subdomain the user must hold admin / staff / location-manager specifically
+ * for THAT tenant, otherwise they are redirected to /admin/unauthorized.
+ * On the base domain any admin-role user is allowed (data isolation is per-collection).
+ */
+export const usersPayloadAdminAccess = async ({ req }: AccessArgs): Promise<boolean> => {
+  const { user } = req
   if (!user) return false
-  return isAdmin(user) || isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
+
+  // Platform super-admins always have full admin panel access.
+  if (isAdmin(user)) return true
+
+  // On the base domain (no tenant subdomain) allow any admin / staff / location-manager.
+  const tenantSlug = getTenantSlugFromHost(req.headers)
+  if (!tenantSlug) {
+    return isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
+  }
+
+  // On a tenant subdomain: the user must hold admin / staff / location-manager for THIS
+  // specific tenant — otherwise Payload shows /admin/unauthorized.
+  const adminTenantIds = getUserTenantIDs(user, ['admin', 'staff', 'location-manager'])
+  if (adminTenantIds.length === 0) return false
+
+  try {
+    const result = await req.payload.find({
+      collection: 'tenants',
+      where: { slug: { equals: tenantSlug } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const tenantId = result.docs[0]?.id
+    if (!tenantId) return false
+    return adminTenantIds.includes(tenantId as number)
+  } catch {
+    // Fail open if the DB is temporarily unavailable so legitimate admins aren't locked out.
+    return isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
+  }
 }
 
 /** Staff role without org `admin` — operational access only (no CMS / schedule configuration). */

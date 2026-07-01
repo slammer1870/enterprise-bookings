@@ -79,7 +79,7 @@ describe('timeslotsRead branch filter (payload-location)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: tenantT.id }],
+        tenants: [{ tenant: tenantT.id, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,

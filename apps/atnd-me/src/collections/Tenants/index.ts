@@ -88,9 +88,19 @@ export const Tenants: CollectionConfig = {
         return true
       }
       if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-        if (tenantIds === null || tenantIds.length === 0) return false
-        return { id: { in: tenantIds } }
+        // Allow tenant admins to read any tenant document (both findByID and find).
+        //
+        // Why: Payload's field-level relationship validation uses `find` with a WHERE
+        // clause to verify that the tenant IDs in a user's `tenants` array are accessible.
+        // When a tenant admin edits a cross-tenant user, the merged `tenants` array contains
+        // foreign tenant IDs (preserved from DB by the write guard). Restricting `find` to
+        // own tenants would cause a 400 "invalid relationships" error for those IDs.
+        //
+        // Security: the Users `beforeChange` write guard (mergeTenantEntriesForAdmin) ensures
+        // that a tenant admin can only modify their own tenant's entries; foreign entries are
+        // always restored from DB unchanged. Sensitive fields on the Tenants document
+        // (Stripe keys, connect account, etc.) are still protected by field-level access.
+        return true
       }
       return true
     },

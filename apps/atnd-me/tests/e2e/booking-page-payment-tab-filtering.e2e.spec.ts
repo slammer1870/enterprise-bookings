@@ -26,6 +26,7 @@ import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUser } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
+  createTestBooking,
   createTestEventType,
   createTestTimeslot,
   getPayloadInstance,
@@ -328,6 +329,185 @@ test.describe('Booking page: payment method tab filtering by quantity', () => {
         await expect(
           page.getByRole('tab', { name: /drop-?in/i })
         ).not.toBeVisible()
+      })
+    }
+  )
+
+  /**
+   * Regression: modify flow must hide drop-in tab when the user's existing
+   * confirmed booking already fills the drop-in's per-timeslot cap.
+   *
+   * Scenario
+   * ────────
+   *   • Drop-in          : maxBookingsPerTimeslot=1  (adjustable=false)
+   *   • Class pass type  : maxBookingsPerTimeslot=2  (enables the + button on the manage page)
+   *   • User             : 1 confirmed booking for the timeslot
+   *   • Action           : navigate to manage page, increase qty by 1 → enter checkout
+   *
+   * Expected behaviour
+   * ──────────────────
+   *   Drop-in tab must NOT appear in checkout because
+   *   effective total = confirmedForTimeslot(1) + delta(1) = 2 > cap(1).
+   *   Class pass tab SHOULD appear (its cap of 2 exactly covers the effective total).
+   */
+  test(
+    'manage page: drop-in tab is hidden when existing confirmed booking fills the cap',
+    async ({ page, testData }) => {
+      const payload = await getPayloadInstance()
+      const tenant = testData.tenants[0]!
+      const user = testData.users.user1
+      const w = testData.workerIndex
+      const ts = Date.now()
+
+      await payload.update({
+        collection: 'tenants',
+        id: tenant.id,
+        data: {
+          stripeConnectOnboardingStatus: 'active',
+          stripeConnectAccountId: null,
+        },
+        overrideAccess: true,
+      })
+
+      // Drop-in: single-slot only (max=1, adjustable=false)
+      const dropIn = (await payload.create({
+        collection: 'drop-ins',
+        data: {
+          name: `Manage Cap Drop-in ${tenant.id}-w${w}-${ts}`,
+          isActive: true,
+          price: 15,
+          adjustable: false,
+          tenant: tenant.id,
+        },
+        overrideAccess: true,
+      })) as { id: number }
+
+      // Class pass type: max 2 per timeslot — gives the user an alternative
+      // payment method so the + button on the manage page is enabled.
+      const classPassType = (await payload.create({
+        collection: 'class-pass-types',
+        data: {
+          name: `Manage Cap Class Pass ${tenant.id}-w${w}-${ts}`,
+          slug: `manage-cap-cp-${tenant.id}-${w}-${ts}`,
+          quantity: 10,
+          tenant: tenant.id,
+          maxBookingsPerTimeslot: 2,
+          priceInformation: { price: 29.99 },
+          skipSync: true,
+          stripeProductId: `prod_managecap_cp_${tenant.id}_${w}_${ts}`,
+        },
+        overrideAccess: true,
+      })) as { id: number }
+
+      // Give the user a class pass with enough credits
+      const expiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      await payload.create({
+        collection: 'class-passes',
+        data: {
+          user: user.id,
+          tenant: tenant.id,
+          type: classPassType.id,
+          quantity: 4,
+          expirationDate: expiry.toISOString().slice(0, 10),
+          purchasedAt: new Date().toISOString(),
+          status: 'active',
+        },
+        overrideAccess: true,
+      })
+
+      // Event type with both payment methods and plenty of capacity
+      const eventType = await createTestEventType(
+        tenant.id,
+        'Manage Cap Payment Methods',
+        5,
+        undefined,
+        w
+      )
+
+      await payload.update({
+        collection: 'event-types',
+        id: eventType.id,
+        data: {
+          paymentMethods: {
+            allowedDropIn: dropIn.id,
+            allowedClassPasses: [classPassType.id],
+          },
+        },
+        overrideAccess: true,
+      })
+
+      // Timeslot far enough in the future to avoid lock-out
+      const startTime = new Date()
+      startTime.setHours(10, 0, 0, 0)
+      startTime.setDate(startTime.getDate() + 6 + w)
+      const endTime = new Date(startTime)
+      endTime.setHours(11, 0, 0, 0)
+
+      const timeslot = await createTestTimeslot(
+        tenant.id,
+        eventType.id,
+        startTime,
+        endTime,
+        undefined,
+        true
+      )
+
+      // Pre-create 1 confirmed booking for the user — this fills the drop-in cap
+      await createTestBooking(user.id, timeslot.id, 'confirmed')
+
+      // Authenticate
+      await loginAsRegularUser(page, 1, user.email, 'password', {
+        tenantSlug: tenant.slug,
+      })
+      await page.waitForTimeout(process.env.CI ? 3000 : 1500)
+
+      // Navigate to the manage page
+      await navigateToTenant(page, tenant.slug, `/bookings/${timeslot.id}/manage`)
+      if (page.url().includes('/auth/sign-in')) {
+        await loginAsRegularUser(page, 1, user.email, 'password', { tenantSlug: tenant.slug })
+        await page.waitForTimeout(process.env.CI ? 3000 : 1500)
+        await navigateToTenant(page, tenant.slug, `/bookings/${timeslot.id}/manage`)
+      }
+
+      // Wait for the quantity selector ("Update booking quantity") to appear
+      await expect(
+        page.getByText(/update booking quantity/i).first()
+      ).toBeVisible({ timeout: 25000 })
+
+      // Increase quantity by 1, then confirm to enter checkout mode
+      const increaseBtn = page
+        .getByRole('button', { name: /increase quantity/i })
+        .first()
+      await expect(increaseBtn).toBeEnabled({ timeout: 10000 })
+      await increaseBtn.click()
+
+      // Wait for the quantity display to reflect the new value before submitting
+      await expect(page.getByTestId('booking-quantity')).toHaveText('2', {
+        timeout: 10000,
+      })
+
+      // Click "Update Bookings" to enter checkout mode
+      await page.getByRole('button', { name: /update bookings/i }).click()
+
+      // Wait for checkout UI (payment methods become visible)
+      await expect(
+        page.getByText(/payment methods/i).first()
+      ).toBeVisible({ timeout: 25000 })
+
+      // ── The drop-in tab must NOT appear ──────────────────────────────────
+      // effective total = confirmedForTimeslot(1) + delta(1) = 2 > cap(1)
+      await test.step('drop-in tab absent on modify when confirmed booking fills its cap', async () => {
+        await expect(
+          page.getByRole('tab', { name: /drop-?in/i })
+        ).not.toBeVisible({ timeout: 10000 })
+      })
+
+      // ── Class pass tab SHOULD appear ─────────────────────────────────────
+      // Class pass cap=2 covers effective total of 2 (1 confirmed + 1 delta)
+      await test.step('class pass tab still visible (its cap=2 covers effective total=2)', async () => {
+        await expect(
+          page.getByRole('tab', { name: /class pass/i })
+        ).toBeVisible({ timeout: 10000 })
       })
     }
   )

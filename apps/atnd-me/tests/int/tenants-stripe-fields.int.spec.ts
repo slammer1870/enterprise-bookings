@@ -60,7 +60,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: testTenantId }],
+        tenants: [{ tenant: testTenantId, roles: ['admin'] }],
       },
       draft: false,
       overrideAccess: true,

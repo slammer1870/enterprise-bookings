@@ -66,7 +66,7 @@ describe('Admin pending bookings + completion magic link', () => {
         password: 'test',
         role: ['admin'],
         emailVerified: true,
-        tenants: [{ tenant: tenant.id }],
+        tenants: [{ tenant: tenant.id, roles: ['admin'] }],
       },
       overrideAccess: true,
     })) as User

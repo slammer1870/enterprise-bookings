@@ -16,6 +16,9 @@ import { createTestEventType, createTestTimeslot } from './helpers/data-helpers'
 
 test.describe('Cross-tenant booking: stale tenant cookie', () => {
   test('does not redirect home when tenant-slug cookie is stale', async ({ page, testData }) => {
+    // PW_E2E_FAST caps navigation timeout at 20 s; under server load this page can exceed
+    // that, so give this test more headroom.
+    test.setTimeout(90_000)
     const tenantA = testData.tenants[0]!
     const tenantB = testData.tenants[1]!
     const user = testData.users.user1
@@ -66,8 +69,15 @@ test.describe('Cross-tenant booking: stale tenant cookie', () => {
     ])
 
     // Navigate to tenant B booking page and complete booking.
-    await navigateToTenant(page, tenantB.slug, `/bookings/${lesson.id}`)
-    await page.waitForLoadState('domcontentloaded').catch(() => null)
+    // Use an explicit 40 s timeout so PW_E2E_FAST's 20 s nav timeout doesn't fire on a
+    // loaded server — navigateToTenant uses the Playwright config default which is tighter.
+    await page
+      .goto(`http://${tenantB.slug}.localhost:3000/bookings/${lesson.id}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 40_000,
+      })
+      .catch(() => null)
+    await page.waitForLoadState('networkidle', { timeout: 10_000 }).catch(() => null)
 
     // Sanity: we should be on tenant B host.
     expect(new URL(page.url()).hostname).toBe(`${tenantB.slug}.localhost`)

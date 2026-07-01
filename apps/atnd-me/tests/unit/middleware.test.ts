@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 import { middleware } from '../../src/middleware'
+import { POST_LOGIN_REDIRECT_COOKIE } from '../../src/collections/Users/hooks/constants'
 
 /**
  * Unit tests for middleware (no DB). Covers subdomain extraction and cookie
@@ -341,190 +342,103 @@ describe('Middleware', () => {
   })
 
   describe('admin tenant auth redirects', () => {
-    const originalFetch = globalThis.fetch
-
     beforeEach(() => {
       process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd-me.com'
     })
 
-    afterEach(() => {
-      globalThis.fetch = originalFetch
-    })
+    // --- POST_LOGIN_REDIRECT_COOKIE (cookie-based post-login redirect) ---
+    // Cross-tenant redirects now happen once at login time (afterLogin hook) rather than on
+    // every admin request. The hook sets a short-lived cookie; middleware consumes it here.
 
-    it('redirects unauthenticated tenant admin requests to same-host /admin/login', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-
-        if (String(url).includes('/api/tenant-by-slug') && String(url).includes('slug=croilan')) {
-          return new Response(JSON.stringify({ id: 123 }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-
-        if (String(url).includes('/api/admin/authorize-tenant')) {
-          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-
-        return new Response(null, { status: 404 })
-      }
-
-      const req = new NextRequest('http://croilan.atnd-me.com/admin/collections/pages', {
-        headers: { host: 'croilan.atnd-me.com' },
+    it('redirects to base-domain /admin/login when POST_LOGIN_REDIRECT_COOKIE=base', async () => {
+      const req = new NextRequest('http://croilan.atnd-me.com/admin', {
+        headers: {
+          host: 'croilan.atnd-me.com',
+          cookie: `${POST_LOGIN_REDIRECT_COOKIE}=base`,
+        },
       })
-
       const res = await middleware(req)
       expect(res.status).toBe(307)
-      expect(res.headers.get('location')).toBe('http://croilan.atnd-me.com/admin/login')
+      expect(res.headers.get('location')).toBe('http://atnd-me.com/admin/login')
+      expect(res.headers.get('set-cookie')).toContain(`${POST_LOGIN_REDIRECT_COOKIE}=; Path=/; Max-Age=0`)
     })
 
-    it('redirects forbidden tenant-admin access to platform root admin', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-
-        if (String(url).includes('/api/tenant-by-slug') && String(url).includes('slug=croilan')) {
-          return new Response(JSON.stringify({ id: 123 }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-
-        if (String(url).includes('/api/admin/authorize-tenant')) {
-          return new Response(JSON.stringify({ error: 'Forbidden' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-
-        return new Response(null, { status: 404 })
-      }
-
-      const req = new NextRequest('http://croilan.atnd-me.com/admin/collections/pages', {
-        headers: { host: 'croilan.atnd-me.com' },
+    it('redirects to tenant subdomain /admin when POST_LOGIN_REDIRECT_COOKIE=tenant:<slug>', async () => {
+      const req = new NextRequest('http://atnd-me.com/admin', {
+        headers: {
+          host: 'atnd-me.com',
+          cookie: `${POST_LOGIN_REDIRECT_COOKIE}=tenant:croilan`,
+        },
       })
-
-      const res = await middleware(req)
-      expect(res.status).toBe(307)
-      expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
-    })
-
-    it('keeps unauthenticated /admin/login on same host', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        if (String(url).includes('/api/admin/authorize-tenant')) {
-          return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-        return new Response(null, { status: 404 })
-      }
-
-      const req = new NextRequest('http://croilan.atnd-me.com/admin/login', {
-        headers: { host: 'croilan.atnd-me.com' },
-      })
-
-      const res = await middleware(req)
-      expect(res.status).toBe(200)
-      expect(res.headers.get('location')).toBeNull()
-    })
-
-    it('redirects authenticated /admin/login to same-host /admin', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        if (String(url).includes('/api/admin/authorize-tenant')) {
-          return new Response(null, { status: 204 })
-        }
-        return new Response(null, { status: 404 })
-      }
-
-      const req = new NextRequest('http://croilan.atnd-me.com/admin/login', {
-        headers: { host: 'croilan.atnd-me.com' },
-      })
-
       const res = await middleware(req)
       expect(res.status).toBe(307)
       expect(res.headers.get('location')).toBe('http://croilan.atnd-me.com/admin')
+      expect(res.headers.get('set-cookie')).toContain(`${POST_LOGIN_REDIRECT_COOKIE}=; Path=/; Max-Age=0`)
     })
 
-    it('on forbidden /admin/login clears tenant cookies and continues (no redirect loop to platform root)', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        if (String(url).includes('/api/admin/authorize-tenant')) {
-          return new Response(JSON.stringify({ error: 'Forbidden' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-        return new Response(null, { status: 404 })
-      }
-
-      const req = new NextRequest('http://croilan.atnd-me.com/admin/login', {
-        headers: { host: 'croilan.atnd-me.com' },
-      })
-
-      const res = await middleware(req)
-      expect(res.status).toBe(200)
-      expect(res.headers.get('location')).toBeNull()
-      const setCookie = res.headers.get('set-cookie') ?? ''
-      expect(setCookie).toContain('payload-tenant=; Path=/; Max-Age=0')
-      expect(setCookie).toContain('tenant-slug=; Path=/; Max-Age=0')
-    })
-
-    it('redirects forbidden root /admin to site home (not /admin/login) to avoid Payload client redirect loop', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-
-        if (String(url).includes('/api/admin/authorize-tenant')) {
-          return new Response(JSON.stringify({ error: 'Forbidden' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-
-        return new Response(null, { status: 404 })
-      }
-
-      const req = new NextRequest('http://atnd-me.com/admin', {
-        headers: { host: 'atnd-me.com' },
-      })
-
-      const res = await middleware(req)
-      expect(res.status).toBe(307)
-      expect(res.headers.get('location')).toBe('http://atnd-me.com/')
-    })
-
-    it('redirects tenant subdomain /admin to platform root when tenant auth returns forbidden', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-
-        if (String(url).includes('/api/tenant-by-slug') && String(url).includes('slug=croilan')) {
-          return new Response(JSON.stringify({ id: 123 }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-
-        if (String(url).includes('/api/admin/authorize-tenant')) {
-          return new Response(JSON.stringify({ error: 'Forbidden' }), {
-            status: 403,
-            headers: { 'Content-Type': 'application/json' },
-          }) as Response
-        }
-
-        return new Response(null, { status: 404 })
-      }
-
+    it('does not redirect when POST_LOGIN_REDIRECT_COOKIE is absent', async () => {
       const req = new NextRequest('http://croilan.atnd-me.com/admin', {
         headers: { host: 'croilan.atnd-me.com' },
       })
-
       const res = await middleware(req)
-      expect(res.status).toBe(307)
-      expect(res.headers.get('location')).toBe('http://atnd-me.com/admin')
+      expect(res.status).toBe(200)
+      expect(res.headers.get('location')).toBeNull()
+    })
+
+    it('does not redirect on non-admin paths even when POST_LOGIN_REDIRECT_COOKIE is set', async () => {
+      const req = new NextRequest('http://croilan.atnd-me.com/', {
+        headers: {
+          host: 'croilan.atnd-me.com',
+          cookie: `${POST_LOGIN_REDIRECT_COOKIE}=base`,
+        },
+      })
+      const res = await middleware(req)
+      // Non-admin path — redirect block is skipped entirely
+      expect(res.headers.get('location')).not.toBe('http://atnd-me.com/admin/login')
+    })
+
+    it('does not redirect when NEXT_PUBLIC_SERVER_URL is not set', async () => {
+      delete process.env.NEXT_PUBLIC_SERVER_URL
+      const req = new NextRequest('http://croilan.atnd-me.com/admin', {
+        headers: {
+          host: 'croilan.atnd-me.com',
+          cookie: `${POST_LOGIN_REDIRECT_COOKIE}=base`,
+        },
+      })
+      const res = await middleware(req)
+      // Without a rootHostname the redirect block is skipped
+      expect(res.headers.get('location')).toBeNull()
+    })
+
+    // --- Retained: /admin/login must never be redirected back to /admin ---
+
+    it('keeps unauthenticated /admin/login on same host', async () => {
+      const req = new NextRequest('http://croilan.atnd-me.com/admin/login', {
+        headers: { host: 'croilan.atnd-me.com' },
+      })
+      const res = await middleware(req)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('location')).toBeNull()
+    })
+
+    it('does not redirect /admin/login when no redirect cookie is present', async () => {
+      const req = new NextRequest('http://atnd-me.com/admin/login', {
+        headers: { host: 'atnd-me.com' },
+      })
+      const res = await middleware(req)
+      expect(res.headers.get('location')).toBeNull()
+    })
+
+    it('does not redirect /admin/login to /admin when Referer is /admin (breaks bounce loop)', async () => {
+      const req = new NextRequest('http://atnd-me.com/admin/login', {
+        headers: {
+          host: 'atnd-me.com',
+          referer: 'http://atnd-me.com/admin',
+        },
+      })
+      const res = await middleware(req)
+      // Referer is /admin — must not redirect again or a bounce loop occurs.
+      expect(res.headers.get('location')).toBeNull()
     })
   })
 })
