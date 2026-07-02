@@ -47,6 +47,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         _status: {
           equals: 'published',
         },
+        tenant: {
+          equals: tenant?.id ?? null,
+        },
       },
       select: {
         slug: true,
