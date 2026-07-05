@@ -282,7 +282,7 @@ test.describe('Booking quantity cap enforcement', () => {
   }) => {
     const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
-    const user = testData.users.user2
+    const user = testData.users.user1
     const workerIndex = testData.workerIndex
 
     await payload.update({

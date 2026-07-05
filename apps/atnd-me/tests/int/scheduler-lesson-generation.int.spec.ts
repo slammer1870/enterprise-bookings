@@ -256,15 +256,21 @@ describe('Scheduler Timeslot Generation with Tenant Context', () => {
         overrideAccess: true,
       })
 
-      // Wait for the job to complete (it runs synchronously via runByID)
-      // Give it some time to process
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Poll until the background generation job has deleted the unbooked timeslot,
+      // or until a 30-second deadline. runSchedulerGenerationJob is fire-and-forget
+      // so we cannot rely on a fixed sleep.
+      const deleteDeadline = Date.now() + 30_000
+      let deletedTimeslot = await payload
+        .findByID({ collection: 'timeslots', id: existingTimeslotWithoutBooking.id })
+        .catch(() => null)
+      while (deletedTimeslot !== null && Date.now() < deleteDeadline) {
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        deletedTimeslot = await payload
+          .findByID({ collection: 'timeslots', id: existingTimeslotWithoutBooking.id })
+          .catch(() => null)
+      }
 
       // Verify: Timeslot without booking should be deleted (clearExisting: true)
-      const deletedTimeslot = await payload.findByID({
-        collection: 'timeslots',
-        id: existingTimeslotWithoutBooking.id,
-      }).catch(() => null)
       expect(deletedTimeslot).toBeNull()
 
       // Verify: Timeslot with active booking should still exist

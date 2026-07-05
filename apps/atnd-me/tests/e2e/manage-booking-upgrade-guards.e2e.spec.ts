@@ -383,6 +383,17 @@ test.describe('Manage booking upgrade guards', () => {
     const user = testData.users.user2
     const workerIndex = testData.workerIndex
 
+    // user2 may retain global `admin` from earlier role-escalation tests; reset before manage flows.
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: {
+        tenants: [{ tenant: testData.tenants[1]!.id, roles: ['user'] }],
+        role: ['user'],
+      } as Parameters<typeof payload.update>[0]['data'],
+      overrideAccess: true,
+    })
+
     await payload.update({
       collection: 'tenants',
       id: tenant.id,

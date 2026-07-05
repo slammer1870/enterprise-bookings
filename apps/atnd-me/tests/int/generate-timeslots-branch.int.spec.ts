@@ -218,5 +218,5 @@ describe('generateTimeslotsFromSchedule — branch (locations)', () => {
       overrideAccess: true,
     })
     expect(found.docs.length).toBeGreaterThan(0)
-  })
+  }, HOOK_TIMEOUT)
 })

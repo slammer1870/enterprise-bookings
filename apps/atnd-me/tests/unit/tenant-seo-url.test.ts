@@ -49,6 +49,35 @@ describe('tenant SEO URL resolution', () => {
     })
   })
 
+  it('resolves tenant context from payload-tenant in Cookie header when Host is platform apex', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+
+    const payload = {
+      find: vi.fn(),
+      findByID: vi.fn().mockResolvedValue({
+        id: 42,
+        slug: 'acme',
+        name: 'Acme Studio',
+        domain: 'www.acme.com',
+      }),
+    }
+
+    const tenant = await getTenantContext(payload as never, {
+      headers: new Headers({
+        host: 'atnd.test',
+        cookie: 'payload-tenant=42; tenant-slug=acme',
+      }),
+    })
+
+    expect(tenant).toMatchObject({
+      id: 42,
+      slug: 'acme',
+    })
+    expect(payload.findByID).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: 'tenants', id: 42 }),
+    )
+  })
+
   it('resolves tenant branding from a platform subdomain host when cookies are absent', async () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
 

@@ -8,6 +8,7 @@ import {
   rememberTenantSlugResolution,
 } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
+import { mergeRequestCookies } from '@/utilities/cookiesFromHeaders'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { getPlatformHostname } from '@/utilities/getURL'
 import {
@@ -401,9 +402,10 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
   if (contextTenantId) return contextTenantId
 
   const ctx = (req.context ??= {}) as Record<string, unknown>
+  const cookies = mergeRequestCookies(req.cookies, req.headers as Headers | undefined)
   const isBaseHost = isBaseHostRequest(req.headers as Headers | undefined)
 
-  const payloadTenant = getPayloadTenantIdFromRequest({ cookies: req.cookies })
+  const payloadTenant = getPayloadTenantIdFromRequest({ cookies, headers: req.headers })
   if (isBaseHost) {
     if (payloadTenant) {
       ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
@@ -464,7 +466,7 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
 
   const tenantSlugFromCookie =
     getTenantSlugFromRequest({
-      cookies: req.cookies,
+      cookies,
       headers: req.headers as Headers | undefined,
     }) ?? getCookieFromRequestHeader(req, 'tenant-slug') ?? null
   if (tenantSlugFromCookie && /^[a-z0-9-]+$/i.test(tenantSlugFromCookie)) {

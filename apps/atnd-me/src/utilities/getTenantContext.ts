@@ -1,10 +1,10 @@
 import type { Payload } from 'payload'
 import type { TenantBookingTheme } from '@/utilities/bookingThemeTypes'
+import { mergeRequestCookies } from './cookiesFromHeaders'
 import {
   collectTenantLookupHostnames,
   getPayloadTenantIdFromRequest,
   getTenantSlugFromRequest,
-  isBaseHostRequest,
 } from './tenantRequest'
 import { normalizeCustomDomain } from './validateCustomDomain'
 
@@ -93,6 +93,14 @@ export type TenantRequestSource = TenantSlugSource & {
   }
 }
 
+function enrichTenantRequestSource(source?: TenantRequestSource | null): TenantRequestSource | null | undefined {
+  if (!source) return source
+  return {
+    ...source,
+    cookies: mergeRequestCookies(source.cookies, source.headers),
+  }
+}
+
 export function getTenantIdFromContext(context?: TenantRequestSource['context']): number | string | null {
   const rawTenant = context?.tenant
   if (rawTenant == null) return null
@@ -115,10 +123,11 @@ export async function getTenantIdForCreateRequest(
   payload: Payload,
   source?: TenantRequestSource | null,
 ): Promise<number | string | null> {
-  const contextTenantId = getTenantIdFromContext(source?.context)
+  const enriched = enrichTenantRequestSource(source)
+  const contextTenantId = getTenantIdFromContext(enriched?.context)
   if (contextTenantId != null && contextTenantId !== '') return contextTenantId
 
-  const tenant = await getTenantContext(payload, source)
+  const tenant = await getTenantContext(payload, enriched)
   return tenant?.id ?? null
 }
 
@@ -162,7 +171,8 @@ export async function getTenantContext(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<TenantContext | null> {
-  const slug = await getTenantSlug(source)
+  const enriched = enrichTenantRequestSource(source as TenantRequestSource | null)
+  const slug = await getTenantSlug(enriched)
   if (slug) {
     const result = await payload.find({
       collection: 'tenants',
@@ -189,7 +199,7 @@ export async function getTenantContext(
     }
   }
 
-  const tenantFromHost = await findTenantByHost(payload, source?.headers)
+  const tenantFromHost = await findTenantByHost(payload, enriched?.headers)
   if (tenantFromHost) {
     return {
       id: tenantFromHost.id as number,
@@ -199,11 +209,9 @@ export async function getTenantContext(
     }
   }
 
-  // Fallback: admin TenantSelector cookie. Ignore it on the platform base host so
-  // public/root-host requests do not inherit stale admin tenant selection.
-  if (isBaseHostRequest(source?.headers)) return null
-
-  const tenantId = getPayloadTenantIdFromRequest(source)
+  // Admin selector cookie — use even when Host is the platform apex; custom-domain admin
+  // saves often arrive with internal Host while Cookie still carries payload-tenant.
+  const tenantId = getPayloadTenantIdFromRequest(enriched)
   if (!tenantId) return null
   try {
     const tenant = await payload.findByID({
@@ -237,7 +245,8 @@ export async function getTenantWithBranding(
   payload: Payload,
   source?: TenantSlugSource | null
 ): Promise<TenantWithBranding | null> {
-  const slug = await getTenantSlug(source)
+  const enriched = enrichTenantRequestSource(source as TenantRequestSource | null)
+  const slug = await getTenantSlug(enriched)
   // Prefer explicit tenant slug (subdomain/custom-domain resolution) over admin selector cookie.
   if (slug) {
     const result = await payload.find({
@@ -263,13 +272,13 @@ export async function getTenantWithBranding(
     return toTenantWithBranding(tenant as TenantBrandingDoc)
   }
 
-  const tenantFromHost = await findTenantByHost(payload, source?.headers)
+  const tenantFromHost = await findTenantByHost(payload, enriched?.headers)
   if (tenantFromHost) {
     return toTenantWithBranding(tenantFromHost as TenantBrandingDoc)
   }
 
   // Fallback: Admin TenantSelector (payload-tenant cookie stores tenant ID)
-  const tenantId = getPayloadTenantIdFromRequest(source)
+  const tenantId = getPayloadTenantIdFromRequest(enriched)
   if (!tenantId) return null
   try {
     const tenant = await payload.findByID({

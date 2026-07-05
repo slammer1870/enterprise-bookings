@@ -12,6 +12,7 @@ import { findByIdSafe, findSafe, hasCollection } from "../utils/collections";
 import {
   getTenantSlug,
   resolveTenantId,
+  resolveTenantIdForTimeslotRequest,
   resolveTenantIdFromTimeslotId,
   resolveTenantTimeZone,
   assertTimeslotBelongsToTenant,
@@ -35,11 +36,13 @@ export const timeslotsRouter = {
     .use(requireBookingCollections("timeslots"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      const tenantSlug = getTenantSlug(ctx);
-      let tenantId = await resolveTenantId(ctx.payload, tenantSlug);
-      if (tenantId == null) {
-        tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, input.id, ctx.bookingsSlugs.timeslots);
-      }
+      // Reconcile request tenant with this timeslot before findByID (stale cookies / SSR host gaps).
+      let tenantId = await resolveTenantIdForTimeslotRequest({
+        payload: ctx.payload,
+        ctx,
+        timeslotId: input.id,
+        timeslotsSlug: ctx.bookingsSlugs.timeslots,
+      });
 
       // IMPORTANT: when operating on behalf of a user, enforce Payload access controls.
       // We pass req.context.tenant so multi-tenant access functions can scope correctly.
@@ -100,18 +103,13 @@ export const timeslotsRouter = {
     .use(requireBookingCollections("timeslots"))
     .input(z.object({ id: z.number() }))
     .query(async ({ ctx, input }) => {
-      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
-      // Match getById: when host/cookie cannot resolve a tenant (e.g. custom domain without
-      // tenant-slug, or slug mismatch), derive tenant from the timeslot before findByID.
-      // Otherwise req.context.tenant is empty, tenantScopedPublicReadStrict cannot scope the read,
-      // and Payload returns 403 "You are not allowed to perform this action."
-      if (tenantId == null) {
-        tenantId = await resolveTenantIdFromTimeslotId(
-          ctx.payload,
-          input.id,
-          ctx.bookingsSlugs.timeslots
-        );
-      }
+      // Reconcile request tenant with this timeslot before findByID (stale cookies / SSR host gaps).
+      let tenantId = await resolveTenantIdForTimeslotRequest({
+        payload: ctx.payload,
+        ctx,
+        timeslotId: input.id,
+        timeslotsSlug: ctx.bookingsSlugs.timeslots,
+      });
 
       const timeslot = (await ctx.payload
         .findByID({
