@@ -11,8 +11,8 @@
  */
 import { test, expect } from './helpers/fixtures'
 import { navigateToTenant } from './helpers/subdomain-helpers'
-import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
-import { createTestEventType, createTestTimeslot } from './helpers/data-helpers'
+import { loginAsRegularUser } from './helpers/auth-helpers'
+import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 
 test.describe('Cross-tenant booking: stale tenant cookie', () => {
   test('does not redirect home when tenant-slug cookie is stale', async ({ page, testData }) => {
@@ -44,10 +44,24 @@ test.describe('Cross-tenant booking: stale tenant cookie', () => {
 
     const lesson = await createTestTimeslot(tenantB.id, classOption.id, startTime, endTime, undefined, true)
 
+    // Ensure user1 is a regular user (prior tests may have left global role as admin).
+    const payload = await getPayloadInstance()
+    await payload.update({
+      collection: 'users',
+      id: user.id,
+      data: {
+        tenants: [{ tenant: tenantA.id, roles: ['user'] }],
+        role: ['user'],
+      } as Parameters<typeof payload.update>[0]['data'],
+      overrideAccess: true,
+    })
+
     // Log in against tenant B so the auth session cookies are present on tenantB.localhost.
     // Then clear the tenant-scoped cookie on tenant B and replace it with a stale root cookie
     // (tenant A), simulating cross-host navigation with leftover tenant context.
-    await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenantB.slug })
+    // Use loginAsRegularUser (not loginAsRegularUserViaApi) so the sign-in goes through the
+    // tenant B host — this ensures Better Auth scopes the session token to the tenant domain.
+    await loginAsRegularUser(page, 1, user.email, 'password', { tenantSlug: tenantB.slug })
 
     // Clear tenantB-scoped tenant-slug cookie so tenantB requests only "see" the stale root cookie.
     await page.context().addCookies([
@@ -59,12 +73,13 @@ test.describe('Cross-tenant booking: stale tenant cookie', () => {
       },
     ])
 
-    // Set stale root tenant-slug cookie.
+    // Set stale parent-domain tenant-slug cookie (mirrors production `.example.com` scope).
     await page.context().addCookies([
       {
         name: 'tenant-slug',
         value: tenantA.slug,
-        url: 'http://localhost:3000/',
+        domain: '.localhost',
+        path: '/',
       },
     ])
 

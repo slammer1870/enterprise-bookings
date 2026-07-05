@@ -323,6 +323,9 @@ export function deriveTenantIdFromTimeslot(timeslot: Timeslot): number | null {
 /**
  * Resolve tenant ID from a timeslot by ID (e.g. when cookie/host context is missing).
  * Returns null if timeslots collection missing or timeslot not found.
+ *
+ * Often paired with {@link resolveTenantIdWithResourceFallback} when loading a specific
+ * timeslot by ID under `overrideAccess: false` (see {@link resolveTenantIdForTimeslotRequest}).
  */
 export async function resolveTenantIdFromTimeslotId(
   payload: Payload,
@@ -335,6 +338,74 @@ export async function resolveTenantIdFromTimeslotId(
     overrideAccess: true,
   });
   return timeslot ? deriveTenantIdFromTimeslot(timeslot) : null;
+}
+
+/**
+ * Reconcile tenant context from the **request** (host / cookies) with tenant on a
+ * **specific resource** being loaded by ID.
+ *
+ * Use this before Payload `findByID` with `overrideAccess: false` when the procedure
+ * targets one concrete document (e.g. `/bookings/[id]`, manage booking). Pass the
+ * resource's tenant (from the document or a cheap lookup) as `resourceTenantId`.
+ *
+ * **When to use**
+ * - Single-document reads where the URL/id identifies the resource (booking, manage, checkout).
+ * - Stale `tenant-slug` cookies or missing Host on SSR can resolve the wrong tenant; scoping
+ *   access to the resource's tenant avoids Payload 403 while still allowing cross-tenant booking
+ *   when the user opens another tenant's timeslot.
+ *
+ * **When not to use**
+ * - List/filter queries (`find`, schedules, admin lists): request host/cookie should drive scope.
+ * - Writes where the user must act only within their resolved site tenant.
+ *
+ * **Resolution order**
+ * 1. `getTenantSlug(ctx)` → `resolveTenantId` (host beats stale cookie when both are present).
+ * 2. If that is null or differs from `resourceTenantId`, use `resourceTenantId`.
+ * 3. Callers should still validate the loaded document belongs to the effective tenant
+ *    (e.g. `assertTimeslotBelongsToTenant`) after `findByID`.
+ */
+export async function resolveTenantIdWithResourceFallback(args: {
+  payload: Payload;
+  ctx: TenantContext;
+  /** Tenant id of the document about to be read; null skips resource reconciliation. */
+  resourceTenantId: number | null;
+}): Promise<number | null> {
+  let tenantId = await resolveTenantId(args.payload, getTenantSlug(args.ctx));
+  const { resourceTenantId } = args;
+
+  if (resourceTenantId != null && (tenantId == null || tenantId !== resourceTenantId)) {
+    tenantId = resourceTenantId;
+  }
+
+  return tenantId;
+}
+
+/**
+ * Timeslot convenience wrapper around {@link resolveTenantIdWithResourceFallback}.
+ *
+ * Loads the timeslot's tenant (override access) and reconciles it with request context.
+ * Used by `timeslots.getById` and `timeslots.getByIdForBooking` before `findByID`.
+ */
+export async function resolveTenantIdForTimeslotRequest(args: {
+  payload: Payload;
+  ctx: TenantContext;
+  timeslotId: number;
+  timeslotsSlug?: string;
+}): Promise<number | null> {
+  const timeslotsSlug =
+    args.timeslotsSlug ?? DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS.timeslots;
+
+  const resourceTenantId = await resolveTenantIdFromTimeslotId(
+    args.payload,
+    args.timeslotId,
+    timeslotsSlug
+  );
+
+  return resolveTenantIdWithResourceFallback({
+    payload: args.payload,
+    ctx: args.ctx,
+    resourceTenantId,
+  });
 }
 
 /**

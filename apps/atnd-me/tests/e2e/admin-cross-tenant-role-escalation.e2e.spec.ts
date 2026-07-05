@@ -151,12 +151,14 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
     // The `admin` role SHOULD have been granted — user1 belongs only to tenant1.
     expect(t1Entry?.roles).toContain('admin')
 
-    // Cleanup: restore user1 to the plain `user` role via tenants[n].roles.
+    // Cleanup: restore user1 to the plain `user` role (global + per-tenant).
+    // overrideAccess bypasses the derive-role hook, so both fields must be reset explicitly.
     await payload.update({
       collection: 'users',
       id: user1.id,
       data: {
         tenants: [{ tenant: testData.tenants[0]!.id, roles: ['user'] }],
+        role: ['user'],
       } as Parameters<typeof payload.update>[0]['data'],
       overrideAccess: true,
     })
@@ -255,12 +257,13 @@ test.describe('Cross-tenant admin role escalation prevention', () => {
 
       expect(isOnTenant2Admin, `Expected tenant2 admin to be accessible on ${tenant2.slug}.localhost`).toBe(true)
     } finally {
-      // Restore user2 to the plain `user` role regardless of test outcome.
+      // Restore user2 to the plain `user` role (global + per-tenant).
       await payload.update({
         collection: 'users',
         id: user2.id,
         data: {
           tenants: [{ tenant: tenant2.id, roles: ['user'] }],
+          role: ['user'],
         } as Parameters<typeof payload.update>[0]['data'],
         overrideAccess: true,
       })
