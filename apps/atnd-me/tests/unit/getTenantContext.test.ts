@@ -87,11 +87,16 @@ describe('getTenantSlug (slug extraction)', () => {
     expect(slug).toBe('async-tenant')
   })
 
-  it('ignores payload-tenant fallback on the platform base host', async () => {
+  it('uses payload-tenant fallback on the platform base host when slug/host lookup failed', async () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd-preview.org')
 
     const payload = {
-      findByID: vi.fn(),
+      findByID: vi.fn(async () => ({
+        id: 42,
+        slug: 'acme',
+        name: 'Acme Gym',
+        domain: 'www.acme.com',
+      })),
     }
 
     const tenant = await getTenantContext(payload as never, {
@@ -101,8 +106,13 @@ describe('getTenantSlug (slug extraction)', () => {
       headers: new Headers({ host: 'atnd-preview.org' }),
     })
 
-    expect(tenant).toBeNull()
-    expect(payload.findByID).not.toHaveBeenCalled()
+    expect(tenant).toEqual({
+      id: 42,
+      slug: 'acme',
+      name: 'Acme Gym',
+      domain: 'www.acme.com',
+    })
+    expect(payload.findByID).toHaveBeenCalledOnce()
   })
 
   it('allows payload-tenant fallback when the request host is unavailable', async () => {

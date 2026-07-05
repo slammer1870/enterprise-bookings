@@ -32,3 +32,29 @@ export function cookiesFromHeaders(headers: Headers): {
     },
   }
 }
+
+type CookieStoreLike = {
+  get?: (name: string) => { value?: string } | undefined
+}
+
+/**
+ * Payload REST/local API often leaves `req.cookies` empty while the browser still sends
+ * `Cookie` on the request header (common on custom-domain admin saves).
+ */
+export function mergeRequestCookies(
+  cookies: CookieStoreLike | undefined,
+  headers: Headers | { get?: (name: string) => string | null } | null | undefined,
+): { get: (name: string) => { value?: string } | undefined } {
+  const fromHeaders =
+    headers && typeof (headers as Headers).get === 'function'
+      ? cookiesFromHeaders(headers as Headers)
+      : { get: () => undefined as { value?: string } | undefined }
+
+  return {
+    get: (name: string) => {
+      const fromReq = cookies?.get?.(name)
+      if (fromReq?.value != null && fromReq.value !== '') return fromReq
+      return fromHeaders.get(name)
+    },
+  }
+}

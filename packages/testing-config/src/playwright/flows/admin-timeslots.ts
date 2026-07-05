@@ -90,12 +90,34 @@ export async function setTimeslotDateAndTime(
   })
 
   const dateInput = p.locator('#field-date').getByRole('textbox')
-  await dateInput.click()
-  await dateInput.clear().catch(() => {})
-  await dateInput.fill(targetDateStr)
-  await p.keyboard.press('Tab')
-  await p.waitForTimeout(300)
-  await expect(dateInput).not.toHaveValue('', { timeout: 10000 })
+  const attempts = process.env.CI ? 5 : 3
+  for (let i = 0; i < attempts; i += 1) {
+    await dateInput.click()
+    await dateInput.clear().catch(() => {})
+    await dateInput.fill(targetDateStr)
+    await p.keyboard.press('Enter')
+    await p.keyboard.press('Tab')
+    await p.waitForTimeout(300)
+
+    const currentValue = ((await dateInput.inputValue().catch(() => '')) || '').trim()
+    if (currentValue === targetDateStr) break
+
+    if (i === attempts - 1) {
+      await dateInput.click()
+      await p.waitForTimeout(200)
+      const day = String(targetDate.getDate())
+      const dayCell = p
+        .locator('.react-datepicker__day:not(.react-datepicker__day--outside-month)')
+        .filter({ hasText: new RegExp(`^${day}$`) })
+        .first()
+      if ((await dayCell.count()) > 0) {
+        await dayCell.click()
+        await p.waitForTimeout(300)
+      }
+    }
+  }
+
+  await expect(dateInput).toHaveValue(targetDateStr, { timeout: 10000 })
 
   const startTimeInput = await pickTimeslotTime(p, 'startTime', options?.startLabels ?? ['10:00 AM', '10:00'])
   await expect(startTimeInput).not.toHaveValue('', { timeout: 10000 })

@@ -36,7 +36,12 @@ import {
   tenantScopedReadFiltered,
   tenantScopedPublicReadStrict,
   getUserTenantIds,
+  getTenantMembershipIdsFromUserDoc,
+  loadUserDocForTenantMembership,
+  resolveTenantIdFromRequest,
+  type RequestLike,
 } from '../access/tenant-scoped'
+import { mergeRequestCookies } from '@/utilities/cookiesFromHeaders'
 import {
   productsRequireStripeConnectRead,
   productsRequireStripeConnectCreate,
@@ -119,6 +124,53 @@ const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
   return getAbsoluteURL(pathname, baseURL)
 }
 
+async function resolveTenantIdForAssignOnCreate(
+  req: {
+    context?: Record<string, unknown>
+    cookies?: { get: (name: string) => { value?: string } | undefined }
+    headers?: Headers
+    payload: Payload
+    user?: unknown
+  },
+): Promise<number | string | null> {
+  const cookies = mergeRequestCookies(req.cookies, req.headers)
+  const requestLike: RequestLike = {
+    context: req.context,
+    cookies,
+    headers: req.headers,
+    payload: req.payload,
+    user: req.user,
+  }
+
+  const fromRequest = await resolveTenantIdFromRequest(requestLike)
+  if (fromRequest != null) return fromRequest
+
+  const fromContext = await getTenantIdForCreateRequest(req.payload, {
+    context: req.context,
+    cookies,
+    headers: req.headers,
+  })
+  if (fromContext != null && fromContext !== '') return fromContext
+
+  const user = req.user
+  if (!user) return null
+
+  let membershipIds = getTenantMembershipIdsFromUserDoc(user)
+  if (membershipIds.length === 0) {
+    const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
+    const uid =
+      typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
+    if (Number.isFinite(uid)) {
+      const fullUser = await loadUserDocForTenantMembership(req.payload, uid)
+      if (fullUser) membershipIds = getTenantMembershipIdsFromUserDoc(fullUser)
+    }
+  }
+
+  if (membershipIds.length === 1) return membershipIds[0]!
+
+  return null
+}
+
 async function assignTenantOnCreateFromRequest({
   data,
   operation,
@@ -131,18 +183,24 @@ async function assignTenantOnCreateFromRequest({
     cookies?: { get: (name: string) => { value?: string } | undefined }
     headers?: Headers
     payload: Payload
+    user?: unknown
   }
 }) {
-  if (operation !== 'create' || !data || data.tenant) return data
+  if (operation !== 'create' || !data) return data
 
-  const tenantId = await getTenantIdForCreateRequest(req.payload, {
-    context: req.context,
-    cookies: req.cookies,
-    headers: req.headers,
-  })
+  const tenantId = await resolveTenantIdForAssignOnCreate(req)
+  if (tenantId == null || tenantId === '') return data
 
-  if (tenantId != null && tenantId !== '') {
+  const existing = data.tenant
+  if (existing != null && existing !== '' && String(existing) === String(tenantId)) {
+    return data
+  }
+
+  // Prefer request-resolved tenant when the hidden form field is empty (common on www custom
+  // domains where Payload REST does not populate req.cookies).
+  if (existing == null || existing === '') {
     data.tenant = tenantId
+    return data
   }
 
   return data
