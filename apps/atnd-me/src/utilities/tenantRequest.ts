@@ -62,6 +62,17 @@ export function isBaseHostRequest(headers?: HeadersLike | Headers | null): boole
   return Boolean(platformHostname && hostname === platformHostname)
 }
 
+/** Public marketing site on `www.{platformHostname}` (see middleware apex → www redirect). */
+export function isPlatformMarketingHostname(hostname: string | null | undefined): boolean {
+  if (!hostname) return false
+
+  const normalized = hostname.toLowerCase()
+  const platformHostname = getPlatformHostname()?.toLowerCase()
+  if (!platformHostname) return false
+
+  return normalized === `www.${platformHostname}`
+}
+
 export function getTenantSlugFromHost(headers?: HeadersLike | Headers | null): string | null {
   const hostname = getRequestHostname(headers)
   if (!hostname) return null

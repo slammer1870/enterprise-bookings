@@ -14,7 +14,9 @@ import { getPlatformHostname } from '@/utilities/getURL'
 import {
   collectTenantLookupHostnames,
   getPayloadTenantIdFromRequest,
+  getRequestHostname,
   isBaseHostRequest,
+  isPlatformMarketingHostname,
   getTenantSlugFromHost,
   getTenantSlugFromRequest,
 } from '@/utilities/tenantRequest'
@@ -412,6 +414,12 @@ export async function resolveTenantIdFromRequest(req: RequestLike): Promise<numb
       return payloadTenant
     }
     return null
+  }
+
+  // On platform marketing www, prefer the admin selector over stale tenant-slug cookies.
+  if (payloadTenant && isPlatformMarketingHostname(getRequestHostname(req.headers as Headers | undefined))) {
+    ctx.__resolvedTenantIdFromPayloadCookie = payloadTenant
+    return payloadTenant
   }
 
   // Tenant sites (non-platform host): resolve from the request Host before cookies.
