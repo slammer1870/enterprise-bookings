@@ -4,7 +4,7 @@
  * Scenario:
  *  1. A timeslot is created for today with an event type that has NO payment methods
  *     (pay-at-door / free). This makes the booking process instant on the schedule.
- *  2. The user navigates to the tenant home page which renders the heroSchedule block
+ *  2. The user navigates to the tenant home page which renders the heroScheduleSanctuary block
  *     (today's timeslot list with CheckInButton per slot).
  *  3. The user clicks "Book" on the timeslot — no payment required, so the booking is
  *     created immediately via `bookSingleSlotTimeslotOrRedirect` and a "Booked" toast

@@ -9,7 +9,6 @@ import { Content } from './Content/config'
 import { FormBlock } from './Form/config'
 import { MediaBlock } from './MediaBlock/config'
 import { HealthBenefits } from './HealthBenefits/config'
-import { HeroSchedule } from './HeroSchedule/config'
 import { Schedule } from './Schedule/config'
 import { TenantScopedSchedule } from './TenantScopedSchedule/config'
 import { SectionTagline } from './SectionTagline/config'
@@ -54,7 +53,6 @@ import { DhLiveSchedule } from './DhLiveSchedule/config'
 import { DhLiveMembership } from './DhLiveMembership/config'
 
 const allBlocks: Block[] = [
-  HeroSchedule,
   HeroWithLocation,
   Hero,
   MarketingHero,
@@ -108,7 +106,6 @@ const ThreeColumnLayout = createThreeColumnLayout([...allBlocks, TwoColumnLayout
 
 /** Block slugs that all tenants always have access to. */
 export const defaultBlockSlugs: string[] = [
-  'heroSchedule',
   'heroScheduleSanctuary',
   'hero',
   'about',

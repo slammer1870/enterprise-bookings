@@ -20,7 +20,7 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
   faqs: 'FAQs',
   tenantScopedSchedule: 'Schedule by Tenant',
-  heroScheduleSanctuary: 'Hero & Schedule (Sanctuary)',
+  heroScheduleSanctuary: 'Hero & Schedule (Multi Location)',
   heroWithLocation: 'Hero with Location',
   healthBenefits: 'Health Benefits',
   sectionTagline: 'Section Tagline',

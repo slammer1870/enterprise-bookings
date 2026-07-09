@@ -2,7 +2,7 @@ import type { Block } from 'payload'
 import { linkGroup } from '../../../fields/linkGroup'
 
 /**
- * Hero + schedule panel with warm “sanctuary” styling (Croí Lán / croilan.com).
+ * Hero + multi-location schedule panel (Croí Lán / croilan.com).
  * Slug stays `heroScheduleSanctuary` for existing DB rows and enums.
  */
 export const ClHeroScheduleSanctuary: Block = {
@@ -11,8 +11,8 @@ export const ClHeroScheduleSanctuary: Block = {
   dbName: 'hero_sched_sanc',
   interfaceName: 'HeroScheduleSanctuaryBlock',
   labels: {
-    singular: 'Hero & Schedule (Sanctuary)',
-    plural: 'Hero & Schedule (Sanctuary)',
+    singular: 'Hero & Schedule (Multi Location)',
+    plural: 'Hero & Schedule (Multi Location)',
   },
   fields: [
     {
@@ -26,24 +26,6 @@ export const ClHeroScheduleSanctuary: Block = {
       type: 'upload',
       relationTo: 'media',
       required: false,
-    },
-    {
-      name: 'title',
-      type: 'text',
-      required: false,
-      admin: { description: 'Main hero heading (e.g. CROÍ LÁN SAUNA)' },
-    },
-    {
-      name: 'subtitle',
-      type: 'text',
-      required: false,
-      admin: { description: 'Line under the title (e.g. The Bog Meadow, Enniskerry Village)' },
-    },
-    {
-      name: 'tagline',
-      type: 'text',
-      required: false,
-      admin: { description: 'Short line below subtitle (e.g. 30 minutes outside Dublin)' },
     },
     linkGroup({
       appearances: ['default', 'outline'],

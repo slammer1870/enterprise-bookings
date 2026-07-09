@@ -8,6 +8,7 @@ import { BookingSummary } from './booking-summary'
 import { QuantitySelector } from './quantity-selector'
 import { BookingForm } from './booking-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
+import type { CheckoutLegalConfig } from '@repo/payments-next'
 
 type PaymentMethodsLike = {
   allowedDropIn?: {
@@ -72,6 +73,8 @@ interface BookingPageClientSmartProps {
     onReserveCheckoutHold?: (
       metadata: Record<string, string>,
     ) => Promise<Record<string, string> | void>
+    /** Legal links shown below the drop-in payment form. */
+    checkoutLegal?: CheckoutLegalConfig
   }>
 
   /**
@@ -85,6 +88,9 @@ interface BookingPageClientSmartProps {
 
   /** API route for keepalive hold release on navigation (defaults to `/api/bookings/release-hold`). */
   releaseHoldApiUrl?: string
+
+  /** Legal links shown below the drop-in payment form ("By placing your booking, you agree to our …"). */
+  checkoutLegal?: CheckoutLegalConfig
 }
 
 export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
@@ -94,6 +100,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   cancelPendingApiUrl = '/api/bookings/cancel-pending',
   useCheckoutHolds = false,
   releaseHoldApiUrl = '/api/bookings/release-hold',
+  checkoutLegal,
 }) => {
   const trpc = useTRPC()
   const [quantity, setQuantity] = useState<number>(1)
@@ -362,6 +369,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
             }}
             onReserveCheckoutHold={useCheckoutHolds ? onReserveCheckoutHold : undefined}
             successUrl={onSuccessRedirect}
+            checkoutLegal={checkoutLegal}
           />
         </div>
       )

@@ -15,7 +15,6 @@ import { MarketingCtaBlock } from '@repo/website/src/blocks/marketingCta'
 import { ScheduleBlock } from '@/blocks/Schedule/Component'
 import { TenantScopedScheduleBlock } from '@/blocks/TenantScopedSchedule/Component'
 import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
-import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
 import { ClHeroScheduleSanctuaryBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClHeroScheduleSanctuary'
 import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
@@ -73,7 +72,6 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   features: FeaturesBlock,
   caseStudies: CaseStudiesBlock,
   marketingCta: MarketingCtaBlock,
-  heroSchedule: HeroScheduleBlock,
   heroScheduleSanctuary: HeroScheduleSanctuaryBlock,
   heroWithLocation: HeroWithLocationBlock,
   clHeroLoc: HeroWithLocationBlock,

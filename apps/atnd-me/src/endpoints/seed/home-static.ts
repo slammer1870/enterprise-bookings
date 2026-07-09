@@ -7,9 +7,8 @@ export const homeStatic: RequiredDataFromCollectionSlug<'pages'> = {
   _status: 'published',
   layout: [
     {
-      blockType: 'heroSchedule',
+      blockType: 'heroScheduleSanctuary',
       blockName: 'Hero Schedule',
-      title: 'ATND',
       links: [
         {
           link: {

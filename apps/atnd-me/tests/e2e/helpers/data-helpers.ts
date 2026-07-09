@@ -106,7 +106,7 @@ async function createTestTenantHomePage(tenantId: number, tenantName: string): P
     _status: 'published',
     tenant: tenantId,
     layout: [
-      { blockType: 'heroSchedule', blockName: 'Hero Schedule', title: tenantName },
+      { blockType: 'heroScheduleSanctuary', blockName: 'Hero Schedule' },
     ],
   }
   await payload.create({
@@ -539,6 +539,7 @@ export async function createTestPage(
   opts?: {
     requireAuth?: boolean
     layout?: Record<string, unknown>[]
+    meta?: Record<string, unknown>
   }
 ): Promise<any> {
   const payload = await getPayloadInstance()
@@ -552,6 +553,7 @@ export async function createTestPage(
       tenant: tenantIdNumber,
       _status: 'published',
       ...(opts?.requireAuth === true ? { requireAuth: true } : {}),
+      ...(opts?.meta ? { meta: opts.meta } : {}),
       layout,
     },
     draft: false,

@@ -12,15 +12,13 @@ test.describe('Page requireAuth (CMS)', () => {
   }) => {
     const tenant = testData.tenants[0]!
     const slug = `e2e-req-auth-${testData.workerIndex}-${Date.now()}`
-    const visibleTitle = `E2E protected ${slug}`
 
     await createTestPage(tenant.id, slug, 'E2E protected page', {
       requireAuth: true,
       layout: [
         {
-          blockType: 'heroSchedule',
+          blockType: 'heroScheduleSanctuary',
           blockName: 'E2E',
-          title: visibleTitle,
         },
       ],
     })
@@ -46,9 +44,8 @@ test.describe('Page requireAuth (CMS)', () => {
       requireAuth: true,
       layout: [
         {
-          blockType: 'heroSchedule',
+          blockType: 'heroScheduleSanctuary',
           blockName: 'E2E',
-          title: visibleTitle,
         },
       ],
     })
@@ -63,7 +60,7 @@ test.describe('Page requireAuth (CMS)', () => {
     await page.goto(`${origin}/${slug}`, { waitUntil: 'domcontentloaded' })
 
     await expect(page).not.toHaveURL(/\/auth\/sign-in/, { timeout: 5000 })
-    await expect(page.getByText(visibleTitle, { exact: true })).toBeVisible({ timeout: 20_000 })
+    await expect(page.locator('#schedule')).toBeVisible({ timeout: 20_000 })
   })
 
   test('public page on same tenant does not require sign-in', async ({ page, testData }) => {
