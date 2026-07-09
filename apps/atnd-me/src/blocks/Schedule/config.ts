@@ -1,4 +1,5 @@
 import type { Block } from 'payload'
+import { bookingThemeField } from '@repo/website/src/fields/bookingThemeFields'
 
 export const Schedule: Block = {
   slug: 'schedule',
@@ -8,6 +9,7 @@ export const Schedule: Block = {
     plural: 'Schedules',
   },
   fields: [
+    bookingThemeField,
     {
       name: 'defaultLocation',
       type: 'relationship',

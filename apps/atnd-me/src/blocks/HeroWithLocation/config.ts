@@ -1,5 +1,6 @@
 import type { Block } from 'payload'
 import { linkGroup } from '@repo/website'
+import { bookingThemeField } from '@/fields/bookingThemeFields'
 
 /**
  * Full-bleed hero with two-line title (optional accent on first line),
@@ -14,6 +15,7 @@ export const HeroWithLocation: Block = {
     plural: 'Heroes with Location',
   },
   fields: [
+    bookingThemeField,
     {
       name: 'backgroundImage',
       type: 'upload',

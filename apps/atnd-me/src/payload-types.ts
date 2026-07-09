@@ -318,39 +318,6 @@ export interface Tenant {
     | null;
   logo?: (number | null) | Media;
   /**
-   * Customize schedule check-in and booking button colors. Leave fields empty to use platform defaults.
-   */
-  bookingTheme?: {
-    checkin?: {
-      backgroundColor?: string | null;
-      foregroundColor?: string | null;
-    };
-    trialable?: {
-      backgroundColor?: string | null;
-      foregroundColor?: string | null;
-    };
-    cancel?: {
-      backgroundColor?: string | null;
-      foregroundColor?: string | null;
-    };
-    waitlist?: {
-      backgroundColor?: string | null;
-      foregroundColor?: string | null;
-    };
-    childrenBooked?: {
-      backgroundColor?: string | null;
-      foregroundColor?: string | null;
-    };
-    modify?: {
-      backgroundColor?: string | null;
-      foregroundColor?: string | null;
-    };
-    closed?: {
-      backgroundColor?: string | null;
-      foregroundColor?: string | null;
-    };
-  };
-  /**
    * Stripe Connect account ID (set by OAuth callback).
    */
   stripeConnectAccountId?: string | null;
@@ -540,6 +507,39 @@ export interface Page {
     | DhContactBlock
     | DhGroupsBlock
     | {
+        /**
+         * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+         */
+        bookingTheme?: {
+          checkin?: {
+            backgroundColor?: string | null;
+            foregroundColor?: string | null;
+          };
+          trialable?: {
+            backgroundColor?: string | null;
+            foregroundColor?: string | null;
+          };
+          cancel?: {
+            backgroundColor?: string | null;
+            foregroundColor?: string | null;
+          };
+          waitlist?: {
+            backgroundColor?: string | null;
+            foregroundColor?: string | null;
+          };
+          childrenBooked?: {
+            backgroundColor?: string | null;
+            foregroundColor?: string | null;
+          };
+          modify?: {
+            backgroundColor?: string | null;
+            foregroundColor?: string | null;
+          };
+          closed?: {
+            backgroundColor?: string | null;
+            foregroundColor?: string | null;
+          };
+        };
         id?: string | null;
         blockName?: string | null;
         blockType: 'dhLiveSchedule';
@@ -579,6 +579,43 @@ export interface Page {
  * via the `definition` "HeroScheduleSanctuaryBlock".
  */
 export interface HeroScheduleSanctuaryBlock {
+  /**
+   * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+   */
+  bookingTheme?: {
+    checkin?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    trialable?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    cancel?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    waitlist?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    childrenBooked?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    modify?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    closed?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+  };
+  /**
+   * Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker to those branches.
+   */
+  location?: (number | Location)[] | null;
   backgroundImage?: (number | null) | Media;
   logo?: (number | null) | Media;
   links?:
@@ -608,6 +645,33 @@ export interface HeroScheduleSanctuaryBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'heroScheduleSanctuary';
+}
+/**
+ * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "locations".
+ */
+export interface Location {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  slug: string;
+  address?: string | null;
+  /**
+   * Optional IANA timezone for this branch (e.g. Europe/Dublin). If empty, the tenant default is used.
+   */
+  timeZone?: string | null;
+  /**
+   * Inactive locations can be hidden from scheduling and public UIs later.
+   */
+  active?: boolean | null;
+  /**
+   * Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.
+   */
+  defaultForSchedule?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Blog posts. Assign a tenant so the article appears on that site; leave tenant empty for platform-wide posts on the root domain only.
@@ -777,33 +841,6 @@ export interface User {
       }[]
     | null;
   password?: string | null;
-}
-/**
- * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "locations".
- */
-export interface Location {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  name: string;
-  slug: string;
-  address?: string | null;
-  /**
-   * Optional IANA timezone for this branch (e.g. Europe/Dublin). If empty, the tenant default is used.
-   */
-  timeZone?: string | null;
-  /**
-   * Inactive locations can be hidden from scheduling and public UIs later.
-   */
-  active?: boolean | null;
-  /**
-   * Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.
-   */
-  defaultForSchedule?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * Accounts are used to store user accounts for authentication providers
@@ -1114,6 +1151,39 @@ export interface ClassPassType {
  */
 export interface HeroWithLocationBlock {
   /**
+   * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+   */
+  bookingTheme?: {
+    checkin?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    trialable?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    cancel?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    waitlist?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    childrenBooked?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    modify?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    closed?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+  };
+  /**
    * Full-bleed background image
    */
   backgroundImage?: (number | null) | Media;
@@ -1338,6 +1408,39 @@ export interface ThreeColumnLayoutBlock {
         | DhContactBlock
         | DhGroupsBlock
         | {
+            /**
+             * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+             */
+            bookingTheme?: {
+              checkin?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              trialable?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              cancel?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              waitlist?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              childrenBooked?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              modify?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              closed?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+            };
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveSchedule';
@@ -1437,6 +1540,39 @@ export interface LocationBlock {
  */
 export interface ScheduleBlock {
   /**
+   * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+   */
+  bookingTheme?: {
+    checkin?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    trialable?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    cancel?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    waitlist?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    childrenBooked?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    modify?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    closed?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+  };
+  /**
    * Multi-location only: which branch is pre-selected when the page loads. Visitors can still change it via the dropdown.
    */
   defaultLocation?: (number | null) | Location;
@@ -1449,6 +1585,39 @@ export interface ScheduleBlock {
  * via the `definition` "TenantScopedScheduleBlock".
  */
 export interface TenantScopedScheduleBlock {
+  /**
+   * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+   */
+  bookingTheme?: {
+    checkin?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    trialable?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    cancel?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    waitlist?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    childrenBooked?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    modify?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    closed?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+  };
   /**
    * Optional. When set, this tenant’s schedule is shown by default. Visitors can still change the tenant using the dropdown.
    */
@@ -2371,6 +2540,39 @@ export interface DhGroupsBlock {
  */
 export interface CroiLanHeroWithLocationBlock {
   /**
+   * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+   */
+  bookingTheme?: {
+    checkin?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    trialable?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    cancel?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    waitlist?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    childrenBooked?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    modify?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+    closed?: {
+      backgroundColor?: string | null;
+      foregroundColor?: string | null;
+    };
+  };
+  /**
    * Full-bleed background image
    */
   backgroundImage?: (number | null) | Media;
@@ -2625,6 +2827,39 @@ export interface TwoColumnLayoutBlock {
         | DhContactBlock
         | DhGroupsBlock
         | {
+            /**
+             * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+             */
+            bookingTheme?: {
+              checkin?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              trialable?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              cancel?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              waitlist?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              childrenBooked?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              modify?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              closed?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+            };
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveSchedule';
@@ -2695,6 +2930,39 @@ export interface TwoColumnLayoutBlock {
         | DhContactBlock
         | DhGroupsBlock
         | {
+            /**
+             * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
+             */
+            bookingTheme?: {
+              checkin?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              trialable?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              cancel?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              waitlist?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              childrenBooked?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              modify?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+              closed?: {
+                backgroundColor?: string | null;
+                foregroundColor?: string | null;
+              };
+            };
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveSchedule';
@@ -3628,52 +3896,6 @@ export interface TenantsSelect<T extends boolean = true> {
   description?: T;
   allowedBlocks?: T;
   logo?: T;
-  bookingTheme?:
-    | T
-    | {
-        checkin?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        trialable?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        cancel?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        waitlist?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        childrenBooked?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        modify?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-        closed?:
-          | T
-          | {
-              backgroundColor?: T;
-              foregroundColor?: T;
-            };
-      };
   stripeConnectAccountId?: T;
   stripeConnectOnboardingStatus?: T;
   stripeConnectLastError?: T;
@@ -3942,6 +4164,52 @@ export interface PagesSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
+              bookingTheme?:
+                | T
+                | {
+                    checkin?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    trialable?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    cancel?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    waitlist?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    childrenBooked?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    modify?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    closed?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                  };
               id?: T;
               blockName?: T;
             };
@@ -3977,6 +4245,53 @@ export interface PagesSelect<T extends boolean = true> {
  * via the `definition` "HeroScheduleSanctuaryBlock_select".
  */
 export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
+  bookingTheme?:
+    | T
+    | {
+        checkin?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        trialable?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        cancel?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        childrenBooked?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        modify?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        closed?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+      };
+  location?: T;
   backgroundImage?: T;
   logo?: T;
   links?:
@@ -4002,6 +4317,52 @@ export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
  * via the `definition` "HeroWithLocationBlock_select".
  */
 export interface HeroWithLocationBlockSelect<T extends boolean = true> {
+  bookingTheme?:
+    | T
+    | {
+        checkin?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        trialable?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        cancel?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        childrenBooked?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        modify?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        closed?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+      };
   backgroundImage?: T;
   imageOverlayHex?: T;
   imageOverlayOpacity?: T;
@@ -4145,6 +4506,52 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
+              bookingTheme?:
+                | T
+                | {
+                    checkin?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    trialable?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    cancel?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    waitlist?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    childrenBooked?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    modify?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    closed?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                  };
               id?: T;
               blockName?: T;
             };
@@ -4207,6 +4614,52 @@ export interface LocationBlockSelect<T extends boolean = true> {
  * via the `definition` "ScheduleBlock_select".
  */
 export interface ScheduleBlockSelect<T extends boolean = true> {
+  bookingTheme?:
+    | T
+    | {
+        checkin?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        trialable?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        cancel?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        childrenBooked?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        modify?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        closed?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+      };
   defaultLocation?: T;
   id?: T;
   blockName?: T;
@@ -4216,6 +4669,52 @@ export interface ScheduleBlockSelect<T extends boolean = true> {
  * via the `definition` "TenantScopedScheduleBlock_select".
  */
 export interface TenantScopedScheduleBlockSelect<T extends boolean = true> {
+  bookingTheme?:
+    | T
+    | {
+        checkin?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        trialable?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        cancel?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        childrenBooked?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        modify?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        closed?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+      };
   defaultTenant?: T;
   id?: T;
   blockName?: T;
@@ -4707,6 +5206,52 @@ export interface DhGroupsBlockSelect<T extends boolean = true> {
  * via the `definition` "CroiLanHeroWithLocationBlock_select".
  */
 export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
+  bookingTheme?:
+    | T
+    | {
+        checkin?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        trialable?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        cancel?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        waitlist?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        childrenBooked?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        modify?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        closed?:
+          | T
+          | {
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+      };
   backgroundImage?: T;
   imageOverlayHex?: T;
   imageOverlayOpacity?: T;
@@ -4877,6 +5422,52 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
+              bookingTheme?:
+                | T
+                | {
+                    checkin?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    trialable?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    cancel?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    waitlist?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    childrenBooked?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    modify?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    closed?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                  };
               id?: T;
               blockName?: T;
             };
@@ -4947,6 +5538,52 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveSchedule?:
           | T
           | {
+              bookingTheme?:
+                | T
+                | {
+                    checkin?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    trialable?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    cancel?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    waitlist?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    childrenBooked?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    modify?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                    closed?:
+                      | T
+                      | {
+                          backgroundColor?: T;
+                          foregroundColor?: T;
+                        };
+                  };
               id?: T;
               blockName?: T;
             };

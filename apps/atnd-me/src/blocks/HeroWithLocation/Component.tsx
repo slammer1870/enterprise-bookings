@@ -4,8 +4,10 @@ import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@repo/ui/components/ui/button'
+import { BlockBookingTheme } from '@/components/BlockBookingTheme'
 import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import type { Media } from '@/payload-types'
+import type { BookingThemeConfig } from '@/utilities/bookingThemeTypes'
 import { getMediaUrl } from '@/utilities/getMediaUrl'
 
 type LinkItem = {
@@ -23,6 +25,8 @@ type LinkItem = {
 }
 
 interface HeroWithLocationBlockProps {
+  id?: string | null
+  bookingTheme?: BookingThemeConfig | null
   backgroundImage?: number | Media | { url?: string; alt?: string } | string | null
   imageOverlayHex?: string | null
   imageOverlayOpacity?: number | null
@@ -117,6 +121,8 @@ const DEFAULT_OVERLAY_HEX = '#000000'
 const DEFAULT_OVERLAY_OPACITY = 70
 
 export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
+  id,
+  bookingTheme,
   backgroundImage,
   imageOverlayHex,
   imageOverlayOpacity,
@@ -294,7 +300,9 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
                   <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-foreground">
                     Schedule
                   </h2>
-                  <ScheduleLazy />
+                  <BlockBookingTheme scopeId={id} bookingTheme={bookingTheme}>
+                    <ScheduleLazy />
+                  </BlockBookingTheme>
                 </div>
               </div>
             </div>

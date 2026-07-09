@@ -15,7 +15,6 @@ import { MarketingCtaBlock } from '@repo/website/src/blocks/marketingCta'
 import { ScheduleBlock } from '@/blocks/Schedule/Component'
 import { TenantScopedScheduleBlock } from '@/blocks/TenantScopedSchedule/Component'
 import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
-import { ClHeroScheduleSanctuaryBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClHeroScheduleSanctuary'
 import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
 import { MissionElementsBlock } from '@/blocks/MissionElements/Component'
@@ -44,15 +43,7 @@ import { ClSaunaBenefitsBlock } from '@repo/website/src/blocks/croi-lan-sauna/Cl
 import { DhLiveScheduleBlock } from '@/blocks/DhLiveSchedule/Component'
 import { DhLiveMembershipBlock } from '@/blocks/DhLiveMembership/Component'
 import { HwHeroServicesBlock } from '@repo/website/src/blocks/holohan-wellness/HwHeroServices'
-
-function HeroScheduleSanctuaryBlock(
-  props: Omit<React.ComponentProps<typeof ClHeroScheduleSanctuaryBlock>, 'schedulePanel'>,
-) {
-  return React.createElement(ClHeroScheduleSanctuaryBlock, {
-    ...props,
-    schedulePanel: React.createElement('div', { className: 'w-full min-w-0' }, React.createElement(ScheduleBlock)),
-  })
-}
+import { HeroScheduleSanctuaryBlock } from '@/blocks/HeroScheduleSanctuary/Component'
 
 // Export the block components registry — heterogeneous block props, so typed loosely
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

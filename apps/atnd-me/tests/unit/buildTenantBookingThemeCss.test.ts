@@ -48,4 +48,16 @@ describe('buildTenantBookingThemeCss', () => {
     expect(css).toContain('--cancel: #ef4444;')
     expect(css).not.toContain('--waitlist:')
   })
+
+  it('scopes CSS to a block selector when provided', () => {
+    const css = buildTenantBookingThemeCss(
+      {
+        checkin: { backgroundColor: 'green-500', foregroundColor: 'white' },
+      },
+      '[data-booking-theme="block-123"]',
+    )
+
+    expect(css).toContain('[data-booking-theme="block-123"]')
+    expect(css).not.toContain(':root,')
+  })
 })

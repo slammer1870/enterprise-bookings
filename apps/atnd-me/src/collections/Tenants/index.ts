@@ -4,7 +4,6 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
 import { isValidTimeZone } from '@repo/shared-utils'
-import { bookingThemeField } from '@/fields/bookingThemeFields'
 import { extraBlockSlugs } from '../../blocks/registry'
 import {
   isCustomDomainDnsValidationEnabled,
@@ -245,7 +244,6 @@ export const Tenants: CollectionConfig = {
       relationTo: 'media',
       required: false,
     },
-    bookingThemeField,
     // Stripe Connect (step 2.1) – admin and tenant-admin can read; only admin can update (OAuth/webhooks set these)
     {
       name: 'stripeConnectStatus',

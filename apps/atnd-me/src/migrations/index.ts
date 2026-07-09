@@ -121,6 +121,12 @@ import * as migration_20260523_000002_booking_checkout_holds from './20260523_00
 import * as migration_20260523_000003_booking_checkout_holds_lock_rels from './20260523_000003_booking_checkout_holds_lock_rels';
 import * as migration_20260624_000001_users_tenant_roles from './20260624_000001_users_tenant_roles';
 import * as migration_20260625_000001_create_users_tenants_roles from './20260625_000001_create_users_tenants_roles';
+import * as migration_20260709_000001_hw_hero_services_block from './20260709_000001_hw_hero_services_block';
+import * as migration_20260709_000002_hw_hero_services_link_field from './20260709_000002_hw_hero_services_link_field';
+import * as migration_20260709_000003_hero_sched_sanc_location_field from './20260709_000003_hero_sched_sanc_location_field';
+import * as migration_20260709_000004_hero_sched_sanc_location_has_many from './20260709_000004_hero_sched_sanc_location_has_many';
+import * as migration_20260709_000005_pages_rels_hero_sched_locations from './20260709_000005_pages_rels_hero_sched_locations';
+import * as migration_20260710_000001_schedule_blocks_booking_theme from './20260710_000001_schedule_blocks_booking_theme';
 
 export const migrations = [
   {
@@ -737,5 +743,35 @@ export const migrations = [
     up: migration_20260625_000001_create_users_tenants_roles.up,
     down: migration_20260625_000001_create_users_tenants_roles.down,
     name: '20260625_000001_create_users_tenants_roles',
+  },
+  {
+    up: migration_20260709_000001_hw_hero_services_block.up,
+    down: migration_20260709_000001_hw_hero_services_block.down,
+    name: '20260709_000001_hw_hero_services_block',
+  },
+  {
+    up: migration_20260709_000002_hw_hero_services_link_field.up,
+    down: migration_20260709_000002_hw_hero_services_link_field.down,
+    name: '20260709_000002_hw_hero_services_link_field',
+  },
+  {
+    up: migration_20260709_000003_hero_sched_sanc_location_field.up,
+    down: migration_20260709_000003_hero_sched_sanc_location_field.down,
+    name: '20260709_000003_hero_sched_sanc_location_field',
+  },
+  {
+    up: migration_20260709_000004_hero_sched_sanc_location_has_many.up,
+    down: migration_20260709_000004_hero_sched_sanc_location_has_many.down,
+    name: '20260709_000004_hero_sched_sanc_location_has_many',
+  },
+  {
+    up: migration_20260709_000005_pages_rels_hero_sched_locations.up,
+    down: migration_20260709_000005_pages_rels_hero_sched_locations.down,
+    name: '20260709_000005_pages_rels_hero_sched_locations',
+  },
+  {
+    up: migration_20260710_000001_schedule_blocks_booking_theme.up,
+    down: migration_20260710_000001_schedule_blocks_booking_theme.down,
+    name: '20260710_000001_schedule_blocks_booking_theme',
   },
 ];

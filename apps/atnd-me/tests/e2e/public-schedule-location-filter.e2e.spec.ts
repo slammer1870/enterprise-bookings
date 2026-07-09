@@ -1,12 +1,12 @@
 /**
  * Public schedule location picker filtering (Phase 7 Chunk 12).
  *
- * Ensures that on a multi-location tenant, the public schedule UI can switch
- * between locations and only shows timeslots for the selected branch.
+ * Uses the standalone Schedule block (not Hero+Schedule) so visitors can switch
+ * branches via the dropdown on multi-location tenants.
  */
 import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
-import { getBranchSlugFromCookies, navigateToTenant } from './helpers/subdomain-helpers'
+import { navigateToTenant } from './helpers/subdomain-helpers'
 import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
 
@@ -91,6 +91,22 @@ test.describe('Public schedule location picker', () => {
       throw new Error('Expected tenant1 and tenant1Locations fixtures')
     }
 
+    const payload = await getPayloadInstance()
+    const pageSlug = `e2e-schedule-picker-${w}-${Date.now()}`
+
+    await payload.create({
+      collection: 'pages',
+      data: {
+        slug: pageSlug,
+        title: 'E2E Schedule Picker Page',
+        tenant: tenant.id,
+        _status: 'published',
+        layout: [{ blockType: 'schedule', blockName: 'Schedule' }],
+      },
+      draft: false,
+      overrideAccess: true,
+    })
+
     const classNorth = uniqueClassName('E2E Public schedule north slot')
     const classSouth = uniqueClassName('E2E Public schedule south slot')
 
@@ -106,32 +122,36 @@ test.describe('Public schedule location picker', () => {
     await createTestTimeslot(tenant.id, etNorth.id, startTime, endTime, undefined, true, north.id)
     await createTestTimeslot(tenant.id, etSouth.id, startTime, endTime, undefined, true, south.id)
 
-    await navigateToTenant(page, tenant.slug, '/home')
+    await navigateToTenant(page, tenant.slug, `/${pageSlug}`)
 
     // Wait for schedule to be present and move to the target date.
     await page
-      .waitForURL((url) => url.pathname === '/' || url.pathname === '/home', { timeout: 15000 })
+      .waitForURL((url) => url.pathname === `/${pageSlug}`, { timeout: 15000 })
       .catch(() => null)
     await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
+    await expect(page.getByText('Show schedule for')).toBeVisible({ timeout: 20000 })
 
     await advanceScheduleToDate(page, startTime)
 
-    // Default view should include both branches when no branch cookie is set.
+    // Default view uses the first/default branch — north appears, south does not.
     await expect(page.getByText(classNorth).first()).toBeVisible({ timeout: 20000 })
-    await expect(page.getByText(classSouth).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(classSouth)).toHaveCount(0, { timeout: 20000 })
 
-    // Public schedule filters based on selected location cookie.
-    // Visiting `/locations/{slug}` sets `branch-slug`, which should then filter `/home`.
-    await navigateToTenant(page, tenant.slug, `/locations/${south.slug}`)
-    expect(await getBranchSlugFromCookies(page)).toBe(south.slug)
+    // Switch branch via the public location picker dropdown.
+    await page.getByRole('combobox').click()
+    await page.getByRole('option', { name: south.name }).click()
 
-    await navigateToTenant(page, tenant.slug, '/home')
     await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
     await advanceScheduleToDate(page, startTime)
 
-    // After switching location via the URL, schedule should only show the chosen location's timeslots.
     await expect(page.getByText(classNorth)).toHaveCount(0, { timeout: 20000 })
     await expect(page.getByText(classSouth).first()).toBeVisible({ timeout: 20000 })
+
+    await payload.delete({
+      collection: 'pages',
+      where: { slug: { equals: pageSlug }, tenant: { equals: tenant.id } },
+      overrideAccess: true,
+    })
   })
 })
 
