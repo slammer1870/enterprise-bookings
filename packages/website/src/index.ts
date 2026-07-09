@@ -53,6 +53,7 @@ export {
   ClPillars,
   ClSaunaBenefits,
 } from "./blocks/croi-lan-sauna";
+export { HwHeroServices } from "./blocks/holohan-wellness";
 
 // Export hooks
 export { revalidatePage, revalidateDelete } from "./hooks/revalidate-page"; 

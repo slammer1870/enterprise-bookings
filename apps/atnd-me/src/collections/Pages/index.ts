@@ -45,6 +45,7 @@ import {
   ClMission,
   ClPillars,
   ClSaunaBenefits,
+  HwHeroServices,
   createTwoColumnLayout,
 } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
@@ -122,6 +123,8 @@ const availableBlocks = [
   ClMission,
   ClPillars,
   ClSaunaBenefits,
+  // Holohan Wellness (tenant-scoped extras)
+  HwHeroServices,
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config

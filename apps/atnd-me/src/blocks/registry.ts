@@ -46,6 +46,7 @@ import {
   ClMission,
   ClPillars,
   ClSaunaBenefits,
+  HwHeroServices,
   createTwoColumnLayout,
 } from '@repo/website'
 
@@ -99,6 +100,8 @@ const allBlocks: Block[] = [
   ClMission,
   ClPillars,
   ClSaunaBenefits,
+  // Holohan Wellness (tenant-scoped extras)
+  HwHeroServices,
 ]
 
 const TwoColumnLayout = createTwoColumnLayout(allBlocks)

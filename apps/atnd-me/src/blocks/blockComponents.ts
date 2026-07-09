@@ -43,6 +43,7 @@ import { ClPillarsBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClPillar
 import { ClSaunaBenefitsBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClSaunaBenefits'
 import { DhLiveScheduleBlock } from '@/blocks/DhLiveSchedule/Component'
 import { DhLiveMembershipBlock } from '@/blocks/DhLiveMembership/Component'
+import { HwHeroServicesBlock } from '@repo/website/src/blocks/holohan-wellness/HwHeroServices'
 
 function HeroScheduleSanctuaryBlock(
   props: Omit<React.ComponentProps<typeof ClHeroScheduleSanctuaryBlock>, 'schedulePanel'>,
@@ -101,4 +102,5 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   clMission: ClMissionBlock,
   clPillars: ClPillarsBlock,
   clSaunaBenefits: ClSaunaBenefitsBlock,
+  hwHeroServices: HwHeroServicesBlock,
 }
