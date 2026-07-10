@@ -17,6 +17,7 @@ export { Hero } from "./blocks/hero/config";
 export { About } from "./blocks/about/config";
 export { Location } from "./blocks/location/config";
 export { linkGroup } from "./blocks/linkGroup";
+export { bookingThemeField } from "./fields/bookingThemeFields";
 export { ThreeColumnLayoutBlock } from "./blocks/threeColumnLayout";
 export { createThreeColumnLayout } from "./blocks/threeColumnLayout";
 export { registerBlockComponents } from "./blocks/threeColumnLayout/registry";

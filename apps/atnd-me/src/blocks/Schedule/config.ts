@@ -1,5 +1,5 @@
 import type { Block } from 'payload'
-import { bookingThemeField } from '@repo/website/src/fields/bookingThemeFields'
+import { bookingThemeField } from '@/fields/bookingThemeFields'
 
 export const Schedule: Block = {
   slug: 'schedule',

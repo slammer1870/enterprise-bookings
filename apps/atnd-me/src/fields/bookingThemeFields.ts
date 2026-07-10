@@ -1,1 +1,1 @@
-export { bookingThemeField } from '@repo/website/src/fields/bookingThemeFields'
+export { bookingThemeField } from '@repo/website'
