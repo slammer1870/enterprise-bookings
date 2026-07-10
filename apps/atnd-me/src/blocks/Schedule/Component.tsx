@@ -198,7 +198,6 @@ export const ScheduleBlock = async ({
             locations={pickerLocations}
             defaultLocationId={safeFallbackLocationId}
             tenantId={tenantId}
-            defaultToAll={configuredLocationIds.length === 0}
           />
         </Suspense>,
         themeProps,

@@ -22,15 +22,7 @@ export interface LocationScopedScheduleClientProps {
   locations: LocationOption[]
   defaultLocationId?: number | null
   tenantId: number
-  /**
-   * When true (hero/sanctuary blocks), the picker starts with "All locations"
-   * selected and the server handles cookie-based filtering.
-   * When false (standard schedule block), defaults to the first/default location.
-   */
-  defaultToAll?: boolean
 }
-
-const EMPTY_VALUE = '__none__'
 
 function matchSlug(param: string | null, slug: string): boolean {
   if (!param?.trim()) return false
@@ -49,7 +41,6 @@ export function LocationScopedScheduleClient({
   locations,
   defaultLocationId,
   tenantId,
-  defaultToAll = false,
 }: LocationScopedScheduleClientProps) {
   const searchParams = useSearchParams()
   const locationFromSearch = searchParams.get('location')
@@ -86,10 +77,8 @@ export function LocationScopedScheduleClient({
   }, [locationSlug, locations])
 
   const firstLocationId = coerceLocationId(locations[0]?.id)
-  // Hero/sanctuary blocks start unfiltered ("All locations"); standard schedule
-  // blocks default to the configured default location or the first location.
   const standardDefault = coerceLocationId(defaultLocationId) ?? firstLocationId
-  const initialLocationId = defaultToAll ? null : standardDefault
+  const initialLocationId = standardDefault
 
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(initialLocationId)
   const [userHasChosen, setUserHasChosen] = useState(false)
@@ -103,17 +92,17 @@ export function LocationScopedScheduleClient({
 
   const effectiveLocationIdRaw = userHasChosen
     ? selectedLocationId
-    : (locationFromSlug?.id ?? (defaultToAll ? null : (selectedLocationId ?? defaultLocationId)))
+    : (locationFromSlug?.id ?? (selectedLocationId ?? defaultLocationId))
 
-  // Standard schedule blocks must always send an explicit branchId so stale
-  // `branch-slug` / `payload-location` cookies from other flows cannot override.
-  const effectiveLocationId =
-    coerceLocationId(effectiveLocationIdRaw) ?? (defaultToAll ? null : firstLocationId)
+  // Always send an explicit branchId so stale `branch-slug` / `payload-location`
+  // cookies from other flows cannot override the public schedule filter.
+  const effectiveLocationId = coerceLocationId(effectiveLocationIdRaw) ?? firstLocationId
 
-  const value = effectiveLocationId != null ? String(effectiveLocationId) : EMPTY_VALUE
+  const value = effectiveLocationId != null ? String(effectiveLocationId) : ''
 
   const onValueChange = (v: string) => {
-    const id = v === EMPTY_VALUE ? null : Number(v)
+    const id = Number(v)
+    if (!Number.isFinite(id)) return
     setSelectedLocationId(id)
     setUserHasChosen(true)
   }
@@ -164,7 +153,6 @@ export function LocationScopedScheduleClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={EMPTY_VALUE}>All locations</SelectItem>
               {locations.map((l) => (
                 <SelectItem key={l.id} value={String(l.id)}>
                   {l.name}
