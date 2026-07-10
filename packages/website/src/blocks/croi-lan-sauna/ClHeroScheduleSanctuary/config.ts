@@ -25,7 +25,7 @@ export const ClHeroScheduleSanctuary: Block = {
       required: false,
       admin: {
         description:
-          'Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker to those branches.',
+          'Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker. Order controls picker sequence and which branch is selected by default.',
       },
       filterOptions: ({ data }) => {
         const raw = data?.tenant

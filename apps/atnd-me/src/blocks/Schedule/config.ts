@@ -11,13 +11,32 @@ export const Schedule: Block = {
   fields: [
     bookingThemeField,
     {
-      name: 'defaultLocation',
+      name: 'location',
       type: 'relationship',
       relationTo: 'locations',
+      hasMany: true,
       required: false,
       admin: {
         description:
-          'Multi-location only: which branch is pre-selected when the page loads. Visitors can still change it via the dropdown.',
+          'Multi-location only: leave empty to show all branches with a picker; select specific branches to restrict the picker. Order controls picker sequence and which branch is selected by default.',
+      },
+      filterOptions: ({ data }) => {
+        const raw = data?.tenant
+        const tid =
+          raw == null
+            ? null
+            : typeof raw === 'object' && raw !== null && 'id' in raw
+              ? (raw as { id: number }).id
+              : typeof raw === 'number'
+                ? raw
+                : typeof raw === 'string' && /^\d+$/.test(raw)
+                  ? parseInt(raw, 10)
+                  : null
+        if (tid == null) return false
+        return {
+          tenant: { equals: tid },
+          active: { equals: true },
+        }
       },
     },
   ],

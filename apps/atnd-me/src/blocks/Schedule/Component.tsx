@@ -10,8 +10,17 @@ export interface ScheduleBlockProps {
   id?: string | null
   blockType?: 'schedule'
   bookingTheme?: BookingThemeConfig | null
-  defaultLocation?: (number | null) | Location
-  /** When set, only these branches are available (hero block). Picker shown when length > 1. */
+  /**
+   * Locations configured on this block (schedule block's hasMany field).
+   * When non-empty, the picker is restricted to these branches.
+   * When empty/absent, all active tenant locations are available.
+   */
+  location?: ((number | null) | Location)[] | null
+  /**
+   * Passed by hero block wrappers (e.g. HeroScheduleSanctuaryBlock).
+   * Semantically identical to `location` — both restrict the picker to specific branches.
+   * Takes precedence over `location` when both are present.
+   */
   allowedLocations?: ((number | null) | Location)[] | null
   /** When embedded in a parent block that applies its own booking theme wrapper. */
   skipThemeWrapper?: boolean
@@ -20,9 +29,13 @@ export interface ScheduleBlockProps {
 /**
  * Schedule block — works for both single and multi-location tenants.
  *
- * Single location (or no locations): renders the schedule directly, identical to before.
- * Multiple active locations: renders a branch picker above the schedule so visitors
- * can filter by site. Mirrors the TenantScopedSchedule UX pattern.
+ * Unified logic for all callers (standard schedule block and hero block wrappers):
+ * - 0 picker locations or no tenant: plain ScheduleLazy (no filter)
+ * - 1 picker location: locked to that branch (no picker shown)
+ * - 2+ picker locations: branch picker rendered above the schedule
+ *
+ * Picker branches come from `allowedLocations` (hero block) or `location` (schedule block),
+ * falling back to all active tenant locations when neither is configured.
  */
 function resolveLocationId(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -40,7 +53,7 @@ function resolveLocationId(value: unknown): number | null {
   return null
 }
 
-function normalizeAllowedLocations(
+function normalizeLocationList(
   value: ((number | null) | Location)[] | null | undefined,
 ): Array<number | Location> {
   if (value == null) return []
@@ -65,16 +78,21 @@ function wrapScheduleContent(
   )
 }
 
+const suspenseFallback = (
+  <div className="min-h-[200px] rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
+    Loading schedule…
+  </div>
+)
+
 export const ScheduleBlock = async ({
   id,
   bookingTheme,
-  defaultLocation,
+  location,
   allowedLocations,
   skipThemeWrapper,
 }: ScheduleBlockProps = {}) => {
   let tenantId: number | null = null
-  let locations: Array<{ id: number; name: string; slug: string; defaultForSchedule: boolean }> =
-    []
+  let allActiveLocations: Array<{ id: number; name: string; slug: string }> = []
 
   try {
     const payload = await getPayload()
@@ -129,7 +147,7 @@ export const ScheduleBlock = async ({
         depth: 0,
         overrideAccess: true,
       })
-      locations = (result.docs as any[])
+      allActiveLocations = (result.docs as any[])
         .map((l) => {
           const rawId = l?.id
           const id =
@@ -141,7 +159,6 @@ export const ScheduleBlock = async ({
             id,
             name: (l as Location).name ?? '',
             slug: (l as Location).slug ?? '',
-            defaultForSchedule: Boolean((l as any).defaultForSchedule),
           }
         })
         .filter((x): x is NonNullable<typeof x> => x != null)
@@ -150,100 +167,64 @@ export const ScheduleBlock = async ({
     // If tenant resolution fails, fall back to the plain schedule
   }
 
-  const configuredLocationItems = normalizeAllowedLocations(allowedLocations)
-  const configuredLocationIds = configuredLocationItems
+  const themeProps = { id, bookingTheme, skipThemeWrapper }
+
+  // Resolve configured branches: allowedLocations (hero block) takes precedence over
+  // location (schedule block field). When neither is set, use all active tenant locations.
+  const configuredItems = normalizeLocationList(allowedLocations ?? location)
+  const configuredIds = configuredItems
     .map((item) => resolveLocationId(item))
     .filter((id): id is number => id != null)
 
-  const scopedLocations =
-    configuredLocationIds.length > 0
-      ? locations.filter((l) => configuredLocationIds.includes(l.id))
-      : []
+  const locationById = new Map(allActiveLocations.map((l) => [l.id, l]))
 
-  const explicitDefaultLocationId = resolveLocationId(defaultLocation)
+  // Preserve CMS multi-select order when branches are configured on the block;
+  // otherwise fall back to alphabetical (allActiveLocations is sorted by name).
+  const pickerLocations =
+    configuredIds.length > 0
+      ? configuredIds
+          .map((id) => locationById.get(id))
+          .filter((l): l is NonNullable<typeof l> => l != null)
+      : allActiveLocations
 
-  const fallbackLocationId =
-    scopedLocations[0]?.id ??
-    explicitDefaultLocationId ??
-    locations.find((l) => l.defaultForSchedule)?.id ??
-    locations[0]?.id ??
-    null
-
-  const safeFallbackLocationId = resolveLocationId(fallbackLocationId)
-
-  const scheduleFallback = (
-    <ScheduleLazy
-      {...(tenantId != null ? { tenantId } : {})}
-      {...(safeFallbackLocationId != null ? { branchId: safeFallbackLocationId } : {})}
-    />
-  )
-
-  const themeProps = { id, bookingTheme, skipThemeWrapper }
-
-  if (allowedLocations !== undefined) {
-    const pickerLocations = scopedLocations.length > 0 ? scopedLocations : locations
-
-    if (tenantId != null && pickerLocations.length > 1) {
-      const { LocationScopedScheduleClient } = await import('./Component.client')
-
-      return wrapScheduleContent(
-        <Suspense
-          fallback={
-            <div className="min-h-[200px] rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
-              Loading schedule…
-            </div>
-          }
-        >
-          <LocationScopedScheduleClient
-            locations={pickerLocations}
-            defaultLocationId={safeFallbackLocationId}
-            tenantId={tenantId}
-          />
-        </Suspense>,
-        themeProps,
-      )
-    }
-
-    if (tenantId != null && pickerLocations.length === 1) {
-      const { FixedLocationScheduleClient } = await import('./FixedLocationSchedule.client')
-
-      return wrapScheduleContent(
-        <Suspense
-          fallback={
-            <div className="min-h-[200px] rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
-              Loading schedule…
-            </div>
-          }
-        >
-          <FixedLocationScheduleClient
-            locationId={pickerLocations[0]!.id}
-            tenantId={tenantId}
-          />
-        </Suspense>,
-        themeProps,
-      )
-    }
-
-    return wrapScheduleContent(scheduleFallback, themeProps)
-  }
-
-  if (locations.length <= 1 || tenantId == null) {
+  // No tenant context: render without any filter
+  if (tenantId == null) {
     return wrapScheduleContent(<ScheduleLazy />, themeProps)
   }
+
+  // 0 configured + no active locations: no branch filter
+  if (pickerLocations.length === 0) {
+    return wrapScheduleContent(
+      <ScheduleLazy tenantId={tenantId} />,
+      themeProps,
+    )
+  }
+
+  // 1 location: lock to it silently (no picker)
+  if (pickerLocations.length === 1) {
+    const { FixedLocationScheduleClient } = await import('./FixedLocationSchedule.client')
+
+    return wrapScheduleContent(
+      <Suspense fallback={suspenseFallback}>
+        <FixedLocationScheduleClient
+          locationId={pickerLocations[0]!.id}
+          tenantId={tenantId}
+        />
+      </Suspense>,
+      themeProps,
+    )
+  }
+
+  // 2+ locations: show picker (default to first in picker order)
+  const defaultLocationId = pickerLocations[0]?.id ?? null
 
   const { LocationScopedScheduleClient } = await import('./Component.client')
 
   return wrapScheduleContent(
-    <Suspense
-      fallback={
-        <div className="min-h-[200px] rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
-          Loading schedule…
-        </div>
-      }
-    >
+    <Suspense fallback={suspenseFallback}>
       <LocationScopedScheduleClient
-        locations={locations}
-        defaultLocationId={safeFallbackLocationId}
+        locations={pickerLocations}
+        defaultLocationId={defaultLocationId}
         tenantId={tenantId}
       />
     </Suspense>,

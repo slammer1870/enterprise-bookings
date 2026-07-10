@@ -7,13 +7,21 @@ import {
   createTestBooking,
 } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
-import { advanceScheduleToDate } from './helpers/schedule-helpers'
+import {
+  advanceScheduleToDate,
+  ensureTenant1ActiveBranchesOnly,
+  tenant1DefaultBranchId,
+} from './helpers/schedule-helpers'
 
 /**
  * Schedule UX: full timeslot → Join Waitlist → Leave Waitlist (still full → Join shows again).
  */
 test.describe('Full timeslot waitlist', () => {
   test.setTimeout(e2eSlowTestTimeout(180_000, 120_000))
+
+  test.beforeAll(async ({ testData }) => {
+    await ensureTenant1ActiveBranchesOnly(testData)
+  })
 
   test('user joins waitlist on a full slot then leaves it', async ({ page, testData }) => {
     const tenant = testData.tenants[0]!
@@ -35,7 +43,15 @@ test.describe('Full timeslot waitlist', () => {
     const endTime = new Date(startTime)
     endTime.setHours(12, 0, 0, 0)
 
-    const timeslot = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const timeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+      tenant1DefaultBranchId(testData),
+    )
 
     await createTestBooking(testData.users.user2.id, timeslot.id, 'confirmed')
 
@@ -101,7 +117,15 @@ test.describe('Full timeslot waitlist', () => {
     const endTime = new Date(startTime)
     endTime.setHours(12, 0, 0, 0)
 
-    const timeslot = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const timeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+      tenant1DefaultBranchId(testData),
+    )
     await createTestBooking(testData.users.user2.id, timeslot.id, 'confirmed')
 
     // Ensure we start truly unauthenticated (previous tests may leave cookies in the browser context).

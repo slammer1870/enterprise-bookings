@@ -20,9 +20,14 @@ import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { createTestEventType, createTestTimeslot } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
+import { ensureTenant1ActiveBranchesOnly, tenant1DefaultBranchId } from './helpers/schedule-helpers'
 
 test.describe('Free booking: schedule Book → Modify Booking → manage page details', () => {
   test.setTimeout(e2eSlowTestTimeout())
+
+  test.beforeAll(async ({ testData }) => {
+    await ensureTenant1ActiveBranchesOnly(testData)
+  })
 
   test(
     'user books free timeslot from schedule, clicks Modify Booking, manage page shows booking details',
@@ -64,6 +69,7 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
         end,
         undefined, // no instructor
         true,      // active
+        tenant1DefaultBranchId(testData),
       )
 
       // The scoped name that createTestEventType produces (mirrors its naming logic).

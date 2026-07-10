@@ -127,6 +127,8 @@ import * as migration_20260709_000003_hero_sched_sanc_location_field from './202
 import * as migration_20260709_000004_hero_sched_sanc_location_has_many from './20260709_000004_hero_sched_sanc_location_has_many';
 import * as migration_20260709_000005_pages_rels_hero_sched_locations from './20260709_000005_pages_rels_hero_sched_locations';
 import * as migration_20260710_000001_schedule_blocks_booking_theme from './20260710_000001_schedule_blocks_booking_theme';
+import * as migration_20260710_000002_schedule_block_location_has_many from './20260710_000002_schedule_block_location_has_many';
+import * as migration_20260710_000003_drop_locations_default_for_schedule from './20260710_000003_drop_locations_default_for_schedule';
 
 export const migrations = [
   {
@@ -773,5 +775,15 @@ export const migrations = [
     up: migration_20260710_000001_schedule_blocks_booking_theme.up,
     down: migration_20260710_000001_schedule_blocks_booking_theme.down,
     name: '20260710_000001_schedule_blocks_booking_theme',
+  },
+  {
+    up: migration_20260710_000002_schedule_block_location_has_many.up,
+    down: migration_20260710_000002_schedule_block_location_has_many.down,
+    name: '20260710_000002_schedule_block_location_has_many',
+  },
+  {
+    up: migration_20260710_000003_drop_locations_default_for_schedule.up,
+    down: migration_20260710_000003_drop_locations_default_for_schedule.down,
+    name: '20260710_000003_drop_locations_default_for_schedule',
   },
 ];

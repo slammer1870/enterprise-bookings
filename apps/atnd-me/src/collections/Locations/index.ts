@@ -99,15 +99,6 @@ export const Locations: CollectionConfig = {
         description: 'Inactive locations can be hidden from scheduling and public UIs later.',
       },
     },
-    {
-      name: 'defaultForSchedule',
-      type: 'checkbox',
-      defaultValue: false,
-      admin: {
-        description:
-          'Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.',
-      },
-    },
   ],
   hooks: {
     beforeValidate: [
@@ -173,54 +164,6 @@ export const Locations: CollectionConfig = {
           throw new Error(
             `A location with the slug "${normalized}" already exists for this tenant. Choose a different slug.`,
           )
-        }
-
-        return data
-      },
-      async ({ data, operation, req, originalDoc }) => {
-        if (!data) return data
-
-        const effectiveDefaultForSchedule = data.defaultForSchedule ?? originalDoc?.defaultForSchedule
-        const effectiveActive = data.active ?? originalDoc?.active
-
-        // Only enforce when the location is both active and marked as the default.
-        if (effectiveDefaultForSchedule !== true || effectiveActive !== true) return data
-
-        // tenant is already enforced by the previous hook, but re-derive defensively.
-        let tenantId: number | null = null
-        const rawTenant = data.tenant ?? originalDoc?.tenant
-        if (rawTenant != null && rawTenant !== '') {
-          const id =
-            typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
-              ? (rawTenant as { id: unknown }).id
-              : rawTenant
-          if (typeof id === 'number' && Number.isFinite(id)) {
-            tenantId = id
-          } else if (typeof id === 'string' && /^\d+$/.test(id)) {
-            tenantId = parseInt(id, 10)
-          }
-        }
-        if (tenantId == null) return data
-
-        const currentId = operation === 'update' && originalDoc?.id ? originalDoc.id : null
-
-        const existingDefault = await req.payload.find({
-          collection: 'locations',
-          where: {
-            and: [
-              { tenant: { equals: tenantId } },
-              { active: { equals: true } },
-              { defaultForSchedule: { equals: true } },
-              ...(currentId != null ? [{ id: { not_equals: currentId } }] : []),
-            ],
-          },
-          limit: 1,
-          depth: 0,
-          overrideAccess: true,
-        })
-
-        if (existingDefault.totalDocs > 0) {
-          throw new Error('Only one active default location can be selected per tenant.')
         }
 
         return data

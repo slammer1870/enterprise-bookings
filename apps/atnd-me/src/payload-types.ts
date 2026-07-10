@@ -613,7 +613,7 @@ export interface HeroScheduleSanctuaryBlock {
     };
   };
   /**
-   * Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker to those branches.
+   * Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker. Order controls picker sequence and which branch is selected by default.
    */
   location?: (number | Location)[] | null;
   backgroundImage?: (number | null) | Media;
@@ -666,10 +666,6 @@ export interface Location {
    * Inactive locations can be hidden from scheduling and public UIs later.
    */
   active?: boolean | null;
-  /**
-   * Optional. If enabled (and the location is active), this location is pre-selected as the default branch on public schedule pages.
-   */
-  defaultForSchedule?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1573,9 +1569,9 @@ export interface ScheduleBlock {
     };
   };
   /**
-   * Multi-location only: which branch is pre-selected when the page loads. Visitors can still change it via the dropdown.
+   * Multi-location only: leave empty to show all branches with a picker; select specific branches to restrict the picker. Order controls picker sequence and which branch is selected by default.
    */
-  defaultLocation?: (number | null) | Location;
+  location?: (number | Location)[] | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'schedule';
@@ -3920,7 +3916,6 @@ export interface LocationsSelect<T extends boolean = true> {
   address?: T;
   timeZone?: T;
   active?: T;
-  defaultForSchedule?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4660,7 +4655,7 @@ export interface ScheduleBlockSelect<T extends boolean = true> {
               foregroundColor?: T;
             };
       };
-  defaultLocation?: T;
+  location?: T;
   id?: T;
   blockName?: T;
 }
