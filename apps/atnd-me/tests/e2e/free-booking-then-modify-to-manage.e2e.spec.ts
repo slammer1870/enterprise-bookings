@@ -121,12 +121,16 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
       // After the booking the schedule query is invalidated and refetched.
       // The CheckInButton now shows "Modify Booking".
       //
-      // Use a page-level role locator rather than a scoped timeslot-row selector.
-      // The row locator becomes stale after the button text changes from "Book" to
-      // "Modify Booking" (the `filter({ has: Book button })` no longer matches), so
-      // the simplest reliable approach is to look for the button across the full page.
+      // Scope the locator to the correct timeslot row using the event-type name.
+      // A page-level `.first()` can pick up "Modify Booking" buttons from OTHER
+      // timeslots that user1 has already booked (from previous tests in this run),
+      // leading to a false URL mismatch. Scoping to the row avoids this race.
 
-      const modifyBtn = page.getByRole('button', { name: /modify booking/i }).first()
+      const modifyBtn = page
+        .locator('div')
+        .filter({ hasText: eventTypeScopedName })
+        .getByRole('button', { name: /modify booking/i })
+        .first()
       await expect(modifyBtn).toBeVisible({ timeout: 15_000 })
 
       // ── Step 5: click "Modify Booking" → navigate to manage page ─────────────

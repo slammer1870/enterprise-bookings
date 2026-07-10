@@ -623,10 +623,13 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
   const emailSuffix = workerIndex > 0 ? `w${workerIndex}` : ''
   const workerSuffix = workerIndex > 0 ? `-w${workerIndex}` : ''
 
-  // Create test tenants with worker-scoped slugs
-  const tenant1 = await createTestTenant('Test Tenant 1', `test-tenant-1${workerSuffix}`)
-  const tenant2 = await createTestTenant('Test Tenant 2', `test-tenant-2${workerSuffix}`)
-  const tenant3 = await createTestTenant('Test Tenant 3', `test-tenant-3${workerSuffix}`)
+  // Create test tenants with worker-scoped slugs AND names to prevent the
+  // "find by name" fallback in createTestTenant from merging workers onto
+  // the same tenant (which causes cross-worker location accumulation).
+  const tenantLabel = workerIndex > 0 ? ` W${workerIndex}` : ''
+  const tenant1 = await createTestTenant(`Test Tenant 1${tenantLabel}`, `test-tenant-1${workerSuffix}`)
+  const tenant2 = await createTestTenant(`Test Tenant 2${tenantLabel}`, `test-tenant-2${workerSuffix}`)
+  const tenant3 = await createTestTenant(`Test Tenant 3${tenantLabel}`, `test-tenant-3${workerSuffix}`)
 
   // Create super admin with worker-scoped email
   const superAdmin = await createTestUser(
@@ -733,6 +736,39 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     tenant3.id,
     `E2E Single Site${workerSuffix ? ` ${workerSuffix}` : ''}`,
   )
+
+  // Deactivate any extra locations that don't belong to this worker's test run.
+  // Previous runs with a different number of workers can leave stale active
+  // locations on these tenants, causing the schedule to show a branch picker
+  // when it should not (or to filter to the wrong branch).
+  const workerTenant1LocationIds = [branchNorth.id, branchSouth.id]
+  const workerTenant3LocationIds = [tenant3OnlyLocation.id]
+  await Promise.all([
+    payload.update({
+      collection: 'locations',
+      where: {
+        and: [
+          { tenant: { equals: tenant1.id } },
+          { active: { equals: true } },
+          { id: { not_in: workerTenant1LocationIds } },
+        ],
+      },
+      data: { active: false },
+      overrideAccess: true,
+    }),
+    payload.update({
+      collection: 'locations',
+      where: {
+        and: [
+          { tenant: { equals: tenant3.id } },
+          { active: { equals: true } },
+          { id: { not_in: workerTenant3LocationIds } },
+        ],
+      },
+      data: { active: false },
+      overrideAccess: true,
+    }),
+  ])
 
   const locationManager1 = (await createTestUser(
     `locmgr1${emailSuffix}@test.com`,

@@ -20,8 +20,14 @@ export interface LocationOption {
 
 export interface LocationScopedScheduleClientProps {
   locations: LocationOption[]
-  defaultLocationId: number | null
+  defaultLocationId?: number | null
   tenantId: number
+  /**
+   * When true (hero/sanctuary blocks), the picker starts with "All locations"
+   * selected and the server handles cookie-based filtering.
+   * When false (standard schedule block), defaults to the first/default location.
+   */
+  defaultToAll?: boolean
 }
 
 const EMPTY_VALUE = '__none__'
@@ -43,6 +49,7 @@ export function LocationScopedScheduleClient({
   locations,
   defaultLocationId,
   tenantId,
+  defaultToAll = false,
 }: LocationScopedScheduleClientProps) {
   const searchParams = useSearchParams()
   const locationFromSearch = searchParams.get('location')
@@ -73,33 +80,34 @@ export function LocationScopedScheduleClient({
     return null
   }
 
-  const firstLocationId = coerceLocationId(locations[0]?.id)
-  const initialSelectedLocationId = coerceLocationId(defaultLocationId) ?? firstLocationId
-
-  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(
-    initialSelectedLocationId,
-  )
-  const [userHasChosen, setUserHasChosen] = useState(false)
-
   const locationFromSlug = useMemo(() => {
     if (!locationSlug?.trim() || locations.length === 0) return null
     return locations.find((l) => matchSlug(locationSlug, l.slug)) ?? null
   }, [locationSlug, locations])
 
+  const firstLocationId = coerceLocationId(locations[0]?.id)
+  // Hero/sanctuary blocks start unfiltered ("All locations"); standard schedule
+  // blocks default to the configured default location or the first location.
+  const standardDefault = coerceLocationId(defaultLocationId) ?? firstLocationId
+  const initialLocationId = defaultToAll ? null : standardDefault
+
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(initialLocationId)
+  const [userHasChosen, setUserHasChosen] = useState(false)
+
   useEffect(() => {
+    // When the URL param changes, reset manual choice and track the URL-driven location.
     setUserHasChosen(false)
-    setSelectedLocationId(
-      coerceLocationId(locationFromSlug?.id) ?? coerceLocationId(defaultLocationId) ?? firstLocationId,
-    )
-  }, [locationSlug, locationFromSlug?.id, defaultLocationId])
+    setSelectedLocationId(coerceLocationId(locationFromSlug?.id) ?? initialLocationId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationSlug, locationFromSlug?.id])
 
   const effectiveLocationIdRaw = userHasChosen
-    ? (selectedLocationId ?? defaultLocationId)
-    : (locationFromSlug?.id ?? selectedLocationId ?? defaultLocationId)
+    ? selectedLocationId
+    : (locationFromSlug?.id ?? (defaultToAll ? null : (selectedLocationId ?? defaultLocationId)))
 
-  // Guard against any non-finite values (e.g. `NaN`) so we always trigger strict
-  // branch filtering server-side.
-  const effectiveLocationId = coerceLocationId(effectiveLocationIdRaw) ?? firstLocationId
+  // When defaultToAll and no URL param / user choice: null = no client-side filter.
+  // The server handles cookie-based branch filtering independently.
+  const effectiveLocationId = coerceLocationId(effectiveLocationIdRaw)
 
   const value = effectiveLocationId != null ? String(effectiveLocationId) : EMPTY_VALUE
 
@@ -155,6 +163,7 @@ export function LocationScopedScheduleClient({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value={EMPTY_VALUE}>All locations</SelectItem>
               {locations.map((l) => (
                 <SelectItem key={l.id} value={String(l.id)}>
                   {l.name}
