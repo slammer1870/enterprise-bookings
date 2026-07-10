@@ -1,18 +1,21 @@
 import {
   BOOKING_THEME_CSS_VARS,
   BOOKING_THEME_STATE_KEYS,
-  type TenantBookingTheme,
+  type BookingThemeConfig,
 } from '@/utilities/bookingThemeTypes'
 import { resolveTailwindColorToken } from '@/utilities/tailwindColorTokens'
 
+const DEFAULT_SELECTORS = ":root,\n.dark,\n[data-theme='dark']"
+
 /**
- * Builds CSS that overrides booking button tokens for a tenant.
+ * Builds CSS that overrides booking button tokens.
  * Returns null when no colors are configured (platform defaults apply).
  *
- * Selectors include dark-mode variants so one tenant palette applies in both themes.
+ * Pass a scoped selector (e.g. `[data-booking-theme="abc"]`) for per-block themes.
  */
-export function buildTenantBookingThemeCss(
-  bookingTheme: TenantBookingTheme | null | undefined,
+export function buildBookingThemeCss(
+  bookingTheme: BookingThemeConfig | null | undefined,
+  selector: string = DEFAULT_SELECTORS,
 ): string | null {
   if (!bookingTheme) return null
 
@@ -35,5 +38,8 @@ export function buildTenantBookingThemeCss(
 
   if (declarations.length === 0) return null
 
-  return `:root,\n.dark,\n[data-theme='dark'] {\n${declarations.join('\n')}\n}`
+  return `${selector} {\n${declarations.join('\n')}\n}`
 }
+
+/** @deprecated Use buildBookingThemeCss */
+export const buildTenantBookingThemeCss = buildBookingThemeCss

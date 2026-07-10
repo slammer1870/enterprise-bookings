@@ -1,5 +1,4 @@
 import type { Payload } from 'payload'
-import type { TenantBookingTheme } from '@/utilities/bookingThemeTypes'
 import { mergeRequestCookies } from './cookiesFromHeaders'
 import {
   collectTenantLookupHostnames,
@@ -69,7 +68,6 @@ async function findTenantByHost(payload: Payload, headers?: Headers | null) {
         domain: true,
         logo: true,
         description: true,
-        bookingTheme: true,
       } as any,
     })
 
@@ -137,7 +135,6 @@ export async function getTenantIdForCreateRequest(
 export type TenantWithBranding = TenantContext & {
   logo?: { url?: string; alt?: string } | number | null
   description?: string | null
-  bookingTheme?: TenantBookingTheme | null
 }
 
 type TenantBrandingDoc = {
@@ -147,7 +144,6 @@ type TenantBrandingDoc = {
   domain?: string | null
   logo?: { url?: string; alt?: string } | number | null
   description?: string | null
-  bookingTheme?: TenantBookingTheme | null
 }
 
 function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
@@ -158,7 +154,6 @@ function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
     domain: t.domain ?? null,
     logo: t.logo,
     description: t.description,
-    bookingTheme: t.bookingTheme ?? null,
   }
 }
 
@@ -262,7 +257,6 @@ export async function getTenantWithBranding(
         domain: true,
         logo: true,
         description: true,
-        bookingTheme: true,
       } as any,
     })
 
@@ -293,7 +287,6 @@ export async function getTenantWithBranding(
         domain: true,
         logo: true,
         description: true,
-        bookingTheme: true,
       } as any,
     })
     if (!tenant) return null

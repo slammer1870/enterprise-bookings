@@ -1,5 +1,6 @@
 import type { Block } from 'payload'
 import { linkGroup } from '../../../fields/linkGroup'
+import { bookingThemeField } from '../../../fields/bookingThemeFields'
 
 /**
  * Tenant-scoped variant of the hero-with-location pattern for Croí Lán Sauna (croilan.com).
@@ -13,6 +14,7 @@ export const CroiLanHeroWithLocation: Block = {
     plural: 'Heroes with Location (Croí Lán)',
   },
   fields: [
+    bookingThemeField,
     {
       name: 'backgroundImage',
       type: 'upload',

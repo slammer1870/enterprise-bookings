@@ -45,6 +45,7 @@ import {
   ClMission,
   ClPillars,
   ClSaunaBenefits,
+  HwHeroServices,
   createTwoColumnLayout,
 } from '@repo/website'
 import { Archive } from '../../blocks/ArchiveBlock/config'
@@ -53,7 +54,6 @@ import { Content } from '../../blocks/Content/config'
 import { FormBlock } from '../../blocks/Form/config'
 import { MediaBlock } from '../../blocks/MediaBlock/config'
 import { HealthBenefits } from '@/blocks/HealthBenefits/config'
-import { HeroSchedule } from '@/blocks/HeroSchedule/config'
 import { HeroWithLocation } from '@/blocks/HeroWithLocation/config'
 import { Schedule } from '@/blocks/Schedule/config'
 import { TenantScopedSchedule } from '@/blocks/TenantScopedSchedule/config'
@@ -78,7 +78,6 @@ import {
 
 // Define all available blocks for the pages collection (used for block schemas + filterOptions)
 const availableBlocks = [
-  HeroSchedule,
   HeroWithLocation,
   Hero,
   MarketingHero,
@@ -124,6 +123,8 @@ const availableBlocks = [
   ClMission,
   ClPillars,
   ClSaunaBenefits,
+  // Holohan Wellness (tenant-scoped extras)
+  HwHeroServices,
 ]
 
 // Create the three column layout block - automatically uses all blocks from the pages config
@@ -131,7 +132,6 @@ const TwoColumnLayout = createTwoColumnLayout(availableBlocks)
 const ThreeColumnLayout = createThreeColumnLayout([...availableBlocks, TwoColumnLayout])
 
 const pageBlocks = [
-  HeroSchedule,
   ClHeroScheduleSanctuary,
   HeroWithLocation,
   Hero,
@@ -140,7 +140,6 @@ const pageBlocks = [
   TwoColumnLayout,
   ...availableBlocks.filter(
     (block) =>
-      block.slug !== 'heroSchedule' &&
       block.slug !== 'heroScheduleSanctuary' &&
       block.slug !== 'heroWithLocation' &&
       block.slug !== 'hero' &&

@@ -1,8 +1,10 @@
 import type { RequiredDataFromCollectionSlug } from 'payload'
 import type { Media } from '@/payload-types'
+import { getSeededTenantBookingTheme } from './tenantBookingThemes'
 
 type SaunaPageArgs = {
   tenantName: string
+  tenantSlug: string
   heroImage: Media
   logo?: Media | null
   aboutImage: Media
@@ -39,6 +41,7 @@ const createRichTextWithParagraphs = (paragraphs: string[]) => ({
 
 export const saunaPage: (args: SaunaPageArgs) => RequiredDataFromCollectionSlug<'pages'> = ({
   tenantName,
+  tenantSlug,
   heroImage,
   logo,
   aboutImage,
@@ -49,6 +52,7 @@ export const saunaPage: (args: SaunaPageArgs) => RequiredDataFromCollectionSlug<
     {
       blockName: 'Croí Lán – Hero with Location',
       blockType: 'clHeroLoc',
+      bookingTheme: getSeededTenantBookingTheme(tenantSlug),
       backgroundImage: heroImage.id,
       logo: logo?.id || undefined,
       title: tenantName.toUpperCase(),

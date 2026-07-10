@@ -1,4 +1,5 @@
 import type { Block } from 'payload'
+import { bookingThemeField } from '@/fields/bookingThemeFields'
 
 export const DhLiveSchedule: Block = {
   slug: 'dhLiveSchedule',
@@ -6,5 +7,5 @@ export const DhLiveSchedule: Block = {
     singular: 'Live class schedule (Dark Horse)',
     plural: 'Live class schedules',
   },
-  fields: [],
+  fields: [bookingThemeField],
 }

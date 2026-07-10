@@ -22,7 +22,8 @@ test.describe('Root vs tenant page routing', () => {
         title: rootTitle,
         tenant: null,
         _status: 'published',
-        layout: [{ blockType: 'heroSchedule', title: rootTitle }],
+        meta: { title: rootTitle },
+        layout: [{ blockType: 'heroScheduleSanctuary' }],
       },
       overrideAccess: true,
       draft: false,
@@ -30,18 +31,19 @@ test.describe('Root vs tenant page routing', () => {
 
     // Tenant page with same slug
     await createTestPage(tenant1.id, slug, tenantTitle, {
-      layout: [{ blockType: 'heroSchedule', title: tenantTitle }],
+      meta: { title: tenantTitle },
+      layout: [{ blockType: 'heroScheduleSanctuary' }],
     })
 
-    // Root domain should show the root/global page.
+    // Root domain should show the root/global page (verified via document <title>).
     await navigateToRoot(page, `/${slug}`)
-    await expect(page.getByText(rootTitle)).toBeVisible()
-    await expect(page.getByText(tenantTitle)).toHaveCount(0)
+    await expect(page).toHaveTitle(new RegExp(rootTitle), { timeout: 20_000 })
+    await expect(page).not.toHaveTitle(new RegExp(tenantTitle))
 
     // Tenant subdomain should show the tenant-scoped page.
     await navigateToTenant(page, tenant1.slug, `/${slug}`)
-    await expect(page.getByText(tenantTitle)).toBeVisible()
-    await expect(page.getByText(rootTitle)).toHaveCount(0)
+    await expect(page).toHaveTitle(new RegExp(tenantTitle), { timeout: 20_000 })
+    await expect(page).not.toHaveTitle(new RegExp(rootTitle))
   })
 })
 

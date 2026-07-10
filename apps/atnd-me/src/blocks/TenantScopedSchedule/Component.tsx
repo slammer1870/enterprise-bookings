@@ -1,14 +1,20 @@
 import React, { Suspense } from 'react'
 import { getPayload } from '@/lib/payload'
+import { BlockBookingTheme } from '@/components/BlockBookingTheme'
 import { TenantScopedScheduleClient } from './Component.client'
 import type { Tenant } from '@/payload-types'
+import type { BookingThemeConfig } from '@/utilities/bookingThemeTypes'
 
 export interface TenantScopedScheduleBlockProps {
+  id?: string | null
   blockType: 'tenantScopedSchedule'
+  bookingTheme?: BookingThemeConfig | null
   defaultTenant?: (number | null) | Tenant
 }
 
 export async function TenantScopedScheduleBlock({
+  id,
+  bookingTheme,
   defaultTenant,
 }: TenantScopedScheduleBlockProps) {
   const payload = await getPayload()
@@ -35,25 +41,27 @@ export async function TenantScopedScheduleBlock({
         : (defaultTenant as number)
 
   return (
-    <section
-      id="schedule"
-      className="w-full max-w-2xl mx-auto scroll-mt-6 py-8 text-foreground sm:py-10"
-    >
-      <h2 className="mb-4 text-center text-2xl font-semibold text-foreground">
-        Schedule
-      </h2>
-      <Suspense
-        fallback={
-          <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
-            Loading schedule…
-          </div>
-        }
+    <BlockBookingTheme scopeId={id} bookingTheme={bookingTheme}>
+      <section
+        id="schedule"
+        className="w-full max-w-2xl mx-auto scroll-mt-6 py-8 text-foreground sm:py-10"
       >
-        <TenantScopedScheduleClient
-          tenants={tenants}
-          defaultTenantId={defaultTenantId}
-        />
-      </Suspense>
-    </section>
+        <h2 className="mb-4 text-center text-2xl font-semibold text-foreground">
+          Schedule
+        </h2>
+        <Suspense
+          fallback={
+            <div className="rounded-lg border border-border bg-card p-6 text-center text-muted-foreground">
+              Loading schedule…
+            </div>
+          }
+        >
+          <TenantScopedScheduleClient
+            tenants={tenants}
+            defaultTenantId={defaultTenantId}
+          />
+        </Suspense>
+      </section>
+    </BlockBookingTheme>
   )
 }

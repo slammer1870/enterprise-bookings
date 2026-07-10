@@ -139,6 +139,7 @@ export const seed = async ({
     const pageData = {
       ...saunaPage({
         tenantName,
+        tenantSlug: tenant.slug ?? tenantName.toLowerCase(),
         heroImage,
         logo: logo ?? undefined,
         aboutImage,

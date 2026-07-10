@@ -15,8 +15,6 @@ import { MarketingCtaBlock } from '@repo/website/src/blocks/marketingCta'
 import { ScheduleBlock } from '@/blocks/Schedule/Component'
 import { TenantScopedScheduleBlock } from '@/blocks/TenantScopedSchedule/Component'
 import { HealthBenefitsBlock } from '@/blocks/HealthBenefits/Component'
-import { HeroScheduleBlock } from '@/blocks/HeroSchedule/Component'
-import { ClHeroScheduleSanctuaryBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClHeroScheduleSanctuary'
 import { SectionTaglineBlock } from '@/blocks/SectionTagline/Component'
 import { HeroWithLocationBlock } from '@/blocks/HeroWithLocation/Component'
 import { MissionElementsBlock } from '@/blocks/MissionElements/Component'
@@ -44,15 +42,8 @@ import { ClPillarsBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClPillar
 import { ClSaunaBenefitsBlock } from '@repo/website/src/blocks/croi-lan-sauna/ClSaunaBenefits'
 import { DhLiveScheduleBlock } from '@/blocks/DhLiveSchedule/Component'
 import { DhLiveMembershipBlock } from '@/blocks/DhLiveMembership/Component'
-
-function HeroScheduleSanctuaryBlock(
-  props: Omit<React.ComponentProps<typeof ClHeroScheduleSanctuaryBlock>, 'schedulePanel'>,
-) {
-  return React.createElement(ClHeroScheduleSanctuaryBlock, {
-    ...props,
-    schedulePanel: React.createElement('div', { className: 'w-full min-w-0' }, React.createElement(ScheduleBlock)),
-  })
-}
+import { HwHeroServicesBlock } from '@repo/website/src/blocks/holohan-wellness/HwHeroServices'
+import { HeroScheduleSanctuaryBlock } from '@/blocks/HeroScheduleSanctuary/Component'
 
 // Export the block components registry — heterogeneous block props, so typed loosely
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +64,6 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   features: FeaturesBlock,
   caseStudies: CaseStudiesBlock,
   marketingCta: MarketingCtaBlock,
-  heroSchedule: HeroScheduleBlock,
   heroScheduleSanctuary: HeroScheduleSanctuaryBlock,
   heroWithLocation: HeroWithLocationBlock,
   clHeroLoc: HeroWithLocationBlock,
@@ -103,4 +93,5 @@ export const blockComponents: Record<string, React.ComponentType<any>> = {
   clMission: ClMissionBlock,
   clPillars: ClPillarsBlock,
   clSaunaBenefits: ClSaunaBenefitsBlock,
+  hwHeroServices: HwHeroServicesBlock,
 }

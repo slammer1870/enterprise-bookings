@@ -20,11 +20,9 @@ export interface LocationOption {
 
 export interface LocationScopedScheduleClientProps {
   locations: LocationOption[]
-  defaultLocationId: number | null
+  defaultLocationId?: number | null
   tenantId: number
 }
-
-const EMPTY_VALUE = '__none__'
 
 function matchSlug(param: string | null, slug: string): boolean {
   if (!param?.trim()) return false
@@ -73,38 +71,38 @@ export function LocationScopedScheduleClient({
     return null
   }
 
-  const firstLocationId = coerceLocationId(locations[0]?.id)
-  const initialSelectedLocationId = coerceLocationId(defaultLocationId) ?? firstLocationId
-
-  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(
-    initialSelectedLocationId,
-  )
-  const [userHasChosen, setUserHasChosen] = useState(false)
-
   const locationFromSlug = useMemo(() => {
     if (!locationSlug?.trim() || locations.length === 0) return null
     return locations.find((l) => matchSlug(locationSlug, l.slug)) ?? null
   }, [locationSlug, locations])
 
+  const firstLocationId = coerceLocationId(locations[0]?.id)
+  const standardDefault = coerceLocationId(defaultLocationId) ?? firstLocationId
+  const initialLocationId = standardDefault
+
+  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(initialLocationId)
+  const [userHasChosen, setUserHasChosen] = useState(false)
+
   useEffect(() => {
+    // When the URL param changes, reset manual choice and track the URL-driven location.
     setUserHasChosen(false)
-    setSelectedLocationId(
-      coerceLocationId(locationFromSlug?.id) ?? coerceLocationId(defaultLocationId) ?? firstLocationId,
-    )
-  }, [locationSlug, locationFromSlug?.id, defaultLocationId])
+    setSelectedLocationId(coerceLocationId(locationFromSlug?.id) ?? initialLocationId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationSlug, locationFromSlug?.id])
 
   const effectiveLocationIdRaw = userHasChosen
-    ? (selectedLocationId ?? defaultLocationId)
-    : (locationFromSlug?.id ?? selectedLocationId ?? defaultLocationId)
+    ? selectedLocationId
+    : (locationFromSlug?.id ?? (selectedLocationId ?? defaultLocationId))
 
-  // Guard against any non-finite values (e.g. `NaN`) so we always trigger strict
-  // branch filtering server-side.
+  // Always send an explicit branchId so stale `branch-slug` / `payload-location`
+  // cookies from other flows cannot override the public schedule filter.
   const effectiveLocationId = coerceLocationId(effectiveLocationIdRaw) ?? firstLocationId
 
-  const value = effectiveLocationId != null ? String(effectiveLocationId) : EMPTY_VALUE
+  const value = effectiveLocationId != null ? String(effectiveLocationId) : ''
 
   const onValueChange = (v: string) => {
-    const id = v === EMPTY_VALUE ? null : Number(v)
+    const id = Number(v)
+    if (!Number.isFinite(id)) return
     setSelectedLocationId(id)
     setUserHasChosen(true)
   }

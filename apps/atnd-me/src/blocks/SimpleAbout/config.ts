@@ -40,8 +40,8 @@ export const SimpleAbout: Block = {
   slug: 'simpleAbout',
   interfaceName: 'SimpleAboutBlock',
   labels: {
-    singular: 'Simple About',
-    plural: 'Simple About Sections',
+    singular: 'About (with gutter)',
+    plural: 'About (with gutter)',
   },
   fields: [
     {

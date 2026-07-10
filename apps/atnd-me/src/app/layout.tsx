@@ -5,7 +5,6 @@ import { cookies, headers } from 'next/headers'
 import { cn } from '@/utilities/ui'
 import { GeistMono } from 'geist/font/mono'
 import { GeistSans } from 'geist/font/sans'
-import { TenantBookingTheme } from '@/components/TenantBookingTheme'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 import { getTenantSiteURL } from '@/utilities/getURL'
@@ -83,7 +82,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html className={cn(GeistSans.variable, GeistMono.variable)} lang="en" suppressHydrationWarning>
       <body>
-        <TenantBookingTheme />
         {children}
       </body>
     </html>

@@ -3,6 +3,7 @@ import { loginAsRegularUserViaApi, loginAsTenantAdmin } from './helpers/auth-hel
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { getPayloadInstance } from './helpers/data-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
+import { ensureTenant1ActiveBranchesOnly, tenant1DefaultBranchId } from './helpers/schedule-helpers'
 
 function addDays(start: Date, days: number): Date {
   const next = new Date(start)
@@ -82,8 +83,9 @@ async function createPublishedTimeslot(args: {
   tenantId: number
   classOptionId: number
   targetDate: Date
+  branchId?: number
 }) {
-  const { payload, tenantId, classOptionId, targetDate } = args
+  const { payload, tenantId, classOptionId, targetDate, branchId } = args
   const start = new Date(targetDate)
   start.setHours(10, 0, 0, 0)
   const end = new Date(targetDate)
@@ -100,6 +102,7 @@ async function createPublishedTimeslot(args: {
       endTime: end.toISOString(),
       lockOutTime: 0,
       active: true,
+      ...(branchId != null ? { branch: branchId } : {}),
     },
     overrideAccess: true,
   }) as { id?: number }
@@ -110,6 +113,10 @@ async function createPublishedTimeslot(args: {
 
 test.describe('Frontend schedule class-pass lesson visibility regression', () => {
   test.setTimeout(180000)
+
+  test.beforeAll(async ({ testData }) => {
+    await ensureTenant1ActiveBranchesOnly(testData)
+  })
 
   test('tenant admin created future lesson with allowed class pass appears on tenant homepage schedule', async ({
     page,
@@ -193,6 +200,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
       tenantId: tenant.id,
       classOptionId: classOption.id,
       targetDate,
+      branchId: tenant1DefaultBranchId(testData),
     })
 
     await page.goto(`${tenantOrigin}/admin/collections/timeslots/${lessonId}`, {
@@ -294,6 +302,7 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
       tenantId: tenant.id,
       classOptionId: classOption.id,
       targetDate,
+      branchId: tenant1DefaultBranchId(testData),
     })
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug })

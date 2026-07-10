@@ -58,9 +58,6 @@ function getHref(link: LinkItem['link']): string {
 export type ClHeroScheduleSanctuaryBlockProps = {
   backgroundImage?: MediaLike
   logo?: MediaLike
-  title?: string | null
-  subtitle?: string | null
-  tagline?: string | null
   links?: LinkItem[] | null
   /** Injected by the app (e.g. tenant schedule widget). */
   schedulePanel: React.ReactNode
@@ -69,9 +66,6 @@ export type ClHeroScheduleSanctuaryBlockProps = {
 export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlockProps> = ({
   backgroundImage,
   logo,
-  title: _title,
-  subtitle: _subtitle,
-  tagline: _tagline,
   links,
   schedulePanel,
 }) => {

@@ -33,13 +33,30 @@ async function advanceScheduleToDate(page: Page, targetDate: Date) {
 test.describe('Multi-location branches', () => {
   test.setTimeout(180_000)
 
-  // Ensure fixture locations are active for this describe block. Other test files
-  // (location-functionality-admin) deactivate them in their afterAll, so we must
-  // re-activate here to guarantee a consistent starting state.
+  // Ensure fixture locations are active for this describe block and no stale extras.
+  // Other test files (location-functionality-admin, admin-branch-selector) can leave
+  // extra active locations on tenant1 that would change which branch the picker defaults to.
   test.beforeAll(async ({ testData }) => {
+    const tenant = testData.tenants[0]
     const { north, south } = testData.tenant1Locations
-    if (!north?.id && !south?.id) return
+    if (!tenant?.id || (!north?.id && !south?.id)) return
     const payload = await getPayloadInstance()
+    const keepIds = [north?.id, south?.id].filter((id): id is number => id != null)
+    // Deactivate any extra locations so only north + south are active.
+    if (keepIds.length > 0) {
+      await payload.update({
+        collection: 'locations',
+        where: {
+          and: [
+            { tenant: { equals: tenant.id } },
+            { active: { equals: true } },
+            { id: { not_in: keepIds } },
+          ],
+        },
+        data: { active: false },
+        overrideAccess: true,
+      })
+    }
     await Promise.all([
       north?.id
         ? payload.update({ collection: 'locations', id: north.id, data: { active: true }, overrideAccess: true })
@@ -64,14 +81,16 @@ test.describe('Multi-location branches', () => {
     ])
   })
 
-  test('public /home shows both branches without branch cookie; after /locations/{north} only north slot', async ({
+  test('public /home shows location picker defaulting to first branch; switching branch filters schedule', async ({
     page,
     testData,
   }) => {
     const tenant = testData.tenants[0]
     const { north, south } = testData.tenant1Locations
     const w = testData.workerIndex
-    if (!tenant?.id || !tenant.slug) throw new Error('Expected tenant1 fixture')
+    if (!tenant?.id || !tenant.slug || !north?.id || !north?.name || !south?.id || !south?.name) {
+      throw new Error('Expected tenant1 and tenant1Locations fixtures')
+    }
 
     const classNorth = uniqueClassName('E2E multi north slot')
     const classSouth = uniqueClassName('E2E multi south slot')
@@ -92,22 +111,29 @@ test.describe('Multi-location branches', () => {
       timeout: 15000,
     }).catch(() => null)
     await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
+    await expect(page.getByText('Show schedule for')).toBeVisible({ timeout: 20000 })
 
     await advanceScheduleToDate(page, startTime)
     await expect(page.getByText('No timeslots scheduled for today')).not.toBeVisible({ timeout: 5000 }).catch(() => null)
+
+    // Picker defaults to the first branch alphabetically (north sorts before south).
+    // North timeslot visible; south timeslot filtered out.
     await expect(page.getByText(classNorth).first()).toBeVisible({ timeout: 20000 })
-    await expect(page.getByText(classSouth).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(classSouth)).toHaveCount(0, { timeout: 5000 })
 
-    await navigateToTenant(page, tenant.slug, `/locations/${north.slug}`)
-    await expect(page.getByRole('heading', { name: north.name })).toBeVisible({ timeout: 15000 })
-    expect(await getBranchSlugFromCookies(page)).toBe(north.slug)
+    // Switch to south via the picker.
+    // The header is `position: absolute` and can intercept clicks; use a DOM click to open.
+    const locationPicker = page.getByText('Show schedule for').locator('xpath=..')
+    const branchCombobox = locationPicker.getByRole('combobox')
+    await locationPicker.scrollIntoViewIfNeeded()
+    await branchCombobox.evaluate((el) => (el as HTMLButtonElement).click())
+    await page.getByRole('option', { name: south.name }).click()
 
-    await navigateToTenant(page, tenant.slug, '/home')
     await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
     await advanceScheduleToDate(page, startTime)
 
-    await expect(page.getByText(classNorth).first()).toBeVisible({ timeout: 20000 })
-    await expect(page.getByText(classSouth)).toHaveCount(0)
+    await expect(page.getByText(classSouth).first()).toBeVisible({ timeout: 20000 })
+    await expect(page.getByText(classNorth)).toHaveCount(0, { timeout: 5000 })
   })
 
   test('location manager sees only timeslots for assigned branch in admin list', async ({

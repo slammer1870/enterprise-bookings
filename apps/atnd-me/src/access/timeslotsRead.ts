@@ -228,6 +228,24 @@ export const timeslotsRead: Access = async (args) => {
   const user = args.req.user as unknown as SharedUser | undefined | null
 
   if (user && checkRole(['super-admin'], user as any)) {
+    // When the admin has set a branch/tenant cookie via the sidebar selector, honour it so the
+    // timeslots list filters correctly (same UX as tenant-admin). Super-admins can trust any
+    // tenant or branch (no membership check needed), so we build the Where clause directly.
+    const cookieSrc = tenantAdminCookieSource(args.req)
+    const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
+    const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+
+    if (selectedBranchId != null) {
+      const constraint: Where = { branch: { equals: selectedBranchId } }
+      return selectedTenantId != null
+        ? ({ and: [{ tenant: { equals: selectedTenantId } }, constraint] } as Where)
+        : constraint
+    }
+
+    if (selectedTenantId != null) {
+      return { tenant: { equals: selectedTenantId } } as Where
+    }
+
     return true
   }
 

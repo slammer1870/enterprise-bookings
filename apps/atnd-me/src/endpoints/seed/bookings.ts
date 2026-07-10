@@ -1,7 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
 import type { User, Timeslot, Booking } from '@repo/shared-types'
 import type { Tenant, EventType, StaffMember } from '@/payload-types'
-import { getSeededTenantBookingTheme } from './tenantBookingThemes'
 
 const SAUNA_TENANTS = [
   { name: 'Dundrum', slug: 'dundrum', description: 'Sauna — Dublin South' },
@@ -193,7 +192,6 @@ export async function seedBookings({
   const tenantDataWithBlocks = SAUNA_TENANTS.map((t) => ({
     ...t,
     allowedBlocks: defaultAllowedBlocks,
-    bookingTheme: getSeededTenantBookingTheme(t.slug),
   }))
   for (const t of tenantDataWithBlocks) {
     const existing = await payload.find({

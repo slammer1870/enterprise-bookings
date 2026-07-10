@@ -4,7 +4,7 @@
  * Scenario:
  *  1. A timeslot is created for today with an event type that has NO payment methods
  *     (pay-at-door / free). This makes the booking process instant on the schedule.
- *  2. The user navigates to the tenant home page which renders the heroSchedule block
+ *  2. The user navigates to the tenant home page which renders the heroScheduleSanctuary block
  *     (today's timeslot list with CheckInButton per slot).
  *  3. The user clicks "Book" on the timeslot — no payment required, so the booking is
  *     created immediately via `bookSingleSlotTimeslotOrRedirect` and a "Booked" toast
@@ -20,9 +20,14 @@ import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { createTestEventType, createTestTimeslot } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
+import { ensureTenant1ActiveBranchesOnly, tenant1DefaultBranchId } from './helpers/schedule-helpers'
 
 test.describe('Free booking: schedule Book → Modify Booking → manage page details', () => {
   test.setTimeout(e2eSlowTestTimeout())
+
+  test.beforeAll(async ({ testData }) => {
+    await ensureTenant1ActiveBranchesOnly(testData)
+  })
 
   test(
     'user books free timeslot from schedule, clicks Modify Booking, manage page shows booking details',
@@ -64,6 +69,7 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
         end,
         undefined, // no instructor
         true,      // active
+        tenant1DefaultBranchId(testData),
       )
 
       // The scoped name that createTestEventType produces (mirrors its naming logic).
@@ -121,12 +127,16 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
       // After the booking the schedule query is invalidated and refetched.
       // The CheckInButton now shows "Modify Booking".
       //
-      // Use a page-level role locator rather than a scoped timeslot-row selector.
-      // The row locator becomes stale after the button text changes from "Book" to
-      // "Modify Booking" (the `filter({ has: Book button })` no longer matches), so
-      // the simplest reliable approach is to look for the button across the full page.
+      // Scope the locator to the correct timeslot row using the event-type name.
+      // A page-level `.first()` can pick up "Modify Booking" buttons from OTHER
+      // timeslots that user1 has already booked (from previous tests in this run),
+      // leading to a false URL mismatch. Scoping to the row avoids this race.
 
-      const modifyBtn = page.getByRole('button', { name: /modify booking/i }).first()
+      const modifyBtn = page
+        .locator('div')
+        .filter({ hasText: eventTypeScopedName })
+        .getByRole('button', { name: /modify booking/i })
+        .first()
       await expect(modifyBtn).toBeVisible({ timeout: 15_000 })
 
       // ── Step 5: click "Modify Booking" → navigate to manage page ─────────────
