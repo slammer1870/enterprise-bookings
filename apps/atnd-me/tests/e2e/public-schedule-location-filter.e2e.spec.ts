@@ -36,9 +36,30 @@ test.describe('Public schedule location picker', () => {
   test.setTimeout(180_000)
 
   test.beforeAll(async ({ testData }) => {
+    const tenant = testData.tenants[0]
     const { north, south } = testData.tenant1Locations
-    if (!north?.id && !south?.id) return
+    if (!tenant?.id || !north?.id && !south?.id) return
     const payload = await getPayloadInstance()
+
+    // Other e2e specs (e.g. admin-branch-selector) can leave extra active locations on
+    // tenant1. The schedule block sorts branches by name, so stale rows like
+    // "E2E Branch Alpha" would become the default and hide north/south fixtures.
+    const keepIds = [north?.id, south?.id].filter((id): id is number => id != null)
+    if (keepIds.length > 0) {
+      await payload.update({
+        collection: 'locations',
+        where: {
+          and: [
+            { tenant: { equals: tenant.id } },
+            { active: { equals: true } },
+            { id: { not_in: keepIds } },
+          ],
+        },
+        data: { active: false },
+        overrideAccess: true,
+      })
+    }
+
     await Promise.all([
       north?.id
         ? payload.update({

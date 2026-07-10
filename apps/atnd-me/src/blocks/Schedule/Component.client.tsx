@@ -105,9 +105,10 @@ export function LocationScopedScheduleClient({
     ? selectedLocationId
     : (locationFromSlug?.id ?? (defaultToAll ? null : (selectedLocationId ?? defaultLocationId)))
 
-  // When defaultToAll and no URL param / user choice: null = no client-side filter.
-  // The server handles cookie-based branch filtering independently.
-  const effectiveLocationId = coerceLocationId(effectiveLocationIdRaw)
+  // Standard schedule blocks must always send an explicit branchId so stale
+  // `branch-slug` / `payload-location` cookies from other flows cannot override.
+  const effectiveLocationId =
+    coerceLocationId(effectiveLocationIdRaw) ?? (defaultToAll ? null : firstLocationId)
 
   const value = effectiveLocationId != null ? String(effectiveLocationId) : EMPTY_VALUE
 
