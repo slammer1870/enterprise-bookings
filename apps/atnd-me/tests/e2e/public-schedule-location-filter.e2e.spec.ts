@@ -138,7 +138,11 @@ test.describe('Public schedule location picker', () => {
     await expect(page.getByText(classSouth)).toHaveCount(0, { timeout: 20000 })
 
     // Switch branch via the public location picker dropdown.
-    await page.getByRole('combobox').click()
+    // The tenant header is `position: absolute` and can intercept Playwright clicks at the top of the page.
+    const locationPicker = page.getByText('Show schedule for').locator('xpath=..')
+    const branchCombobox = locationPicker.getByRole('combobox')
+    await locationPicker.scrollIntoViewIfNeeded()
+    await branchCombobox.evaluate((el) => (el as HTMLButtonElement).click())
     await page.getByRole('option', { name: south.name }).click()
 
     await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
