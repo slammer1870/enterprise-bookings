@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     timeslots: Timeslot;
     scheduler: Scheduler;
+    'post-booking-email-deliveries': PostBookingEmailDelivery;
     'staff-members': StaffMember;
     'event-types': EventType;
     tenants: Tenant;
@@ -122,6 +123,7 @@ export interface Config {
   collectionsSelect: {
     timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
+    'post-booking-email-deliveries': PostBookingEmailDeliveriesSelect<false> | PostBookingEmailDeliveriesSelect<true>;
     'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
     'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
@@ -173,6 +175,7 @@ export interface Config {
   jobs: {
     tasks: {
       generateTimeslotsFromSchedule: TaskGenerateTimeslotsFromSchedule;
+      sendPostBookingEmail: TaskSendPostBookingEmail;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -1050,6 +1053,38 @@ export interface EventType {
      */
     allowedPlans?: (number | Plan)[] | null;
   };
+  /**
+   * Send custom emails to the customer who made the booking when their booking is confirmed for this event type only. Other event types are unaffected. Timing applies per checkout — multi-seat bookings send one email, not one per seat.
+   */
+  postBookingEmails?:
+    | {
+        cc?: string | null;
+        bcc?: string | null;
+        replyTo: string;
+        emailFrom?: string | null;
+        subject: string;
+        /**
+         * Enter the message that should be sent in this email.
+         */
+        message?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        sendTiming: 'after_all_bookings' | 'after_first_booking' | 'next_day_after_first_booking';
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3144,6 +3179,33 @@ export interface Scheduler {
   createdAt: string;
 }
 /**
+ * Tracks scheduled and sent post-booking emails for idempotency.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "post-booking-email-deliveries".
+ */
+export interface PostBookingEmailDelivery {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  timeslot: number | Timeslot;
+  eventType: number | EventType;
+  sendTiming: 'after_all_bookings' | 'after_first_booking' | 'next_day_after_first_booking';
+  status: 'scheduled' | 'sent' | 'cancelled';
+  /**
+   * Payload job queued for next-day delivery.
+   */
+  payloadJobId?: number | null;
+  scheduledFor?: string | null;
+  sentAt?: string | null;
+  /**
+   * Booking that triggered scheduling or send.
+   */
+  triggerBooking?: (number | null) | Booking;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3575,7 +3637,7 @@ export interface PayloadJob {
     | {
         executedAt: string;
         completedAt: string;
-        taskSlug: 'inline' | 'generateTimeslotsFromSchedule' | 'schedulePublish';
+        taskSlug: 'inline' | 'generateTimeslotsFromSchedule' | 'sendPostBookingEmail' | 'schedulePublish';
         taskID: string;
         input?:
           | {
@@ -3608,7 +3670,7 @@ export interface PayloadJob {
         id?: string | null;
       }[]
     | null;
-  taskSlug?: ('inline' | 'generateTimeslotsFromSchedule' | 'schedulePublish') | null;
+  taskSlug?: ('inline' | 'generateTimeslotsFromSchedule' | 'sendPostBookingEmail' | 'schedulePublish') | null;
   queue?: string | null;
   waitUntil?: string | null;
   processing?: boolean | null;
@@ -3629,6 +3691,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'scheduler';
         value: number | Scheduler;
+      } | null)
+    | ({
+        relationTo: 'post-booking-email-deliveries';
+        value: number | PostBookingEmailDelivery;
       } | null)
     | ({
         relationTo: 'staff-members';
@@ -3846,6 +3912,24 @@ export interface SchedulerSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "post-booking-email-deliveries_select".
+ */
+export interface PostBookingEmailDeliveriesSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  timeslot?: T;
+  eventType?: T;
+  sendTiming?: T;
+  status?: T;
+  payloadJobId?: T;
+  scheduledFor?: T;
+  sentAt?: T;
+  triggerBooking?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "staff-members_select".
  */
 export interface StaffMembersSelect<T extends boolean = true> {
@@ -3873,6 +3957,18 @@ export interface EventTypesSelect<T extends boolean = true> {
         allowedDropIn?: T;
         allowedClassPasses?: T;
         allowedPlans?: T;
+      };
+  postBookingEmails?:
+    | T
+    | {
+        cc?: T;
+        bcc?: T;
+        replyTo?: T;
+        emailFrom?: T;
+        subject?: T;
+        message?: T;
+        sendTiming?: T;
+        id?: T;
       };
   updatedAt?: T;
   createdAt?: T;
@@ -6320,6 +6416,14 @@ export interface TaskGenerateTimeslotsFromSchedule {
     success?: boolean | null;
     message?: string | null;
   };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSendPostBookingEmail".
+ */
+export interface TaskSendPostBookingEmail {
+  input?: unknown;
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

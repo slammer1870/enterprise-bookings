@@ -29,7 +29,9 @@ export async function confirmBookingsFromPaymentIntent(
   }
 ): Promise<void> {
   const tenantContext = opts.tenantContext ?? { tenant: opts.tenantId }
-  for (const bookingId of bookingIds) {
+  const batchSize = bookingIds.length
+  for (let batchIndex = 0; batchIndex < bookingIds.length; batchIndex++) {
+    const bookingId = bookingIds[batchIndex]
     try {
       if (opts.paymentIntentId) {
         await payload.create({
@@ -49,7 +51,10 @@ export async function confirmBookingsFromPaymentIntent(
         collection: 'bookings',
         id: bookingId,
         data: { status: 'confirmed' },
-        ...(tenantContext ? { context: tenantContext } : {}),
+        context: {
+          ...(tenantContext ?? {}),
+          postBookingEmailBatch: { batchSize, batchIndex },
+        },
         overrideAccess: true,
       })
     } catch (err) {
@@ -115,15 +120,21 @@ export async function confirmBookingsFromQuantityFlow(
     0,
     Math.min(needToConfirm - toConfirm.length, remainingCapacity - toConfirm.length)
   )
+  const batchSize = toConfirm.length + toCreate
+  let batchIndex = 0
 
   for (const b of toConfirm) {
     await payload.update({
       collection: 'bookings',
       id: b.id,
       data: { status: 'confirmed' },
-      ...(tenantContext ? { context: tenantContext } : {}),
+      context: {
+        ...(tenantContext ?? {}),
+        postBookingEmailBatch: { batchSize, batchIndex },
+      },
       overrideAccess: true,
     })
+    batchIndex += 1
     if (paymentIntentId) {
       await payload.create({
         collection: 'transactions',
@@ -148,9 +159,13 @@ export async function confirmBookingsFromQuantityFlow(
         tenant: tenantId,
         status: 'confirmed',
       },
-      ...(tenantContext ? { context: tenantContext } : {}),
+      context: {
+        ...(tenantContext ?? {}),
+        postBookingEmailBatch: { batchSize, batchIndex },
+      },
       overrideAccess: true,
     } as Record<string, unknown>)
+    batchIndex += 1
     if (paymentIntentId && created?.id) {
       await payload.create({
         collection: 'transactions',

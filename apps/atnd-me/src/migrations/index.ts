@@ -129,6 +129,12 @@ import * as migration_20260709_000005_pages_rels_hero_sched_locations from './20
 import * as migration_20260710_000001_schedule_blocks_booking_theme from './20260710_000001_schedule_blocks_booking_theme';
 import * as migration_20260710_000002_schedule_block_location_has_many from './20260710_000002_schedule_block_location_has_many';
 import * as migration_20260710_000003_drop_locations_default_for_schedule from './20260710_000003_drop_locations_default_for_schedule';
+import * as migration_20260711_000001_event_types_post_booking_email from './20260711_000001_event_types_post_booking_email';
+import * as migration_20260711_000002_post_booking_email_deliveries from './20260711_000002_post_booking_email_deliveries';
+import * as migration_20260711_000003_send_post_booking_email_job_enum from './20260711_000003_send_post_booking_email_job_enum';
+import * as migration_20260711_000004_post_booking_email_cancel_support from './20260711_000004_post_booking_email_cancel_support';
+import * as migration_20260711_000005_post_booking_email_delivery_event_type_unique from './20260711_000005_post_booking_email_delivery_event_type_unique';
+import * as migration_20260711_000006_event_types_post_booking_emails_array from './20260711_000006_event_types_post_booking_emails_array';
 
 export const migrations = [
   {
@@ -785,5 +791,35 @@ export const migrations = [
     up: migration_20260710_000003_drop_locations_default_for_schedule.up,
     down: migration_20260710_000003_drop_locations_default_for_schedule.down,
     name: '20260710_000003_drop_locations_default_for_schedule',
+  },
+  {
+    up: migration_20260711_000001_event_types_post_booking_email.up,
+    down: migration_20260711_000001_event_types_post_booking_email.down,
+    name: '20260711_000001_event_types_post_booking_email',
+  },
+  {
+    up: migration_20260711_000002_post_booking_email_deliveries.up,
+    down: migration_20260711_000002_post_booking_email_deliveries.down,
+    name: '20260711_000002_post_booking_email_deliveries',
+  },
+  {
+    up: migration_20260711_000003_send_post_booking_email_job_enum.up,
+    down: migration_20260711_000003_send_post_booking_email_job_enum.down,
+    name: '20260711_000003_send_post_booking_email_job_enum',
+  },
+  {
+    up: migration_20260711_000004_post_booking_email_cancel_support.up,
+    down: migration_20260711_000004_post_booking_email_cancel_support.down,
+    name: '20260711_000004_post_booking_email_cancel_support',
+  },
+  {
+    up: migration_20260711_000005_post_booking_email_delivery_event_type_unique.up,
+    down: migration_20260711_000005_post_booking_email_delivery_event_type_unique.down,
+    name: '20260711_000005_post_booking_email_delivery_event_type_unique',
+  },
+  {
+    up: migration_20260711_000006_event_types_post_booking_emails_array.up,
+    down: migration_20260711_000006_event_types_post_booking_emails_array.down,
+    name: '20260711_000006_event_types_post_booking_emails_array',
   },
 ];

@@ -159,7 +159,13 @@ export async function fulfillCheckoutHold(
         tenant: opts.tenantId,
         status: 'confirmed',
       },
-      ...(tenantContext ? { context: tenantContext } : {}),
+      context: {
+        ...(tenantContext ?? {}),
+        postBookingEmailBatch: {
+          batchSize: hold.quantity,
+          batchIndex: i,
+        },
+      },
       overrideAccess: true,
     })) as { id: number }
 
