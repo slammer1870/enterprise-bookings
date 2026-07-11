@@ -129,7 +129,8 @@ test.describe('Drop-in 100% promo booking', () => {
     const promoDiscountText = await page.getByTestId('promo-discount').innerText()
     expect(promoDiscountText).toBe(`-${classPriceText}`)
     await expect(page.getByTestId('booking-fee')).toHaveCount(0)
-    await expect(page.getByTestId('total')).toHaveText('€0.00')
+    await expect(page.getByTestId('total-original')).toHaveText('€10.20')
+    await expect(page.getByTestId('total')).toContainText('€0.00')
 
     await expect(page.getByTestId('complete-free-booking')).toBeVisible({ timeout: 5_000 })
     await page.getByTestId('complete-free-booking').click()

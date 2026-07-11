@@ -172,7 +172,8 @@ test.describe('Admin-created pending bookings: user is prompted to pay on manage
         `create-payment-intent (€0) failed: ${piRes.status()} ${await piRes.text()}`,
       ).toBeTruthy()
 
-      await expect(page.getByTestId('total')).toHaveText('€0.00')
+      await expect(page.getByTestId('total-original')).toHaveText('€20.40')
+      await expect(page.getByTestId('total')).toContainText('€0.00')
 
       // ── Step 4: complete the free booking ────────────────────────────────
 

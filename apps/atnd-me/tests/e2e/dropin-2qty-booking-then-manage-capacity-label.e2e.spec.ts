@@ -315,8 +315,9 @@ test.describe('Drop-in booking (qty 2) then manage: capacity label reflects actu
         `create-payment-intent (€0) failed: ${piRes.status()} ${await piRes.text()}`,
       ).toBeTruthy()
 
-      // Verify the displayed total is €0.
-      await expect(page.getByTestId('total')).toHaveText('€0.00')
+      // Verify the displayed total is €0 (breakdown shows pre-discount total struck through).
+      await expect(page.getByTestId('total-original')).toHaveText('€20.40')
+      await expect(page.getByTestId('total')).toContainText('€0.00')
 
       // Complete the free booking.
       await expect(page.getByTestId('complete-free-booking')).toBeVisible({ timeout: 10_000 })
