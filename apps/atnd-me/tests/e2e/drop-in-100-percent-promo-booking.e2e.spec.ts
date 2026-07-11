@@ -4,6 +4,7 @@ import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestEventType,
   createTestTimeslot,
+  ensureTenantDropInPlatformFeePercent,
   getPayloadInstance,
 } from './helpers/data-helpers'
 
@@ -25,6 +26,8 @@ test.describe('Drop-in 100% promo booking', () => {
     if (!tenantId || !tenantSlug || !userId) {
       throw new Error('Tenant or user fixture is missing for 100% promo booking test')
     }
+
+    await ensureTenantDropInPlatformFeePercent(tenantId, 2)
 
     await payload.update({
       collection: 'tenants',
@@ -125,11 +128,12 @@ test.describe('Drop-in 100% promo booking', () => {
       `create-payment-intent (€0 bootstrap) failed: ${bootstrapRes.status()} ${await bootstrapRes.text()}`,
     ).toBeTruthy()
 
-    const classPriceText = await page.getByTestId('class-price').innerText()
+    const classPriceText = await page.getByTestId('class-price-original').innerText()
     const promoDiscountText = await page.getByTestId('promo-discount').innerText()
     expect(promoDiscountText).toBe(`-${classPriceText}`)
     await expect(page.getByTestId('booking-fee')).toHaveCount(0)
-    await expect(page.getByTestId('total')).toHaveText('€0.00')
+    await expect(page.getByTestId('total-original')).toHaveText('€10.20')
+    await expect(page.getByTestId('total')).toContainText('€0.00')
 
     await expect(page.getByTestId('complete-free-booking')).toBeVisible({ timeout: 5_000 })
     await page.getByTestId('complete-free-booking').click()

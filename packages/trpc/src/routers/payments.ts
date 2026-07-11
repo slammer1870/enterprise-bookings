@@ -23,6 +23,8 @@ export type GetDropInFeeBreakdown = (_params: {
   promoDiscountCents?: number;
   bookingFeeCents: number;
   totalCents: number;
+  originalBookingFeeCents?: number;
+  originalTotalCents?: number;
 }>;
 
 export type GetClassPassFeeBreakdown = (_params: {

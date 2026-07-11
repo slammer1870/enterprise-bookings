@@ -264,8 +264,8 @@ test.describe('Location functionality (admin)', () => {
 
     await createTestTimeslot(tenant.id, etNorth.id, startTime, endTime, undefined, true, north.id)
     await createTestTimeslot(tenant.id, etSouth.id, startTime, endTime, undefined, true, south.id)
-    // No branch/location set on the timeslot itself.
-    await createTestTimeslot(tenant.id, etNoBranch.id, startTime, endTime, undefined, true)
+    // No branch/location set on the timeslot itself (`null` skips default-branch resolution).
+    await createTestTimeslot(tenant.id, etNoBranch.id, startTime, endTime, undefined, true, null)
 
     await loginAsTenantAdmin(page, 1, testData.users.tenantAdmin1.email, {
       request,

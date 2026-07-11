@@ -182,8 +182,13 @@ test.describe('Drop-in multi-quantity discount', () => {
     await expect(inc).toBeEnabled({ timeout: 10_000 })
     await Promise.all([discountedRequestPromise, inc.click()])
 
-    await expect(page.getByTestId('class-price')).toHaveText('€18.00', { timeout: 15_000 })
-    await expect(page.getByTestId('total')).toHaveText('€18.36', { timeout: 15_000 })
+    await expect(page.getByTestId('class-price-original')).toHaveText('€20.00', { timeout: 15_000 })
+    await expect(page.getByTestId('class-price')).toContainText('€18.00', { timeout: 15_000 })
+    await expect(page.getByTestId('tier-discount')).toHaveText('-€2.00', { timeout: 15_000 })
+    await expect(page.getByTestId('total-original')).toHaveText('€20.40', { timeout: 15_000 })
+    await expect(page.getByTestId('total')).toContainText('€18.36', { timeout: 15_000 })
+    await expect(page.getByTestId('payment-total-original')).toHaveText('€20.40', { timeout: 15_000 })
+    await expect(page.getByTestId('payment-total')).toHaveText('€18.36', { timeout: 15_000 })
 
     const req = await discountedRequestPromise
     const body = req.postDataJSON() as { price?: unknown; metadata?: { holdId?: string } }

@@ -7,7 +7,7 @@ import {
 } from './helpers/data-helpers'
 
 import { clearTestMagicLinks, pollForTestMagicLink } from '@repo/testing-config/src/playwright'
-import { advanceScheduleToDate } from './helpers/schedule-helpers'
+import { advanceScheduleToDate, ensureTenant1ActiveBranchesOnly } from './helpers/schedule-helpers'
 
 /**
  * Requirement:
@@ -16,6 +16,10 @@ import { advanceScheduleToDate } from './helpers/schedule-helpers'
  */
 test.describe('Unauth join waitlist (magic link)', () => {
   test.setTimeout(180_000)
+
+  test.beforeAll(async ({ testData }) => {
+    await ensureTenant1ActiveBranchesOnly(testData)
+  })
 
   test('unauth user is prompted to login and then is added to waitlist', async ({ page, request, testData }) => {
     const tenant = testData.tenants[0]!

@@ -545,6 +545,21 @@ export const plugins: Plugin[] = [
         },
       }),
       fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
+      hooks: ({ defaultHooks }) => {
+        const d = defaultHooks as Record<string, unknown>
+        return {
+          ...defaultHooks,
+          beforeValidate: [
+            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
+              await assignTenantOnCreateFromRequest({
+                data: data as Record<string, unknown> | undefined,
+                operation,
+                req,
+              }),
+            ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
+          ],
+        }
+      },
     },
     bookingOverrides: {
       // Admin analytics: confirmed + timeslot IN (...). Tenant-scoped dashboard: tenant + same filters.

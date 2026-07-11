@@ -42,14 +42,16 @@ function resolveBookingTimeslotId(booking: Record<string, unknown>): number | nu
 
 /**
  * Stable dedupe key for timeslots in a tenant timezone.
- * Uses wall-clock start/end + location + event type so migrated ISO instants still match
- * newly generated slots with the same local time and class option.
+ * Uses wall-clock start/end + location + event type + staff member so migrated ISO
+ * instants still match newly generated slots with the same local time, class option,
+ * and instructor assignment.
  */
 export function existingTimeslotKey(
   startTime: string,
   endTime: string,
   location: unknown,
   eventTypeId: number | null,
+  staffMemberId: number | null,
   timeZone: string,
 ): string {
   const locationKey =
@@ -57,7 +59,8 @@ export function existingTimeslotKey(
   const startKey = formatInTimeZone(startTime, "yyyy-MM-dd'T'HH:mm", timeZone);
   const endKey = formatInTimeZone(endTime, "yyyy-MM-dd'T'HH:mm", timeZone);
   const eventKey = eventTypeId != null ? String(eventTypeId) : "";
-  return `${startKey}|${endKey}|${locationKey}|${eventKey}`;
+  const staffKey = staffMemberId != null ? String(staffMemberId) : "";
+  return `${startKey}|${endKey}|${locationKey}|${eventKey}|${staffKey}`;
 }
 
 function hasTenantsCollection(
@@ -190,6 +193,7 @@ async function fetchExistingTimeslotKeys(args: {
     endTime?: string;
     location?: unknown;
     eventType?: unknown;
+    staffMember?: unknown;
   }>({
     payload,
     req,
@@ -200,6 +204,7 @@ async function fetchExistingTimeslotKeys(args: {
       endTime: true,
       location: true,
       eventType: true,
+      staffMember: true,
     },
   });
 
@@ -212,6 +217,7 @@ async function fetchExistingTimeslotKeys(args: {
           doc.endTime,
           doc.location,
           toId(doc.eventType),
+          toId(doc.staffMember),
           timeZone,
         ),
       );
@@ -609,6 +615,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
           endIso,
           timeSlot.location,
           eventTypeIdNum,
+          toId(timeSlot.staffMember),
           timeZone,
         );
 
@@ -697,6 +704,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
           endTime?: string;
           location?: unknown;
           eventType?: unknown;
+          staffMember?: unknown;
         }>({
           payload,
           req,
@@ -708,6 +716,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
             endTime: true,
             location: true,
             eventType: true,
+            staffMember: true,
           },
         });
 
@@ -723,6 +732,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
             doc.endTime,
             doc.location,
             toId(doc.eventType),
+            toId(doc.staffMember),
             timeZone,
           );
 

@@ -40,12 +40,18 @@ export const appRouter = createAppRouter({
             : timeslot.tenant
           : null
       if (!tenantId) {
+        const originalBookingFeeCents = 0
+        const originalTotalCents =
+          originalClassPriceCents != null && originalClassPriceCents > classPriceCents
+            ? originalClassPriceCents + originalBookingFeeCents
+            : undefined
         return {
           classPriceCents,
           originalClassPriceCents,
           promoDiscountCents,
           bookingFeeCents: 0,
           totalCents: classPriceCents,
+          ...(originalTotalCents != null ? { originalBookingFeeCents, originalTotalCents } : {}),
         }
       }
       const bookingFeeCents = await calculateBookingFeeAmount({
@@ -54,12 +60,28 @@ export const appRouter = createAppRouter({
         productType: 'drop-in',
         classPriceAmount: classPriceCents,
       })
+      const originalBookingFeeCents =
+        originalClassPriceCents != null && originalClassPriceCents > classPriceCents
+          ? await calculateBookingFeeAmount({
+              payload,
+              tenantId,
+              productType: 'drop-in',
+              classPriceAmount: originalClassPriceCents,
+            })
+          : undefined
+      const originalTotalCents =
+        originalClassPriceCents != null &&
+        originalBookingFeeCents != null &&
+        originalClassPriceCents > classPriceCents
+          ? originalClassPriceCents + originalBookingFeeCents
+          : undefined
       return {
         classPriceCents,
         originalClassPriceCents,
         promoDiscountCents,
         bookingFeeCents,
         totalCents: classPriceCents + bookingFeeCents,
+        ...(originalTotalCents != null ? { originalBookingFeeCents, originalTotalCents } : {}),
       }
     },
     getClassPassFeeBreakdown: async ({ payload, classPassTypeId, classPriceCents }) => {

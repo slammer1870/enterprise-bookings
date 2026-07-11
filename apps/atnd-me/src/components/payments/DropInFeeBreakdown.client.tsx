@@ -12,6 +12,7 @@ function DropInFeeBreakdownQuery({
   timeslotId,
   classPriceCents,
   originalClassPriceCents,
+  tierDiscountCents,
   promoDiscountCents,
 }: FeeBreakdownComponentProps) {
   const trpc = useTRPC()
@@ -29,8 +30,10 @@ function DropInFeeBreakdownQuery({
     <BookingFeeBreakdown
       classPriceCents={data.classPriceCents}
       originalClassPriceCents={data.originalClassPriceCents}
+      tierDiscountCents={tierDiscountCents}
       promoDiscountCents={data.promoDiscountCents}
       bookingFeeCents={data.bookingFeeCents}
+      originalTotalCents={data.originalTotalCents}
     />
   )
 }

@@ -80,18 +80,11 @@ function resolveProgress(args: {
   job: PayloadJob
   storedProgress?: unknown
 }): TimeslotGenerationProgress | undefined {
-  const fromScheduler = parseTimeslotGenerationProgress(args.storedProgress)
   const fromJob = parseTimeslotGenerationProgress(args.job.taskStatus)
+  if (fromJob) return fromJob
 
-  if (fromScheduler && fromJob) {
-    const schedulerUpdated = fromScheduler.updatedAt
-      ? new Date(fromScheduler.updatedAt).getTime()
-      : 0
-    const jobUpdated = fromJob.updatedAt ? new Date(fromJob.updatedAt).getTime() : 0
-    return schedulerUpdated >= jobUpdated ? fromScheduler : fromJob
-  }
-
-  return fromScheduler ?? fromJob
+  // Legacy fallback for schedulers that still have stored progress on the document.
+  return parseTimeslotGenerationProgress(args.storedProgress)
 }
 
 function buildStatusResponse(args: {

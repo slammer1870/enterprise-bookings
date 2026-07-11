@@ -11,6 +11,9 @@ export type TenantContext = {
   hostOverride?: string;
 };
 
+/** When true on `req.context`, admin `payload-location` branch scoping is skipped (public booking reads). */
+export const PAYLOAD_CTX_SKIP_ADMIN_BRANCH_FILTER = "skipAdminBranchFilter" as const;
+
 /**
  * Minimal Payload `req` for Local API calls from tRPC so tenant-scoped collection access
  * can resolve the active tenant (host, cookies, `context.tenant`).
@@ -22,11 +25,17 @@ export function createPayloadLocalReqFromTrpc(args: {
   headers: Headers;
   tenantId: number | null;
 }): { payload: Payload; user: unknown; headers: Headers; context: Record<string, unknown> } {
+  const context: Record<string, unknown> = {
+    [PAYLOAD_CTX_SKIP_ADMIN_BRANCH_FILTER]: true,
+  };
+  if (args.tenantId != null) {
+    context.tenant = args.tenantId;
+  }
   return {
     payload: args.payload,
     user: args.user,
     headers: args.headers,
-    context: args.tenantId != null ? { tenant: args.tenantId } : {},
+    context,
   };
 }
 

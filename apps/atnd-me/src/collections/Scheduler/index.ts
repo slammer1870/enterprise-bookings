@@ -10,6 +10,11 @@ import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userT
 import { getPayloadLocationIdFromRequest } from '../../utilities/tenantRequest'
 import { schedulerGenerationStatusEndpoint } from '../../endpoints/admin/scheduler-generation-status'
 import { runSchedulerGenerationJob } from '../../lib/scheduler/run-generation-job'
+import {
+    buildExistingTimeSlotIdsByDay,
+    dedupeSchedulerTimeSlotIds,
+    isCompleteSchedulerTimeSlot,
+} from './normalize-week-days'
 
 function relationId(value: unknown): number | null {
     if (value == null || value === '') return null
@@ -257,58 +262,71 @@ export const Scheduler: CollectionConfig = {
                     }
                 }
 
-                // Strip incomplete timeSlot rows (missing startTime or endTime) before
-                // validation runs. Payload's duplicate-row feature in nested arrays copies
-                // the internal row `id`, creating two rows with the same React key. This
-                // causes the remove button to appear broken (row reappears). Stripping
-                // incomplete rows on save keeps the DB clean and prevents the generate-
-                // timeslots task from creating bogus epoch-date timeslots.
+                // Strip incomplete timeSlot rows before validation runs. Payload's
+                // duplicate-row feature in nested arrays copies the internal row `id`,
+                // creating two rows with the same React key and a broken remove button.
                 if (data?.week?.days && Array.isArray(data.week.days)) {
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     data.week.days = (data.week.days as any[]).map((day: any) => {
                         if (!day?.timeSlot || !Array.isArray(day.timeSlot)) return day
-                        const filtered = day.timeSlot.filter(
-                            (slot: any) =>
-                                slot?.startTime != null &&
-                                slot?.startTime !== '' &&
-                                slot?.endTime != null &&
-                                slot?.endTime !== '',
-                        )
-                        // Sort slots by wall-clock start time so the UI always shows them in order.
+                        const filtered = day.timeSlot.filter(isCompleteSchedulerTimeSlot)
                         filtered.sort((a: any, b: any) => {
                             const at = extractUtcWallClock(a.startTime)
                             const bt = extractUtcWallClock(b.startTime)
                             return (at.hours * 60 + at.minutes) - (bt.hours * 60 + bt.minutes)
                         })
-                        // Deduplicate row IDs. When a complete row is copied/pasted,
-                        // Payload assigns the original's numeric id to the copy — both
-                        // rows then share the same id, causing the relational adapter to
-                        // throw "Invalid ID". Also strip non-numeric (UUID) ids that the
-                        // admin generates client-side for brand-new rows; those are not
-                        // valid integer primary keys and trigger the same error.
-                        // In both cases we remove the id so Payload INSERTs a fresh row.
-                        const seenIds = new Set<number>()
-                        const deduped = filtered.map((slot: any) => {
-                            const rawId = slot?.id
-                            const numericId =
-                                typeof rawId === 'number' && Number.isFinite(rawId)
-                                    ? rawId
-                                    : typeof rawId === 'string' && /^\d+$/.test(rawId)
-                                      ? parseInt(rawId, 10)
-                                      : null
-                            if (numericId == null || seenIds.has(numericId)) {
-                                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                                const { id: _id, ...rest } = slot
-                                return rest
-                            }
-                            seenIds.add(numericId)
-                            return slot
-                        })
-                        return { ...day, timeSlot: deduped }
+                        return { ...day, timeSlot: filtered }
                     })
                 }
 
                 return data
+            },
+        ],
+        beforeChange: [
+            ({ data, originalDoc, operation }) => {
+                if (!data?.week?.days || !Array.isArray(data.week.days)) {
+                    return data
+                }
+
+                const existingIdsByDay =
+                    operation === 'update'
+                        ? buildExistingTimeSlotIdsByDay(originalDoc?.week?.days)
+                        : new Map<number, Set<string>>()
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                data.week.days = (data.week.days as any[]).map((day: any, dayIndex: number) => {
+                    if (!day?.timeSlot || !Array.isArray(day.timeSlot)) return day
+                    return {
+                        ...day,
+                        timeSlot: dedupeSchedulerTimeSlotIds(day.timeSlot, {
+                            operation,
+                            existingIds: existingIdsByDay.get(dayIndex),
+                        }),
+                    }
+                })
+
+                return data
+            },
+        ],
+        afterRead: [
+            ({ doc }) => {
+                if (!doc?.week?.days || !Array.isArray(doc.week.days)) {
+                    return doc
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                doc.week.days = (doc.week.days as any[]).map((day: any) => {
+                    if (!day?.timeSlot || !Array.isArray(day.timeSlot)) return day
+                    const filtered = day.timeSlot.filter(isCompleteSchedulerTimeSlot)
+                    filtered.sort((a: any, b: any) => {
+                        const at = extractUtcWallClock(a.startTime)
+                        const bt = extractUtcWallClock(b.startTime)
+                        return (at.hours * 60 + at.minutes) - (bt.hours * 60 + bt.minutes)
+                    })
+                    return { ...day, timeSlot: filtered }
+                })
+
+                return doc
             },
         ],
         afterChange: [
@@ -356,34 +374,7 @@ export const Scheduler: CollectionConfig = {
                     } as Parameters<Payload['jobs']['queue']>[0]['input'],
                 })
 
-                const generationStartedAt = new Date().toISOString()
-
                 if (job.id) {
-                    const jobId =
-                        typeof job.id === 'number'
-                            ? job.id
-                            : typeof job.id === 'string' && /^\d+$/.test(job.id)
-                              ? parseInt(job.id, 10)
-                              : null
-
-                    if (jobId != null) {
-                        const initialPhase = doc.clearExisting ? 'clearing' : 'planning'
-                        await req.payload.update({
-                            collection: 'scheduler',
-                            id: doc.id,
-                            data: {
-                                lastGenerationJobId: jobId,
-                                generationProgress: {
-                                    phase: initialPhase,
-                                    startedAt: generationStartedAt,
-                                    updatedAt: generationStartedAt,
-                                },
-                            } as Record<string, unknown>,
-                            context: { [SKIP_SCHEDULER_GENERATION]: true },
-                            req,
-                        })
-                    }
-
                     runSchedulerGenerationJob({
                         payload: req.payload,
                         jobId: job.id,
@@ -398,6 +389,15 @@ export const Scheduler: CollectionConfig = {
         ],
     },
     fields: [
+        {
+            name: 'timeSlotFormCleanup',
+            type: 'ui',
+            admin: {
+                components: {
+                    Field: '@/components/admin/SchedulerTimeSlotFormCleanup#SchedulerTimeSlotFormCleanup',
+                },
+            },
+        },
         {
             name: 'generationStatus',
             type: 'ui',

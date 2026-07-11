@@ -24,12 +24,16 @@ import {
   getPayloadInstance,
 } from './helpers/data-helpers'
 import { clearTestMagicLinks, pollForTestMagicLink } from '@repo/testing-config/src/playwright'
-import { advanceScheduleToDate } from './helpers/schedule-helpers'
+import { advanceScheduleToDate, ensureTenant1ActiveBranchesOnly } from './helpers/schedule-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 test.describe('Unauth magic link booking with active membership', () => {
   test.setTimeout(e2eSlowTestTimeout(240_000, 180_000))
+
+  test.beforeAll(async ({ testData }) => {
+    await ensureTenant1ActiveBranchesOnly(testData)
+  })
 
   test(
     'unauthenticated user is prompted to log in, receives magic link, and is auto-booked via active membership without touching /bookings/[id] UI',

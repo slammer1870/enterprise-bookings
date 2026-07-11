@@ -13,9 +13,23 @@ describe("existingTimeslotKey", () => {
     const generatedEnd = "2026-06-16T06:45:00.000Z";
 
     expect(
-      existingTimeslotKey(migratedStart, migratedEnd, null, eventTypeId, timeZone),
+      existingTimeslotKey(
+        migratedStart,
+        migratedEnd,
+        null,
+        eventTypeId,
+        null,
+        timeZone,
+      ),
     ).toBe(
-      existingTimeslotKey(generatedStart, generatedEnd, null, eventTypeId, timeZone),
+      existingTimeslotKey(
+        generatedStart,
+        generatedEnd,
+        null,
+        eventTypeId,
+        null,
+        timeZone,
+      ),
     );
   });
 
@@ -24,8 +38,8 @@ describe("existingTimeslotKey", () => {
     const start = "2026-06-16T17:00:00.000Z";
     const end = "2026-06-16T18:00:00.000Z";
 
-    const beginners = existingTimeslotKey(start, end, null, 1, timeZone);
-    const fundamentals = existingTimeslotKey(start, end, null, 2, timeZone);
+    const beginners = existingTimeslotKey(start, end, null, 1, null, timeZone);
+    const fundamentals = existingTimeslotKey(start, end, null, 2, null, timeZone);
 
     expect(beginners).not.toBe(fundamentals);
   });
@@ -35,8 +49,19 @@ describe("existingTimeslotKey", () => {
     const start = "2026-06-16T17:00:00.000Z";
     const end = "2026-06-16T18:00:00.000Z";
 
-    expect(existingTimeslotKey(start, end, null, 1, timeZone)).toBe(
-      existingTimeslotKey(start, end, "", 1, timeZone),
+    expect(existingTimeslotKey(start, end, null, 1, null, timeZone)).toBe(
+      existingTimeslotKey(start, end, "", 1, null, timeZone),
     );
+  });
+
+  it("treats different staff members at the same time as distinct keys", () => {
+    const timeZone = "Europe/Dublin";
+    const start = "2026-06-16T17:00:00.000Z";
+    const end = "2026-06-16T18:00:00.000Z";
+
+    const instructorA = existingTimeslotKey(start, end, null, 1, 10, timeZone);
+    const instructorB = existingTimeslotKey(start, end, null, 1, 20, timeZone);
+
+    expect(instructorA).not.toBe(instructorB);
   });
 });

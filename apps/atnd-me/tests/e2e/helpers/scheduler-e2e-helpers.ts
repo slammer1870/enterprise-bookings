@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { TZDate } from '@date-fns/tz'
 import { formatInTimeZone } from '@repo/shared-utils'
 import type { Payload } from 'payload'
@@ -532,4 +532,230 @@ export async function setPayloadTenantCookies(page: Page, tenantId: number): Pro
     { name: 'payload-tenant', value: String(tenantId), url: `${origin}/admin/` },
     { name: 'payload-tenant', value: String(tenantId), url: `${origin}/admin/collections/` },
   ])
+}
+
+export function buildMondayOnlyWeekDays(args: {
+  eventTypeId: number
+  mondayStartIso: string
+  mondayEndIso: string
+}) {
+  const days = emptySchedulerWeekDays()
+  days[0] = {
+    timeSlot: [
+      {
+        startTime: args.mondayStartIso,
+        endTime: args.mondayEndIso,
+        eventType: args.eventTypeId,
+        active: true,
+      },
+    ],
+  }
+  return days
+}
+
+export async function createSchedulerWithMondaySlot(
+  page: Page,
+  args: {
+    email: string
+    password: string
+    tenantId: number
+    branchId: number
+    startDate: Date
+    endDate: Date
+    eventTypeId: number
+    mondayStartIso: string
+    mondayEndIso: string
+    lockOutTime?: number
+  },
+): Promise<number> {
+  const weekDays = buildMondayOnlyWeekDays({
+    eventTypeId: args.eventTypeId,
+    mondayStartIso: args.mondayStartIso,
+    mondayEndIso: args.mondayEndIso,
+  })
+
+  return createSchedulerViaAdminRequest(page, {
+    email: args.email,
+    password: args.password,
+    tenantId: args.tenantId,
+    branchId: args.branchId,
+    startDate: args.startDate,
+    endDate: args.endDate,
+    eventTypeId: args.eventTypeId,
+    clearExisting: false,
+    weekDays,
+    lockOutTime: args.lockOutTime,
+  })
+}
+
+export async function createSchedulerWithEmptyWeek(
+  page: Page,
+  args: {
+    email: string
+    password: string
+    tenantId: number
+    branchId: number
+    startDate: Date
+    endDate: Date
+    eventTypeId: number
+    lockOutTime?: number
+  },
+): Promise<number> {
+  return createSchedulerViaAdminRequest(page, {
+    email: args.email,
+    password: args.password,
+    tenantId: args.tenantId,
+    branchId: args.branchId,
+    startDate: args.startDate,
+    endDate: args.endDate,
+    eventTypeId: args.eventTypeId,
+    clearExisting: false,
+    weekDays: emptySchedulerWeekDays(),
+    lockOutTime: args.lockOutTime,
+  })
+}
+
+
+/** Return the scheduler edit-form block for a weekday label (Monday, Tuesday, ...). */
+export async function getSchedulerDayBlock(page: Page, dayName: string): Promise<Locator> {
+  await ensureAllSchedulerDaysExpanded(page)
+
+  const dayLabel = page.getByText(dayName, { exact: true }).first()
+  await dayLabel.scrollIntoViewIfNeeded({ timeout: 15_000 })
+
+  const dayHeader = dayLabel.locator(
+    'xpath=ancestor::*[.//button[normalize-space()="Toggle block"]][1]',
+  )
+  return dayHeader.locator('xpath=..')
+}
+
+function schedulerTimeSlotLabel(slotIndex: number): string {
+  return `Time Slot ${String(slotIndex + 1).padStart(2, '0')}`
+}
+
+function schedulerTimeSlotBlock(dayBlock: Locator, slotIndex: number): Locator {
+  return dayBlock
+    .getByText(schedulerTimeSlotLabel(slotIndex), { exact: true })
+    .locator('xpath=ancestor::*[.//button[normalize-space()="Toggle block"]][1]/..')
+}
+
+async function pickSchedulerTimeField(
+  page: Page,
+  scope: Locator,
+  fieldLabel: string,
+  labels: string[],
+): Promise<void> {
+  const input = scope.locator(`xpath=.//*[contains(text(),"${fieldLabel}")]/following::input[1]`)
+  await input.click()
+  await page.waitForTimeout(200)
+
+  for (const label of labels) {
+    const timeItem = page.locator(`.react-datepicker__time-list-item:has-text("${label}")`).first()
+    if ((await timeItem.count()) > 0) {
+      await timeItem.click()
+      await page.waitForTimeout(200)
+      if (((await input.inputValue().catch(() => '')) || '').trim() !== '') return
+    }
+  }
+
+  for (const label of labels) {
+    await input.clear().catch(() => {})
+    await input.fill(label)
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Tab')
+    await page.waitForTimeout(200)
+    if (((await input.inputValue().catch(() => '')) || '').trim() !== '') return
+  }
+}
+
+/** Click "Add Time Slot" within a weekday block. */
+export async function addTimeSlotToSchedulerDay(page: Page, dayName: string): Promise<void> {
+  const dayBlock = await getSchedulerDayBlock(page, dayName)
+  const addButton = dayBlock.getByRole('button', { name: /add.*time slot/i }).first()
+  await addButton.click({ timeout: 15_000 })
+  await expect(dayBlock.getByText('Time Slot 01', { exact: true })).toBeVisible({ timeout: 15_000 })
+}
+
+/** Fill start/end times for a timeSlot row on a weekday (0-based index). */
+export async function fillSchedulerTimeSlotTimes(
+  page: Page,
+  dayName: string,
+  slotIndex: number,
+  options: { startLabels: string[]; endLabels: string[] },
+): Promise<void> {
+  const dayBlock = await getSchedulerDayBlock(page, dayName)
+  const slotRow = schedulerTimeSlotBlock(dayBlock, slotIndex)
+  await slotRow.scrollIntoViewIfNeeded()
+  await pickSchedulerTimeField(page, slotRow, 'Start Time', options.startLabels)
+  await pickSchedulerTimeField(page, slotRow, 'End Time', options.endLabels)
+}
+
+export async function getSchedulerTimeSlotCountFromDB(
+  schedulerId: number,
+  dayIndex: number,
+): Promise<number> {
+  const payload = await getPayloadInstance()
+  const scheduler = await payload.findByID({
+    collection: 'scheduler',
+    id: schedulerId,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  const days = (scheduler as { week?: { days?: Array<{ timeSlot?: unknown[] }> } }).week?.days
+  if (!Array.isArray(days) || dayIndex < 0 || dayIndex >= days.length) {
+    throw new Error(`Invalid scheduler week.days for scheduler ${schedulerId}`)
+  }
+
+  const timeSlot = days[dayIndex]?.timeSlot
+  return Array.isArray(timeSlot) ? timeSlot.length : 0
+}
+
+/** Expand every day row in the scheduler week.days array. */
+export async function ensureAllSchedulerDaysExpanded(page: Page): Promise<void> {
+  const showAll = page.getByRole('button', { name: 'Show All' })
+  if (await showAll.isVisible().catch(() => false)) {
+    await showAll.click({ timeout: 15_000 })
+    await page.waitForTimeout(500)
+  }
+}
+
+/** Count nested timeSlot array rows visible for a given day in the scheduler edit form. */
+export async function countTimeSlotRowsInDayUI(page: Page, dayName: string): Promise<number> {
+  const dayBlock = await getSchedulerDayBlock(page, dayName)
+  return dayBlock.getByText(/Time Slot \d{2}/).count()
+}
+
+/** Make a trivial edit so Payload enables the Save button. */
+export async function touchSchedulerFormForSave(page: Page): Promise<void> {
+  const clearExisting = page.getByRole('checkbox', { name: /clear existing timeslots/i })
+  await clearExisting.click({ timeout: 15_000 })
+}
+
+export async function saveSchedulerAndWait(page: Page, schedulerId: number): Promise<void> {
+  const saveButton = page.getByRole('button', { name: /^Save$/i }).first()
+  await saveButton.waitFor({ state: 'visible', timeout: 30_000 })
+
+  if (await saveButton.isDisabled()) {
+    await touchSchedulerFormForSave(page)
+  }
+
+  await expect(saveButton).toBeEnabled({ timeout: 15_000 })
+
+  const navigationTimeout = process.env.CI ? 120_000 : 60_000
+  const responsePromise = page.waitForResponse(
+    (response) => {
+      const url = response.url()
+      const method = response.request().method()
+      return method === 'PATCH' && url.includes(`/api/scheduler/${schedulerId}`)
+    },
+    { timeout: navigationTimeout },
+  )
+
+  await saveButton.click()
+  const response = await responsePromise
+  if (!response.ok()) {
+    const body = await response.text().catch(() => '')
+    throw new Error(`Scheduler save failed (${response.status()}): ${body}`)
+  }
 }

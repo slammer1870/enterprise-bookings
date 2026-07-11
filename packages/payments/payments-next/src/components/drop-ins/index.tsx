@@ -16,6 +16,7 @@ type FeeBreakdownData = {
   promoDiscountCents?: number;
   bookingFeeCents: number;
   totalCents: number;
+  originalTotalCents?: number;
 };
 
 type AppliedDiscount = {
@@ -68,6 +69,8 @@ function DropInCheckoutWithFee({
   onPaymentRedirectStart,
   onReserveCheckoutHold,
   returnUrl,
+  preDiscountClassPriceCents,
+  promoDiscountCents,
 }: {
   classPriceAmount: number;
   priceComponent: React.ReactNode;
@@ -80,25 +83,47 @@ function DropInCheckoutWithFee({
     _metadata: Record<string, string>
   ) => Promise<Record<string, string> | void>;
   returnUrl?: string;
+  preDiscountClassPriceCents?: number;
+  promoDiscountCents?: number;
 }) {
   const trpc = useTRPC();
-  const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (_opts: { timeslotId: number; classPriceCents: number }) => object } })?.getDropInFeeBreakdown;
+  const procedure = (trpc.payments as { getDropInFeeBreakdown?: { queryOptions: (_opts: { timeslotId: number; classPriceCents: number; originalClassPriceCents?: number; promoDiscountCents?: number }) => object } })?.getDropInFeeBreakdown;
   const classPriceCents = Math.round(classPriceAmount * 100);
 
   const { data } = useQuery({
-    ...(procedure?.queryOptions({ timeslotId, classPriceCents }) ?? {
-      queryKey: ["drop-in-fee", timeslotId, classPriceCents],
+    ...(procedure?.queryOptions({
+      timeslotId,
+      classPriceCents,
+      ...(preDiscountClassPriceCents != null && preDiscountClassPriceCents > classPriceCents
+        ? { originalClassPriceCents: preDiscountClassPriceCents }
+        : {}),
+      ...(promoDiscountCents != null && promoDiscountCents > 0 ? { promoDiscountCents } : {}),
+    }) ?? {
+      queryKey: ["drop-in-fee", timeslotId, classPriceCents, preDiscountClassPriceCents, promoDiscountCents],
       queryFn: (): FeeBreakdownData | null => null,
       enabled: false,
     }),
   } as { queryKey: unknown[]; queryFn: () => FeeBreakdownData | null; enabled?: boolean });
 
-  const totalCents = (data as FeeBreakdownData | undefined)?.totalCents;
+  const breakdown = data as FeeBreakdownData | undefined;
+  const totalCents = breakdown?.totalCents;
+  const originalTotalCents = breakdown?.originalTotalCents;
+  const showOriginalTotal =
+    typeof originalTotalCents === "number" &&
+    typeof totalCents === "number" &&
+    originalTotalCents > totalCents;
   const displayComponent =
     totalCents != null ? (
       <div className="flex justify-start items-center text-lg font-medium my-4 gap-4">
         <span className="font-semibold">Total:</span>
-        <span data-testid="payment-total">€{(totalCents / 100).toFixed(2)}</span>
+        <div className="flex items-center gap-1">
+          {showOriginalTotal ? (
+            <span className="line-through text-red-400" data-testid="payment-total-original">
+              €{(originalTotalCents / 100).toFixed(2)}
+            </span>
+          ) : null}
+          <span data-testid="payment-total">€{(totalCents / 100).toFixed(2)}</span>
+        </div>
       </div>
     ) : (
       priceComponent
@@ -125,6 +150,7 @@ export type FeeBreakdownComponentProps = {
   classPriceCents: number;
   timeslotId: number;
   originalClassPriceCents?: number;
+  tierDiscountCents?: number;
   promoDiscountCents?: number;
   discountCode?: string;
 };
@@ -220,10 +246,18 @@ export const DropInView = ({
       }
     : price;
 
-  // Convert totalAmount to cents for fee breakdown (totalAmount is in currency units, e.g. euros)
   const classPriceCents = Math.round(displayPrice.totalAmount * 100);
-  const originalClassPriceCents = Math.round(price.totalAmount * 100);
+  const tierDiscountCents = price.discountApplied
+    ? Math.round((price.totalAmountBeforeDiscount - price.totalAmount) * 100)
+    : 0;
   const promoDiscountCents = Math.round(promoAdjusted.promoDiscountAmount * 100);
+  const originalClassPriceCents =
+    tierDiscountCents > 0
+      ? Math.round(price.totalAmountBeforeDiscount * 100)
+      : promoDiscountCents > 0
+        ? Math.round(displayPrice.totalAmountBeforeDiscount * 100)
+        : undefined;
+  const preDiscountClassPriceCents = originalClassPriceCents;
   const timeslotId = metadata?.timeslotId ? parseInt(metadata.timeslotId, 10) : null;
 
   const timeslotIdNum =
@@ -236,7 +270,8 @@ export const DropInView = ({
           <FeeBreakdownComponent
             classPriceCents={classPriceCents}
             timeslotId={timeslotIdNum}
-            originalClassPriceCents={promoDiscountCents > 0 ? originalClassPriceCents : undefined}
+            originalClassPriceCents={originalClassPriceCents}
+            tierDiscountCents={tierDiscountCents > 0 ? tierDiscountCents : undefined}
             promoDiscountCents={promoDiscountCents > 0 ? promoDiscountCents : undefined}
             discountCode={discountCode}
           />
@@ -262,6 +297,8 @@ export const DropInView = ({
           onPaymentRedirectStart={onPaymentRedirectStart}
           onReserveCheckoutHold={onReserveCheckoutHold}
           returnUrl={returnUrl}
+          preDiscountClassPriceCents={preDiscountClassPriceCents}
+          promoDiscountCents={promoDiscountCents > 0 ? promoDiscountCents : undefined}
         />
       ) : (
         <CheckoutForm

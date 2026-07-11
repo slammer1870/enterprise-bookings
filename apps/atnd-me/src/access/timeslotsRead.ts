@@ -19,6 +19,13 @@ import {
 /** Prefix for per-(tenant,branch) cache entries on `req.context`. */
 const PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX = 'PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN'
 const PAYLOAD_CTX_CACHED_TIMESLOTS_READ_LM_PREFIX = 'PAYLOAD_CTX_CACHED_TIMESLOTS_READ_LM'
+/** Must match `@repo/trpc` `PAYLOAD_CTX_SKIP_ADMIN_BRANCH_FILTER`. */
+const PAYLOAD_CTX_SKIP_ADMIN_BRANCH_FILTER = 'skipAdminBranchFilter'
+
+function shouldApplyAdminBranchFilter(req: PayloadRequest): boolean {
+  const ctx = req.context as Record<string, unknown> | undefined
+  return ctx?.[PAYLOAD_CTX_SKIP_ADMIN_BRANCH_FILTER] !== true
+}
 
 function tenantAdminCookieSource(req: PayloadRequest): { cookies?: { get: (name: string) => { value?: string } | undefined } } {
   const typedReq = req as PayloadRequest & {
@@ -262,7 +269,10 @@ export const timeslotsRead: Access = async (args) => {
     }
 
     const constraint = await (async () => {
-      if (selectedTenantId != null || selectedBranchId != null) {
+      if (
+        shouldApplyAdminBranchFilter(args.req) &&
+        (selectedTenantId != null || selectedBranchId != null)
+      ) {
         return whereForSelectedTenantAndOptionalBranch({
           payload: args.req.payload,
           user,
@@ -285,14 +295,19 @@ export const timeslotsRead: Access = async (args) => {
     const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
     const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
     const uid = toUserId(user) ?? 0
-    const cacheKey = `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_LM_PREFIX}:${uid}:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+    const branchScopeKey = shouldApplyAdminBranchFilter(args.req)
+      ? `${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+      : 'public-booking'
+    const cacheKey = `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_LM_PREFIX}:${uid}:${branchScopeKey}`
 
     const cachedLm = ctx[cacheKey]
     if (cachedLm !== undefined) {
       return cachedLm as unknown as boolean | Where
     }
 
-    const lmConstraint = await whereForPureLocationManagerTimeslots(args.req)
+    const lmConstraint = shouldApplyAdminBranchFilter(args.req)
+      ? await whereForPureLocationManagerTimeslots(args.req)
+      : await resolveTenantAdminReadConstraint({ req: args.req as any })
     ctx[cacheKey] = lmConstraint
     return lmConstraint as unknown as boolean | Where
   }

@@ -291,4 +291,28 @@ describe('timeslotsRead branch filter (payload-location)', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'findByID succeeds for branch B timeslot when admin branch cookie selects branch A and skipAdminBranchFilter is set',
+    async () => {
+      const req = adminReqWithCookies(payload, orgAdmin, {
+        'payload-tenant': String(tenantT.id),
+        [PAYLOAD_LOCATION_COOKIE]: String(locA.id),
+      })
+      ;(req as { context?: Record<string, unknown> }).context = {
+        tenant: tenantT.id,
+        skipAdminBranchFilter: true,
+      }
+
+      const doc = await payload.findByID({
+        collection: 'timeslots',
+        id: timeslotBranchB,
+        req: req as any,
+        overrideAccess: false,
+      })
+
+      expect(doc.id).toBe(timeslotBranchB)
+    },
+    TEST_TIMEOUT,
+  )
 })

@@ -24,6 +24,58 @@ export async function getPayloadInstance(): Promise<Payload> {
   return payloadInstance
 }
 
+/** Pin drop-in platform fee for a tenant so parallel e2e tests do not leak overrides. */
+export async function ensureTenantDropInPlatformFeePercent(
+  tenantId: number,
+  dropInPercent: number,
+): Promise<void> {
+  const payload = await getPayloadInstance()
+  const platformFees = (await payload.findGlobal({
+    slug: 'platform-fees',
+    depth: 0,
+    overrideAccess: true,
+  })) as { defaults?: object; overrides?: Array<{ tenant: number; dropInPercent?: number }> } | null
+  const overrides = platformFees?.overrides ?? []
+  const existingIdx = overrides.findIndex((override) => override.tenant === tenantId)
+  const nextOverrides =
+    existingIdx >= 0
+      ? overrides.map((override, index) =>
+          index === existingIdx ? { ...override, dropInPercent } : override,
+        )
+      : [...overrides, { tenant: tenantId, dropInPercent }]
+
+  await payload.updateGlobal({
+    slug: 'platform-fees',
+    data: {
+      defaults:
+        platformFees?.defaults ?? {
+          dropInPercent: 2,
+          classPassPercent: 3,
+          subscriptionPercent: 4,
+        },
+      overrides: nextOverrides,
+    },
+    depth: 0,
+    overrideAccess: true,
+  } as Parameters<typeof payload.updateGlobal>[0])
+}
+
+async function resolveDefaultBranchIdForTenant(tenantId: number): Promise<number | undefined> {
+  const payload = await getPayloadInstance()
+  const locations = await payload.find({
+    collection: 'locations',
+    where: {
+      and: [{ tenant: { equals: tenantId } }, { active: { equals: true } }],
+    },
+    sort: 'name',
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+  })
+  const firstId = locations.docs[0]?.id
+  return typeof firstId === 'number' && Number.isFinite(firstId) ? firstId : undefined
+}
+
 /**
  * Create a test tenant (idempotent by slug, then by name).
  * Reuses an existing tenant when one with the same slug or same name already exists,
@@ -287,7 +339,7 @@ export async function createTestTimeslot(
   endTime: Date,
   instructorId?: string | number,
   active: boolean = true,
-  branchId?: number,
+  branchId?: number | null,
 ): Promise<Timeslot> {
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
@@ -302,6 +354,12 @@ export async function createTestTimeslot(
   const timeZone = resolveTimeZone(tenantDoc?.timeZone)
   // Timeslot validation combines sibling `date` with wall-clock times in tenant TZ; UTC YYYY-MM-DD can disagree.
   const date = formatInTimeZone(startTime, 'yyyy-MM-dd', timeZone)
+  const resolvedBranchId =
+    branchId === undefined
+      ? await resolveDefaultBranchIdForTenant(tenantIdNumber)
+      : branchId != null && Number.isFinite(branchId)
+        ? branchId
+        : null
 
   return (await payload.create({
     collection: 'timeslots',
@@ -313,7 +371,7 @@ export async function createTestTimeslot(
       endTime: endTime.toISOString(),
       lockOutTime: 60, // Default: 60 minutes before lesson
       active,
-      ...(branchId != null && Number.isFinite(branchId) ? { branch: branchId } : {}),
+      ...(resolvedBranchId != null ? { branch: resolvedBranchId } : {}),
       ...(instructorId && {
         staffMember: typeof instructorId === 'string' ? Number(instructorId) : instructorId,
       }),

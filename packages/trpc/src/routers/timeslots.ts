@@ -18,6 +18,7 @@ import {
   assertTimeslotBelongsToTenant,
   populateTimeslotEventType,
   deriveTenantIdFromTimeslot,
+  createPayloadLocalReqFromTrpc,
 } from "../utils/tenant";
 import { resolveGetByDateBranch } from "../utils/scheduleBranch";
 
@@ -56,11 +57,12 @@ export const timeslotsRouter = {
           depth: 5,
           overrideAccess: false,
           user: ctx.user,
-          req: {
-            user: ctx.user,
+          req: createPayloadLocalReqFromTrpc({
             payload: ctx.payload,
-            context: tenantId ? { tenant: tenantId } : {},
-          } as any,
+            user: ctx.user,
+            headers: ctx.headers,
+            tenantId,
+          }) as any,
         })
         .catch((e: any) => {
           if (e?.statusCode === 404 || e?.message?.includes?.("not found")) return null;
@@ -120,12 +122,12 @@ export const timeslotsRouter = {
           // (tenant is derived from host/cookie + validated below).
           overrideAccess: false,
           user: ctx.user,
-          req: {
-            user: ctx.user,
+          req: createPayloadLocalReqFromTrpc({
             payload: ctx.payload,
+            user: ctx.user,
             headers: ctx.headers,
-            context: tenantId ? { tenant: tenantId } : {},
-          } as any,
+            tenantId,
+          }) as any,
         })
         .catch((e: any) => {
           if (e?.statusCode === 404 || e?.message?.includes?.("not found")) return null;

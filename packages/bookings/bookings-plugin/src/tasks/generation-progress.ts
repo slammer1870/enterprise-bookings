@@ -101,24 +101,7 @@ export class GenerationProgressReporter {
           req: this.req,
         });
       } catch {
-        // Best-effort — scheduler document is the primary progress store.
-      }
-    }
-
-    if (this.schedulerId != null && this.schedulerCollection != null) {
-      try {
-        await this.payload.update({
-          collection: this.schedulerCollection,
-          id: this.schedulerId,
-          data: {
-            generationProgress: progress,
-          } as Record<string, unknown>,
-          context: { triggerAfterChange: false, skipSchedulerGeneration: true },
-          overrideAccess: true,
-          req: this.req,
-        });
-      } catch {
-        // Progress updates must not fail generation.
+        // Best-effort — job taskStatus is the sole progress store.
       }
     }
   }

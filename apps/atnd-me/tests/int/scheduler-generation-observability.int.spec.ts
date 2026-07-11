@@ -93,6 +93,40 @@ async function waitForGenerationSuccess(args: {
   throw new Error(`Generation job ${jobId} did not complete within ${timeoutMs}ms`)
 }
 
+async function findLatestGenerationJobForScheduler(
+  payload: Payload,
+  schedulerId: number | string,
+  tenantId: number | string,
+): Promise<PayloadJob | null> {
+  const result = await payload.find({
+    collection: 'payload-jobs',
+    where: {
+      taskSlug: { equals: 'generateTimeslotsFromSchedule' },
+    },
+    sort: '-createdAt',
+    limit: 25,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  const docs = result.docs as PayloadJob[]
+  return (
+    docs.find((doc) => {
+      const input = doc.input
+      if (input == null || typeof input !== 'object' || Array.isArray(input)) return false
+      const record = input as Record<string, unknown>
+      const inputSchedulerId = record.schedulerId
+      const inputTenant = record.tenant
+      const schedulerMatches =
+        inputSchedulerId === schedulerId ||
+        inputSchedulerId === Number(schedulerId)
+      const tenantMatches =
+        inputTenant === tenantId || inputTenant === Number(tenantId)
+      return schedulerMatches && tenantMatches
+    }) ?? null
+  )
+}
+
 async function deleteSchedulerForTenant(payload: Payload, tenantId: number | string) {
   const existing = await payload.find({
     collection: 'scheduler',
@@ -161,7 +195,7 @@ describe('Scheduler generation observability', () => {
   })
 
   it(
-    'stores lastGenerationJobId and reports succeeded status after generation',
+    'queues a generation job and reports succeeded status after generation',
     async () => {
       await deleteSchedulerForTenant(payload, testTenant.id)
 
@@ -196,20 +230,19 @@ describe('Scheduler generation observability', () => {
         overrideAccess: true,
       })
 
-      const stored = await payload.findByID({
-        collection: 'scheduler',
-        id: scheduler.id,
-        depth: 0,
-        overrideAccess: true,
-      })
+      const latestJob = await findLatestGenerationJobForScheduler(
+        payload,
+        scheduler.id,
+        testTenant.id,
+      )
+      expect(latestJob?.id).toBeTruthy()
 
-      const lastJobId = (stored as { lastGenerationJobId?: number | null }).lastGenerationJobId
-      expect(lastJobId).toBeTypeOf('number')
-      expect(lastJobId).toBeGreaterThan(0)
+      const jobId = Number(latestJob!.id)
+      expect(jobId).toBeGreaterThan(0)
 
       const { job, timeslotCount } = await waitForGenerationSuccess({
         payload,
-        jobId: lastJobId!,
+        jobId,
         tenantId: testTenant.id,
         startDate,
         endDate,
@@ -220,7 +253,7 @@ describe('Scheduler generation observability', () => {
       if (job) {
         const status = parseGenerationJobStatus(job)
         expect(status.status).toBe('succeeded')
-        expect(status.jobId).toBe(lastJobId)
+        expect(status.jobId).toBe(jobId)
       }
     },
     TEST_TIMEOUT,
