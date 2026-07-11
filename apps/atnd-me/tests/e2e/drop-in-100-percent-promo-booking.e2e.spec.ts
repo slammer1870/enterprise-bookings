@@ -4,6 +4,7 @@ import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestEventType,
   createTestTimeslot,
+  ensureTenantDropInPlatformFeePercent,
   getPayloadInstance,
 } from './helpers/data-helpers'
 
@@ -25,6 +26,8 @@ test.describe('Drop-in 100% promo booking', () => {
     if (!tenantId || !tenantSlug || !userId) {
       throw new Error('Tenant or user fixture is missing for 100% promo booking test')
     }
+
+    await ensureTenantDropInPlatformFeePercent(tenantId, 2)
 
     await payload.update({
       collection: 'tenants',

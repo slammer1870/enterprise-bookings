@@ -22,6 +22,7 @@ import { navigateToTenant } from './helpers/subdomain-helpers'
 import {
   createTestEventType,
   createTestTimeslot,
+  ensureTenantDropInPlatformFeePercent,
   getPayloadInstance,
 } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
@@ -91,6 +92,8 @@ test.describe('Drop-in booking (qty 2) then manage: capacity label reflects actu
       const password = 'password'
 
       // ── Setup ─────────────────────────────────────────────────────────────
+
+      await ensureTenantDropInPlatformFeePercent(tenant.id, 2)
 
       // Enable Stripe Connect so the drop-in tab appears on the booking page.
       await payload.update({

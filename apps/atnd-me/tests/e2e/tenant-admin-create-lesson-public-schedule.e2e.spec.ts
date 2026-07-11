@@ -6,6 +6,9 @@ import {
   saveObjectAndWaitForNavigation,
   uniqueClassName,
 } from '@repo/testing-config/src/playwright'
+import { formatInTimeZone, resolveTimeZone } from '@repo/shared-utils'
+import { advanceScheduleToDate, ensureTenant1ActiveBranchesOnly } from './helpers/schedule-helpers'
+import { getPayloadInstance } from './helpers/data-helpers'
 
 function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -148,28 +151,12 @@ async function extractIdFromAdminUrl(page: Page, collection: string): Promise<nu
   return match ? Number(match[1]) : null
 }
 
-
-async function advanceScheduleToDate(page: Page, targetDate: Date) {
-  const dateLabel = page.locator('p.text-center.text-lg').first()
-  await expect(dateLabel).toBeVisible({ timeout: 15000 })
-
-  const toggle = dateLabel.locator('xpath=..')
-  const nextDayButton = toggle.locator('svg').nth(1)
-  const targetLabel = targetDate.toDateString()
-
-  for (let i = 0; i < 45; i += 1) {
-    const currentLabel = (await dateLabel.textContent())?.trim()
-    if (currentLabel === targetLabel) return
-
-    await nextDayButton.click({ force: true })
-    await page.waitForTimeout(200)
-  }
-
-  await expect(dateLabel).toHaveText(targetLabel, { timeout: 15000 })
-}
-
 test.describe('Tenant admin lesson creation appears on public schedule', () => {
   test.setTimeout(180000)
+
+  test.beforeAll(async ({ testData }) => {
+    await ensureTenant1ActiveBranchesOnly(testData)
+  })
 
   test('tenant admin creates a future lesson in admin and a public user finds it on that date in the schedule', async ({
     page,
@@ -230,8 +217,17 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
     const tsEnd = new Date(targetDate)
     tsEnd.setHours(11, 0, 0, 0)
 
+    const payload = await getPayloadInstance()
+    const tenantDoc = (await payload.findByID({
+      collection: 'tenants',
+      id: tenant.id,
+      depth: 0,
+      overrideAccess: true,
+    })) as { timeZone?: string | null } | null
+    const timeZone = resolveTimeZone(tenantDoc?.timeZone)
+
     const tsBody: Record<string, unknown> = {
-      date: targetDate.toISOString(),
+      date: formatInTimeZone(tsStart, 'yyyy-MM-dd', timeZone),
       startTime: tsStart.toISOString(),
       endTime: tsEnd.toISOString(),
       eventType: eventTypeId,
