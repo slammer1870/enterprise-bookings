@@ -13,25 +13,30 @@ function formatCentsToCurrency(cents: number): string {
 export type BookingFeeBreakdownProps = {
   classPriceCents: number
   originalClassPriceCents?: number
+  tierDiscountCents?: number
   promoDiscountCents?: number
   bookingFeeCents: number
+  originalTotalCents?: number
   feeLabel?: string
 }
 
 export function BookingFeeBreakdown({
   classPriceCents,
   originalClassPriceCents,
+  tierDiscountCents,
   promoDiscountCents,
   bookingFeeCents,
+  originalTotalCents,
   feeLabel = 'Booking fee',
 }: BookingFeeBreakdownProps) {
   const totalCents = classPriceCents + bookingFeeCents
   const hasBookingFee = bookingFeeCents > 0
+  const hasTierDiscount = (tierDiscountCents ?? 0) > 0
   const hasPromoDiscount = (promoDiscountCents ?? 0) > 0
-  const displayClassPriceCents =
-    hasPromoDiscount && typeof originalClassPriceCents === 'number'
-      ? originalClassPriceCents
-      : classPriceCents
+  const showOriginalClassPrice =
+    typeof originalClassPriceCents === 'number' && originalClassPriceCents > classPriceCents
+  const showOriginalTotal =
+    typeof originalTotalCents === 'number' && originalTotalCents > totalCents
   return (
     <Card data-testid="booking-fee-breakdown">
       <CardHeader>
@@ -41,8 +46,21 @@ export function BookingFeeBreakdown({
       <CardContent className="space-y-2">
         <div className="flex justify-between text-sm">
           <span>Price</span>
-          <span data-testid="class-price">{formatCentsToCurrency(displayClassPriceCents)}</span>
+          <span className="flex items-center gap-1" data-testid="class-price">
+            {showOriginalClassPrice ? (
+              <span className="line-through text-red-400" data-testid="class-price-original">
+                {formatCentsToCurrency(originalClassPriceCents)}
+              </span>
+            ) : null}
+            <span>{formatCentsToCurrency(classPriceCents)}</span>
+          </span>
         </div>
+        {hasTierDiscount && (
+          <div className="flex justify-between text-sm">
+            <span>Quantity discount</span>
+            <span data-testid="tier-discount">-{formatCentsToCurrency(tierDiscountCents ?? 0)}</span>
+          </div>
+        )}
         {hasPromoDiscount && (
           <div className="flex justify-between text-sm">
             <span>Promo code</span>
@@ -57,7 +75,14 @@ export function BookingFeeBreakdown({
         )}
         <div className="flex justify-between font-medium border-t pt-2 mt-2">
           <span>Total</span>
-          <span data-testid="total">{formatCentsToCurrency(totalCents)}</span>
+          <span className="flex items-center gap-1" data-testid="total">
+            {showOriginalTotal ? (
+              <span className="line-through text-red-400" data-testid="total-original">
+                {formatCentsToCurrency(originalTotalCents)}
+              </span>
+            ) : null}
+            <span>{formatCentsToCurrency(totalCents)}</span>
+          </span>
         </div>
       </CardContent>
     </Card>

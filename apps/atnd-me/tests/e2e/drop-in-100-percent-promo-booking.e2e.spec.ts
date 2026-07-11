@@ -125,7 +125,7 @@ test.describe('Drop-in 100% promo booking', () => {
       `create-payment-intent (€0 bootstrap) failed: ${bootstrapRes.status()} ${await bootstrapRes.text()}`,
     ).toBeTruthy()
 
-    const classPriceText = await page.getByTestId('class-price').innerText()
+    const classPriceText = await page.getByTestId('class-price-original').innerText()
     const promoDiscountText = await page.getByTestId('promo-discount').innerText()
     expect(promoDiscountText).toBe(`-${classPriceText}`)
     await expect(page.getByTestId('booking-fee')).toHaveCount(0)
