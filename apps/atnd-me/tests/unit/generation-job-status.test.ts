@@ -75,7 +75,7 @@ describe('parseGenerationJobStatus', () => {
     expect(result.etaMessage).toMatch(/remaining/)
   })
 
-  it('prefers scheduler stored progress when newer than job taskStatus', () => {
+  it('prefers job taskStatus over legacy scheduler stored progress', () => {
     const result = parseGenerationJobStatus(
       baseJob({
         processing: true,
@@ -98,9 +98,9 @@ describe('parseGenerationJobStatus', () => {
       },
     )
 
-    expect(result.progress?.phase).toBe('creating')
-    expect(result.progressPercent).toBe(68)
-    expect(result.message).toBe('Creating timeslots… 400 / 800')
+    expect(result.progress?.phase).toBe('planning')
+    expect(result.progressPercent).toBe(8)
+    expect(result.message).toMatch(/Planning timeslots/)
   })
 
   it('returns processing with default message when no taskStatus', () => {

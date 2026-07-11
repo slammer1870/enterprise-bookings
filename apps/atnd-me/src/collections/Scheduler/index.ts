@@ -308,6 +308,27 @@ export const Scheduler: CollectionConfig = {
                 return data
             },
         ],
+        afterRead: [
+            ({ doc }) => {
+                if (!doc?.week?.days || !Array.isArray(doc.week.days)) {
+                    return doc
+                }
+
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                doc.week.days = (doc.week.days as any[]).map((day: any) => {
+                    if (!day?.timeSlot || !Array.isArray(day.timeSlot)) return day
+                    const filtered = day.timeSlot.filter(isCompleteSchedulerTimeSlot)
+                    filtered.sort((a: any, b: any) => {
+                        const at = extractUtcWallClock(a.startTime)
+                        const bt = extractUtcWallClock(b.startTime)
+                        return (at.hours * 60 + at.minutes) - (bt.hours * 60 + bt.minutes)
+                    })
+                    return { ...day, timeSlot: filtered }
+                })
+
+                return doc
+            },
+        ],
         afterChange: [
             async ({ req, doc, context }) => {
                 if (context?.[SKIP_SCHEDULER_GENERATION]) {
@@ -353,34 +374,7 @@ export const Scheduler: CollectionConfig = {
                     } as Parameters<Payload['jobs']['queue']>[0]['input'],
                 })
 
-                const generationStartedAt = new Date().toISOString()
-
                 if (job.id) {
-                    const jobId =
-                        typeof job.id === 'number'
-                            ? job.id
-                            : typeof job.id === 'string' && /^\d+$/.test(job.id)
-                              ? parseInt(job.id, 10)
-                              : null
-
-                    if (jobId != null) {
-                        const initialPhase = doc.clearExisting ? 'clearing' : 'planning'
-                        await req.payload.update({
-                            collection: 'scheduler',
-                            id: doc.id,
-                            data: {
-                                lastGenerationJobId: jobId,
-                                generationProgress: {
-                                    phase: initialPhase,
-                                    startedAt: generationStartedAt,
-                                    updatedAt: generationStartedAt,
-                                },
-                            } as Record<string, unknown>,
-                            context: { [SKIP_SCHEDULER_GENERATION]: true },
-                            req,
-                        })
-                    }
-
                     runSchedulerGenerationJob({
                         payload: req.payload,
                         jobId: job.id,
