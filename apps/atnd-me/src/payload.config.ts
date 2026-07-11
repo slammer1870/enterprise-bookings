@@ -16,11 +16,13 @@ import { Navbar } from './collections/Navbar'
 import { Footer } from './collections/Footer'
 import { Scheduler } from './collections/Scheduler'
 import { Locations } from './collections/Locations'
+import { PostBookingEmailDeliveries } from './collections/PostBookingEmailDeliveries'
 import { PlatformFees } from './globals/PlatformFees'
 import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
 import { getServerSideURL } from './utilities/getURL'
 import { generateTimeslotsFromScheduleWithTenant } from './tasks/generate-timeslots-with-tenant'
+import { sendPostBookingEmailTask } from './tasks/send-post-booking-email'
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
 import { resolvePayloadEmailConfig } from './utilities/emailConfig'
@@ -159,7 +161,7 @@ export default buildConfig({
       }
       : {}),
   }),
-  collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler, Locations],
+  collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler, Locations, PostBookingEmailDeliveries],
   // Keep Payload's global CORS restrictive; we selectively allow additional origins
   // for specific public endpoints (e.g. /api/form-submissions) via Next route wrappers.
   cors: [getServerSideURL()].filter(Boolean),
@@ -221,6 +223,10 @@ export default buildConfig({
       {
         slug: 'generateTimeslotsFromSchedule',
         handler: generateTimeslotsFromScheduleWithTenant,
+      },
+      {
+        slug: 'sendPostBookingEmail',
+        handler: sendPostBookingEmailTask,
       },
     ],
   },

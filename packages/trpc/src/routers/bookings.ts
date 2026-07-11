@@ -820,6 +820,8 @@ export const bookingsRouter = {
 
       // When subscriptionId or classPassId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
       const confirmedBookings: Booking[] = [];
+      const postBookingEmailBatchSize = quantity;
+      let postBookingEmailBatchIndex = 0;
       const confirmPendingWithClassPass =
         classPassId != null &&
         pendingBookingIds != null &&
@@ -871,8 +873,17 @@ export const bookingsRouter = {
             } as Partial<Booking>,
             // System operation: confirming pending bookings after membership selection.
             // Ownership was validated by the pendingResult query above.
-            { overrideAccess: true }
+            {
+              overrideAccess: true,
+              context: {
+                postBookingEmailBatch: {
+                  batchSize: postBookingEmailBatchSize,
+                  batchIndex: postBookingEmailBatchIndex,
+                },
+              },
+            }
           );
+          postBookingEmailBatchIndex += 1;
           confirmedBookings.push(updated as Booking);
           if (hasCollection(ctx.payload, "transactions")) {
             const existingTx = await ctx.payload.find({
@@ -935,8 +946,17 @@ export const bookingsRouter = {
             } as Partial<Booking>,
             // System operation: confirming pending bookings after selecting a class pass.
             // Ownership was validated by the pendingResult query above.
-            { overrideAccess: true }
+            {
+              overrideAccess: true,
+              context: {
+                postBookingEmailBatch: {
+                  batchSize: postBookingEmailBatchSize,
+                  batchIndex: postBookingEmailBatchIndex,
+                },
+              },
+            }
           );
+          postBookingEmailBatchIndex += 1;
           confirmedBookings.push(updated as Booking);
           if (hasCollection(ctx.payload, "transactions")) {
             const existingTx = await ctx.payload.find({
@@ -986,7 +1006,13 @@ export const bookingsRouter = {
             // elevated access so pending manage-flow bookings are not rejected by
             // collection access during this server-side operation.
             overrideAccess: true,
-            context: shouldSkipSideEffects ? { skipBookingSideEffects: true } : undefined,
+            context: {
+              ...(shouldSkipSideEffects ? { skipBookingSideEffects: true } : {}),
+              postBookingEmailBatch: {
+                batchSize: postBookingEmailBatchSize,
+                batchIndex: postBookingEmailBatchIndex + i,
+              },
+            },
           }
         );
         confirmedBookings.push(booking as Booking);
@@ -2463,7 +2489,13 @@ export const bookingsRouter = {
             {
               // Same as createBookings: access and capacity already validated in this mutation.
               overrideAccess: true,
-              context: { skipBookingSideEffects: i < lastCreationIndex },
+              context: {
+                skipBookingSideEffects: i < lastCreationIndex,
+                postBookingEmailBatch: {
+                  batchSize: additional,
+                  batchIndex: i,
+                },
+              },
             }
           );
           newBookings.push(booking as Booking);

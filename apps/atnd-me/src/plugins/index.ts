@@ -11,6 +11,8 @@ import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
 import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
 import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
+import { postBookingEmailsField } from '@/fields/postBookingEmailFields'
+import { triggerPostBookingEmailAfterChange } from '@/lib/post-booking-email/maybe-trigger-post-booking-email'
 import { searchFields } from '@/search/fieldOverrides'
 import { beforeSyncWithSearch } from '@/search/beforeSync'
 import { checkRole } from '@repo/shared-utils'
@@ -507,6 +509,7 @@ export const plugins: Plugin[] = [
             // allowedDropIn, allowedClassPasses, allowedPlans injected by @repo/bookings-payments
           ],
         },
+        postBookingEmailsField,
       ],
       hooks: ({ defaultHooks }) => {
         const d = defaultHooks as Record<string, unknown>
@@ -635,6 +638,7 @@ export const plugins: Plugin[] = [
           createDecrementClassPassHook({
             getClassPassIdToDecrement: getClassPassIdFromBookingTransaction(),
           }),
+          triggerPostBookingEmailAfterChange,
         ],
       }),
       access: ({ defaultAccess }) => ({
@@ -919,6 +923,7 @@ export const plugins: Plugin[] = [
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
       'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
+      'post-booking-email-deliveries': {}, // Post-booking email idempotency tracking
       locations: {}, // Phase 7: branches/sites per tenant; tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
       media: {}, // Tenant-scoped media uploads
