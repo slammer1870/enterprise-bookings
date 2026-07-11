@@ -339,7 +339,7 @@ export async function createTestTimeslot(
   endTime: Date,
   instructorId?: string | number,
   active: boolean = true,
-  branchId?: number,
+  branchId?: number | null,
 ): Promise<Timeslot> {
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
@@ -355,9 +355,11 @@ export async function createTestTimeslot(
   // Timeslot validation combines sibling `date` with wall-clock times in tenant TZ; UTC YYYY-MM-DD can disagree.
   const date = formatInTimeZone(startTime, 'yyyy-MM-dd', timeZone)
   const resolvedBranchId =
-    branchId != null && Number.isFinite(branchId)
-      ? branchId
-      : await resolveDefaultBranchIdForTenant(tenantIdNumber)
+    branchId === undefined
+      ? await resolveDefaultBranchIdForTenant(tenantIdNumber)
+      : branchId != null && Number.isFinite(branchId)
+        ? branchId
+        : null
 
   return (await payload.create({
     collection: 'timeslots',
