@@ -135,6 +135,7 @@ import * as migration_20260711_000003_send_post_booking_email_job_enum from './2
 import * as migration_20260711_000004_post_booking_email_cancel_support from './20260711_000004_post_booking_email_cancel_support';
 import * as migration_20260711_000005_post_booking_email_delivery_event_type_unique from './20260711_000005_post_booking_email_delivery_event_type_unique';
 import * as migration_20260711_000006_event_types_post_booking_emails_array from './20260711_000006_event_types_post_booking_emails_array';
+import * as migration_20260711_000007_post_booking_email_delivery_config_id from './20260711_000007_post_booking_email_delivery_config_id';
 
 export const migrations = [
   {
@@ -821,5 +822,10 @@ export const migrations = [
     up: migration_20260711_000006_event_types_post_booking_emails_array.up,
     down: migration_20260711_000006_event_types_post_booking_emails_array.down,
     name: '20260711_000006_event_types_post_booking_emails_array',
+  },
+  {
+    up: migration_20260711_000007_post_booking_email_delivery_config_id.up,
+    down: migration_20260711_000007_post_booking_email_delivery_config_id.down,
+    name: '20260711_000007_post_booking_email_delivery_config_id',
   },
 ];

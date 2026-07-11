@@ -1,7 +1,7 @@
 import type { PayloadRequest } from 'payload'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { POST_BOOKING_EMAIL_DELIVERIES_SLUG } from '@/collections/PostBookingEmailDeliveries'
-import { findScheduledNextDayDeliveryForEventType } from './delivery-queries'
+import { findScheduledNextDayDeliveriesForEventType } from './delivery-queries'
 import { resolveEventTypeIdFromBooking } from './resolve-event-type-post-booking-email'
 
 function relationId(value: unknown): number | null {
@@ -92,6 +92,36 @@ async function cancelPayloadJob(req: PayloadRequest, jobId: number): Promise<voi
   })
 }
 
+async function cancelScheduledDelivery(req: PayloadRequest, delivery: { id: number; payloadJobId?: number | null }) {
+  const payloadJobId =
+    typeof delivery.payloadJobId === 'number' ? delivery.payloadJobId : null
+
+  const job =
+    payloadJobId != null
+      ? { id: payloadJobId }
+      : await findPostBookingEmailJobByDeliveryId(req, delivery.id)
+
+  if (job?.id != null) {
+    try {
+      await cancelPayloadJob(req, job.id)
+    } catch (error) {
+      req.payload.logger.error(
+        `[post-booking-email] Failed to cancel job ${job.id} for delivery ${delivery.id}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  }
+
+  await req.payload.update({
+    collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+    id: delivery.id,
+    data: { status: 'cancelled' },
+    overrideAccess: true,
+    req,
+  })
+}
+
 export function isCancelledTransition({
   doc,
   previousDoc,
@@ -134,41 +164,17 @@ export async function maybeCancelScheduledPostBookingEmail({
   const resolved = await resolveEventTypeIdFromBooking(req, booking)
   if (!resolved) return
 
-  const delivery = await findScheduledNextDayDeliveryForEventType(req, {
+  const deliveries = await findScheduledNextDayDeliveriesForEventType(req, {
     userId,
     timeslotId,
     tenantId,
     eventTypeId: resolved.eventTypeId,
   })
-  if (!delivery) return
 
-  const payloadJobId =
-    typeof (delivery as { payloadJobId?: unknown }).payloadJobId === 'number'
-      ? (delivery as { payloadJobId: number }).payloadJobId
-      : null
-
-  const job =
-    payloadJobId != null
-      ? { id: payloadJobId }
-      : await findPostBookingEmailJobByDeliveryId(req, delivery.id as number)
-
-  if (job?.id != null) {
-    try {
-      await cancelPayloadJob(req, job.id)
-    } catch (error) {
-      req.payload.logger.error(
-        `[post-booking-email] Failed to cancel job ${job.id} for delivery ${delivery.id}: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      )
-    }
+  for (const delivery of deliveries) {
+    await cancelScheduledDelivery(req, {
+      id: delivery.id as number,
+      payloadJobId: (delivery as { payloadJobId?: number | null }).payloadJobId,
+    })
   }
-
-  await req.payload.update({
-    collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
-    id: delivery.id as number,
-    data: { status: 'cancelled' },
-    overrideAccess: true,
-    req,
-  })
 }

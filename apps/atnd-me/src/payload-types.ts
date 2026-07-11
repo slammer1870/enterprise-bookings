@@ -1054,7 +1054,7 @@ export interface EventType {
     allowedPlans?: (number | Plan)[] | null;
   };
   /**
-   * Send custom emails to the customer who made the booking when their booking is confirmed for this event type only. Other event types are unaffected. Timing applies per checkout — multi-seat bookings send one email, not one per seat.
+   * Add one or more emails for this event type — for example, a confirmation after every booking and a review request after the first booking in a checkout. Each email is sent to the customer who made the booking. Timing applies per checkout — multi-seat bookings send one email per configured message, not one per seat.
    */
   postBookingEmails?:
     | {
@@ -3190,6 +3190,10 @@ export interface PostBookingEmailDelivery {
   user: number | User;
   timeslot: number | Timeslot;
   eventType: number | EventType;
+  /**
+   * ID of the postBookingEmails array entry that triggered this delivery.
+   */
+  emailConfigId: string;
   sendTiming: 'after_all_bookings' | 'after_first_booking' | 'next_day_after_first_booking';
   status: 'scheduled' | 'sent' | 'cancelled';
   /**
@@ -3919,6 +3923,7 @@ export interface PostBookingEmailDeliveriesSelect<T extends boolean = true> {
   user?: T;
   timeslot?: T;
   eventType?: T;
+  emailConfigId?: T;
   sendTiming?: T;
   status?: T;
   payloadJobId?: T;

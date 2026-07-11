@@ -271,6 +271,111 @@ describe('Post-booking email integration', () => {
   )
 
   it(
+    'sends multiple configured emails with different timings in one checkout',
+    async () => {
+      sendEmailSpy.mockClear()
+
+      const multiEmailEventType = await payload.create({
+        collection: 'event-types',
+        data: {
+          name: `Multi-email Class ${Date.now()}`,
+          places: 10,
+          description: 'Test class',
+          tenant: tenantId,
+          postBookingEmails: [
+            {
+              replyTo: 'Studio <studio@example.com>',
+              subject: "We'd love your review",
+              message: testEmailMessage,
+              sendTiming: 'after_first_booking',
+            },
+            {
+              replyTo: 'Studio <studio@example.com>',
+              subject: 'Thanks for booking',
+              message: testEmailMessage,
+              sendTiming: 'after_all_bookings',
+            },
+          ],
+        },
+        overrideAccess: true,
+      })
+
+      const start = new Date()
+      start.setHours(12, 0, 0, 0)
+      const end = new Date(start)
+      end.setHours(13, 0, 0, 0)
+
+      const multiEmailTimeslot = await payload.create({
+        collection: 'timeslots',
+        data: {
+          tenant: tenantId,
+          eventType: multiEmailEventType.id,
+          date: start.toISOString().slice(0, 10),
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          lockOutTime: 0,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: multiEmailTimeslot.id,
+          user: userId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 2, batchIndex: 0 },
+        },
+        overrideAccess: true,
+      })
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: multiEmailTimeslot.id,
+          user: userId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 2, batchIndex: 1 },
+        },
+        overrideAccess: true,
+      })
+
+      for (let attempt = 0; attempt < 20 && sendEmailSpy.mock.calls.length < 2; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+
+      expect(sendEmailSpy).toHaveBeenCalledTimes(2)
+      const subjects = sendEmailSpy.mock.calls.map((call) => call[0]?.subject)
+      expect(subjects).toEqual(
+        expect.arrayContaining(["We'd love your review", 'Thanks for booking']),
+      )
+
+      const deliveries = await payload.find({
+        collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { user: { equals: userId } },
+            { timeslot: { equals: multiEmailTimeslot.id } },
+          ],
+        },
+        limit: 10,
+        overrideAccess: true,
+      })
+
+      expect(deliveries.totalDocs).toBe(2)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'cancels a scheduled next-day email when the last confirmed booking is cancelled',
     async () => {
       const nextDayEventType = await payload.create({

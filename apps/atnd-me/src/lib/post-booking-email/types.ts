@@ -6,6 +6,7 @@ export type PostBookingEmailBatchContext = {
 }
 
 export type PostBookingEmailConfig = {
+  id?: string | null
   cc?: string | null
   bcc?: string | null
   replyTo?: string | null
@@ -21,21 +22,35 @@ export type PostBookingEmailJobInput = {
   timeslotId: number
   tenantId: number
   eventTypeId: number
+  emailConfigId: string
   bookingId?: number
 }
 
-export function resolveActivePostBookingEmailConfig(
+function isValidPostBookingEmailConfig(entry: PostBookingEmailConfig | null | undefined): entry is PostBookingEmailConfig & {
+  id: string
+  subject: string
+  replyTo: string
+  sendTiming: PostBookingEmailSendTiming
+} {
+  return Boolean(
+    entry?.id &&
+      entry.subject?.trim() &&
+      entry.sendTiming &&
+      entry.replyTo?.trim(),
+  )
+}
+
+export function resolveActivePostBookingEmailConfigs(
   eventType: { postBookingEmails?: PostBookingEmailConfig[] | null },
-): PostBookingEmailConfig | null {
+): Array<PostBookingEmailConfig & { id: string; subject: string; replyTo: string; sendTiming: PostBookingEmailSendTiming }> {
   const emails = eventType.postBookingEmails
-  if (!Array.isArray(emails) || emails.length === 0) {
-    return null
-  }
+  if (!Array.isArray(emails)) return []
+  return emails.filter(isValidPostBookingEmailConfig)
+}
 
-  const entry = emails[0]
-  if (!entry?.subject?.trim() || !entry.sendTiming || !entry.replyTo?.trim()) {
-    return null
-  }
-
-  return entry
+export function resolvePostBookingEmailConfigById(
+  eventType: { postBookingEmails?: PostBookingEmailConfig[] | null },
+  emailConfigId: string,
+): (PostBookingEmailConfig & { id: string; subject: string; replyTo: string; sendTiming: PostBookingEmailSendTiming }) | null {
+  return resolveActivePostBookingEmailConfigs(eventType).find((entry) => entry.id === emailConfigId) ?? null
 }

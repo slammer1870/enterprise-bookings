@@ -74,9 +74,8 @@ export const postBookingEmailsField = buildFormStyleEmailsField({
   name: 'postBookingEmails',
   label: 'Post-booking emails',
   description:
-    'Send custom emails to the customer who made the booking when their booking is confirmed for this event type only. Other event types are unaffected. Timing applies per checkout — multi-seat bookings send one email, not one per seat.',
+    'Add one or more emails for this event type — for example, a confirmation after every booking and a review request after the first booking in a checkout. Each email is sent to the customer who made the booking. Timing applies per checkout — multi-seat bookings send one email per configured message, not one per seat.',
   recipientFields: postBookingEmailRecipientRowField,
   senderFields: postBookingEmailSenderRowField,
   additionalFields: [postBookingEmailSendTimingField],
-  maxRows: 1,
 })

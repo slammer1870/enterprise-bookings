@@ -11,8 +11,9 @@ import {
 } from './cancel-scheduled-post-booking-email'
 import { findExistingPostBookingEmailDelivery } from './delivery-queries'
 import { resolveNextDay9am } from './resolve-send-time'
-import { resolveEventTypePostBookingEmailForBooking } from './resolve-event-type-post-booking-email'
+import { resolveEventTypePostBookingEmailsForBooking } from './resolve-event-type-post-booking-email'
 import { sendPostBookingEmail } from './send-post-booking-email'
+import type { PostBookingEmailConfig } from './types'
 import { resolveTimeslotTimeZone } from '@repo/shared-utils'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
@@ -60,6 +61,7 @@ async function createDeliveryRecord(
     userId: number
     timeslotId: number
     eventTypeId: number
+    emailConfigId: string
     sendTiming: PostBookingEmailSendTiming
     status: 'scheduled' | 'sent'
     scheduledFor?: string
@@ -74,6 +76,7 @@ async function createDeliveryRecord(
       user: data.userId,
       timeslot: data.timeslotId,
       eventType: data.eventTypeId,
+      emailConfigId: data.emailConfigId,
       sendTiming: data.sendTiming,
       status: data.status,
       ...(data.scheduledFor ? { scheduledFor: data.scheduledFor } : {}),
@@ -85,36 +88,31 @@ async function createDeliveryRecord(
   })
 }
 
-export async function maybeTriggerPostBookingEmail({
+async function maybeTriggerSinglePostBookingEmail({
   req,
   booking,
   batchContext,
+  eventTypeId,
+  timeslotId,
+  tenantId,
+  userId,
+  user,
+  config,
 }: {
   req: PayloadRequest
-  booking: {
-    id: number
-    status?: string
-    user?: unknown
-    timeslot?: unknown
-    tenant?: unknown
-  }
+  booking: { id: number }
   batchContext: ReturnType<typeof resolvePostBookingEmailBatchContext>
-}): Promise<void> {
-  const timeslotId = relationId(booking.timeslot)
-  const userId = relationId(booking.user)
-  const tenantId = relationId(booking.tenant)
-
-  if (timeslotId == null || userId == null || tenantId == null) {
-    return
+  eventTypeId: number
+  timeslotId: number
+  tenantId: number
+  userId: number
+  user: unknown
+  config: PostBookingEmailConfig & {
+    id: string
+    sendTiming: PostBookingEmailSendTiming
   }
-
-  const resolved = await resolveEventTypePostBookingEmailForBooking(req, booking)
-  if (!resolved) return
-
-  const { eventTypeId, config } = resolved
-  const sendTiming = config.sendTiming as PostBookingEmailSendTiming
-  if (!sendTiming) return
-
+}): Promise<void> {
+  const sendTiming = config.sendTiming
   if (!shouldTriggerPostBookingEmailForBatch(sendTiming, batchContext)) {
     return
   }
@@ -124,28 +122,17 @@ export async function maybeTriggerPostBookingEmail({
     userId,
     timeslotId,
     eventTypeId,
-    sendTiming,
+    emailConfigId: config.id,
   })
   if (existing) return
 
-  const timeslot = await req.payload.findByID({
-    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
-    id: timeslotId,
-    depth: 1,
-    overrideAccess: true,
-  })
-
-  const user =
-    booking.user && typeof booking.user === 'object'
-      ? booking.user
-      : await req.payload.findByID({
-          collection: 'users',
-          id: userId,
-          depth: 0,
-          overrideAccess: true,
-        })
-
   if (sendTiming === 'next_day_after_first_booking') {
+    const timeslot = await req.payload.findByID({
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      id: timeslotId,
+      depth: 1,
+      overrideAccess: true,
+    })
     const timeZone = resolveTimeslotTimeZone(timeslot as Parameters<typeof resolveTimeslotTimeZone>[0])
     const scheduledFor = resolveNextDay9am(new Date(), timeZone).toISOString()
 
@@ -154,6 +141,7 @@ export async function maybeTriggerPostBookingEmail({
       userId,
       timeslotId,
       eventTypeId,
+      emailConfigId: config.id,
       sendTiming,
       status: 'scheduled',
       scheduledFor,
@@ -168,6 +156,7 @@ export async function maybeTriggerPostBookingEmail({
         timeslotId,
         tenantId,
         eventTypeId,
+        emailConfigId: config.id,
         bookingId: booking.id,
       },
       waitUntil: new Date(scheduledFor),
@@ -199,6 +188,7 @@ export async function maybeTriggerPostBookingEmail({
     userId,
     timeslotId,
     eventTypeId,
+    emailConfigId: config.id,
     sendTiming,
     status: 'scheduled',
     bookingId: booking.id,
@@ -235,6 +225,57 @@ export async function maybeTriggerPostBookingEmail({
       }
     })()
   })
+}
+
+export async function maybeTriggerPostBookingEmail({
+  req,
+  booking,
+  batchContext,
+}: {
+  req: PayloadRequest
+  booking: {
+    id: number
+    status?: string
+    user?: unknown
+    timeslot?: unknown
+    tenant?: unknown
+  }
+  batchContext: ReturnType<typeof resolvePostBookingEmailBatchContext>
+}): Promise<void> {
+  const timeslotId = relationId(booking.timeslot)
+  const userId = relationId(booking.user)
+  const tenantId = relationId(booking.tenant)
+
+  if (timeslotId == null || userId == null || tenantId == null) {
+    return
+  }
+
+  const resolved = await resolveEventTypePostBookingEmailsForBooking(req, booking)
+  if (!resolved) return
+
+  const user =
+    booking.user && typeof booking.user === 'object'
+      ? booking.user
+      : await req.payload.findByID({
+          collection: 'users',
+          id: userId,
+          depth: 0,
+          overrideAccess: true,
+        })
+
+  for (const config of resolved.configs) {
+    await maybeTriggerSinglePostBookingEmail({
+      req,
+      booking,
+      batchContext,
+      eventTypeId: resolved.eventTypeId,
+      timeslotId,
+      tenantId,
+      userId,
+      user,
+      config,
+    })
+  }
 }
 
 export const triggerPostBookingEmailAfterChange: CollectionAfterChangeHook = async ({

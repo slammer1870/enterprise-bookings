@@ -1,6 +1,5 @@
 import type { PayloadRequest } from 'payload'
 import { POST_BOOKING_EMAIL_DELIVERIES_SLUG } from '@/collections/PostBookingEmailDeliveries'
-import type { PostBookingEmailSendTiming } from '@/fields/postBookingEmailFields'
 
 export async function findExistingPostBookingEmailDelivery(
   req: PayloadRequest,
@@ -9,7 +8,7 @@ export async function findExistingPostBookingEmailDelivery(
     userId: number
     timeslotId: number
     eventTypeId: number
-    sendTiming: PostBookingEmailSendTiming
+    emailConfigId: string
   },
 ) {
   const existing = await req.payload.find({
@@ -20,7 +19,7 @@ export async function findExistingPostBookingEmailDelivery(
         { user: { equals: key.userId } },
         { timeslot: { equals: key.timeslotId } },
         { eventType: { equals: key.eventTypeId } },
-        { sendTiming: { equals: key.sendTiming } },
+        { emailConfigId: { equals: key.emailConfigId } },
         { status: { in: ['scheduled', 'sent'] } },
       ],
     },
@@ -31,7 +30,7 @@ export async function findExistingPostBookingEmailDelivery(
   return existing.docs[0] ?? null
 }
 
-export async function findScheduledNextDayDeliveryForEventType(
+export async function findScheduledNextDayDeliveriesForEventType(
   req: PayloadRequest,
   key: {
     userId: number
@@ -52,9 +51,9 @@ export async function findScheduledNextDayDeliveryForEventType(
         { status: { equals: 'scheduled' } },
       ],
     },
-    limit: 1,
+    limit: 50,
     depth: 0,
     overrideAccess: true,
   })
-  return result.docs[0] ?? null
+  return result.docs
 }

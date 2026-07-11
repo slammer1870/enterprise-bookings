@@ -26,7 +26,7 @@ export const PostBookingEmailDeliveries: CollectionConfig = {
   },
   indexes: [
     {
-      fields: ['tenant', 'user', 'timeslot', 'eventType', 'sendTiming'],
+      fields: ['tenant', 'user', 'timeslot', 'eventType', 'emailConfigId'],
       unique: true,
     },
   ],
@@ -50,6 +50,15 @@ export const PostBookingEmailDeliveries: CollectionConfig = {
       type: 'relationship',
       relationTo: 'event-types',
       required: true,
+    },
+    {
+      name: 'emailConfigId',
+      type: 'text',
+      required: true,
+      admin: {
+        readOnly: true,
+        description: 'ID of the postBookingEmails array entry that triggered this delivery.',
+      },
     },
     {
       name: 'sendTiming',

@@ -3,11 +3,11 @@ import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collecti
 import { POST_BOOKING_EMAIL_DELIVERIES_SLUG } from '@/collections/PostBookingEmailDeliveries'
 import { sendPostBookingEmail } from '@/lib/post-booking-email/send-post-booking-email'
 import type { PostBookingEmailConfig, PostBookingEmailJobInput } from '@/lib/post-booking-email/types'
-import { resolveActivePostBookingEmailConfig } from '@/lib/post-booking-email/types'
+import { resolvePostBookingEmailConfigById } from '@/lib/post-booking-email/types'
 
 export const sendPostBookingEmailTask: TaskHandler<'sendPostBookingEmail'> = async ({ input, req }) => {
   const jobInput = input as PostBookingEmailJobInput
-  const { deliveryId, userId, bookingId } = jobInput
+  const { deliveryId, userId, bookingId, emailConfigId } = jobInput
 
   const delivery = await req.payload.findByID({
     collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
@@ -47,8 +47,9 @@ export const sendPostBookingEmailTask: TaskHandler<'sendPostBookingEmail'> = asy
     overrideAccess: true,
   })
 
-  const config = resolveActivePostBookingEmailConfig(
+  const config = resolvePostBookingEmailConfigById(
     eventType as { postBookingEmails?: PostBookingEmailConfig[] | null },
+    emailConfigId,
   )
   if (!config) {
     return { output: { skipped: true, reason: 'email_disabled' } }
