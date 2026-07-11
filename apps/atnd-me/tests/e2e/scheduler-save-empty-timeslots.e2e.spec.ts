@@ -3,9 +3,12 @@ import { loginAsSuperAdmin, BASE_URL } from './helpers/auth-helpers'
 import { createTestEventType } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 import {
+  addTimeSlotToSchedulerDay,
   countTimeSlotRowsInDayUI,
-  createSchedulerWithMondaySlot,
+  createSchedulerWithEmptyWeek,
   deleteSchedulersForTenant,
+  fillSchedulerTimeSlotTimes,
+  getSchedulerDayBlock,
   getSchedulerTimeSlotCountFromDB,
   saveSchedulerAndWait,
   setPayloadTenantCookies,
@@ -24,16 +27,14 @@ async function ensureSidebarOpen(page: import('@playwright/test').Page) {
   await tenantSelector.waitFor({ state: 'visible', timeout: 20_000 })
 }
 
-function scheduleTemplateIso(referenceDay: Date, hour: number, minute: number): string {
-  const base = new Date(referenceDay)
-  base.setHours(0, 0, 0, 0)
-  return new Date(base.getTime() + hour * 60 * 60 * 1000 + minute * 60 * 1000).toISOString()
-}
-
 test.describe('Scheduler save empty timeslots regression', () => {
   test.setTimeout(e2eSlowTestTimeout(240_000, 180_000))
 
-  test('does not add phantom empty timeSlot rows after save', async ({ page, request, testData }) => {
+  test('does not add phantom empty timeSlot row below newly added slot after save', async ({
+    page,
+    request,
+    testData,
+  }) => {
     const tenant = testData.tenants[2]
     const location = testData.tenant3Location
 
@@ -59,9 +60,6 @@ test.describe('Scheduler save empty timeslots regression', () => {
       testData.workerIndex,
     )
 
-    const mondayStartIso = scheduleTemplateIso(startDate, 10, 0)
-    const mondayEndIso = scheduleTemplateIso(startDate, 11, 0)
-
     await loginAsSuperAdmin(page, testData.users.superAdmin.email, { request })
     await page.goto(`${BASE_URL}/admin`, { waitUntil: 'load' })
     await ensureSidebarOpen(page)
@@ -69,7 +67,7 @@ test.describe('Scheduler save empty timeslots regression', () => {
     await page.reload({ waitUntil: 'load' })
     await ensureSidebarOpen(page)
 
-    const schedulerId = await createSchedulerWithMondaySlot(page, {
+    const schedulerId = await createSchedulerWithEmptyWeek(page, {
       email: testData.users.superAdmin.email,
       password: 'password',
       tenantId: Number(tenant.id),
@@ -77,8 +75,6 @@ test.describe('Scheduler save empty timeslots regression', () => {
       startDate,
       endDate,
       eventTypeId: Number(eventType.id),
-      mondayStartIso,
-      mondayEndIso,
     })
 
     await page.goto(`/admin/collections/scheduler/${schedulerId}`, {
@@ -90,49 +86,53 @@ test.describe('Scheduler save empty timeslots regression', () => {
       timeout: process.env.CI ? 60_000 : 30_000,
     })
 
-    const mondayDbIndex = 0
-    const emptyDayName = 'Tuesday'
-    const emptyDayDbIndex = 1
+    const targetDayName = 'Tuesday'
+    const targetDayDbIndex = 1
 
-    const mondayDbCount = await getSchedulerTimeSlotCountFromDB(schedulerId, mondayDbIndex)
-    expect(mondayDbCount).toBe(1)
+    expect(await getSchedulerTimeSlotCountFromDB(schedulerId, targetDayDbIndex)).toBe(0)
 
-    const emptyDayDbCount = await getSchedulerTimeSlotCountFromDB(schedulerId, emptyDayDbIndex)
-    expect(emptyDayDbCount).toBe(0)
+    await addTimeSlotToSchedulerDay(page, targetDayName)
+    await fillSchedulerTimeSlotTimes(page, targetDayName, 0, {
+      startLabels: ['14:00', '2:00 PM', '14:00:00'],
+      endLabels: ['15:00', '3:00 PM', '15:00:00'],
+    })
 
-    const baselineEmptyDayUiCount = await countTimeSlotRowsInDayUI(page, emptyDayName)
+    const uiCountBeforeSave = await countTimeSlotRowsInDayUI(page, targetDayName)
+    expect(uiCountBeforeSave).toBe(1)
 
     await saveSchedulerAndWait(page, schedulerId)
 
-    // Allow afterChange + generation job kickoff to complete.
-    await page.waitForTimeout(3000)
+    // Allow afterChange + generation job kickoff and form re-sync to complete.
+    await expect
+      .poll(async () => countTimeSlotRowsInDayUI(page, targetDayName), {
+        timeout: process.env.CI ? 30_000 : 15_000,
+      })
+      .toBe(1)
 
-    const uiCountAfterSave = await countTimeSlotRowsInDayUI(page, emptyDayName)
-    expect(uiCountAfterSave).toBe(baselineEmptyDayUiCount)
+    const uiCountAfterSave = await countTimeSlotRowsInDayUI(page, targetDayName)
+    expect(uiCountAfterSave).toBe(1)
 
-    const dbCountAfterSave = await getSchedulerTimeSlotCountFromDB(schedulerId, emptyDayDbIndex)
-    expect(dbCountAfterSave).toBe(0)
+    const dbCountAfterSave = await getSchedulerTimeSlotCountFromDB(schedulerId, targetDayDbIndex)
+    expect(dbCountAfterSave).toBe(1)
 
-    if (uiCountAfterSave > baselineEmptyDayUiCount) {
-      const removeButtons = page
-        .getByText(emptyDayName, { exact: true })
-        .locator('xpath=ancestor::*[count(.//*[@role="listitem"]) > 0][1]')
-        .getByRole('button', { name: /^Remove$/i })
+    if (uiCountAfterSave > 1) {
+      const dayBlock = await getSchedulerDayBlock(page, targetDayName)
+      const removeButtons = dayBlock.getByRole('button', { name: /^Remove$/i })
       const removeCount = await removeButtons.count()
       for (let i = removeCount - 1; i >= 0; i -= 1) {
         await removeButtons.nth(i).click()
         await page.waitForTimeout(300)
       }
       await page.waitForTimeout(1000)
-      const uiCountAfterRemove = await countTimeSlotRowsInDayUI(page, emptyDayName)
-      expect(uiCountAfterRemove).toBe(baselineEmptyDayUiCount)
+      const uiCountAfterRemove = await countTimeSlotRowsInDayUI(page, targetDayName)
+      expect(uiCountAfterRemove).toBe(1)
     }
 
     await page.reload({ waitUntil: 'domcontentloaded' })
     await expect(page.getByRole('heading', { name: 'Days', exact: true })).toBeVisible({
       timeout: process.env.CI ? 60_000 : 30_000,
     })
-    const uiCountAfterReload = await countTimeSlotRowsInDayUI(page, emptyDayName)
-    expect(uiCountAfterReload).toBe(baselineEmptyDayUiCount)
+    const uiCountAfterReload = await countTimeSlotRowsInDayUI(page, targetDayName)
+    expect(uiCountAfterReload).toBe(1)
   })
 })

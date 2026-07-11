@@ -390,6 +390,15 @@ export const Scheduler: CollectionConfig = {
     },
     fields: [
         {
+            name: 'timeSlotFormCleanup',
+            type: 'ui',
+            admin: {
+                components: {
+                    Field: '@/components/admin/SchedulerTimeSlotFormCleanup#SchedulerTimeSlotFormCleanup',
+                },
+            },
+        },
+        {
             name: 'generationStatus',
             type: 'ui',
             admin: {
