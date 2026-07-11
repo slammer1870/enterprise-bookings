@@ -6,6 +6,9 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User, Tenant } from '@repo/shared-types'
 import { PAYLOAD_LOCATION_COOKIE } from '@/utilities/tenantRequest'
+import { createTRPCContext } from '@repo/trpc'
+import { appRouter } from '@repo/trpc'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -312,6 +315,60 @@ describe('timeslotsRead branch filter (payload-location)', () => {
       })
 
       expect(doc.id).toBe(timeslotBranchB)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'findByID succeeds for another tenant timeslot when admin cookie is home tenant and skipAdminBranchFilter is set',
+    async () => {
+      const req = adminReqWithCookies(payload, orgAdmin, {
+        'payload-tenant': String(tenantT.id),
+      })
+      ;(req as { context?: Record<string, unknown> }).context = {
+        tenant: tenantOther.id,
+        skipAdminBranchFilter: true,
+      }
+
+      const doc = await payload.findByID({
+        collection: 'timeslots',
+        id: timeslotOtherTenant,
+        req: req as any,
+        overrideAccess: false,
+      })
+
+      expect(doc.id).toBe(timeslotOtherTenant)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'getByIdForBooking succeeds for another tenant when admin has stale payload-tenant cookie from home tenant',
+    async () => {
+      const headers = new Headers()
+      headers.set(
+        'cookie',
+        `tenant-slug=${tenantOther.slug}; payload-tenant=${tenantT.id}`,
+      )
+      headers.set('host', `${tenantOther.slug}.localhost:3000`)
+
+      const ctx = await createTRPCContext({
+        headers,
+        payload,
+        user: orgAdmin,
+        hostOverride: `${tenantOther.slug}.localhost:3000`,
+        bookingsCollectionSlugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
+      })
+
+      const caller = appRouter.createCaller(ctx)
+      const timeslot = await caller.timeslots.getByIdForBooking({ id: timeslotOtherTenant })
+
+      expect(timeslot.id).toBe(timeslotOtherTenant)
+      const tenantId =
+        typeof timeslot.tenant === 'object' && timeslot.tenant !== null
+          ? timeslot.tenant.id
+          : timeslot.tenant
+      expect(tenantId).toBe(tenantOther.id)
     },
     TEST_TIMEOUT,
   )

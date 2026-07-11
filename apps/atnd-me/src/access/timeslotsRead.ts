@@ -27,6 +27,24 @@ function shouldApplyAdminBranchFilter(req: PayloadRequest): boolean {
   return ctx?.[PAYLOAD_CTX_SKIP_ADMIN_BRANCH_FILTER] !== true
 }
 
+function normalizeContextTenantId(contextTenant: unknown): number | null {
+  if (typeof contextTenant === 'number' && Number.isFinite(contextTenant)) return contextTenant
+  if (typeof contextTenant === 'string' && /^\d+$/.test(contextTenant)) return parseInt(contextTenant, 10)
+  if (typeof contextTenant === 'object' && contextTenant !== null && 'id' in contextTenant) {
+    const id = (contextTenant as { id?: unknown }).id
+    if (typeof id === 'number' && Number.isFinite(id)) return id
+    if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  }
+  return null
+}
+
+/** Public booking reads reconcile `context.tenant` from host/timeslot; scope reads to that tenant. */
+function whereForPublicBookingTenant(context: Record<string, unknown> | undefined): Where | null {
+  const tenantId = normalizeContextTenantId(context?.tenant)
+  if (tenantId == null) return null
+  return { tenant: { equals: tenantId } } as Where
+}
+
 function tenantAdminCookieSource(req: PayloadRequest): { cookies?: { get: (name: string) => { value?: string } | undefined } } {
   const typedReq = req as PayloadRequest & {
     cookies?: { get: (name: string) => { value?: string } | undefined }
@@ -261,7 +279,9 @@ export const timeslotsRead: Access = async (args) => {
     const cookieSrc = tenantAdminCookieSource(args.req)
     const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
     const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
-    const cacheKey = `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+    const cacheKey = shouldApplyAdminBranchFilter(args.req)
+      ? `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+      : `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:public-booking:${normalizeContextTenantId(ctx.tenant) ?? 'none'}`
 
     const cached = ctx[cacheKey]
     if (cached !== undefined) {
@@ -280,6 +300,11 @@ export const timeslotsRead: Access = async (args) => {
           selectedTenantId,
           selectedBranchId,
         })
+      }
+
+      const publicBookingWhere = whereForPublicBookingTenant(ctx)
+      if (publicBookingWhere) {
+        return publicBookingWhere
       }
 
       return resolveTenantAdminReadConstraint({ req: args.req as any })
@@ -307,7 +332,8 @@ export const timeslotsRead: Access = async (args) => {
 
     const lmConstraint = shouldApplyAdminBranchFilter(args.req)
       ? await whereForPureLocationManagerTimeslots(args.req)
-      : await resolveTenantAdminReadConstraint({ req: args.req as any })
+      : whereForPublicBookingTenant(args.req.context as Record<string, unknown> | undefined) ??
+        (await resolveTenantAdminReadConstraint({ req: args.req as any }))
     ctx[cacheKey] = lmConstraint
     return lmConstraint as unknown as boolean | Where
   }
