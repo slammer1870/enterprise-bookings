@@ -1,6 +1,7 @@
 'use client'
 
 import type { ReceiptData } from '@/lib/receipt/get-receipt-data'
+import { formatDateInTimeZone, formatInTimeZone } from '@repo/shared-utils/timezone'
 import {
   Card,
   CardContent,
@@ -10,27 +11,33 @@ import {
 } from '@repo/ui/components/ui/card'
 
 export function SuccessReceipt({ receipt }: { receipt: ReceiptData }) {
-  const { timeslot, bookingCount, amountPaidCents, currency, paymentMethod } = receipt
+  const { timeslot, timeZone, bookingCount, amountPaidCents, currency, paymentMethod } = receipt
 
   const formatAmount = (cents: number) => {
     const amount = (cents / 100).toFixed(2)
     return currency.toUpperCase() === 'EUR' ? `€${amount}` : `${amount} ${currency.toUpperCase()}`
   }
 
-  const formatDate = (dateStr: string, startTime: string, endTime: string) => {
-    try {
-      const d = new Date(dateStr)
-      const dateFormatted = d.toLocaleDateString(undefined, {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-      return `${dateFormatted} · ${startTime} – ${endTime}`
-    } catch {
-      return `${dateStr} · ${startTime} – ${endTime}`
-    }
+  const formatDate = (startTime: string, endTime: string) => {
+    const dateFormatted = formatDateInTimeZone(startTime, 'en-IE', timeZone, {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
+    const start = formatInTimeZone(startTime, 'HH:mm', timeZone)
+    const end = formatInTimeZone(endTime, 'HH:mm', timeZone)
+    return `${dateFormatted} · ${start} – ${end}`
   }
+
+  const paymentLabel =
+    paymentMethod === 'stripe'
+      ? 'card'
+      : paymentMethod === 'class_pass'
+        ? 'class pass'
+        : paymentMethod === 'subscription'
+          ? 'membership'
+          : paymentMethod.replace(/_/g, ' ')
 
   return (
     <Card>
@@ -44,7 +51,7 @@ export function SuccessReceipt({ receipt }: { receipt: ReceiptData }) {
             <p className="text-sm font-medium text-muted-foreground">Class</p>
             <p className="font-medium">{timeslot.className}</p>
             <p className="text-sm text-muted-foreground">
-              {formatDate(timeslot.date, timeslot.startTime, timeslot.endTime)}
+              {formatDate(timeslot.startTime, timeslot.endTime)}
             </p>
           </div>
         )}
@@ -60,9 +67,7 @@ export function SuccessReceipt({ receipt }: { receipt: ReceiptData }) {
           <div>
             <p className="text-sm font-medium text-muted-foreground">Amount paid</p>
             <p className="font-medium">{formatAmount(amountPaidCents)}</p>
-            <p className="text-xs text-muted-foreground capitalize">
-              Paid via {paymentMethod === 'stripe' ? 'card' : paymentMethod.replace('_', ' ')}
-            </p>
+            <p className="text-xs text-muted-foreground capitalize">Paid via {paymentLabel}</p>
           </div>
         )}
 
@@ -70,6 +75,13 @@ export function SuccessReceipt({ receipt }: { receipt: ReceiptData }) {
           <div>
             <p className="text-sm font-medium text-muted-foreground">Payment</p>
             <p className="text-sm">Pay at door</p>
+          </div>
+        )}
+
+        {paymentMethod !== 'pay_at_door' && (amountPaidCents == null || amountPaidCents === 0) && (
+          <div>
+            <p className="text-sm font-medium text-muted-foreground">Payment</p>
+            <p className="text-sm capitalize">Paid via {paymentLabel}</p>
           </div>
         )}
       </CardContent>
