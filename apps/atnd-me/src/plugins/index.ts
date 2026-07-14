@@ -97,6 +97,9 @@ import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { sortAdminNavGroupsPlugin } from './sort-admin-nav-groups'
+import { userDataImportExportPlugin } from './import-export'
+import { tenantScopedExportJobsPlugin } from './tenant-scoped-export-jobs'
+import { disableSensitiveUserExportFields } from './disable-sensitive-user-export-fields'
 
 const generateTitle: GenerateTitle<Post | Page> = ({ doc }) => {
   return doc?.title ? `${doc.title} | ATND` : 'ATND'
@@ -411,6 +414,8 @@ export const plugins: Plugin[] = [
   fixBetterAuthTimestamps(),
   // Restrict who can edit the Better Auth `role` field (RBAC lives on `role` only).
   fixBetterAuthRoleField(),
+  // Exclude credential/session secrets from import-export output.
+  disableSensitiveUserExportFields(),
   // Must run after fixBetterAuthRoleField and all other plugins so the
   // afterRead hooks aren't dropped again by a later plugin pass.
   fixBetterAuthAfterReadHooks(),
@@ -1033,6 +1038,9 @@ export const plugins: Plugin[] = [
       },
     }
   },
+  // User data export — after multi-tenant access rules are applied.
+  userDataImportExportPlugin(),
+  tenantScopedExportJobsPlugin(),
   // Must run last so all plugin-added collections/globals get explicit groups and sort order.
   sortAdminNavGroupsPlugin(),
 ]
