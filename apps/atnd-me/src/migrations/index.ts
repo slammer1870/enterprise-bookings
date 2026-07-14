@@ -1,5 +1,3 @@
-import * as migration_20260527_000001_tenants_apex_domain from './20260527_000001_tenants_apex_domain';
-import * as migration_20260602_180000_simple_about_block_tables from './20260602_180000_simple_about_block_tables';
 import * as migration_20260120_171611 from './20260120_171611';
 import * as migration_20260120_200612 from './20260120_200612';
 import * as migration_20260121_111436 from './20260121_111436';
@@ -107,18 +105,27 @@ import * as migration_20260507_000002_class_pass_types_max_bookings_default_null
 import * as migration_20260512_000001_discount_codes_skip_sync from './20260512_000001_discount_codes_skip_sync';
 import * as migration_20260512_120001_locations_branch_collection from './20260512_120001_locations_branch_collection';
 import * as migration_20260513_000001_timeslots_branch_id from './20260513_000001_timeslots_branch_id';
-import * as migration_20260612_phase7_users_locations_location_manager_role from './20260612_phase7_users_locations_location_manager_role';
-import * as migration_20260613_scheduler_branch_id from './20260613_scheduler_branch_id';
-import * as migration_20260614_scheduler_multi_location from './20260614_scheduler_multi_location';
-import * as migration_20260614_schedule_block_default_location from './20260614_schedule_block_default_location';
-import * as migration_20260615_locations_default_for_schedule from './20260615_locations_default_for_schedule';
-import * as migration_20260618_000001_plans_footer_text from './20260618_000001_plans_footer_text';
-import * as migration_20260526_000001_class_pass_types_drop_slug from './20260526_000001_class_pass_types_drop_slug';
-import * as migration_20260622_000001_class_passes_drop_price from './20260622_000001_class_passes_drop_price';
 import * as migration_20260522_drop_drop_ins_payment_methods from './20260522_drop_drop_ins_payment_methods';
-import * as migration_20260523_tenants_booking_theme from './20260523_tenants_booking_theme';
 import * as migration_20260523_000002_booking_checkout_holds from './20260523_000002_booking_checkout_holds';
 import * as migration_20260523_000003_booking_checkout_holds_lock_rels from './20260523_000003_booking_checkout_holds_lock_rels';
+import * as migration_20260523_tenants_booking_theme from './20260523_tenants_booking_theme';
+import * as migration_20260526_000001_class_pass_types_drop_slug from './20260526_000001_class_pass_types_drop_slug';
+import * as migration_20260527_000001_tenants_apex_domain from './20260527_000001_tenants_apex_domain';
+import * as migration_20260602_180000_simple_about_block_tables from './20260602_180000_simple_about_block_tables';
+import * as migration_20260608_tenants_checkout_legal from './20260608_tenants_checkout_legal';
+import * as migration_20260610_repair_tenants_checkout_legal_documents from './20260610_repair_tenants_checkout_legal_documents';
+import * as migration_20260612_phase7_users_locations_location_manager_role from './20260612_phase7_users_locations_location_manager_role';
+import * as migration_20260613_scheduler_branch_id from './20260613_scheduler_branch_id';
+import * as migration_20260614_schedule_block_default_location from './20260614_schedule_block_default_location';
+import * as migration_20260614_scheduler_multi_location from './20260614_scheduler_multi_location';
+import * as migration_20260615_140000_scheduler_generation_progress from './20260615_140000_scheduler_generation_progress';
+import * as migration_20260615_ensure_production_schema_repairs from './20260615_ensure_production_schema_repairs';
+import * as migration_20260615_locations_default_for_schedule from './20260615_locations_default_for_schedule';
+import * as migration_20260617_090000_booking_transactions_booking_id_fk_cascade from './20260617_090000_booking_transactions_booking_id_fk_cascade';
+import * as migration_20260617_102500_scheduler_title_default from './20260617_102500_scheduler_title_default';
+import * as migration_20260618_000001_plans_footer_text from './20260618_000001_plans_footer_text';
+import * as migration_20260622_000001_class_passes_drop_price from './20260622_000001_class_passes_drop_price';
+import * as migration_20260623_scheduler_last_generation_job_id from './20260623_scheduler_last_generation_job_id';
 import * as migration_20260624_000001_users_tenant_roles from './20260624_000001_users_tenant_roles';
 import * as migration_20260625_000001_create_users_tenants_roles from './20260625_000001_create_users_tenants_roles';
 import * as migration_20260709_000001_hw_hero_services_block from './20260709_000001_hw_hero_services_block';
@@ -136,6 +143,7 @@ import * as migration_20260711_000004_post_booking_email_cancel_support from './
 import * as migration_20260711_000005_post_booking_email_delivery_event_type_unique from './20260711_000005_post_booking_email_delivery_event_type_unique';
 import * as migration_20260711_000006_event_types_post_booking_emails_array from './20260711_000006_event_types_post_booking_emails_array';
 import * as migration_20260711_000007_post_booking_email_delivery_config_id from './20260711_000007_post_booking_email_delivery_config_id';
+import * as migration_20260714_113446 from './20260714_113446';
 
 export const migrations = [
   {
@@ -674,54 +682,9 @@ export const migrations = [
     name: '20260513_000001_timeslots_branch_id',
   },
   {
-    up: migration_20260612_phase7_users_locations_location_manager_role.up,
-    down: migration_20260612_phase7_users_locations_location_manager_role.down,
-    name: '20260612_phase7_users_locations_location_manager_role',
-  },
-  {
-    up: migration_20260613_scheduler_branch_id.up,
-    down: migration_20260613_scheduler_branch_id.down,
-    name: '20260613_scheduler_branch_id',
-  },
-  {
-    up: migration_20260614_scheduler_multi_location.up,
-    down: migration_20260614_scheduler_multi_location.down,
-    name: '20260614_scheduler_multi_location',
-  },
-  {
-    up: migration_20260614_schedule_block_default_location.up,
-    down: migration_20260614_schedule_block_default_location.down,
-    name: '20260614_schedule_block_default_location',
-  },
-  {
-    up: migration_20260615_locations_default_for_schedule.up,
-    down: migration_20260615_locations_default_for_schedule.down,
-    name: '20260615_locations_default_for_schedule',
-  },
-  {
-    up: migration_20260618_000001_plans_footer_text.up,
-    down: migration_20260618_000001_plans_footer_text.down,
-    name: '20260618_000001_plans_footer_text',
-  },
-  {
-    up: migration_20260526_000001_class_pass_types_drop_slug.up,
-    down: migration_20260526_000001_class_pass_types_drop_slug.down,
-    name: '20260526_000001_class_pass_types_drop_slug',
-  },
-  {
-    up: migration_20260622_000001_class_passes_drop_price.up,
-    down: migration_20260622_000001_class_passes_drop_price.down,
-    name: '20260622_000001_class_passes_drop_price',
-  },
-  {
     up: migration_20260522_drop_drop_ins_payment_methods.up,
     down: migration_20260522_drop_drop_ins_payment_methods.down,
     name: '20260522_drop_drop_ins_payment_methods',
-  },
-  {
-    up: migration_20260523_tenants_booking_theme.up,
-    down: migration_20260523_tenants_booking_theme.down,
-    name: '20260523_tenants_booking_theme',
   },
   {
     up: migration_20260523_000002_booking_checkout_holds.up,
@@ -734,6 +697,16 @@ export const migrations = [
     name: '20260523_000003_booking_checkout_holds_lock_rels',
   },
   {
+    up: migration_20260523_tenants_booking_theme.up,
+    down: migration_20260523_tenants_booking_theme.down,
+    name: '20260523_tenants_booking_theme',
+  },
+  {
+    up: migration_20260526_000001_class_pass_types_drop_slug.up,
+    down: migration_20260526_000001_class_pass_types_drop_slug.down,
+    name: '20260526_000001_class_pass_types_drop_slug',
+  },
+  {
     up: migration_20260527_000001_tenants_apex_domain.up,
     down: migration_20260527_000001_tenants_apex_domain.down,
     name: '20260527_000001_tenants_apex_domain',
@@ -742,6 +715,76 @@ export const migrations = [
     up: migration_20260602_180000_simple_about_block_tables.up,
     down: migration_20260602_180000_simple_about_block_tables.down,
     name: '20260602_180000_simple_about_block_tables',
+  },
+  {
+    up: migration_20260608_tenants_checkout_legal.up,
+    down: migration_20260608_tenants_checkout_legal.down,
+    name: '20260608_tenants_checkout_legal',
+  },
+  {
+    up: migration_20260610_repair_tenants_checkout_legal_documents.up,
+    down: migration_20260610_repair_tenants_checkout_legal_documents.down,
+    name: '20260610_repair_tenants_checkout_legal_documents',
+  },
+  {
+    up: migration_20260612_phase7_users_locations_location_manager_role.up,
+    down: migration_20260612_phase7_users_locations_location_manager_role.down,
+    name: '20260612_phase7_users_locations_location_manager_role',
+  },
+  {
+    up: migration_20260613_scheduler_branch_id.up,
+    down: migration_20260613_scheduler_branch_id.down,
+    name: '20260613_scheduler_branch_id',
+  },
+  {
+    up: migration_20260614_schedule_block_default_location.up,
+    down: migration_20260614_schedule_block_default_location.down,
+    name: '20260614_schedule_block_default_location',
+  },
+  {
+    up: migration_20260614_scheduler_multi_location.up,
+    down: migration_20260614_scheduler_multi_location.down,
+    name: '20260614_scheduler_multi_location',
+  },
+  {
+    up: migration_20260615_140000_scheduler_generation_progress.up,
+    down: migration_20260615_140000_scheduler_generation_progress.down,
+    name: '20260615_140000_scheduler_generation_progress',
+  },
+  {
+    up: migration_20260615_ensure_production_schema_repairs.up,
+    down: migration_20260615_ensure_production_schema_repairs.down,
+    name: '20260615_ensure_production_schema_repairs',
+  },
+  {
+    up: migration_20260615_locations_default_for_schedule.up,
+    down: migration_20260615_locations_default_for_schedule.down,
+    name: '20260615_locations_default_for_schedule',
+  },
+  {
+    up: migration_20260617_090000_booking_transactions_booking_id_fk_cascade.up,
+    down: migration_20260617_090000_booking_transactions_booking_id_fk_cascade.down,
+    name: '20260617_090000_booking_transactions_booking_id_fk_cascade',
+  },
+  {
+    up: migration_20260617_102500_scheduler_title_default.up,
+    down: migration_20260617_102500_scheduler_title_default.down,
+    name: '20260617_102500_scheduler_title_default',
+  },
+  {
+    up: migration_20260618_000001_plans_footer_text.up,
+    down: migration_20260618_000001_plans_footer_text.down,
+    name: '20260618_000001_plans_footer_text',
+  },
+  {
+    up: migration_20260622_000001_class_passes_drop_price.up,
+    down: migration_20260622_000001_class_passes_drop_price.down,
+    name: '20260622_000001_class_passes_drop_price',
+  },
+  {
+    up: migration_20260623_scheduler_last_generation_job_id.up,
+    down: migration_20260623_scheduler_last_generation_job_id.down,
+    name: '20260623_scheduler_last_generation_job_id',
   },
   {
     up: migration_20260624_000001_users_tenant_roles.up,
@@ -827,5 +870,10 @@ export const migrations = [
     up: migration_20260711_000007_post_booking_email_delivery_config_id.up,
     down: migration_20260711_000007_post_booking_email_delivery_config_id.down,
     name: '20260711_000007_post_booking_email_delivery_config_id',
+  },
+  {
+    up: migration_20260714_113446.up,
+    down: migration_20260714_113446.down,
+    name: '20260714_113446'
   },
 ];
