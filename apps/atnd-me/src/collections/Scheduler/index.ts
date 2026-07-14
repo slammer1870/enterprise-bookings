@@ -9,6 +9,7 @@ import {
 import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
 import { getPayloadLocationIdFromRequest } from '../../utilities/tenantRequest'
 import { schedulerGenerationStatusEndpoint } from '../../endpoints/admin/scheduler-generation-status'
+import { SKIP_SCHEDULER_GENERATION } from '../../lib/scheduler/constants'
 import { runSchedulerGenerationJob } from '../../lib/scheduler/run-generation-job'
 import {
     buildExistingTimeSlotIdsByDay,
@@ -161,8 +162,6 @@ const days: Field = {
         },
     ],
 }
-
-const SKIP_SCHEDULER_GENERATION = 'skipSchedulerGeneration'
 
 export const Scheduler: CollectionConfig = {
     slug: 'scheduler',
@@ -375,6 +374,31 @@ export const Scheduler: CollectionConfig = {
                 })
 
                 if (job.id) {
+                    const jobId = relationId(job.id)
+                    if (jobId != null) {
+                        const generationStartedAt = new Date().toISOString()
+                        const initialPhase = doc.clearExisting ? 'clearing' : 'planning'
+
+                        await req.payload.update({
+                            collection: 'scheduler',
+                            id: doc.id,
+                            data: {
+                                lastGenerationJobId: jobId,
+                                generationProgress: {
+                                    phase: initialPhase,
+                                    startedAt: generationStartedAt,
+                                    updatedAt: generationStartedAt,
+                                    percent: 2,
+                                },
+                            },
+                            context: {
+                                [SKIP_SCHEDULER_GENERATION]: true,
+                            },
+                            overrideAccess: true,
+                            req,
+                        })
+                    }
+
                     runSchedulerGenerationJob({
                         payload: req.payload,
                         jobId: job.id,

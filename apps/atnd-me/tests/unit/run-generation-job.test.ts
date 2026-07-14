@@ -73,8 +73,10 @@ describe('runSchedulerGenerationJob', () => {
 
   it('runs the queued job on an isolated request', async () => {
     const runByID = vi.fn().mockResolvedValue(undefined)
+    const update = vi.fn().mockResolvedValue(undefined)
     const payload = {
       jobs: { runByID },
+      update,
       logger: { error: vi.fn() },
     } as never
 
@@ -86,7 +88,20 @@ describe('runSchedulerGenerationJob', () => {
       schedulerId: 10,
     })
 
+    await vi.waitFor(() => expect(update).toHaveBeenCalled())
     await vi.waitFor(() => expect(runByID).toHaveBeenCalled())
+
+    expect(update).toHaveBeenCalledWith({
+      collection: 'scheduler',
+      id: 10,
+      data: { lastGenerationJobId: 99 },
+      context: { skipSchedulerGeneration: true },
+      overrideAccess: true,
+      req: expect.objectContaining({
+        context: { tenant: 5, generationJobId: 99 },
+        payload,
+      }),
+    })
 
     expect(runByID).toHaveBeenCalledWith({
       id: 99,

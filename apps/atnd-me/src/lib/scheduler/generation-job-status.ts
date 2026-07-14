@@ -129,13 +129,61 @@ function buildStatusResponse(args: {
   }
 }
 
+export function buildSchedulerGenerationStatus(args: {
+  lastGenerationJobId?: number | null
+  generationProgress?: unknown
+  job: PayloadJob | null
+}): SchedulerGenerationStatusResponse {
+  const { lastGenerationJobId, generationProgress, job } = args
+  const parsedStored = parseTimeslotGenerationProgress(generationProgress)
+  const storedJobId =
+    lastGenerationJobId != null && Number.isFinite(lastGenerationJobId)
+      ? lastGenerationJobId
+      : null
+
+  if (parsedStored) {
+    const fromStored = parseGenerationJobStatus(null, { storedProgress: generationProgress })
+    return {
+      ...fromStored,
+      jobId: storedJobId ?? fromStored.jobId,
+    }
+  }
+
+  const fromJob = parseGenerationJobStatus(job, { storedProgress: generationProgress })
+  return {
+    ...fromJob,
+    jobId: fromJob.jobId ?? storedJobId,
+  }
+}
+
 export function parseGenerationJobStatus(
   job: PayloadJob | null | undefined,
   options?: { storedProgress?: unknown },
 ): SchedulerGenerationStatusResponse {
+  let resolvedJob = job
   const storedProgress = options?.storedProgress
-  if (!job) {
-    const parsedStoredProgress = parseTimeslotGenerationProgress(storedProgress)
+  const parsedStoredProgress = parseTimeslotGenerationProgress(storedProgress)
+
+  if (
+    resolvedJob &&
+    parsedStoredProgress &&
+    parsedStoredProgress.phase !== 'done' &&
+    resolvedJob.completedAt
+  ) {
+    const storedAt = parsedStoredProgress.updatedAt
+      ? Date.parse(parsedStoredProgress.updatedAt)
+      : 0
+    const completedAt = Date.parse(resolvedJob.completedAt)
+    if (
+      !Number.isNaN(storedAt) &&
+      !Number.isNaN(completedAt) &&
+      storedAt > completedAt
+    ) {
+      resolvedJob = null
+    }
+  }
+
+  if (!resolvedJob) {
     if (parsedStoredProgress) {
       const status: SchedulerGenerationStatusResponse['status'] =
         parsedStoredProgress.phase === 'done' ? 'succeeded' : 'processing'
@@ -181,27 +229,27 @@ export function parseGenerationJobStatus(
     return { jobId: null, status: 'idle' }
   }
 
-  const message = extractOutputMessage(job)
+  const message = extractOutputMessage(resolvedJob)
 
-  if (job.processing) {
+  if (resolvedJob.processing) {
     return buildStatusResponse({
-      job,
+      job: resolvedJob,
       status: 'processing',
       message: message ?? undefined,
       storedProgress: options?.storedProgress,
     })
   }
 
-  if (job.hasError) {
+  if (resolvedJob.hasError) {
     return buildStatusResponse({
-      job,
+      job: resolvedJob,
       status: 'failed',
       message: message ?? 'Timeslot generation failed',
       storedProgress: options?.storedProgress,
     })
   }
 
-  if (job.completedAt) {
+  if (resolvedJob.completedAt) {
     const succeeded =
       message == null ||
       /success/i.test(message) ||
@@ -209,7 +257,7 @@ export function parseGenerationJobStatus(
       message === 'Timeslots generated successfully'
 
     return buildStatusResponse({
-      job,
+      job: resolvedJob,
       status: succeeded ? 'succeeded' : 'failed',
       message:
         message ??
@@ -219,7 +267,7 @@ export function parseGenerationJobStatus(
   }
 
   return buildStatusResponse({
-    job,
+    job: resolvedJob,
     status: 'idle',
     message,
     storedProgress: options?.storedProgress,
