@@ -23,6 +23,14 @@ function normalizeDaysFromServer(days: unknown): SchedulerDay[] | null {
   })
 }
 
+function daysEqual(left: unknown, right: unknown): boolean {
+  try {
+    return JSON.stringify(left) === JSON.stringify(right)
+  } catch {
+    return false
+  }
+}
+
 /**
  * Payload's nested array editor can retain phantom empty `timeSlot` rows in form
  * state after save even when the server persisted only complete rows. Re-sync
@@ -30,7 +38,7 @@ function normalizeDaysFromServer(days: unknown): SchedulerDay[] | null {
  */
 export function SchedulerTimeSlotFormCleanup(): null {
   const { lastUpdateTime, data } = useDocumentInfo()
-  const { setValue } = useField<SchedulerDay[]>({ path: 'week.days' })
+  const { setValue, value } = useField<SchedulerDay[]>({ path: 'week.days' })
   const lastSyncedRef = React.useRef(lastUpdateTime)
 
   React.useEffect(() => {
@@ -39,9 +47,11 @@ export function SchedulerTimeSlotFormCleanup(): null {
 
     const serverDays = normalizeDaysFromServer(data?.week?.days)
     if (!serverDays) return
+    if (daysEqual(value, serverDays)) return
 
-    setValue(serverDays)
-  }, [lastUpdateTime, data, setValue])
+    // Do not mark the document as modified — this is a server-state resync only.
+    setValue(serverDays, true)
+  }, [lastUpdateTime, data, setValue, value])
 
   return null
 }

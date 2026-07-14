@@ -350,7 +350,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
   const timeslotsSlug = slugs.timeslots as CollectionSlug;
   const bookingsSlug = slugs.bookings as CollectionSlug;
 
-  return async ({ input, req }) => {
+  return async ({ input, req, job }) => {
   const {
     startDate,
     endDate,
@@ -483,7 +483,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
   const progressReporter = new GenerationProgressReporter(
     payload,
     req,
-    resolveGenerationJobId(req),
+    resolveGenerationJobId(req, job?.id),
     schedulerId,
   );
   let skippedCount = 0;

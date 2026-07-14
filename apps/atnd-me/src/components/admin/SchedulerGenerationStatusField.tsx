@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useDocumentInfo } from '@payloadcms/ui'
 
 import type { SchedulerGenerationStatusResponse } from '@/lib/scheduler/generation-job-status'
@@ -62,24 +62,40 @@ function isIndeterminateProgress(status: SchedulerGenerationStatusResponse): boo
 }
 
 export const SchedulerGenerationStatusField: React.FC = () => {
-  const { id } = useDocumentInfo()
+  const { id, lastUpdateTime } = useDocumentInfo()
   const [status, setStatus] = useState<SchedulerGenerationStatusResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
+  const lastPolledSaveRef = useRef(lastUpdateTime)
 
   const schedulerId = id != null ? String(id) : null
 
   const fetchStatus = useCallback(async (): Promise<SchedulerGenerationStatusResponse | null> => {
     if (!schedulerId) return null
-    const res = await fetch(`/api/scheduler/${encodeURIComponent(schedulerId)}/generation-status`, {
-      credentials: 'include',
-      cache: 'no-store',
-    })
+    const res = await fetch(
+      `/api/scheduler/${encodeURIComponent(schedulerId)}/generation-status?t=${Date.now()}`,
+      {
+        credentials: 'include',
+        cache: 'no-store',
+      },
+    )
     if (!res.ok) {
       throw new Error(`Status request failed (${res.status})`)
     }
     return (await res.json()) as SchedulerGenerationStatusResponse
   }, [schedulerId])
+
+  const loadStatus = useCallback(async () => {
+    try {
+      const next = await fetchStatus()
+      setStatus(next)
+      setFetchError(null)
+    } catch {
+      setFetchError('Could not load generation status')
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchStatus])
 
   useEffect(() => {
     if (!schedulerId) {
@@ -87,33 +103,22 @@ export const SchedulerGenerationStatusField: React.FC = () => {
       return
     }
 
-    let cancelled = false
-
-    const load = async () => {
-      try {
-        const next = await fetchStatus()
-        if (cancelled) return
-        setStatus(next)
-        setFetchError(null)
-      } catch {
-        if (!cancelled) {
-          setFetchError('Could not load generation status')
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-
-    void load()
+    void loadStatus()
     const intervalId = setInterval(() => {
-      void load()
+      void loadStatus()
     }, POLL_MS)
 
     return () => {
-      cancelled = true
       clearInterval(intervalId)
     }
-  }, [fetchStatus, schedulerId])
+  }, [loadStatus, schedulerId])
+
+  useEffect(() => {
+    if (!schedulerId || lastUpdateTime === lastPolledSaveRef.current) return
+    lastPolledSaveRef.current = lastUpdateTime
+    setLoading(true)
+    void loadStatus()
+  }, [lastUpdateTime, loadStatus, schedulerId])
 
   if (!schedulerId) {
     return null

@@ -1,7 +1,11 @@
 import type { Endpoint, PayloadRequest } from 'payload'
 import { APIError } from 'payload'
 
-import { parseGenerationJobStatus } from '@/lib/scheduler/generation-job-status'
+import { buildSchedulerGenerationStatus } from '@/lib/scheduler/generation-job-status'
+import {
+  jobInputMatchesScheduler,
+  resolveSchedulerGenerationJob,
+} from '@/lib/scheduler/match-generation-job'
 import type { PayloadJob, Scheduler } from '@/payload-types'
 
 export const schedulerGenerationStatusEndpoint: Endpoint = {
@@ -36,11 +40,14 @@ export const schedulerGenerationStatusEndpoint: Endpoint = {
       throw new APIError('Scheduler not found', 404)
     }
 
-    const lastJobId = (scheduler as Scheduler & { lastGenerationJobId?: number | null }).lastGenerationJobId
+    const lastJobId = (scheduler as Scheduler & { lastGenerationJobId?: number | null })
+      .lastGenerationJobId
+    const generationProgress = (scheduler as Scheduler & { generationProgress?: unknown })
+      .generationProgress
 
-    let job: PayloadJob | null = null
+    let lastJob: PayloadJob | null = null
     if (lastJobId != null && Number.isFinite(lastJobId)) {
-      job = (await req.payload
+      lastJob = (await req.payload
         .findByID({
           collection: 'payload-jobs',
           id: lastJobId,
@@ -51,14 +58,14 @@ export const schedulerGenerationStatusEndpoint: Endpoint = {
         .catch(() => null)) as PayloadJob | null
     }
 
-    if (!job) {
-      job = await findLatestGenerationJobForScheduler(req, scheduler)
-    }
+    const latestJob = await findLatestGenerationJobForScheduler(req, scheduler)
+    const job = resolveSchedulerGenerationJob(lastJob, latestJob)
 
     return Response.json(
-      parseGenerationJobStatus(job, {
-        storedProgress: (scheduler as Scheduler & { generationProgress?: unknown })
-          .generationProgress,
+      buildSchedulerGenerationStatus({
+        lastGenerationJobId: lastJobId,
+        generationProgress,
+        job,
       }),
     )
   },
@@ -90,40 +97,8 @@ async function findLatestGenerationJobForScheduler(
   })
 
   const docs = result.docs as PayloadJob[]
-  const match = docs.find((doc) => jobInputMatchesScheduler(doc.input, tenantId, branchId))
-  return match ?? null
-}
-
-function jobInputMatchesScheduler(
-  input: PayloadJob['input'],
-  tenantId: unknown,
-  branchId: unknown,
-): boolean {
-  if (input == null || typeof input !== 'object' || Array.isArray(input)) return false
-  const record = input as Record<string, unknown>
-  const inputTenant = record.tenant
-  const inputBranch = record.branch
-
-  const tenantMatches =
-    tenantId == null
-      ? inputTenant == null
-      : inputTenant === tenantId ||
-        (typeof inputTenant === 'object' &&
-          inputTenant !== null &&
-          'id' in inputTenant &&
-          (inputTenant as { id: unknown }).id === tenantId)
-
-  if (!tenantMatches) return false
-
-  if (branchId == null) {
-    return inputBranch == null || inputBranch === undefined
-  }
-
-  return (
-    inputBranch === branchId ||
-    (typeof inputBranch === 'object' &&
-      inputBranch !== null &&
-      'id' in inputBranch &&
-      (inputBranch as { id: unknown }).id === branchId)
+  const match = docs.find((doc) =>
+    jobInputMatchesScheduler(doc.input, scheduler.id, tenantId, branchId),
   )
+  return match ?? null
 }

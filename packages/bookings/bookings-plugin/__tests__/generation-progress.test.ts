@@ -1,12 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   computeWeightedGenerationPercent,
   estimateGenerationSecondsRemaining,
   formatGenerationTimeRemaining,
   formatTimeslotGenerationProgressMessage,
+  GenerationProgressReporter,
   generationProgressPercent,
   parseTimeslotGenerationProgress,
+  resolveGenerationJobId,
 } from "../src/tasks/generation-progress";
 
 describe("generation progress helpers", () => {
@@ -109,5 +111,50 @@ describe("generation progress helpers", () => {
   it("formats eta messages", () => {
     expect(formatGenerationTimeRemaining(30)).toBe("About 30 seconds remaining");
     expect(formatGenerationTimeRemaining(120)).toBe("About 2 minutes remaining");
+  });
+
+  it("resolves job id from req context or job document", () => {
+    expect(resolveGenerationJobId({ context: { generationJobId: 12 } } as never)).toBe(12);
+    expect(resolveGenerationJobId({ context: {} } as never, 34)).toBe(34);
+    expect(resolveGenerationJobId({ context: { generationJobId: 12 } } as never, 34)).toBe(12);
+  });
+
+  it("persists progress on the scheduler collection", async () => {
+    const update = vi.fn().mockResolvedValue(undefined);
+    const payload = {
+      collections: { scheduler: {} },
+      update,
+    } as never;
+    const req = { context: {} } as never;
+
+    const reporter = new GenerationProgressReporter(payload, req, 99, 10);
+    await reporter.report(
+      {
+        phase: "creating",
+        created: 5,
+        total: 20,
+      },
+      { force: true },
+    );
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: "scheduler",
+        id: 10,
+        data: expect.objectContaining({
+          generationProgress: expect.objectContaining({
+            phase: "creating",
+            created: 5,
+            total: 20,
+          }),
+          lastGenerationJobId: 99,
+        }),
+        context: {
+          skipSchedulerGeneration: true,
+        },
+        overrideAccess: true,
+        req,
+      }),
+    );
   });
 });

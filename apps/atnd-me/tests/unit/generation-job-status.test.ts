@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { parseGenerationJobStatus } from '@/lib/scheduler/generation-job-status'
+import { parseGenerationJobStatus, buildSchedulerGenerationStatus } from '@/lib/scheduler/generation-job-status'
 import type { PayloadJob } from '@/payload-types'
 
 function baseJob(overrides: Partial<PayloadJob> = {}): PayloadJob {
@@ -232,5 +232,50 @@ describe('parseGenerationJobStatus', () => {
     )
 
     expect(result.jobId).toBe(77)
+  })
+
+  it('ignores a completed job when scheduler stored progress is from a newer run', () => {
+    const result = parseGenerationJobStatus(
+      baseJob({
+        id: 3,
+        completedAt: '2026-07-12T09:33:00.000Z',
+      }),
+      {
+        storedProgress: {
+          phase: 'creating',
+          created: 4,
+          total: 20,
+          percent: 48,
+          updatedAt: '2026-07-14T09:36:10.000Z',
+          startedAt: '2026-07-14T09:36:00.000Z',
+        },
+      },
+    )
+
+    expect(result.status).toBe('processing')
+    expect(result.jobId).toBeNull()
+    expect(result.message).toMatch(/Creating timeslots/)
+  })
+
+  it('prefers scheduler generationProgress over a stale completed job record', () => {
+    const result = buildSchedulerGenerationStatus({
+      lastGenerationJobId: 12,
+      generationProgress: {
+        phase: 'creating',
+        created: 4,
+        total: 20,
+        percent: 48,
+        updatedAt: '2026-07-14T09:36:10.000Z',
+        startedAt: '2026-07-14T09:36:00.000Z',
+      },
+      job: baseJob({
+        id: 3,
+        completedAt: '2026-07-12T09:33:00.000Z',
+      }),
+    })
+
+    expect(result.status).toBe('processing')
+    expect(result.jobId).toBe(12)
+    expect(result.message).toMatch(/Creating timeslots/)
   })
 })

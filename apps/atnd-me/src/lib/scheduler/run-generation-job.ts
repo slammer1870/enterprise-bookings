@@ -1,5 +1,39 @@
 import { createLocalReq, type Payload, type PayloadRequest } from 'payload'
 
+import { SKIP_SCHEDULER_GENERATION } from '@/lib/scheduler/constants'
+
+function toNumericId(value: string | number): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && /^\d+$/.test(value)) return parseInt(value, 10)
+  return null
+}
+
+async function persistLastGenerationJobId(args: {
+  payload: Payload
+  req: PayloadRequest
+  schedulerId?: number | string
+  jobId: string | number
+}): Promise<void> {
+  const { payload, req, schedulerId, jobId } = args
+  if (schedulerId == null) return
+
+  const numericJobId = toNumericId(jobId)
+  if (numericJobId == null) return
+
+  try {
+    await payload.update({
+      collection: 'scheduler',
+      id: schedulerId,
+      data: { lastGenerationJobId: numericJobId },
+      context: { [SKIP_SCHEDULER_GENERATION]: true },
+      overrideAccess: true,
+      req,
+    })
+  } catch {
+    // Best-effort — status endpoint can still fall back to recent jobs.
+  }
+}
+
 /**
  * Build a standalone Payload request for background scheduler jobs.
  * Avoids reusing the save HTTP request, which can be aborted once the admin
@@ -43,6 +77,14 @@ export function runSchedulerGenerationJob(args: {
       ...(req.context ?? {}),
       generationJobId: args.jobId,
     }
+
+    await persistLastGenerationJobId({
+      payload: args.payload,
+      req,
+      schedulerId: args.schedulerId,
+      jobId: args.jobId,
+    })
+
     await args.payload.jobs.runByID({
       id: args.jobId,
       req,
