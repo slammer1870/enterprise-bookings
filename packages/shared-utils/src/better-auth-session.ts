@@ -2,6 +2,12 @@
  * Slim Better Auth / Payload auth session for app boundaries.
  * Raw `betterAuth.api.getSession` returns a fully populated Payload user (depth + joins).
  */
+export type SlimTenantMembership = {
+  id?: string
+  tenant: number
+  roles: string[]
+}
+
 export type SanitizedBetterAuthUser = {
   id: string
   name: string | null
@@ -10,6 +16,8 @@ export type SanitizedBetterAuthUser = {
   /** Same as `roles` — Payload access often reads `user.role` (Better Auth field name). */
   role: string[]
   registrationTenantId: number | null
+  /** Present for portal users when session enrichment adds tenant membership. */
+  tenants?: SlimTenantMembership[]
 }
 
 export type SanitizedBetterAuthSession = {
@@ -24,6 +32,38 @@ function toId(value: unknown): string | null {
   if (typeof value === 'string' && value.trim()) return value
   if (typeof value === 'number' && Number.isFinite(value)) return String(value)
   return null
+}
+
+function coerceTenantId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'object' && value !== null && 'id' in value) {
+    const id = (value as { id?: unknown }).id
+    if (typeof id === 'number' && Number.isFinite(id)) return id
+    if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  }
+  if (typeof value === 'string' && /^\d+$/.test(value)) return parseInt(value, 10)
+  return null
+}
+
+/** Shrink tenant membership rows to ids + roles (no populated tenant documents). */
+export function sanitizeTenantMemberships(tenants: unknown): SlimTenantMembership[] | undefined {
+  if (!Array.isArray(tenants) || tenants.length === 0) return undefined
+
+  const result: SlimTenantMembership[] = []
+  for (const entry of tenants) {
+    if (!entry || typeof entry !== 'object') continue
+    const e = entry as Record<string, unknown>
+    const tenantId = coerceTenantId(e.tenant)
+    if (tenantId == null) continue
+
+    const roles = Array.isArray(e.roles)
+      ? (e.roles as unknown[]).filter((x): x is string => typeof x === 'string')
+      : []
+    const id = toId(e.id)
+    result.push(id ? { id, tenant: tenantId, roles } : { tenant: tenantId, roles })
+  }
+
+  return result.length ? result : undefined
 }
 
 /** Shrink a Payload / Better Auth user document to a safe, stable shape (no joins / relations). */
@@ -83,5 +123,25 @@ export function sanitizeBetterAuthSession(raw: unknown): SanitizedBetterAuthSess
       expiresAt: expiresAtNested ?? expiresAtTop,
     },
     user,
+  }
+}
+
+/**
+ * Shape returned from Better Auth's `customSession` plugin — strips tokens, nested
+ * relations, and populated tenant documents from `/api/auth/get-session`.
+ */
+export function buildSanitizedBetterAuthCustomSession(
+  raw: { user: unknown; session: unknown },
+  options?: { tenantsOverride?: SlimTenantMembership[] },
+): { user: SanitizedBetterAuthUser; session: SanitizedBetterAuthSession['session'] } | null {
+  const sanitized = sanitizeBetterAuthSession(raw)
+  if (!sanitized) return null
+
+  const tenants = options?.tenantsOverride
+  const user = tenants ? { ...sanitized.user, tenants } : sanitized.user
+
+  return {
+    user,
+    session: sanitized.session,
   }
 }

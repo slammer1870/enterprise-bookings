@@ -1,5 +1,6 @@
 import { createBetterAuthPluginOptions, createCustomExpiryMagicLinkSender } from '@repo/better-auth-config/server'
 import { customSession } from 'better-auth/plugins'
+import { buildSanitizedBetterAuthCustomSession, sanitizeTenantMemberships } from '@repo/shared-utils'
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
@@ -382,6 +383,7 @@ const customSessionPlugin = customSession(async ({ user, session }: {
   const isPortalUser = (roles as string[]).some((r) => PORTAL_ROLES.has(r))
   if (!isPortalUser) return { user, session }
 
+  let tenantsOverride: ReturnType<typeof sanitizeTenantMemberships> = undefined
   try {
     const { getPayload } = await import('@/lib/payload')
     const payload = await getPayload()
@@ -392,10 +394,14 @@ const customSessionPlugin = customSession(async ({ user, session }: {
       overrideAccess: true,
       select: { tenants: true } as Record<string, boolean>,
     })
-    return { user: { ...user, tenants: (full as unknown as Record<string, unknown>)?.tenants ?? [] }, session }
+    tenantsOverride = sanitizeTenantMemberships((full as unknown as Record<string, unknown>)?.tenants)
   } catch {
-    return { user, session }
+    // Fall through — portal user still gets a sanitized session without tenants.
   }
+
+  const slim = buildSanitizedBetterAuthCustomSession({ user, session }, { tenantsOverride })
+  if (!slim) return { user, session }
+  return slim
 })
 
 export const betterAuthPluginOptions = {

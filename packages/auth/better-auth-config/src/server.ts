@@ -9,6 +9,7 @@ import type { BetterAuthPlugin as BetterAuthPluginType } from "better-auth/types
 import { hashPassword, verifyPassword } from "@repo/auth-next/server";
 
 import { buildMagicLinkEmailHtml } from "./emails/magic-link";
+import { createSanitizedSessionPlugin } from "./sanitized-session-plugin";
 import { resolveBetterAuthEmailConfig } from "./emails/config";
 import * as emailSender from "./emails/send-email";
 import { buildBasicAuthEmailHtml } from "./emails/templates";
@@ -241,6 +242,7 @@ export function createBetterAuthPlugins({
 
   plugins.push(openAPI());
   plugins.push(nextCookies());
+  plugins.push(createSanitizedSessionPlugin());
 
   return plugins;
 }
