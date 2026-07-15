@@ -12,6 +12,31 @@ const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
   : undefined || process.env.__NEXT_PRIVATE_ORIGIN || 'http://localhost:3000'
 
+/** @returns {{ hostname: string, protocol: string } | null} */
+function remotePatternFromUrl(value) {
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    return {
+      hostname: url.hostname,
+      protocol: url.protocol.replace(':', ''),
+    }
+  } catch {
+    return null
+  }
+}
+
+const imageRemotePatterns = [
+  remotePatternFromUrl(NEXT_PUBLIC_SERVER_URL),
+  remotePatternFromUrl(process.env.R2_PUBLIC_URL),
+  remotePatternFromUrl(process.env.NEXT_PUBLIC_R2_PUBLIC_URL),
+  // Local / tenant hosts that may appear on absolute media URLs
+  { hostname: 'localhost', protocol: 'http' },
+  { hostname: 'atnd.me', protocol: 'https' },
+  { hostname: '**.atnd.me', protocol: 'https' },
+  { hostname: '**.r2.dev', protocol: 'https' },
+].filter(Boolean)
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
@@ -23,22 +48,7 @@ const nextConfig = {
   // `@repo/bookings-plugin/src/...` directly from `node_modules`, which fails in ESM.
   transpilePackages: ['payload-auth', '@repo/bookings-plugin', '@repo/bookings-payments'],
   images: {
-    remotePatterns: [
-      // Add the main server URL
-      ...[NEXT_PUBLIC_SERVER_URL].map((item) => {
-        const url = new URL(item)
-
-        return {
-          hostname: url.hostname,
-          protocol: url.protocol.replace(':', ''),
-        }
-      }),
-      // For development: Allow localhost (exact match)
-      {
-        hostname: 'localhost',
-        protocol: 'http',
-      },
-    ],
+    remotePatterns: imageRemotePatterns,
     // Allow unoptimized images for subdomains (fallback if remotePatterns don't match)
     // This allows images from any hostname, including subdomains
     unoptimized: false,

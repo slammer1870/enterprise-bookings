@@ -28,7 +28,7 @@ const placeholderBlur =
  * Flow:
  *   1. Resource URL from Payload: `/media/image-123.jpg`
  *   2. getMediaUrl() adds base URL: `https://yourdomain.com/media/image-123.jpg`
- *   3. Next.js Image optimizes via remotePatterns: `/_next/image?url=...&w=1200&q=75`
+ *   3. Next.js Image optimizes via remotePatterns: `/_next/image?url=...&w=1200&q=80`
  *
  * If your storage/plugin returns **external CDN URLs** (e.g. `https://cdn.example.com/...`),
  * choose ONE of the following:
@@ -94,7 +94,7 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
         placeholder="blur"
         blurDataURL={placeholderBlur}
         priority={priority}
-        quality={100}
+        quality={80}
         loading={loading}
         sizes={sizes}
         src={src}

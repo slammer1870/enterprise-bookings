@@ -34,7 +34,7 @@ export default async function RootLayout({
       <InitTheme />
       <Providers>
         <Header />
-        {children}
+        <main>{children}</main>
         {unauthenticated}
         <Footer />
         <div id="modal-root" />

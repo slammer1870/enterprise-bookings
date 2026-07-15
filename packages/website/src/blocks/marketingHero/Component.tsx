@@ -1,5 +1,3 @@
-'use client'
-
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -70,6 +68,7 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
             fill
             className="object-cover opacity-10"
             sizes="100vw"
+            loading="lazy"
           />
         </div>
       )}
@@ -119,8 +118,11 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
                 src={fgUrl}
                 alt=""
                 fill
+                priority
+                fetchPriority="high"
                 className="object-contain rounded-lg border border-border shadow-2xl"
                 sizes="(max-width: 1024px) 100vw, 1024px"
+                quality={80}
               />
             </div>
           )}

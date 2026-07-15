@@ -4,21 +4,21 @@
 
 import * as Sentry from "@sentry/nextjs";
 
+const isDev = process.env.NODE_ENV === 'development'
+
 Sentry.init({
   dsn: "https://18aa51788e8633acfc6de03280e0fc5c@o4510828656001024.ingest.de.sentry.io/4510828656918608",
 
   // Add optional integrations for additional features
   integrations: [Sentry.replayIntegration()],
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // Keep production sampling low — 100% traces + Replay on every visit hurts LCP/TBT.
+  tracesSampleRate: isDev ? 1 : 0.1,
   // Enable logs to be sent to Sentry
   enableLogs: true,
 
-  // Define how likely Replay events are sampled.
-  // This sets the sample rate to be 10%. You may want this to be 100% while
-  // in development and sample at a lower rate in production
-  replaysSessionSampleRate: 0.1,
+  // Session Replay: rare in production; always capture on error.
+  replaysSessionSampleRate: isDev ? 0.1 : 0.01,
 
   // Define how likely Replay events are sampled when an error occurs.
   replaysOnErrorSampleRate: 1.0,

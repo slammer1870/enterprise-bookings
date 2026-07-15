@@ -51,7 +51,7 @@ export default async function LocationBranchLandingPage({ params }: Props) {
   if (!location) notFound()
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-16">
+    <div className="mx-auto max-w-lg px-4 py-16">
       <h1 className="text-2xl font-semibold tracking-tight">{location.name}</h1>
       <p className="mt-2 text-muted-foreground">
         This site is set for scheduling and booking. Use the navigation above to browse classes or return home.
@@ -61,6 +61,6 @@ export default async function LocationBranchLandingPage({ params }: Props) {
           Back to home
         </Link>
       </p>
-    </main>
+    </div>
   )
 }
