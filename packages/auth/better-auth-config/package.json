@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@repo/auth-next": "workspace:*",
+    "@repo/shared-utils": "workspace:*",
     "better-auth": "*"
   },
   "peerDependencies": {
