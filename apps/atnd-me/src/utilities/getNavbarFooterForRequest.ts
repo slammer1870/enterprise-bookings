@@ -1,5 +1,7 @@
 import type { Payload } from 'payload'
+import { getPayload } from '@/lib/payload'
 import { getTenantContext, getTenantWithBranding } from './getTenantContext'
+import { unstable_cache } from './next-cache'
 
 export type TenantSlugSource = import('./getTenantContext').TenantSlugSource
 
@@ -168,13 +170,20 @@ export async function getNavbarForRequest(
   const tenant = await getTenantContext(payload, source)
 
   if (!tenant) {
-    const rootResult = await payload.find({
-      collection: 'navbar',
-      where: { tenant: { equals: null } },
-      limit: 1,
-      depth: 2,
-      overrideAccess: true,
-    })
+    const rootResult = await unstable_cache(
+      async () => {
+        const p = await getPayload()
+        return p.find({
+          collection: 'navbar',
+          where: { tenant: { equals: null } },
+          limit: 1,
+          depth: 2,
+          overrideAccess: true,
+        })
+      },
+      ['navbar-root'],
+      { revalidate: 60, tags: ['navbar', 'navbar_root'] },
+    )()
     const rootDoc = rootResult.docs[0]
     if (!rootDoc) return DEFAULT_NAVBAR
     const logo = resolveLogo(rootDoc?.logo, null)
@@ -197,15 +206,25 @@ export async function getNavbarForRequest(
     payload,
     context: { tenant: tenant.id },
   } as Parameters<Payload['find']>[0]['req']
-  const result = await payload.find({
-    collection: 'navbar',
-    where: { tenant: { equals: tenant.id } },
-    limit: 1,
-    depth: 2,
-    // Public read is allowed; keep access + tenant base filter behavior intact
-    overrideAccess: false,
-    req,
-  })
+  const result = await unstable_cache(
+    async () => {
+      const p = await getPayload()
+      return p.find({
+        collection: 'navbar',
+        where: { tenant: { equals: tenant.id } },
+        limit: 1,
+        depth: 2,
+        // Public frontend read — cache anonymously with tenant scope in context.
+        overrideAccess: true,
+        req: {
+          payload: p,
+          context: { tenant: tenant.id },
+        } as Parameters<Payload['find']>[0]['req'],
+      })
+    },
+    ['navbar-tenant', String(tenant.id)],
+    { revalidate: 60, tags: ['navbar', `navbar_${tenant.id}`] },
+  )()
 
   const doc = result.docs[0]
   const logo = resolveLogo(doc?.logo, tenantBranding)
@@ -250,13 +269,20 @@ export async function getFooterForRequest(
   const tenant = await getTenantContext(payload, source)
 
   if (!tenant) {
-    const rootResult = await payload.find({
-      collection: 'footer',
-      where: { tenant: { equals: null } },
-      limit: 1,
-      depth: 2,
-      overrideAccess: true,
-    })
+    const rootResult = await unstable_cache(
+      async () => {
+        const p = await getPayload()
+        return p.find({
+          collection: 'footer',
+          where: { tenant: { equals: null } },
+          limit: 1,
+          depth: 2,
+          overrideAccess: true,
+        })
+      },
+      ['footer-root'],
+      { revalidate: 60, tags: ['footer', 'footer_root'] },
+    )()
     const rootDoc = rootResult.docs[0]
     if (!rootDoc) return DEFAULT_FOOTER
     const logo = resolveLogo(rootDoc?.logo, null)
@@ -281,19 +307,24 @@ export async function getFooterForRequest(
 
   const tenantBranding = await getTenantWithBranding(payload, source)
 
-  const req = {
-    payload,
-    context: { tenant: tenant.id },
-  } as Parameters<Payload['find']>[0]['req']
-  const result = await payload.find({
-    collection: 'footer',
-    where: { tenant: { equals: tenant.id } },
-    limit: 1,
-    depth: 2,
-    // Public read is allowed; keep access + tenant base filter behavior intact
-    overrideAccess: false,
-    req,
-  })
+  const result = await unstable_cache(
+    async () => {
+      const p = await getPayload()
+      return p.find({
+        collection: 'footer',
+        where: { tenant: { equals: tenant.id } },
+        limit: 1,
+        depth: 2,
+        overrideAccess: true,
+        req: {
+          payload: p,
+          context: { tenant: tenant.id },
+        } as Parameters<Payload['find']>[0]['req'],
+      })
+    },
+    ['footer-tenant', String(tenant.id)],
+    { revalidate: 60, tags: ['footer', `footer_${tenant.id}`] },
+  )()
 
   const doc = result.docs[0]
   const logo = resolveLogo(doc?.logo, tenantBranding)

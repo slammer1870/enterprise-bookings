@@ -6,6 +6,8 @@ import {
   getTenantSlugFromRequest,
 } from './tenantRequest'
 import { normalizeCustomDomain } from './validateCustomDomain'
+import { getPayload } from '@/lib/payload'
+import { unstable_cache } from './next-cache'
 
 /**
  * Source for extracting tenant slug (cookies, headers, URL params).
@@ -157,6 +159,73 @@ function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
   }
 }
 
+async function fetchTenantContextBySlug(slug: string): Promise<TenantContext | null> {
+  const payload = await getPayload()
+  const result = await payload.find({
+    collection: 'tenants',
+    where: { slug: { equals: slug } },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      domain: true,
+    } as any,
+  })
+
+  const tenant = result.docs[0]
+  if (!tenant) return null
+
+  return {
+    id: tenant.id as number,
+    slug: tenant.slug as string,
+    name: (tenant as { name?: string }).name ?? '',
+    domain: (tenant as { domain?: string | null }).domain ?? null,
+  }
+}
+
+async function fetchTenantBrandingBySlug(slug: string): Promise<TenantWithBranding | null> {
+  const payload = await getPayload()
+  const result = await payload.find({
+    collection: 'tenants',
+    where: { slug: { equals: slug } },
+    limit: 1,
+    depth: 1,
+    overrideAccess: true,
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      domain: true,
+      logo: true,
+      description: true,
+    } as any,
+  })
+
+  const tenant = result.docs[0]
+  if (!tenant) return null
+
+  return toTenantWithBranding(tenant as TenantBrandingDoc)
+}
+
+function getCachedTenantContextBySlug(slug: string): Promise<TenantContext | null> {
+  return unstable_cache(
+    () => fetchTenantContextBySlug(slug),
+    ['tenant-context-by-slug', slug],
+    { revalidate: 300, tags: [`tenant_${slug}`, 'tenants'] },
+  )()
+}
+
+function getCachedTenantBrandingBySlug(slug: string): Promise<TenantWithBranding | null> {
+  return unstable_cache(
+    () => fetchTenantBrandingBySlug(slug),
+    ['tenant-branding-by-slug', slug],
+    { revalidate: 300, tags: [`tenant_${slug}`, 'tenants'] },
+  )()
+}
+
 /**
  * Resolves tenant context from request-like source.
  * Extracts slug via getTenantSlug, then looks up tenant in Payload.
@@ -169,29 +238,7 @@ export async function getTenantContext(
   const enriched = enrichTenantRequestSource(source as TenantRequestSource | null)
   const slug = await getTenantSlug(enriched)
   if (slug) {
-    const result = await payload.find({
-      collection: 'tenants',
-      where: { slug: { equals: slug } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        domain: true,
-      } as any,
-    })
-
-    const tenant = result.docs[0]
-    if (!tenant) return null
-
-    return {
-      id: tenant.id as number,
-      slug: tenant.slug as string,
-      name: (tenant as { name?: string }).name ?? '',
-      domain: (tenant as { domain?: string | null }).domain ?? null,
-    }
+    return getCachedTenantContextBySlug(slug)
   }
 
   const tenantFromHost = await findTenantByHost(payload, enriched?.headers)
@@ -244,26 +291,7 @@ export async function getTenantWithBranding(
   const slug = await getTenantSlug(enriched)
   // Prefer explicit tenant slug (subdomain/custom-domain resolution) over admin selector cookie.
   if (slug) {
-    const result = await payload.find({
-      collection: 'tenants',
-      where: { slug: { equals: slug } },
-      limit: 1,
-      depth: 1,
-      overrideAccess: true,
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        domain: true,
-        logo: true,
-        description: true,
-      } as any,
-    })
-
-    const tenant = result.docs[0]
-    if (!tenant) return null
-
-    return toTenantWithBranding(tenant as TenantBrandingDoc)
+    return getCachedTenantBrandingBySlug(slug)
   }
 
   const tenantFromHost = await findTenantByHost(payload, enriched?.headers)

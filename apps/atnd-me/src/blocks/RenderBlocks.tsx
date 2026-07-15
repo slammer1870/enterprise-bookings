@@ -2,44 +2,39 @@ import React, { Fragment } from 'react'
 
 import type { Page } from '@/payload-types'
 
-import { blockComponents } from './blockComponents'
+import { blockLoaders } from './blockComponents'
 import { getRenderBlockWrapperClassName } from '@repo/website/src/blocks/getRenderBlockWrapperClassName'
-import { registerBlockComponents } from '@repo/website/src/blocks/threeColumnLayout'
+import { registerBlockLoaders } from '@repo/website/src/blocks/threeColumnLayout'
 
-// Register block components on the server side
-// This ensures the registry is available for ThreeColumnLayoutBlock when it renders
-registerBlockComponents(blockComponents)
+// Nested layout blocks resolve children through the same lazy loaders.
+registerBlockLoaders(blockLoaders)
 
-export const RenderBlocks: React.FC<{
-  blocks: Page['layout'][0][]
-}> = (props) => {
+export async function RenderBlocks(props: { blocks: Page['layout'][0][] }) {
   const { blocks } = props
 
   const hasBlocks = blocks && Array.isArray(blocks) && blocks.length > 0
 
-  if (hasBlocks) {
-    return (
-      <Fragment>
-        {blocks.map((block, index) => {
-          const { blockType } = block
-
-          if (blockType && blockType in blockComponents) {
-            const Block = blockComponents[blockType as keyof typeof blockComponents]
-
-            if (Block) {
-              const wrapperClassName = getRenderBlockWrapperClassName(blockType)
-              return (
-                <div key={index} className={wrapperClassName}>
-                  <Block {...block} />
-                </div>
-              )
-            }
-          }
-          return null
-        })}
-      </Fragment>
-    )
+  if (!hasBlocks) {
+    return null
   }
 
-  return null
+  const rendered = await Promise.all(
+    blocks.map(async (block, index) => {
+      const { blockType } = block
+      if (!blockType) return null
+
+      const loader = blockLoaders[blockType]
+      if (!loader) return null
+
+      const Block = await loader()
+      const wrapperClassName = getRenderBlockWrapperClassName(blockType)
+      return (
+        <div key={index} className={wrapperClassName}>
+          <Block {...block} />
+        </div>
+      )
+    }),
+  )
+
+  return <Fragment>{rendered}</Fragment>
 }

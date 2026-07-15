@@ -20,7 +20,7 @@ export { linkGroup } from "./blocks/linkGroup";
 export { bookingThemeField } from "./fields/bookingThemeFields";
 export { ThreeColumnLayoutBlock } from "./blocks/threeColumnLayout";
 export { createThreeColumnLayout } from "./blocks/threeColumnLayout";
-export { registerBlockComponents } from "./blocks/threeColumnLayout/registry";
+export { registerBlockComponents, registerBlockLoaders } from "./blocks/threeColumnLayout/registry";
 export { TwoColumnLayoutBlock } from "./blocks/twoColumnLayout";
 export { createTwoColumnLayout } from "./blocks/twoColumnLayout";
 export { MarketingHero } from "./blocks/marketingHero/config";

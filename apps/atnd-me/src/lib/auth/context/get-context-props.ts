@@ -2,10 +2,27 @@ import type { Account, DeviceSession, Session } from '@/lib/auth/types'
 import { getPayload } from '@/lib/payload'
 import { sanitizeBetterAuthSession } from '@repo/shared-utils'
 import type { TypedUser } from 'payload'
-import { headers as requestHeaders } from 'next/headers'
+import { cookies, headers as requestHeaders } from 'next/headers'
+
+/** Skip Better Auth / Payload auth lookups when the browser has no session cookie. */
+async function hasAuthSessionCookie(): Promise<boolean> {
+  const cookieStore = await cookies()
+  for (const { name } of cookieStore.getAll()) {
+    if (
+      name.startsWith('better-auth.') ||
+      name === 'session_token' ||
+      name === 'session_data' ||
+      name === 'dont_remember'
+    ) {
+      return true
+    }
+  }
+  return false
+}
 
 export const getSession = async (): Promise<Session | null> => {
   try {
+    if (!(await hasAuthSessionCookie())) return null
     const payload = await getPayload()
     const headers = await requestHeaders()
     const raw = await payload.betterAuth.api.getSession({ headers })
@@ -59,6 +76,7 @@ export const getDeviceSessions = async (): Promise<DeviceSession[]> => {
 }
 
 export const currentUser = async (): Promise<TypedUser | null> => {
+  if (!(await hasAuthSessionCookie())) return null
   const payload = await getPayload()
   const headers = await requestHeaders()
   const { user } = await payload.auth({ headers })

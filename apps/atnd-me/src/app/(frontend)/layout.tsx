@@ -1,10 +1,10 @@
 import type { Metadata } from 'next'
 import { cookies, headers } from 'next/headers'
-
-// Header/Footer use cookies(), layout uses draftMode(), pages use getSession()/headers().
-// Force dynamic so these dynamic APIs are valid and we avoid DYNAMIC_SERVER_USAGE in CI/production.
-export const dynamic = 'force-dynamic'
 import React from 'react'
+
+// Allow ISR-style data caching (unstable_cache / revalidate tags). Request is still
+// dynamic when cookies()/headers() are read, but we no longer disable the Data Cache.
+export const revalidate = 60
 
 import { Footer } from '@/Footer/Component'
 import { Header } from '@/Header/Component'
