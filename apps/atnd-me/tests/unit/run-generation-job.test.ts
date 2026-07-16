@@ -88,21 +88,9 @@ describe('runSchedulerGenerationJob', () => {
       schedulerId: 10,
     })
 
-    await vi.waitFor(() => expect(update).toHaveBeenCalled())
     await vi.waitFor(() => expect(runByID).toHaveBeenCalled())
 
-    expect(update).toHaveBeenCalledWith({
-      collection: 'scheduler',
-      id: 10,
-      data: { lastGenerationJobId: 99 },
-      context: { skipSchedulerGeneration: true },
-      overrideAccess: true,
-      req: expect.objectContaining({
-        context: { tenant: 5, generationJobId: 99 },
-        payload,
-      }),
-    })
-
+    expect(update).not.toHaveBeenCalled()
     expect(runByID).toHaveBeenCalledWith({
       id: 99,
       req: expect.objectContaining({

@@ -257,7 +257,7 @@ describe('parseGenerationJobStatus', () => {
     expect(result.message).toMatch(/Creating timeslots/)
   })
 
-  it('prefers scheduler generationProgress over a stale completed job record', () => {
+  it('prefers a processing job over legacy stored scheduler progress', () => {
     const result = buildSchedulerGenerationStatus({
       lastGenerationJobId: 12,
       generationProgress: {
@@ -269,9 +269,36 @@ describe('parseGenerationJobStatus', () => {
         startedAt: '2026-07-14T09:36:00.000Z',
       },
       job: baseJob({
-        id: 3,
-        completedAt: '2026-07-12T09:33:00.000Z',
+        id: 12,
+        processing: true,
+        taskStatus: {
+          phase: 'planning',
+          daysProcessed: 2,
+          daysTotal: 10,
+          percent: 10,
+          updatedAt: '2026-07-14T09:36:20.000Z',
+          startedAt: '2026-07-14T09:36:00.000Z',
+        },
       }),
+    })
+
+    expect(result.status).toBe('processing')
+    expect(result.jobId).toBe(12)
+    expect(result.message).toMatch(/Planning timeslots/)
+  })
+
+  it('falls back to stored progress when no job is available', () => {
+    const result = buildSchedulerGenerationStatus({
+      lastGenerationJobId: 12,
+      generationProgress: {
+        phase: 'creating',
+        created: 4,
+        total: 20,
+        percent: 48,
+        updatedAt: '2026-07-14T09:36:10.000Z',
+        startedAt: '2026-07-14T09:36:00.000Z',
+      },
+      job: null,
     })
 
     expect(result.status).toBe('processing')

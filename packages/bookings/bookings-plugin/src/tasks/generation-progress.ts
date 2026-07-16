@@ -19,6 +19,7 @@ export type TimeslotGenerationProgress = {
   updatedAt?: string;
 };
 
+const PAYLOAD_JOBS_SLUG = "payload-jobs" as CollectionSlug;
 const PROGRESS_UPDATE_INTERVAL_MS = 2000;
 
 function toJobId(value: unknown): number | null {
@@ -33,6 +34,10 @@ export function resolveGenerationJobId(
   jobId?: unknown,
 ): number | null {
   return toJobId(req.context?.generationJobId) ?? toJobId(jobId);
+}
+
+export function hasPayloadJobsCollection(payload: Payload): boolean {
+  return Boolean(payload.collections && "payload-jobs" in payload.collections);
 }
 
 export class GenerationProgressReporter {
@@ -86,30 +91,22 @@ export class GenerationProgressReporter {
   private async persistProgress(
     progress: TimeslotGenerationProgress,
   ): Promise<void> {
-    const enriched = this.enrichProgress(progress);
-
-    // Persist progress on the scheduler document for the admin status UI.
-    if (this.schedulerId != null && this.schedulerCollection != null) {
+    // Persist on the job only. Writing generationProgress back onto the open
+    // scheduler document corrupts nested timeSlot form state in Payload admin.
+    if (this.jobId != null && hasPayloadJobsCollection(this.payload)) {
       try {
-        const data: Record<string, unknown> = {
-          generationProgress: enriched,
-        }
-        if (this.jobId != null) {
-          data.lastGenerationJobId = this.jobId
-        }
-
         await this.payload.update({
-          collection: this.schedulerCollection,
-          id: this.schedulerId,
-          data,
-          context: {
-            skipSchedulerGeneration: true,
+          collection: PAYLOAD_JOBS_SLUG,
+          id: this.jobId,
+          data: {
+            taskStatus: progress,
           },
+          context: { triggerAfterChange: false },
           overrideAccess: true,
           req: this.req,
-        })
+        });
       } catch {
-        // Progress updates must not fail generation.
+        // Best-effort — job taskStatus is the sole progress store.
       }
     }
   }

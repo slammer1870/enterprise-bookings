@@ -135,20 +135,12 @@ export function buildSchedulerGenerationStatus(args: {
   job: PayloadJob | null
 }): SchedulerGenerationStatusResponse {
   const { lastGenerationJobId, generationProgress, job } = args
-  const parsedStored = parseTimeslotGenerationProgress(generationProgress)
   const storedJobId =
     lastGenerationJobId != null && Number.isFinite(lastGenerationJobId)
       ? lastGenerationJobId
       : null
 
-  if (parsedStored) {
-    const fromStored = parseGenerationJobStatus(null, { storedProgress: generationProgress })
-    return {
-      ...fromStored,
-      jobId: storedJobId ?? fromStored.jobId,
-    }
-  }
-
+  // Prefer live job + taskStatus. Stored scheduler.generationProgress is legacy only.
   const fromJob = parseGenerationJobStatus(job, { storedProgress: generationProgress })
   return {
     ...fromJob,

@@ -119,10 +119,10 @@ describe("generation progress helpers", () => {
     expect(resolveGenerationJobId({ context: { generationJobId: 12 } } as never, 34)).toBe(12);
   });
 
-  it("persists progress on the scheduler collection", async () => {
+  it("persists progress on the job taskStatus only", async () => {
     const update = vi.fn().mockResolvedValue(undefined);
     const payload = {
-      collections: { scheduler: {} },
+      collections: { "payload-jobs": {}, scheduler: {} },
       update,
     } as never;
     const req = { context: {} } as never;
@@ -139,22 +139,22 @@ describe("generation progress helpers", () => {
 
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
-        collection: "scheduler",
-        id: 10,
+        collection: "payload-jobs",
+        id: 99,
         data: expect.objectContaining({
-          generationProgress: expect.objectContaining({
+          taskStatus: expect.objectContaining({
             phase: "creating",
             created: 5,
             total: 20,
           }),
-          lastGenerationJobId: 99,
         }),
-        context: {
-          skipSchedulerGeneration: true,
-        },
+        context: { triggerAfterChange: false },
         overrideAccess: true,
         req,
       }),
+    );
+    expect(update).not.toHaveBeenCalledWith(
+      expect.objectContaining({ collection: "scheduler" }),
     );
   });
 });
