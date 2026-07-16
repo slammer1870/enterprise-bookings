@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-let checkoutCreate: ReturnType<typeof vi.fn>;
+const { checkoutCreate } = vi.hoisted(() => ({
+  checkoutCreate: vi.fn(async () => ({
+    url: "https://checkout.example",
+    client_secret: "cs_test",
+  })),
+}));
 
 vi.mock("@repo/shared-utils", () => {
-  checkoutCreate = vi.fn(async () => ({ url: "https://checkout.example", client_secret: "cs_test" }));
   const stripe = {
     prices: {
       retrieve: vi.fn(async () => ({

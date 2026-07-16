@@ -122,7 +122,9 @@ export const bookingsPlugin =
 
     const slugs = resolveBookingCollectionSlugs(pluginOptions);
 
-    let collections = config.collections || [];
+    // Copy arrays so we never mutate the caller's collections/globals (shared test
+    // configs and Payload's shallow plugin clones would otherwise accumulate duplicates).
+    const collections = [...(config.collections || [])];
 
     const staffMembers = generateStaffMemberCollection(pluginOptions, slugs);
     const timeslots = generateTimeslotCollection(pluginOptions, slugs);
@@ -134,7 +136,7 @@ export const bookingsPlugin =
     collections.push(eventTypes);
     collections.push(bookings);
 
-    const globals = config.globals || [];
+    const globals = [...(config.globals || [])];
 
     globals.push(createSchedulerGlobal(slugs));
 

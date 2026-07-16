@@ -7,7 +7,9 @@ import type { Config, TaskHandler } from "payload";
 import { bookingsPaymentsPlugin } from "../src/plugin";
 import { syncStripeSubscriptionsTask } from "../src/membership/tasks/sync-stripe-subscriptions";
 
-const mockSync = vi.fn();
+const { mockSync } = vi.hoisted(() => ({
+  mockSync: vi.fn(),
+}));
 vi.mock("../src/membership/lib/sync-stripe-subscriptions", () => ({
   syncStripeSubscriptions: (...args: unknown[]) => mockSync(...args),
 }));

@@ -4,10 +4,11 @@ type MockStripe = {
   subscriptions: { retrieve: ReturnType<typeof vi.fn> };
 };
 
-let stripeRetrieve: ReturnType<typeof vi.fn>;
+const { stripeRetrieve } = vi.hoisted(() => ({
+  stripeRetrieve: vi.fn(),
+}));
 
 vi.mock("@repo/shared-utils", () => {
-  stripeRetrieve = vi.fn();
   const stripe: MockStripe = {
     subscriptions: { retrieve: stripeRetrieve },
   };
@@ -196,4 +197,3 @@ describe("createBeforeSubscriptionChange (connect scope) strict mapping", () => 
     expect(res).toMatchObject({ skipSync: false, stripeSubscriptionId: "sub_1" });
   });
 });
-
