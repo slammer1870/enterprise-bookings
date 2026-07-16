@@ -9,10 +9,10 @@
       "dependsOn": ["^build"]
     },
     "test:int:shard": {
-      "dependsOn": ["^build", "build"]
+      "dependsOn": ["^build"]
     },
     "test:e2e:shard": {
-      "dependsOn": ["^build", "build"]
+      "dependsOn": ["^build"]
     },
     "db:prepare": {
       "dependsOn": ["^build"]

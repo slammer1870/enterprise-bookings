@@ -83,7 +83,7 @@
       "cache": false
     },
     "test:e2e:shard": {
-      "dependsOn": ["build"],
+      "dependsOn": ["^build"],
       "env": [
         "PLAYWRIGHT_SHARD",
         "DATABASE_URI",

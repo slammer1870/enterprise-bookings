@@ -102,7 +102,7 @@ jobs:
       CI: true
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling
@@ -164,7 +164,7 @@ jobs:
       NODE_OPTIONS: --no-deprecation --max-old-space-size=6144
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling
@@ -279,7 +279,7 @@ jobs:
       PLAYWRIGHT_SHARD: ${{ matrix.shard }}/4
     services:
       postgres:
-        image: postgres:latest
+        image: postgres:16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling
