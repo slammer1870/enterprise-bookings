@@ -5,6 +5,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const isCI = process.env.CI === 'true' || process.env.CI === '1'
 
 export default defineConfig({
   plugins: [tsconfigPaths(), react()],
@@ -25,7 +26,16 @@ export default defineConfig({
     // vmForks: CSS transform (react-image-crop) like vmThreads, but avoids tinypool
     // "Failed to terminate worker" flakes that exit 1 after all tests passed.
     pool: 'vmForks',
-    teardownTimeout: 30_000,
+    // CI runners (~7GB) OOM when multiple Payload int suites fork in parallel against one DB.
+    // Serialize in CI; keep a small local cap so laptop runs don't thrash either.
+    maxWorkers: isCI ? 1 : 2,
+    fileParallelism: !isCI,
+    teardownTimeout: 60_000,
+    poolOptions: {
+      vmForks: {
+        singleFork: isCI,
+      },
+    },
     server: {
       deps: {
         inline: ['payload-auth'],

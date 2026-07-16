@@ -161,6 +161,108 @@ jobs:
           # Ensure TestContainers can access Docker
           DOCKER_HOST: unix:///var/run/docker.sock
 
+  # Payload int suites are heavy (full config collect + shared Postgres). Run sharded with
+  # maxWorkers=1 per shard so CI avoids tinypool OOM / unexpected worker exits (~17m flake).
+  int-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        app:
+          - name: atnd-me
+            db: e2e_atnd_me
+            app_path: apps/atnd-me
+        shard: [1, 2, 3, 4]
+    env:
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+      PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_1234567890' }}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY || 'pk_test_1234567890' }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET || 'whsec_1234567890' }}
+      PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY: ${{ secrets.PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY || 'true' }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY || 'resend_api_key_1234567890' }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      TURBO_CACHE: ${{ (secrets.TURBO_TOKEN != '' && vars.TURBO_TEAM != '') && 'remote:rw' || 'local' }}
+      TURBO_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
+      NEXT_PUBLIC_SERVER_URL: http://localhost:3000
+      NODE_ENV: test
+      CI: true
+
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_HOST: localhost
+          POSTGRES_PORT: 5432
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: brugrappling
+          POSTGRES_DB: ${{ matrix.app.db }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.12.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Enable Corepack (pnpm)
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.12.1 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Postgres is unavailable - sleeping"
+            sleep 5
+          done
+          echo "Postgres is up!"
+
+      - name: Run database migrations for ${{ matrix.app.name }}
+        env:
+          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
+          NODE_ENV: test
+          CI: true
+        run: |
+          pnpm run payload migrate:fresh --force-accept-warning
+          sleep 2
+        working-directory: ${{ matrix.app.app_path }}
+
+      - name: Run Integration tests for ${{ matrix.app.name }} (shard ${{ matrix.shard }}/4)
+        env:
+          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
+          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
+          NODE_ENV: test
+          CI: true
+          FORCE_EXISTING_DB: true
+          NODE_OPTIONS: --no-deprecation --max-old-space-size=4096
+        run: pnpm test:int -- --shard=${{ matrix.shard }}/4
+        working-directory: ${{ matrix.app.app_path }}
+
   e2e-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -277,16 +379,6 @@ jobs:
         run: pnpm exec playwright install
         working-directory: ${{ matrix.app.app_path }}
 
-      - name: Run Integration tests for ${{ matrix.app.name }}
-        env:
-          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
-          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
-          NODE_ENV: test
-          CI: true
-          FORCE_EXISTING_DB: true
-        run: pnpm test:int
-        working-directory: ${{ matrix.app.app_path }}
-
       - name: Build ${{ matrix.app.name }} for E2E (production build)
         run: |
           set +e
@@ -302,19 +394,6 @@ jobs:
         working-directory: ${{ matrix.app.app_path }}
         env:
           E2E_USE_PROD: "true"
-
-      # Int tests mutate the shared DB; reset once here so Playwright can start the server without
-      # running migrate:fresh again in webServer (PW_E2E_SKIP_WEBSERVER_MIGRATE).
-      - name: Reset database for E2E (${{ matrix.app.name }})
-        env:
-          DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
-          PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
-          NODE_ENV: test
-          CI: true
-        run: |
-          pnpm run payload migrate:fresh --force-accept-warning
-          sleep 2
-        working-directory: ${{ matrix.app.app_path }}
 
       - name: Run E2E tests for ${{ matrix.app.name }}
         run: pnpm run test:e2e:ci
