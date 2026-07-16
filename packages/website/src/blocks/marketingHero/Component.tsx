@@ -121,8 +121,8 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
                 priority
                 fetchPriority="high"
                 className="object-contain rounded-lg border border-border shadow-2xl"
-                sizes="(max-width: 1024px) 100vw, 1024px"
-                quality={80}
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 90vw, 1024px"
+                quality={75}
               />
             </div>
           )}

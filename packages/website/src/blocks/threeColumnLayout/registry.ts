@@ -3,18 +3,19 @@
 
 import type React from 'react'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyBlock = React.ComponentType<any>
+type BlockProps = Record<string, unknown>
+type AnyBlock = React.ComponentType<BlockProps>
+type BlockRenderFn = (_props: BlockProps) => React.ReactNode
 type BlockLoader = () => Promise<AnyBlock>
 
 // Module-level registry for block components (legacy sync consumers)
-let blockComponentsRegistry: Record<string, AnyBlock | ((_props: any) => any)> | null = null
+let blockComponentsRegistry: Record<string, AnyBlock | BlockRenderFn> | null = null
 
 // Lazy loaders — preferred for code-splitting
 let blockLoadersRegistry: Record<string, BlockLoader> | null = null
 
 export const registerBlockComponents = (
-  components: Record<string, AnyBlock | ((_props: any) => any)>,
+  components: Record<string, AnyBlock | BlockRenderFn>,
 ) => {
   blockComponentsRegistry = components
 }
@@ -23,10 +24,7 @@ export const registerBlockLoaders = (loaders: Record<string, BlockLoader>) => {
   blockLoadersRegistry = loaders
 }
 
-export const getBlockComponentsRegistry = (): Record<
-  string,
-  AnyBlock | ((_props: any) => any)
-> | null => {
+export const getBlockComponentsRegistry = (): Record<string, AnyBlock | BlockRenderFn> | null => {
   return blockComponentsRegistry
 }
 
@@ -38,5 +36,5 @@ export async function resolveBlockComponent(blockType: string): Promise<AnyBlock
   const loader = blockLoadersRegistry?.[blockType]
   if (loader) return loader()
   const sync = blockComponentsRegistry?.[blockType]
-  return sync ?? null
+  return (sync as AnyBlock | undefined) ?? null
 }

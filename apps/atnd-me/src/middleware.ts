@@ -393,8 +393,11 @@ export async function middleware(request: NextRequest) {
   ) {
     let tenantIdToSet: string | number | null = resolvedTenantId
 
-    // For platform subdomains (or when custom domain didn't already resolve an ID), look up tenant id.
-    if (tenantIdToSet == null) {
+    // Blocking slug→id lookup: only when we need payload-tenant immediately.
+    // Public frontend SSR resolves tenant via tenant-slug; skipping this fetch on cold
+    // Lighthouse/first visits removes a full origin round-trip from TTFB.
+    // Admin still looks up so the TenantSelector cookie is set on first paint.
+    if (tenantIdToSet == null && isPayloadAdmin) {
       try {
         const origin = platformOrigin ?? request.nextUrl.origin
         const url = `${origin}/api/tenant-by-slug?slug=${encodeURIComponent(subdomain)}`

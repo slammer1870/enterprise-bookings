@@ -1,35 +1,51 @@
 import type React from 'react'
 
+import { MarketingHeroBlock } from '@repo/website/src/blocks/marketingHero'
+import { AboutBlock } from '@repo/website/src/blocks/about'
+import { FeaturesBlock } from '@repo/website/src/blocks/features'
+import { CaseStudiesBlock } from '@repo/website/src/blocks/caseStudies'
+import { MarketingCtaBlock } from '@repo/website/src/blocks/marketingCta'
+import { FaqsBlock } from '@repo/website/src/blocks/faqs'
+import { HeroBlock } from '@repo/website/src/blocks/hero'
+import { ContentBlock } from '@/blocks/Content/Component'
+import { CallToActionBlock } from '@/blocks/CallToAction/Component'
+import { MediaBlock } from '@/blocks/MediaBlock/Component'
+
 /**
- * Lazy block loaders — only modules for blocks present on the page are imported.
- * Keeps marketing (www) free of schedule/form/tenant-pack bundles.
+ * Eager-load light marketing/content blocks (critical for www LCP).
+ * Lazy-load heavy tenant packs / schedule / forms so they stay out of marketing JS.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type AnyBlockComponent = React.ComponentType<any>
 
 export type BlockLoader = () => Promise<AnyBlockComponent>
 
+const eager =
+  (Block: AnyBlockComponent): BlockLoader =>
+  async () =>
+    Block
+
 export const blockLoaders: Record<string, BlockLoader> = {
+  // --- Eager: marketing + common light blocks (no dynamic import tax on SSR) ---
+  marketingHero: eager(MarketingHeroBlock),
+  about: eager(AboutBlock),
+  features: eager(FeaturesBlock),
+  caseStudies: eager(CaseStudiesBlock),
+  marketingCta: eager(MarketingCtaBlock),
+  faqs: eager(FaqsBlock),
+  hero: eager(HeroBlock),
+  content: eager(ContentBlock),
+  cta: eager(CallToActionBlock),
+  mediaBlock: eager(MediaBlock),
+
+  // --- Lazy: heavy / tenant-specific ---
   archive: () => import('@/blocks/ArchiveBlock/Component').then((m) => m.ArchiveBlock),
-  content: () => import('@/blocks/Content/Component').then((m) => m.ContentBlock),
-  cta: () => import('@/blocks/CallToAction/Component').then((m) => m.CallToActionBlock),
   formBlock: () => import('@/blocks/Form/Component').then((m) => m.FormBlock),
-  mediaBlock: () => import('@/blocks/MediaBlock/Component').then((m) => m.MediaBlock),
-  hero: () => import('@repo/website/src/blocks/hero').then((m) => m.HeroBlock),
-  marketingHero: () =>
-    import('@repo/website/src/blocks/marketingHero').then((m) => m.MarketingHeroBlock),
-  about: () => import('@repo/website/src/blocks/about').then((m) => m.AboutBlock),
   simpleAbout: () => import('@/blocks/SimpleAbout/Component').then((m) => m.SimpleAboutBlock),
   location: () => import('@repo/website/src/blocks/location').then((m) => m.LocationBlock),
   schedule: () => import('@/blocks/Schedule/Component').then((m) => m.ScheduleBlock),
   tenantScopedSchedule: () =>
     import('@/blocks/TenantScopedSchedule/Component').then((m) => m.TenantScopedScheduleBlock),
-  faqs: () => import('@repo/website/src/blocks/faqs').then((m) => m.FaqsBlock),
-  features: () => import('@repo/website/src/blocks/features').then((m) => m.FeaturesBlock),
-  caseStudies: () =>
-    import('@repo/website/src/blocks/caseStudies').then((m) => m.CaseStudiesBlock),
-  marketingCta: () =>
-    import('@repo/website/src/blocks/marketingCta').then((m) => m.MarketingCtaBlock),
   heroScheduleSanctuary: () =>
     import('@/blocks/HeroScheduleSanctuary/Component').then((m) => m.HeroScheduleSanctuaryBlock),
   heroWithLocation: () =>

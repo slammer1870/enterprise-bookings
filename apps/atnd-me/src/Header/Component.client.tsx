@@ -73,13 +73,12 @@ export const HeaderClient: React.FC<HeaderClientProps> = ({ data }) => {
                 width={96}
                 height={32}
                 className="object-contain h-12 w-auto"
+                // Don't use priority — hero LCP image must win the network race.
                 loading="eager"
-                priority
               />
             ) : (
               <Logo
                 loading="eager"
-                priority="high"
                 className="h-12 w-auto invert dark:invert-0"
               />
             )}
