@@ -45,6 +45,14 @@ if (!fs.existsSync(serverEntrypoint)) {
   throw new Error(`Missing standalone server entrypoint: ${serverEntrypoint}. Did you run \`pnpm build\`?`)
 }
 
+const buildIdPath = path.join(standaloneNextDir, 'BUILD_ID')
+if (!fs.existsSync(buildIdPath)) {
+  throw new Error(
+    `Missing Next.js BUILD_ID in standalone output: ${buildIdPath}. ` +
+      'Ensure the e2e-build artifact includes apps/atnd-me/.next/standalone.',
+  )
+}
+
 // Ensure E2E env is passed so Stripe test-account mocking runs (avoids "does not have access to account" in tests).
 const payloadAuthRegister = path.join(__dirname, 'register-payload-auth-loader.mjs')
 const baseNodeOptions = process.env.NODE_OPTIONS ?? ''
@@ -68,9 +76,10 @@ const env = {
   INTERNAL_TENANT_RESOLVE_TOKEN: process.env.INTERNAL_TENANT_RESOLVE_TOKEN ?? 'e2e-internal-test-secret',
   NODE_OPTIONS: `${cleanedBaseNodeOptions} --no-deprecation ${loaderNodeOptions}`.trim(),
 }
-const child = spawn(process.execPath, [serverEntrypoint], {
+const child = spawn(process.execPath, ['server.js'], {
   stdio: 'inherit',
   env,
+  cwd: standaloneAppDir,
 })
 
 child.on('exit', (code) => process.exit(code ?? 0))

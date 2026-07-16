@@ -337,6 +337,7 @@ jobs:
         run: |
           test -d apps/atnd-me/.next/static
           test -f apps/atnd-me/.next/standalone/apps/atnd-me/server.js
+          test -f apps/atnd-me/.next/standalone/apps/atnd-me/.next/BUILD_ID
 
       - name: Wait for PostgreSQL
         run: |
