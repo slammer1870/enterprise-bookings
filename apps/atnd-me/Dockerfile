@@ -45,7 +45,9 @@ const path = require('path')
 const { createRequire } = require('module')
 
 const requireFromApp = createRequire('/app/apps/atnd-me/package.json')
-const requireFromSharp = createRequire(requireFromApp.resolve('sharp/package.json'))
+const sharpPkgJson = requireFromApp.resolve('sharp/package.json')
+const requireFromSharp = createRequire(sharpPkgJson)
+const sharpStoreNm = path.dirname(path.dirname(sharpPkgJson)) // .../sharp@x/node_modules
 const standaloneRoot = '/app/apps/atnd-me/.next/standalone'
 const targets = [
   path.join(standaloneRoot, 'node_modules'),
@@ -63,9 +65,23 @@ function copyPkg(name, resolver) {
   }
 }
 
+function copyDir(name, src) {
+  if (!fs.existsSync(src)) {
+    throw new Error(`Missing ${name} at ${src}`)
+  }
+  for (const destRoot of targets) {
+    fs.mkdirSync(destRoot, { recursive: true })
+    const dest = path.join(destRoot, name)
+    fs.cpSync(src, dest, { recursive: true, dereference: true })
+    console.log(`copied ${name}/ -> ${dest}`)
+  }
+}
+
 copyPkg('require-in-the-middle', requireFromApp)
 copyPkg('detect-libc', requireFromSharp)
 copyPkg('semver', requireFromSharp)
+// Alpine (musl) native bindings — Next standalone tracing drops these under pnpm.
+copyDir('@img', path.join(sharpStoreNm, '@img'))
 
 const sharpPkg = path.join(
   standaloneRoot,
@@ -74,8 +90,11 @@ const sharpPkg = path.join(
 if (!fs.existsSync(sharpPkg)) {
   throw new Error(`Expected sharp in standalone at ${sharpPkg}`)
 }
-createRequire(sharpPkg).resolve('detect-libc')
-console.log('verified: standalone sharp resolves detect-libc')
+const requireStandaloneSharp = createRequire(sharpPkg)
+requireStandaloneSharp.resolve('detect-libc')
+// Load sharp itself so missing linuxmusl binaries fail the image build.
+requireStandaloneSharp(path.dirname(sharpPkg))
+console.log('verified: standalone sharp loads (native bindings ok)')
 EOF
 
 # ---- runner: minimal production image ----

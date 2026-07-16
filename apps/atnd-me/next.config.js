@@ -47,11 +47,14 @@ const nextConfig = {
     ? {
         output: 'standalone',
         // Ensure sharp platform binaries + runtime deps are present in standalone traces (pnpm).
+        // Dockerfile also copies @img/detect-libc beside sharp; keep both for local standalone.
         outputFileTracingIncludes: {
           '/**': [
             './node_modules/sharp/**/*',
             './node_modules/@img/**/*',
             './node_modules/detect-libc/**/*',
+            '../../node_modules/.pnpm/@img+sharp-linuxmusl-*/**/*',
+            '../../node_modules/.pnpm/@img+sharp-libvips-linuxmusl-*/**/*',
           ],
         },
       }
