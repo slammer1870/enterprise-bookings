@@ -43,24 +43,25 @@ export function createNodeWithReactConfig(
   ];
 
   return defineConfig(
-    mergeConfig(baseVitestConfig, {
-      plugins: [tsconfigPaths(), react(), ...(config.plugins || [])],
-      test: {
-        environment: 'node',
-        hookTimeout: 100_000,
-        setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
-        ...config.test,
-      },
-      define: {
-        global: 'globalThis',
-      },
-      resolve: {
-        alias: {
-          crypto: 'crypto',
+    mergeConfig(
+      mergeConfig(baseVitestConfig, config),
+      {
+        plugins: [tsconfigPaths(), react(), ...(config.plugins || [])],
+        test: {
+          environment: 'node',
+          hookTimeout: 100_000,
+          setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
         },
-      } as UserConfig['resolve'],
-      ...config,
-    }),
+        define: {
+          global: 'globalThis',
+        },
+        resolve: {
+          alias: {
+            crypto: 'crypto',
+          },
+        } as UserConfig['resolve'],
+      },
+    ),
   );
 }
 

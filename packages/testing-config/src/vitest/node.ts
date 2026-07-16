@@ -49,15 +49,16 @@ export function createNodeConfig(
   ];
 
   return defineConfig(
-    mergeConfig(baseVitestConfig, {
-      test: {
-        environment: 'node',
-        hookTimeout: 100_000,
-        setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
-        ...config.test,
+    mergeConfig(
+      mergeConfig(baseVitestConfig, config),
+      {
+        test: {
+          environment: 'node',
+          hookTimeout: 100_000,
+          setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
+        },
       },
-      ...config,
-    }),
+    ),
   );
 }
 
@@ -65,13 +66,14 @@ export type ForksNodeConfigOptions = Parameters<typeof createNodeConfig>[0];
 
 /** Node vitest config with fork pool isolation (prevents mock leakage across files). */
 export function createForksNodeConfig(config: ForksNodeConfigOptions = {}) {
+  const { test: configTest, ...restConfig } = config;
   return createNodeConfig({
+    ...restConfig,
     test: {
+      ...configTest,
       pool: 'forks',
       isolate: true,
-      ...config?.test,
     },
-    ...config,
   });
 }
 

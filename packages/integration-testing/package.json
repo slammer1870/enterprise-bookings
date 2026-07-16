@@ -25,6 +25,7 @@
     "vitest": "4.0.12"
   },
   "private": true,
+  "type": "module",
   "scripts": {
     "test": "vitest run --hook-timeout=1000000",
     "check-types": "tsc --noEmit",

@@ -43,15 +43,16 @@ export function createReactConfig(
   ];
 
   return defineConfig(
-    mergeConfig(baseVitestConfig, {
-      plugins: [tsconfigPaths(), react(), ...(config.plugins || [])],
-      test: {
-        environment: 'jsdom',
-        setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
-        ...config.test,
+    mergeConfig(
+      mergeConfig(baseVitestConfig, config),
+      {
+        plugins: [tsconfigPaths(), react(), ...(config.plugins || [])],
+        test: {
+          environment: 'jsdom',
+          setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
+        },
       },
-      ...config,
-    }),
+    ),
   );
 }
 

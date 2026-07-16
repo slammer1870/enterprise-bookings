@@ -1,4 +1,3 @@
-import '@repo/testing-config/src/vitest/base';
 import { createReactConfig } from '@repo/testing-config/src/vitest/react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import react from '@vitejs/plugin-react';
