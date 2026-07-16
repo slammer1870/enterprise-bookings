@@ -36,10 +36,16 @@ const skipWebserverMigrate = truthyEnv(process.env.PW_E2E_SKIP_WEBSERVER_MIGRATE
 /**
  * Local dev: PW_E2E_FAST=1 tightens timeouts so failures surface sooner.
  * Combine with PW_E2E_BAIL=1 (or `pnpm test:e2e:fast`) to stop after the first failure.
- * CI is unchanged unless these env vars are set explicitly.
+ *
+ * Failure threshold (Playwright `maxFailures`):
+ * - PW_E2E_BAIL=1 → stop after 1 failure
+ * - PW_E2E_MAX_FAILURES=N → stop after N failures (0 / "none" / "off" = unlimited)
+ * - default local → 5 (avoid burning the full suite when something is clearly broken)
+ * - CI default → unlimited unless PW_E2E_MAX_FAILURES is set
  */
 const fastE2E = truthyEnv(process.env.PW_E2E_FAST)
 const bailE2E = truthyEnv(process.env.PW_E2E_BAIL)
+const DEFAULT_LOCAL_MAX_FAILURES = 5
 
 function resolveWorkers(): number {
   const fromEnv = process.env.PW_E2E_WORKERS
@@ -51,6 +57,23 @@ function resolveWorkers(): number {
   // Full-suite e2e is heavy (admin flows + Payload), and parallel workers can OOM during
   // production `next build` + Playwright execution.
   return 1
+}
+
+function resolveMaxFailures(): number | undefined {
+  if (bailE2E) return 1
+
+  const raw = (process.env.PW_E2E_MAX_FAILURES ?? '').trim().toLowerCase()
+  if (raw === '0' || raw === 'none' || raw === 'off' || raw === 'unlimited') {
+    return undefined
+  }
+  if (raw !== '') {
+    const n = parseInt(raw, 10)
+    if (Number.isFinite(n) && n > 0) return n
+  }
+
+  // CI runs the full suite by default; local/turbo stops after a handful of failures.
+  if (process.env.CI) return undefined
+  return DEFAULT_LOCAL_MAX_FAILURES
 }
 
 const prodWebCommand = skipWebserverMigrate
@@ -65,7 +88,7 @@ export default defineConfig({
   testDir: './tests/e2e',
   forbidOnly: !!process.env.CI,
   retries: fastE2E ? 0 : process.env.CI ? 1 : 0,
-  maxFailures: bailE2E ? 1 : undefined,
+  maxFailures: resolveMaxFailures(),
   // Override with PW_E2E_WORKERS=1 if multi-worker runs flake on shared DB state.
   workers: resolveWorkers(),
   timeout: fastE2E ? 35_000 : 60_000,

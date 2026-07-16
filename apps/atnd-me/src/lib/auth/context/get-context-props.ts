@@ -3,6 +3,7 @@ import { getPayload } from '@/lib/payload'
 import { sanitizeBetterAuthSession } from '@repo/shared-utils'
 import type { TypedUser } from 'payload'
 import { cookies, headers as requestHeaders } from 'next/headers'
+import { unstable_rethrow } from 'next/navigation'
 
 /** Skip Better Auth / Payload auth lookups when the browser has no session cookie. */
 async function hasAuthSessionCookie(): Promise<boolean> {
@@ -21,13 +22,18 @@ async function hasAuthSessionCookie(): Promise<boolean> {
 }
 
 export const getSession = async (): Promise<Session | null> => {
+  // Keep cookies()/headers() outside try/catch so Next can opt the route into
+  // dynamic rendering. Swallowing DYNAMIC_SERVER_USAGE logs noisy errors and
+  // breaks static→dynamic bailout during prerender/ISR.
+  if (!(await hasAuthSessionCookie())) return null
+  const headers = await requestHeaders()
+
   try {
-    if (!(await hasAuthSessionCookie())) return null
     const payload = await getPayload()
-    const headers = await requestHeaders()
     const raw = await payload.betterAuth.api.getSession({ headers })
     return sanitizeBetterAuthSession(raw)
   } catch (error) {
+    unstable_rethrow(error)
     // Avoid error boundary on auth/session failures (e.g. cookie missing on subdomain, CI timing).
     // Callers should treat null as unauthenticated and redirect to sign-in.
     console.error('[getSession]', error)
@@ -36,9 +42,10 @@ export const getSession = async (): Promise<Session | null> => {
 }
 
 export const getUserAccounts = async (): Promise<Account[]> => {
+  const headers = await requestHeaders()
+
   try {
     const payload = await getPayload()
-    const headers = await requestHeaders()
     const accounts = await payload.betterAuth.api.listUserAccounts({ headers })
 
     // Ensure we return an array - handle cases where API returns error or non-array response
@@ -49,6 +56,7 @@ export const getUserAccounts = async (): Promise<Account[]> => {
     // If not an array, return empty array (user might not be authenticated)
     return []
   } catch (error) {
+    unstable_rethrow(error)
     // If API call fails (e.g., user not authenticated), return empty array
     console.error('Error fetching user accounts:', error)
     return []
@@ -56,9 +64,10 @@ export const getUserAccounts = async (): Promise<Account[]> => {
 }
 
 export const getDeviceSessions = async (): Promise<DeviceSession[]> => {
+  const headers = await requestHeaders()
+
   try {
     const payload = await getPayload()
-    const headers = await requestHeaders()
     const sessions = await payload.betterAuth.api.listSessions({ headers })
 
     // Ensure we return an array - handle cases where API returns error or non-array response
@@ -69,6 +78,7 @@ export const getDeviceSessions = async (): Promise<DeviceSession[]> => {
     // If not an array, return empty array (user might not be authenticated)
     return []
   } catch (error) {
+    unstable_rethrow(error)
     // If API call fails (e.g., user not authenticated), return empty array
     console.error('Error fetching device sessions:', error)
     return []

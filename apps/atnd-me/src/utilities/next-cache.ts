@@ -21,9 +21,9 @@ async function loadCacheFunctions() {
   }
   
   cacheLoadPromise = (async () => {
-    // Vitest can import next/cache but has no Next.js request context
-    // (incrementalCache). Use passthrough so unit tests exercise the real fn.
-    if (process.env.VITEST) {
+    // Vitest / Playwright e2e: either no Next request cache, or tests mutate CMS
+    // data and must see it immediately (unstable_cache would serve stale reads).
+    if (process.env.VITEST || process.env.PW_E2E_PROFILE) {
       usePassthroughCache()
       return
     }

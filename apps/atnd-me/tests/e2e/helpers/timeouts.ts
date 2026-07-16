@@ -8,6 +8,12 @@ export const isE2EBail = ['1', 'true', 'yes'].includes(
   (process.env.PW_E2E_BAIL ?? '').toLowerCase(),
 )
 
+/**
+ * Playwright maxFailures threshold (see playwright.config.ts).
+ * Local default is 5; override with PW_E2E_MAX_FAILURES, or PW_E2E_BAIL=1 for 1.
+ */
+export const e2eMaxFailuresEnv = process.env.PW_E2E_MAX_FAILURES
+
 /** Scale a test/describe timeout down in fast mode (floor 25s). */
 export function e2eTestTimeout(normalMs: number): number {
   if (!isE2EFast) return normalMs

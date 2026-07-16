@@ -22,7 +22,10 @@ export default defineConfig({
     globalSetup: ['./tests/int/global-setup.ts'],
     include: ['tests/int/**/*.int.spec.ts'],
     hookTimeout: 300000, // 5 minutes for database setup
-    pool: 'vmThreads', // so deps.transformCss can handle .css from deps like react-image-crop
+    // vmForks: CSS transform (react-image-crop) like vmThreads, but avoids tinypool
+    // "Failed to terminate worker" flakes that exit 1 after all tests passed.
+    pool: 'vmForks',
+    teardownTimeout: 30_000,
     server: {
       deps: {
         inline: ['payload-auth'],

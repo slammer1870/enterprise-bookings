@@ -408,8 +408,12 @@ export const betterAuthPluginOptions = {
   ..._betterAuthPluginOptionsBase,
   betterAuthOptions: {
     ..._betterAuthPluginOptionsBase.betterAuthOptions,
+    // Replace the shared sanitized customSession — Better Auth errors if two
+    // plugins both register GET /get-session (id: "custom-session").
     plugins: [
-      ...(_betterAuthPluginOptionsBase.betterAuthOptions?.plugins ?? []),
+      ...(_betterAuthPluginOptionsBase.betterAuthOptions?.plugins ?? []).filter(
+        (plugin: { id?: string }) => plugin.id !== 'custom-session',
+      ),
       customSessionPlugin,
     ],
   },

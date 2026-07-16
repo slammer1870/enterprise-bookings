@@ -12,6 +12,9 @@ import { queryPageBySlug } from './[slug]/queryPageBySlug'
 import { generateMeta } from '@/utilities/generateMeta'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 
+// Always resolves tenant from cookies/headers — must not be statically prerendered.
+export const dynamic = 'force-dynamic'
+
 /**
  * Root page handler for both marketing (no subdomain) and tenant home pages
  *
