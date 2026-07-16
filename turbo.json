@@ -8,7 +8,8 @@
         "DATABASE_URI",
         "PAYLOAD_SECRET",
         "BLOB_READ_WRITE_TOKEN",
-        "POSTGRES_URL"
+        "POSTGRES_URL",
+        "E2E_DISABLE_STANDALONE"
       ],
       "inputs": [
         "src/**",
@@ -97,6 +98,8 @@
         "ENABLE_TEST_MAGIC_LINKS",
         "ENABLE_TEST_WEBHOOKS",
         "E2E_USE_PROD",
+        "E2E_USE_NEXT_START",
+        "E2E_ISOLATE_STANDALONE",
         "PW_E2E_SKIP_WEBSERVER_MIGRATE",
         "PW_E2E_MAX_FAILURES",
         "PW_E2E_SKIP_DEFAULT_TENANT_DATA",

@@ -235,6 +235,8 @@ jobs:
       NEXT_PUBLIC_SERVER_URL: http://localhost:3000
       CI: true
       E2E_USE_PROD: "true"
+      # Normal `.next` + `next start` in e2e-tests (standalone pnpm traces break sharp/react).
+      E2E_DISABLE_STANDALONE: "true"
     services:
       postgres:
         image: postgres:16
@@ -285,13 +287,12 @@ jobs:
       - name: Prepare Next.js build artifact
         run: |
           test -d apps/atnd-me/.next/static
-          test -d apps/atnd-me/.next/standalone
-          test -f apps/atnd-me/.next/standalone/apps/atnd-me/server.js
-          test -f apps/atnd-me/.next/standalone/apps/atnd-me/.next/BUILD_ID
+          test -d apps/atnd-me/.next/server
+          test -f apps/atnd-me/.next/BUILD_ID
           rm -rf /tmp/atnd-me-next-artifact
           mkdir -p /tmp/atnd-me-next-artifact
-          cp -a apps/atnd-me/.next/static /tmp/atnd-me-next-artifact/static
-          cp -a apps/atnd-me/.next/standalone /tmp/atnd-me-next-artifact/standalone
+          # Full server build for `next start` (exclude cache to keep artifact small).
+          rsync -a --exclude cache apps/atnd-me/.next/ /tmp/atnd-me-next-artifact/
 
       - name: Upload Next.js build artifact
         uses: actions/upload-artifact@v4
@@ -323,6 +324,7 @@ jobs:
       NEXT_PUBLIC_SERVER_URL: http://localhost:3000
       CI: true
       E2E_USE_PROD: "true"
+      E2E_USE_NEXT_START: "true"
       PW_E2E_SKIP_WEBSERVER_MIGRATE: "true"
       PW_E2E_MAX_FAILURES: "0"
       PW_E2E_SKIP_DEFAULT_TENANT_DATA: "true"
@@ -367,9 +369,8 @@ jobs:
       - name: Verify Next.js build artifact
         run: |
           test -d apps/atnd-me/.next/static
-          test -d apps/atnd-me/.next/standalone
-          test -f apps/atnd-me/.next/standalone/apps/atnd-me/server.js
-          test -f apps/atnd-me/.next/standalone/apps/atnd-me/.next/BUILD_ID
+          test -d apps/atnd-me/.next/server
+          test -f apps/atnd-me/.next/BUILD_ID
 
       - name: Wait for PostgreSQL
         run: |

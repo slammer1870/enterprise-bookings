@@ -77,10 +77,12 @@ pnpm test:verbose:int:atnd-me:all-shards
 
 stage "6/8  e2e-build — atnd-me production build"
 use_atnd_me_db
+export E2E_DISABLE_STANDALONE=true
 pnpm ci:atnd-me:build
 
 stage "7/8  e2e-tests — atnd-me 4 shards"
 use_atnd_me_db
+export E2E_USE_NEXT_START=true
 for s in 1 2 3 4; do
   echo ""
   echo "========== E2E SHARD $s/4 =========="

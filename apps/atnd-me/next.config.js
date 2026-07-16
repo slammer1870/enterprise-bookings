@@ -37,12 +37,24 @@ const imageRemotePatterns = [
   { hostname: '**.r2.dev', protocol: 'https' },
 ].filter(Boolean)
 
+// CI e2e uses a normal `.next` build + `next start` so sharp/react resolve from the
+// workspace install. Standalone stays the default for deploy/self-host.
+const useStandaloneOutput = process.env.E2E_DISABLE_STANDALONE !== 'true'
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  ...(useStandaloneOutput
+    ? {
+        output: 'standalone',
+        // Ensure sharp platform binaries are present in standalone traces (pnpm).
+        outputFileTracingIncludes: {
+          '/**': ['./node_modules/sharp/**/*', './node_modules/@img/**/*'],
+        },
+      }
+    : {}),
   // Required for standalone: Sentry/OpenTelemetry (Payload admin) load require-in-the-middle at
   // runtime; Next does not trace it, so include it so the package is present in standalone output.
-  serverExternalPackages: ['require-in-the-middle'],
+  serverExternalPackages: ['require-in-the-middle', 'sharp'],
   // Required so Next can compile workspace TS sources used at runtime.
   // Without this, Node will try to resolve deep imports like
   // `@repo/bookings-plugin/src/...` directly from `node_modules`, which fails in ESM.
