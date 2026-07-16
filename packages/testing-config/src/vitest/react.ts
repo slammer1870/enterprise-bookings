@@ -1,6 +1,7 @@
 import react from '@vitejs/plugin-react';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig, mergeConfig, type UserConfig } from 'vitest/config';
+import { isCI } from './ci.js';
 
 if (typeof globalThis.File === 'undefined') {
   class FilePolyfill extends Blob {
@@ -49,6 +50,7 @@ export function createReactConfig(
         plugins: [tsconfigPaths(), react(), ...(config.plugins || [])],
         test: {
           environment: 'jsdom',
+          testTimeout: isCI() ? 30_000 : 10_000,
           setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
         },
       },

@@ -42,7 +42,7 @@
     "ci:atnd-me:db": "turbo run db:prepare --filter=atnd-me",
     "ci:atnd-me:build": "turbo run build --filter=atnd-me",
     "test:verbose:unit:atnd-me": "turbo run test:unit --filter=atnd-me -- --reporter=verbose",
-    "test:verbose:packages": "turbo run test --filter='./packages/*' --continue -- --reporter=verbose",
+    "test:verbose:packages": "turbo run test --filter='./packages/*' --continue --concurrency=2 -- --reporter=verbose",
     "test:verbose:int:atnd-me": "turbo run test:int:shard --filter=atnd-me -- --reporter=verbose",
     "test:verbose:int:atnd-me:all-shards": "bash -c 'for s in 1 2 3 4 5 6 7 8; do echo \"\"; echo \"========== INT SHARD $s/8 ==========\"; VITEST_SHARD=$s/8 pnpm test:verbose:int:atnd-me || exit 1; done'",
     "ci:local:full": "bash scripts/ci-local-full.sh",

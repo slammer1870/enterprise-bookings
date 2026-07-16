@@ -71,6 +71,19 @@ jobs:
   package-tests:
     runs-on: ubuntu-latest
     needs: set-turbo-filter
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - auth-plugin
+          - bookings-plugin
+          - bookings-next
+          - bookings-payments
+          - payments-plugin
+          - memberships
+          - integration-testing
+          - plugin-clearable-tenant
+          - shared-services
     env:
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
       NEXT_PUBLIC_SERVER_URL: ${{ github.server_url }}
@@ -89,7 +102,14 @@ jobs:
         run: git fetch origin "${{ github.base_ref }}"
 
       - name: Run package tests (Turbo)
-        run: pnpm turbo run test --filter="${{ needs.set-turbo-filter.outputs.repo_filter }}" --continue
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            FILTER="@repo/${{ matrix.package }}...[origin/${{ github.base_ref }}]"
+          else
+            FILTER="@repo/${{ matrix.package }}"
+          fi
+          pnpm turbo run test --filter="$FILTER"
         env:
           DOCKER_HOST: unix:///var/run/docker.sock
 
