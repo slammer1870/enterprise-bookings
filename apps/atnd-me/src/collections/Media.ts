@@ -16,6 +16,10 @@ import {
   resolveTenantIdFromRequest,
 } from '../access/tenant-scoped'
 import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../access/userTenantAccess'
+import {
+  MEDIA_MAX_FILE_SIZE_BYTES,
+  MEDIA_MAX_FILE_SIZE_LABEL,
+} from '../lib/media/upload-limits'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -109,12 +113,29 @@ export const Media: CollectionConfig = {
         },
       }),
     },
+    // Override built-in filesize so Local API creates also enforce the same cap as
+    // payload.config upload.limits.fileSize (multipart is already handled there).
+    {
+      name: 'filesize',
+      type: 'number',
+      admin: {
+        readOnly: true,
+        disabled: true,
+      },
+      validate: (value: unknown) => {
+        if (typeof value === 'number' && value > MEDIA_MAX_FILE_SIZE_BYTES) {
+          return `File exceeds the ${MEDIA_MAX_FILE_SIZE_LABEL} upload limit.`
+        }
+        return true
+      },
+    },
   ],
   upload: {
     // Upload to the public/media directory in Next.js making them publicly accessible even outside of Payload
     staticDir: path.resolve(dirname, '../../public/media'),
     adminThumbnail: 'thumbnail',
     focalPoint: true,
+    mimeTypes: ['image/*'],
     imageSizes: [
       {
         name: 'thumbnail',

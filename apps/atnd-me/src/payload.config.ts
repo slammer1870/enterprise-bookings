@@ -31,6 +31,7 @@ import { createSubscriptionInStripeEndpoint } from './endpoints/admin/stripe/cre
 import { stripeDashboardLinkEndpoint } from './endpoints/admin/stripe/dashboard-link'
 import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/update-subscription'
 import { sendLateBookingMagicLinkEndpoint } from './endpoints/admin/bookings/send-late-booking-magic-link'
+import { MEDIA_MAX_FILE_SIZE_BYTES } from './lib/media/upload-limits'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -162,6 +163,14 @@ export default buildConfig({
       : {}),
   }),
   collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler, Locations, PostBookingEmailDeliveries],
+  // Global multipart upload limits (busboy). Without this, fileSize defaults to Infinity.
+  // abortOnLimit must be true — otherwise oversized files are truncated instead of rejected.
+  upload: {
+    abortOnLimit: true,
+    limits: {
+      fileSize: MEDIA_MAX_FILE_SIZE_BYTES,
+    },
+  },
   // Keep Payload's global CORS restrictive; we selectively allow additional origins
   // for specific public endpoints (e.g. /api/form-submissions) via Next route wrappers.
   cors: [getServerSideURL()].filter(Boolean),
