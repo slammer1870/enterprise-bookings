@@ -331,7 +331,12 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: next-build-atnd-me
-          path: .
+          path: apps/atnd-me/.next
+
+      - name: Verify Next.js build artifact
+        run: |
+          test -d apps/atnd-me/.next/static
+          test -f apps/atnd-me/.next/standalone/apps/atnd-me/server.js
 
       - name: Wait for PostgreSQL
         run: |
