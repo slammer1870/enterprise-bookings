@@ -12,11 +12,20 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/unit/**/*.test.ts'],
+    server: {
+      deps: {
+        // payload-auth ships extensionless/directory ESM; Vite must transform it.
+        inline: ['payload-auth'],
+      },
+    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
     conditions: ['node', 'import', 'module', 'browser', 'default'],
+  },
+  ssr: {
+    noExternal: ['payload-auth'],
   },
 })

@@ -6,7 +6,6 @@ import {
   getTenantSlugFromRequest,
 } from './tenantRequest'
 import { normalizeCustomDomain } from './validateCustomDomain'
-import { getPayload } from '@/lib/payload'
 import { unstable_cache } from './next-cache'
 
 /**
@@ -159,8 +158,10 @@ function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
   }
 }
 
-async function fetchTenantContextBySlug(slug: string): Promise<TenantContext | null> {
-  const payload = await getPayload()
+async function fetchTenantContextBySlug(
+  payload: Payload,
+  slug: string,
+): Promise<TenantContext | null> {
   const result = await payload.find({
     collection: 'tenants',
     where: { slug: { equals: slug } },
@@ -186,8 +187,10 @@ async function fetchTenantContextBySlug(slug: string): Promise<TenantContext | n
   }
 }
 
-async function fetchTenantBrandingBySlug(slug: string): Promise<TenantWithBranding | null> {
-  const payload = await getPayload()
+async function fetchTenantBrandingBySlug(
+  payload: Payload,
+  slug: string,
+): Promise<TenantWithBranding | null> {
   const result = await payload.find({
     collection: 'tenants',
     where: { slug: { equals: slug } },
@@ -210,17 +213,23 @@ async function fetchTenantBrandingBySlug(slug: string): Promise<TenantWithBrandi
   return toTenantWithBranding(tenant as TenantBrandingDoc)
 }
 
-function getCachedTenantContextBySlug(slug: string): Promise<TenantContext | null> {
+function getCachedTenantContextBySlug(
+  payload: Payload,
+  slug: string,
+): Promise<TenantContext | null> {
   return unstable_cache(
-    () => fetchTenantContextBySlug(slug),
+    () => fetchTenantContextBySlug(payload, slug),
     ['tenant-context-by-slug', slug],
     { revalidate: 300, tags: [`tenant_${slug}`, 'tenants'] },
   )()
 }
 
-function getCachedTenantBrandingBySlug(slug: string): Promise<TenantWithBranding | null> {
+function getCachedTenantBrandingBySlug(
+  payload: Payload,
+  slug: string,
+): Promise<TenantWithBranding | null> {
   return unstable_cache(
-    () => fetchTenantBrandingBySlug(slug),
+    () => fetchTenantBrandingBySlug(payload, slug),
     ['tenant-branding-by-slug', slug],
     { revalidate: 300, tags: [`tenant_${slug}`, 'tenants'] },
   )()
@@ -238,7 +247,7 @@ export async function getTenantContext(
   const enriched = enrichTenantRequestSource(source as TenantRequestSource | null)
   const slug = await getTenantSlug(enriched)
   if (slug) {
-    return getCachedTenantContextBySlug(slug)
+    return getCachedTenantContextBySlug(payload, slug)
   }
 
   const tenantFromHost = await findTenantByHost(payload, enriched?.headers)
@@ -291,7 +300,7 @@ export async function getTenantWithBranding(
   const slug = await getTenantSlug(enriched)
   // Prefer explicit tenant slug (subdomain/custom-domain resolution) over admin selector cookie.
   if (slug) {
-    return getCachedTenantBrandingBySlug(slug)
+    return getCachedTenantBrandingBySlug(payload, slug)
   }
 
   const tenantFromHost = await findTenantByHost(payload, enriched?.headers)

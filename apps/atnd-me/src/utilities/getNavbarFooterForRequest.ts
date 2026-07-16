@@ -1,5 +1,4 @@
 import type { Payload } from 'payload'
-import { getPayload } from '@/lib/payload'
 import { getTenantContext, getTenantWithBranding } from './getTenantContext'
 import { unstable_cache } from './next-cache'
 
@@ -171,16 +170,14 @@ export async function getNavbarForRequest(
 
   if (!tenant) {
     const rootResult = await unstable_cache(
-      async () => {
-        const p = await getPayload()
-        return p.find({
+      async () =>
+        payload.find({
           collection: 'navbar',
           where: { tenant: { equals: null } },
           limit: 1,
           depth: 2,
           overrideAccess: true,
-        })
-      },
+        }),
       ['navbar-root'],
       { revalidate: 60, tags: ['navbar', 'navbar_root'] },
     )()
@@ -201,15 +198,9 @@ export async function getNavbarForRequest(
 
   const tenantBranding = await getTenantWithBranding(payload, source)
 
-  // Use req.context.tenant for tenant scoping (like footer).
-  const req = {
-    payload,
-    context: { tenant: tenant.id },
-  } as Parameters<Payload['find']>[0]['req']
   const result = await unstable_cache(
-    async () => {
-      const p = await getPayload()
-      return p.find({
+    async () =>
+      payload.find({
         collection: 'navbar',
         where: { tenant: { equals: tenant.id } },
         limit: 1,
@@ -217,11 +208,10 @@ export async function getNavbarForRequest(
         // Public frontend read — cache anonymously with tenant scope in context.
         overrideAccess: true,
         req: {
-          payload: p,
+          payload,
           context: { tenant: tenant.id },
         } as Parameters<Payload['find']>[0]['req'],
-      })
-    },
+      }),
     ['navbar-tenant', String(tenant.id)],
     { revalidate: 60, tags: ['navbar', `navbar_${tenant.id}`] },
   )()
@@ -270,16 +260,14 @@ export async function getFooterForRequest(
 
   if (!tenant) {
     const rootResult = await unstable_cache(
-      async () => {
-        const p = await getPayload()
-        return p.find({
+      async () =>
+        payload.find({
           collection: 'footer',
           where: { tenant: { equals: null } },
           limit: 1,
           depth: 2,
           overrideAccess: true,
-        })
-      },
+        }),
       ['footer-root'],
       { revalidate: 60, tags: ['footer', 'footer_root'] },
     )()
@@ -308,20 +296,18 @@ export async function getFooterForRequest(
   const tenantBranding = await getTenantWithBranding(payload, source)
 
   const result = await unstable_cache(
-    async () => {
-      const p = await getPayload()
-      return p.find({
+    async () =>
+      payload.find({
         collection: 'footer',
         where: { tenant: { equals: tenant.id } },
         limit: 1,
         depth: 2,
         overrideAccess: true,
         req: {
-          payload: p,
+          payload,
           context: { tenant: tenant.id },
         } as Parameters<Payload['find']>[0]['req'],
-      })
-    },
+      }),
     ['footer-tenant', String(tenant.id)],
     { revalidate: 60, tags: ['footer', `footer_${tenant.id}`] },
   )()
