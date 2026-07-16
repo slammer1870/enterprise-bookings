@@ -18,7 +18,12 @@ export type PayloadIntConfigOptions = UserConfig & {
 export function createPayloadIntConfig(
   options: PayloadIntConfigOptions = {},
 ): ReturnType<typeof defineConfig> {
-  const { rootDir: _rootDir, globalSetup, ...rest } = options;
+  const {
+    rootDir: _rootDir,
+    globalSetup,
+    test: testOptions,
+    ...rest
+  } = options;
   const ci = isCI();
 
   const baseVitestConfig: UserConfig = {
@@ -34,7 +39,7 @@ export function createPayloadIntConfig(
 
   const mergedSetupFiles = [
     ...(baseVitestConfig.test?.setupFiles || []),
-    ...(rest.test?.setupFiles || []),
+    ...(testOptions?.setupFiles || []),
   ];
 
   return defineConfig(
@@ -61,7 +66,7 @@ export function createPayloadIntConfig(
             inline: ['payload-auth'],
           },
         },
-        ...rest.test,
+        ...testOptions,
       },
       ssr: {
         noExternal: ['payload-auth'],

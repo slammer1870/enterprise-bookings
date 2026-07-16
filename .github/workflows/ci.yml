@@ -16,14 +16,8 @@ env:
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
   NODE_ENV: test
-  ATND_ME_DB: e2e_atnd_me
-  ATND_ME_APP_PATH: apps/atnd-me
-  # Int shards: 8 (~9 int spec files per shard, 71 total). Kept at 8 after refactor because
-  # Payload config collect OOMs at ~4GB with fewer shards. To benchmark lowering to 4:
-  # 1. Set INT_TEST_SHARD_COUNT to "4" and matrix shard to [1, 2, 3, 4]
-  # 2. Compare int-tests job wall-clock and OOM failures on CI
-  INT_TEST_SHARD_COUNT: "8"
-  E2E_TEST_SHARD_COUNT: "4"
+  # Shard counts are literal in job env/matrix (GitHub Actions cannot use env context in services/job env).
+  # Int: 8 shards (~OOM-safe). E2E: 4 shards. Tune matrix + VITEST_SHARD/PLAYWRIGHT_SHARD together.
 
 jobs:
   set-turbo-filter:
@@ -103,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ env.ATND_ME_DB }}
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/e2e_atnd_me
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
       CI: true
     services:
@@ -112,7 +106,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling
-          POSTGRES_DB: ${{ env.ATND_ME_DB }}
+          POSTGRES_DB: e2e_atnd_me
         ports:
           - 5432:5432
         options: >-
@@ -138,7 +132,7 @@ jobs:
       - name: Dump database for test shards
         env:
           PGPASSWORD: brugrappling
-        run: pg_dump -h localhost -U postgres -d "${{ env.ATND_ME_DB }}" -F c -f atnd-me-db.dump
+        run: pg_dump -h localhost -U postgres -d e2e_atnd_me -F c -f atnd-me-db.dump
 
       - name: Upload database artifact
         uses: actions/upload-artifact@v4
@@ -156,7 +150,7 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
-      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ env.ATND_ME_DB }}
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/e2e_atnd_me
       PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_1234567890' }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY || 'pk_test_1234567890' }}
@@ -166,7 +160,7 @@ jobs:
       NEXT_PUBLIC_SERVER_URL: http://localhost:3000
       CI: true
       FORCE_EXISTING_DB: true
-      VITEST_SHARD: ${{ matrix.shard }}/${{ env.INT_TEST_SHARD_COUNT }}
+      VITEST_SHARD: ${{ matrix.shard }}/8
       NODE_OPTIONS: --no-deprecation --max-old-space-size=6144
     services:
       postgres:
@@ -174,7 +168,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling
-          POSTGRES_DB: ${{ env.ATND_ME_DB }}
+          POSTGRES_DB: e2e_atnd_me
         ports:
           - 5432:5432
         options: >-
@@ -202,9 +196,9 @@ jobs:
       - name: Restore database
         env:
           PGPASSWORD: brugrappling
-        run: pg_restore -h localhost -U postgres -d "${{ env.ATND_ME_DB }}" --no-owner --no-acl atnd-me-db.dump
+        run: pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
 
-      - name: Run integration tests shard ${{ matrix.shard }}/${{ env.INT_TEST_SHARD_COUNT }} (Turbo)
+      - name: Run integration tests shard ${{ matrix.shard }}/8 (Turbo)
         run: pnpm ci:atnd-me:int
 
   e2e-build:
@@ -231,8 +225,8 @@ jobs:
       - name: Cache Next.js build cache
         uses: actions/cache@v4
         with:
-          path: ${{ env.ATND_ME_APP_PATH }}/.next/cache
-          key: ${{ runner.os }}-nextjs-atnd-me-${{ hashFiles('pnpm-lock.yaml', format('{0}/package.json', env.ATND_ME_APP_PATH), format('{0}/next.config.*', env.ATND_ME_APP_PATH), format('{0}/src/**', env.ATND_ME_APP_PATH)) }}
+          path: apps/atnd-me/.next/cache
+          key: ${{ runner.os }}-nextjs-atnd-me-${{ hashFiles('pnpm-lock.yaml', 'apps/atnd-me/package.json', 'apps/atnd-me/next.config.*', 'apps/atnd-me/src/**') }}
           restore-keys: |
             ${{ runner.os }}-nextjs-atnd-me-
 
@@ -243,7 +237,7 @@ jobs:
           build_status=$?
           if [ $build_status -ne 0 ]; then
             echo "Build failed. Clearing .next cache and retrying once."
-            rm -rf "${{ env.ATND_ME_APP_PATH }}/.next"
+            rm -rf apps/atnd-me/.next
             pnpm ci:atnd-me:build
             build_status=$?
           fi
@@ -254,8 +248,8 @@ jobs:
         with:
           name: next-build-atnd-me
           path: |
-            ${{ env.ATND_ME_APP_PATH }}/.next/standalone
-            ${{ env.ATND_ME_APP_PATH }}/.next/static
+            apps/atnd-me/.next/standalone
+            apps/atnd-me/.next/static
           retention-days: 1
           compression-level: 1
 
@@ -268,7 +262,7 @@ jobs:
       matrix:
         shard: [1, 2, 3, 4]
     env:
-      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ env.ATND_ME_DB }}
+      DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/e2e_atnd_me
       PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
       STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY || 'sk_test_1234567890' }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY || 'pk_test_1234567890' }}
@@ -282,14 +276,14 @@ jobs:
       PW_E2E_SKIP_WEBSERVER_MIGRATE: "true"
       PW_E2E_MAX_FAILURES: "0"
       PW_E2E_SKIP_DEFAULT_TENANT_DATA: "true"
-      PLAYWRIGHT_SHARD: ${{ matrix.shard }}/${{ env.E2E_TEST_SHARD_COUNT }}
+      PLAYWRIGHT_SHARD: ${{ matrix.shard }}/4
     services:
       postgres:
         image: postgres:latest
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: brugrappling
-          POSTGRES_DB: ${{ env.ATND_ME_DB }}
+          POSTGRES_DB: e2e_atnd_me
         ports:
           - 5432:5432
         options: >-
@@ -332,18 +326,18 @@ jobs:
       - name: Restore database
         env:
           PGPASSWORD: brugrappling
-        run: pg_restore -h localhost -U postgres -d "${{ env.ATND_ME_DB }}" --no-owner --no-acl atnd-me-db.dump
+        run: pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
 
       - name: Install Playwright OS dependencies
         run: pnpm exec playwright install-deps
-        working-directory: ${{ env.ATND_ME_APP_PATH }}
+        working-directory: apps/atnd-me
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install
-        working-directory: ${{ env.ATND_ME_APP_PATH }}
+        working-directory: apps/atnd-me
 
-      - name: Run E2E tests shard ${{ matrix.shard }}/${{ env.E2E_TEST_SHARD_COUNT }} (Turbo)
+      - name: Run E2E tests shard ${{ matrix.shard }}/4 (Turbo)
         run: pnpm ci:atnd-me:e2e
 
       - name: Upload Playwright report
@@ -351,7 +345,7 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-atnd-me-${{ matrix.shard }}
-          path: ${{ env.ATND_ME_APP_PATH }}/playwright-report/
+          path: apps/atnd-me/playwright-report/
           retention-days: 30
           if-no-files-found: ignore
 
@@ -360,6 +354,6 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           name: test-results-atnd-me-${{ matrix.shard }}
-          path: ${{ env.ATND_ME_APP_PATH }}/test-results/
+          path: apps/atnd-me/test-results/
           retention-days: 30
           if-no-files-found: ignore
