@@ -46,9 +46,13 @@ const nextConfig = {
   ...(useStandaloneOutput
     ? {
         output: 'standalone',
-        // Ensure sharp platform binaries are present in standalone traces (pnpm).
+        // Ensure sharp platform binaries + runtime deps are present in standalone traces (pnpm).
         outputFileTracingIncludes: {
-          '/**': ['./node_modules/sharp/**/*', './node_modules/@img/**/*'],
+          '/**': [
+            './node_modules/sharp/**/*',
+            './node_modules/@img/**/*',
+            './node_modules/detect-libc/**/*',
+          ],
         },
       }
     : {}),

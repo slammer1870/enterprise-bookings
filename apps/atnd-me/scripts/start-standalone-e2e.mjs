@@ -129,6 +129,9 @@ if (useNextStart) {
     // Optional: Next will try default resolution.
   }
 
+  // next start reads next.config at runtime; keep standalone disabled so it doesn't warn.
+  env.E2E_DISABLE_STANDALONE = 'true'
+
   console.log(`[e2e] starting via next start (cwd=${appRoot})`)
   child = spawn(process.execPath, [nextBin, 'start', '--hostname', '0.0.0.0', '--port', '3000'], {
     stdio: 'inherit',

@@ -325,6 +325,7 @@ jobs:
       CI: true
       E2E_USE_PROD: "true"
       E2E_USE_NEXT_START: "true"
+      E2E_DISABLE_STANDALONE: "true"
       PW_E2E_SKIP_WEBSERVER_MIGRATE: "true"
       PW_E2E_MAX_FAILURES: "0"
       PW_E2E_SKIP_DEFAULT_TENANT_DATA: "true"

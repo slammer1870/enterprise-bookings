@@ -35,12 +35,24 @@ ENV SKIP_PAYLOAD_MIGRATIONS=1
 # Create .next in the writable layer so Next.js build can write (avoids EROFS)
 RUN mkdir -p /app/apps/atnd-me/.next
 RUN pnpm --filter atnd-me build
-# Standalone can miss require-in-the-middle (Sentry/OpenTelemetry load it at runtime). Copy it so
-# Payload admin and instrumentation work in production. Use 'if' so the step does not fail when
-# the package is missing or the pnpm store path differs (e.g. in CI).
+# Standalone + pnpm often omit runtime deps of serverExternalPackages. Copy them into
+# standalone/node_modules so Node can resolve them when walking up from apps/atnd-me.
+# - require-in-the-middle: Sentry/OpenTelemetry (Payload admin)
+# - detect-libc / semver: sharp loads these at runtime (take versions from sharp's pnpm dir)
+# Use 'if' so the step does not fail when a package/path is missing (e.g. in CI).
 RUN mkdir -p /app/apps/atnd-me/.next/standalone/node_modules && \
   (for d in /app/node_modules/.pnpm/require-in-the-middle@*/node_modules/require-in-the-middle; do \
      if [ -d "$$d" ]; then cp -r "$$d" /app/apps/atnd-me/.next/standalone/node_modules/; break; fi; \
+   done) && \
+  (for sharp_nm in /app/node_modules/.pnpm/sharp@*/node_modules; do \
+     if [ -d "$$sharp_nm" ]; then \
+       for pkg in detect-libc semver; do \
+         if [ -e "$$sharp_nm/$$pkg" ]; then \
+           cp -rL "$$sharp_nm/$$pkg" /app/apps/atnd-me/.next/standalone/node_modules/; \
+         fi; \
+       done; \
+       break; \
+     fi; \
    done)
 
 # ---- runner: minimal production image ----
