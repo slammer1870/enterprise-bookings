@@ -1,8 +1,4 @@
-import { defineConfig } from "vitest/config";
+import '@repo/testing-config/src/vitest/base';
+import { createNodeConfig } from '@repo/testing-config/src/vitest/node';
 
-export default defineConfig({
-  test: {
-    globals: true,
-    environment: "node",
-  },
-});
+export default createNodeConfig({});

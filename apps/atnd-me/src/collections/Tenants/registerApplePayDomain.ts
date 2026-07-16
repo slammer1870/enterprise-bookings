@@ -25,12 +25,13 @@ export async function registerApplePayDomain(
   domain: string,
   stripeAccountId?: string,
 ): Promise<void> {
-  // E2E/test environments should not depend on live Stripe domain registration.
+  // E2E/int environments should not depend on live Stripe domain registration.
   // Stripe calls can hang/fail (e.g. DNS/ENOTFOUND) and block request/route rendering,
   // which in turn causes Playwright timeouts. Int tests also create many fake Connect
-  // accounts; calling paymentMethodDomains against them OOMs CI with real API latency.
+  // accounts; calling paymentMethodDomains against them burns CI time/heap.
+  // (Do not key off NODE_ENV=test — unit tests mock Stripe and need this path.)
   if (
-    process.env.NODE_ENV === 'test' ||
+    process.env.SKIP_APPLE_PAY_DOMAIN_REGISTRATION === 'true' ||
     process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
     process.env.PW_E2E_PROFILE
   ) {

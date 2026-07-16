@@ -32,6 +32,15 @@
     "test:e2e:ci:atnd-me": "turbo run test:e2e:ci --filter=atnd-me --",
     "test:int:atnd-me": "turbo run test:int --filter=atnd-me --",
     "test:unit:atnd-me": "turbo run test:unit --filter=atnd-me --",
+    "ci:quality": "turbo run lint check-types --filter='@repo/*'",
+    "ci:quality:affected": "turbo run lint check-types --filter='@repo/*...[origin/main]'",
+    "ci:packages": "turbo run test --filter='./packages/*' --continue",
+    "ci:packages:affected": "turbo run test --filter='@repo/*...[origin/main]' --continue",
+    "ci:atnd-me:unit": "turbo run test:unit --filter=atnd-me",
+    "ci:atnd-me:int": "turbo run test:int:shard --filter=atnd-me",
+    "ci:atnd-me:e2e": "turbo run test:e2e:shard --filter=atnd-me",
+    "ci:atnd-me:db": "turbo run db:prepare --filter=atnd-me",
+    "ci:atnd-me:build": "turbo run build --filter=atnd-me",
     "ui": "pnpm --filter @repo/ui ui"
   },
   "pnpm": {

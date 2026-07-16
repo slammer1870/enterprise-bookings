@@ -1,10 +1,9 @@
-import { defineConfig } from 'vitest/config';
+import '@repo/testing-config/src/vitest/base';
+import { createNodeConfig } from '@repo/testing-config/src/vitest/node';
 
-export default defineConfig({
+export default createNodeConfig({
   test: {
-    globals: true,
-    environment: 'node',
-    hookTimeout: 1000000,
+    hookTimeout: 1_000_000,
     setupFiles: ['./vitest.setup.ts'],
   },
 });

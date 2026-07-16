@@ -33,3 +33,6 @@ for (const k of [
 if (!process.env.PAYLOAD_SECRET) {
   process.env.PAYLOAD_SECRET = 'test-secret-key-for-ci-builds-only'
 }
+
+// Int suites create many fake Connect accounts; skip live paymentMethodDomains calls.
+process.env.SKIP_APPLE_PAY_DOMAIN_REGISTRATION = 'true'

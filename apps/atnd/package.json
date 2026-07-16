@@ -61,6 +61,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@playwright/test": "1.56.1",
+    "@repo/testing-config": "workspace:*",
     "@tailwindcss/postcss": "^4.1.17",
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/react": "16.3.0",

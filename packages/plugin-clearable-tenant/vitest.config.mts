@@ -1,15 +1,14 @@
-import { defineConfig } from 'vitest/config'
-import { resolve } from 'node:path'
+import '@repo/testing-config/src/vitest/base';
+import { createNodeConfig } from '@repo/testing-config/src/vitest/node';
+import { resolve } from 'node:path';
 
-export default defineConfig({
+export default createNodeConfig({
   test: {
-    globals: true,
-    environment: 'node',
     include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src'),
+      '@': resolve(import.meta.dirname, 'src'),
     },
   },
-})
+});

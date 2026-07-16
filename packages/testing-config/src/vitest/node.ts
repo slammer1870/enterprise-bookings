@@ -1,14 +1,48 @@
 import { defineConfig, mergeConfig, type UserConfig } from 'vitest/config';
-import { baseVitestConfig } from './base.js';
+
+if (typeof globalThis.File === 'undefined') {
+  class FilePolyfill extends Blob {
+    constructor(bits: BlobPart[], name: string, options?: FilePropertyBag) {
+      super(bits, options);
+      Object.defineProperty(this, 'name', {
+        value: name,
+        writable: false,
+        enumerable: true,
+        configurable: true,
+      });
+      Object.defineProperty(this, 'lastModified', {
+        value: options?.lastModified ?? Date.now(),
+        writable: false,
+        enumerable: true,
+        configurable: true,
+      });
+    }
+  }
+  globalThis.File = FilePolyfill as unknown as typeof File;
+}
+
+const baseVitestConfig: UserConfig = {
+  test: {
+    globals: true,
+    server: {
+      deps: {
+        inline: ['@repo/testing-config'],
+      },
+    },
+  },
+  resolve: {
+    extensionAlias: {
+      '.js': ['.ts', '.js'],
+    },
+  } as UserConfig['resolve'],
+};
 
 /**
- * Vitest configuration for Node.js environment tests
- * Use this for backend/API packages like auth, bookings, payments, memberships
+ * Vitest configuration for Node.js environment tests.
  */
 export function createNodeConfig(
   config: UserConfig = {},
 ): ReturnType<typeof defineConfig> {
-  // Merge setupFiles arrays if they exist
   const mergedSetupFiles = [
     ...(baseVitestConfig.test?.setupFiles || []),
     ...(config.test?.setupFiles || []),
@@ -18,7 +52,7 @@ export function createNodeConfig(
     mergeConfig(baseVitestConfig, {
       test: {
         environment: 'node',
-        hookTimeout: 100000,
+        hookTimeout: 100_000,
         setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
         ...config.test,
       },
@@ -27,8 +61,18 @@ export function createNodeConfig(
   );
 }
 
-/**
- * Pre-configured Node.js environment config
- */
-export const nodeVitestConfig = createNodeConfig();
+export type ForksNodeConfigOptions = Parameters<typeof createNodeConfig>[0];
 
+/** Node vitest config with fork pool isolation (prevents mock leakage across files). */
+export function createForksNodeConfig(config: ForksNodeConfigOptions = {}) {
+  return createNodeConfig({
+    test: {
+      pool: 'forks',
+      isolate: true,
+      ...config?.test,
+    },
+    ...config,
+  });
+}
+
+export const nodeVitestConfig = createNodeConfig();

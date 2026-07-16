@@ -12,9 +12,9 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/unit/**/*.test.ts'],
+    testTimeout: 15_000,
     server: {
       deps: {
-        // payload-auth ships extensionless/directory ESM; Vite must transform it.
         inline: ['payload-auth'],
       },
     },

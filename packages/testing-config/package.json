@@ -11,7 +11,10 @@
     "./src/vitest/react": "./src/vitest/react.ts",
     "./src/vitest/node": "./src/vitest/node.ts",
     "./src/vitest/node-with-react": "./src/vitest/node-with-react.ts",
-    "./src/vitest/setup-file-polyfill": "./src/vitest/setup-file-polyfill.ts"
+    "./src/vitest/setup-file-polyfill": "./src/vitest/setup-file-polyfill.ts",
+    "./src/vitest/ci": "./src/vitest/ci.ts",
+    "./src/vitest/payload-int": "./src/vitest/payload-int.ts",
+    "./src/vitest/forks": "./src/vitest/node.ts"
   },
   "peerDependencies": {
     "@playwright/test": "1.56.1"
