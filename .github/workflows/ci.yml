@@ -282,13 +282,24 @@ jobs:
           fi
           exit $build_status
 
+      - name: Prepare Next.js build artifact
+        run: |
+          test -d apps/atnd-me/.next/static
+          test -d apps/atnd-me/.next/standalone
+          test -f apps/atnd-me/.next/standalone/apps/atnd-me/server.js
+          test -f apps/atnd-me/.next/standalone/apps/atnd-me/.next/BUILD_ID
+          rm -rf /tmp/atnd-me-next-artifact
+          mkdir -p /tmp/atnd-me-next-artifact
+          cp -a apps/atnd-me/.next/static /tmp/atnd-me-next-artifact/static
+          cp -a apps/atnd-me/.next/standalone /tmp/atnd-me-next-artifact/standalone
+
       - name: Upload Next.js build artifact
         uses: actions/upload-artifact@v4
         with:
           name: next-build-atnd-me
-          path: |
-            apps/atnd-me/.next/standalone
-            apps/atnd-me/.next/static
+          path: /tmp/atnd-me-next-artifact
+          if-no-files-found: error
+          include-hidden-files: true
           retention-days: 1
           compression-level: 1
 
@@ -356,6 +367,7 @@ jobs:
       - name: Verify Next.js build artifact
         run: |
           test -d apps/atnd-me/.next/static
+          test -d apps/atnd-me/.next/standalone
           test -f apps/atnd-me/.next/standalone/apps/atnd-me/server.js
           test -f apps/atnd-me/.next/standalone/apps/atnd-me/.next/BUILD_ID
 
