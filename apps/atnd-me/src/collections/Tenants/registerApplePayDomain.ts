@@ -27,8 +27,10 @@ export async function registerApplePayDomain(
 ): Promise<void> {
   // E2E/test environments should not depend on live Stripe domain registration.
   // Stripe calls can hang/fail (e.g. DNS/ENOTFOUND) and block request/route rendering,
-  // which in turn causes Playwright timeouts.
+  // which in turn causes Playwright timeouts. Int tests also create many fake Connect
+  // accounts; calling paymentMethodDomains against them OOMs CI with real API latency.
   if (
+    process.env.NODE_ENV === 'test' ||
     process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
     process.env.PW_E2E_PROFILE
   ) {

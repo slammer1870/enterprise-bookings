@@ -161,8 +161,9 @@ jobs:
           # Ensure TestContainers can access Docker
           DOCKER_HOST: unix:///var/run/docker.sock
 
-  # Payload int suites are heavy (full config collect + shared Postgres). Run sharded with
-  # maxWorkers=1 per shard so CI avoids tinypool OOM / unexpected worker exits (~17m flake).
+  # Payload int suites are heavy (full config collect + shared Postgres). Shard across jobs
+  # and run maxWorkers=1 per shard. Call vitest via `pnpm exec` (not `pnpm test:int -- --shard`)
+  # so the shard flag is not swallowed after a literal `--`.
   int-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -173,7 +174,7 @@ jobs:
           - name: atnd-me
             db: e2e_atnd_me
             app_path: apps/atnd-me
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
       PAYLOAD_SECRET: ${{ secrets.PAYLOAD_SECRET || 'test-secret-key-for-ci-builds-only' }}
@@ -252,15 +253,15 @@ jobs:
           sleep 2
         working-directory: ${{ matrix.app.app_path }}
 
-      - name: Run Integration tests for ${{ matrix.app.name }} (shard ${{ matrix.shard }}/4)
+      - name: Run Integration tests for ${{ matrix.app.name }} (shard ${{ matrix.shard }}/8)
         env:
           DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/${{ matrix.app.db }}
           PAYLOAD_SECRET: test-secret-key-for-ci-builds-only
           NODE_ENV: test
           CI: true
           FORCE_EXISTING_DB: true
-          NODE_OPTIONS: --no-deprecation --max-old-space-size=4096
-        run: pnpm test:int -- --shard=${{ matrix.shard }}/4
+          NODE_OPTIONS: --no-deprecation --max-old-space-size=6144
+        run: pnpm exec vitest run --config ./vitest.config.mts --shard=${{ matrix.shard }}/8
         working-directory: ${{ matrix.app.app_path }}
 
   e2e-tests:

@@ -23,17 +23,17 @@ export default defineConfig({
     globalSetup: ['./tests/int/global-setup.ts'],
     include: ['tests/int/**/*.int.spec.ts'],
     hookTimeout: 300000, // 5 minutes for database setup
-    // vmForks: CSS transform (react-image-crop) like vmThreads, but avoids tinypool
-    // "Failed to terminate worker" flakes that exit 1 after all tests passed.
-    pool: 'vmForks',
-    // CI runners (~7GB) OOM when multiple Payload int suites fork in parallel against one DB.
-    // Serialize in CI; keep a small local cap so laptop runs don't thrash either.
+    // forks: process isolation so Payload module graphs are not retained across files
+    // (vmForks/singleFork accumulated ~4GB and OOM'd after ~70 suites in CI).
+    pool: 'forks',
     maxWorkers: isCI ? 1 : 2,
     fileParallelism: !isCI,
     teardownTimeout: 60_000,
     poolOptions: {
-      vmForks: {
-        singleFork: isCI,
+      forks: {
+        // Recycle the worker between files in CI so heap cannot climb across the shard.
+        singleFork: false,
+        isolate: true,
       },
     },
     server: {
