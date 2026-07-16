@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
@@ -11,34 +12,68 @@ import { fileURLToPath } from 'node:url'
  * In this monorepo, the build artifacts can leave the static directory outside the standalone dir,
  * which causes `_next/static/*` to 404 and breaks hydration (click handlers never attach).
  *
- * This script ensures the static assets are present before launching the standalone server.
+ * When the app has workspace `node_modules` (CI runners after `pnpm install`), Node walks up from
+ * the standalone cwd and loads duplicate react/sharp copies from `apps/atnd-me/node_modules`,
+ * causing SSR errors like `useRef` on null and `sharp._isUsingX64V2 is not a function`.
+ * Copy standalone output to a temp dir with no workspace parents before launching.
  */
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const appRoot = path.resolve(__dirname, '..')
 
-const standaloneAppDir = path.join(appRoot, '.next', 'standalone', 'apps', 'atnd-me')
-const standaloneNextDir = path.join(standaloneAppDir, '.next')
-
+const sourceStandaloneRoot = path.join(appRoot, '.next', 'standalone')
 const srcStaticDir = path.join(appRoot, '.next', 'static')
-const dstStaticDir = path.join(standaloneNextDir, 'static')
 
-const ensureStatic = () => {
+const shouldIsolateStandalone =
+  process.env.E2E_ISOLATE_STANDALONE === 'true' ||
+  process.env.E2E_ISOLATE_STANDALONE === '1' ||
+  process.env.CI === 'true' ||
+  process.env.CI === '1' ||
+  fs.existsSync(path.join(appRoot, 'node_modules'))
+
+const ensureStatic = (standaloneNextDir) => {
   if (!fs.existsSync(srcStaticDir)) {
     throw new Error(`Missing Next.js static dir: ${srcStaticDir}. Did you run \`pnpm build\`?`)
   }
 
+  const dstStaticDir = path.join(standaloneNextDir, 'static')
+
   // Always refresh the standalone static directory.
-  // Next's standalone output does not guarantee `static/` is bundled in-place,
-  // and hashed chunk filenames change between builds. Reusing an old static dir
-  // causes `_next/static/*` 404s and breaks hydration.
   fs.mkdirSync(standaloneNextDir, { recursive: true })
   fs.rmSync(dstStaticDir, { recursive: true, force: true })
   fs.cpSync(srcStaticDir, dstStaticDir, { recursive: true, force: true })
 }
 
-ensureStatic()
+const prepareStandaloneLayout = () => {
+  if (!fs.existsSync(sourceStandaloneRoot)) {
+    throw new Error(
+      `Missing Next.js standalone output: ${sourceStandaloneRoot}. Did you run \`pnpm build\`?`,
+    )
+  }
+
+  if (!shouldIsolateStandalone) {
+    const standaloneAppDir = path.join(sourceStandaloneRoot, 'apps', 'atnd-me')
+    const standaloneNextDir = path.join(standaloneAppDir, '.next')
+    ensureStatic(standaloneNextDir)
+    return { standaloneAppDir, standaloneNextDir }
+  }
+
+  const isolatedRoot = path.join(os.tmpdir(), 'atnd-me-e2e-standalone')
+  const isolatedStandaloneRoot = path.join(isolatedRoot, 'standalone')
+
+  fs.rmSync(isolatedRoot, { recursive: true, force: true })
+  fs.mkdirSync(isolatedRoot, { recursive: true })
+  fs.cpSync(sourceStandaloneRoot, isolatedStandaloneRoot, { recursive: true })
+
+  const standaloneAppDir = path.join(isolatedStandaloneRoot, 'apps', 'atnd-me')
+  const standaloneNextDir = path.join(standaloneAppDir, '.next')
+  ensureStatic(standaloneNextDir)
+
+  return { standaloneAppDir, standaloneNextDir }
+}
+
+const { standaloneAppDir, standaloneNextDir } = prepareStandaloneLayout()
 
 const serverEntrypoint = path.join(standaloneAppDir, 'server.js')
 if (!fs.existsSync(serverEntrypoint)) {
@@ -58,24 +93,17 @@ const payloadAuthRegister = path.join(__dirname, 'register-payload-auth-loader.m
 const baseNodeOptions = process.env.NODE_OPTIONS ?? ''
 const loaderNodeOptions = `--import ${payloadAuthRegister}`
 
-// Ensure the child process has the payload-auth resolver registered.
-// We set NODE_OPTIONS explicitly here because relative `NODE_OPTIONS=--import ./scripts/...`
-// can break depending on the current working directory used by the parent process.
 const cleanedBaseNodeOptions = baseNodeOptions
-  // Remove any payload-auth loader registration (relative or absolute).
   .replace(/--import\s+["']?[^"'\s]+register-payload-auth-loader\.mjs["']?\s*/g, '')
-  // Avoid double `--no-deprecation` (we always re-add it below).
   .replace(/--no-deprecation\s*/g, '')
 
 const env = {
   ...process.env,
   ENABLE_TEST_WEBHOOKS: 'true',
-  // Shared secret for /api/tenant-by-host and /api/tenant-by-slug internal calls.
-  // Middleware reads this at runtime to build the Authorization header; the route
-  // handler checks it.  Must be set to the same value in both places.
   INTERNAL_TENANT_RESOLVE_TOKEN: process.env.INTERNAL_TENANT_RESOLVE_TOKEN ?? 'e2e-internal-test-secret',
   NODE_OPTIONS: `${cleanedBaseNodeOptions} --no-deprecation ${loaderNodeOptions}`.trim(),
 }
+
 const child = spawn(process.execPath, ['server.js'], {
   stdio: 'inherit',
   env,
@@ -83,4 +111,3 @@ const child = spawn(process.execPath, ['server.js'], {
 })
 
 child.on('exit', (code) => process.exit(code ?? 0))
-
