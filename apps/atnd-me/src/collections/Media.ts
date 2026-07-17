@@ -17,8 +17,8 @@ import {
 } from '../access/tenant-scoped'
 import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../access/userTenantAccess'
 import {
+  getMediaUploadSizeError,
   MEDIA_MAX_FILE_SIZE_BYTES,
-  MEDIA_MAX_FILE_SIZE_LABEL,
 } from '../lib/media/upload-limits'
 
 const filename = fileURLToPath(import.meta.url)
@@ -27,6 +27,14 @@ const dirname = path.dirname(filename)
 export const Media: CollectionConfig = {
   slug: 'media',
   folders: false,
+  admin: {
+    components: {
+      edit: {
+        // Client-side size check + max-size hint (server limit alone leaves admin "loading")
+        Upload: '@/components/admin/MediaUpload',
+      },
+    },
+  },
   // Ensure relationship population includes fields needed by the frontend.
   // In particular `updatedAt` is used as a cache-busting tag in `getMediaUrl(...)`.
   defaultPopulate: {
@@ -124,7 +132,7 @@ export const Media: CollectionConfig = {
       },
       validate: (value: unknown) => {
         if (typeof value === 'number' && value > MEDIA_MAX_FILE_SIZE_BYTES) {
-          return `File exceeds the ${MEDIA_MAX_FILE_SIZE_LABEL} upload limit.`
+          return getMediaUploadSizeError()
         }
         return true
       },

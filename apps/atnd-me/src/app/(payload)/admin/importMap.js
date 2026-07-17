@@ -50,6 +50,7 @@ import { TenantMembershipField as TenantMembershipField_ae33ac801c02897921b5d704
 import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
 import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
+import { default as default_52e77c52d4964a74462752f328706265 } from '@/components/admin/MediaUpload'
 import { SlugField as SlugField_3817bf644402e67bfe6577f60ef982de } from '@payloadcms/ui'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
 import { ReindexButton as ReindexButton_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
@@ -69,6 +70,7 @@ import { default as default_8a7ab0eb7ab5c511aba12e68480bfe5e } from '@/component
 import { default as default_03c174bc83c57c8b0eee299d05fde10d } from '@/components/admin/NavHomeLink'
 import { ClearableTenantSelector as ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { default as default_26be24305999939ad53f30926742118b } from '@/components/admin/AdminBranchSiteSelector'
+import { default as default_8b08f12a4aa5ddaa54b79422592810a5 } from '@/components/admin/MediaUploadSizeGuard'
 import { AdminErrorBoundary as AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688 } from '@payloadcms/plugin-sentry/client'
 import { TenantSelectionProviderRootAware as TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637 } from '@repo/plugin-clearable-tenant/rsc'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
@@ -129,6 +131,7 @@ export const importMap = {
   "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
   "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
   "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
+  "@/components/admin/MediaUpload#default": default_52e77c52d4964a74462752f328706265,
   "@payloadcms/ui#SlugField": SlugField_3817bf644402e67bfe6577f60ef982de,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,
   "@payloadcms/plugin-search/client#ReindexButton": ReindexButton_aead06e4cbf6b2620c5c51c9ab283634,
@@ -148,6 +151,7 @@ export const importMap = {
   "@/components/admin/NavHomeLink#default": default_03c174bc83c57c8b0eee299d05fde10d,
   "@repo/plugin-clearable-tenant/rsc#ClearableTenantSelector": ClearableTenantSelector_66a9b6a7ced13ce82cb8472204808637,
   "@/components/admin/AdminBranchSiteSelector#default": default_26be24305999939ad53f30926742118b,
+  "@/components/admin/MediaUploadSizeGuard#default": default_8b08f12a4aa5ddaa54b79422592810a5,
   "@payloadcms/plugin-sentry/client#AdminErrorBoundary": AdminErrorBoundary_e5a9e14bdbe97e70ba60697217fe7688,
   "@repo/plugin-clearable-tenant/rsc#TenantSelectionProviderRootAware": TenantSelectionProviderRootAware_66a9b6a7ced13ce82cb8472204808637,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
