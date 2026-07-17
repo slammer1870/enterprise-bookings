@@ -69,10 +69,14 @@ const captureExportRequestContext: CollectionBeforeOperationHook = async ({
 
 export const userDataImportExportPlugin = (): Plugin =>
   importExportPlugin({
-    collections: [...USER_DATA_EXPORT_COLLECTIONS],
-    format: 'csv',
-    disableSave: true,
-    overrideExportCollection: (collection) => ({
+    collections: USER_DATA_EXPORT_COLLECTIONS.map((slug) => ({
+      slug,
+      export: {
+        format: 'csv',
+        disableSave: true,
+      },
+    })),
+    overrideExportCollection: ({ collection }) => ({
       ...collection,
       access: {
         ...collection.access,
