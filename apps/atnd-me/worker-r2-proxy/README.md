@@ -2,6 +2,8 @@
 
 Use this when **direct TLS from your server to R2 fails** (EPROTO). Your app uploads to this Worker over HTTPS; the Worker writes to R2 using its binding (no TLS to `r2.cloudflarestorage.com` from your server).
 
+Supports **GET / HEAD / PUT / DELETE**. `HEAD` is required for Payload `@payloadcms/storage-s3` `getFile()` (it calls `headObject` before streaming). Redeploy this Worker after pulling changes that add HEAD / `Content-Length`.
+
 ## 1. Create the R2 bucket
 
 In [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2** → **Create bucket** (e.g. `atnd-media`).

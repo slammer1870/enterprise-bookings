@@ -19,7 +19,8 @@ function auth(req: Request, env: Env): boolean {
 function cors(): HeadersInit {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, PUT, DELETE, OPTIONS',
+    // HEAD is required: Payload storage-s3 getFile() calls headObject before getObject.
+    'Access-Control-Allow-Methods': 'GET, HEAD, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'X-R2-Auth, X-R2-Key, Content-Type',
   }
 }
@@ -33,6 +34,20 @@ function inferContentTypeFromKey(key: string): string | null {
   if (ext === 'svg') return 'image/svg+xml'
   if (ext === 'avif') return 'image/avif'
   return null
+}
+
+function objectHeaders(
+  key: string,
+  object: { size: number; httpMetadata?: { contentType?: string }; httpEtag?: string },
+): Headers {
+  const headers = new Headers(cors())
+  const contentType =
+    object.httpMetadata?.contentType || inferContentTypeFromKey(key) || 'application/octet-stream'
+  headers.set('Content-Type', contentType)
+  // Payload 3.84+ rejects media when Content-Length is missing on headObject.
+  headers.set('Content-Length', String(object.size))
+  if (object.httpEtag) headers.set('ETag', object.httpEtag)
+  return headers
 }
 
 export default {
@@ -66,16 +81,16 @@ export default {
           headers: { ...cors(), 'Content-Type': 'application/json' },
         })
       }
+      // headObject (S3 HEAD) — used by @payloadcms/storage-s3 getFile before streaming GET.
+      if (request.method === 'HEAD') {
+        const object = await env.R2.head(key)
+        if (!object) return new Response(null, { status: 404, headers: cors() })
+        return new Response(null, { status: 200, headers: objectHeaders(key, object) })
+      }
       if (request.method === 'GET') {
         const object = await env.R2.get(key)
         if (!object) return new Response('Not Found', { status: 404, headers: cors() })
-        const headers = new Headers(cors())
-        const contentType =
-          object.httpMetadata?.contentType ||
-          inferContentTypeFromKey(key) ||
-          'application/octet-stream'
-        headers.set('Content-Type', contentType)
-        return new Response(object.body, { status: 200, headers })
+        return new Response(object.body, { status: 200, headers: objectHeaders(key, object) })
       }
       return new Response('Method Not Allowed', { status: 405, headers: cors() })
     } catch (e) {

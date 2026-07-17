@@ -24,7 +24,27 @@ function buildR2RequestHandler(): NodeHttpHandler {
   return new NodeHttpHandler({ httpsAgent, httpAgent })
 }
 
-/** RequestHandler that forwards S3 SDK requests to the R2 proxy Worker (PUT/DELETE/GET). */
+function inferImageContentType(key: string): string | null {
+  const ext = key.split('.').pop()?.toLowerCase() ?? ''
+  if (ext === 'png') return 'image/png'
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'webp') return 'image/webp'
+  if (ext === 'gif') return 'image/gif'
+  if (ext === 'svg') return 'image/svg+xml'
+  if (ext === 'avif') return 'image/avif'
+  return null
+}
+
+function applyInferredContentType(resHeaders: Record<string, string>, key: string): void {
+  // Next/Image rejects `application/octet-stream`. Prefer a real image MIME from the key.
+  const got = (resHeaders['content-type'] ?? '').toLowerCase()
+  if (!got || got.includes('application/octet-stream')) {
+    const inferred = inferImageContentType(key)
+    if (inferred) resHeaders['content-type'] = inferred
+  }
+}
+
+/** RequestHandler that forwards S3 SDK requests to the R2 proxy Worker (PUT/DELETE/GET/HEAD). */
 function buildR2WorkerRequestHandler(
   workerUrl: string,
   secret: string,
@@ -42,52 +62,64 @@ function buildR2WorkerRequestHandler(
       const key = pathKey.startsWith(bucket + '/') ? pathKey.slice(bucket.length + 1) : pathKey
       const authHeader = { 'X-R2-Auth': secret, 'X-R2-Key': key }
       const headers: Record<string, string> = { ...authHeader }
-      const method = request.method ?? 'GET'
+      const method = (request.method ?? 'GET').toUpperCase()
       // Forward content-type case-insensitively so R2 stores correct metadata.
       const ct =
         (request.headers?.['content-type'] ?? request.headers?.['Content-Type'] ?? request.headers?.['CONTENT-TYPE']) as
           | string
           | undefined
       if (ct) headers['Content-Type'] = String(ct)
-      const res = await fetch(base, {
+
+      // Payload storage-s3 getFile() always headObject()s first. Older Workers only
+      // allowed GET/PUT/DELETE and returned 405 for HEAD → /api/media/file 500.
+      let res = await fetch(base, {
         method,
         headers,
         body: method === 'PUT' ? (request.body as BodyInit | undefined) : undefined,
       })
-      const resHeaders: Record<string, string> = {}
-      res.headers.forEach((v, k) => (resHeaders[k] = v))
-      // Next/Image rejects `application/octet-stream`. If the Worker (or R2 metadata) returns a generic
-      // content-type, infer it from the key extension for common image types.
-      if (method === 'GET' && res.ok) {
-        const got = (resHeaders['content-type'] ?? '').toLowerCase()
-        if (!got || got.includes('application/octet-stream')) {
-          const ext = key.split('.').pop()?.toLowerCase() ?? ''
-          const inferred =
-            ext === 'png'
-              ? 'image/png'
-              : ext === 'jpg' || ext === 'jpeg'
-                ? 'image/jpeg'
-                : ext === 'webp'
-                  ? 'image/webp'
-                  : ext === 'gif'
-                    ? 'image/gif'
-                    : ext === 'svg'
-                      ? 'image/svg+xml'
-                      : null
-          if (inferred) resHeaders['content-type'] = inferred
+      if (method === 'HEAD' && res.status === 405) {
+        // Compat: derive Content-Length from a GET if Worker is not yet redeployed.
+        res = await fetch(base, { method: 'GET', headers: authHeader })
+        const resHeaders: Record<string, string> = {}
+        res.headers.forEach((v, k) => {
+          resHeaders[k] = v
+        })
+        applyInferredContentType(resHeaders, key)
+        if (res.ok && !resHeaders['content-length']) {
+          const buf = Buffer.from(await res.arrayBuffer())
+          resHeaders['content-length'] = String(buf.length)
+        } else {
+          // Drain body so the socket can close; HEAD response must not include it.
+          await res.arrayBuffer().catch(() => undefined)
+        }
+        return {
+          response: {
+            statusCode: res.status,
+            headers: resHeaders,
+            body: undefined,
+          },
         }
       }
-      // SDK expects { response: HttpResponse }. For PUT/DELETE 2xx use empty body (Worker returns JSON). For GET return body as Node Readable.
+
+      const resHeaders: Record<string, string> = {}
+      res.headers.forEach((v, k) => {
+        resHeaders[k] = v
+      })
+      if ((method === 'GET' || method === 'HEAD') && res.ok) {
+        applyInferredContentType(resHeaders, key)
+      }
+
+      // SDK expects { response: HttpResponse }. PUT/DELETE/HEAD: no stream body.
+      // GET: Node Readable with .pipe + .destroy (required by storage-s3 getFile).
       let body: unknown
       if (method === 'GET' && res.ok && res.body) {
-        // In some runtimes/libraries `res.body` can be a non-Web stream object; guard before converting.
         const webStream = res.body as unknown as { getReader?: unknown }
         if (typeof webStream?.getReader === 'function') {
           body = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
         } else {
           body = undefined
         }
-      } else if (method === 'PUT' || method === 'DELETE') {
+      } else if (method === 'PUT' || method === 'DELETE' || method === 'HEAD') {
         body = res.ok ? undefined : (res.body ?? undefined)
       } else {
         body = res.body ?? undefined

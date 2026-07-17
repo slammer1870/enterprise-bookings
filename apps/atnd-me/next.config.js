@@ -8,11 +8,13 @@ import redirects from './redirects.js'
 
 const require = createRequire(import.meta.url)
 
-const NEXT_PUBLIC_SERVER_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : undefined || process.env.__NEXT_PRIVATE_ORIGIN || 'http://localhost:3000'
+const NEXT_PUBLIC_SERVER_URL =
+  process.env.NEXT_PUBLIC_SERVER_URL ||
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.__NEXT_PRIVATE_ORIGIN || 'http://localhost:3000')
 
-/** @returns {{ hostname: string, protocol: string } | null} */
+/** @returns {{ hostname: string, protocol: string, pathname?: string } | null} */
 function remotePatternFromUrl(value) {
   if (!value) return null
   try {
@@ -34,6 +36,10 @@ const imageRemotePatterns = [
   { hostname: 'localhost', protocol: 'http' },
   { hostname: 'atnd.me', protocol: 'https' },
   { hostname: '**.atnd.me', protocol: 'https' },
+  { hostname: 'atnd-me.com', protocol: 'https' },
+  { hostname: '**.atnd-me.com', protocol: 'https' },
+  { hostname: 'atnd-preview.org', protocol: 'https' },
+  { hostname: '**.atnd-preview.org', protocol: 'https' },
   { hostname: 'atnd-preview.com', protocol: 'https' },
   { hostname: '**.atnd-preview.com', protocol: 'https' },
   { hostname: '**.r2.dev', protocol: 'https' },
