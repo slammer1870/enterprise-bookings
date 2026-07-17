@@ -882,6 +882,12 @@ export const plugins: Plugin[] = [
     cleanupAfterTenantDelete: false,
     // Opt out of baseListFilter on users so tenant selector doesn't filter the list.
     useUsersTenantFilter: false,
+    // Use Tenants collection access from collections/Tenants (not the plugin wrapper).
+    // The plugin's withTenantAccess would constrain tenant-admins to `{ id: { in: own } }`,
+    // which breaks Payload relationship validation / form-state when a cross-tenant user's
+    // merged `tenants` array includes foreign tenant IDs. Collection-level update/delete
+    // access still restricts writes; only read is intentionally open for admins.
+    useTenantsCollectionAccess: false,
     // Do not auto-add the tenants array to users — we place it manually in the Users collection
     // with a `roles` rowField so the consolidated tenants[n].roles structure is authoritative.
     tenantsArrayField: { includeDefaultField: false },

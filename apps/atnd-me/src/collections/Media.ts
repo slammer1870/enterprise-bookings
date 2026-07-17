@@ -141,7 +141,17 @@ export const Media: CollectionConfig = {
   upload: {
     // Upload to the public/media directory in Next.js making them publicly accessible even outside of Payload
     staticDir: path.resolve(dirname, '../../public/media'),
-    adminThumbnail: 'thumbnail',
+    // Payload 3.84.1: a string adminThumbnail only selects sizes.<name>.filename in list
+    // views (not .url), so cloud/R2 thumbnails fall back to broken /api/media/file/... paths.
+    // A function forces sizes.*.url into the select and returns the CDN URL directly.
+    // See https://github.com/payloadcms/payload/issues/12659
+    adminThumbnail: ({ doc }) => {
+      const media = doc as {
+        sizes?: { thumbnail?: { url?: string | null } }
+        url?: string | null
+      }
+      return media.sizes?.thumbnail?.url || media.url || null
+    },
     focalPoint: true,
     mimeTypes: ['image/*'],
     imageSizes: [

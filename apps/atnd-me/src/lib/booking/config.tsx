@@ -1,6 +1,6 @@
 import { createBookingPage, BookingPageClientSmart, type BookingPageConfig } from '@repo/bookings-next'
 import { PaymentMethodsConnect } from '@/components/payments/PaymentMethodsConnect.client'
-import { getSession } from '@/lib/auth/context/get-context-props'
+import { currentUser, getSession } from '@/lib/auth/context/get-context-props'
 import { createCaller } from '@/trpc/server'
 import { getRequestHost, redirectToManageIfMultipleBookings } from './utils'
 import { getPayload } from '@/lib/payload'
@@ -66,7 +66,11 @@ async function BookingPageWithLegal({
 export const bookingPageConfig: BookingPageConfig = {
   getSession: async () => {
     const session = await getSession()
-    return session ? { user: session.user } : null
+    // Better Auth `getSession` can return null on some hosts/cookie edges while
+    // `payload.auth` still resolves the same cookies (same fallback as membership).
+    if (session?.user) return { user: session.user }
+    const user = await currentUser()
+    return user ? { user } : null
   },
   getRequestHost,
   createCaller,
