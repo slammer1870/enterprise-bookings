@@ -115,18 +115,35 @@ Use your production Postgres URL and ensure you can reach the DB (VPN, IP allowl
 1. **Build**
    - Build context: repo root (e.g. root of the git clone).
    - Dockerfile path: `apps/atnd-me/Dockerfile`.
-   - **Pass `DATABASE_URI` as a build argument** so the Dockerfile can run Payload migrations before the Next.js build. Migrations run first; if they fail, the image build fails. In Coolify, set `DATABASE_URI` as a build arg or build-time env (same Postgres URL as runtime).
    - The Dockerfile runs migrations first, then sets `SKIP_PAYLOAD_MIGRATIONS=1` for the Next.js build step.
 
 2. **Database**
    - Add a Postgres service in Coolify or use an external Postgres.
-   - Set `DATABASE_URI` on the atnd-me service (and as build arg so the build can run migrations).
+   - Set `DATABASE_URI` on the atnd-me service (build + runtime; see below).
 
 3. **Migrations**
-   - Migrations run **during the Docker build** (before `next build`). If they fail, the build fails. Pass `DATABASE_URI` as build arg. At runtime the app still runs any pending migrations on first DB connection as a fallback.
+   - Migrations run **during the Docker build** (before `next build`). If they fail, the build fails. At runtime the app still runs any pending migrations on first DB connection as a fallback.
 
 4. **Public URL**
    - Set `NEXT_PUBLIC_SERVER_URL` to the public URL Coolify assigns (e.g. `https://your-app.coolify.io`).
+
+### Build-time vs runtime env (stops secret ARG leak)
+
+Coolify can inject **every** env var marked for buildtime as a Dockerfile `ARG` (and `--build-arg`), which prints secrets into deploy logs and image history. Only allow buildtime for what the Dockerfile actually needs:
+
+| Availability | Variables |
+|--------------|-----------|
+| **Build + runtime** | `DATABASE_URI` (migrations), `NEXT_PUBLIC_SERVER_URL` (`next/image` remotePatterns). If using public CDN: also `R2_PUBLIC_URL` / `NEXT_PUBLIC_R2_PUBLIC_URL`. |
+| **Runtime only** | Everything else: `PAYLOAD_SECRET`, `R2_WORKER_*`, `R2_*` keys, Stripe, Better Auth, `CRON_SECRET`, Cloudflare tokens, Sentry auth, etc. |
+
+In the Coolify **Environment Variables** UI for the app:
+
+1. Open each secret and turn **off** “Available at Buildtime” (or equivalent — leave **Runtime** on).
+2. Leave buildtime **on** only for the build+runtime rows above.
+3. If your Coolify version has **Use Docker Build Secrets**, enable it so build values are mounted as BuildKit secrets instead of plain `--build-arg` where possible.
+4. Redeploy. The “Final Dockerfile” in the log should show `ARG` only for the few build vars, not Stripe/R2/Cloudflare secrets.
+
+If a previous deploy already logged secrets, **rotate** them (especially Cloudflare API tokens and any R2/Stripe keys that appeared in the log).
 
 ## Multi-tenancy via subdomains (Coolify)
 

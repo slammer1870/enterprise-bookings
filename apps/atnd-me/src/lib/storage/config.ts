@@ -131,8 +131,8 @@ export interface R2StorageConfig {
   collections: {
     media: {
       disableLocalStorage: true
-      /** When true, Payload does not gate CDN URLs via /api/media/file access control. */
-      disablePayloadAccessControl?: boolean
+      /** When set, Payload does not gate CDN URLs via /api/media/file access control. */
+      disablePayloadAccessControl?: true
       generateFileURL?: (args: { filename: string; prefix?: string }) => string
     }
   }
