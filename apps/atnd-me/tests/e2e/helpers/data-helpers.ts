@@ -24,6 +24,19 @@ export async function getPayloadInstance(): Promise<Payload> {
   return payloadInstance
 }
 
+function platformFeeOverrideTenantId(
+  tenant: number | string | { id?: number | string } | null | undefined,
+): number | null {
+  if (typeof tenant === 'number' && Number.isFinite(tenant)) return tenant
+  if (typeof tenant === 'string' && /^\d+$/.test(tenant)) return parseInt(tenant, 10)
+  if (tenant && typeof tenant === 'object' && 'id' in tenant) {
+    const id = tenant.id
+    if (typeof id === 'number' && Number.isFinite(id)) return id
+    if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
+  }
+  return null
+}
+
 /** Pin drop-in platform fee for a tenant so parallel e2e tests do not leak overrides. */
 export async function ensureTenantDropInPlatformFeePercent(
   tenantId: number,
@@ -34,25 +47,35 @@ export async function ensureTenantDropInPlatformFeePercent(
     slug: 'platform-fees',
     depth: 0,
     overrideAccess: true,
-  })) as { defaults?: object; overrides?: Array<{ tenant: number; dropInPercent?: number }> } | null
+  })) as {
+    defaults?: {
+      dropInPercent?: number
+      classPassPercent?: number
+      subscriptionPercent?: number
+    }
+    overrides?: Array<{ tenant: number | string | { id?: number | string }; dropInPercent?: number }>
+  } | null
   const overrides = platformFees?.overrides ?? []
-  const existingIdx = overrides.findIndex((override) => override.tenant === tenantId)
+  const existingIdx = overrides.findIndex(
+    (override) => platformFeeOverrideTenantId(override.tenant) === tenantId,
+  )
   const nextOverrides =
     existingIdx >= 0
       ? overrides.map((override, index) =>
-          index === existingIdx ? { ...override, dropInPercent } : override,
+          index === existingIdx ? { ...override, tenant: tenantId, dropInPercent } : override,
         )
       : [...overrides, { tenant: tenantId, dropInPercent }]
 
   await payload.updateGlobal({
     slug: 'platform-fees',
     data: {
-      defaults:
-        platformFees?.defaults ?? {
-          dropInPercent: 2,
-          classPassPercent: 3,
-          subscriptionPercent: 4,
-        },
+      // Keep other product defaults; always restore drop-in default so int-test pollution
+      // (which often mutates defaults.dropInPercent) cannot affect e2e totals.
+      defaults: {
+        dropInPercent: 2,
+        classPassPercent: platformFees?.defaults?.classPassPercent ?? 3,
+        subscriptionPercent: platformFees?.defaults?.subscriptionPercent ?? 4,
+      },
       overrides: nextOverrides,
     },
     depth: 0,
