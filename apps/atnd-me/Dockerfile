@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # atnd-me Docker image for Coolify (monorepo-aware).
 # Build from repo root with: docker build -f apps/atnd-me/Dockerfile .
 # Requires next.config.js to set output: 'standalone'.
@@ -35,13 +36,66 @@ ENV SKIP_PAYLOAD_MIGRATIONS=1
 # Create .next in the writable layer so Next.js build can write (avoids EROFS)
 RUN mkdir -p /app/apps/atnd-me/.next
 RUN pnpm --filter atnd-me build
-# Standalone can miss require-in-the-middle (Sentry/OpenTelemetry load it at runtime). Copy it so
-# Payload admin and instrumentation work in production. Use 'if' so the step does not fail when
-# the package is missing or the pnpm store path differs (e.g. in CI).
-RUN mkdir -p /app/apps/atnd-me/.next/standalone/node_modules && \
-  (for d in /app/node_modules/.pnpm/require-in-the-middle@*/node_modules/require-in-the-middle; do \
-     if [ -d "$$d" ]; then cp -r "$$d" /app/apps/atnd-me/.next/standalone/node_modules/; break; fi; \
-   done)
+# Standalone + pnpm omit runtime deps of serverExternalPackages (sharp, Sentry).
+# Copy them beside sharp (and into standalone root) and fail the build if sharp
+# still cannot resolve detect-libc — silent shell copies previously masked this.
+RUN node <<'EOF'
+const fs = require('fs')
+const path = require('path')
+const { createRequire } = require('module')
+
+const requireFromApp = createRequire('/app/apps/atnd-me/package.json')
+const sharpPkgJson = requireFromApp.resolve('sharp/package.json')
+const requireFromSharp = createRequire(sharpPkgJson)
+const sharpStoreNm = path.dirname(path.dirname(sharpPkgJson)) // .../sharp@x/node_modules
+const standaloneRoot = '/app/apps/atnd-me/.next/standalone'
+const targets = [
+  path.join(standaloneRoot, 'node_modules'),
+  path.join(standaloneRoot, 'apps/atnd-me/node_modules'),
+  path.join(standaloneRoot, 'apps/atnd-me/node_modules/sharp/node_modules'),
+]
+
+function copyPkg(name, resolver) {
+  const src = path.dirname(resolver.resolve(`${name}/package.json`))
+  for (const destRoot of targets) {
+    fs.mkdirSync(destRoot, { recursive: true })
+    const dest = path.join(destRoot, name)
+    fs.cpSync(src, dest, { recursive: true, dereference: true })
+    console.log(`copied ${name} -> ${dest}`)
+  }
+}
+
+function copyDir(name, src) {
+  if (!fs.existsSync(src)) {
+    throw new Error(`Missing ${name} at ${src}`)
+  }
+  for (const destRoot of targets) {
+    fs.mkdirSync(destRoot, { recursive: true })
+    const dest = path.join(destRoot, name)
+    fs.cpSync(src, dest, { recursive: true, dereference: true })
+    console.log(`copied ${name}/ -> ${dest}`)
+  }
+}
+
+copyPkg('require-in-the-middle', requireFromApp)
+copyPkg('detect-libc', requireFromSharp)
+copyPkg('semver', requireFromSharp)
+// Alpine (musl) native bindings — Next standalone tracing drops these under pnpm.
+copyDir('@img', path.join(sharpStoreNm, '@img'))
+
+const sharpPkg = path.join(
+  standaloneRoot,
+  'apps/atnd-me/node_modules/sharp/package.json',
+)
+if (!fs.existsSync(sharpPkg)) {
+  throw new Error(`Expected sharp in standalone at ${sharpPkg}`)
+}
+const requireStandaloneSharp = createRequire(sharpPkg)
+requireStandaloneSharp.resolve('detect-libc')
+// Load sharp itself so missing linuxmusl binaries fail the image build.
+requireStandaloneSharp(path.dirname(sharpPkg))
+console.log('verified: standalone sharp loads (native bindings ok)')
+EOF
 
 # ---- runner: minimal production image ----
 FROM base AS runner

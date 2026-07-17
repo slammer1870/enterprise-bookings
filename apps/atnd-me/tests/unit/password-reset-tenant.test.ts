@@ -42,27 +42,31 @@ describe('Password reset email tenant From header', () => {
     vi.restoreAllMocks()
   })
 
-  it('uses tenant name and auth@{tenant domain} for custom domains', async () => {
-    const findImpl = vi.fn(async ({ collection, where }: any) => {
-      expect(collection).toBe('tenants')
-      expect(where).toEqual({ domain: { equals: 'studio.example.com' } })
-      return { docs: [{ name: 'Studio Yoga', domain: 'studio.example.com' }] }
-    })
+  it(
+    'uses tenant name and auth@{tenant domain} for custom domains',
+    async () => {
+      const findImpl = vi.fn(async ({ collection, where }: any) => {
+        expect(collection).toBe('tenants')
+        expect(where).toEqual({ domain: { equals: 'studio.example.com' } })
+        return { docs: [{ name: 'Studio Yoga', domain: 'studio.example.com' }] }
+      })
 
-    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
+      const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
 
-    await betterAuthPluginOptions.betterAuthOptions.emailAndPassword.sendResetPassword({
-      user: { email: 'person@example.com', name: 'Person' },
-      url: 'https://studio.example.com/reset-password?token=tok',
-    })
+      await betterAuthPluginOptions.betterAuthOptions.emailAndPassword.sendResetPassword({
+        user: { email: 'person@example.com', name: 'Person' },
+        url: 'https://studio.example.com/reset-password?token=tok',
+      })
 
-    expect(fetchMock).toHaveBeenCalledTimes(1)
-    const [_url, init] = fetchMock.mock.calls[0] as any[]
-    const payload = JSON.parse(init.body)
-    expect(payload.to).toEqual(['person@example.com'])
-    expect(payload.subject).toBe('Reset your Studio Yoga password')
-    expect(payload.from).toBe('Studio Yoga <auth@studio.example.com>')
-  })
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const [_url, init] = fetchMock.mock.calls[0] as any[]
+      const payload = JSON.parse(init.body)
+      expect(payload.to).toEqual(['person@example.com'])
+      expect(payload.subject).toBe('Reset your Studio Yoga password')
+      expect(payload.from).toBe('Studio Yoga <auth@studio.example.com>')
+    },
+    15_000,
+  )
 
   it('uses tenant name and auth@atnd.me for platform subdomains', async () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {

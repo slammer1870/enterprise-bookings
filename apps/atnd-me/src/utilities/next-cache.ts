@@ -8,6 +8,12 @@ let revalidateTagCache: typeof import('next/cache')['revalidateTag'] | null = nu
 let unstableCacheCache: typeof import('next/cache')['unstable_cache'] | null = null
 let cacheLoadPromise: Promise<void> | null = null
 
+function usePassthroughCache() {
+  revalidatePathCache = () => {}
+  revalidateTagCache = () => {}
+  unstableCacheCache = <T extends (...args: unknown[]) => unknown>(fn: T) => fn as T
+}
+
 async function loadCacheFunctions() {
   if (cacheLoadPromise) {
     await cacheLoadPromise
@@ -15,6 +21,13 @@ async function loadCacheFunctions() {
   }
   
   cacheLoadPromise = (async () => {
+    // Vitest / Playwright e2e: either no Next request cache, or tests mutate CMS
+    // data and must see it immediately (unstable_cache would serve stale reads).
+    if (process.env.VITEST || process.env.PW_E2E_PROFILE) {
+      usePassthroughCache()
+      return
+    }
+
     try {
       // Try the standard import first
       const cache = await import('next/cache')
@@ -30,9 +43,7 @@ async function loadCacheFunctions() {
         unstableCacheCache = cache.unstable_cache
       } catch {
         // If next/cache is not available (e.g., in test environments), use no-op functions
-        revalidatePathCache = () => {}
-        revalidateTagCache = () => {}
-        unstableCacheCache = <T extends (...args: unknown[]) => unknown>(fn: T) => fn as T
+        usePassthroughCache()
       }
     }
   })()
@@ -71,8 +82,23 @@ export function unstable_cache<T>(
         const result = fn()
         return result instanceof Promise ? result : Promise.resolve(result)
       }
-      const cachedFn = unstableCacheCache(promiseFn as (...args: unknown[]) => Promise<unknown>, keyParts, options)
-      return cachedFn() as Promise<T>
+      try {
+        const cachedFn = unstableCacheCache(
+          promiseFn as (...args: unknown[]) => Promise<unknown>,
+          keyParts,
+          options,
+        )
+        return (await cachedFn()) as T
+      } catch (error) {
+        // next/cache can load outside a Next request (e.g. scripts) and throw
+        // "incrementalCache missing" — fall through to the uncached call.
+        if (
+          !(error instanceof Error) ||
+          !error.message.includes('incrementalCache missing')
+        ) {
+          throw error
+        }
+      }
     }
     const result = fn()
     return result instanceof Promise ? result : Promise.resolve(result)

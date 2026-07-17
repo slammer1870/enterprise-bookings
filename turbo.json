@@ -8,7 +8,8 @@
         "DATABASE_URI",
         "PAYLOAD_SECRET",
         "BLOB_READ_WRITE_TOKEN",
-        "POSTGRES_URL"
+        "POSTGRES_URL",
+        "E2E_DISABLE_STANDALONE"
       ],
       "inputs": [
         "src/**",
@@ -68,6 +69,56 @@
     "test:unit": {
       "dependsOn": ["^build"],
       "env": ["DATABASE_URI", "PAYLOAD_SECRET"],
+      "cache": false
+    },
+    "test:int:shard": {
+      "dependsOn": ["^build"],
+      "env": [
+        "VITEST_SHARD",
+        "DATABASE_URI",
+        "PAYLOAD_SECRET",
+        "FORCE_EXISTING_DB",
+        "CI",
+        "NODE_OPTIONS"
+      ],
+      "cache": false
+    },
+    "test:e2e:shard": {
+      "dependsOn": ["^build"],
+      "env": [
+        "PLAYWRIGHT_SHARD",
+        "DATABASE_URI",
+        "PAYLOAD_SECRET",
+        "NEXT_PUBLIC_SERVER_URL",
+        "STRIPE_SECRET_KEY",
+        "STRIPE_WEBHOOK_SECRET",
+        "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+        "PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY",
+        "RESEND_API_KEY",
+        "ENABLE_TEST_MAGIC_LINKS",
+        "ENABLE_TEST_WEBHOOKS",
+        "E2E_USE_PROD",
+        "E2E_USE_NEXT_START",
+        "E2E_ISOLATE_STANDALONE",
+        "PW_E2E_SKIP_WEBSERVER_MIGRATE",
+        "PW_E2E_MAX_FAILURES",
+        "PW_E2E_SKIP_DEFAULT_TENANT_DATA",
+        "PW_TEST_HTML_REPORT_OPEN",
+        "CI",
+        "NODE_OPTIONS"
+      ],
+      "inputs": [
+        "tests/e2e/**",
+        "playwright.config.ts",
+        "package.json",
+        ".env*"
+      ],
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "cache": false
+    },
+    "db:prepare": {
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URI", "PAYLOAD_SECRET", "CI", "NODE_ENV"],
       "cache": false
     },
     "test:e2e": {

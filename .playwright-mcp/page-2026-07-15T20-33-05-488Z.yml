@@ -1,0 +1,68 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - generic [ref=e4]:
+      - link [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img "logo" [ref=e6]
+      - navigation [ref=e7]:
+        - link "Sign in" [ref=e8] [cursor=pointer]:
+          - /url: /auth/sign-in?redirectTo=%2F
+  - main [ref=e9]:
+    - article [ref=e10]:
+      - generic [ref=e14]:
+        - heading "Booking Software that Actually Works" [level=1] [ref=e15]
+        - paragraph [ref=e18]:
+          - text: Build an Operating System for your Bookings -
+          - strong [ref=e19]: Automate the Boring Stuff and Increase Profitability
+      - generic [ref=e23]:
+        - img "analytics" [ref=e26]
+        - generic [ref=e28]:
+          - heading "In-Depth Analytics" [level=3] [ref=e29]
+          - paragraph [ref=e30]: What you don't measure, you can't manage. Our in-depth analytics provide valuable insights to customer behaviour and how revenue can be increased.
+      - generic [ref=e33]:
+        - img "multilocation" [ref=e36]
+        - generic [ref=e38]:
+          - heading "Multi Location Management" [level=3] [ref=e39]
+          - paragraph [ref=e40]: From our admin dashboard you can manage multiple locations from a single source of truth, role and permissions are available to have specific location managers viewing data about their location as well as business owners being able to manage all location from one place.
+      - generic [ref=e43]:
+        - img "paymentmethods" [ref=e46]
+        - generic [ref=e48]:
+          - heading "Variety of Payment Methods" [level=3] [ref=e49]
+          - paragraph [ref=e50]: We offer a variety of payment methods including single session payments, multi session passes and recurring memberships
+      - generic [ref=e53]:
+        - img "wellness" [ref=e56]
+        - generic [ref=e58]:
+          - heading "Conversion Optimised Webpage Builder" [level=3] [ref=e59]
+          - paragraph [ref=e60]: We offer a custom website templating service optimised for conversion. Following the 'don't make me think' model, users are brought on a seemless booking journey designed to minimise friction and drop off from top of funnel marketing into booking conversions.
+      - generic [ref=e63]:
+        - img "free" [ref=e66]
+        - generic [ref=e68]:
+          - heading "Most importantly, it's free!" [level=3] [ref=e69]
+          - paragraph [ref=e70]:
+            - text: Your business does not pay anything for using our platform, we pass on a 2% booking fee to your customer and thats it. Payments are managed through Stripe Connect, you are in complete control of your own data and customers.
+            - strong [ref=e71]: We enforce absolutely no vendor lock in.
+      - generic [ref=e74]:
+        - generic [ref=e75]:
+          - heading "Get in Touch" [level=3] [ref=e76]
+          - paragraph [ref=e77]: Looking for custom booking software for your business? Fill in the form below and one of our team will be in touch.
+        - generic [ref=e80]:
+          - generic [ref=e81]:
+            - text: Name
+            - textbox "Name" [ref=e82]
+          - generic [ref=e83]:
+            - text: Email
+            - textbox "Email" [ref=e84]
+          - button "Submit" [ref=e85]
+  - contentinfo [ref=e86]:
+    - generic [ref=e88]:
+      - link [ref=e89] [cursor=pointer]:
+        - /url: /
+        - img "logo" [ref=e90]
+      - navigation [ref=e92]:
+        - link "Terms of Service" [ref=e93] [cursor=pointer]:
+          - /url: /terms-of-service
+        - link "Privacy Policy" [ref=e94] [cursor=pointer]:
+          - /url: /privacy-policy
+    - paragraph [ref=e97]: ATND
+  - region "Notifications alt+T"
+  - alert [ref=e98]

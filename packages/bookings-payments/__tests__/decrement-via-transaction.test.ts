@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildConfig, getPayload, type Payload } from "payload";
-import { config } from "./config";
+import { createTestConfig } from "./config";
 import { createDbString } from "@repo/testing-config/src/utils/db";
 import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 import {
@@ -20,6 +20,7 @@ describe("decrement via booking-transaction", () => {
   let classPassTypeId: number;
 
   beforeAll(async () => {
+    const config = createTestConfig();
     if (!process.env.DATABASE_URI) {
       const dbString = await createDbString();
       (config as { db: unknown }).db = setDbString(dbString);

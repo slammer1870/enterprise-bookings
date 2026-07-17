@@ -1,77 +1,174 @@
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 
 /**
- * Playwright E2E uses Next.js "standalone" output (`node .next/standalone/.../server.js`).
+ * Playwright E2E production server launcher.
  *
- * Next's standalone server expects `./.next/static` to exist relative to the standalone app dir.
- * In this monorepo, the build artifacts can leave the static directory outside the standalone dir,
- * which causes `_next/static/*` to 404 and breaks hydration (click handlers never attach).
+ * Prefer `next start` in CI (`E2E_USE_NEXT_START=true`). The split e2e-build →
+ * e2e-tests artifact flow cannot reliably ship pnpm-linked native modules
+ * (`sharp`) inside Next standalone output; running from the app workspace lets
+ * Node resolve a single react/sharp install and avoids:
+ *   - sharp._isUsingX64V2 is not a function
+ *   - Cannot read properties of null (reading 'useRef')
  *
- * This script ensures the static assets are present before launching the standalone server.
+ * Standalone mode remains available locally when `.next/standalone` exists.
+ * In that case we still isolate under /tmp so workspace `node_modules` is not
+ * on the module resolution walk from the standalone cwd.
  */
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const appRoot = path.resolve(__dirname, '..')
+const require = createRequire(import.meta.url)
 
-const standaloneAppDir = path.join(appRoot, '.next', 'standalone', 'apps', 'atnd-me')
-const standaloneNextDir = path.join(standaloneAppDir, '.next')
-
+const sourceStandaloneRoot = path.join(appRoot, '.next', 'standalone')
 const srcStaticDir = path.join(appRoot, '.next', 'static')
-const dstStaticDir = path.join(standaloneNextDir, 'static')
 
-const ensureStatic = () => {
+const useNextStart =
+  process.env.E2E_USE_NEXT_START === 'true' ||
+  process.env.E2E_USE_NEXT_START === '1' ||
+  !fs.existsSync(path.join(sourceStandaloneRoot, 'apps', 'atnd-me', 'server.js'))
+
+const shouldIsolateStandalone =
+  process.env.E2E_ISOLATE_STANDALONE === 'true' ||
+  process.env.E2E_ISOLATE_STANDALONE === '1' ||
+  process.env.CI === 'true' ||
+  process.env.CI === '1' ||
+  fs.existsSync(path.join(appRoot, 'node_modules'))
+
+const ensureStatic = (standaloneNextDir) => {
   if (!fs.existsSync(srcStaticDir)) {
     throw new Error(`Missing Next.js static dir: ${srcStaticDir}. Did you run \`pnpm build\`?`)
   }
 
-  // Always refresh the standalone static directory.
-  // Next's standalone output does not guarantee `static/` is bundled in-place,
-  // and hashed chunk filenames change between builds. Reusing an old static dir
-  // causes `_next/static/*` 404s and breaks hydration.
+  const dstStaticDir = path.join(standaloneNextDir, 'static')
+
   fs.mkdirSync(standaloneNextDir, { recursive: true })
   fs.rmSync(dstStaticDir, { recursive: true, force: true })
   fs.cpSync(srcStaticDir, dstStaticDir, { recursive: true, force: true })
 }
 
-ensureStatic()
+const prepareStandaloneLayout = () => {
+  if (!fs.existsSync(sourceStandaloneRoot)) {
+    throw new Error(
+      `Missing Next.js standalone output: ${sourceStandaloneRoot}. Did you run \`pnpm build\`?`,
+    )
+  }
 
-const serverEntrypoint = path.join(standaloneAppDir, 'server.js')
-if (!fs.existsSync(serverEntrypoint)) {
-  throw new Error(`Missing standalone server entrypoint: ${serverEntrypoint}. Did you run \`pnpm build\`?`)
+  if (!shouldIsolateStandalone) {
+    const standaloneAppDir = path.join(sourceStandaloneRoot, 'apps', 'atnd-me')
+    const standaloneNextDir = path.join(standaloneAppDir, '.next')
+    ensureStatic(standaloneNextDir)
+    return { standaloneAppDir, standaloneNextDir }
+  }
+
+  const isolatedRoot = path.join(os.tmpdir(), 'atnd-me-e2e-standalone')
+  const isolatedStandaloneRoot = path.join(isolatedRoot, 'standalone')
+
+  fs.rmSync(isolatedRoot, { recursive: true, force: true })
+  fs.mkdirSync(isolatedRoot, { recursive: true })
+  // Dereference pnpm symlinks so native deps (sharp/@img) are real files under /tmp.
+  fs.cpSync(sourceStandaloneRoot, isolatedStandaloneRoot, {
+    recursive: true,
+    dereference: true,
+  })
+
+  const standaloneAppDir = path.join(isolatedStandaloneRoot, 'apps', 'atnd-me')
+  const standaloneNextDir = path.join(standaloneAppDir, '.next')
+  ensureStatic(standaloneNextDir)
+
+  return { standaloneAppDir, standaloneNextDir }
 }
 
-// Ensure E2E env is passed so Stripe test-account mocking runs (avoids "does not have access to account" in tests).
 const payloadAuthRegister = path.join(__dirname, 'register-payload-auth-loader.mjs')
 const baseNodeOptions = process.env.NODE_OPTIONS ?? ''
 const loaderNodeOptions = `--import ${payloadAuthRegister}`
 
-// Ensure the child process has the payload-auth resolver registered.
-// We set NODE_OPTIONS explicitly here because relative `NODE_OPTIONS=--import ./scripts/...`
-// can break depending on the current working directory used by the parent process.
 const cleanedBaseNodeOptions = baseNodeOptions
-  // Remove any payload-auth loader registration (relative or absolute).
   .replace(/--import\s+["']?[^"'\s]+register-payload-auth-loader\.mjs["']?\s*/g, '')
-  // Avoid double `--no-deprecation` (we always re-add it below).
   .replace(/--no-deprecation\s*/g, '')
 
 const env = {
   ...process.env,
   ENABLE_TEST_WEBHOOKS: 'true',
-  // Shared secret for /api/tenant-by-host and /api/tenant-by-slug internal calls.
-  // Middleware reads this at runtime to build the Authorization header; the route
-  // handler checks it.  Must be set to the same value in both places.
   INTERNAL_TENANT_RESOLVE_TOKEN: process.env.INTERNAL_TENANT_RESOLVE_TOKEN ?? 'e2e-internal-test-secret',
   NODE_OPTIONS: `${cleanedBaseNodeOptions} --no-deprecation ${loaderNodeOptions}`.trim(),
 }
-const child = spawn(process.execPath, [serverEntrypoint], {
-  stdio: 'inherit',
-  env,
-})
+// Avoid inherited NODE_PATH pulling unexpected packages into resolution.
+delete env.NODE_PATH
+
+let child
+
+if (useNextStart) {
+  const buildIdPath = path.join(appRoot, '.next', 'BUILD_ID')
+  if (!fs.existsSync(buildIdPath)) {
+    throw new Error(
+      `Missing Next.js BUILD_ID at ${buildIdPath}. Did you run a non-standalone \`pnpm build\`?`,
+    )
+  }
+  if (!fs.existsSync(srcStaticDir)) {
+    throw new Error(`Missing Next.js static dir: ${srcStaticDir}. Did you run \`pnpm build\`?`)
+  }
+
+  let nextBin
+  try {
+    nextBin = require.resolve('next/dist/bin/next', { paths: [appRoot] })
+  } catch {
+    throw new Error('Unable to resolve next binary from apps/atnd-me. Did you run \`pnpm install\`?')
+  }
+
+  // Point Next at the workspace sharp install (single version, with native bindings).
+  try {
+    env.NEXT_SHARP_PATH = path.dirname(require.resolve('sharp', { paths: [appRoot] }))
+  } catch {
+    // Optional: Next will try default resolution.
+  }
+
+  // next start reads next.config at runtime; keep standalone disabled so it doesn't warn.
+  env.E2E_DISABLE_STANDALONE = 'true'
+
+  console.log(`[e2e] starting via next start (cwd=${appRoot})`)
+  child = spawn(process.execPath, [nextBin, 'start', '--hostname', '0.0.0.0', '--port', '3000'], {
+    stdio: 'inherit',
+    env,
+    cwd: appRoot,
+  })
+} else {
+  const { standaloneAppDir, standaloneNextDir } = prepareStandaloneLayout()
+
+  const serverEntrypoint = path.join(standaloneAppDir, 'server.js')
+  if (!fs.existsSync(serverEntrypoint)) {
+    throw new Error(`Missing standalone server entrypoint: ${serverEntrypoint}. Did you run \`pnpm build\`?`)
+  }
+
+  const buildIdPath = path.join(standaloneNextDir, 'BUILD_ID')
+  if (!fs.existsSync(buildIdPath)) {
+    throw new Error(
+      `Missing Next.js BUILD_ID in standalone output: ${buildIdPath}. ` +
+        'Ensure the e2e-build artifact includes apps/atnd-me/.next/standalone.',
+    )
+  }
+
+  try {
+    const sharpPath = require.resolve('sharp', {
+      paths: [standaloneAppDir, path.join(path.dirname(standaloneAppDir), '..')],
+    })
+    env.NEXT_SHARP_PATH = path.dirname(sharpPath)
+  } catch {
+    // Standalone may already bundle sharp next to server.js.
+  }
+
+  console.log(`[e2e] starting via standalone server (cwd=${standaloneAppDir})`)
+  child = spawn(process.execPath, ['server.js'], {
+    stdio: 'inherit',
+    env,
+    cwd: standaloneAppDir,
+  })
+}
 
 child.on('exit', (code) => process.exit(code ?? 0))
-

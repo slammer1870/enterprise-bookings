@@ -374,31 +374,10 @@ export const Scheduler: CollectionConfig = {
                 })
 
                 if (job.id) {
-                    const jobId = relationId(job.id)
-                    if (jobId != null) {
-                        const generationStartedAt = new Date().toISOString()
-                        const initialPhase = doc.clearExisting ? 'clearing' : 'planning'
-
-                        await req.payload.update({
-                            collection: 'scheduler',
-                            id: doc.id,
-                            data: {
-                                lastGenerationJobId: jobId,
-                                generationProgress: {
-                                    phase: initialPhase,
-                                    startedAt: generationStartedAt,
-                                    updatedAt: generationStartedAt,
-                                    percent: 2,
-                                },
-                            },
-                            context: {
-                                [SKIP_SCHEDULER_GENERATION]: true,
-                            },
-                            overrideAccess: true,
-                            req,
-                        })
-                    }
-
+                    // Do not write lastGenerationJobId / generationProgress back onto this
+                    // document during save. Nested updates while the admin form is open
+                    // re-corrupt week.days array state (phantom empty timeSlot rows).
+                    // Status UI resolves the job via payload-jobs (+ taskStatus) instead.
                     runSchedulerGenerationJob({
                         payload: req.payload,
                         jobId: job.id,

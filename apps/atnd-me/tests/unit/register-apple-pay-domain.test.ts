@@ -53,6 +53,9 @@ describe('registerApplePayDomain', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
+    delete process.env.SKIP_APPLE_PAY_DOMAIN_REGISTRATION
+    delete process.env.ENABLE_TEST_WEBHOOKS
+    delete process.env.PW_E2E_PROFILE
   })
 
   it('does nothing when domain is already registered and enabled', async () => {

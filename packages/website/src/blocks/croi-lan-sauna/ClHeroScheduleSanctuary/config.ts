@@ -1,4 +1,4 @@
-import type { Block } from 'payload'
+import type { Block, CollectionSlug } from 'payload'
 import { linkGroup } from '../../../fields/linkGroup'
 import { bookingThemeField } from '../../../fields/bookingThemeFields'
 
@@ -20,7 +20,7 @@ export const ClHeroScheduleSanctuary: Block = {
     {
       name: 'location',
       type: 'relationship',
-      relationTo: 'locations',
+      relationTo: 'locations' as CollectionSlug,
       hasMany: true,
       required: false,
       admin: {

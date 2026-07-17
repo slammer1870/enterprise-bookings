@@ -10,7 +10,7 @@
  * via `registrationTenant` + `tenants` membership — same as normal sign-up.
  *
  * Existing users (matched by email) are skipped by default; use `--upsert` to add the
- * tenant membership without changing their name or roles.
+ * tenant membership without changing their name or roles
  *
  * Usage (from apps/atnd-me):
  *   DATABASE_URI=... PAYLOAD_SECRET=... \

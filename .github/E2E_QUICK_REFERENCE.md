@@ -1,77 +1,82 @@
 # E2E Testing Quick Reference
 
-## 🚀 Quick Start
+## Quick start
+
+All CI and local test orchestration goes through **Turbo**. Root `ci:*` scripts mirror GitHub Actions jobs.
 
 ```bash
-# Run e2e tests for any app (production build, Turbo-cached)
-turbo run test:e2e --filter=<app-name>
+# E2E (production build, Turbo-cached)
+pnpm ci:atnd-me:build
+pnpm ci:atnd-me:e2e
 
-# Examples:
-turbo run test:e2e --filter=atnd-me        # ~8-12 min (2 workers locally when E2E_USE_PROD≠false)
-
-# Run all e2e tests across all apps
-turbo run test:e2e
-```
-
-## 📊 Performance at a Glance
-
-| Mode | Workers | Runtime | Use Case |
-|------|---------|---------|----------|
-| **Production (Turbo)** | 2 (override `PW_E2E_WORKERS`) | ~8-12min | ✅ Default, CI/CD |
-| Dev Mode | 1 | ~20-25min | Debugging only |
-| Before optimization | Unstable | 1h+ (failures) | ❌ Legacy |
-
-## 🔧 Common Commands
-
-```bash
-# Production mode (default, recommended)
+# Or via turbo directly
 turbo run test:e2e --filter=atnd-me
 
-# CI mode
-turbo run test:e2e:ci --filter=atnd-me
+# Integration tests (sharded locally)
+VITEST_SHARD=1/8 pnpm ci:atnd-me:int
 
-# Serialize Playwright workers if multi-worker flakes (local or CI)
-# PW_E2E_WORKERS=1 pnpm test:e2e:ci
+# Unit tests (no DB)
+pnpm ci:atnd-me:unit
 
-# Dev mode (debugging only)
+# Package tests (all or affected)
+pnpm ci:packages
+pnpm ci:packages:affected
+```
+
+## CI architecture (Turbo-first)
+
+| Job | Turbo command | Notes |
+|-----|---------------|-------|
+| `quality` | `turbo run lint check-types --filter=@repo/*` | Affected on PRs |
+| `unit-tests` | `turbo run test:unit --filter=atnd-me` | Always runs |
+| `package-tests` | `turbo run test --filter=@repo/* --continue` | Affected on PRs; TestContainers |
+| `atnd-me-db` | `turbo run db:prepare --filter=atnd-me` | Single migrate + pg_dump artifact |
+| `int-tests` | `turbo run test:int:shard --filter=atnd-me` | 8 shards via `VITEST_SHARD` env |
+| `e2e-build` | `turbo run build --filter=atnd-me` | Once per run |
+| `e2e-tests` | `turbo run test:e2e:shard --filter=atnd-me` | 4 shards via `PLAYWRIGHT_SHARD` env |
+
+Shard flags are passed via **environment variables** (`VITEST_SHARD`, `PLAYWRIGHT_SHARD`), not CLI args after `--`, so Turbo does not swallow them.
+
+## Performance at a glance
+
+| Mode | Workers | Runtime | Use case |
+|------|---------|---------|----------|
+| Production (Turbo) | 1–2 | ~8–12 min | Default, CI/CD |
+| Dev mode | 1 | ~20–25 min | Debugging only |
+
+## Common commands
+
+```bash
+# Production mode (recommended)
+turbo run test:e2e --filter=atnd-me
+
+# CI parity (sharded E2E)
+PLAYWRIGHT_SHARD=1/4 pnpm ci:atnd-me:e2e
+
+# CI parity (sharded int)
+VITEST_SHARD=1/8 pnpm ci:atnd-me:int
+
+# Dev mode (debugging)
 cd apps/atnd-me
 E2E_USE_PROD=false pnpm test:e2e
 
 # Specific test
 E2E_USE_PROD=false pnpm test:e2e --grep "test name"
 
-# Force rebuild (bypass cache)
+# Force rebuild
 turbo run build --filter=atnd-me --force
-turbo run test:e2e --filter=atnd-me
 ```
 
-## 🎯 When to Use Each Mode
+## Tuning shard counts
 
-### Production Mode (Default)
-✅ CI/CD pipelines  
-✅ Pre-commit testing  
-✅ Regression testing  
-✅ Performance testing
+Edit workflow env in `.github/workflows/ci.yml`:
 
-### Dev Mode (`E2E_USE_PROD=false`)
-✅ Debugging specific test failures  
-✅ Testing dev-only features (HMR, etc)  
-✅ Rapid test development
+- `INT_TEST_SHARD_COUNT` — default `8` (OOM-safe for Payload int suites). Lower to `4` only after benchmarking wall-clock vs memory on CI.
+- `E2E_TEST_SHARD_COUNT` — default `4`.
 
-## 💡 Key Benefits
+When changing int shard count, update the `int-tests` matrix `shard` list to match.
 
-**Turborepo Integration:**
-- 🔄 **Cached builds** - Skip rebuild if code unchanged
-- ⚡ **3x faster** - Production build more efficient
-- 🔀 **Parallel execution** - 3-4 workers vs 1
-- 🎯 **More stable** - No dev server overload
-
-**Test Suite Optimization:**
-- 📉 **56% fewer tests** - Removed redundant/trivial tests (52 → 23)
-- ✅ **100% pass rate** - Eliminated flaky tests
-- 🎨 **Better coverage** - Focus on critical user flows
-
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ```bash
 # Port 3000 in use
@@ -83,28 +88,21 @@ cd apps/atnd-me && rm -rf .next
 # Clear Turbo cache
 turbo run build --filter=atnd-me --force
 
-# Check Playwright browsers installed
+# Playwright browsers
 pnpm exec playwright install chromium
 ```
 
-## 📝 Test Coverage
-
-**23 tests across 8 spec files:**
-- ✅ Homepage & tenant routing (4 tests)
-- ✅ Checkout flows (pay-at-door, Stripe, class-pass) (7 tests)
-- ✅ Multi-booking management (6 tests)
-- ✅ Admin panel access & Stripe Connect (6 tests)
-
-## 🔗 Related Docs
+## Related docs
 
 - Full guide: `apps/atnd-me/tests/E2E_OPTIMIZATION_GUIDE.md`
 - Test documentation: `apps/atnd-me/tests/README.md`
 - Turborepo config: `turbo.json`
-- Playwright config: `apps/atnd-me/playwright.config.ts`
+- Shared test config: `packages/testing-config/src/vitest/README.md`
+- CI workflow: `.github/workflows/ci.yml`
+- Setup action: `.github/actions/setup-monorepo/action.yml`
 
----
+**Default command:**
 
-**Default command to remember:**
 ```bash
 turbo run test:e2e --filter=atnd-me
 ```

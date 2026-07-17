@@ -14,6 +14,10 @@ import PageClient from './page.client'
 import { LivePreviewListener } from '@/components/LivePreviewListener'
 import { queryPageBySlug } from './queryPageBySlug'
 
+// Multi-tenant pages always read cookies/headers for tenant resolution. Without this,
+// Next prerender/ISR attempts throw DYNAMIC_SERVER_USAGE and surface as 500s in prod.
+export const dynamic = 'force-dynamic'
+
 export async function generateStaticParams() {
   try {
     const payload = await getPayload()

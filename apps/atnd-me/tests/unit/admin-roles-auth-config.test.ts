@@ -17,4 +17,12 @@ describe('Admin roles auth config', () => {
     const adminRoles = betterAuthPluginOptions.users?.adminRoles ?? []
     expect(adminRoles).not.toContain('user')
   })
+
+  it('registers exactly one custom-session plugin (no duplicate get-session routes)', () => {
+    const plugins = betterAuthPluginOptions.betterAuthOptions?.plugins ?? []
+    const customSessionCount = plugins.filter(
+      (plugin) => (plugin as { id?: string } | undefined)?.id === 'custom-session',
+    ).length
+    expect(customSessionCount).toBe(1)
+  })
 })

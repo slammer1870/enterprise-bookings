@@ -6,11 +6,8 @@ type MockStripe = {
   checkout: { sessions: { create: ReturnType<typeof vi.fn> } };
 };
 
-let stripePricesRetrieve: ReturnType<typeof vi.fn>;
-let stripeCheckoutCreate: ReturnType<typeof vi.fn>;
-
-vi.mock("@repo/shared-utils", () => {
-  stripePricesRetrieve = vi.fn(async (...args: any[]) => {
+const { stripePricesRetrieve, stripeCheckoutCreate } = vi.hoisted(() => ({
+  stripePricesRetrieve: vi.fn(async (...args: any[]) => {
     // args: (priceId, params, opts?)
     return {
       id: args[0],
@@ -18,13 +15,14 @@ vi.mock("@repo/shared-utils", () => {
       currency: "eur",
       recurring: { interval: "month", interval_count: 1 },
     };
-  });
-
-  stripeCheckoutCreate = vi.fn(async () => ({
+  }),
+  stripeCheckoutCreate: vi.fn(async () => ({
     url: "https://checkout.example/session",
     client_secret: "cs_test",
-  }));
+  })),
+}));
 
+vi.mock("@repo/shared-utils", () => {
   const stripe: MockStripe = {
     prices: { retrieve: stripePricesRetrieve },
     customers: {

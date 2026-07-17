@@ -3,19 +3,38 @@
 
 import type React from 'react'
 
-// Module-level registry for block components
-// This is shared between server and client
-let blockComponentsRegistry: Record<string, React.ComponentType<any> | ((_props: any) => any)> | null = null
+type BlockProps = Record<string, unknown>
+type AnyBlock = React.ComponentType<BlockProps>
+type BlockRenderFn = (_props: BlockProps) => React.ReactNode
+type BlockLoader = () => Promise<AnyBlock>
 
-// Function for apps to register their block components
-// Can be called from both server and client components
+// Module-level registry for block components (legacy sync consumers)
+let blockComponentsRegistry: Record<string, AnyBlock | BlockRenderFn> | null = null
+
+// Lazy loaders — preferred for code-splitting
+let blockLoadersRegistry: Record<string, BlockLoader> | null = null
+
 export const registerBlockComponents = (
-  components: Record<string, React.ComponentType<any> | ((_props: any) => any)>
+  components: Record<string, AnyBlock | BlockRenderFn>,
 ) => {
   blockComponentsRegistry = components
 }
 
-// Function to get the registry (used by the Component)
-export const getBlockComponentsRegistry = (): Record<string, React.ComponentType<any> | ((_props: any) => any)> | null => {
+export const registerBlockLoaders = (loaders: Record<string, BlockLoader>) => {
+  blockLoadersRegistry = loaders
+}
+
+export const getBlockComponentsRegistry = (): Record<string, AnyBlock | BlockRenderFn> | null => {
   return blockComponentsRegistry
+}
+
+export const getBlockLoadersRegistry = (): Record<string, BlockLoader> | null => {
+  return blockLoadersRegistry
+}
+
+export async function resolveBlockComponent(blockType: string): Promise<AnyBlock | null> {
+  const loader = blockLoadersRegistry?.[blockType]
+  if (loader) return loader()
+  const sync = blockComponentsRegistry?.[blockType]
+  return (sync as AnyBlock | undefined) ?? null
 }

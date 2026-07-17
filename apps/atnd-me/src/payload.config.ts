@@ -31,6 +31,10 @@ import { createSubscriptionInStripeEndpoint } from './endpoints/admin/stripe/cre
 import { stripeDashboardLinkEndpoint } from './endpoints/admin/stripe/dashboard-link'
 import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/update-subscription'
 import { sendLateBookingMagicLinkEndpoint } from './endpoints/admin/bookings/send-late-booking-magic-link'
+import {
+  getMediaUploadSizeError,
+  MEDIA_MAX_FILE_SIZE_BYTES,
+} from './lib/media/upload-limits'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -91,6 +95,8 @@ export default buildConfig({
       beforeNavLinks: [
         '@/components/admin/NavHomeLink',
       ],
+      // Reject oversized image picks/drops before multipart upload starts (avoids stuck "loading").
+      providers: ['@/components/admin/MediaUploadSizeGuard'],
       // Phase 4 – Custom analytics dashboard (replaces default dashboard view).
       views: {
         dashboard: {
@@ -162,6 +168,17 @@ export default buildConfig({
       : {}),
   }),
   collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler, Locations, PostBookingEmailDeliveries],
+  // Global multipart upload limits (busboy). Without this, fileSize defaults to Infinity.
+  // abortOnLimit must be true — otherwise oversized files are truncated instead of rejected.
+  // Note: Payload still drains the request body before responding, so admin UX also relies on
+  // MediaUploadSizeGuard / MediaUpload client checks for immediate feedback.
+  upload: {
+    abortOnLimit: true,
+    limits: {
+      fileSize: MEDIA_MAX_FILE_SIZE_BYTES,
+    },
+    responseOnLimit: getMediaUploadSizeError(),
+  },
   // Keep Payload's global CORS restrictive; we selectively allow additional origins
   // for specific public endpoints (e.g. /api/form-submissions) via Next route wrappers.
   cors: [getServerSideURL()].filter(Boolean),

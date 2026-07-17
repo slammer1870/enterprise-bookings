@@ -1,11 +1,8 @@
-import { defineConfig } from "vitest/config";
+import { createForksNodeConfig } from '@repo/testing-config/src/vitest/node';
 
-export default defineConfig({
+export default createForksNodeConfig({
   test: {
-    globals: true,
-    environment: "node",
-    testTimeout: 20000, // Keep global timeout reasonable; override specific slow tests where needed
-    hookTimeout: 180000, // 3 min for DB container (createDbString) + getPayload
-    pool: "vmThreads", // required so deps.transformCss can handle .css from deps like react-image-crop
+    testTimeout: 20_000,
+    hookTimeout: 180_000,
   },
 });

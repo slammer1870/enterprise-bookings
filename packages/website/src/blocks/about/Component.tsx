@@ -1,5 +1,3 @@
-'use client'
-
 import React from 'react'
 import Image from 'next/image'
 import { RichText } from '@payloadcms/richtext-lexical/react'
@@ -37,6 +35,7 @@ export const AboutBlock: React.FC<AboutBlockProps> = ({
               alt={typeof image === 'object' ? image.alt || '' : ''}
               fill
               className="object-cover"
+              sizes="(max-width: 768px) 100vw, 672px"
             />
           </div>
         )}

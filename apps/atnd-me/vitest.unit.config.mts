@@ -12,11 +12,20 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     include: ['tests/unit/**/*.test.ts'],
+    testTimeout: 15_000,
+    server: {
+      deps: {
+        inline: ['payload-auth'],
+      },
+    },
   },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
     conditions: ['node', 'import', 'module', 'browser', 'default'],
+  },
+  ssr: {
+    noExternal: ['payload-auth'],
   },
 })

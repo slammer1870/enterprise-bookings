@@ -2,16 +2,58 @@
   "name": "@repo/testing-config",
   "version": "1.0.0",
   "exports": {
-    "./src/playwright": "./src/playwright/index.ts",
-    "./src/playwright/base": "./src/playwright/base.ts",
-    "./src/playwright/helpers/server": "./src/playwright/helpers/server.ts",
-    "./src/utils/db": "./src/utils/db.ts",
-    "./src/helpers/credentials": "./src/helpers/credentials.ts",
-    "./src/vitest/base": "./src/vitest/base.ts",
-    "./src/vitest/react": "./src/vitest/react.ts",
-    "./src/vitest/node": "./src/vitest/node.ts",
-    "./src/vitest/node-with-react": "./src/vitest/node-with-react.ts",
-    "./src/vitest/setup-file-polyfill": "./src/vitest/setup-file-polyfill.ts"
+    "./src/playwright": {
+      "types": "./src/playwright/index.ts",
+      "import": "./dist/playwright/index.js"
+    },
+    "./src/playwright/base": {
+      "types": "./src/playwright/base.ts",
+      "import": "./dist/playwright/base.js"
+    },
+    "./src/playwright/helpers/server": {
+      "types": "./src/playwright/helpers/server.ts",
+      "import": "./dist/playwright/helpers/server.js"
+    },
+    "./src/utils/db": {
+      "types": "./src/utils/db.ts",
+      "import": "./dist/utils/db.js"
+    },
+    "./src/helpers/credentials": {
+      "types": "./src/helpers/credentials.ts",
+      "import": "./dist/helpers/credentials.js"
+    },
+    "./src/vitest/base": {
+      "types": "./src/vitest/base.ts",
+      "import": "./dist/vitest/base.js"
+    },
+    "./src/vitest/react": {
+      "types": "./src/vitest/react.ts",
+      "import": "./dist/vitest/react.js"
+    },
+    "./src/vitest/node": {
+      "types": "./src/vitest/node.ts",
+      "import": "./dist/vitest/node.js"
+    },
+    "./src/vitest/node-with-react": {
+      "types": "./src/vitest/node-with-react.ts",
+      "import": "./dist/vitest/node-with-react.js"
+    },
+    "./src/vitest/setup-file-polyfill": {
+      "types": "./src/vitest/setup-file-polyfill.ts",
+      "import": "./dist/vitest/setup-file-polyfill.js"
+    },
+    "./src/vitest/ci": {
+      "types": "./src/vitest/ci.ts",
+      "import": "./dist/vitest/ci.js"
+    },
+    "./src/vitest/payload-int": {
+      "types": "./src/vitest/payload-int.ts",
+      "import": "./dist/vitest/payload-int.js"
+    },
+    "./src/vitest/forks": {
+      "types": "./src/vitest/node.ts",
+      "import": "./dist/vitest/node.js"
+    }
   },
   "peerDependencies": {
     "@playwright/test": "1.56.1"
@@ -23,7 +65,8 @@
     "dockerode": "^4.0.9",
     "@vitejs/plugin-react": "^4.2.1",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^4.0.12"
+    "vitest": "^4.0.12",
+    "jsdom": "^26.1.0"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
@@ -35,6 +78,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "build": "pnpm clean && tsc -p tsconfig.build.json",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "check-types": "tsc --noEmit",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint . --max-warnings 0"
   }

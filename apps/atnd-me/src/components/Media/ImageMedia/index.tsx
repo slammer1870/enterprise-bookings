@@ -8,10 +8,7 @@ import React from 'react'
 
 import type { Props as MediaProps } from '../types'
 
-import { cssVariables } from '@/cssVariables'
 import { getMediaUrl } from '@/utilities/getMediaUrl'
-
-const { breakpoints } = cssVariables
 
 // A base64 encoded image to use as a placeholder while the image is loading
 const placeholderBlur =
@@ -28,7 +25,7 @@ const placeholderBlur =
  * Flow:
  *   1. Resource URL from Payload: `/media/image-123.jpg`
  *   2. getMediaUrl() adds base URL: `https://yourdomain.com/media/image-123.jpg`
- *   3. Next.js Image optimizes via remotePatterns: `/_next/image?url=...&w=1200&q=75`
+ *   3. Next.js Image optimizes via remotePatterns: `/_next/image?url=...&w=1200&q=80`
  *
  * If your storage/plugin returns **external CDN URLs** (e.g. `https://cdn.example.com/...`),
  * choose ONE of the following:
@@ -77,12 +74,9 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
 
   const loading = loadingFromProps || (!priority ? 'lazy' : undefined)
 
-  // NOTE: this is used by the browser to determine which image to download at different screen sizes
-  const sizes = sizeFromProps
-    ? sizeFromProps
-    : Object.entries(breakpoints)
-        .map(([, value]) => `(max-width: ${value}px) ${value * 2}w`)
-        .join(', ')
+  // `sizes` uses CSS lengths (px/vw), NOT srcset `w` descriptors.
+  // The previous `${value * 2}w` form was invalid and made browsers pick enormous candidates.
+  const sizes = sizeFromProps || '100vw'
 
   return (
     <picture className={cn(pictureClassName)}>
@@ -94,7 +88,7 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
         placeholder="blur"
         blurDataURL={placeholderBlur}
         priority={priority}
-        quality={100}
+        quality={80}
         loading={loading}
         sizes={sizes}
         src={src}

@@ -1,6 +1,6 @@
 import React from 'react'
 
-import { getBlockComponentsRegistry } from '../threeColumnLayout/registry'
+import { resolveBlockComponent } from '../threeColumnLayout/registry'
 
 type NestedBlock = {
   blockType: string
@@ -20,41 +20,46 @@ export type TwoColumnLayoutBlockProps = {
   blockName?: string
 }
 
-function renderColumnBlocks(blocks: NestedBlock[] | undefined) {
+async function renderColumnBlocks(blocks: NestedBlock[] | undefined) {
   const list = blocks ?? []
-  const blockComponents = getBlockComponentsRegistry() || {}
 
   if (list.length === 0) {
     return null
   }
 
-  return (
-    <div className="flex flex-col gap-6">
-      {list.map((block, index) => {
-        const { blockType, id } = block
-        if (!blockType || !(blockType in blockComponents)) {
-          return null
-        }
-        const Block = blockComponents[blockType as keyof typeof blockComponents]
-        if (!Block) {
-          return null
-        }
-        const key = id ?? `nested-${index}`
-        return <Block key={key} {...block} {...(blockType === 'twoColumnLayout' ? { nested: true } : {})} />
-      })}
-    </div>
+  const rendered = await Promise.all(
+    list.map(async (block, index) => {
+      const { blockType, id } = block
+      if (!blockType) return null
+
+      const Block = await resolveBlockComponent(blockType)
+      if (!Block) return null
+
+      const key = id ?? `nested-${index}`
+      return (
+        <Block
+          key={key}
+          {...block}
+          {...(blockType === 'twoColumnLayout' ? { nested: true } : {})}
+        />
+      )
+    }),
   )
+
+  return <div className="flex flex-col gap-6">{rendered}</div>
 }
 
-export const TwoColumnLayoutBlock: React.FC<TwoColumnLayoutBlockProps> = ({
+export async function TwoColumnLayoutBlock({
   leftColumnHeading = 'Column one',
   rightColumnHeading = 'Column two',
   leftBlocks,
   rightBlocks,
   nested,
-}) => {
-  const left = renderColumnBlocks(leftBlocks)
-  const right = renderColumnBlocks(rightBlocks)
+}: TwoColumnLayoutBlockProps) {
+  const [left, right] = await Promise.all([
+    renderColumnBlocks(leftBlocks),
+    renderColumnBlocks(rightBlocks),
+  ])
 
   if (!left && !right) {
     return null

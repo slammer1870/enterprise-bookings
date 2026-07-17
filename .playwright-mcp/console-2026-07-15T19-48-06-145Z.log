@@ -1,0 +1,1 @@
+[   14475ms] [ERROR] Failed to load resource: the server responded with a status of 429 () @ https://o4510828656001024.ingest.de.sentry.io/api/4510828656918608/envelope/?sentry_version=7&sentry_key=18aa51788e8633acfc6de03280e0fc5c&sentry_client=sentry.javascript.nextjs%2F10.38.0:0

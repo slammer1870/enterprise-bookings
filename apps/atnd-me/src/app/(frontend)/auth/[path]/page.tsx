@@ -11,8 +11,8 @@ export default async function AuthPage({ params }: { params: Promise<{ path: str
   const { path } = await params
 
   return (
-    <main className="container flex grow flex-col items-center justify-center self-center py-4 md:py-6 min-h-screen mx-auto">
+    <div className="container flex grow flex-col items-center justify-center self-center py-4 md:py-6 min-h-screen mx-auto">
       <AuthView path={path} />
-    </main>
+    </div>
   )
 }

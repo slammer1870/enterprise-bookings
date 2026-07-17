@@ -4,6 +4,18 @@
   "tasks": {
     "test": {
       "dependsOn": ["^build", "build"]
+    },
+    "test:unit": {
+      "dependsOn": ["^build"]
+    },
+    "test:int:shard": {
+      "dependsOn": ["^build"]
+    },
+    "test:e2e:shard": {
+      "dependsOn": ["^build"]
+    },
+    "db:prepare": {
+      "dependsOn": ["^build"]
     }
   }
 }

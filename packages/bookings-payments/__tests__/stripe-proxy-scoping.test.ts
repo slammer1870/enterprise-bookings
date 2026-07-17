@@ -6,36 +6,31 @@ type MockStripe = {
   customers: { list: ReturnType<typeof vi.fn> };
 };
 
-let stripeListProducts: ReturnType<typeof vi.fn>;
-let stripeListSubscriptions: ReturnType<typeof vi.fn>;
-let stripeListCustomers: ReturnType<typeof vi.fn>;
-
-vi.mock("@repo/shared-utils", () => {
+const { stripeListProducts, stripeListSubscriptions, stripeListCustomers } = vi.hoisted(() => {
   const makeList = (items: unknown[]) => {
     const autoPagingToArray = vi.fn().mockResolvedValue(items);
     const list = vi.fn().mockReturnValue({ autoPagingToArray });
     return { list, autoPagingToArray };
   };
-
   const products = makeList([
-    // recurring price product
     { id: "prod_recurring", default_price: { type: "recurring" } },
-    // one-time price product
     { id: "prod_one_time", default_price: { type: "one_time" } },
-    // no default price
     { id: "prod_none", default_price: null },
   ]);
   const subscriptions = makeList([{ id: "sub_123", customer: { email: "a@b.com" } }]);
   const customers = makeList([{ id: "cus_123", email: "a@b.com" }]);
+  return {
+    stripeListProducts: products.list,
+    stripeListSubscriptions: subscriptions.list,
+    stripeListCustomers: customers.list,
+  };
+});
 
-  stripeListProducts = products.list;
-  stripeListSubscriptions = subscriptions.list;
-  stripeListCustomers = customers.list;
-
+vi.mock("@repo/shared-utils", () => {
   const stripe: MockStripe = {
-    products: { list: products.list },
-    subscriptions: { list: subscriptions.list },
-    customers: { list: customers.list },
+    products: { list: stripeListProducts },
+    subscriptions: { list: stripeListSubscriptions },
+    customers: { list: stripeListCustomers },
   };
 
   return {

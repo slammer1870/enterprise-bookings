@@ -1,24 +1,7 @@
-import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
-import tsconfigPaths from 'vite-tsconfig-paths';
+import { createPayloadIntConfig } from '@repo/testing-config/src/vitest/payload-int';
 
-export default defineConfig({
-  plugins: [tsconfigPaths(), react()],
+export default createPayloadIntConfig({
   test: {
-    globals: true,
-    environment: 'node',
     setupFiles: ['./vitest.setup.ts'],
-    include: ['tests/int/**/*.int.spec.ts'],
-    server: {
-      deps: {
-        inline: ['payload-auth'],
-      },
-    },
-  },
-  resolve: {
-    conditions: ['node', 'import', 'module', 'browser', 'default'],
-  },
-  ssr: {
-    noExternal: ['payload-auth'],
   },
 });
