@@ -34,6 +34,8 @@ const imageRemotePatterns = [
   { hostname: 'localhost', protocol: 'http' },
   { hostname: 'atnd.me', protocol: 'https' },
   { hostname: '**.atnd.me', protocol: 'https' },
+  { hostname: 'atnd-preview.com', protocol: 'https' },
+  { hostname: '**.atnd-preview.com', protocol: 'https' },
   { hostname: '**.r2.dev', protocol: 'https' },
 ].filter(Boolean)
 

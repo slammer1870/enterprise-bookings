@@ -131,9 +131,45 @@ export interface R2StorageConfig {
   collections: {
     media: {
       disableLocalStorage: true
+      /** When true, Payload does not gate CDN URLs via /api/media/file access control. */
+      disablePayloadAccessControl?: boolean
       generateFileURL?: (args: { filename: string; prefix?: string }) => string
     }
   }
+}
+
+/**
+ * Optional public CDN base. Only used when R2_PUBLIC_DIRECT=true — otherwise media
+ * stays on `/api/media/file/...` and Payload access control (tenant / isPublic) applies.
+ */
+function getR2PublicBaseUrl(): string | null {
+  const raw = process.env.R2_PUBLIC_URL || process.env.NEXT_PUBLIC_R2_PUBLIC_URL
+  if (!raw) return null
+  return raw.replace(/\/$/, '')
+}
+
+function buildMediaCollectionConfig(publicBaseUrl: string | null): R2StorageConfig['collections'] {
+  const media: R2StorageConfig['collections']['media'] = {
+    disableLocalStorage: true,
+  }
+
+  // Opt-in only: direct public CDN URLs skip Payload ACL. Default is private bucket +
+  // Worker uploads, with reads gated by tenantScopedMediaRead / isPublic.
+  const usePublicDirect =
+    process.env.R2_PUBLIC_DIRECT === 'true' || process.env.R2_PUBLIC_DIRECT === '1'
+
+  if (usePublicDirect && publicBaseUrl) {
+    media.disablePayloadAccessControl = true
+    media.generateFileURL = ({ filename, prefix }) =>
+      prefix ? `${publicBaseUrl}/${prefix}/${filename}` : `${publicBaseUrl}/${filename}`
+  } else if (usePublicDirect && !publicBaseUrl && process.env.NODE_ENV === 'production') {
+    console.error(
+      '[r2-storage] R2_PUBLIC_DIRECT is set but R2_PUBLIC_URL is missing. ' +
+        'Direct CDN URLs cannot be generated; media will keep using /api/media/file/...',
+    )
+  }
+
+  return { media }
 }
 
 /**
@@ -144,18 +180,8 @@ export function getR2WorkerStorageConfig(): R2StorageConfig | null {
   const workerUrl = process.env.R2_WORKER_URL
   const secret = process.env.R2_WORKER_SECRET
   const bucketName = process.env.R2_BUCKET_NAME
-  const publicUrl = process.env.R2_PUBLIC_URL
 
   if (!workerUrl || !secret || !bucketName) return null
-
-  const collections: R2StorageConfig['collections'] = {
-    media: { disableLocalStorage: true },
-  }
-  if (publicUrl) {
-    const baseUrl = publicUrl.replace(/\/$/, '')
-    collections.media.generateFileURL = ({ filename, prefix }) =>
-      prefix ? `${baseUrl}/${prefix}/${filename}` : `${baseUrl}/${filename}`
-  }
 
   return {
     enabled: true,
@@ -168,7 +194,7 @@ export function getR2WorkerStorageConfig(): R2StorageConfig | null {
       requestHandler: buildR2WorkerRequestHandler(workerUrl, secret, bucketName),
       maxAttempts: 3,
     },
-    collections,
+    collections: buildMediaCollectionConfig(getR2PublicBaseUrl()),
   }
 }
 
@@ -183,29 +209,12 @@ export function getR2StorageConfig(): R2StorageConfig | null {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
   const bucketName = process.env.R2_BUCKET_NAME
-  const publicUrl = process.env.R2_PUBLIC_URL
 
   if (!accountId || !accessKeyId || !secretAccessKey || !bucketName) {
     return null
   }
 
   const endpoint = `https://${accountId}.r2.cloudflarestorage.com`
-
-  const collections: R2StorageConfig['collections'] = {
-    media: {
-      disableLocalStorage: true,
-    },
-  }
-
-  if (publicUrl) {
-    const baseUrl = publicUrl.replace(/\/$/, '')
-    collections.media.generateFileURL = ({ filename, prefix }) => {
-      if (prefix) {
-        return `${baseUrl}/${prefix}/${filename}`
-      }
-      return `${baseUrl}/${filename}`
-    }
-  }
 
   const useDefaultClient = process.env.R2_USE_DEFAULT_CLIENT === 'true'
   const config: R2StorageConfig['config'] = {
@@ -226,7 +235,7 @@ export function getR2StorageConfig(): R2StorageConfig | null {
     enabled: true,
     bucket: bucketName,
     config,
-    collections,
+    collections: buildMediaCollectionConfig(getR2PublicBaseUrl()),
   }
 }
 

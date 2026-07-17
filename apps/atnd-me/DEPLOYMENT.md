@@ -6,7 +6,12 @@ Build the image from the **monorepo root** (context must be repo root so workspa
 
 ```bash
 # From repo root (DATABASE_URI required so migrations can run)
-docker build -f apps/atnd-me/Dockerfile -t atnd-me --build-arg DATABASE_URI="$DATABASE_URI" .
+docker build -f apps/atnd-me/Dockerfile -t atnd-me \
+  --build-arg DATABASE_URI="$DATABASE_URI" \
+  --build-arg NEXT_PUBLIC_SERVER_URL="$NEXT_PUBLIC_SERVER_URL" \
+  --build-arg R2_PUBLIC_URL="$R2_PUBLIC_URL" \
+  --build-arg NEXT_PUBLIC_R2_PUBLIC_URL="$NEXT_PUBLIC_R2_PUBLIC_URL" \
+  .
 ```
 
 Or with docker compose from this directory (set `DATABASE_URI` in the environment or in a `.env`):
@@ -24,6 +29,27 @@ docker compose -f apps/atnd-me/docker-compose.yml build
 | `DATABASE_URI` | Postgres connection string (e.g. from Coolify Postgres or external). |
 | `PAYLOAD_SECRET` | Secret for Payload sessions/JWT. |
 | `NEXT_PUBLIC_SERVER_URL` | Root URL of the app with no subdomain (e.g. `https://atnd-me.com`). Required for subdomain multi-tenancy (cookie domain and auth). |
+
+### Media (R2)
+
+**Default (recommended): keep the bucket private.**  
+`R2_WORKER_*` (or direct S3 creds) upload/fetch via the Worker. Browsers load `/api/media/file/...`, and Payload enforces `tenantScopedMediaRead` / `isPublic`. Do **not** enable public access on the bucket.
+
+| Variable | Description |
+|---------|-------------|
+| `R2_WORKER_URL` + `R2_WORKER_SECRET` + `R2_BUCKET_NAME` | Preferred upload/fetch path (Worker proxy). Bucket stays private. |
+| or `R2_ACCOUNT_ID` + `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` + `R2_BUCKET_NAME` | Direct S3 API to R2. |
+
+**Optional: public CDN (makes objects with known URLs world-readable)**  
+Only if you intentionally want direct CDN URLs and a public bucket/prefix:
+
+| Variable | Description |
+|---------|-------------|
+| `R2_PUBLIC_DIRECT=true` | Opt in to rewrite Media URLs to `R2_PUBLIC_URL` and skip Payload file ACL. |
+| `R2_PUBLIC_URL` | Public CDN / custom domain / `https://pub-….r2.dev` (no trailing slash). |
+| `NEXT_PUBLIC_R2_PUBLIC_URL` | Mirror for Docker build-time `next/image` `remotePatterns`. |
+
+Pass `NEXT_PUBLIC_SERVER_URL` (and CDN vars only if using public direct) as Coolify **build args** as well as runtime env.
 
 ### Optional
 

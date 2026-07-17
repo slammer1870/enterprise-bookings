@@ -92,6 +92,7 @@ import { staffRosterUsersFieldAccessPlugin } from './staff-roster-users-field-ac
 import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { getActiveR2Config } from '@/lib/storage/config'
+import { syncStaffPublicMediaPlugin } from './sync-staff-public-media'
 
 import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
@@ -1024,6 +1025,7 @@ export const plugins: Plugin[] = [
       }),
     ]
   })(),
+  syncStaffPublicMediaPlugin(),
   staffRosterUsersFieldAccessPlugin(),
   // Append the branch/site selector AFTER the tenant selector in beforeNavLinks.
   // The multi-tenant plugin appends TenantSelector to beforeNavLinks, so anything already in
