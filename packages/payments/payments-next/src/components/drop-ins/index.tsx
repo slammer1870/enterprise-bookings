@@ -290,6 +290,9 @@ export const DropInView = ({
           metadata={{
             ...(metadata ?? {}),
             ...(discountCode ? { discountCode } : {}),
+            ...(promoAdjusted.discountApplied
+              ? { classPriceBeforeDiscount: String(price.totalAmount) }
+              : {}),
           }}
           createPaymentIntentUrl={createPaymentIntentUrl}
           FeeBreakdownComponent={FeeBreakdownComponent}
@@ -307,6 +310,9 @@ export const DropInView = ({
           metadata={{
             ...(metadata ?? {}),
             ...(discountCode ? { discountCode } : {}),
+            ...(promoAdjusted.discountApplied
+              ? { classPriceBeforeDiscount: String(price.totalAmount) }
+              : {}),
           }}
           createPaymentIntentUrl={createPaymentIntentUrl}
           onPaymentRedirectStart={onPaymentRedirectStart}

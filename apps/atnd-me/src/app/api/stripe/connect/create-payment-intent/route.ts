@@ -23,6 +23,11 @@ import {
 } from '@/lib/booking/payment-intent'
 import { formatAmountForStripe } from '@repo/shared-utils'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import {
+  checkTenantDiscountCode,
+  consumeDiscountCodeRedemption,
+} from '@/lib/stripe-connect/discountCodes'
+import { issueRemainderDiscountCodeIfNeeded } from '@/lib/stripe-connect/issueRemainderDiscountCode'
 
 export const dynamic = 'force-dynamic'
 
@@ -313,9 +318,39 @@ export async function POST(request: NextRequest) {
     return alertResponse({ error: 'Tenant is not connected to Stripe' }, 400)
   }
 
+  const discountCodeMeta =
+    typeof metadata?.discountCode === 'string' ? metadata.discountCode.trim() : ''
+  if (discountCodeMeta) {
+    const checked = await checkTenantDiscountCode(payload, tenantId, discountCodeMeta)
+    if (!checked.ok) {
+      return alertResponse({ error: checked.error }, 400)
+    }
+  }
+
   if (classPriceAmountCents <= 0) {
     if (!confirmOnly) {
       return NextResponse.json({ zeroAmount: true, amount: 0 }, { status: 200 })
+    }
+
+    // Claim the redemption before fulfill so concurrent €0 checkouts cannot share a one-shot code.
+    if (discountCodeMeta) {
+      const consumed = await consumeDiscountCodeRedemption({
+        payload,
+        tenantId,
+        discountCode: discountCodeMeta,
+        holdId,
+      })
+      if (!consumed.ok) {
+        return alertResponse(
+          {
+            error:
+              consumed.reason === 'exhausted'
+                ? 'This discount code has already been used.'
+                : 'Invalid or inactive discount code.',
+          },
+          400,
+        )
+      }
     }
 
     const result = await fulfillCheckoutHold(payload, {
@@ -328,12 +363,59 @@ export async function POST(request: NextRequest) {
       bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
     })
 
+    if (result.refunded && discountCodeMeta) {
+      payload.logger?.warn?.(
+        `create-payment-intent: hold ${holdId} refunded after consuming discount ${discountCodeMeta}; code remains consumed`,
+      )
+    }
+
+    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
+    const classPriceBeforeDiscount =
+      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
+        ? Number(classPriceBeforeDiscountRaw)
+        : NaN
+
+    let remainder:
+      | {
+          remainderCode: string
+          remainderValue: number
+          redeemBy: string
+        }
+      | undefined
+
+    if (
+      discountCodeMeta &&
+      Number.isFinite(classPriceBeforeDiscount) &&
+      classPriceBeforeDiscount >= 0 &&
+      !result.refunded
+    ) {
+      const bookingId = result.confirmedBookingIds?.[0]
+      const issued = await issueRemainderDiscountCodeIfNeeded({
+        payload,
+        tenantId,
+        discountCode: discountCodeMeta,
+        classPriceBeforeDiscount,
+        userId: user.id,
+        userEmail: user.email,
+        bookingId: bookingId ?? null,
+        holdId,
+      })
+      if (issued.issued) {
+        remainder = {
+          remainderCode: issued.remainderCode,
+          remainderValue: issued.remainderValue,
+          redeemBy: issued.redeemBy,
+        }
+      }
+    }
+
     return NextResponse.json(
       {
         zeroAmount: true,
         amount: 0,
         bookingIds: result.confirmedBookingIds,
         refunded: result.refunded,
+        ...(remainder ? remainder : {}),
       },
       { status: 200 },
     )
@@ -375,6 +457,11 @@ export async function POST(request: NextRequest) {
         userId: String(user.id),
         quantity: String(quantity),
         holdId: String(holdId),
+        ...(discountCodeMeta ? { discountCode: discountCodeMeta } : {}),
+        ...(typeof metadata?.classPriceBeforeDiscount === 'string' &&
+        metadata.classPriceBeforeDiscount.trim()
+          ? { classPriceBeforeDiscount: metadata.classPriceBeforeDiscount.trim() }
+          : {}),
       },
     })
 

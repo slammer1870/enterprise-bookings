@@ -154,7 +154,7 @@ export async function POST(request: NextRequest) {
       if (!Number.isNaN(userId)) {
         const { fulfillCheckoutHold } = await import('@repo/bookings-payments')
         const stripeClient = (await import('@/lib/stripe')).stripe
-        await fulfillCheckoutHold(payload, {
+        const fulfillResult = await fulfillCheckoutHold(payload, {
           holdId,
           userId,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
@@ -174,6 +174,72 @@ export async function POST(request: NextRequest) {
                 }
               : undefined,
         })
+
+        const discountCodeMeta =
+          typeof meta.discountCode === 'string' ? meta.discountCode.trim() : ''
+        const classPriceBeforeDiscount = Number(meta.classPriceBeforeDiscount)
+        if (discountCodeMeta && !fulfillResult.refunded) {
+          try {
+            const { consumeDiscountCodeRedemption } = await import(
+              '@/lib/stripe-connect/discountCodes'
+            )
+            const consumed = await consumeDiscountCodeRedemption({
+              payload,
+              tenantId: tenant.id,
+              discountCode: discountCodeMeta,
+              holdId,
+            })
+            if (!consumed.ok) {
+              payload.logger?.error?.(
+                `payment_intent.succeeded: discount redemption failed (${consumed.reason}) for code ${discountCodeMeta} hold ${holdId}`,
+              )
+            }
+          } catch (redeemErr) {
+            payload.logger?.error?.(
+              `payment_intent.succeeded: discount redemption failed: ${
+                redeemErr instanceof Error ? redeemErr.message : String(redeemErr)
+              }`,
+            )
+          }
+        }
+        if (
+          discountCodeMeta &&
+          Number.isFinite(classPriceBeforeDiscount) &&
+          classPriceBeforeDiscount >= 0 &&
+          !fulfillResult.refunded
+        ) {
+          try {
+            const { issueRemainderDiscountCodeIfNeeded } = await import(
+              '@/lib/stripe-connect/issueRemainderDiscountCode'
+            )
+            const userDoc = await payload.findByID({
+              collection: 'users',
+              id: userId,
+              depth: 0,
+              overrideAccess: true,
+            })
+            await issueRemainderDiscountCodeIfNeeded({
+              payload,
+              tenantId: tenant.id,
+              discountCode: discountCodeMeta,
+              classPriceBeforeDiscount,
+              userId,
+              userEmail:
+                userDoc && typeof (userDoc as { email?: string }).email === 'string'
+                  ? (userDoc as { email: string }).email
+                  : null,
+              bookingId: fulfillResult.confirmedBookingIds?.[0] ?? null,
+              holdId,
+            })
+          } catch (remainderErr) {
+            payload.logger?.error?.(
+              `payment_intent.succeeded: remainder discount issue failed: ${
+                remainderErr instanceof Error ? remainderErr.message : String(remainderErr)
+              }`,
+            )
+          }
+        }
+
         markStripeConnectEventProcessed(event.id)
         return NextResponse.json({ received: true }, { status: 200 })
       }

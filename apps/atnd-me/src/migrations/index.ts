@@ -144,6 +144,8 @@ import * as migration_20260711_000005_post_booking_email_delivery_event_type_uni
 import * as migration_20260711_000006_event_types_post_booking_emails_array from './20260711_000006_event_types_post_booking_emails_array';
 import * as migration_20260711_000007_post_booking_email_delivery_config_id from './20260711_000007_post_booking_email_delivery_config_id';
 import * as migration_20260714_113446 from './20260714_113446';
+import * as migration_20260718_000001_discount_codes_remainder_lineage from './20260718_000001_discount_codes_remainder_lineage';
+import * as migration_20260718_000002_discount_codes_times_redeemed from './20260718_000002_discount_codes_times_redeemed';
 
 export const migrations = [
   {
@@ -875,5 +877,15 @@ export const migrations = [
     up: migration_20260714_113446.up,
     down: migration_20260714_113446.down,
     name: '20260714_113446'
+  },
+  {
+    up: migration_20260718_000001_discount_codes_remainder_lineage.up,
+    down: migration_20260718_000001_discount_codes_remainder_lineage.down,
+    name: '20260718_000001_discount_codes_remainder_lineage',
+  },
+  {
+    up: migration_20260718_000002_discount_codes_times_redeemed.up,
+    down: migration_20260718_000002_discount_codes_times_redeemed.down,
+    name: '20260718_000002_discount_codes_times_redeemed',
   },
 ];

@@ -3,8 +3,6 @@
  * Tenant-scoped; create syncs to Stripe, archive deactivates promotion code.
  */
 import type { CollectionConfig } from 'payload'
-import { checkRole } from '@repo/shared-utils'
-import type { User as SharedUser } from '@repo/shared-types'
 import {
   adminOnlyFieldAccess,
   productsRequireStripeConnectRead,
@@ -196,6 +194,30 @@ export const DiscountCodes: CollectionConfig = {
       admin: { description: 'Leave empty for unlimited' },
     },
     {
+      name: 'timesRedeemed',
+      type: 'number',
+      label: 'Times redeemed',
+      defaultValue: 0,
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'Drop-in redemptions counted locally (PaymentIntents do not use Stripe promotion codes).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'lastConsumedHoldId',
+      type: 'number',
+      label: 'Last consumed hold ID',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'Checkout hold that last consumed a redemption (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
       name: 'redeemBy',
       type: 'date',
       label: 'Redeem by',
@@ -203,18 +225,73 @@ export const DiscountCodes: CollectionConfig = {
       admin: { description: 'No redemptions after this date' },
     },
     {
+      name: 'rootPurchasedAt',
+      type: 'date',
+      label: 'Root purchased at',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'Purchase date of the first code in a gift-voucher remainder chain. Remainder codes expire 5 years after this date.',
+        position: 'sidebar',
+      },
+    },
+    {
+      name: 'parentDiscountCode',
+      type: 'relationship',
+      relationTo: 'discount-codes',
+      label: 'Parent discount code',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'If this code was auto-issued as a remainder, the code that produced it.',
+        position: 'sidebar',
+      },
+    },
+    {
+      name: 'externalId',
+      type: 'text',
+      label: 'External ID',
+      index: true,
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'Idempotency key from an external migration (e.g. old gift voucher id).',
+        position: 'sidebar',
+      },
+    },
+    {
+      name: 'sourceBookingId',
+      type: 'number',
+      label: 'Source booking ID',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'Booking that triggered remainder issuance (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'sourceHoldId',
+      type: 'number',
+      label: 'Source hold ID',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'Checkout hold that triggered remainder issuance (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
       name: 'stripeCouponId',
       type: 'text',
       label: 'Stripe Coupon ID',
+      access: adminOnlyFieldAccess,
       admin: { readOnly: true, position: 'sidebar', description: 'Set after sync to Stripe' },
-      access: { read: ({ req: { user } }) => checkRole(['super-admin', 'admin'], user as SharedUser) },
     },
     {
       name: 'stripePromotionCodeId',
       type: 'text',
       label: 'Stripe Promotion Code ID',
+      access: adminOnlyFieldAccess,
       admin: { readOnly: true, position: 'sidebar', description: 'Set after sync to Stripe' },
-      access: { read: ({ req: { user } }) => checkRole(['super-admin', 'admin'], user as SharedUser) },
     },
     {
       name: 'skipSync',
@@ -285,6 +362,7 @@ export const DiscountCodes: CollectionConfig = {
     afterChange: [
       async ({ doc, operation, req, previousDoc }) => {
         if (req.context?.skipStripeSync) return
+        if (doc.skipSync === true) return
 
         const tenantId = typeof doc.tenant === 'object' && doc.tenant != null ? (doc.tenant as { id: number }).id : doc.tenant
         if (tenantId == null) return

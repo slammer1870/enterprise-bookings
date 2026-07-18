@@ -5,6 +5,10 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { getPayload, type Payload, APIError } from 'payload'
 import config from '@/payload.config'
 import type { User } from '@repo/shared-types'
+import {
+  checkTenantDiscountCode,
+  consumeDiscountCodeRedemption,
+} from '@/lib/stripe-connect/discountCodes'
 
 vi.mock('@/lib/stripe/platform', () => ({
   getPlatformStripe: () => ({
@@ -289,6 +293,150 @@ describe('Discount codes (Phase 4.5)', () => {
       expect(updated.value).toBe(created.value)
       expect(updated.duration).toBe(created.duration)
       expect(updated.maxRedemptions).toBe(created.maxRedemptions)
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: created.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'persists remainder lineage fields (rootPurchasedAt, parentDiscountCode, externalId)',
+    async () => {
+      const rootPurchasedAt = '2026-01-15T12:00:00.000Z'
+      const parent = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Lineage Parent',
+          code: `PAR${Date.now()}`.slice(0, 24),
+          type: 'amount_off',
+          value: 100,
+          currency: 'eur',
+          duration: 'once',
+          maxRedemptions: 1,
+          rootPurchasedAt,
+          externalId: `ext-parent-${runId}`,
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      const child = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Lineage Child',
+          code: `CHL${Date.now()}`.slice(0, 24),
+          type: 'amount_off',
+          value: 80,
+          currency: 'eur',
+          duration: 'once',
+          maxRedemptions: 1,
+          rootPurchasedAt,
+          parentDiscountCode: parent.id,
+          sourceBookingId: 12345,
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      const childDoc = await payload.findByID({
+        collection: 'discount-codes',
+        id: child.id,
+        depth: 0,
+        overrideAccess: true,
+      })
+
+      expect(new Date(childDoc.rootPurchasedAt as string).toISOString()).toBe(
+        new Date(rootPurchasedAt).toISOString(),
+      )
+      expect(childDoc.parentDiscountCode).toBe(parent.id)
+      expect(childDoc.sourceBookingId).toBe(12345)
+      expect(childDoc.stripePromotionCodeId).toBeTruthy()
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: child.id,
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'discount-codes',
+        id: parent.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'consumes maxRedemptions=1 on drop-in so the code cannot be reused',
+    async () => {
+      const created = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'One Shot Consume',
+          code: `USE${Date.now()}`.slice(0, 24),
+          type: 'amount_off',
+          value: 40,
+          currency: 'eur',
+          duration: 'once',
+          maxRedemptions: 1,
+          timesRedeemed: 0,
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      const before = await checkTenantDiscountCode(
+        payload,
+        tenantWithConnectId,
+        String(created.code),
+      )
+      expect(before.ok).toBe(true)
+
+      const consumed = await consumeDiscountCodeRedemption({
+        payload,
+        tenantId: tenantWithConnectId,
+        discountCode: String(created.code),
+        holdId: 9001,
+      })
+      expect(consumed.ok).toBe(true)
+      if (consumed.ok) {
+        expect(consumed.timesRedeemed).toBe(1)
+        expect(consumed.archived).toBe(true)
+      }
+
+      const after = await checkTenantDiscountCode(
+        payload,
+        tenantWithConnectId,
+        String(created.code),
+      )
+      expect(after).toEqual({
+        ok: false,
+        error: 'This discount code has already been used.',
+      })
+
+      const secondHold = await consumeDiscountCodeRedemption({
+        payload,
+        tenantId: tenantWithConnectId,
+        discountCode: String(created.code),
+        holdId: 9002,
+      })
+      expect(secondHold.ok).toBe(false)
+
+      const idempotent = await consumeDiscountCodeRedemption({
+        payload,
+        tenantId: tenantWithConnectId,
+        discountCode: String(created.code),
+        holdId: 9001,
+      })
+      expect(idempotent.ok).toBe(true)
+      if (idempotent.ok) expect(idempotent.idempotent).toBe(true)
 
       await payload.delete({
         collection: 'discount-codes',
