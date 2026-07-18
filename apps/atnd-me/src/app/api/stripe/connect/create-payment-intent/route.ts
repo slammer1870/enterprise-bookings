@@ -23,6 +23,7 @@ import {
 } from '@/lib/booking/payment-intent'
 import { formatAmountForStripe } from '@repo/shared-utils'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { issueRemainderDiscountCodeIfNeeded } from '@/lib/stripe-connect/issueRemainderDiscountCode'
 
 export const dynamic = 'force-dynamic'
 
@@ -328,12 +329,55 @@ export async function POST(request: NextRequest) {
       bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
     })
 
+    const discountCodeMeta =
+      typeof metadata?.discountCode === 'string' ? metadata.discountCode.trim() : ''
+    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
+    const classPriceBeforeDiscount =
+      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
+        ? Number(classPriceBeforeDiscountRaw)
+        : NaN
+
+    let remainder:
+      | {
+          remainderCode: string
+          remainderValue: number
+          redeemBy: string
+        }
+      | undefined
+
+    if (
+      discountCodeMeta &&
+      Number.isFinite(classPriceBeforeDiscount) &&
+      classPriceBeforeDiscount >= 0 &&
+      !result.refunded
+    ) {
+      const bookingId = result.confirmedBookingIds?.[0]
+      const issued = await issueRemainderDiscountCodeIfNeeded({
+        payload,
+        tenantId,
+        discountCode: discountCodeMeta,
+        classPriceBeforeDiscount,
+        userId: user.id,
+        userEmail: user.email,
+        bookingId: bookingId ?? null,
+        holdId,
+      })
+      if (issued.issued) {
+        remainder = {
+          remainderCode: issued.remainderCode,
+          remainderValue: issued.remainderValue,
+          redeemBy: issued.redeemBy,
+        }
+      }
+    }
+
     return NextResponse.json(
       {
         zeroAmount: true,
         amount: 0,
         bookingIds: result.confirmedBookingIds,
         refunded: result.refunded,
+        ...(remainder ? remainder : {}),
       },
       { status: 200 },
     )
@@ -375,6 +419,13 @@ export async function POST(request: NextRequest) {
         userId: String(user.id),
         quantity: String(quantity),
         holdId: String(holdId),
+        ...(typeof metadata?.discountCode === 'string' && metadata.discountCode.trim()
+          ? { discountCode: metadata.discountCode.trim() }
+          : {}),
+        ...(typeof metadata?.classPriceBeforeDiscount === 'string' &&
+        metadata.classPriceBeforeDiscount.trim()
+          ? { classPriceBeforeDiscount: metadata.classPriceBeforeDiscount.trim() }
+          : {}),
       },
     })
 

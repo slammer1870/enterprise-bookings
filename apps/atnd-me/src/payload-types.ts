@@ -3254,6 +3254,26 @@ export interface DiscountCode {
    */
   redeemBy?: string | null;
   /**
+   * Purchase date of the first code in a gift-voucher remainder chain. Remainder codes expire 5 years after this date.
+   */
+  rootPurchasedAt?: string | null;
+  /**
+   * If this code was auto-issued as a remainder, the code that produced it.
+   */
+  parentDiscountCode?: (number | null) | DiscountCode;
+  /**
+   * Idempotency key from an external migration (e.g. old gift voucher id).
+   */
+  externalId?: string | null;
+  /**
+   * Booking that triggered remainder issuance (idempotency).
+   */
+  sourceBookingId?: number | null;
+  /**
+   * Checkout hold that triggered remainder issuance (idempotency).
+   */
+  sourceHoldId?: number | null;
+  /**
    * Set after sync to Stripe
    */
   stripeCouponId?: string | null;
@@ -4134,6 +4154,11 @@ export interface DiscountCodesSelect<T extends boolean = true> {
   durationInMonths?: T;
   maxRedemptions?: T;
   redeemBy?: T;
+  rootPurchasedAt?: T;
+  parentDiscountCode?: T;
+  externalId?: T;
+  sourceBookingId?: T;
+  sourceHoldId?: T;
   stripeCouponId?: T;
   stripePromotionCodeId?: T;
   skipSync?: T;

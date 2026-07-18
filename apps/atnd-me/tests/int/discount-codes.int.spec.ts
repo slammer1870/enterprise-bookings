@@ -298,4 +298,73 @@ describe('Discount codes (Phase 4.5)', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'persists remainder lineage fields (rootPurchasedAt, parentDiscountCode, externalId)',
+    async () => {
+      const rootPurchasedAt = '2026-01-15T12:00:00.000Z'
+      const parent = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Lineage Parent',
+          code: `PAR${Date.now()}`.slice(0, 24),
+          type: 'amount_off',
+          value: 100,
+          currency: 'eur',
+          duration: 'once',
+          maxRedemptions: 1,
+          rootPurchasedAt,
+          externalId: `ext-parent-${runId}`,
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      const child = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Lineage Child',
+          code: `CHL${Date.now()}`.slice(0, 24),
+          type: 'amount_off',
+          value: 80,
+          currency: 'eur',
+          duration: 'once',
+          maxRedemptions: 1,
+          rootPurchasedAt,
+          parentDiscountCode: parent.id,
+          sourceBookingId: 12345,
+          tenant: tenantWithConnectId,
+        },
+        overrideAccess: true,
+        user: adminUser,
+      } as Parameters<typeof payload.create>[0])
+
+      const childDoc = await payload.findByID({
+        collection: 'discount-codes',
+        id: child.id,
+        depth: 0,
+        overrideAccess: true,
+      })
+
+      expect(new Date(childDoc.rootPurchasedAt as string).toISOString()).toBe(
+        new Date(rootPurchasedAt).toISOString(),
+      )
+      expect(childDoc.parentDiscountCode).toBe(parent.id)
+      expect(childDoc.sourceBookingId).toBe(12345)
+      expect(childDoc.stripePromotionCodeId).toBeTruthy()
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: child.id,
+        overrideAccess: true,
+      })
+      await payload.delete({
+        collection: 'discount-codes',
+        id: parent.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
 })

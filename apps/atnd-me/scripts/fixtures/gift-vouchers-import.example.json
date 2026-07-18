@@ -1,0 +1,19 @@
+{
+  "giftVoucherImports": [
+    {
+      "externalId": "old-voucher-100",
+      "code": "GIFT100",
+      "remainingAmount": 100,
+      "purchasedAt": "2026-01-15T12:00:00.000Z",
+      "customerName": "Example Customer",
+      "email": "customer@example.com",
+      "notes": "Migrated from legacy gift voucher"
+    },
+    {
+      "externalId": "old-voucher-30",
+      "remainingAmount": 30,
+      "purchasedAt": "2025-06-01T00:00:00.000Z",
+      "email": "another@example.com"
+    }
+  ]
+}
