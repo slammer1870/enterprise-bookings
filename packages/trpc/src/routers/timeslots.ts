@@ -275,6 +275,8 @@ export const timeslotsRouter = {
         // Prefer Better Auth session when configured (magic-link login uses this),
         // but degrade to a logged-out viewer when auth lookup throws (e.g. "No User").
       let user: any = ctx.user ?? null;
+      // Prefer Better Auth, then fall through to Payload auth (same as getRequestUser).
+      // Do not use `else if` here — Better Auth present-but-null must not skip Payload.
       if (!user && ctx.betterAuth?.api?.getSession) {
         try {
           const raw = await ctx.betterAuth.api.getSession({ headers: ctx.headers });
@@ -282,7 +284,8 @@ export const timeslotsRouter = {
         } catch {
           user = null;
         }
-      } else if (!user) {
+      }
+      if (!user) {
         try {
           const auth = await ctx.payload.auth({
             headers: ctx.headers,

@@ -99,6 +99,7 @@ export interface Config {
     search: Search;
     bookings: Booking;
     exports: Export;
+    imports: Import;
     'payload-kv': PayloadKv;
     'payload-jobs': PayloadJob;
     'payload-locked-documents': PayloadLockedDocument;
@@ -154,6 +155,7 @@ export interface Config {
     search: SearchSelect<false> | SearchSelect<true>;
     bookings: BookingsSelect<false> | BookingsSelect<true>;
     exports: ExportsSelect<false> | ExportsSelect<true>;
+    imports: ImportsSelect<false> | ImportsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-jobs': PayloadJobsSelect<false> | PayloadJobsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -171,14 +173,16 @@ export interface Config {
     'platform-fees': PlatformFeesSelect<false> | PlatformFeesSelect<true>;
   };
   locale: null;
-  user: User & {
-    collection: 'users';
+  widgets: {
+    collections: CollectionsWidget;
   };
+  user: User;
   jobs: {
     tasks: {
       generateTimeslotsFromSchedule: TaskGenerateTimeslotsFromSchedule;
       sendPostBookingEmail: TaskSendPostBookingEmail;
       createCollectionExport: TaskCreateCollectionExport;
+      createCollectionImport: TaskCreateCollectionImport;
       schedulePublish: TaskSchedulePublish;
       inline: {
         input: unknown;
@@ -843,6 +847,7 @@ export interface User {
       }[]
     | null;
   password?: string | null;
+  collection: 'users';
 }
 /**
  * Accounts are used to store user accounts for authentication providers
@@ -3582,7 +3587,7 @@ export interface Search {
 export interface Export {
   id: number;
   name?: string | null;
-  format?: ('csv' | 'json') | null;
+  format: 'csv' | 'json';
   limit?: number | null;
   page?: number | null;
   sort?: string | null;
@@ -3602,6 +3607,43 @@ export interface Export {
     | null;
   requestedBy?: (number | null) | User;
   tenantScope?: number | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "imports".
+ */
+export interface Import {
+  id: number;
+  collectionSlug: string;
+  importMode?: ('create' | 'update' | 'upsert') | null;
+  matchField?: string | null;
+  status?: ('pending' | 'completed' | 'partial' | 'failed') | null;
+  summary?: {
+    imported?: number | null;
+    updated?: number | null;
+    total?: number | null;
+    issues?: number | null;
+    issueDetails?:
+      | {
+          [k: string]: unknown;
+        }
+      | unknown[]
+      | string
+      | number
+      | boolean
+      | null;
+  };
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -3688,6 +3730,7 @@ export interface PayloadJob {
           | 'generateTimeslotsFromSchedule'
           | 'sendPostBookingEmail'
           | 'createCollectionExport'
+          | 'createCollectionImport'
           | 'schedulePublish';
         taskID: string;
         input?:
@@ -3727,6 +3770,7 @@ export interface PayloadJob {
         | 'generateTimeslotsFromSchedule'
         | 'sendPostBookingEmail'
         | 'createCollectionExport'
+        | 'createCollectionImport'
         | 'schedulePublish'
       )
     | null;
@@ -3866,10 +3910,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'bookings';
         value: number | Booking;
-      } | null)
-    | ({
-        relationTo: 'exports';
-        value: number | Export;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -6319,6 +6359,36 @@ export interface ExportsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "imports_select".
+ */
+export interface ImportsSelect<T extends boolean = true> {
+  collectionSlug?: T;
+  importMode?: T;
+  matchField?: T;
+  status?: T;
+  summary?:
+    | T
+    | {
+        imported?: T;
+        updated?: T;
+        total?: T;
+        issues?: T;
+        issueDetails?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv_select".
  */
 export interface PayloadKvSelect<T extends boolean = true> {
@@ -6480,6 +6550,16 @@ export interface PlatformFeesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "collections_widget".
+ */
+export interface CollectionsWidget {
+  data?: {
+    [k: string]: unknown;
+  };
+  width: 'full';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskGenerateTimeslotsFromSchedule".
  */
 export interface TaskGenerateTimeslotsFromSchedule {
@@ -6525,16 +6605,54 @@ export interface TaskSendPostBookingEmail {
  */
 export interface TaskCreateCollectionExport {
   input: {
-    name?: string | null;
-    format?: ('csv' | 'json') | null;
+    id: string;
+    name: string;
+    batchSize?: number | null;
+    collectionSlug:
+      | 'admin-invitations'
+      | 'pages'
+      | 'posts'
+      | 'media'
+      | 'categories'
+      | 'tenants'
+      | 'discount-codes'
+      | 'navbar'
+      | 'footer'
+      | 'scheduler'
+      | 'locations'
+      | 'post-booking-email-deliveries'
+      | 'redirects'
+      | 'forms'
+      | 'search'
+      | 'accounts'
+      | 'sessions'
+      | 'verifications'
+      | 'staff-members'
+      | 'timeslots'
+      | 'event-types'
+      | 'bookings'
+      | 'drop-ins'
+      | 'class-pass-types'
+      | 'class-passes'
+      | 'subscriptions'
+      | 'plans'
+      | 'transactions'
+      | 'booking-checkout-holds'
+      | 'users'
+      | 'form-submissions'
+      | 'exports'
+      | 'imports';
+    drafts?: ('yes' | 'no') | null;
+    exportCollection: string;
+    fields?: string[] | null;
+    format: 'csv' | 'json';
     limit?: number | null;
+    locale?: string | null;
+    maxLimit?: number | null;
     page?: number | null;
     sort?: string | null;
-    sortOrder?: ('asc' | 'desc') | null;
-    drafts?: ('yes' | 'no') | null;
-    selectionToUse?: ('currentSelection' | 'currentFilters' | 'all') | null;
-    fields?: string[] | null;
-    collectionSlug: string;
+    userCollection?: string | null;
+    userID?: string | null;
     where?:
       | {
           [k: string]: unknown;
@@ -6544,9 +6662,23 @@ export interface TaskCreateCollectionExport {
       | number
       | boolean
       | null;
-    user?: string | null;
+  };
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskCreateCollectionImport".
+ */
+export interface TaskCreateCollectionImport {
+  input: {
+    importId: string;
+    importCollection: string;
+    userID?: string | null;
     userCollection?: string | null;
-    exportsCollection?: string | null;
+    batchSize?: number | null;
+    debug?: boolean | null;
+    defaultVersionStatus?: ('draft' | 'published') | null;
+    maxLimit?: number | null;
   };
   output?: unknown;
 }

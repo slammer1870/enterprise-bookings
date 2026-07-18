@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { Calendar } from "@repo/ui/components/ui/calendar";
 
@@ -35,10 +35,12 @@ function isSameCalendarDay(left?: Date, right?: Date) {
   );
 }
 
-function DatePickerInner({ selectedDateISO }: { selectedDateISO?: string }) {
+export const DatePicker = ({ selectedDateISO }: { selectedDateISO?: string }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const didApplyDefaultDate = useRef(false);
+  const prevSelectedDateISO = useRef(selectedDateISO);
+  const [isPending, startTransition] = useTransition();
 
   const selectedDateFromUrl = useMemo(
     () => parseSelectedDate(selectedDateISO),
@@ -47,52 +49,48 @@ function DatePickerInner({ selectedDateISO }: { selectedDateISO?: string }) {
   const [date, setDate] = useState<Date | undefined>(selectedDateFromUrl);
   const [month, setMonth] = useState<Date>(selectedDateFromUrl);
 
-  const [isPending, startTransition] = useTransition();
-
   useEffect(() => {
+    const previousISO = prevSelectedDateISO.current;
+    prevSelectedDateISO.current = selectedDateISO;
+
     setDate((currentDate) =>
       isSameCalendarDay(currentDate, selectedDateFromUrl) ? currentDate : selectedDateFromUrl,
     );
+
+    // Default-date replace (no filter → today) must not reset an intentional month change.
+    if (previousISO == null && selectedDateISO != null) return;
+    if (previousISO === selectedDateISO) return;
+    if (isSameCalendarDay(parseSelectedDate(previousISO), selectedDateFromUrl)) return;
+
     setMonth(selectedDateFromUrl);
-  }, [selectedDateFromUrl]);
-
-  /**
-   * When the day filter is already in the URL, `selectedDateISO` is set and the effect below
-   * that applies the default query never runs—so bookmarks / old links can keep `depth=3`.
-   * Payload’s ListQueryProvider and the Next RSC segment key both mirror that param; normalize
-   * it without touching `where`, `limit`, or `sort`.
-   */
-  useEffect(() => {
-    // When there is no day filter yet, the effect below replaces the whole query with
-    // `getTimeslotsQuery(..., { depth: 0 })`—skip this to avoid two navigations.
-    if (!selectedDateISO) return;
-    if (searchParams.get("depth") === "0") return;
-
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("depth", "0");
-    const qs = params.toString();
-
-    startTransition(() => {
-      router.replace(qs ? `${pathname}?${qs}` : pathname);
-    });
-  }, [pathname, router, searchParams, selectedDateISO]);
+  }, [selectedDateFromUrl, selectedDateISO]);
 
   useEffect(() => {
-    if (selectedDateISO) return;
+    if (selectedDateISO) {
+      didApplyDefaultDate.current = true;
+      return;
+    }
+    if (didApplyDefaultDate.current) return;
+    didApplyDefaultDate.current = true;
 
     startTransition(() => {
       router.replace(
         pathname + getTimeslotsQuery(selectedDateFromUrl, undefined, { depth: 0 }),
+        { scroll: false },
       );
     });
   }, [pathname, router, selectedDateFromUrl, selectedDateISO]);
 
   const handleSelect = (nextDate: Date | undefined) => {
     if (!nextDate) return;
+    if (isSameCalendarDay(nextDate, date)) return;
     setDate(nextDate);
     setMonth(nextDate);
     startTransition(() => {
-      router.push(pathname + getTimeslotsQuery(nextDate, undefined, { depth: 0 }));
+      router.push(
+        pathname + getTimeslotsQuery(nextDate, undefined, { depth: 0 }),
+        { scroll: false },
+      );
     });
   };
 
@@ -119,6 +117,7 @@ function DatePickerInner({ selectedDateISO }: { selectedDateISO?: string }) {
                 "w-[280px] justify-start bg-background text-left font-normal",
                 !date && "text-muted-foreground"
               )}
+              disabled={isPending}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
               {date ? format(date, "PPP") : <span>Pick a date</span>}
@@ -141,10 +140,4 @@ function DatePickerInner({ selectedDateISO }: { selectedDateISO?: string }) {
       </div>
     </>
   );
-}
-
-export const DatePicker = (props: { selectedDateISO?: string }) => (
-  <Suspense fallback={null}>
-    <DatePickerInner {...props} />
-  </Suspense>
-);
+};

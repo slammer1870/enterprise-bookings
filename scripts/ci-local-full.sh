@@ -18,6 +18,10 @@ export E2E_USE_PROD=true
 export PW_E2E_SKIP_WEBSERVER_MIGRATE=true
 export PW_E2E_MAX_FAILURES=0
 export PW_E2E_SKIP_DEFAULT_TENANT_DATA=true
+# Drop stale loader imports from the parent shell — that path is only valid under apps/atnd-me.
+if [[ "${NODE_OPTIONS:-}" == *register-payload-auth-loader* ]]; then
+  unset NODE_OPTIONS
+fi
 export NODE_OPTIONS="${NODE_OPTIONS:---no-deprecation --max-old-space-size=6144}"
 export DOCKER_HOST="${DOCKER_HOST:-unix:///var/run/docker.sock}"
 
@@ -48,39 +52,48 @@ use_package_test_db() {
   unset DATABASE_URI FORCE_EXISTING_DB
 }
 
-stage "0/8  Prerequisites — Postgres + Docker"
+stage "0/9  Prerequisites — Postgres + Docker + Playwright browsers"
 wait_for_postgres
 docker info >/dev/null 2>&1 || {
   echo "Docker is not running. Package tests need TestContainers."
   exit 1
 }
+# Cursor/agent shells often set PLAYWRIGHT_BROWSERS_PATH to a sandbox cache that may
+# not contain browsers yet; install chromium there (or the default cache) before e2e.
+pnpm --filter atnd-me exec playwright install chromium
 
-stage "1/8  quality — lint + check-types (@repo/*)"
+stage "1/9  quality — lint + check-types (@repo/*)"
 use_package_test_db
 pnpm ci:quality
 
-stage "2/8  unit-tests — atnd-me unit (verbose)"
+stage "2/9  unit-tests — atnd-me unit (verbose)"
 use_package_test_db
 pnpm test:verbose:unit:atnd-me
 
-stage "3/8  package-tests — all packages (verbose, TestContainers)"
+stage "3/9  package-tests — all packages (verbose, TestContainers)"
 use_package_test_db
 pnpm test:verbose:packages
 
-stage "4/8  atnd-me-db — migrate:fresh"
+stage "4/9  atnd-me-db — migrate:fresh"
 use_atnd_me_db
 pnpm ci:atnd-me:db
 
-stage "5/8  int-tests — atnd-me 8 shards (verbose)"
+stage "5/9  int-tests — atnd-me 8 shards (verbose)"
 use_atnd_me_db
 pnpm test:verbose:int:atnd-me:all-shards
 
-stage "6/8  e2e-build — atnd-me production build"
+# GitHub CI restores a fresh migrate dump for e2e; locally int tests share the same DB
+# and can leave globals (e.g. platform-fees) dirty. Reset before e2e.
+stage "6/9  atnd-me-db — migrate:fresh (reset after int)"
+use_atnd_me_db
+pnpm ci:atnd-me:db
+
+stage "7/9  e2e-build — atnd-me production build"
 use_atnd_me_db
 export E2E_DISABLE_STANDALONE=true
 pnpm ci:atnd-me:build
 
-stage "7/8  e2e-tests — atnd-me 4 shards"
+stage "8/9  e2e-tests — atnd-me 4 shards"
 use_atnd_me_db
 export E2E_USE_NEXT_START=true
 for s in 1 2 3 4; do
@@ -89,5 +102,5 @@ for s in 1 2 3 4; do
   PLAYWRIGHT_SHARD=$s/4 pnpm ci:atnd-me:e2e
 done
 
-stage "8/8  Done"
+stage "9/9  Done"
 echo "✅ Full local CI parity run finished successfully"

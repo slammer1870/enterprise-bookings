@@ -30,6 +30,7 @@ import {
   createTestEventType,
   createTestTimeslot,
   createTestBooking,
+  ensureTenantDropInPlatformFeePercent,
   getPayloadInstance,
 } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
@@ -47,6 +48,9 @@ test.describe('Admin-created pending bookings: user is prompted to pay on manage
       const PENDING_QTY = 2
 
       // ── Setup ──────────────────────────────────────────────────────────────
+
+      // Pin 2% so local CI (shared DB after int tests) and e2e fee-override tests cannot leak.
+      await ensureTenantDropInPlatformFeePercent(tenant.id, 2)
 
       // Stripe Connect needed for the drop-in tab to render.
       await payload.update({

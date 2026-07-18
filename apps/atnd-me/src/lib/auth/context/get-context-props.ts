@@ -9,11 +9,18 @@ import { unstable_rethrow } from 'next/navigation'
 async function hasAuthSessionCookie(): Promise<boolean> {
   const cookieStore = await cookies()
   for (const { name } of cookieStore.getAll()) {
+    // Better Auth uses `better-auth.*` locally and `__Secure-better-auth.*` (or
+    // `__Host-…`) on HTTPS/production. A startsWith('better-auth.') check alone
+    // short-circuits getSession() to null while the client/tRPC session still works,
+    // which sends already-logged-in users to the booking login redirect.
     if (
-      name.startsWith('better-auth.') ||
+      name.includes('better-auth.') ||
       name === 'session_token' ||
       name === 'session_data' ||
-      name === 'dont_remember'
+      name === 'dont_remember' ||
+      name.endsWith('.session_token') ||
+      name.endsWith('.session_data') ||
+      name.endsWith('.dont_remember')
     ) {
       return true
     }

@@ -2,6 +2,8 @@
 
 Use this when **direct TLS from your server to R2 fails** (EPROTO). Your app uploads to this Worker over HTTPS; the Worker writes to R2 using its binding (no TLS to `r2.cloudflarestorage.com` from your server).
 
+Supports **GET / HEAD / PUT / DELETE**. `HEAD` is required for Payload `@payloadcms/storage-s3` `getFile()` (it calls `headObject` before streaming). Redeploy this Worker after pulling changes that add HEAD / `Content-Length`.
+
 ## 1. Create the R2 bucket
 
 In [Cloudflare Dashboard](https://dash.cloudflare.com) → **R2** → **Create bucket** (e.g. `atnd-media`).
@@ -39,7 +41,7 @@ In your **atnd-me** app (e.g. in Coolify env vars), set:
 | `R2_WORKER_URL` | `https://atnd-me-r2-proxy.<subdomain>.workers.dev` | Yes (no trailing slash) |
 | `R2_WORKER_SECRET` | same value you set in the Worker | Yes |
 | `R2_BUCKET_NAME` | `atnd-media` | Yes (must match wrangler.toml) |
-| `R2_PUBLIC_URL` | `https://media.yoursite.com` or R2 public URL | Optional (for public file URLs) |
+| `R2_PUBLIC_URL` | Public CDN URL | Optional; only with `R2_PUBLIC_DIRECT=true`. Default keeps bucket private and serves via Payload ACL. |
 
 Do **not** set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, or `R2_SECRET_ACCESS_KEY` when using the Worker; the app will use the Worker path instead of the S3 API.
 

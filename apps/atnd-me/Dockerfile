@@ -29,6 +29,13 @@ COPY turbo.json ./
 # If migrations fail, the build fails (no image is produced).
 ARG DATABASE_URI
 ENV DATABASE_URI=${DATABASE_URI}
+# Bake into next.config.js images.remotePatterns so next/image allows the CDN host.
+ARG NEXT_PUBLIC_SERVER_URL
+ARG R2_PUBLIC_URL
+ARG NEXT_PUBLIC_R2_PUBLIC_URL
+ENV NEXT_PUBLIC_SERVER_URL=${NEXT_PUBLIC_SERVER_URL}
+ENV R2_PUBLIC_URL=${R2_PUBLIC_URL}
+ENV NEXT_PUBLIC_R2_PUBLIC_URL=${NEXT_PUBLIC_R2_PUBLIC_URL}
 RUN corepack enable pnpm && \
   printf 'y\n' | pnpm --filter atnd-me exec payload migrate --force-accept-warning
 # Skip migrations during next build (DB already migrated above; avoids duplicate-key errors).

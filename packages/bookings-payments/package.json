@@ -23,7 +23,7 @@
     "@types/react": "*",
     "@types/react-dom": "*",
     "@payloadcms/db-postgres": "*",
-    "@payloadcms/richtext-lexical": "3.70.0",
+    "@payloadcms/richtext-lexical": "3.84.1",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/payload-testing": "workspace:*",
     "@repo/testing-config": "workspace:*",

@@ -13,9 +13,10 @@ function getPgPool(payload: Payload): Pool | null {
     typeof db === 'object' &&
     'pool' in db &&
     db.pool &&
-    typeof (db.pool as Pool).query === 'function'
+    typeof (db.pool as { query?: unknown }).query === 'function'
   ) {
-    return db.pool as Pool
+    // Payload may resolve a different @types/pg than the app; runtime Pool is compatible.
+    return db.pool as unknown as Pool
   }
   return null
 }

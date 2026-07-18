@@ -49,8 +49,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
-    "@payloadcms/db-sqlite": "3.70.0",
-    "@payloadcms/next": "3.70.0",
+    "@payloadcms/db-sqlite": "3.84.1",
+    "@payloadcms/next": "3.84.1",
     "@playwright/test": "1.56.1",
     "@repo/eslint-config": "workspace:*",
     "@repo/testing-config": "workspace:*",
