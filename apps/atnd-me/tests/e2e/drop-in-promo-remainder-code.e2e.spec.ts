@@ -197,6 +197,17 @@ test.describe('Drop-in promo remainder code', () => {
     expect(new Date(child.redeemBy ?? '').toISOString()).toBe(
       new Date(expectedRedeemBy).toISOString(),
     )
+
+    // Parent one-shot code must be consumed so it cannot be reused on another drop-in.
+    const parentAfter = await payload.findByID({
+      collection: 'discount-codes',
+      id: parent.id,
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect(parentAfter.timesRedeemed).toBe(1)
+    expect(parentAfter.status).toBe('archived')
+    expect(parentAfter.lastConsumedHoldId).toBeTruthy()
   })
 
   for (const caseConfig of [

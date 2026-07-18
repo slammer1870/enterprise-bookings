@@ -230,4 +230,42 @@ describe('validate-discount-code API route', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'rejects maxRedemptions=1 codes after they have been redeemed',
+    async () => {
+      const oneShot = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'One Shot Validate',
+          code: `ONE${runId}`.slice(0, 24).toUpperCase(),
+          type: 'amount_off',
+          value: 25,
+          currency: 'eur',
+          duration: 'once',
+          maxRedemptions: 1,
+          timesRedeemed: 1,
+          status: 'archived',
+          tenant: activeTenantId,
+          stripePromotionCodeId: `promo_oneshot_${runId}`,
+          stripeCouponId: `coupon_oneshot_${runId}`,
+          skipSync: true,
+        },
+        context: { skipStripeSync: true },
+        overrideAccess: true,
+      })
+
+      const res = await POST(request({ discountCode: oneShot.code }))
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body).toMatchObject({ error: 'This discount code has already been used.' })
+
+      await payload.delete({
+        collection: 'discount-codes',
+        id: oneShot.id,
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
 })

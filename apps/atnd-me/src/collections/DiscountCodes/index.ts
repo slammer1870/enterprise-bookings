@@ -194,6 +194,30 @@ export const DiscountCodes: CollectionConfig = {
       admin: { description: 'Leave empty for unlimited' },
     },
     {
+      name: 'timesRedeemed',
+      type: 'number',
+      label: 'Times redeemed',
+      defaultValue: 0,
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'Drop-in redemptions counted locally (PaymentIntents do not use Stripe promotion codes).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'lastConsumedHoldId',
+      type: 'number',
+      label: 'Last consumed hold ID',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'Checkout hold that last consumed a redemption (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
       name: 'redeemBy',
       type: 'date',
       label: 'Redeem by',

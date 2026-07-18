@@ -3250,6 +3250,14 @@ export interface DiscountCode {
    */
   maxRedemptions?: number | null;
   /**
+   * Drop-in redemptions counted locally (PaymentIntents do not use Stripe promotion codes).
+   */
+  timesRedeemed?: number | null;
+  /**
+   * Checkout hold that last consumed a redemption (idempotency).
+   */
+  lastConsumedHoldId?: number | null;
+  /**
    * No redemptions after this date
    */
   redeemBy?: string | null;
@@ -4153,6 +4161,8 @@ export interface DiscountCodesSelect<T extends boolean = true> {
   duration?: T;
   durationInMonths?: T;
   maxRedemptions?: T;
+  timesRedeemed?: T;
+  lastConsumedHoldId?: T;
   redeemBy?: T;
   rootPurchasedAt?: T;
   parentDiscountCode?: T;

@@ -178,6 +178,30 @@ export async function POST(request: NextRequest) {
         const discountCodeMeta =
           typeof meta.discountCode === 'string' ? meta.discountCode.trim() : ''
         const classPriceBeforeDiscount = Number(meta.classPriceBeforeDiscount)
+        if (discountCodeMeta && !fulfillResult.refunded) {
+          try {
+            const { consumeDiscountCodeRedemption } = await import(
+              '@/lib/stripe-connect/discountCodes'
+            )
+            const consumed = await consumeDiscountCodeRedemption({
+              payload,
+              tenantId: tenant.id,
+              discountCode: discountCodeMeta,
+              holdId,
+            })
+            if (!consumed.ok) {
+              payload.logger?.error?.(
+                `payment_intent.succeeded: discount redemption failed (${consumed.reason}) for code ${discountCodeMeta} hold ${holdId}`,
+              )
+            }
+          } catch (redeemErr) {
+            payload.logger?.error?.(
+              `payment_intent.succeeded: discount redemption failed: ${
+                redeemErr instanceof Error ? redeemErr.message : String(redeemErr)
+              }`,
+            )
+          }
+        }
         if (
           discountCodeMeta &&
           Number.isFinite(classPriceBeforeDiscount) &&

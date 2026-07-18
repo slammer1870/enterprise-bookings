@@ -268,9 +268,13 @@ async function main() {
   let created = 0
   let skipped = 0
   let failed = 0
+  const total = rows.length
+  const startedAt = Date.now()
 
-  for (const row of rows) {
-    const label = `externalId=${(row as GiftVoucherImportRow)?.externalId ?? '?'}`
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]!
+    const progress = `[${i + 1}/${total}]`
+    const label = `${progress} externalId=${(row as GiftVoucherImportRow)?.externalId ?? '?'}`
 
     try {
       if (!isValidGiftVoucherImportRow(row)) {
@@ -329,8 +333,10 @@ async function main() {
         overrideAccess: true,
       })
 
+      const pct = Math.round(((i + 1) / total) * 100)
+      const elapsedSec = Math.round((Date.now() - startedAt) / 1000)
       console.log(
-        `create ${label}: id=${createdDoc.id} code=${code} amount=${row.remainingAmount} redeemBy=${redeemBy}`,
+        `create ${label}: id=${createdDoc.id} code=${code} amount=${row.remainingAmount} redeemBy=${redeemBy} | ${pct}% elapsed=${elapsedSec}s created=${created + 1} skipped=${skipped} failed=${failed}`,
       )
       created++
     } catch (err) {
@@ -339,9 +345,10 @@ async function main() {
     }
   }
 
+  const elapsedSec = Math.round((Date.now() - startedAt) / 1000)
   console.log('')
   console.log(
-    `Done. created=${created} skipped=${skipped} failed=${failed}${args.dryRun ? ' (dry-run)' : ''}`,
+    `Done. created=${created} skipped=${skipped} failed=${failed} elapsed=${elapsedSec}s${args.dryRun ? ' (dry-run)' : ''}`,
   )
   console.log(
     'Deliver each code to the customer (email/CSV). One-time use; unused remainder on drop-ins is auto-transferred to a new code.',
