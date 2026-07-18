@@ -9,16 +9,16 @@ import { createRequire } from 'node:module'
 /**
  * Playwright E2E production server launcher.
  *
- * Prefer `next start` in CI (`E2E_USE_NEXT_START=true`). The split e2e-build →
- * e2e-tests artifact flow cannot reliably ship pnpm-linked native modules
- * (`sharp`) inside Next standalone output; running from the app workspace lets
- * Node resolve a single react/sharp install and avoids:
+ * Prefer `next start` (`E2E_USE_NEXT_START=true`, set by `pnpm start:e2e`).
+ * Standalone copies under /tmp often break sharp's nested deps (e.g. missing
+ * `semver/functions/coerce`). Running from the app workspace lets Node resolve
+ * a single react/sharp install and avoids:
+ *   - Cannot find module 'semver/functions/coerce'
  *   - sharp._isUsingX64V2 is not a function
  *   - Cannot read properties of null (reading 'useRef')
  *
- * Standalone mode remains available locally when `.next/standalone` exists.
- * In that case we still isolate under /tmp so workspace `node_modules` is not
- * on the module resolution walk from the standalone cwd.
+ * Standalone mode: set `E2E_USE_NEXT_START=false` when `.next/standalone` exists.
+ * Isolated under /tmp so workspace `node_modules` is not on the resolution walk.
  */
 
 const __filename = fileURLToPath(import.meta.url)

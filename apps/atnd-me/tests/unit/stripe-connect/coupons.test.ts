@@ -99,6 +99,29 @@ describe('stripe-connect/coupons', () => {
       )
     })
 
+    it('passes max_redemptions: 1 for one-shot gift-voucher amount_off codes', async () => {
+      await createTenantCouponAndPromoCode({
+        tenant,
+        code: 'GIFT30',
+        amount_off: 3000,
+        currency: 'eur',
+        duration: 'once',
+        max_redemptions: 1,
+        redeem_by: 1893456000,
+      })
+
+      expect(mockStripe.coupons.create).toHaveBeenCalledWith(
+        {
+          amount_off: 3000,
+          currency: 'eur',
+          duration: 'once',
+          max_redemptions: 1,
+          redeem_by: 1893456000,
+        },
+        { stripeAccount: MOCK_ACCOUNT_ID },
+      )
+    })
+
     it('throws when neither percent_off nor amount_off', async () => {
       await expect(
         createTenantCouponAndPromoCode({

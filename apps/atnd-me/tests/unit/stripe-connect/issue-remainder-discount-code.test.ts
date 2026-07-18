@@ -178,28 +178,77 @@ describe('issueRemainderDiscountCodeIfNeeded', () => {
     expect(payload.sendEmail).not.toHaveBeenCalled()
   })
 
-  it('skips when maxRedemptions is not 1', async () => {
-    const payload = makePayload({
-      parent: {
-        id: 10,
-        code: 'MULTI',
-        type: 'amount_off',
-        value: 100,
-        maxRedemptions: 5,
-        rootPurchasedAt: ROOT_PURCHASED,
-        createdAt: ROOT_PURCHASED,
-      },
+  describe('maxRedemptions === 1 gate', () => {
+    async function runWithMaxRedemptions(
+      maxRedemptions: number | null | undefined,
+      code = 'GATE',
+    ) {
+      const payload = makePayload({
+        parent: {
+          id: 10,
+          code,
+          type: 'amount_off',
+          value: 100,
+          currency: 'eur',
+          maxRedemptions,
+          rootPurchasedAt: ROOT_PURCHASED,
+          createdAt: ROOT_PURCHASED,
+        },
+      })
+      const result = await issueRemainderDiscountCodeIfNeeded({
+        payload: payload as never,
+        tenantId: 1,
+        discountCode: code,
+        classPriceBeforeDiscount: 20,
+        userId: 5,
+        userEmail: 'u@example.com',
+        bookingId: 1,
+      })
+      return { payload, result }
+    }
+
+    it('issues remainder only when maxRedemptions is exactly 1', async () => {
+      const { payload, result } = await runWithMaxRedemptions(1, 'ONCE')
+      expect(result.issued).toBe(true)
+      expect(payload.create).toHaveBeenCalledTimes(1)
+      expect(payload.create.mock.calls[0]?.[0]?.data.maxRedemptions).toBe(1)
     })
-    const result = await issueRemainderDiscountCodeIfNeeded({
-      payload: payload as never,
-      tenantId: 1,
-      discountCode: 'MULTI',
-      classPriceBeforeDiscount: 20,
-      userId: 5,
-      userEmail: 'u@example.com',
-      bookingId: 1,
+
+    it('skips when maxRedemptions is null (unlimited)', async () => {
+      const { payload, result } = await runWithMaxRedemptions(null, 'UNLIM')
+      expect(result).toEqual({ issued: false, reason: 'max_redemptions_not_one' })
+      expect(payload.create).not.toHaveBeenCalled()
+      expect(payload.sendEmail).not.toHaveBeenCalled()
     })
-    expect(result).toEqual({ issued: false, reason: 'max_redemptions_not_one' })
+
+    it('skips when maxRedemptions is undefined', async () => {
+      const { payload, result } = await runWithMaxRedemptions(undefined, 'UNDEF')
+      expect(result).toEqual({ issued: false, reason: 'max_redemptions_not_one' })
+      expect(payload.create).not.toHaveBeenCalled()
+    })
+
+    it('skips when maxRedemptions is greater than 1', async () => {
+      for (const max of [2, 5, 99]) {
+        const { payload, result } = await runWithMaxRedemptions(max, `M${max}`)
+        expect(result).toEqual({ issued: false, reason: 'max_redemptions_not_one' })
+        expect(payload.create).not.toHaveBeenCalled()
+      }
+    })
+
+    it('skips when maxRedemptions is 0', async () => {
+      const { payload, result } = await runWithMaxRedemptions(0, 'ZERO')
+      expect(result).toEqual({ issued: false, reason: 'max_redemptions_not_one' })
+      expect(payload.create).not.toHaveBeenCalled()
+    })
+
+    it('always creates the child code with maxRedemptions: 1 so leftover can chain', async () => {
+      const { payload, result } = await runWithMaxRedemptions(1, 'CHAIN')
+      expect(result.issued).toBe(true)
+      const data = payload.create.mock.calls[0]?.[0]?.data
+      expect(data.maxRedemptions).toBe(1)
+      expect(data.type).toBe('amount_off')
+      expect(data.value).toBe(80)
+    })
   })
 
   it('skips percentage_off', async () => {
