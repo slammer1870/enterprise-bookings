@@ -276,6 +276,7 @@ function createTimeslotDefaultFields(
           ],
         },
         admin: {
+          width: "33%",
           date: {
             displayFormat: "dd/MM/yyyy",
           },
@@ -286,6 +287,7 @@ function createTimeslotDefaultFields(
         type: "date",
         required: true,
         admin: {
+          width: "33%",
           date: {
             pickerAppearance: "timeOnly",
           },
@@ -315,6 +317,7 @@ function createTimeslotDefaultFields(
         type: "date",
         required: true,
         admin: {
+          width: "33%",
           date: {
             pickerAppearance: "timeOnly",
           },
