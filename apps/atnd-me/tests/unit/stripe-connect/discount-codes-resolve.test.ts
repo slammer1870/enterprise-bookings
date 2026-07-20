@@ -21,7 +21,7 @@ function makePayload(docs: Array<Record<string, unknown>>) {
 }
 
 describe('resolveTenantDiscountCode (migrated skipSync codes)', () => {
-  it('resolves active amount_off codes without Stripe promotion ids', async () => {
+  it('resolves and validates active amount_off codes without Stripe promotion ids', async () => {
     const payload = makePayload([
       {
         id: 1,
@@ -37,19 +37,27 @@ describe('resolveTenantDiscountCode (migrated skipSync codes)', () => {
       },
     ])
 
-    const discount = await resolveTenantDiscountCode(payload as never, 7, '30416106')
-    expect(discount).toEqual({
-      id: 1,
-      code: '30416106',
-      type: 'amount_off',
-      value: 55,
-      currency: 'eur',
-      stripePromotionCodeId: null,
-      maxRedemptions: 1,
-      timesRedeemed: 0,
-      redeemBy: null,
+    // Drop-in gift vouchers may have no Stripe promo id; validity is local (active + not exhausted).
+    const checked = await checkTenantDiscountCode(payload as never, 7, '30416106')
+    expect(checked).toEqual({
+      ok: true,
+      discount: {
+        id: 1,
+        code: '30416106',
+        type: 'amount_off',
+        value: 55,
+        currency: 'eur',
+        stripePromotionCodeId: null,
+        maxRedemptions: 1,
+        timesRedeemed: 0,
+        redeemBy: null,
+      },
     })
+    expect(await resolveTenantDiscountCode(payload as never, 7, '30416106')).toEqual(
+      checked.ok ? checked.discount : undefined,
+    )
     expect(await validateTenantDiscountCode(payload as never, 7, '30416106')).toBe(true)
+    // Checkout Session path needs a Stripe promo id; drop-ins do not.
     expect(await resolveTenantPromotionCodeId(payload as never, 7, '30416106')).toBeUndefined()
   })
 

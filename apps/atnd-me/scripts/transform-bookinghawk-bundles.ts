@@ -2,8 +2,9 @@
 /**
  * Phase 1 — Transform BookingHawk credit bundle export into atnd-me class-pass import JSON.
  *
- * Fetches per-bundle usage from BookingHawk, computes remaining quantity, sets expiry
- * to purchase date + 5 years, and writes class-passes-import.json for phase 2.
+ * Fetches per-bundle usage from BookingHawk, computes remaining quantity, preserves the
+ * original BookingHawk expiryDate (falls back to purchase + 5 years for "no expiry"),
+ * and writes class-passes-import.json for phase 2.
  *
  * Usage (from apps/atnd-me):
  *   BOOKINGHAWK_JSESSIONID=... \
@@ -30,6 +31,7 @@ type SourceRow = {
   bundleName: string
   originalQuantity: string
   purchaseDate: string
+  expiryDate: string
   customerName: string
 }
 
@@ -183,6 +185,32 @@ function addYears(isoDate: string, years: number): string {
   return d.toISOString().slice(0, 10)
 }
 
+function isNoExpiry(value: string | undefined): boolean {
+  const trimmed = value?.trim().toLowerCase() ?? ''
+  return !trimmed || trimmed === 'no expiry'
+}
+
+/** Prefer BookingHawk expiryDate; fall back to purchase + 5 years when "no expiry". */
+function resolveExpirationDate(
+  purchasedAt: string,
+  expiryDateRaw: string | undefined,
+): { expirationDate: string; usedFallback: boolean } | { error: string } {
+  if (isNoExpiry(expiryDateRaw)) {
+    return { expirationDate: addYears(purchasedAt, EXPIRY_YEARS), usedFallback: true }
+  }
+
+  const parsed = parseBookingHawkDate(expiryDateRaw!)
+  if (!parsed) {
+    return { error: `Could not parse expiryDate "${expiryDateRaw}"` }
+  }
+
+  return { expirationDate: parsed, usedFallback: false }
+}
+
+function isExpirationInPast(dateOnly: string): boolean {
+  return new Date(`${dateOnly}T23:59:59.999Z`) <= new Date()
+}
+
 function sumUsedQuantity(detail: BundleDetailResponse): number {
   const usages = detail.creditBundleUsages ?? []
   return usages.reduce((sum, u) => {
@@ -313,7 +341,28 @@ async function main() {
         continue
       }
 
-      const expirationDate = addYears(purchasedAt, EXPIRY_YEARS)
+      const expiryResolved = resolveExpirationDate(purchasedAt, row.expiryDate)
+      if ('error' in expiryResolved) {
+        errors.push({ publicReference: publicRef, error: expiryResolved.error })
+        console.error(`${label} fail: ${expiryResolved.error}`)
+        continue
+      }
+
+      const { expirationDate, usedFallback } = expiryResolved
+
+      if (isExpirationInPast(expirationDate)) {
+        skipped.push({
+          publicReference: publicRef,
+          reason: 'expired',
+          originalQuantity,
+          usedQuantity,
+        })
+        console.log(
+          `${label} skip: expired (${expirationDate})${usedFallback ? ' [fallback]' : ''}`,
+        )
+        continue
+      }
+
       const passTypeName = row.bundleName?.trim() || 'Unknown bundle'
 
       classPassImports.push({
@@ -330,7 +379,7 @@ async function main() {
       })
 
       console.log(
-        `${label} ok: ${passTypeName} — ${remainingQuantity} remaining (${usedQuantity} used)`,
+        `${label} ok: ${passTypeName} — ${remainingQuantity} remaining (${usedQuantity} used), exp=${expirationDate}${usedFallback ? ' [no-expiry→5y]' : ''}`,
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
