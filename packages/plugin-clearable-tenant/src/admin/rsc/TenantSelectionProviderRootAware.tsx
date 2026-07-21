@@ -197,6 +197,10 @@ export async function TenantSelectionProviderRootAware(props: Props) {
   let tenantOptions: TenantOption[] = []
   let initialValue: string | number | undefined
 
+  const hostHeaders = await getHeaders()
+  const hostHeader = hostHeaders.get('host')
+  const initialIsHostLocked = isHostLockedServer(hostHeader)
+
   if (payloadProp && user) {
     tenantOptions = await getTenantOptions({
       payload: payloadProp,
@@ -213,16 +217,12 @@ export async function TenantSelectionProviderRootAware(props: Props) {
       const match = tenantOptions.find((o) => String(o.value) === tenantCookie)
       initialValue = match?.value
     } else {
-      const h = await getHeaders()
-      const hostHeader = h.get('host')
-      const isHostLocked = isHostLockedServer(hostHeader)
-
       // Priority 1: tenant-slug cookie (set by middleware on earlier requests)
-      const tenantSlug = isHostLocked ? cookieStore.get('tenant-slug')?.value : undefined
+      const tenantSlug = initialIsHostLocked ? cookieStore.get('tenant-slug')?.value : undefined
       if (tenantSlug) {
         const matchBySlug = tenantOptions.find((o) => o.slug === tenantSlug)
         initialValue = matchBySlug?.value
-      } else if (isHostLocked) {
+      } else if (initialIsHostLocked) {
         // Priority 2: derive slug directly from the Host header.
         // This handles the very first navigation to a tenant subdomain: middleware sets
         // `tenant-slug` and `payload-tenant` in Set-Cookie but they have not reached
@@ -257,6 +257,7 @@ export async function TenantSelectionProviderRootAware(props: Props) {
       initialTenantOptions={tenantOptions}
       initialValue={initialValue}
       initialUserRoles={initialUserRoles}
+      initialIsHostLocked={initialIsHostLocked}
       tenantsCollectionSlug={tenantsCollectionSlug}
       rootDocCollections={rootDocCollections}
       collectionsRequireTenantOnCreate={collectionsRequireTenantOnCreate}

@@ -9,3 +9,4 @@ export * from "./discount";
 export * from "./booking-auth";
 export * from "./timezone";
 export * from "./payload-request-context";
+export * from "./tenant-slug";

@@ -9,6 +9,8 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { Banner, Gutter } from '@payloadcms/ui'
 import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
+import { OnboardingChecklist } from '@/components/BeforeDashboard/OnboardingChecklist'
+
 
 const BookingsTrendChart = dynamic(
   () => import('./BookingsTrendChart').then((mod) => mod.BookingsTrendChart),
@@ -76,6 +78,103 @@ function formatDdMmYyyy(ymd: string | null | undefined): string {
   const [y, m, d] = ymd.split('-')
   if (!y || !m || !d) return ymd
   return `${d}-${m}-${y}`
+}
+
+function AnalyticsLoadingSkeleton() {
+  const cardStyle: React.CSSProperties = {
+    padding: '1rem',
+    border: '1px solid var(--theme-elevation-200, #eee)',
+    borderRadius: '6px',
+    backgroundColor: 'var(--theme-elevation-50)',
+  }
+  const bar = (
+    width: string | number,
+    height = 12,
+    extra?: React.CSSProperties,
+  ): React.CSSProperties => ({
+    width,
+    height,
+    borderRadius: 4,
+    background: 'var(--theme-elevation-150, #ececec)',
+    animation: 'analytics-skeleton-pulse 1.4s ease-in-out infinite',
+    ...extra,
+  })
+
+  return (
+    <div aria-busy="true" aria-label="Loading analytics" style={{ marginBottom: '1rem' }}>
+      <style>{`
+        @keyframes analytics-skeleton-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.45; }
+        }
+      `}</style>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+          gap: '1rem',
+          marginBottom: '1.5rem',
+        }}
+      >
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} style={cardStyle}>
+            <div style={bar('55%', 10, { marginBottom: 12 })} />
+            <div style={bar('40%', 22)} />
+            {i >= 2 ? <div style={bar('70%', 8, { marginTop: 10 })} /> : null}
+          </div>
+        ))}
+      </div>
+
+      <div
+        style={{
+          border: '1px solid var(--theme-elevation-200, #eee)',
+          borderRadius: '6px',
+          padding: '1rem',
+          backgroundColor: 'var(--theme-elevation-0)',
+          marginBottom: '1.5rem',
+        }}
+      >
+        <div style={bar(160, 14, { marginBottom: 16 })} />
+        <div
+          style={{
+            height: 280,
+            borderRadius: 6,
+            background: 'var(--theme-elevation-100, #f5f5f5)',
+            animation: 'analytics-skeleton-pulse 1.4s ease-in-out infinite',
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+          gap: '1rem',
+        }}
+      >
+        {Array.from({ length: 2 }).map((_, section) => (
+          <div
+            key={section}
+            style={{
+              border: '1px solid var(--theme-elevation-200, #eee)',
+              borderRadius: '6px',
+              padding: '1rem',
+              backgroundColor: 'var(--theme-elevation-0)',
+            }}
+          >
+            <div style={bar(140, 14, { marginBottom: 14 })} />
+            {Array.from({ length: 4 }).map((_, row) => (
+              <div key={row} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                <div style={bar('60%')} />
+                <div style={bar('20%', 12, { marginLeft: 'auto' })} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export const AnalyticsDashboardClient: React.FC<{
@@ -301,6 +400,8 @@ export const AnalyticsDashboardClient: React.FC<{
 
   return (
     <Gutter>
+      <OnboardingChecklist tenantId={selectedTenantId} />
+
       <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>Analytics</h1>
 
       {stripeNotice ? (
@@ -342,7 +443,7 @@ export const AnalyticsDashboardClient: React.FC<{
         <p style={{ color: 'var(--theme-error-500, #b91c1c)', marginBottom: '1rem' }}>{error}</p>
       )}
 
-      {loading && <p style={{ marginBottom: '1rem' }}>Loading…</p>}
+      {loading && <AnalyticsLoadingSkeleton />}
 
       {!loading && data && (
         <>

@@ -58,9 +58,13 @@ vi.mock('@/lib/stripe-connect/test-accounts', () => ({
   isStripeTestAccount: vi.fn().mockReturnValue(false),
 }))
 
-vi.mock('@/lib/stripe-connect/discountCodes', () => ({
-  resolveTenantPromotionCodeId: vi.fn().mockResolvedValue(null),
-}))
+vi.mock('@/lib/stripe-connect/discountCodes', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/stripe-connect/discountCodes')>()
+  return {
+    ...actual,
+    resolveTenantPromotionCodeId: vi.fn().mockResolvedValue(null),
+  }
+})
 
 vi.mock('@/lib/payload', () => ({
   getPayload: vi.fn().mockResolvedValue({}),

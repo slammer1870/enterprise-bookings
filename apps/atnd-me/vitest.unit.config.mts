@@ -13,6 +13,9 @@ export default defineConfig({
     environment: 'node',
     include: ['tests/unit/**/*.test.ts'],
     testTimeout: 15_000,
+    // Isolate files so vi.mock in one suite cannot replace modules for another.
+    pool: 'forks',
+    isolate: true,
     server: {
       deps: {
         inline: ['payload-auth'],

@@ -76,6 +76,8 @@ type Props = {
   initialTenantOptions: TenantOption[]
   initialValue: string | number | undefined
   initialUserRoles?: string[]
+  /** Server-computed host lock so SSR and client hydration agree on readOnly. */
+  initialIsHostLocked?: boolean
   tenantsCollectionSlug: string
   rootDocCollections?: string[]
   collectionsRequireTenantOnCreate?: string[]
@@ -91,6 +93,7 @@ export function TenantSelectionProviderRootAwareClient({
   initialTenantOptions,
   initialValue,
   initialUserRoles = [],
+  initialIsHostLocked = false,
   tenantsCollectionSlug,
   rootDocCollections = ['navbar', 'footer'],
   collectionsRequireTenantOnCreate = [],
@@ -139,15 +142,24 @@ export function TenantSelectionProviderRootAwareClient({
     return match?.[1] != null ? decodeURIComponent(match[1]) : undefined
   }, [])
 
-  const isHostLocked = React.useMemo(() => {
-    if (typeof window === 'undefined') return false
+  const computeHostLockedFromWindow = React.useCallback((): boolean => {
+    if (typeof window === 'undefined') return initialIsHostLocked
     const root = getRootHostname()
-    if (!root) return false
+    if (!root) return initialIsHostLocked
     const current = window.location.hostname
-    if (!current) return false
+    if (!current) return initialIsHostLocked
     if (root === 'localhost') return current.endsWith('.localhost')
-    return current !== root && current.endsWith('.' + root) ? true : current !== root && !current.endsWith('.' + root)
-  }, [getRootHostname])
+    return current !== root && current.endsWith('.' + root)
+      ? true
+      : current !== root && !current.endsWith('.' + root)
+  }, [getRootHostname, initialIsHostLocked])
+
+  // Use the server value for SSR + first client render so SelectInput `readOnly`
+  // does not flip during hydration (`select` vs `select read-only`).
+  const [isHostLocked, setIsHostLocked] = React.useState(initialIsHostLocked)
+  React.useEffect(() => {
+    setIsHostLocked(computeHostLockedFromWindow())
+  }, [computeHostLockedFromWindow])
 
   const hostLockedTenantSlug = React.useMemo(() => {
     if (!isHostLocked) return undefined

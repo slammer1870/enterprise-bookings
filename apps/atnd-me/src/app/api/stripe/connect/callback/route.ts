@@ -67,13 +67,41 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await exchangeCodeForStripeConnectAccount(code, redirectUri)
-    const account = await getPlatformStripe().accounts.retrieve(result.stripe_account_id)
+    const accountId = result.stripe_account_id?.trim()
+    if (!accountId) {
+      throw new Error('Stripe response missing account id')
+    }
+
+    // stripeConnectAccountId is unique — surface a clear error instead of Payload's
+    // generic "The following field is invalid: stripeConnectAccountId".
+    const existing = await payload.find({
+      collection: 'tenants',
+      where: {
+        and: [
+          { stripeConnectAccountId: { equals: accountId } },
+          { id: { not_equals: tenantId } },
+        ],
+      },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      select: { id: true, name: true, slug: true } as any,
+    })
+    if (existing.docs.length > 0) {
+      const other = existing.docs[0] as { slug?: string | null; name?: string | null }
+      const label = other.slug || other.name || `#${(existing.docs[0] as { id: number }).id}`
+      throw new Error(
+        `This Stripe account is already connected to another workspace (${label}). Disconnect it there first, or connect a different Stripe account.`,
+      )
+    }
+
+    const account = await getPlatformStripe().accounts.retrieve(accountId)
     const onboardingStatus = getStripeConnectOnboardingStatus(account)
     await payload.update({
       collection: 'tenants',
       id: tenantId,
       data: {
-        stripeConnectAccountId: result.stripe_account_id,
+        stripeConnectAccountId: accountId,
         stripeConnectOnboardingStatus: onboardingStatus,
         stripeConnectConnectedAt: new Date().toISOString(),
         stripeConnectLastError: null,
@@ -89,19 +117,24 @@ export async function GET(request: NextRequest) {
     // checks the connected account's domain list, not the platform's.
     registerAllDomainsForConnectedAccount(
       payload,
-      result.stripe_account_id,
+      accountId,
       tenantId,
     ).catch((err) => {
       console.error('[Stripe Connect] Apple Pay domain registration failed for connected account', {
         tenantId,
-        accountId: result.stripe_account_id,
+        accountId,
         err,
       })
     })
 
     return NextResponse.redirect(appendConnectStatus(returnTo, 'success'), 302)
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e)
+    let message = e instanceof Error ? e.message : String(e)
+    // Fallback if a race still hits the DB unique constraint.
+    if (/stripeConnectAccountId/i.test(message) && /invalid/i.test(message)) {
+      message =
+        'This Stripe account is already connected to another workspace. Disconnect it there first, or connect a different Stripe account.'
+    }
     console.error('[Stripe Connect] connect callback failed', {
       tenantId,
       userId: stateUserId,

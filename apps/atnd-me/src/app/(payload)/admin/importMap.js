@@ -27,6 +27,7 @@ import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { CreateStripeSubscriptionButton as CreateStripeSubscriptionButton_ed3014cce3aceb51cef0b2454cfe3a0b } from '@/components/admin/CreateStripeSubscriptionButton'
+import { MultiLocationOnlyRelationshipField as MultiLocationOnlyRelationshipField_0b514c4784cda3a47f7469391b2c945a } from '@/components/admin/MultiLocationOnlyRelationshipField'
 import { BookingThemePreviewField as BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b } from '@/components/admin/booking-theme/BookingThemePreviewField'
 import { BookingThemeColorField as BookingThemeColorField_2f44dc0f205ee651fa304de8d2ad2dff } from '@/components/admin/booking-theme/BookingThemeColorField'
 import { InlineToolbarFeatureClient as InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
@@ -114,6 +115,7 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@/components/admin/CreateStripeSubscriptionButton#CreateStripeSubscriptionButton": CreateStripeSubscriptionButton_ed3014cce3aceb51cef0b2454cfe3a0b,
+  "@/components/admin/MultiLocationOnlyRelationshipField#MultiLocationOnlyRelationshipField": MultiLocationOnlyRelationshipField_0b514c4784cda3a47f7469391b2c945a,
   "@/components/admin/booking-theme/BookingThemePreviewField#BookingThemePreviewField": BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b,
   "@/components/admin/booking-theme/BookingThemeColorField#BookingThemeColorField": BookingThemeColorField_2f44dc0f205ee651fa304de8d2ad2dff,
   "@payloadcms/richtext-lexical/client#InlineToolbarFeatureClient": InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,

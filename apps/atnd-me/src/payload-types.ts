@@ -265,6 +265,9 @@ export interface Timeslot {
 export interface Tenant {
   id: number;
   name: string;
+  /**
+   * Subdomain for this tenant (e.g. studio → studio.atnd.me). Lowercase letters, numbers, and hyphens only.
+   */
   slug: string;
   /**
    * IANA timezone for this tenant, for example Europe/Dublin or America/New_York. If empty, the app default timezone is used.
@@ -343,6 +346,10 @@ export interface Tenant {
    * When Connect was linked.
    */
   stripeConnectConnectedAt?: string | null;
+  /**
+   * When the tenant admin first opened their public site from the onboarding checklist.
+   */
+  onboardingSiteViewedAt?: string | null;
   /**
    * Pages linked below the drop-in payment form. Customers see: "By placing your booking, you agree to our …" — link text uses each page title. Drop-in only; membership and class pass checkout is handled by Stripe. Add as many pages as you need (e.g. booking terms, privacy policy, cancellation policy).
    */
@@ -590,6 +597,40 @@ export interface Page {
  */
 export interface HeroScheduleSanctuaryBlock {
   /**
+   * Optional heading above the schedule panel. Defaults to “Schedule” when empty.
+   */
+  displayHeading?: string | null;
+  backgroundImage?: (number | null) | Media;
+  logo?: (number | null) | Media;
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline') | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker. Order controls picker sequence and which branch is selected by default. Hidden when this tenant has only one active location.
+   */
+  location?: (number | Location)[] | null;
+  /**
    * Customize check-in and booking button colors for this schedule. Leave fields empty to use platform defaults.
    */
   bookingTheme?: {
@@ -622,62 +663,9 @@ export interface HeroScheduleSanctuaryBlock {
       foregroundColor?: string | null;
     };
   };
-  /**
-   * Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker. Order controls picker sequence and which branch is selected by default.
-   */
-  location?: (number | Location)[] | null;
-  backgroundImage?: (number | null) | Media;
-  logo?: (number | null) | Media;
-  links?:
-    | {
-        link: {
-          type?: ('reference' | 'custom') | null;
-          newTab?: boolean | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label: string;
-          /**
-           * Choose how the link should be rendered.
-           */
-          appearance?: ('default' | 'outline') | null;
-        };
-        id?: string | null;
-      }[]
-    | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'heroScheduleSanctuary';
-}
-/**
- * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "locations".
- */
-export interface Location {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  name: string;
-  slug: string;
-  address?: string | null;
-  /**
-   * Optional IANA timezone for this branch (e.g. Europe/Dublin). If empty, the tenant default is used.
-   */
-  timeZone?: string | null;
-  /**
-   * Inactive locations can be hidden from scheduling and public UIs later.
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * Blog posts. Assign a tenant so the article appears on that site; leave tenant empty for platform-wide posts on the root domain only.
@@ -766,6 +754,10 @@ export interface User {
    */
   registrationTenant?: (number | null) | Tenant;
   /**
+   * When the user set a password from the onboarding checklist (claim flow creates a random password).
+   */
+  onboardingPasswordSetAt?: string | null;
+  /**
    * Branches this user manages (location manager). Org admins assign these; managers cannot self-assign.
    */
   locations?: (number | Location)[] | null;
@@ -848,6 +840,29 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "locations".
+ */
+export interface Location {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  name: string;
+  slug: string;
+  address?: string | null;
+  /**
+   * Optional IANA timezone for this branch (e.g. Europe/Dublin). If empty, the tenant default is used.
+   */
+  timeZone?: string | null;
+  /**
+   * Inactive locations can be hidden from scheduling and public UIs later.
+   */
+  active?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Accounts are used to store user accounts for authentication providers
@@ -1352,6 +1367,10 @@ export interface MarketingHeroBlock {
     };
     [k: string]: unknown;
   } | null;
+  /**
+   * When enabled, shows a “[username].atnd.me” claim input and modal instead of (or in addition to) CTA link buttons. Use on the platform marketing homepage.
+   */
+  showUsernameClaim?: boolean | null;
   links?:
     | {
         link: {
@@ -3148,7 +3167,7 @@ export interface Scheduler {
    */
   lockOutTime: number;
   /**
-   * Default class type to use when creating timeslots (can be overridden per slot)
+   * Default event type to use when creating timeslots (can be overridden per slot)
    */
   defaultEventType: number | EventType;
   branch?: (number | null) | Location;
@@ -3163,7 +3182,7 @@ export interface Scheduler {
                 startTime: string;
                 endTime: string;
                 /**
-                 * Overrides the default class option
+                 * Overrides the default event type
                  */
                 eventType?: (number | null) | EventType;
                 location?: string | null;
@@ -3384,6 +3403,10 @@ export interface Navbar {
    * URL the logo should link to (defaults to "/")
    */
   logoLink?: string | null;
+  /**
+   * Show the Sign in button / account menu in the header
+   */
+  showSignIn?: boolean | null;
   navItems?:
     | {
         link: {
@@ -4124,6 +4147,7 @@ export interface TenantsSelect<T extends boolean = true> {
   stripeConnectOnboardingStatus?: T;
   stripeConnectLastError?: T;
   stripeConnectConnectedAt?: T;
+  onboardingSiteViewedAt?: T;
   checkoutLegalDocuments?:
     | T
     | {
@@ -4475,6 +4499,25 @@ export interface PagesSelect<T extends boolean = true> {
  * via the `definition` "HeroScheduleSanctuaryBlock_select".
  */
 export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
+  displayHeading?: T;
+  backgroundImage?: T;
+  logo?: T;
+  links?:
+    | T
+    | {
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              appearance?: T;
+            };
+        id?: T;
+      };
+  location?: T;
   bookingTheme?:
     | T
     | {
@@ -4520,24 +4563,6 @@ export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
               backgroundColor?: T;
               foregroundColor?: T;
             };
-      };
-  location?: T;
-  backgroundImage?: T;
-  logo?: T;
-  links?:
-    | T
-    | {
-        link?:
-          | T
-          | {
-              type?: T;
-              newTab?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-              appearance?: T;
-            };
-        id?: T;
       };
   id?: T;
   blockName?: T;
@@ -4656,6 +4681,7 @@ export interface HeroBlockSelect<T extends boolean = true> {
 export interface MarketingHeroBlockSelect<T extends boolean = true> {
   headline?: T;
   subheadline?: T;
+  showUsernameClaim?: T;
   links?:
     | T
     | {
@@ -5873,6 +5899,7 @@ export interface NavbarSelect<T extends boolean = true> {
   tenant?: T;
   logo?: T;
   logoLink?: T;
+  showSignIn?: T;
   navItems?:
     | T
     | {
@@ -6145,6 +6172,7 @@ export interface VerificationsSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   registrationTenant?: T;
+  onboardingPasswordSetAt?: T;
   locations?: T;
   tenants?:
     | T

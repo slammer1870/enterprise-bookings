@@ -6,13 +6,27 @@ import type { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical
 import { Button } from '@repo/ui/components/ui/button'
 import { cn } from '@repo/ui/lib/utils'
 import { getLinkHref } from '../../utils/getLinkHref'
+import { UsernameClaimForm } from './UsernameClaimForm'
 
 type MediaResource = { url?: string; alt?: string } | number | string
 
 interface MarketingHeroBlockProps {
   headline?: string
   subheadline?: SerializedEditorState
-  links?: Array<{ link: { type?: 'reference' | 'custom'; url?: string; label?: string; appearance?: 'default' | 'outline'; newTab?: boolean; reference?: { value: string | number | { slug?: string }; relationTo: string } } }>
+  showUsernameClaim?: boolean | null
+  links?: Array<{
+    link: {
+      type?: 'reference' | 'custom'
+      url?: string
+      label?: string
+      appearance?: 'default' | 'outline'
+      newTab?: boolean
+      reference?: {
+        value: string | number | { slug?: string }
+        relationTo: string
+      }
+    }
+  }>
   backgroundMedia?: MediaResource
   foregroundMedia?: MediaResource
   alignment?: 'left' | 'center' | 'right'
@@ -30,6 +44,7 @@ function mediaUrl(resource: MediaResource | undefined): string | null {
 export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
   headline,
   subheadline,
+  showUsernameClaim,
   links,
   backgroundMedia,
   foregroundMedia,
@@ -51,6 +66,7 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
 
   const bgUrl = mediaUrl(backgroundMedia)
   const fgUrl = mediaUrl(foregroundMedia)
+  const claimEnabled = Boolean(showUsernameClaim)
 
   return (
     <section
@@ -93,23 +109,33 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
             </div>
           )}
 
-          {links && links.length > 0 && (
-            <div className="flex flex-col sm:flex-row gap-4">
-              {links.map(({ link }, i) => {
-                const href = getLinkHref(link)
-                const appearance = link?.appearance ?? (i === 0 ? 'default' : 'outline')
-                return (
-                  <Button key={i} asChild variant={appearance === 'outline' ? 'outline' : 'default'} size="lg">
-                    <Link
-                      href={href}
-                      {...(link?.newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+          {claimEnabled ? (
+            <UsernameClaimForm alignment={alignment ?? 'center'} />
+          ) : (
+            links &&
+            links.length > 0 && (
+              <div className="flex flex-col sm:flex-row gap-4">
+                {links.map(({ link }, i) => {
+                  const href = getLinkHref(link)
+                  const appearance = link?.appearance ?? (i === 0 ? 'default' : 'outline')
+                  return (
+                    <Button
+                      key={i}
+                      asChild
+                      variant={appearance === 'outline' ? 'outline' : 'default'}
+                      size="lg"
                     >
-                      {link?.label ?? 'Learn more'}
-                    </Link>
-                  </Button>
-                )
-              })}
-            </div>
+                      <Link
+                        href={href}
+                        {...(link?.newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                      >
+                        {link?.label ?? 'Learn more'}
+                      </Link>
+                    </Button>
+                  )
+                })}
+              </div>
+            )
           )}
 
           {fgUrl && (

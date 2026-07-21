@@ -67,13 +67,18 @@ DATABASE_URI=... PAYLOAD_SECRET=... \
 
 ## Live import
 
+Use a **live** `STRIPE_SECRET_KEY` when the tenant’s Connect account is live (test keys → Stripe `account_invalid`).
+
 ```bash
 NODE_ENV=production DATABASE_URI=... PAYLOAD_SECRET=... \
   pnpm exec tsx scripts/import-discount-codes-from-json.ts \
     --json /tmp/gift-vouchers-import.json \
     --tenant-slug YOUR_TENANT_SLUG \
+    --stripe-secret-key sk_live_... \
     --allow-production
 ```
+
+Or via env: `STRIPE_SECRET_KEY=sk_live_...` (same effect; CLI flag wins if both are set).
 
 ## After import
 

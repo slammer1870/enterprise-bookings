@@ -14,7 +14,11 @@
  *   pnpm exec tsx scripts/import-discount-codes-from-json.ts \
  *     --json /path/to/gift-vouchers-import.json \
  *     --tenant-slug my-tenant \
+ *     --stripe-secret-key sk_live_... \
  *     --allow-production
+ *
+ * Stripe key: set STRIPE_SECRET_KEY in the env, or pass --stripe-secret-key (CLI wins).
+ * Use a live key when the tenant Connect account is live.
  *
  * JSON shape:
  * {
@@ -56,6 +60,7 @@ type Args = {
   jsonPath: string
   tenantId?: string
   tenantSlug?: string
+  stripeSecretKey?: string
   dryRun: boolean
   allowProduction: boolean
 }
@@ -79,9 +84,17 @@ function parseArgs(argv: string[]): Args {
     jsonPath,
     tenantId: readArg(argv, '--tenant-id'),
     tenantSlug: readArg(argv, '--tenant-slug'),
+    stripeSecretKey: readArg(argv, '--stripe-secret-key'),
     dryRun: argv.includes('--dry-run'),
     allowProduction: argv.includes('--allow-production'),
   }
+}
+
+/** Apply CLI Stripe key before any Stripe client is constructed. */
+function applyStripeSecretKey(stripeSecretKey?: string): void {
+  const key = stripeSecretKey?.trim()
+  if (!key) return
+  process.env.STRIPE_SECRET_KEY = key
 }
 
 function blockInProductionUnlessAllowed(allowProduction: boolean): void {
@@ -214,6 +227,7 @@ function buildNotes(row: GiftVoucherImportRow): string | undefined {
 async function main() {
   const args = parseArgs(process.argv.slice(2))
   blockInProductionUnlessAllowed(args.allowProduction)
+  applyStripeSecretKey(args.stripeSecretKey)
 
   if (!process.env.DATABASE_URI?.trim()) {
     console.error('❌ DATABASE_URI is required')
@@ -223,6 +237,17 @@ async function main() {
     console.error('❌ PAYLOAD_SECRET is required')
     process.exit(1)
   }
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    console.error('❌ STRIPE_SECRET_KEY is required (env or --stripe-secret-key)')
+    process.exit(1)
+  }
+
+  const stripeMode = process.env.STRIPE_SECRET_KEY.startsWith('sk_live')
+    ? 'live'
+    : process.env.STRIPE_SECRET_KEY.startsWith('sk_test')
+      ? 'test'
+      : 'unknown'
+  console.log(`Stripe key mode: ${stripeMode}${args.stripeSecretKey ? ' (from --stripe-secret-key)' : ''}`)
 
   let importFile: GiftVoucherImportFile
   try {

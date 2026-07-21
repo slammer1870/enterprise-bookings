@@ -16,34 +16,14 @@ export const ClHeroScheduleSanctuary: Block = {
     plural: 'Hero & Schedule (Multi Location)',
   },
   fields: [
-    bookingThemeField,
     {
-      name: 'location',
-      type: 'relationship',
-      relationTo: 'locations' as CollectionSlug,
-      hasMany: true,
+      name: 'displayHeading',
+      type: 'text',
+      label: 'Display heading',
       required: false,
       admin: {
         description:
-          'Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker. Order controls picker sequence and which branch is selected by default.',
-      },
-      filterOptions: ({ data }) => {
-        const raw = data?.tenant
-        const tid =
-          raw == null
-            ? null
-            : typeof raw === 'object' && raw !== null && 'id' in raw
-              ? (raw as { id: number }).id
-              : typeof raw === 'number'
-                ? raw
-                : typeof raw === 'string' && /^\d+$/.test(raw)
-                  ? parseInt(raw, 10)
-                  : null
-        if (tid == null) return false
-        return {
-          tenant: { equals: tid },
-          active: { equals: true },
-        }
+          'Optional brand heading shown with the logo on the hero (same place or just below). Does not replace the Schedule panel title.',
       },
     },
     {
@@ -65,5 +45,39 @@ export const ClHeroScheduleSanctuary: Block = {
         label: 'Call to Action Buttons',
       },
     }),
+    {
+      name: 'location',
+      type: 'relationship',
+      relationTo: 'locations' as CollectionSlug,
+      hasMany: true,
+      required: false,
+      admin: {
+        description:
+          'Multi-location only: leave empty to show all branches with a picker; one branch locks the schedule; two or more restrict the picker. Order controls picker sequence and which branch is selected by default. Hidden when this tenant has only one active location.',
+        components: {
+          Field:
+            '@/components/admin/MultiLocationOnlyRelationshipField#MultiLocationOnlyRelationshipField',
+        },
+      },
+      filterOptions: ({ data }) => {
+        const raw = data?.tenant
+        const tid =
+          raw == null
+            ? null
+            : typeof raw === 'object' && raw !== null && 'id' in raw
+              ? (raw as { id: number }).id
+              : typeof raw === 'number'
+                ? raw
+                : typeof raw === 'string' && /^\d+$/.test(raw)
+                  ? parseInt(raw, 10)
+                  : null
+        if (tid == null) return false
+        return {
+          tenant: { equals: tid },
+          active: { equals: true },
+        }
+      },
+    },
+    bookingThemeField,
   ],
 }

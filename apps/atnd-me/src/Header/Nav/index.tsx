@@ -125,6 +125,7 @@ export const HeaderNav: React.FC<{
   const { theme: siteTheme } = useTheme()
   const navItems = data?.navItems || []
   const hasNavLinks = navItems.length > 0
+  const showSignIn = data?.showSignIn !== false
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = React.useState(false)
   const [mobileMounted, setMobileMounted] = React.useState(false)
@@ -223,6 +224,7 @@ export const HeaderNav: React.FC<{
   }, [mobileOpen, closeMobileMenu])
 
   if (!hasNavLinks) {
+    if (!showSignIn) return null
     return (
       <nav className="flex items-center">
         <HeaderAuthMenu />
@@ -271,7 +273,7 @@ export const HeaderNav: React.FC<{
             )
           })}
         </div>
-        <HeaderAuthMenu />
+        {showSignIn ? <HeaderAuthMenu /> : null}
       </div>
 
       <button
@@ -368,9 +370,11 @@ export const HeaderNav: React.FC<{
                     })}
                   </div>
 
-                  <div className="mt-8 pt-6 border-t border-border">
-                    <HeaderAuthMenu mode="inline" />
-                  </div>
+                  {showSignIn ? (
+                    <div className="mt-8 pt-6 border-t border-border">
+                      <HeaderAuthMenu mode="inline" />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>,

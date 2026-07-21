@@ -146,6 +146,11 @@ import * as migration_20260711_000007_post_booking_email_delivery_config_id from
 import * as migration_20260714_113446 from './20260714_113446';
 import * as migration_20260718_000001_discount_codes_remainder_lineage from './20260718_000001_discount_codes_remainder_lineage';
 import * as migration_20260718_000002_discount_codes_times_redeemed from './20260718_000002_discount_codes_times_redeemed';
+import * as migration_20260721_000001_marketing_hero_show_username_claim from './20260721_000001_marketing_hero_show_username_claim';
+import * as migration_20260721_000002_hero_sched_display_heading from './20260721_000002_hero_sched_display_heading';
+import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
+import * as migration_20260721_000004_users_onboarding_password_set from './20260721_000004_users_onboarding_password_set';
+import * as migration_20260721_000005_navbar_show_sign_in from './20260721_000005_navbar_show_sign_in';
 
 export const migrations = [
   {
@@ -887,5 +892,30 @@ export const migrations = [
     up: migration_20260718_000002_discount_codes_times_redeemed.up,
     down: migration_20260718_000002_discount_codes_times_redeemed.down,
     name: '20260718_000002_discount_codes_times_redeemed',
+  },
+  {
+    up: migration_20260721_000001_marketing_hero_show_username_claim.up,
+    down: migration_20260721_000001_marketing_hero_show_username_claim.down,
+    name: '20260721_000001_marketing_hero_show_username_claim',
+  },
+  {
+    up: migration_20260721_000002_hero_sched_display_heading.up,
+    down: migration_20260721_000002_hero_sched_display_heading.down,
+    name: '20260721_000002_hero_sched_display_heading',
+  },
+  {
+    up: migration_20260721_000003_tenants_onboarding_site_viewed.up,
+    down: migration_20260721_000003_tenants_onboarding_site_viewed.down,
+    name: '20260721_000003_tenants_onboarding_site_viewed',
+  },
+  {
+    up: migration_20260721_000004_users_onboarding_password_set.up,
+    down: migration_20260721_000004_users_onboarding_password_set.down,
+    name: '20260721_000004_users_onboarding_password_set',
+  },
+  {
+    up: migration_20260721_000005_navbar_show_sign_in.up,
+    down: migration_20260721_000005_navbar_show_sign_in.down,
+    name: '20260721_000005_navbar_show_sign_in',
   },
 ];

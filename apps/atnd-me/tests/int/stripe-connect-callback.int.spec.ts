@@ -292,4 +292,55 @@ describe('Stripe Connect callback route (step 2.4)', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'rejects when the Stripe account is already connected to another tenant',
+    async () => {
+      const returnTo = 'http://tenant-dup.localhost:3000/admin'
+      const sharedAccountId = `acct_shared_${runId}`
+      await payload.update({
+        collection: 'tenants',
+        id: testTenantId,
+        data: {
+          stripeConnectAccountId: sharedAccountId,
+          stripeConnectOnboardingStatus: 'active',
+        },
+        overrideAccess: true,
+      })
+
+      vi.mocked(callbackExchange.exchangeCodeForStripeConnectAccount).mockResolvedValue({
+        stripe_user_id: sharedAccountId,
+        stripe_account_id: sharedAccountId,
+      })
+      vi.mocked(getPlatformStripe).mockReturnValue({
+        accounts: {
+          retrieve: vi.fn(),
+        },
+      } as never)
+
+      const validState = buildConnectState(failTenantId, adminUser.id as number, undefined, returnTo)
+      const res = await GET(
+        request({
+          code: 'auth_code_dup',
+          state: validState,
+        }),
+      )
+
+      expect(res.status).toBe(302)
+      const location = res.headers.get('location') ?? ''
+      expect(location).toContain('stripe_connect=error')
+      const message = new URL(location).searchParams.get('message') ?? ''
+      expect(message).toMatch(/already connected to another workspace/i)
+      expect(getPlatformStripe().accounts.retrieve).not.toHaveBeenCalled()
+
+      const updated = await payload.findByID({
+        collection: 'tenants',
+        id: failTenantId,
+        overrideAccess: true,
+      })
+      expect(updated.stripeConnectAccountId == null || updated.stripeConnectAccountId === '').toBe(true)
+      expect(String(updated.stripeConnectLastError)).toMatch(/already connected/i)
+    },
+    TEST_TIMEOUT,
+  )
 })
