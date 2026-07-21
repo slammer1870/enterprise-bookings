@@ -92,6 +92,16 @@ export const Navbar: CollectionConfig = {
             defaultValue: '/',
         },
         {
+            name: 'showSignIn',
+            type: 'checkbox',
+            label: 'Show Sign In',
+            defaultValue: true,
+            admin: {
+                description: 'Show the Sign in button / account menu in the header',
+                position: 'sidebar',
+            },
+        },
+        {
             name: 'navItems',
             type: 'array',
             label: 'Navigation Items',

@@ -307,6 +307,20 @@ export const Tenants: CollectionConfig = {
       access: { read: ({ req }) => canReadStripeFields(req.user), update: adminOnlyUpdate },
     },
     {
+      name: 'onboardingSiteViewedAt',
+      type: 'date',
+      required: false,
+      admin: {
+        description: 'When the tenant admin first opened their public site from the onboarding checklist.',
+        position: 'sidebar',
+        readOnly: true,
+      },
+      access: {
+        read: ({ req }) => Boolean(req?.user && checkRole(['super-admin', 'admin'], req.user as SharedUser)),
+        update: adminOnlyUpdate,
+      },
+    },
+    {
       name: 'checkoutLegalDocuments',
       type: 'array',
       label: 'Checkout legal documents',

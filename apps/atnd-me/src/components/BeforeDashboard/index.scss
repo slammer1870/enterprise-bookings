@@ -18,6 +18,36 @@
     }
   }
 
+  &__onboarding {
+    margin-bottom: base(1);
+  }
+
+  &__onboarding-intro {
+    margin: 0 0 base(0.5);
+  }
+
+  &__onboarding-list {
+    list-style: decimal;
+    padding-left: base(1.25);
+
+    & li {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: base(0.5);
+      margin-bottom: base(0.35);
+    }
+  }
+
+  &__task-label--done {
+    text-decoration: line-through;
+    opacity: 0.75;
+  }
+
+  &__task-cta {
+    font-weight: 600;
+  }
+
   & a:hover {
     opacity: 0.85;
   }

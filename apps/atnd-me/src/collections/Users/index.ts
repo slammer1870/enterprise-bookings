@@ -531,6 +531,21 @@ export const Users: CollectionConfig = {
       },
     },
     {
+      name: 'onboardingPasswordSetAt',
+      type: 'date',
+      required: false,
+      admin: {
+        description:
+          'When the user set a password from the onboarding checklist (claim flow creates a random password).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+      access: {
+        read: ({ req: { user } }) => Boolean(user && (isAdmin(user) || isTenantAdmin(user))),
+        update: ({ req: { user } }) => Boolean(user && isAdmin(user)),
+      },
+    },
+    {
       name: 'locations',
       type: 'relationship',
       relationTo: 'locations',

@@ -99,6 +99,8 @@ export async function resolveLinkToUrl(payload: Pick<Payload, 'findByID' | 'find
 export type NavbarData = {
   logo?: { url?: string; alt?: string } | number | null
   logoLink: string
+  /** Defaults to true when unset on existing docs. */
+  showSignIn?: boolean
   navItems: Array<{
     link?: { type?: string; url?: string; label?: string; reference?: unknown }
     renderAsButton?: boolean
@@ -133,7 +135,12 @@ export type FooterData = {
 
 const DEFAULT_NAVBAR: NavbarData = {
   logoLink: '/',
+  showSignIn: true,
   navItems: [],
+}
+
+function resolveShowSignIn(value: unknown): boolean {
+  return value !== false
 }
 
 const DEFAULT_FOOTER: FooterData = {
@@ -191,6 +198,7 @@ export async function getNavbarForRequest(
     return {
       logo: logoWithAlt,
       logoLink: (rootDoc as { logoLink?: string }).logoLink ?? '/',
+      showSignIn: resolveShowSignIn((rootDoc as { showSignIn?: boolean | null }).showSignIn),
       navItems: (rootDoc as { navItems?: NavbarData['navItems'] }).navItems ?? [],
       styling: (rootDoc as { styling?: NavbarData['styling'] }).styling,
     }
@@ -227,6 +235,7 @@ export async function getNavbarForRequest(
     return {
       logo: logoWithAlt,
       logoLink: '/',
+      showSignIn: true,
       navItems: [],
       styling: undefined,
     }
@@ -240,6 +249,7 @@ export async function getNavbarForRequest(
   return {
     logo: logoWithAlt,
     logoLink: (doc as { logoLink?: string }).logoLink ?? '/',
+    showSignIn: resolveShowSignIn((doc as { showSignIn?: boolean | null }).showSignIn),
     navItems: (doc as { navItems?: NavbarData['navItems'] }).navItems ?? [],
     styling: (doc as { styling?: NavbarData['styling'] }).styling,
   }

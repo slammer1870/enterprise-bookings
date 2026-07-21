@@ -56,6 +56,7 @@ function getHref(link: LinkItem['link']): string {
 }
 
 export type ClHeroScheduleSanctuaryBlockProps = {
+  displayHeading?: string | null
   backgroundImage?: MediaLike
   logo?: MediaLike
   links?: LinkItem[] | null
@@ -64,6 +65,7 @@ export type ClHeroScheduleSanctuaryBlockProps = {
 }
 
 export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlockProps> = ({
+  displayHeading,
   backgroundImage,
   logo,
   links,
@@ -71,6 +73,10 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
 }) => {
   const bgUrl = resolveMediaUrl(backgroundImage)
   const logoUrl = resolveMediaUrl(logo)
+  const heading =
+    typeof displayHeading === 'string' && displayHeading.trim()
+      ? displayHeading.trim()
+      : 'Schedule'
 
   return (
     <section id="schedule" className="relative w-full">
@@ -171,7 +177,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           <div className="flex flex-col justify-start bg-card md:bg-transparent pb-10 pt-8 md:pt-28 md:pl-12 lg:pl-0 md:flex-1 md:min-w-0 lg:flex-[1]">
             <div className="w-full min-w-0 text-card-foreground">
               <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-card-foreground">
-                Schedule
+                {heading}
               </h2>
               {schedulePanel}
             </div>

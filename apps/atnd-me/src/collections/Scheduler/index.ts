@@ -131,7 +131,7 @@ const days: Field = {
                     type: 'relationship',
                     relationTo: 'event-types',
                     admin: {
-                        description: 'Overrides the default class option',
+                        description: 'Overrides the default event type',
                     },
                 },
                 {
@@ -481,12 +481,12 @@ export const Scheduler: CollectionConfig = {
         },
         {
             name: 'defaultEventType',
-            label: 'Default Class Option',
+            label: 'Default Event Type',
             type: 'relationship',
             relationTo: 'event-types',
             required: true,
             admin: {
-                description: 'Default class type to use when creating timeslots (can be overridden per slot)',
+                description: 'Default event type to use when creating timeslots (can be overridden per slot)',
             },
         },
         {

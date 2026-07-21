@@ -27,22 +27,58 @@ export async function AnalyticsDashboard(props: AdminViewServerProps) {
   let selectedBranchId: number | null = null
   const cookieStore = await cookies()
   const payloadTenant = cookieStore.get('payload-tenant')?.value
-  if (payloadTenant && /^\d+$/.test(payloadTenant)) {
-    const tid = parseInt(payloadTenant, 10)
-    selectedTenantId = tid
-    const payload = initPageResult?.req?.payload
-    if (payload) {
+  const payload = initPageResult?.req?.payload
+  const headers = initPageResult?.req?.headers
+
+  const cookieTenantId =
+    payloadTenant && /^\d+$/.test(payloadTenant) ? parseInt(payloadTenant, 10) : null
+
+  // When admin is on `{slug}.host`, trust the host over a stale payload-tenant cookie.
+  // (Cookie is often wrong after claim magic-link login onto a new subdomain.)
+  let hostTenantId: number | null = null
+  let hostTenantName: string | null = null
+  if (payload && headers) {
+    const { getTenantSlugFromHost } = await import('@/utilities/tenantRequest')
+    const hostSlug = getTenantSlugFromHost(headers as Headers)
+    if (hostSlug) {
       try {
-        const tenant = await payload.findByID({
+        const bySlug = await payload.find({
           collection: 'tenants',
-          id: tid,
+          where: { slug: { equals: hostSlug } },
+          limit: 1,
           depth: 0,
           overrideAccess: true,
+          select: { id: true, name: true } as any,
         })
-        selectedTenantName = (tenant as { name?: string })?.name ?? null
+        const hostTenant = bySlug.docs[0] as { id?: number; name?: string } | undefined
+        if (typeof hostTenant?.id === 'number') {
+          hostTenantId = hostTenant.id
+          hostTenantName = hostTenant.name ?? null
+        }
       } catch {
-        // use id only
+        // ignore
       }
+    }
+  }
+
+  if (hostTenantId != null) {
+    selectedTenantId = hostTenantId
+    selectedTenantName = hostTenantName
+  } else if (cookieTenantId != null) {
+    selectedTenantId = cookieTenantId
+  }
+
+  if (selectedTenantId != null && selectedTenantName == null && payload) {
+    try {
+      const tenant = await payload.findByID({
+        collection: 'tenants',
+        id: selectedTenantId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      selectedTenantName = (tenant as { name?: string })?.name ?? null
+    } catch {
+      // use id only
     }
   }
 

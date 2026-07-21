@@ -99,12 +99,12 @@ function createSchedulerDaysField(slugs: BookingCollectionSlugs): Field {
           },
           {
             name: "eventType",
-            label: "Class Option",
+            label: "Event Type",
             type: "relationship",
             relationTo: eventTypesSlug,
             hasMany: false,
             admin: {
-              description: "Overrides the default class option",
+              description: "Overrides the default event type",
             },
           },
           {
@@ -238,13 +238,13 @@ export function createSchedulerGlobal(
       },
       {
         name: "defaultEventType",
-        label: "Default Class Option",
+        label: "Default Event Type",
         type: "relationship",
         relationTo: eventTypesSlug,
         required: true,
         admin: {
           description:
-            "Default class type to use when creating timeslots (can be overridden per slot)",
+            "Default event type to use when creating timeslots (can be overridden per slot)",
         },
       },
       {

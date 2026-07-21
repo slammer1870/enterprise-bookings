@@ -38,11 +38,26 @@ export const MarketingHero: Block = {
       }),
       label: 'Subheadline',
     },
+    {
+      name: 'showUsernameClaim',
+      type: 'checkbox',
+      defaultValue: false,
+      label: 'Show username claim form',
+      admin: {
+        description:
+          'When enabled, shows a “[username].atnd.me” claim input and modal instead of (or in addition to) CTA link buttons. Use on the platform marketing homepage.',
+      },
+    },
     linkGroup({
       appearances: ['default', 'outline'],
       overrides: {
         maxRows: 2,
         label: 'Call to Action Buttons',
+        admin: {
+          initCollapsed: true,
+          condition: (_: unknown, siblingData: { showUsernameClaim?: boolean }) =>
+            !siblingData?.showUsernameClaim,
+        },
       },
     }),
     {
