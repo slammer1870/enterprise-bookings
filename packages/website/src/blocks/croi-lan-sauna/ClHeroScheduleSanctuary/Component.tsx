@@ -76,10 +76,19 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
   const brandHeading =
     typeof displayHeading === 'string' && displayHeading.trim() ? displayHeading.trim() : null
 
-  const brandMark = (opts: { logoClassName: string; headingClassName: string }) => {
+  const brandMark = (opts: {
+    logoClassName: string
+    headingClassName: string
+    wrapClassName?: string
+  }) => {
     if (!logoUrl && !brandHeading) return null
     return (
-      <div className="flex flex-col items-center justify-center gap-4 text-center">
+      <div
+        className={
+          opts.wrapClassName ??
+          'flex flex-col items-center justify-center gap-4 text-center'
+        }
+      >
         {logoUrl ? (
           <Image
             src={logoUrl}
@@ -101,7 +110,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
         className="pointer-events-none absolute inset-0 z-0 flex flex-col md:flex-row"
         aria-hidden
       >
-        <div className="relative h-[67vh] w-full shrink-0 overflow-hidden md:h-full md:w-1/2 lg:w-7/12">
+        <div className="relative max-h-[67vh] w-full shrink-0 overflow-hidden md:h-full md:w-1/2 lg:w-7/12">
           {bgUrl ? (
             <>
               <Image
@@ -129,7 +138,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           {brandMark({
             logoClassName: 'h-80 w-80 object-contain drop-shadow-xl lg:h-96 lg:w-96',
             headingClassName:
-              'max-w-md text-3xl font-semibold tracking-tight text-stone-900 lg:text-4xl',
+              'max-w-md text-4xl font-semibold tracking-tight text-stone-900 lg:text-5xl',
           })}
         </div>
       )}
@@ -140,13 +149,16 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
         <div className="container mx-auto flex min-h-screen flex-col md:flex-row">
           {/* Image panel: spacer on md+ (logo is absolutely positioned above); on mobile
               the logo sits in the flex flow with flex-1 and buttons pinned to bottom. */}
-          <div className="flex h-[67vh] flex-col items-center pt-12 pb-8 md:h-auto md:flex-1 lg:flex-[2]">
+          <div className="flex max-h-[67vh] flex-col items-center px-4 pt-24 pb-8 sm:px-6 md:h-auto md:flex-1 md:px-0 md:pt-0 lg:flex-[2]">
             {/* Logo + heading: mobile only — on md+ the absolute layer above handles this */}
-            <div className="flex w-full flex-1 items-center justify-center md:hidden">
+            <div className="flex w-full min-h-0 flex-1 items-center justify-center md:hidden">
               {brandMark({
-                logoClassName: 'h-60 w-60 object-contain drop-shadow-xl',
+                wrapClassName:
+                  'flex w-full max-w-md flex-col items-center justify-center gap-3 px-2 text-center',
+                logoClassName:
+                  'h-44 w-44 max-h-[36vh] object-contain drop-shadow-xl sm:h-56 sm:w-56',
                 headingClassName:
-                  'max-w-sm text-2xl font-semibold tracking-tight text-stone-900',
+                  'mt-1 w-full max-w-[18rem] px-3 py-2 text-3xl font-semibold leading-snug tracking-tight text-balance text-stone-900 sm:max-w-sm sm:text-4xl',
               })}
             </div>
             {/* Buttons: mobile only — hidden on md+ where the schedule panel is visible */}
