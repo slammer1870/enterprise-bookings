@@ -183,7 +183,7 @@ export function UsernameClaimForm({
           className="shrink-0"
           data-testid="claim-username-open"
         >
-          Claim your Workspace
+          Claim your workspace
         </Button>
       </div>
 
@@ -260,7 +260,7 @@ export function UsernameClaimForm({
               </p>
             ) : null}
 
-            <DialogFooter>
+            <DialogFooter className="gap-2">
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>
