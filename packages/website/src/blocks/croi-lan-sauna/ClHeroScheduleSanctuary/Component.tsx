@@ -129,7 +129,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           {brandMark({
             logoClassName: 'h-80 w-80 object-contain drop-shadow-xl lg:h-96 lg:w-96',
             headingClassName:
-              'max-w-md text-3xl font-semibold tracking-tight text-white drop-shadow-md lg:text-4xl',
+              'max-w-md text-3xl font-semibold tracking-tight text-stone-900 lg:text-4xl',
           })}
         </div>
       )}
@@ -146,7 +146,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
               {brandMark({
                 logoClassName: 'h-60 w-60 object-contain drop-shadow-xl',
                 headingClassName:
-                  'max-w-sm text-2xl font-semibold tracking-tight text-white drop-shadow-md',
+                  'max-w-sm text-2xl font-semibold tracking-tight text-stone-900',
               })}
             </div>
             {/* Buttons: mobile only — hidden on md+ where the schedule panel is visible */}
