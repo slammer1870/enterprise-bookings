@@ -1,6 +1,8 @@
 import sharp from 'sharp'
 import type { Payload, PayloadRequest } from 'payload'
 
+import { monogramGlyphsToSvgPaths } from './monogramGlyphs'
+
 /** Deterministic, non-generic palettes for default monogram logos. */
 const PALETTES = [
   { bg: '#1a3a2f', fg: '#e8f0eb' }, // forest
@@ -47,6 +49,8 @@ function pickPalette(seed: string) {
 
 /**
  * Build a square PNG monogram (first letter / initials of the company name).
+ * Letters are drawn as SVG shapes (not `<text>`) so sharp/librsvg does not depend
+ * on system fonts — Docker/preview images often lack Georgia and drop the glyph.
  */
 export async function renderMonogramLogoPng(
   companyName: string,
@@ -54,22 +58,13 @@ export async function renderMonogramLogoPng(
 ): Promise<{ buffer: Buffer; monogram: string; alt: string }> {
   const monogram = monogramFromCompanyName(companyName)
   const { bg, fg } = pickPalette(companyName.trim().toLowerCase() || monogram)
-  const fontSize = monogram.length > 1 ? Math.round(size * 0.42) : Math.round(size * 0.52)
+  const letterShapes = monogramGlyphsToSvgPaths(monogram, size, fg)
+  const radius = Math.round(size * 0.18)
 
   const svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <rect width="${size}" height="${size}" rx="${Math.round(size * 0.18)}" fill="${bg}"/>
-  <text
-    x="50%"
-    y="50%"
-    dy="0.08em"
-    text-anchor="middle"
-    dominant-baseline="middle"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-size="${fontSize}"
-    font-weight="600"
-    fill="${fg}"
-  >${escapeXml(monogram)}</text>
+  <rect width="${size}" height="${size}" rx="${radius}" fill="${bg}"/>
+  ${letterShapes}
 </svg>`
 
   const buffer = await sharp(Buffer.from(svg)).png().toBuffer()
@@ -78,15 +73,6 @@ export async function renderMonogramLogoPng(
     monogram,
     alt: `${companyName.trim() || monogram} logo`,
   }
-}
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
 }
 
 /**
