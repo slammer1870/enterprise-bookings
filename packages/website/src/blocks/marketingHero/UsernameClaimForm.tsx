@@ -183,7 +183,7 @@ export function UsernameClaimForm({
           className="shrink-0"
           data-testid="claim-username-open"
         >
-          Claim your username
+          Claim your Workspace
         </Button>
       </div>
 
