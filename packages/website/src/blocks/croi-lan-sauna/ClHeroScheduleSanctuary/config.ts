@@ -23,7 +23,7 @@ export const ClHeroScheduleSanctuary: Block = {
       required: false,
       admin: {
         description:
-          'Optional heading above the schedule panel. Defaults to “Schedule” when empty.',
+          'Optional brand heading shown with the logo on the hero (same place or just below). Does not replace the Schedule panel title.',
       },
     },
     {

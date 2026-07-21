@@ -14,8 +14,11 @@ import {
   DialogTitle,
 } from '@repo/ui/components/ui/dialog'
 import { cn } from '@repo/ui/lib/utils'
-
-const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/
+import {
+  normalizeAndValidateTenantSlugFormat,
+  sanitizeTenantSlugInput,
+  TENANT_SLUG_MAX_LENGTH,
+} from '@repo/shared-utils'
 
 function getPlatformHostname(): string {
   const url = process.env.NEXT_PUBLIC_SERVER_URL
@@ -27,10 +30,6 @@ function getPlatformHostname(): string {
     }
   }
   return 'atnd.me'
-}
-
-function normalizeSlug(raw: string): string {
-  return raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, '')
 }
 
 type UsernameClaimFormProps = {
@@ -58,17 +57,21 @@ export function UsernameClaimForm({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const slug = normalizeSlug(slugInput)
+  const slugValidation = useMemo(
+    () => (slugInput ? normalizeAndValidateTenantSlugFormat(slugInput) : null),
+    [slugInput],
+  )
+  const slug = slugValidation?.ok ? slugValidation.slug : ''
 
   useEffect(() => {
-    if (!slug || slug.length < 2 || !SLUG_RE.test(slug)) {
+    if (!slugValidation?.ok) {
       setAvailability('idle')
       return
     }
 
     const handle = window.setTimeout(() => {
       setAvailability('checking')
-      fetch(`/api/onboarding/slug-available?slug=${encodeURIComponent(slug)}`)
+      fetch(`/api/onboarding/slug-available?slug=${encodeURIComponent(slugValidation.slug)}`)
         .then((res) => res.json())
         .then((data: { available?: boolean }) => {
           setAvailability(data.available ? 'available' : 'taken')
@@ -77,16 +80,16 @@ export function UsernameClaimForm({
     }, 350)
 
     return () => window.clearTimeout(handle)
-  }, [slug])
+  }, [slugValidation])
 
   const openClaimModal = useCallback(() => {
     setSlugError(null)
-    if (!slug || slug.length < 2) {
+    if (!slugInput) {
       setSlugError('Enter a username (at least 2 characters)')
       return
     }
-    if (!SLUG_RE.test(slug)) {
-      setSlugError('Use lowercase letters, numbers, and hyphens only')
+    if (!slugValidation?.ok) {
+      setSlugError(slugValidation?.error ?? 'Invalid username')
       return
     }
     if (availability === 'taken') {
@@ -95,7 +98,7 @@ export function UsernameClaimForm({
     }
     setSubmitError(null)
     setModalOpen(true)
-  }, [slug, availability])
+  }, [slugInput, slugValidation, availability])
 
   const onSubmitClaim = useCallback(
     async (e: React.FormEvent) => {
@@ -147,7 +150,10 @@ export function UsernameClaimForm({
         <div className="flex min-w-0 flex-1 items-center rounded-md border border-input bg-background shadow-sm focus-within:ring-2 focus-within:ring-ring">
           <Input
             value={slugInput}
-            onChange={(e) => setSlugInput(e.target.value)}
+            onChange={(e) => {
+              setSlugError(null)
+              setSlugInput(sanitizeTenantSlugInput(e.target.value).slice(0, TENANT_SLUG_MAX_LENGTH))
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
@@ -160,6 +166,11 @@ export function UsernameClaimForm({
             className="border-0 shadow-none focus-visible:ring-0"
             autoComplete="off"
             spellCheck={false}
+            inputMode="text"
+            autoCapitalize="off"
+            autoCorrect="off"
+            pattern="[a-z0-9]([a-z0-9-]{0,46}[a-z0-9])?"
+            maxLength={TENANT_SLUG_MAX_LENGTH}
           />
           <span className="shrink-0 pr-3 text-sm text-muted-foreground whitespace-nowrap">
             .{hostname}
@@ -179,6 +190,10 @@ export function UsernameClaimForm({
       {slugError ? (
         <p className="text-sm text-destructive" data-testid="claim-username-error">
           {slugError}
+        </p>
+      ) : slugInput && slugValidation && !slugValidation.ok ? (
+        <p className="text-sm text-destructive" data-testid="claim-username-error">
+          {slugValidation.error}
         </p>
       ) : availability === 'taken' && slug ? (
         <p className="text-sm text-destructive" data-testid="claim-username-taken">

@@ -126,6 +126,8 @@ export async function ensureDefaultTenantLogo(opts: {
     data: {
       alt,
       tenant: tenantId,
+      // Public site / Next image optimizer fetch `/api/media/file/...` without tenant cookies.
+      isPublic: true,
     },
     file: {
       name: filename,
@@ -140,6 +142,19 @@ export async function ensureDefaultTenantLogo(opts: {
 
   const mediaId = Number(media.id)
   if (!Number.isFinite(mediaId)) return null
+
+  // Field-level access blocks client writes to `isPublic`; force it after create as well
+  // in case create stripped the value despite overrideAccess.
+  if ((media as { isPublic?: boolean | null }).isPublic !== true) {
+    await payload.update({
+      collection: 'media',
+      id: mediaId,
+      data: { isPublic: true },
+      overrideAccess: true,
+      req,
+      context: { tenant: tenantId, syncPublicMedia: true },
+    })
+  }
 
   await payload.update({
     collection: 'tenants',

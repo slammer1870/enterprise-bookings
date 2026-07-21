@@ -118,6 +118,10 @@ describe('Self-serve tenant claim', () => {
           : null
       if (logoDoc && 'filename' in logoDoc) {
         expect(String(logoDoc.filename || '')).toMatch(/-logo\.png$/i)
+        expect(
+          (logoDoc as { isPublic?: boolean | null }).isPublic,
+          'monogram logo must be public for unauthenticated media reads',
+        ).toBe(true)
       }
 
       expect(magicLinkCalls).toHaveLength(1)

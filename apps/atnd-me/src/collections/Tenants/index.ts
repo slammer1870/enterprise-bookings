@@ -3,7 +3,7 @@ import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
-import { isValidTimeZone } from '@repo/shared-utils'
+import { isValidTimeZone, normalizeAndValidateTenantSlugFormat } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
 import {
   isCustomDomainDnsValidationEnabled,
@@ -139,6 +139,14 @@ export const Tenants: CollectionConfig = {
       index: true,
       access: {
         update: adminOnlyUpdate, // Only admin can change slug; tenant-admins cannot
+      },
+      admin: {
+        description:
+          'Subdomain for this tenant (e.g. studio → studio.atnd.me). Lowercase letters, numbers, and hyphens only.',
+      },
+      validate: (value: unknown) => {
+        const result = normalizeAndValidateTenantSlugFormat(value)
+        return result.ok || result.error
       },
     },
     {
@@ -467,9 +475,15 @@ export const Tenants: CollectionConfig = {
       async ({ data, operation, req, originalDoc }) => {
         if (!data) return data
 
+        // Only touch domain when it was included in this write. Partial updates
+        // (e.g. Stripe Connect callback) must not clear an existing custom domain.
+        if (!Object.prototype.hasOwnProperty.call(data, 'domain')) {
+          return data
+        }
+
         // Normalize "removed custom domain" to `null` so Payload actually persists
         // the cleared value. (Using `undefined` typically means "don't update this field".)
-        if (data?.domain == null) {
+        if (data.domain == null || data.domain === '') {
           data.domain = null
           return data
         }

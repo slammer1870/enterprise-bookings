@@ -265,6 +265,9 @@ export interface Timeslot {
 export interface Tenant {
   id: number;
   name: string;
+  /**
+   * Subdomain for this tenant (e.g. studio → studio.atnd.me). Lowercase letters, numbers, and hyphens only.
+   */
   slug: string;
   /**
    * IANA timezone for this tenant, for example Europe/Dublin or America/New_York. If empty, the app default timezone is used.

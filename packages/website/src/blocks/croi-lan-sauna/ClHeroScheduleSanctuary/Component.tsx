@@ -73,10 +73,26 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
 }) => {
   const bgUrl = resolveMediaUrl(backgroundImage)
   const logoUrl = resolveMediaUrl(logo)
-  const heading =
-    typeof displayHeading === 'string' && displayHeading.trim()
-      ? displayHeading.trim()
-      : 'Schedule'
+  const brandHeading =
+    typeof displayHeading === 'string' && displayHeading.trim() ? displayHeading.trim() : null
+
+  const brandMark = (opts: { logoClassName: string; headingClassName: string }) => {
+    if (!logoUrl && !brandHeading) return null
+    return (
+      <div className="flex flex-col items-center justify-center gap-4 text-center">
+        {logoUrl ? (
+          <Image
+            src={logoUrl}
+            alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
+            width={320}
+            height={320}
+            className={opts.logoClassName}
+          />
+        ) : null}
+        {brandHeading ? <p className={opts.headingClassName}>{brandHeading}</p> : null}
+      </div>
+    )
+  }
 
   return (
     <section id="schedule" className="relative w-full">
@@ -107,18 +123,14 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
         <div className="w-full flex-1 bg-card md:min-h-full md:w-1/2 lg:w-1/3" />
       </div>
 
-      {/* Logo centred over the bg image area on md+ — absolutely positioned to match the
-          full-bleed image panel (md:w-1/2 lg:w-7/12) so it stays centred regardless of
-          the container width. Hidden on mobile where it sits inside the flex flow. */}
-      {logoUrl && (
+      {/* Logo + optional brand heading centred over the bg image area on md+ */}
+      {(logoUrl || brandHeading) && (
         <div className="pointer-events-none absolute top-0 left-0 z-20 hidden h-screen items-center justify-center md:flex md:w-1/2 lg:w-7/12">
-          <Image
-            src={logoUrl}
-            alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
-            width={320}
-            height={320}
-            className="h-80 w-80 object-contain drop-shadow-xl lg:h-96 lg:w-96"
-          />
+          {brandMark({
+            logoClassName: 'h-80 w-80 object-contain drop-shadow-xl lg:h-96 lg:w-96',
+            headingClassName:
+              'max-w-md text-3xl font-semibold tracking-tight text-white drop-shadow-md lg:text-4xl',
+          })}
         </div>
       )}
 
@@ -126,20 +138,16 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           aligns with the rightmost navbar item. The absolute bg layer stays full-bleed. */}
       <div className="relative z-10 min-h-screen">
         <div className="container mx-auto flex min-h-screen flex-col md:flex-row">
-          {/*  panel: spacer on md+ (logo is absolutely positioned above); on mobile
+          {/* Image panel: spacer on md+ (logo is absolutely positioned above); on mobile
               the logo sits in the flex flow with flex-1 and buttons pinned to bottom. */}
           <div className="flex h-[67vh] flex-col items-center pt-12 pb-8 md:h-auto md:flex-1 lg:flex-[2]">
-            {/* Logo: mobile only — on md+ the absolute layer above handles this */}
+            {/* Logo + heading: mobile only — on md+ the absolute layer above handles this */}
             <div className="flex w-full flex-1 items-center justify-center md:hidden">
-              {logoUrl && (
-                <Image
-                  src={logoUrl}
-                  alt={typeof logo === 'object' && logo && 'alt' in logo ? (logo.alt as string) || '' : ''}
-                  width={320}
-                  height={320}
-                  className="h-60 w-60 object-contain drop-shadow-xl"
-                />
-              )}
+              {brandMark({
+                logoClassName: 'h-60 w-60 object-contain drop-shadow-xl',
+                headingClassName:
+                  'max-w-sm text-2xl font-semibold tracking-tight text-white drop-shadow-md',
+              })}
             </div>
             {/* Buttons: mobile only — hidden on md+ where the schedule panel is visible */}
             {links && links.length > 0 && (
@@ -177,7 +185,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           <div className="flex flex-col justify-start bg-card md:bg-transparent pb-10 pt-8 md:pt-28 md:pl-12 lg:pl-0 md:flex-1 md:min-w-0 lg:flex-[1]">
             <div className="w-full min-w-0 text-card-foreground">
               <h2 className="mb-6 text-center text-2xl font-semibold normal-case tracking-normal text-card-foreground">
-                {heading}
+                Schedule
               </h2>
               {schedulePanel}
             </div>

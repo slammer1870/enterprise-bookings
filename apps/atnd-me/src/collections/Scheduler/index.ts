@@ -16,6 +16,7 @@ import {
     dedupeSchedulerTimeSlotIds,
     isCompleteSchedulerTimeSlot,
 } from './normalize-week-days'
+import { defaultSchedulerWeekDays, ensureSevenSchedulerWeekDays } from './default-week-days'
 
 function relationId(value: unknown): number | null {
     if (value == null || value === '') return null
@@ -58,7 +59,9 @@ const days: Field = {
     type: 'array',
     minRows: 7,
     maxRows: 7,
+    defaultValue: defaultSchedulerWeekDays,
     admin: {
+        description: 'Monday–Sunday template (7 days). Add time slots under each day.',
         components: {
             RowLabel: '@repo/bookings-plugin/src/components/scheduler/day-row-label#DayRowLabel',
         },
@@ -215,6 +218,15 @@ export const Scheduler: CollectionConfig = {
                                 (rawTenant as any).id
                                 : (rawTenant as string | number)
                     }
+                }
+
+                // New schedulers always get a Mon–Sun (7-day) week template.
+                if (operation === 'create' && data) {
+                    if (!data.week || typeof data.week !== 'object') {
+                        data.week = {}
+                    }
+                    const week = data.week as { days?: unknown }
+                    week.days = ensureSevenSchedulerWeekDays(week.days)
                 }
 
                 // Auto-set branch from the payload-location cookie on create.

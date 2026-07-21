@@ -64,13 +64,16 @@ export function createPayloadIntConfig(
         teardownTimeout: testOptions?.teardownTimeout ?? 60_000,
         setupFiles: mergedSetupFiles.length > 0 ? mergedSetupFiles : undefined,
         // …then pin pool settings so local + CI never hit minThreads > maxThreads.
+        // Keep singleFork: false even when maxWorkers is 1: many int suites call
+        // payload.db.destroy() in afterAll, which poisons a shared fork and hangs
+        // later beforeAll/getPayload until hookTimeout (seen as ~35–40m CI hangs).
         pool: 'forks',
         minWorkers: 1,
         maxWorkers: workers,
         fileParallelism: workers > 1,
         poolOptions: {
           forks: {
-            singleFork: workers === 1,
+            singleFork: false,
             isolate: true,
             minForks: 1,
             maxForks: workers,
