@@ -24,6 +24,7 @@ import {
   resolveTenantIdForDocumentWrite,
   type TenantDocumentWriteReq,
 } from '../../utilities/resolveTenantIdForDocumentWrite'
+import { syncPublicMediaFlags } from '@/utilities/syncPublicMedia'
 import { populateAuthors } from './hooks/populateAuthors'
 import { revalidateDelete, revalidatePost } from './hooks/revalidatePost'
 
@@ -344,9 +345,19 @@ export const Posts: CollectionConfig<'posts'> = {
         return data
       },
     ],
-    afterChange: [revalidatePost],
+    afterChange: [
+      revalidatePost,
+      async ({ req }) => {
+        await syncPublicMediaFlags(req)
+      },
+    ],
     afterRead: [populateAuthors],
-    afterDelete: [revalidateDelete],
+    afterDelete: [
+      revalidateDelete,
+      async ({ req }) => {
+        await syncPublicMediaFlags(req)
+      },
+    ],
   },
   versions: {
     drafts: {
