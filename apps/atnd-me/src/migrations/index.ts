@@ -151,6 +151,7 @@ import * as migration_20260721_000002_hero_sched_display_heading from './2026072
 import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
 import * as migration_20260721_000004_users_onboarding_password_set from './20260721_000004_users_onboarding_password_set';
 import * as migration_20260721_000005_navbar_show_sign_in from './20260721_000005_navbar_show_sign_in';
+import * as migration_20260724_drop_posts_version_tenant_slug_unique from './20260724_drop_posts_version_tenant_slug_unique';
 
 export const migrations = [
   {
@@ -917,5 +918,10 @@ export const migrations = [
     up: migration_20260721_000005_navbar_show_sign_in.up,
     down: migration_20260721_000005_navbar_show_sign_in.down,
     name: '20260721_000005_navbar_show_sign_in',
+  },
+  {
+    up: migration_20260724_drop_posts_version_tenant_slug_unique.up,
+    down: migration_20260724_drop_posts_version_tenant_slug_unique.down,
+    name: '20260724_drop_posts_version_tenant_slug_unique',
   },
 ];

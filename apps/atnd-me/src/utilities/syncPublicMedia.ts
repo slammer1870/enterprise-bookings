@@ -132,6 +132,29 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
     collectMediaIds(staffMember, undefined, ids)
   }
 
+  // Published post images (hero, rich-text MediaBlocks, SEO meta) must be public
+  // so Next/Image can fetch `/api/media/file/...` without tenant cookies.
+  const posts = await req.payload.find({
+    collection: 'posts',
+    where: { _status: { equals: 'published' } },
+    limit: 1000,
+    pagination: false,
+    depth: 2,
+    overrideAccess: true,
+    req,
+    select: {
+      id: true,
+      heroImage: true,
+      content: true,
+      meta: true,
+      tenant: true,
+    } as any,
+  })
+
+  for (const post of posts.docs) {
+    collectMediaIds(post, undefined, ids)
+  }
+
   return ids
 }
 
