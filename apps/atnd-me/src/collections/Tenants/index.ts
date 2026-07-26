@@ -18,6 +18,10 @@ import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
   faqs: 'FAQs',
+  marketingHero: 'Marketing Hero',
+  features: 'Features',
+  caseStudies: 'Case Studies',
+  marketingCta: 'Marketing CTA',
   tenantScopedSchedule: 'Schedule by Tenant',
   heroScheduleSanctuary: 'Hero & Schedule (Multi Location)',
   heroWithLocation: 'Hero with Location',
