@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@repo/ui/components/ui/dialog'
@@ -85,10 +84,10 @@ export function CaseStudyCards({ caseStudies }: CaseStudyCardsProps) {
           if (!open) setActiveIndex(null)
         }}
       >
-        <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-4 overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto sm:max-w-3xl">
           {activeStudy && (
-            <>
-              <DialogHeader className="shrink-0">
+            <div className="flex flex-col gap-6">
+              <DialogHeader>
                 <DialogTitle>{activeStudy.companyName}</DialogTitle>
                 <DialogDescription className="sr-only">
                   Case study details for {activeStudy.companyName}
@@ -96,7 +95,7 @@ export function CaseStudyCards({ caseStudies }: CaseStudyCardsProps) {
               </DialogHeader>
 
               {activeStudy.screenshotUrl && (
-                <div className="w-full shrink-0 overflow-hidden rounded-md bg-muted">
+                <div className="w-full overflow-hidden rounded-md bg-muted">
                   <Image
                     src={activeStudy.screenshotUrl}
                     alt={
@@ -113,16 +112,14 @@ export function CaseStudyCards({ caseStudies }: CaseStudyCardsProps) {
               )}
 
               {activeStudy.detailedDescription && (
-                <div className="min-h-0">
-                  <RichText
-                    data={activeStudy.detailedDescription}
-                    className="prose prose-sm max-w-none text-muted-foreground md:prose-base prose-headings:text-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5"
-                  />
-                </div>
+                <RichText
+                  data={activeStudy.detailedDescription}
+                  className="prose prose-sm max-w-none text-muted-foreground md:prose-base prose-headings:text-foreground prose-p:mb-4 prose-headings:mb-3 [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5"
+                />
               )}
 
               {activeStudy.websiteUrl && (
-                <DialogFooter className="shrink-0">
+                <div className="flex justify-end pt-2">
                   <Button asChild>
                     <a
                       href={activeStudy.websiteUrl}
@@ -132,9 +129,9 @@ export function CaseStudyCards({ caseStudies }: CaseStudyCardsProps) {
                       {activeStudy.websiteLabel || 'Visit website'}
                     </a>
                   </Button>
-                </DialogFooter>
+                </div>
               )}
-            </>
+            </div>
           )}
         </DialogContent>
       </Dialog>
