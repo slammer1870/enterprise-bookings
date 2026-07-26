@@ -67,7 +67,7 @@ export const CaseStudiesBlock: React.FC<CaseStudiesBlockProps> = ({
   return (
     <section
       className={cn(
-        'py-24 md:py-32',
+        'py-12',
         bgColorClasses[backgroundColor ?? 'default'],
         className,
       )}
