@@ -36,6 +36,21 @@ export const registrationTenantDatabaseHooks: NonNullable<
         })
         if (tenantId == null || tenantId === '') return
 
+        // Verify the tenant still exists. After a DB wipe/reset, Next cache or a stale
+        // `payload-tenant` cookie can resolve to an ID that no longer exists and would
+        // fail first-user registration on the FK.
+        try {
+          const tenant = await payload.findByID({
+            collection: 'tenants',
+            id: tenantId,
+            depth: 0,
+            overrideAccess: true,
+          })
+          if (!tenant) return
+        } catch {
+          return
+        }
+
         return { data: { registrationTenant: tenantId } }
       },
     },

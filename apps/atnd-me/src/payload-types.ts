@@ -597,7 +597,7 @@ export interface Page {
  */
 export interface HeroScheduleSanctuaryBlock {
   /**
-   * Optional heading above the schedule panel. Defaults to “Schedule” when empty.
+   * Optional brand heading shown with the logo on the hero (same place or just below). Does not replace the Schedule panel title.
    */
   displayHeading?: string | null;
   backgroundImage?: (number | null) | Media;
@@ -1803,41 +1803,53 @@ export interface CaseStudiesBlock {
     | {
         companyName: string;
         /**
-         * Logo of the company/client
+         * Website screenshot shown on the card and in the modal
          */
-        companyLogo?: (number | null) | Media;
-        quote: string;
-        author: {
-          name: string;
-          title?: string | null;
-          avatar?: (number | null) | Media;
+        screenshot?: (number | null) | Media;
+        /**
+         * Short summary shown on the card
+         */
+        briefDescription: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
         };
-        results?:
-          | {
-              metric: string;
-              description: string;
-              id?: string | null;
-            }[]
-          | null;
-        link?: {
-          type?: ('reference' | 'custom') | null;
-          reference?:
-            | ({
-                relationTo: 'pages';
-                value: number | Page;
-              } | null)
-            | ({
-                relationTo: 'posts';
-                value: number | Post;
-              } | null);
-          url?: string | null;
-          label?: string | null;
-          newTab?: boolean | null;
+        /**
+         * Longer copy shown in the modal
+         */
+        detailedDescription: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
         };
+        /**
+         * Full website link opened in a new tab from the modal
+         */
+        websiteUrl: string;
+        websiteLabel?: string | null;
         id?: string | null;
       }[]
     | null;
-  layout?: ('grid' | 'carousel') | null;
   backgroundColor?: ('default' | 'subtle' | 'muted') | null;
   id?: string | null;
   blockName?: string | null;
@@ -3175,6 +3187,9 @@ export interface Scheduler {
    * The days of the week and their time slots
    */
   week?: {
+    /**
+     * Monday–Sunday template (7 days). Add time slots under each day.
+     */
     days?:
       | {
           timeSlot?:
@@ -5041,34 +5056,13 @@ export interface CaseStudiesBlockSelect<T extends boolean = true> {
     | T
     | {
         companyName?: T;
-        companyLogo?: T;
-        quote?: T;
-        author?:
-          | T
-          | {
-              name?: T;
-              title?: T;
-              avatar?: T;
-            };
-        results?:
-          | T
-          | {
-              metric?: T;
-              description?: T;
-              id?: T;
-            };
-        link?:
-          | T
-          | {
-              type?: T;
-              reference?: T;
-              url?: T;
-              label?: T;
-              newTab?: T;
-            };
+        screenshot?: T;
+        briefDescription?: T;
+        detailedDescription?: T;
+        websiteUrl?: T;
+        websiteLabel?: T;
         id?: T;
       };
-  layout?: T;
   backgroundColor?: T;
   id?: T;
   blockName?: T;

@@ -1,10 +1,34 @@
 import type { Block } from 'payload'
 
 import {
+  AlignFeature,
+  BlockquoteFeature,
   FixedToolbarFeature,
+  HeadingFeature,
+  HorizontalRuleFeature,
   InlineToolbarFeature,
+  LinkFeature,
+  OrderedListFeature,
+  UnorderedListFeature,
   lexicalEditor,
 } from '@payloadcms/richtext-lexical'
+
+const caseStudyRichTextEditor = lexicalEditor({
+  features: ({ rootFeatures }) => {
+    return [
+      ...rootFeatures,
+      AlignFeature(),
+      FixedToolbarFeature(),
+      InlineToolbarFeature(),
+      HeadingFeature({ enabledHeadingSizes: ['h2', 'h3', 'h4'] }),
+      LinkFeature(),
+      UnorderedListFeature(),
+      OrderedListFeature(),
+      BlockquoteFeature(),
+      HorizontalRuleFeature(),
+    ]
+  },
+})
 
 export const CaseStudies: Block = {
   slug: 'caseStudies',
@@ -22,15 +46,7 @@ export const CaseStudies: Block = {
     {
       name: 'description',
       type: 'richText',
-      editor: lexicalEditor({
-        features: ({ rootFeatures }) => {
-          return [
-            ...rootFeatures,
-            FixedToolbarFeature(),
-            InlineToolbarFeature(),
-          ]
-        },
-      }),
+      editor: caseStudyRichTextEditor,
       label: 'Section Description',
     },
     {
@@ -38,6 +54,11 @@ export const CaseStudies: Block = {
       type: 'array',
       label: 'Case Studies',
       minRows: 1,
+      maxRows: 3,
+      labels: {
+        singular: 'Case Study',
+        plural: 'Case Studies',
+      },
       fields: [
         {
           name: 'companyName',
@@ -46,115 +67,50 @@ export const CaseStudies: Block = {
           label: 'Company Name',
         },
         {
-          name: 'companyLogo',
+          name: 'screenshot',
           type: 'upload',
           relationTo: 'media',
-          label: 'Company Logo',
+          label: 'Screenshot',
           admin: {
-            description: 'Logo of the company/client',
+            description: 'Website screenshot shown on the card and in the modal',
           },
         },
         {
-          name: 'quote',
-          type: 'textarea',
+          name: 'briefDescription',
+          type: 'richText',
           required: true,
-          label: 'Quote/Testimonial',
+          label: 'Brief Description',
+          editor: caseStudyRichTextEditor,
+          admin: {
+            description: 'Short summary shown on the card',
+          },
         },
         {
-          name: 'author',
-          type: 'group',
-          fields: [
-            {
-              name: 'name',
-              type: 'text',
-              required: true,
-              label: 'Author Name',
-            },
-            {
-              name: 'title',
-              type: 'text',
-              label: 'Job Title',
-            },
-            {
-              name: 'avatar',
-              type: 'upload',
-              relationTo: 'media',
-              label: 'Author Avatar',
-            },
-          ],
-          label: 'Author',
+          name: 'detailedDescription',
+          type: 'richText',
+          required: true,
+          label: 'Detailed Description',
+          editor: caseStudyRichTextEditor,
+          admin: {
+            description: 'Longer copy shown in the modal',
+          },
         },
         {
-          name: 'results',
-          type: 'array',
-          label: 'Key Results',
-          fields: [
-            {
-              name: 'metric',
-              type: 'text',
-              required: true,
-              label: 'Metric (e.g., "200% increase")',
-            },
-            {
-              name: 'description',
-              type: 'text',
-              required: true,
-              label: 'Description (e.g., "in conversion rate")',
-            },
-          ],
+          name: 'websiteUrl',
+          type: 'text',
+          required: true,
+          label: 'Website URL',
+          admin: {
+            description: 'Full website link opened in a new tab from the modal',
+          },
         },
         {
-          name: 'link',
-          type: 'group',
-          fields: [
-            {
-              name: 'type',
-              type: 'radio',
-              defaultValue: 'custom',
-              options: [
-                { label: 'Internal link', value: 'reference' },
-                { label: 'Custom URL', value: 'custom' },
-              ],
-            },
-            {
-              name: 'reference',
-              type: 'relationship',
-              relationTo: ['pages', 'posts'],
-              admin: {
-                condition: (_, siblingData) => siblingData?.type === 'reference',
-              },
-            },
-            {
-              name: 'url',
-              type: 'text',
-              admin: {
-                condition: (_, siblingData) => siblingData?.type === 'custom',
-              },
-            },
-            {
-              name: 'label',
-              type: 'text',
-              label: 'Link Label',
-              defaultValue: 'Read full case study',
-            },
-            {
-              name: 'newTab',
-              type: 'checkbox',
-              label: 'Open in new tab',
-            },
-          ],
+          name: 'websiteLabel',
+          type: 'text',
+          label: 'Website Button Label',
+          defaultValue: 'Visit website',
         },
       ],
-    },
-    {
-      name: 'layout',
-      type: 'select',
-      defaultValue: 'grid',
-      options: [
-        { label: 'Grid', value: 'grid' },
-        { label: 'Carousel', value: 'carousel' },
-      ],
-      label: 'Layout',
     },
     {
       name: 'backgroundColor',

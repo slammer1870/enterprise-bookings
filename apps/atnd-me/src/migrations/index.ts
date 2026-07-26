@@ -152,6 +152,8 @@ import * as migration_20260721_000003_tenants_onboarding_site_viewed from './202
 import * as migration_20260721_000004_users_onboarding_password_set from './20260721_000004_users_onboarding_password_set';
 import * as migration_20260721_000005_navbar_show_sign_in from './20260721_000005_navbar_show_sign_in';
 import * as migration_20260724_drop_posts_version_tenant_slug_unique from './20260724_drop_posts_version_tenant_slug_unique';
+import * as migration_20260726_125348 from './20260726_125348';
+import * as migration_20260726_140000_case_studies_richtext_descriptions from './20260726_140000_case_studies_richtext_descriptions';
 
 export const migrations = [
   {
@@ -882,7 +884,7 @@ export const migrations = [
   {
     up: migration_20260714_113446.up,
     down: migration_20260714_113446.down,
-    name: '20260714_113446'
+    name: '20260714_113446',
   },
   {
     up: migration_20260718_000001_discount_codes_remainder_lineage.up,
@@ -923,5 +925,15 @@ export const migrations = [
     up: migration_20260724_drop_posts_version_tenant_slug_unique.up,
     down: migration_20260724_drop_posts_version_tenant_slug_unique.down,
     name: '20260724_drop_posts_version_tenant_slug_unique',
+  },
+  {
+    up: migration_20260726_125348.up,
+    down: migration_20260726_125348.down,
+    name: '20260726_125348'
+  },
+  {
+    up: migration_20260726_140000_case_studies_richtext_descriptions.up,
+    down: migration_20260726_140000_case_studies_richtext_descriptions.down,
+    name: '20260726_140000_case_studies_richtext_descriptions',
   },
 ];

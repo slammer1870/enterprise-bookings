@@ -96,6 +96,7 @@ describe('registrationTenantDatabaseHooks.user.create.before', () => {
 
   it('returns { data: { registrationTenant } } when context.headers is a Headers instance', async () => {
     ;(getTenantIdForCreateRequest as ReturnType<typeof vi.fn>).mockResolvedValue(7)
+    mockPayload.findByID.mockResolvedValue({ id: 7 })
     const headers = new Headers({ host: 'studio.example.com' })
 
     const result = await beforeHook({ email: 'a@a.com' }, { headers })
@@ -105,10 +106,17 @@ describe('registrationTenantDatabaseHooks.user.create.before', () => {
       mockPayload,
       expect.objectContaining({ headers }),
     )
+    expect(mockPayload.findByID).toHaveBeenCalledWith({
+      collection: 'tenants',
+      id: 7,
+      depth: 0,
+      overrideAccess: true,
+    })
   })
 
   it('returns { data: { registrationTenant } } when context.request is a Request instance', async () => {
     ;(getTenantIdForCreateRequest as ReturnType<typeof vi.fn>).mockResolvedValue(7)
+    mockPayload.findByID.mockResolvedValue({ id: 7 })
     const request = new Request('https://studio.example.com/api/auth/sign-up')
 
     const result = await beforeHook({ email: 'a@a.com' }, { request })
@@ -129,10 +137,33 @@ describe('registrationTenantDatabaseHooks.user.create.before', () => {
     const result = await beforeHook({ email: 'a@a.com' }, { headers })
 
     expect(result).toBeUndefined()
+    expect(mockPayload.findByID).not.toHaveBeenCalled()
   })
 
   it('returns undefined when getTenantIdForCreateRequest resolves to an empty string', async () => {
     ;(getTenantIdForCreateRequest as ReturnType<typeof vi.fn>).mockResolvedValue('')
+    const headers = new Headers({ host: 'studio.example.com' })
+
+    const result = await beforeHook({ email: 'a@a.com' }, { headers })
+
+    expect(result).toBeUndefined()
+    expect(mockPayload.findByID).not.toHaveBeenCalled()
+  })
+
+  it('returns undefined when resolved tenant id no longer exists', async () => {
+    ;(getTenantIdForCreateRequest as ReturnType<typeof vi.fn>).mockResolvedValue(7)
+    mockPayload.findByID.mockResolvedValue(null)
+    const headers = new Headers({ host: 'studio.example.com' })
+
+    const result = await beforeHook({ email: 'a@a.com' }, { headers })
+
+    expect(result).toBeUndefined()
+    expect(mockPayload.findByID).toHaveBeenCalled()
+  })
+
+  it('returns undefined when tenant existence check throws (stale FK)', async () => {
+    ;(getTenantIdForCreateRequest as ReturnType<typeof vi.fn>).mockResolvedValue(7)
+    mockPayload.findByID.mockRejectedValue(new Error('Not Found'))
     const headers = new Headers({ host: 'studio.example.com' })
 
     const result = await beforeHook({ email: 'a@a.com' }, { headers })

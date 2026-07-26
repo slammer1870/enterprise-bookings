@@ -209,7 +209,21 @@ export const Users: CollectionConfig = {
               context: req.context as { tenant?: unknown } | undefined,
             })
             if (fromRequest != null && fromRequest !== '') {
-              ;(data as { registrationTenant?: string | number }).registrationTenant = fromRequest
+              // Guard against stale tenant cookies/cache after DB reset (FK on registrationTenant).
+              try {
+                const tenant = await req.payload.findByID({
+                  collection: 'tenants',
+                  id: fromRequest,
+                  depth: 0,
+                  overrideAccess: true,
+                })
+                if (tenant) {
+                  ;(data as { registrationTenant?: string | number }).registrationTenant =
+                    fromRequest
+                }
+              } catch {
+                // omit registrationTenant
+              }
             }
           }
         }
