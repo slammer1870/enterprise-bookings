@@ -40,10 +40,16 @@ function clampRolesToAllowList(
   return values.length > 0 ? values : [fallback]
 }
 
+/** Public HTTP APIs — Local API is trusted server-side (seeds, int tests, scripts). */
+function isPublicHttpApi(req: PayloadRequest): boolean {
+  return req.payloadAPI === 'REST' || req.payloadAPI === 'GraphQL'
+}
+
 /**
  * Sanitize user writes:
  * - System Local API: clamp roles to the caller's declared allow-list
- * - Anonymous: drop `tenants`, force global role to `['user']`
+ * - Anonymous public HTTP (REST/GraphQL): drop `tenants`, force global role to `['user']`
+ * - Trusted Local API (no user / no system flag): leave data alone — callers own auth
  */
 export function sanitizeUserTenantsAndRolesForWrite(args: {
   data: Record<string, unknown>
@@ -82,7 +88,10 @@ export function sanitizeUserTenantsAndRolesForWrite(args: {
 
   if (req.user) return data
 
-  // Anonymous HTTP / untrusted Local API: never accept client-supplied memberships.
+  // Trusted Local API (int tests, seeds, scripts): do not strip memberships.
+  if (!isPublicHttpApi(req)) return data
+
+  // Anonymous public HTTP: never accept client-supplied memberships.
   delete data.tenants
 
   if (data.role !== undefined) {
@@ -97,9 +106,9 @@ export function sanitizeUserTenantsAndRolesForWrite(args: {
   return data
 }
 
-/** Rate-limit anonymous user creates (public REST / spam). */
+/** Rate-limit anonymous user creates on public HTTP APIs only (spam). */
 export function assertAnonymousUserCreateRateLimit(req: PayloadRequest): void {
-  if (req.user || isSystemUserWrite(req)) return
+  if (req.user || isSystemUserWrite(req) || !isPublicHttpApi(req)) return
 
   const ip = clientIpFromReq(req)
   const result = checkRateLimit({

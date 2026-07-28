@@ -13,6 +13,7 @@ import type { PayloadRequest } from 'payload'
 function req(partial: {
   user?: unknown
   context?: Record<string, unknown>
+  payloadAPI?: 'REST' | 'GraphQL' | 'local'
 }): PayloadRequest {
   return partial as PayloadRequest
 }
@@ -43,17 +44,30 @@ describe('systemUserWriteContext', () => {
 })
 
 describe('sanitizeUserTenantsAndRolesForWrite', () => {
-  it('drops tenants and forces role=user for anonymous writes', () => {
+  it('drops tenants and forces role=user for anonymous REST writes', () => {
     const data = sanitizeUserTenantsAndRolesForWrite({
       data: {
         tenants: [{ tenant: 4, roles: ['admin'] }],
         role: ['staff', 'location-manager', 'super-admin'],
       },
-      req: req({}),
+      req: req({ payloadAPI: 'REST' }),
     })
 
     expect(data.tenants).toBeUndefined()
     expect(data.role).toEqual(['user'])
+  })
+
+  it('preserves tenants/roles for trusted Local API without system flag', () => {
+    const data = sanitizeUserTenantsAndRolesForWrite({
+      data: {
+        tenants: [{ tenant: 4, roles: ['admin'] }],
+        role: ['super-admin'],
+      },
+      req: req({ payloadAPI: 'local' }),
+    })
+
+    expect(data.tenants).toEqual([{ tenant: 4, roles: ['admin'] }])
+    expect(data.role).toEqual(['super-admin'])
   })
 
   it('clamps system writes to the declared allow-list', () => {
@@ -66,6 +80,7 @@ describe('sanitizeUserTenantsAndRolesForWrite', () => {
         role: ['admin', 'staff'],
       },
       req: req({
+        payloadAPI: 'local',
         context: systemUserWriteContext({ allowedRoles: ['user', 'admin'] }),
       }),
     })
@@ -84,7 +99,7 @@ describe('sanitizeUserTenantsAndRolesForWrite', () => {
     }
     const data = sanitizeUserTenantsAndRolesForWrite({
       data: { ...input, tenants: [...input.tenants] },
-      req: req({ user: { id: 1, role: ['admin'] } }),
+      req: req({ user: { id: 1, role: ['admin'] }, payloadAPI: 'REST' }),
     })
     expect(data.tenants).toEqual([{ tenant: 1, roles: ['admin'] }])
     expect(data.role).toEqual(['admin'])
