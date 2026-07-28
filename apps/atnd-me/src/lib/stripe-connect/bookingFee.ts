@@ -4,7 +4,7 @@
 import type { Payload } from 'payload'
 
 /** Product types that map to fee-percent fields in platform-fees global. */
-export type BookingFeeProductType = 'drop-in' | 'class-pass' | 'subscription'
+export type BookingFeeProductType = 'drop-in' | 'class-pass' | 'subscription' | 'gift-voucher'
 
 /** Shape of platform-fees global (defaults + overrides + bounds). */
 type PlatformFeesGlobal = {
@@ -12,12 +12,14 @@ type PlatformFeesGlobal = {
     dropInPercent?: number
     classPassPercent?: number
     subscriptionPercent?: number
+    giftVoucherPercent?: number
   }
   overrides?: Array<{
     tenant?: number | { id: number }
     dropInPercent?: number | null
     classPassPercent?: number | null
     subscriptionPercent?: number | null
+    giftVoucherPercent?: number | null
   }>
   bounds?: {
     minCents?: number | null
@@ -29,12 +31,14 @@ const PRODUCT_FIELD_MAP: Record<BookingFeeProductType, keyof NonNullable<Platfor
   'drop-in': 'dropInPercent',
   'class-pass': 'classPassPercent',
   subscription: 'subscriptionPercent',
+  'gift-voucher': 'giftVoucherPercent',
 }
 
 const DEFAULT_PERCENTS: Record<BookingFeeProductType, number> = {
   'drop-in': 2,
   'class-pass': 3,
   subscription: 4,
+  'gift-voucher': 3,
 }
 
 function resolvePercentFromConfig(

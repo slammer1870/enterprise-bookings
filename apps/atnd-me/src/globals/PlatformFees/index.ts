@@ -48,6 +48,14 @@ export const PlatformFees: GlobalConfig = {
           defaultValue: 4,
           admin: { description: 'Default fee for subscription payments.' },
         },
+        {
+          name: 'giftVoucherPercent',
+          type: 'number',
+          label: 'Gift voucher (%)',
+          required: true,
+          defaultValue: 2,
+          admin: { description: 'Default fee for gift voucher / discount code purchases.' },
+        },
       ],
     },
     {
@@ -79,6 +87,12 @@ export const PlatformFees: GlobalConfig = {
           name: 'subscriptionPercent',
           type: 'number',
           label: 'Subscription (%)',
+          admin: { description: 'Leave empty to use default.' },
+        },
+        {
+          name: 'giftVoucherPercent',
+          type: 'number',
+          label: 'Gift voucher (%)',
           admin: { description: 'Leave empty to use default.' },
         },
       ],

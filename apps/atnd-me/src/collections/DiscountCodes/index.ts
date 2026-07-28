@@ -174,6 +174,10 @@ export const DiscountCodes: CollectionConfig = {
         { label: 'Forever', value: 'forever' },
         { label: 'Repeating', value: 'repeating' },
       ],
+      admin: {
+        description:
+          'How long the discount applies. Once: a single invoice or one-time payment (use this for gift vouchers and class-pass / drop-in codes). Forever: every invoice for the life of a subscription. Repeating: a fixed number of subscription invoices (set Duration months below).',
+      },
     },
     {
       name: 'durationInMonths',

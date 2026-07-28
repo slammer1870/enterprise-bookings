@@ -47,7 +47,7 @@ export const AboutBlock: React.FC<AboutBlockProps> = ({
   )
 
   return (
-    <section className="w-full py-12">
+    <section className="w-full pt-24 pb-16 sm:pt-28 sm:pb-20">
       <div className="max-w-6xl mx-auto">{contentElement}</div>
     </section>
   )

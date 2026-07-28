@@ -179,7 +179,7 @@ export async function issuePurchasedGiftVoucher(
         <p><strong>Code:</strong> ${issuedCode}<br/>
         <strong>Amount:</strong> €${value.toFixed(2)}<br/>
         <strong>Expires:</strong> ${expiryLabel}</p>
-        <p>Enter this code at checkout on a drop-in, class pass, or membership purchase. It can be used once.</p>
+          <p>Enter this code at checkout on a drop-in, class pass, or membership purchase.</p>
       `,
     })
   } catch (emailErr) {

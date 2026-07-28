@@ -103,10 +103,21 @@ export async function POST(request: NextRequest) {
   )
   if (isStripeTestAccount(tenant.stripeConnectAccountId) || placeholderAccount) {
     const mockId = `pi_test_${Date.now()}`
+    const voucherAmountCents = Math.round(amount * 100)
+    const { calculateBookingFeeAmount } = await import('@/lib/stripe-connect/bookingFee')
+    const bookingFeeAmountCents = await calculateBookingFeeAmount({
+      payload,
+      tenantId: tenant.id,
+      productType: 'gift-voucher',
+      classPriceAmount: voucherAmountCents,
+    })
     return NextResponse.json({
       clientSecret: `${mockId}_secret_test`,
       stripeAccountId: tenant.stripeConnectAccountId,
       amount,
+      voucherAmountCents,
+      bookingFeeAmountCents,
+      totalAmountCents: voucherAmountCents + bookingFeeAmountCents,
     })
   }
 
@@ -123,7 +134,7 @@ export async function POST(request: NextRequest) {
       customerId = ensured.stripeCustomerId
     }
 
-    const { client_secret } = await createGiftVoucherPaymentIntent({
+    const result = await createGiftVoucherPaymentIntent({
       tenant: {
         id: tenant.id,
         stripeConnectAccountId: tenant.stripeConnectAccountId,
@@ -135,12 +146,16 @@ export async function POST(request: NextRequest) {
       purchaserName,
       userId,
       customerId,
+      payload,
     })
 
     return NextResponse.json({
-      clientSecret: client_secret,
+      clientSecret: result.client_secret,
       stripeAccountId: tenant.stripeConnectAccountId,
       amount,
+      voucherAmountCents: result.voucherAmountCents,
+      bookingFeeAmountCents: result.bookingFeeAmountCents,
+      totalAmountCents: result.totalAmountCents,
     })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Payment intent failed'

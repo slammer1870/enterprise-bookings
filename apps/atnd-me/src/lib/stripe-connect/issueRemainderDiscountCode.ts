@@ -291,7 +291,7 @@ export async function issueRemainderDiscountCodeIfNeeded(
           <p><strong>Code:</strong> ${remainderCode}<br/>
           <strong>Amount:</strong> €${remainderValue.toFixed(2)}<br/>
           <strong>Expires:</strong> ${expiryLabel}</p>
-          <p>Enter this code at checkout on your next drop-in, class pass, or membership purchase. It can be used once.</p>
+          <p>Enter this code at checkout on your next drop-in, class pass, or membership purchase.</p>
         `,
       })
     } catch (emailErr) {

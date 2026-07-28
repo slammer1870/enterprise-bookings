@@ -10,7 +10,7 @@ type GiftVoucherCheckoutBlockProps = {
 
 export function GiftVoucherCheckoutBlock(props: GiftVoucherCheckoutBlockProps) {
   return (
-    <section className="container py-10">
+    <section className="py-10">
       <Suspense fallback={<p className="text-sm text-muted-foreground">Loading checkout…</p>}>
         <GiftVoucherCheckoutAsync
           heading={props.heading}

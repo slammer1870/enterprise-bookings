@@ -58,12 +58,16 @@ export type GiftVoucherCheckoutFormProps = {
 }
 
 function PaymentStep({
-  amount,
+  voucherAmount,
+  bookingFeeAmount,
+  totalAmount,
   onBack,
   checkoutLegal,
   deliveryEmail,
 }: {
-  amount: number
+  voucherAmount: number
+  bookingFeeAmount: number
+  totalAmount: number
   onBack: () => void
   checkoutLegal?: CheckoutLegalConfig | null
   deliveryEmail: string
@@ -72,12 +76,22 @@ function PaymentStep({
   const elements = useElements()
   const [message, setMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [paymentReady, setPaymentReady] = useState(false)
+  const [paymentComplete, setPaymentComplete] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!stripe || !elements) return
     setIsLoading(true)
     setMessage(null)
+
+    const { error: submitError } = await elements.submit()
+    if (submitError) {
+      setMessage(submitError.message ?? 'Please complete your payment details.')
+      setIsLoading(false)
+      return
+    }
+
     const returnUrl =
       typeof window !== 'undefined'
         ? `${window.location.origin}${window.location.pathname}?success=1`
@@ -90,13 +104,36 @@ function PaymentStep({
     setIsLoading(false)
   }
 
+  const canPay = Boolean(stripe && elements && paymentReady && paymentComplete && !isLoading)
+
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <p className="text-sm text-muted-foreground">
-        Paying €{amount.toFixed(2)}. Your code will be emailed to{' '}
-        <span className="font-medium text-foreground">{deliveryEmail}</span>.
-      </p>
-      <PaymentElement />
+      <div className="space-y-1 text-sm text-muted-foreground">
+        <p>
+          Gift voucher: <span className="font-medium text-foreground">€{voucherAmount.toFixed(2)}</span>
+          {bookingFeeAmount > 0 ? (
+            <>
+              {' '}
+              · Platform fee:{' '}
+              <span className="font-medium text-foreground">€{bookingFeeAmount.toFixed(2)}</span>
+            </>
+          ) : null}
+        </p>
+        <p>
+          Total to pay:{' '}
+          <span className="font-medium text-foreground">€{totalAmount.toFixed(2)}</span>. Your code
+          will be emailed to <span className="font-medium text-foreground">{deliveryEmail}</span>.
+        </p>
+      </div>
+      <PaymentElement
+        onReady={() => setPaymentReady(true)}
+        onChange={(event) => setPaymentComplete(Boolean(event.complete))}
+      />
+      {!paymentReady ? (
+        <p className="text-sm text-muted-foreground" data-testid="gift-voucher-payment-loading">
+          Loading payment form…
+        </p>
+      ) : null}
       {checkoutLegal ? (
         <CheckoutLegalAcceptance
           config={checkoutLegal}
@@ -112,8 +149,8 @@ function PaymentStep({
         <Button type="button" variant="outline" onClick={onBack} disabled={isLoading}>
           Back
         </Button>
-        <Button type="submit" disabled={!stripe || !elements || isLoading}>
-          {isLoading ? 'Processing…' : `Pay €${amount.toFixed(2)}`}
+        <Button type="submit" disabled={!canPay}>
+          {isLoading ? 'Processing…' : `Pay €${totalAmount.toFixed(2)}`}
         </Button>
       </div>
     </form>
@@ -141,7 +178,9 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
   const [email, setEmail] = useState('')
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null)
-  const [paidAmount, setPaidAmount] = useState<number | null>(null)
+  const [voucherAmount, setVoucherAmount] = useState<number | null>(null)
+  const [bookingFeeAmount, setBookingFeeAmount] = useState(0)
+  const [totalAmount, setTotalAmount] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
@@ -205,7 +244,17 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
       }
       if (data.clientSecret) {
         setClientSecret(data.clientSecret)
-        setPaidAmount(parsed)
+        setVoucherAmount(parsed)
+        const feeCents =
+          typeof data.bookingFeeAmountCents === 'number' && Number.isFinite(data.bookingFeeAmountCents)
+            ? data.bookingFeeAmountCents
+            : 0
+        const totalCents =
+          typeof data.totalAmountCents === 'number' && Number.isFinite(data.totalAmountCents)
+            ? data.totalAmountCents
+            : Math.round(parsed * 100) + feeCents
+        setBookingFeeAmount(feeCents / 100)
+        setTotalAmount(totalCents / 100)
         setStripeAccountId(
           typeof data.stripeAccountId === 'string' && data.stripeAccountId.trim()
             ? data.stripeAccountId.trim()
@@ -235,7 +284,7 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
     )
   }
 
-  if (clientSecret && paidAmount != null) {
+  if (clientSecret && voucherAmount != null && totalAmount != null) {
     const isTestClientSecret =
       typeof clientSecret === 'string' && /^pi_test_.*_secret_test$/.test(clientSecret)
     const stripe = getStripePromise(stripeAccountId)
@@ -265,10 +314,14 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
           }}
         >
           <PaymentStep
-            amount={paidAmount}
+            voucherAmount={voucherAmount}
+            bookingFeeAmount={bookingFeeAmount}
+            totalAmount={totalAmount}
             onBack={() => {
               setClientSecret(null)
-              setPaidAmount(null)
+              setVoucherAmount(null)
+              setTotalAmount(null)
+              setBookingFeeAmount(0)
             }}
             checkoutLegal={props.checkoutLegal}
             deliveryEmail={deliveryEmail}
@@ -329,6 +382,7 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
         <p className="text-xs text-muted-foreground">
           Min €{minAmount.toFixed(2)}
           {maxAmount < GIFT_VOUCHER_MAX_EUROS ? ` · Max €${maxAmount.toFixed(2)}` : ''}
+          {' · '}A platform fee may be added at checkout.
         </p>
       </div>
 
