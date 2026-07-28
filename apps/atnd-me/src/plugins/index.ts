@@ -10,7 +10,7 @@ import { Plugin } from 'payload'
 import * as Sentry from '@sentry/nextjs'
 import { revalidateRedirects } from '@/hooks/revalidateRedirects'
 import { GenerateTitle, GenerateURL } from '@payloadcms/plugin-seo/types'
-import { FixedToolbarFeature, HeadingFeature, lexicalEditor } from '@payloadcms/richtext-lexical'
+import { defaultLexical } from '@/fields/defaultLexical'
 import { postBookingEmailsField } from '@/fields/postBookingEmailFields'
 import { triggerPostBookingEmailAfterChange } from '@/lib/post-booking-email/maybe-trigger-post-booking-email'
 import { searchFields } from '@/search/fieldOverrides'
@@ -348,15 +348,7 @@ export const plugins: Plugin[] = [
           if ('name' in field && field.name === 'confirmationMessage') {
             return {
               ...field,
-              editor: lexicalEditor({
-                features: ({ rootFeatures }) => {
-                  return [
-                    ...rootFeatures,
-                    FixedToolbarFeature(),
-                    HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
-                  ]
-                },
-              }),
+              editor: defaultLexical,
             }
           }
           return field
@@ -435,12 +427,13 @@ export const plugins: Plugin[] = [
         { fields: ['startTime', 'tenant'] },
         { fields: ['tenant', 'branch', 'startTime'] },
       ],
-      fields: ({ defaultFields }) =>
-        withTimeslotBranchFields(
+      fields: ({ defaultFields }) => [
+        ...withTimeslotBranchFields(
           withExplicitTenantSyncFields(defaultFields).map((f) =>
             'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
           ),
         ),
+      ],
       hooks: ({ defaultHooks }) => {
         const d = defaultHooks as Record<string, unknown>
         return {

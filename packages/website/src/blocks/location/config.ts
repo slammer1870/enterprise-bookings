@@ -38,7 +38,8 @@ export const Location: Block = {
       name: 'mapEmbedUrl',
       type: 'text',
       admin: {
-        description: 'Google Maps embed URL or iframe src',
+        description:
+          'Optional. Leave blank to auto-embed from the address. Or paste a Google Maps embed URL.',
       },
       required: false,
     },

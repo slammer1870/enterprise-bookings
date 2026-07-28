@@ -1,10 +1,5 @@
 import type { CollectionConfig } from 'payload'
 
-import {
-  FixedToolbarFeature,
-  InlineToolbarFeature,
-  lexicalEditor,
-} from '@payloadcms/richtext-lexical'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -20,6 +15,7 @@ import {
   getMediaUploadSizeError,
   MEDIA_MAX_FILE_SIZE_BYTES,
 } from '../lib/media/upload-limits'
+import { simpleLexical } from '@/fields/simpleLexical'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -115,11 +111,7 @@ export const Media: CollectionConfig = {
     {
       name: 'caption',
       type: 'richText',
-      editor: lexicalEditor({
-        features: ({ rootFeatures }) => {
-          return [...rootFeatures, FixedToolbarFeature(), InlineToolbarFeature()]
-        },
-      }),
+      editor: simpleLexical,
     },
     // Override built-in filesize so Local API creates also enforce the same cap as
     // payload.config upload.limits.fileSize (multipart is already handled there).

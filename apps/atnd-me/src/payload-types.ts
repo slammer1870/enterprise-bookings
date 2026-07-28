@@ -285,7 +285,7 @@ export interface Tenant {
   apexDomainVerificationToken?: string | null;
   description?: string | null;
   /**
-   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout) are always available.
+   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout, Event) are always available.
    */
   allowedBlocks?:
     | (
@@ -1619,7 +1619,7 @@ export interface LocationBlock {
   email?: string | null;
   phone?: string | null;
   /**
-   * Google Maps embed URL or iframe src
+   * Optional. Leave blank to auto-embed from the address. Or paste a Google Maps embed URL.
    */
   mapEmbedUrl?: string | null;
   id?: string | null;
@@ -3345,6 +3345,9 @@ export interface DiscountCode {
    * Required for amount off.
    */
   currency?: ('eur' | 'gbp' | 'usd') | null;
+  /**
+   * How long the discount applies. Once: a single invoice or one-time payment (use this for gift vouchers and class-pass / drop-in codes). Forever: every invoice for the life of a subscription. Repeating: a fixed number of subscription invoices (set Duration months below).
+   */
   duration: 'once' | 'forever' | 'repeating';
   durationInMonths?: number | null;
   /**
@@ -6655,6 +6658,10 @@ export interface PlatformFee {
      * Default fee for subscription payments.
      */
     subscriptionPercent: number;
+    /**
+     * Default fee for gift voucher / discount code purchases.
+     */
+    giftVoucherPercent: number;
   };
   /**
    * Override fee percent for specific tenants.
@@ -6674,6 +6681,10 @@ export interface PlatformFee {
          * Leave empty to use default.
          */
         subscriptionPercent?: number | null;
+        /**
+         * Leave empty to use default.
+         */
+        giftVoucherPercent?: number | null;
         id?: string | null;
       }[]
     | null;
@@ -6704,6 +6715,7 @@ export interface PlatformFeesSelect<T extends boolean = true> {
         dropInPercent?: T;
         classPassPercent?: T;
         subscriptionPercent?: T;
+        giftVoucherPercent?: T;
       };
   overrides?:
     | T
@@ -6712,6 +6724,7 @@ export interface PlatformFeesSelect<T extends boolean = true> {
         dropInPercent?: T;
         classPassPercent?: T;
         subscriptionPercent?: T;
+        giftVoucherPercent?: T;
         id?: T;
       };
   bounds?:
@@ -6915,6 +6928,36 @@ export interface CodeBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'code';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventCheckoutBlock".
+ */
+export interface EventCheckoutBlock {
+  /**
+   * Checkout quantity, fees, and Stripe payment for this timeslot.
+   */
+  timeslot: number | Timeslot;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'eventCheckout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MapBlock".
+ */
+export interface MapBlock {
+  /**
+   * Paste a Google Maps link (including maps.app.goo.gl), or Share → Embed a map and paste the iframe src / HTML.
+   */
+  mapUrl: string;
+  /**
+   * Optional text under the map.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'map';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

@@ -226,18 +226,14 @@ export const CheckInButton = ({
         // the join-waitlist mutation.
         const callbackPath = `/join-waitlist?timeslotId=${timeslotId}`;
 
-        const baseUrl =
-          loginToBookUrl?.(timeslotId, { isTrial }) ??
-          `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=${encodeURIComponent(
-            `/bookings/${timeslotId}`
-          )}`;
-
-        // Replace callbackUrl so the user returns to the join-waitlist completion route.
-        const urlObj = new URL(baseUrl, window.location.origin);
-        urlObj.searchParams.set("callbackUrl", callbackPath);
+        // Waitlist always requires a real auth session — do not send guests to /events/[id]
+        // (public guest checkout). Keep the complete-booking gate here.
+        const baseUrl = `/complete-booking?mode=${isTrial ? "register" : "login"}&callbackUrl=${encodeURIComponent(
+          callbackPath
+        )}`;
 
         toast.info("Please sign in to join the waitlist");
-        router.push(`${urlObj.pathname}${urlObj.search}`, { scroll: false });
+        router.push(baseUrl, { scroll: false });
       }
       return;
     }

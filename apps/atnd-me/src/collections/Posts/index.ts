@@ -1,14 +1,5 @@
 import type { CollectionConfig, Where } from 'payload'
 
-import {
-  BlocksFeature,
-  FixedToolbarFeature,
-  HeadingFeature,
-  HorizontalRuleFeature,
-  InlineToolbarFeature,
-  lexicalEditor,
-} from '@payloadcms/richtext-lexical'
-
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
 
@@ -16,9 +7,7 @@ import { postsCreate, postsDelete, postsRead, postsUpdate } from '../../access/p
 import { isAdmin, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
 import { getUserTenantIds } from '../../access/tenant-scoped'
 import { tenantScopedSlugField } from '../../fields/tenant-scoped-slug-field'
-import { Banner } from '../../blocks/Banner/config'
-import { Code } from '../../blocks/Code/config'
-import { MediaBlock } from '../../blocks/MediaBlock/config'
+import { defaultLexical } from '../../fields/defaultLexical'
 import { generatePreviewPath } from '../../utilities/generatePreviewPath'
 import {
   resolveTenantIdForDocumentWrite,
@@ -131,18 +120,7 @@ export const Posts: CollectionConfig<'posts'> = {
             {
               name: 'content',
               type: 'richText',
-              editor: lexicalEditor({
-                features: ({ rootFeatures }) => {
-                  return [
-                    ...rootFeatures,
-                    HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
-                    BlocksFeature({ blocks: [Banner, Code, MediaBlock] }),
-                    FixedToolbarFeature(),
-                    InlineToolbarFeature(),
-                    HorizontalRuleFeature(),
-                  ]
-                },
-              }),
+              editor: defaultLexical,
               label: false,
               required: true,
             },
