@@ -13,6 +13,7 @@ import {
 import { Banner } from '@/blocks/Banner/config'
 import { Code } from '@/blocks/Code/config'
 import { EventCheckout } from '@/blocks/EventCheckout/config'
+import { GiftVoucherCheckout } from '@/blocks/GiftVoucherCheckout/config'
 import { Map } from '@/blocks/Map/config'
 import { MediaBlock } from '@/blocks/MediaBlock/config'
 
@@ -50,7 +51,7 @@ const linkFeature = LinkFeature({
 /**
  * Single shared rich-text editor for atnd-me.
  * Includes Payload defaults (paragraphs, lists, bold/italic, align, …) plus
- * headings, Banner/Code/Media/EventCheckout/Map blocks, toolbars, and horizontal rules.
+ * headings, Banner/Code/Media/EventCheckout/GiftVoucherCheckout/Map blocks, toolbars, and horizontal rules.
  *
  * Use as `editor: defaultLexical` on richText fields and as `payload.config.editor`.
  * For nested editors inside those blocks, use `simpleLexical` instead.
@@ -66,7 +67,9 @@ export const defaultLexical = lexicalEditor({
       ...withoutLink,
       linkFeature,
       HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
-      BlocksFeature({ blocks: [Banner, Code, MediaBlock, EventCheckout, Map] }),
+      BlocksFeature({
+        blocks: [Banner, Code, MediaBlock, EventCheckout, GiftVoucherCheckout, Map],
+      }),
       FixedToolbarFeature(),
       InlineToolbarFeature(),
       HorizontalRuleFeature(),

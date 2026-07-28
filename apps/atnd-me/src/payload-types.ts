@@ -566,23 +566,7 @@ export interface Page {
         blockName?: string | null;
         blockType: 'dhLiveMembership';
       }
-    | {
-        /**
-         * Optional title shown above the checkout form.
-         */
-        heading?: string | null;
-        /**
-         * Minimum gift voucher amount in euros (must be at least €5).
-         */
-        minAmount?: number | null;
-        /**
-         * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-         */
-        maxAmount?: number | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'giftVoucherCheckout';
-      }
+    | GiftVoucherCheckoutBlock
     | CroiLanHeroWithLocationBlock
     | ClFindSanctuaryBlock
     | ClMissionBlock
@@ -1525,23 +1509,7 @@ export interface ThreeColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
-        | {
-            /**
-             * Optional title shown above the checkout form.
-             */
-            heading?: string | null;
-            /**
-             * Minimum gift voucher amount in euros (must be at least €5).
-             */
-            minAmount?: number | null;
-            /**
-             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-             */
-            maxAmount?: number | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'giftVoucherCheckout';
-          }
+        | GiftVoucherCheckoutBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -2640,6 +2608,27 @@ export interface DhGroupsBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GiftVoucherCheckoutBlock".
+ */
+export interface GiftVoucherCheckoutBlock {
+  /**
+   * Optional title shown above the checkout form.
+   */
+  heading?: string | null;
+  /**
+   * Minimum gift voucher amount in euros (must be at least €5).
+   */
+  minAmount?: number | null;
+  /**
+   * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
+   */
+  maxAmount?: number | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'giftVoucherCheckout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock".
  */
 export interface CroiLanHeroWithLocationBlock {
@@ -2973,23 +2962,7 @@ export interface TwoColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
-        | {
-            /**
-             * Optional title shown above the checkout form.
-             */
-            heading?: string | null;
-            /**
-             * Minimum gift voucher amount in euros (must be at least €5).
-             */
-            minAmount?: number | null;
-            /**
-             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-             */
-            maxAmount?: number | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'giftVoucherCheckout';
-          }
+        | GiftVoucherCheckoutBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3093,23 +3066,7 @@ export interface TwoColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
-        | {
-            /**
-             * Optional title shown above the checkout form.
-             */
-            heading?: string | null;
-            /**
-             * Minimum gift voucher amount in euros (must be at least €5).
-             */
-            minAmount?: number | null;
-            /**
-             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-             */
-            maxAmount?: number | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'giftVoucherCheckout';
-          }
+        | GiftVoucherCheckoutBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -4574,15 +4531,7 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
         clMission?: T | ClMissionBlockSelect<T>;
@@ -4927,15 +4876,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5557,6 +5498,17 @@ export interface DhGroupsBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GiftVoucherCheckoutBlock_select".
+ */
+export interface GiftVoucherCheckoutBlockSelect<T extends boolean = true> {
+  heading?: T;
+  minAmount?: T;
+  maxAmount?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock_select".
  */
 export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
@@ -5831,15 +5783,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5956,15 +5900,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
