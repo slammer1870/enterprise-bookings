@@ -4,6 +4,7 @@ import config from '@/payload.config'
 
 import { claimTenant } from '@/lib/onboarding/claimTenant'
 import { getUserTenantIDs } from '@/access/tenant-scoped'
+import { systemUserWriteContext } from '@/lib/auth/systemUserWriteContext'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -225,6 +226,97 @@ describe('Self-serve tenant claim', () => {
         expect(result.code).toBe('invalid_slug')
         expect(result.status).toBe(400)
       }
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'preserves staff/location-manager on other tenants when existing email claims',
+    async () => {
+      const stamp = Date.now()
+      const email = `preserve-roles-${stamp}@example.com`
+      const headers = new Headers({ host: 'localhost:3000' })
+
+      const staffTenant = await payload.create({
+        collection: 'tenants',
+        data: {
+          name: `Staff Org ${stamp}`,
+          slug: `staff-org-${stamp}`,
+          timeZone: 'Europe/Dublin',
+        },
+        overrideAccess: true,
+      })
+      const lmTenant = await payload.create({
+        collection: 'tenants',
+        data: {
+          name: `LM Org ${stamp}`,
+          slug: `lm-org-${stamp}`,
+          timeZone: 'Europe/Dublin',
+        },
+        overrideAccess: true,
+      })
+
+      const existing = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Multi Role User',
+          email,
+          password: `preserve-${stamp}-Aa1!`,
+          emailVerified: true,
+          role: ['staff'],
+          tenants: [
+            { tenant: Number(staffTenant.id), roles: ['staff'] },
+            { tenant: Number(lmTenant.id), roles: ['location-manager'] },
+          ],
+        },
+        overrideAccess: true,
+        depth: 0,
+        context: systemUserWriteContext({
+          allowedRoles: ['admin', 'user', 'staff', 'location-manager'],
+        }),
+      })
+
+      magicLinkCalls.length = 0
+      const result = await claimTenant({
+        payload,
+        headers,
+        sendMagicLink,
+        input: {
+          slug: `claim-preserve-${stamp}`,
+          tenantName: `Claim Preserve ${stamp}`,
+          name: 'Multi Role User',
+          email,
+        },
+      })
+      expect(result.ok).toBe(true)
+      if (!result.ok) return
+
+      expect(result.userId).toBe(Number(existing.id))
+
+      const user = await payload.findByID({
+        collection: 'users',
+        id: existing.id,
+        depth: 0,
+        overrideAccess: true,
+      })
+      const memberships = Array.isArray(user?.tenants) ? user.tenants : []
+      const rolesFor = (tenantId: number) => {
+        const row = memberships.find((m) => {
+          const t =
+            typeof m?.tenant === 'object' && m?.tenant != null && 'id' in m.tenant
+              ? Number((m.tenant as { id: unknown }).id)
+              : Number(m?.tenant)
+          return t === tenantId
+        })
+        return Array.isArray(row?.roles) ? row.roles.map(String) : []
+      }
+
+      expect(rolesFor(Number(staffTenant.id))).toEqual(expect.arrayContaining(['staff']))
+      expect(rolesFor(Number(lmTenant.id))).toEqual(
+        expect.arrayContaining(['location-manager']),
+      )
+      expect(rolesFor(result.tenantId)).toEqual(expect.arrayContaining(['admin']))
+      expect(getUserTenantIDs(user as never, 'admin')).toContain(result.tenantId)
     },
     TEST_TIMEOUT,
   )
