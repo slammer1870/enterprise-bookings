@@ -19,10 +19,23 @@ export function normalizeGoogleMapsEmbedUrl(input: string | null | undefined): s
     return raw
   }
 
-  // Share link with @lat,lng
+  // Share link with @lat,lng — keep pin accurate; place name is resolved separately for captions
   const at = raw.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
   if (at) {
     return `https://maps.google.com/maps?q=${at[1]},${at[2]}&z=15&output=embed`
+  }
+
+  // /maps/place/Business+Name/... — embed by place name so the pin shows the business
+  const placeSeg = raw.match(/\/maps\/place\/([^/]+)/i)?.[1]
+  if (placeSeg) {
+    try {
+      const name = decodeURIComponent(placeSeg.replace(/\+/g, ' ')).trim()
+      if (name && !/^0x/i.test(name) && !/^data=/i.test(name)) {
+        return `https://maps.google.com/maps?q=${encodeURIComponent(name)}&output=embed`
+      }
+    } catch {
+      // fall through
+    }
   }
 
   // Any other Google Maps / short link — use as the query target

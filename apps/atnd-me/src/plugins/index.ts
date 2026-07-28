@@ -423,6 +423,23 @@ export const plugins: Plugin[] = [
     checkoutHoldCollection: 'booking-checkout-holds',
     timeslotOverrides: {
       versions: false,
+      // Relationship pickers (e.g. Event page block) show start time instead of raw IDs.
+      // Must spread plugin defaults so we keep the custom TimeslotAdmin list view.
+      admin: {
+        group: 'Bookings',
+        useAsTitle: 'startTime',
+        components: {
+          views: {
+            list: {
+              Component:
+                '@repo/bookings-plugin/src/components/lessons/timeslot-admin#TimeslotAdmin',
+            },
+          },
+        },
+        pagination: {
+          defaultLimit: 100,
+        },
+      },
       indexes: [
         { fields: ['startTime', 'tenant'] },
         { fields: ['tenant', 'branch', 'startTime'] },

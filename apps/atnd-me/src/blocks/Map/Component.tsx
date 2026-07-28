@@ -2,14 +2,18 @@
 
 import React, { useEffect, useState } from 'react'
 
+import { extractGoogleMapsPlaceName } from '@/utilities/extractGoogleMapsPlaceName'
 import { normalizeGoogleMapsEmbedUrl } from '@/utilities/normalizeGoogleMapsEmbedUrl'
 
 export type MapBlockProps = {
   mapUrl?: string | null
   caption?: string | null
+  /** Pre-resolved embed src (e.g. from server). Skips client normalize when set. */
+  embedSrc?: string | null
+  /** Pre-resolved business / place name from the maps URL. */
+  placeName?: string | null
   /** @deprecated older lexical embeds */
   address?: string | null
-  placeName?: string | null
   blockType?: 'map'
   className?: string
 }
@@ -21,23 +25,43 @@ function isShortMapsLink(url: string): boolean {
 export function MapBlock({
   mapUrl,
   caption,
+  embedSrc: embedSrcProp,
+  placeName: placeNameProp,
   address,
-  placeName,
   className,
 }: MapBlockProps) {
   const pasted = (mapUrl || address || '').trim()
-  const [src, setSrc] = useState<string | null>(() =>
-    pasted && !isShortMapsLink(pasted) ? normalizeGoogleMapsEmbedUrl(pasted) : null,
-  )
+  const initialPlace =
+    (typeof placeNameProp === 'string' && placeNameProp.trim()) ||
+    extractGoogleMapsPlaceName(pasted) ||
+    null
+
+  const [src, setSrc] = useState<string | null>(() => {
+    if (typeof embedSrcProp === 'string' && embedSrcProp.trim()) return embedSrcProp.trim()
+    if (pasted && !isShortMapsLink(pasted)) return normalizeGoogleMapsEmbedUrl(pasted)
+    return null
+  })
+  const [resolvedPlaceName, setResolvedPlaceName] = useState<string | null>(initialPlace)
 
   useEffect(() => {
+    const propSrc = typeof embedSrcProp === 'string' ? embedSrcProp.trim() : ''
+    const propPlace = typeof placeNameProp === 'string' ? placeNameProp.trim() : ''
+
+    if (propSrc) {
+      setSrc(propSrc)
+      setResolvedPlaceName(propPlace || extractGoogleMapsPlaceName(pasted) || null)
+      return
+    }
+
     if (!pasted) {
       setSrc(null)
+      setResolvedPlaceName(null)
       return
     }
 
     if (!isShortMapsLink(pasted)) {
       setSrc(normalizeGoogleMapsEmbedUrl(pasted))
+      setResolvedPlaceName(propPlace || extractGoogleMapsPlaceName(pasted) || null)
       return
     }
 
@@ -47,21 +71,30 @@ export function MapBlock({
         const res = await fetch(
           `/api/maps/resolve-embed?url=${encodeURIComponent(pasted)}`,
         )
-        const data = (await res.json()) as { embedSrc?: string | null }
+        const data = (await res.json()) as {
+          embedSrc?: string | null
+          placeName?: string | null
+        }
         if (!cancelled) {
           setSrc(data.embedSrc || normalizeGoogleMapsEmbedUrl(pasted))
+          setResolvedPlaceName(
+            propPlace || data.placeName || extractGoogleMapsPlaceName(pasted) || null,
+          )
         }
       } catch {
-        if (!cancelled) setSrc(normalizeGoogleMapsEmbedUrl(pasted))
+        if (!cancelled) {
+          setSrc(normalizeGoogleMapsEmbedUrl(pasted))
+          setResolvedPlaceName(propPlace || extractGoogleMapsPlaceName(pasted) || null)
+        }
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [pasted])
+  }, [pasted, embedSrcProp, placeNameProp])
 
-  const label = (caption || placeName || '').trim()
+  const label = (caption || resolvedPlaceName || '').trim()
 
   if (!src) {
     if (!pasted) return null

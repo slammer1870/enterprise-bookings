@@ -15,6 +15,7 @@ import {
   resolveDropInFromEventType,
 } from '@/components/events/eventPageTypes'
 import type { EventType, StaffMember, Media, Tenant } from '@/payload-types'
+import { resolveGoogleMapsEmbed } from '@/utilities/resolveGoogleMapsEmbedUrl'
 
 type EventDetailViewProps = {
   timeslot: EventPageTimeslot
@@ -74,14 +75,22 @@ export async function EventDetailView({
   const mapFromUrl = typeof mapUrl === 'string' ? mapUrl.trim() : ''
   const mapFromBranch = loc?.address || loc?.name || ''
   const resolvedMapUrl = mapFromUrl || mapFromBranch || null
+  const mapsEmbed = resolvedMapUrl ? await resolveGoogleMapsEmbed(resolvedMapUrl) : null
+  // Prefer the business name from the pasted Maps link; fall back to branch name.
+  const mapCaption =
+    (mapFromUrl ? mapsEmbed?.placeName : null) ||
+    loc?.name ||
+    mapsEmbed?.placeName ||
+    loc?.address ||
+    null
 
   const serializableTimeslot = JSON.parse(JSON.stringify(timeslot))
 
   return (
-    <div className="space-y-10 py-8">
-      <section className="relative flex min-h-[36vh] w-full items-end overflow-hidden rounded-2xl md:min-h-[44vh]">
-        {coverUrl ? (
-          <div className="absolute inset-0 z-0">
+    <div className="space-y-10 pt-24 pb-8 md:pt-28 lg:pt-32">
+      <header className="space-y-6">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl md:aspect-[21/9]">
+          {coverUrl ? (
             <Image
               src={coverUrl}
               alt={cover?.alt || title}
@@ -90,24 +99,21 @@ export async function EventDetailView({
               className="object-cover"
               priority
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/35 to-black/20" />
-          </div>
-        ) : (
-          <div className="absolute inset-0 z-0 bg-gradient-to-br from-stone-800 via-stone-700 to-stone-900" />
-        )}
-        <div className="relative z-10 w-full px-6 pb-8 pt-20 md:px-10 md:pb-10">
-          <p className="mb-2 text-sm font-medium uppercase tracking-wide text-white/80">
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-stone-800 via-stone-700 to-stone-900" />
+          )}
+        </div>
+        <div>
+          <p className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
             {dateLabel}
           </p>
-          <h1 className="max-w-3xl text-4xl font-bold text-white drop-shadow-md md:text-5xl">
-            {title}
-          </h1>
-          <p className="mt-3 text-base text-white/90 md:text-lg">{timeLabel}</p>
+          <h1 className="max-w-3xl text-4xl font-bold text-foreground md:text-5xl">{title}</h1>
+          <p className="mt-3 text-base text-muted-foreground md:text-lg">{timeLabel}</p>
         </div>
-      </section>
+      </header>
 
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="space-y-10">
+      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_auto]">
+        <div className="space-y-10 lg:col-start-1 lg:row-start-1">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
             {loc ? <span>{loc.name}</span> : null}
             {timeslot.location ? <span>{timeslot.location}</span> : null}
@@ -137,7 +143,6 @@ export async function EventDetailView({
           ) : null}
 
           <section>
-            <h2 className="mb-4 text-2xl font-semibold text-foreground">About event</h2>
             {aboutRichText ? (
               <RichText data={aboutRichText} enableGutter={false} />
             ) : aboutFallback ? (
@@ -146,20 +151,9 @@ export async function EventDetailView({
               <p className="text-muted-foreground">Details coming soon.</p>
             )}
           </section>
-
-          {resolvedMapUrl ? (
-            <section>
-              <h2 className="mb-4 text-2xl font-semibold text-foreground">Location</h2>
-              <MapBlock
-                mapUrl={resolvedMapUrl}
-                caption={loc?.name || loc?.address || null}
-                className="my-0 not-prose w-full"
-              />
-            </section>
-          ) : null}
         </div>
 
-        <div>
+        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-28">
           <EventTicketPanel
             timeslot={serializableTimeslot}
             dropIn={
@@ -177,6 +171,19 @@ export async function EventDetailView({
             AuthenticatedCheckout={EventAuthenticatedCheckout}
           />
         </div>
+
+        {resolvedMapUrl ? (
+          <section className="lg:col-start-1 lg:row-start-2">
+            <h2 className="mb-4 text-2xl font-semibold text-foreground">Location</h2>
+            <MapBlock
+              mapUrl={resolvedMapUrl}
+              embedSrc={mapsEmbed?.embedSrc}
+              placeName={mapsEmbed?.placeName}
+              caption={mapCaption}
+              className="my-0 not-prose w-full"
+            />
+          </section>
+        ) : null}
       </div>
     </div>
   )

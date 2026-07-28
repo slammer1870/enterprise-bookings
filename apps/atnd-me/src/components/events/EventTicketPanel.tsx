@@ -157,7 +157,7 @@ export function EventTicketPanel({
 
   return (
     <aside
-      className="rounded-xl border border-border bg-card p-5 shadow-sm lg:sticky lg:top-24"
+      className="rounded-xl border border-border bg-card p-5 shadow-sm"
       data-testid="event-ticket-panel"
     >
       <div className="flex items-baseline justify-between gap-3">

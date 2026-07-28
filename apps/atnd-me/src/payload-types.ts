@@ -2635,7 +2635,11 @@ export interface GiftVoucherCheckoutBlock {
  */
 export interface EventBlock {
   /**
-   * Bookable timeslot for this event page. Date, time, host, capacity, and ticket price come from the timeslot / event type.
+   * Choose the event type first to narrow the timeslot list.
+   */
+  eventType: number | EventType;
+  /**
+   * Upcoming active timeslots for the selected event type. Date, time, host, capacity, and ticket price come from the timeslot / event type.
    */
   timeslot: number | Timeslot;
   /**
@@ -5557,6 +5561,7 @@ export interface GiftVoucherCheckoutBlockSelect<T extends boolean = true> {
  * via the `definition` "EventBlock_select".
  */
 export interface EventBlockSelect<T extends boolean = true> {
+  eventType?: T;
   timeslot?: T;
   coverImage?: T;
   about?: T;
@@ -6930,7 +6935,11 @@ export interface CodeBlock {
  */
 export interface EventCheckoutBlock {
   /**
-   * Checkout quantity, fees, and Stripe payment for this timeslot.
+   * Choose the event type first to narrow the timeslot list.
+   */
+  eventType: number | EventType;
+  /**
+   * Upcoming active timeslots for the selected event type. Checkout quantity, fees, and Stripe payment bind to this timeslot.
    */
   timeslot: number | Timeslot;
   id?: string | null;
