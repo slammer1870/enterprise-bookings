@@ -66,6 +66,12 @@ type PaymentMethodsProps = {
     _metadata: Record<string, string>
   ) => Promise<Record<string, string> | void>;
   checkoutLegal?: CheckoutLegalConfig;
+  /**
+   * Limit which payment method tabs are offered.
+   * Omit to show all available methods (drop-in, class pass, membership).
+   * Example: `['dropin']` for card/drop-in only (e.g. public event checkout).
+   */
+  enabledMethods?: Array<"dropin" | "classpass" | "membership">;
 };
 
 type CheckoutSessionInput = {
@@ -342,10 +348,20 @@ export function PaymentMethods({
   successUrl: successUrlProp,
   onReserveCheckoutHold,
   checkoutLegal,
+  enabledMethods,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const methodEnabled = useCallback(
+    (method: "dropin" | "classpass" | "membership") =>
+      !enabledMethods || enabledMethods.includes(method),
+    [enabledMethods],
+  );
+  const dropInOnly =
+    Array.isArray(enabledMethods) &&
+    enabledMethods.length === 1 &&
+    enabledMethods[0] === "dropin";
   const initialDiscountCode = (searchParams?.get("discount") || "").trim() || undefined;
   const [discountCodeInput, setDiscountCodeInput] = useState(initialDiscountCode ?? "");
   const [appliedDiscountCode, setAppliedDiscountCode] = useState<string | undefined>(
@@ -416,26 +432,29 @@ export function PaymentMethods({
   }, [tenantId, trpc.payments.getSubscriptionFeeBreakdown]);
 
   // Get subscription data for this timeslot using tRPC
-  const { data: subscriptionData } = useQuery(
-    trpc.subscriptions.getSubscriptionForTimeslot.queryOptions({
+  const { data: subscriptionData } = useQuery({
+    ...trpc.subscriptions.getSubscriptionForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
-    })
-  );
+    }),
+    enabled: methodEnabled("membership"),
+  });
 
   // Get valid class passes for this timeslot (Phase 4.6)
-  const { data: validClassPasses = [], isLoading: isLoadingValidPasses, isFetching: isFetchingValidPasses } = useQuery(
-    trpc.bookings.getValidClassPassesForTimeslot.queryOptions({
+  const { data: validClassPasses = [], isLoading: isLoadingValidPasses, isFetching: isFetchingValidPasses } = useQuery({
+    ...trpc.bookings.getValidClassPassesForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
-    })
-  );
-  const { data: purchasableClassPassTypes = [], isLoading: isLoadingPurchasable, isFetching: isFetchingPurchasable } = useQuery(
-    trpc.bookings.getPurchasableClassPassTypesForTimeslot.queryOptions({
+    }),
+    enabled: methodEnabled("classpass"),
+  });
+  const { data: purchasableClassPassTypes = [], isLoading: isLoadingPurchasable, isFetching: isFetchingPurchasable } = useQuery({
+    ...trpc.bookings.getPurchasableClassPassTypesForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
-    })
-  );
+    }),
+    enabled: methodEnabled("classpass"),
+  });
   const isLoadingClassPassOptions =
     isLoadingValidPasses || isLoadingPurchasable || isFetchingValidPasses || isFetchingPurchasable;
 
@@ -896,27 +915,34 @@ export function PaymentMethods({
       return effectiveMax === Infinity || quantity <= effectiveMax;
     });
   const hasClassPassTab =
-    (Boolean(allowedClassPasses?.length) && anyClassPassTypeAllowsQuantity) ||
-    classPassesWithEnoughCredits.length > 0 ||
-    purchasablePassesForQuantity.length > 0;
+    methodEnabled("classpass") &&
+    ((Boolean(allowedClassPasses?.length) && anyClassPassTypeAllowsQuantity) ||
+      classPassesWithEnoughCredits.length > 0 ||
+      purchasablePassesForQuantity.length > 0);
 
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
   let hasMembershipTab =
-    activePlans.length > 0 || Boolean(hasSubscriptionWithPlan);
+    methodEnabled("membership") &&
+    (activePlans.length > 0 || Boolean(hasSubscriptionWithPlan));
   // Show drop-in when: (1) no usable membership, (2) quantity > 1 and drop-in allows multiple,
   // or (3) the user's plan caps at 1 booking per timeslot — in that case the membership cannot
   // cover an additional slot so drop-in must remain available as a fallback.
-  let hasDropInTab =
-    Boolean(allowedDropIn) &&
-    (!(hasSubscriptionWithPlan && subscriptionUsableForBooking) ||
-      (quantity > 1 && dropInAllowsQuantity(allowedDropIn as DropIn, quantity)) ||
-      userPlanMaxPerTimeslot === 1);
+  // Card-only flows (e.g. event checkout) always offer drop-in when configured.
+  let hasDropInTab = methodEnabled("dropin")
+    ? dropInOnly
+      ? Boolean(allowedDropIn)
+      : Boolean(allowedDropIn) &&
+        (!(hasSubscriptionWithPlan && subscriptionUsableForBooking) ||
+          (quantity > 1 && dropInAllowsQuantity(allowedDropIn as DropIn, quantity)) ||
+          userPlanMaxPerTimeslot === 1)
+    : false;
 
   if (quantity > 1) {
     hasMembershipTab =
-      activePlans.length > 0 ||
-      Boolean(hasSubscriptionWithPlan && userPlanAllowsQuantity);
+      methodEnabled("membership") &&
+      (activePlans.length > 0 ||
+        Boolean(hasSubscriptionWithPlan && userPlanAllowsQuantity));
     hasDropInTab =
       hasDropInTab && dropInAllowsQuantity(allowedDropIn as DropIn, quantity);
   }

@@ -70,6 +70,7 @@ export function EventAuthenticatedCheckout({
       timeslot={timeslot}
       quantity={quantity}
       successUrl={successUrl}
+      enabledMethods={['dropin']}
       onReserveCheckoutHold={onReserveCheckoutHold}
       onPaymentRedirectStart={() => {
         paymentRedirectInProgressRef.current = true
