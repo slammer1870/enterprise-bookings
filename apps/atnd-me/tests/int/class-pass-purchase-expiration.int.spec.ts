@@ -18,7 +18,7 @@ import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/stripe/webhook/route'
 import * as webhookVerify from '@/lib/stripe-connect/webhookVerify'
 import * as webhookProcessed from '@/lib/stripe-connect/webhookProcessed'
-import { createPaymentIntentSucceededEvent } from '../helpers/stripe-webhook-event'
+import { createPaymentIntentSucceededEvent, createCheckoutSessionCompletedEvent } from '../helpers/stripe-webhook-event'
 import { classPassExpirationDateOnly } from '@repo/bookings-payments'
 
 const HOOK_TIMEOUT = 300000
@@ -167,6 +167,89 @@ describe('Class pass purchase expiration (Stripe webhook)', () => {
       expect(String(pass.expirationDate).slice(0, 10)).toBe(
         classPassExpirationDateOnly(fixedPurchaseTime, 30),
       )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'checkout.session.completed with no PaymentIntent (100% discount / €0) still assigns the class pass',
+    async () => {
+      vi.useFakeTimers({ now: fixedPurchaseTime, toFake: ['Date'] })
+      let res: Response
+      try {
+        const event = createCheckoutSessionCompletedEvent({
+          id: 'evt_class_pass_exp_zero',
+          account: connectAccountId,
+          sessionId: 'cs_class_pass_exp_zero',
+          amountTotal: 0,
+          paymentIntent: null,
+          metadata: {
+            type: 'class_pass_purchase',
+            userId: String(userId),
+            tenantId: String(tenantId),
+            classPassTypeId: String(classPassTypeId),
+          },
+        })
+        vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+        res = await POST(request(JSON.stringify(event)))
+      } finally {
+        vi.useRealTimers()
+      }
+
+      expect(res.status).toBe(200)
+
+      const passes = await payload.find({
+        collection: 'class-passes',
+        where: {
+          and: [
+            { user: { equals: userId } },
+            { type: { equals: classPassTypeId } },
+            { transactionId: { equals: 'cs_class_pass_exp_zero' } },
+          ],
+        },
+        overrideAccess: true,
+      })
+      expect(passes.docs).toHaveLength(1)
+      const pass = passes.docs[0] as { expirationDate?: string; quantity?: number }
+      expect(pass.quantity).toBe(10)
+      expect(String(pass.expirationDate).slice(0, 10)).toBe(
+        classPassExpirationDateOnly(fixedPurchaseTime, 30),
+      )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'checkout.session.completed with a PaymentIntent does not double-assign (paid path uses PI webhook)',
+    async () => {
+      const event = createCheckoutSessionCompletedEvent({
+        id: 'evt_class_pass_exp_paid_session',
+        account: connectAccountId,
+        sessionId: 'cs_class_pass_exp_paid',
+        amountTotal: 2500,
+        paymentIntent: 'pi_class_pass_exp_paid_session',
+        metadata: {
+          type: 'class_pass_purchase',
+          userId: String(userId),
+          tenantId: String(tenantId),
+          classPassTypeId: String(classPassTypeId),
+        },
+      })
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const passes = await payload.find({
+        collection: 'class-passes',
+        where: {
+          and: [
+            { user: { equals: userId } },
+            { transactionId: { equals: 'cs_class_pass_exp_paid' } },
+          ],
+        },
+        overrideAccess: true,
+      })
+      expect(passes.docs).toHaveLength(0)
     },
     TEST_TIMEOUT,
   )

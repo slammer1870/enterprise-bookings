@@ -1,6 +1,6 @@
 /**
- * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*, product.*, price.*,
- * coupon.*, promotion_code.*.
+ * Stripe Connect webhook: account.*, payment_intent.succeeded, checkout.session.completed,
+ * customer.subscription.*, product.*, price.*, coupon.*, promotion_code.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
@@ -39,15 +39,9 @@ import {
 } from '@/lib/stripe-connect/webhook/sync-products'
 import { syncDiscountFromWebhookEvent } from '@/lib/stripe-connect/webhook/sync-discount-codes'
 import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
-import {
-  resolveDaysUntilExpiration,
-  classPassExpirationDateOnly,
-  findUserByCustomer,
-} from '@repo/bookings-payments'
-import {
-  handleClassPassGiftRemainder,
-  handleSubscriptionGiftBalance,
-} from '@/lib/stripe-connect/webhook/checkout-gift-credit'
+import { findUserByCustomer } from '@repo/bookings-payments'
+import { handleSubscriptionGiftBalance } from '@/lib/stripe-connect/webhook/checkout-gift-credit'
+import { assignClassPassFromPurchase } from '@/lib/stripe-connect/webhook/assign-class-pass-from-purchase'
 import {
   issuePurchasedGiftVoucher,
   parseGiftVoucherPurchaseMetadata,
@@ -132,70 +126,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ received: true }, { status: 200 })
     }
 
-    // Class pass purchase
-    if (
-      tenant &&
-      meta.type === 'class_pass_purchase' &&
-      !meta.bookingId
-    ) {
-      const userId = meta.userId
-      const classPassTypeId = meta.classPassTypeId ? parseInt(meta.classPassTypeId, 10) : NaN
-      const transactionId = obj?.id ?? null
-      if (userId && Number.isFinite(classPassTypeId) && classPassTypeId > 0) {
-        const classPassType = (await payload.findByID({
-          collection: 'class-pass-types' as import('payload').CollectionSlug,
-          id: classPassTypeId,
-          depth: 0,
-          overrideAccess: true,
-        }).catch(() => null)) as { quantity?: number; daysUntilExpiration?: number } | null
-        const passCredits =
-          classPassType && typeof classPassType.quantity === 'number'
-            ? classPassType.quantity
-            : 0
-
-        if (passCredits < 1) {
-          markStripeConnectEventProcessed(event.id)
-          return NextResponse.json({ received: true }, { status: 200 })
-        }
-
-        const now = new Date()
-        const daysUntilExpiration = resolveDaysUntilExpiration(classPassType ?? {})
-        const expirationDate = new Date(now)
-        expirationDate.setDate(expirationDate.getDate() + daysUntilExpiration)
-        const expirationDateISO = expirationDate.toISOString()
-        const expirationDateOnly = expirationDateISO.slice(0, 10)
-        await payload.create({
-          collection: 'class-passes' as import('payload').CollectionSlug,
-          draft: false,
-          data: {
-            user: Number(userId),
-            tenant: tenant.id,
-            type: classPassTypeId,
-            quantity: passCredits,
-            // Payload `date` fields treat string inputs as date-only in local time
-            // and can shift the resulting stored UTC day. Use a full ISO timestamp
-            // so integration tests (and real clients) get stable YYYY-MM-DD.
-            expirationDate: expirationDateISO,
-            purchasedAt: now.toISOString().slice(0, 10),
-            status: 'active',
-            ...(transactionId ? { transactionId } : {}),
-          } as Record<string, unknown>,
-          ...(paymentIntentTenantContext ? { context: paymentIntentTenantContext } : {}),
-          overrideAccess: true,
+    // Class pass purchase (paid Checkout / PaymentIntent path)
+    if (tenant && meta.type === 'class_pass_purchase' && !meta.bookingId) {
+      const paymentIntentId =
+        typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      if (paymentIntentId) {
+        await assignClassPassFromPurchase({
+          payload,
+          tenantId: tenant.id,
+          metadata: meta,
+          transactionId: paymentIntentId,
+          tenantContext: paymentIntentTenantContext,
         })
-
-        const paymentIntentId =
-          typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
-        const userIdNum = Number(userId)
-        if (paymentIntentId && Number.isFinite(userIdNum) && userIdNum > 0) {
-          await handleClassPassGiftRemainder({
-            payload,
-            tenantId: tenant.id,
-            userId: userIdNum,
-            paymentIntentId,
-            metadata: meta,
-          })
-        }
       }
     }
 
@@ -327,6 +269,53 @@ export async function POST(request: NextRequest) {
           tenantId: tenant.id,
           tenantContext: paymentIntentTenantContext,
         })
+      }
+    }
+
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
+
+  // Zero-amount Checkout (100% discount): Stripe completes the session as paid with no
+  // PaymentIntent, so payment_intent.succeeded never fires. Assign class passes here.
+  if (event.type === 'checkout.session.completed') {
+    const obj = event.data?.object as {
+      id?: string
+      mode?: string
+      payment_status?: string
+      payment_intent?: string | { id?: string } | null
+      metadata?: Record<string, string>
+    } | undefined
+    const meta = obj?.metadata ?? {}
+    const paymentIntentRaw = obj?.payment_intent
+    const hasPaymentIntent =
+      (typeof paymentIntentRaw === 'string' && paymentIntentRaw.trim().length > 0) ||
+      (paymentIntentRaw != null &&
+        typeof paymentIntentRaw === 'object' &&
+        typeof paymentIntentRaw.id === 'string' &&
+        paymentIntentRaw.id.trim().length > 0)
+
+    if (
+      obj?.mode === 'payment' &&
+      obj.payment_status === 'paid' &&
+      !hasPaymentIntent &&
+      meta.type === 'class_pass_purchase'
+    ) {
+      const accountId = getAccountIdFromEvent(event)
+      const tenant = await resolveTenant(payload, accountId, meta.tenantId)
+      const sessionId = typeof obj.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      if (tenant && sessionId) {
+        await assignClassPassFromPurchase({
+          payload,
+          tenantId: tenant.id,
+          metadata: meta,
+          transactionId: sessionId,
+          tenantContext: { tenant: tenant.id },
+        })
+      } else {
+        payload.logger?.error?.(
+          `checkout.session.completed: class_pass_purchase skipped (tenant=${tenant?.id ?? 'null'}, session=${sessionId ?? 'null'})`,
+        )
       }
     }
 

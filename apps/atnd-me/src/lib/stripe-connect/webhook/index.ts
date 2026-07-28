@@ -14,3 +14,5 @@ export {
   confirmBookingsFromSubscriptionMetadata,
   findOrCreateAndConfirmBookingForTimeslot,
 } from './confirm-bookings'
+export { assignClassPassFromPurchase } from './assign-class-pass-from-purchase'
+export type { AssignClassPassFromPurchaseResult } from './assign-class-pass-from-purchase'

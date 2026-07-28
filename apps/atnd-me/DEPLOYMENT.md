@@ -79,7 +79,8 @@ atnd-me uses **one URL** for all webhooks (`/api/stripe/webhook`) but **two webh
 
 1. Go to **Developers → Webhooks** (or **Connect → Webhooks**).
 2. For **Connect**, use “Listen to events on Connected accounts” and add the endpoint URL above.
-3. Select events: `payment_intent.succeeded`, `account.updated`, `account.application.deauthorized`, `customer.subscription.*`, `product.updated`, `product.deleted`, `price.created`, `price.updated`, `price.deleted`, `coupon.updated`, `coupon.deleted`, `promotion_code.created`, `promotion_code.updated`. Copy the **Signing secret** → `STRIPE_CONNECT_WEBHOOK_SECRET`.
+3. Select events: `payment_intent.succeeded`, `checkout.session.completed`, `account.updated`, `account.application.deauthorized`, `customer.subscription.*`, `product.updated`, `product.deleted`, `price.created`, `price.updated`, `price.deleted`, `coupon.updated`, `coupon.deleted`, `promotion_code.created`, `promotion_code.updated`. Copy the **Signing secret** → `STRIPE_CONNECT_WEBHOOK_SECRET`.
+   - `checkout.session.completed` is required for **€0 / 100% discount** Checkout: Stripe marks the session paid with no PaymentIntent, so class-pass assignment cannot rely on `payment_intent.succeeded` alone.
 4. Add a **second** endpoint (same URL). Do **not** enable "Listen to events on Connected accounts". Select `payment_intent.succeeded` and `customer.subscription.*`. Copy its **Signing secret** → `STRIPE_WEBHOOK_SECRET`.
 
 ### Subscription management
