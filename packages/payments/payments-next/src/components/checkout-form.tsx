@@ -67,17 +67,20 @@ function PaymentForm({
 
   const [message, setMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  // useStripe/useElements resolve before PaymentElement's iframe is ready.
+  // Confirming too early throws IntegrationError on slower mobile browsers.
+  const [elementReady, setElementReady] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!stripe || !elements) {
-      // Stripe.js hasn't yet loaded.
-      // Make sure to disable form submission until Stripe.js has loaded.
+    if (!stripe || !elements || !elementReady) {
+      // Stripe.js hasn't yet loaded, or Payment Element isn't ready.
       return;
     }
 
     setIsLoading(true);
+    setMessage(null);
     onPaymentRedirectStart?.();
     trackEvent("Payment Button Clicked", {
       revenue: { amount: Number(price.toFixed(2)), currency: "EUR" },
@@ -91,28 +94,42 @@ function PaymentForm({
     const fullReturnUrl = baseReturn.startsWith("http")
       ? baseReturn
       : `${origin}${baseReturn.startsWith("/") ? baseReturn : `/${baseReturn}`}`;
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: {
-        return_url: fullReturnUrl,
-      },
-    });
 
-    // This point will only be reached if there is an immediate error when
-    // confirming the payment. Otherwise, your customer will be redirected to
-    // your `return_url`. For some payment methods like iDEAL, your customer will
-    // be redirected to an intermediate site first to authorize the payment, then
-    // redirected to the `return_url`.
-    if (
-      error &&
-      (error.type === "card_error" || error.type === "validation_error")
-    ) {
-      setMessage(error.message || "An unexpected error occurred.");
-    } else if (error) {
-      setMessage("An unexpected error occurred.");
+    try {
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        setMessage(submitError.message || "An unexpected error occurred.");
+        return;
+      }
+
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: {
+          return_url: fullReturnUrl,
+        },
+      });
+
+      // This point will only be reached if there is an immediate error when
+      // confirming the payment. Otherwise, your customer will be redirected to
+      // your `return_url`. For some payment methods like iDEAL, your customer will
+      // be redirected to an intermediate site first to authorize the payment, then
+      // redirected to the `return_url`.
+      if (
+        error &&
+        (error.type === "card_error" || error.type === "validation_error")
+      ) {
+        setMessage(error.message || "An unexpected error occurred.");
+      } else if (error) {
+        setMessage("An unexpected error occurred.");
+      }
+    } catch {
+      // IntegrationError (Element not mounted/ready) rejects instead of returning { error }.
+      setMessage(
+        "Payment form isn't ready. Please wait a moment and try again.",
+      );
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   const paymentElementOptions = {
@@ -124,11 +141,12 @@ function PaymentForm({
       <PaymentElement
         id="payment-element"
         options={paymentElementOptions as StripePaymentElementOptions}
+        onReady={() => setElementReady(true)}
       />
       <div className="flex justify-between items-center">
         {priceComponent}
         <Button
-          disabled={isLoading || !stripe || !elements}
+          disabled={isLoading || !stripe || !elements || !elementReady}
           id="submit"
           className="ml-auto"
         >

@@ -43,21 +43,33 @@ function PaymentStep({ onBack }: { clientSecret: string; onBack: () => void }) {
   const elements = useElements()
   const [message, setMessage] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  // useStripe/useElements resolve before PaymentElement's iframe is ready.
+  const [elementReady, setElementReady] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!stripe || !elements) return
+    if (!stripe || !elements || !elementReady) return
     setIsLoading(true)
     setMessage(null)
     const returnUrl = typeof window !== 'undefined'
       ? `${window.location.origin}/class-passes/purchase?success=1`
       : '/class-passes/purchase?success=1'
-    const { error } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: returnUrl },
-    })
-    if (error?.message) setMessage(error.message)
-    setIsLoading(false)
+    try {
+      const { error: submitError } = await elements.submit()
+      if (submitError) {
+        setMessage(submitError.message || 'An unexpected error occurred.')
+        return
+      }
+      const { error } = await stripe.confirmPayment({
+        elements,
+        confirmParams: { return_url: returnUrl },
+      })
+      if (error?.message) setMessage(error.message)
+    } catch {
+      setMessage("Payment form isn't ready. Please wait a moment and try again.")
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -67,7 +79,7 @@ function PaymentStep({ onBack }: { clientSecret: string; onBack: () => void }) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <PaymentElement />
+          <PaymentElement onReady={() => setElementReady(true)} />
           {message && (
             <p className="text-sm text-red-600" role="alert">{message}</p>
           )}
@@ -75,7 +87,7 @@ function PaymentStep({ onBack }: { clientSecret: string; onBack: () => void }) {
             <Button type="button" variant="outline" onClick={onBack} disabled={isLoading}>
               Back
             </Button>
-            <Button type="submit" disabled={!stripe || !elements || isLoading}>
+            <Button type="submit" disabled={!stripe || !elements || !elementReady || isLoading}>
               {isLoading ? 'Processing…' : 'Pay now'}
             </Button>
           </div>
