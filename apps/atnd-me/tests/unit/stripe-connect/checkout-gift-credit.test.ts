@@ -9,9 +9,13 @@ const consumeDiscountCodeRedemption = vi.fn()
 const issueRemainderDiscountCodeIfNeeded = vi.fn()
 const issueSubscriptionGiftBalanceIfNeeded = vi.fn()
 
-vi.mock('@/lib/stripe-connect/discountCodes', () => ({
-  consumeDiscountCodeRedemption: (...args: unknown[]) => consumeDiscountCodeRedemption(...args),
-}))
+vi.mock('@/lib/stripe-connect/discountCodes', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/stripe-connect/discountCodes')>()
+  return {
+    ...actual,
+    consumeDiscountCodeRedemption: (...args: unknown[]) => consumeDiscountCodeRedemption(...args),
+  }
+})
 
 vi.mock('@/lib/stripe-connect/issueRemainderDiscountCode', () => ({
   issueRemainderDiscountCodeIfNeeded: (...args: unknown[]) =>

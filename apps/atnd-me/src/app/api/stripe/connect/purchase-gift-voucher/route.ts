@@ -1,6 +1,7 @@
 /**
  * Gift voucher purchase: create PaymentIntent for a custom amount.
- * Auth optional — guests must provide name + email; logged-in users use session identity.
+ * Auth optional — name + email always required from the request body.
+ * When logged in, userId is still attached for Stripe customer linking.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -47,38 +48,29 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  let purchaserEmail: string
-  let purchaserName: string
-  let userId: number | null = null
+  const name =
+    typeof (body as { name?: unknown }).name === 'string'
+      ? (body as { name: string }).name.trim()
+      : ''
+  const email =
+    typeof (body as { email?: unknown }).email === 'string'
+      ? (body as { email: string }).email.trim()
+      : ''
 
-  if (user?.id && typeof user.email === 'string' && user.email.trim()) {
-    purchaserEmail = user.email.trim()
-    purchaserName =
-      typeof user.name === 'string' && user.name.trim()
-        ? user.name.trim()
-        : purchaserEmail.split('@')[0] || 'Customer'
+  if (!name) {
+    return NextResponse.json({ error: 'name is required' }, { status: 400 })
+  }
+  if (!email || !EMAIL_RE.test(email)) {
+    return NextResponse.json({ error: 'a valid email is required' }, { status: 400 })
+  }
+
+  const purchaserName = name
+  const purchaserEmail = email
+
+  let userId: number | null = null
+  if (user?.id) {
     userId = typeof user.id === 'number' ? user.id : Number(user.id)
     if (!Number.isFinite(userId) || userId <= 0) userId = null
-  } else {
-    const name =
-      typeof (body as { name?: unknown }).name === 'string'
-        ? (body as { name: string }).name.trim()
-        : ''
-    const email =
-      typeof (body as { email?: unknown }).email === 'string'
-        ? (body as { email: string }).email.trim()
-        : ''
-    if (!name) {
-      return NextResponse.json({ error: 'name is required when not logged in' }, { status: 400 })
-    }
-    if (!email || !EMAIL_RE.test(email)) {
-      return NextResponse.json(
-        { error: 'a valid email is required when not logged in' },
-        { status: 400 },
-      )
-    }
-    purchaserName = name
-    purchaserEmail = email
   }
 
   const tenantSlugOrId = resolveTenantSlugOrId(request)

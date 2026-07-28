@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Gift voucher checkout: amount (+ name/email for guests) + Stripe Payment Element.
+ * Gift voucher checkout: name, email, amount + Stripe Payment Element.
  */
 import { useEffect, useMemo, useState } from 'react'
 import {
@@ -53,7 +53,7 @@ export type GiftVoucherCheckoutFormProps = {
   minAmount?: number | null
   maxAmount?: number | null
   checkoutLegal?: CheckoutLegalConfig | null
-  /** Pre-resolved session user (null = guest). */
+  /** Pre-resolved session user (null = guest). Used to prefill name/email. */
   user: GiftVoucherCheckoutUser
 }
 
@@ -159,7 +159,6 @@ function PaymentStep({
 
 export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
   const user = props.user
-  const isAuthenticated = Boolean(user?.email)
 
   const minAmount = useMemo(() => {
     const raw = typeof props.minAmount === 'number' ? props.minAmount : GIFT_VOUCHER_MIN_EUROS
@@ -174,8 +173,12 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
   }, [props.maxAmount])
 
   const [amount, setAmount] = useState(String(minAmount))
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
+  const [name, setName] = useState(() =>
+    typeof user?.name === 'string' && user.name.trim() ? user.name.trim() : '',
+  )
+  const [email, setEmail] = useState(() =>
+    typeof user?.email === 'string' && user.email.trim() ? user.email.trim() : '',
+  )
   const [clientSecret, setClientSecret] = useState<string | null>(null)
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null)
   const [voucherAmount, setVoucherAmount] = useState<number | null>(null)
@@ -193,7 +196,7 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
     }
   }, [])
 
-  const deliveryEmail = isAuthenticated ? String(user!.email) : email.trim()
+  const deliveryEmail = email.trim()
 
   const parseAmount = (): number | null => {
     const n = Number(amount)
@@ -212,30 +215,27 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
       setIsCreating(false)
       return
     }
-    if (!isAuthenticated) {
-      if (!name.trim()) {
-        setError('Name is required')
-        setIsCreating(false)
-        return
-      }
-      if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-        setError('A valid email is required')
-        setIsCreating(false)
-        return
-      }
+    if (!name.trim()) {
+      setError('Name is required')
+      setIsCreating(false)
+      return
+    }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError('A valid email is required')
+      setIsCreating(false)
+      return
     }
 
     try {
-      const body: Record<string, unknown> = { amount: parsed }
-      if (!isAuthenticated) {
-        body.name = name.trim()
-        body.email = email.trim()
-      }
       const res = await fetch('/api/stripe/connect/purchase-gift-voucher', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          amount: parsed,
+          name: name.trim(),
+          email: email.trim(),
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -336,36 +336,32 @@ export function GiftVoucherCheckoutForm(props: GiftVoucherCheckoutFormProps) {
       <h2 className="text-xl font-semibold tracking-tight">{heading}</h2>
       <p className="text-sm text-muted-foreground">
         Choose a gift voucher amount. After payment, a one-time discount code for that value will
-        be emailed to {isAuthenticated ? 'your account email' : 'the email you enter below'}. The
-        code can be used at checkout for a drop-in, class pass, or membership.
+        be emailed to the address you enter below. The code can be used at checkout for a drop-in,
+        class pass, or membership.
       </p>
 
-      {!isAuthenticated && (
-        <>
-          <div className="space-y-2">
-            <Label htmlFor="gift-voucher-name">Name</Label>
-            <Input
-              id="gift-voucher-name"
-              type="text"
-              autoComplete="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="gift-voucher-email">Email</Label>
-            <Input
-              id="gift-voucher-email"
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
-        </>
-      )}
+      <div className="space-y-2">
+        <Label htmlFor="gift-voucher-name">Name</Label>
+        <Input
+          id="gift-voucher-name"
+          type="text"
+          autoComplete="name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="gift-voucher-email">Email</Label>
+        <Input
+          id="gift-voucher-email"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor="gift-voucher-amount">Amount (€)</Label>
