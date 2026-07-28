@@ -32,6 +32,11 @@ import {
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { cookiesFromHeaders } from '@/utilities/cookiesFromHeaders'
 import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForDocumentWrite'
+import { isSystemUserWrite } from '@/lib/auth/systemUserWriteContext'
+import {
+  assertAnonymousUserCreateRateLimit,
+  sanitizeUserTenantsAndRolesForWrite,
+} from './sanitizeUserWrite'
 
 /**
  * Consolidated tenants membership field: replaces the separate `tenantRoles` array.
@@ -57,22 +62,24 @@ const tenantsMembershipField = {
           { label: 'User', value: 'user' },
         ],
         access: {
-          // Role values within the tenants array: super-admins and tenant-admins may set.
-          // The beforeChange write guard is the authoritative enforcement; this is a UX guard.
-          update: ({ req }: { req: { user?: unknown } }) =>
-            !req.user || isAdmin(req.user) || isTenantAdmin(req.user),
+          // Admins / tenant-admins in the panel; system Local API via explicit context flag.
+          // Never open to anonymous HTTP (Users.create is otherwise public).
+          create: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+            isSystemUserWrite(req) ||
+            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+          update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+            isSystemUserWrite(req) ||
+            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
         },
       },
     ],
     arrayFieldAccess: {
-      read: ({ req: { user } }: { req: { user?: unknown } }) => {
-        if (!user) return false
-        return isAdmin(user) || isTenantAdmin(user)
-      },
-      update: ({ req: { user } }: { req: { user?: unknown } }) => {
-        if (!user) return false
-        return isAdmin(user) || isTenantAdmin(user)
-      },
+      read: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+        isSystemUserWrite(req) ||
+        Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+      update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+        isSystemUserWrite(req) ||
+        Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
     },
   }),
   validate: (value: unknown) => {
@@ -111,6 +118,14 @@ export const Users: CollectionConfig = {
   },
   hooks: {
     afterLogin: [afterLoginRedirect],
+    beforeOperation: [
+      async ({ args, operation, req }) => {
+        if (operation === 'create') {
+          assertAnonymousUserCreateRateLimit(req)
+        }
+        return args
+      },
+    ],
     beforeValidate: [
       // Strip foreign tenant entries from submitted data before Payload runs relationship
       // validation. Without this, a tenant admin who sees cross-tenant entries in the form
@@ -172,6 +187,15 @@ export const Users: CollectionConfig = {
       },
     ],
     beforeChange: [
+      // Harden anonymous + system user writes (tenants / roles).
+      // System flows set ATND_SYSTEM_USER_WRITE_CTX + allowedRoles allow-list.
+      async ({ data, req }) => {
+        if (!data) return data
+        return sanitizeUserTenantsAndRolesForWrite({
+          data: data as Record<string, unknown>,
+          req,
+        })
+      },
       // Must run in beforeChange (not beforeValidate): payload-auth's Better Auth merge replaces
       // `hooks` and drops `beforeValidate`. Better Auth user creates also omit `req` on `payload.create`
       // — those flows set `registrationTenant` via Better Auth `databaseHooks` (see atnd-me auth options).

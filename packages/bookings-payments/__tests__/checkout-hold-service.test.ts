@@ -64,16 +64,35 @@ describe('checkout hold service', () => {
         }
 
         let filtered = [...holds]
-        const w = JSON.stringify(where ?? {})
+        const clauses = Array.isArray((where as { and?: unknown[] } | undefined)?.and)
+          ? ((where as { and: Record<string, unknown>[] }).and)
+          : []
 
-        if (w.includes(String(TIMESLOT_ID))) {
+        const timeslotEquals = clauses.find((c) => c.timeslot && typeof c.timeslot === 'object')
+        if (timeslotEquals && (timeslotEquals.timeslot as { equals?: number }).equals === TIMESLOT_ID) {
           filtered = filtered.filter((h) => h.timeslot === TIMESLOT_ID)
         }
-        if (w.includes(String(USER_ID)) && !w.includes(String(OTHER_USER_ID))) {
-          filtered = filtered.filter((h) => h.user === USER_ID)
+
+        const userEquals = clauses.find((c) => c.user && typeof c.user === 'object')
+        if (userEquals && typeof (userEquals.user as { equals?: number }).equals === 'number') {
+          const uid = (userEquals.user as { equals: number }).equals
+          filtered = filtered.filter((h) => h.user === uid)
         }
-        if (w.includes('"active"')) {
-          filtered = filtered.filter((h) => h.status === 'active' && Date.parse(h.expiresAt) > now)
+
+        const statusEquals = clauses.find((c) => c.status && typeof c.status === 'object')
+        const expiresGt = clauses.find((c) => c.expiresAt && typeof c.expiresAt === 'object' && 'greater_than' in (c.expiresAt as object))
+        const expiresLte = clauses.find(
+          (c) => c.expiresAt && typeof c.expiresAt === 'object' && 'less_than_equal' in (c.expiresAt as object),
+        )
+
+        if (statusEquals && (statusEquals.status as { equals?: string }).equals === 'active') {
+          if (expiresLte) {
+            filtered = filtered.filter((h) => h.status === 'active' && Date.parse(h.expiresAt) <= now)
+          } else if (expiresGt) {
+            filtered = filtered.filter((h) => h.status === 'active' && Date.parse(h.expiresAt) > now)
+          } else {
+            filtered = filtered.filter((h) => h.status === 'active')
+          }
         }
 
         if (limit === 1) filtered = filtered.slice(0, 1)
@@ -360,6 +379,23 @@ describe('checkout hold service', () => {
       const total = await countActiveHoldQuantityForTimeslot(payload as never, TIMESLOT_ID)
       expect(total).toBe(2)
     })
+
+    it('coerces Postgres numeric quantity strings when summing holds', async () => {
+      holds.push({
+        id: 1,
+        user: USER_ID,
+        timeslot: TIMESLOT_ID,
+        tenant: TENANT_ID,
+        // Neon/drizzle often returns numeric columns as strings
+        quantity: '3' as unknown as number,
+        expiresAt: iso(now + HOLD_TTL_MS),
+        status: 'active',
+      })
+      const payload = makePayload()
+
+      const total = await countActiveHoldQuantityForTimeslot(payload as never, TIMESLOT_ID)
+      expect(total).toBe(3)
+    })
   })
 
   describe('computeRemainingCapacityWithHolds', () => {
@@ -406,6 +442,49 @@ describe('checkout hold service', () => {
 
       const remaining = await computeRemainingCapacityWithHolds(payload as never, TIMESLOT_ID)
       expect(remaining).toBe(PLACES)
+    })
+
+    it('coerces Postgres numeric places strings so capacity is not treated as zero', async () => {
+      confirmedCount = 1
+      const payload = makePayload()
+      payload.findByID.mockImplementation(({ collection }: { collection: string; id: number }) => {
+        if (collection === 'timeslots') {
+          return Promise.resolve({
+            id: TIMESLOT_ID,
+            eventType: { places: '12' },
+          })
+        }
+        return Promise.reject(new Error('Not found'))
+      })
+
+      const remaining = await computeRemainingCapacityWithHolds(payload as never, TIMESLOT_ID)
+      expect(remaining).toBe(11)
+    })
+
+    it('shows sold out when active hold quantities fill remaining places', async () => {
+      confirmedCount = 1
+      holds.push({
+        id: 1,
+        user: OTHER_USER_ID,
+        timeslot: TIMESLOT_ID,
+        tenant: TENANT_ID,
+        quantity: '11' as unknown as number,
+        expiresAt: iso(now + HOLD_TTL_MS),
+        status: 'active',
+      })
+      const payload = makePayload()
+      payload.findByID.mockImplementation(({ collection }: { collection: string }) => {
+        if (collection === 'timeslots') {
+          return Promise.resolve({
+            id: TIMESLOT_ID,
+            eventType: { places: '12' },
+          })
+        }
+        return Promise.reject(new Error('Not found'))
+      })
+
+      const remaining = await computeRemainingCapacityWithHolds(payload as never, TIMESLOT_ID)
+      expect(remaining).toBe(0)
     })
   })
 })

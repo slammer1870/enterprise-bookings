@@ -1,12 +1,16 @@
 import crypto from 'crypto'
 import type { Payload } from 'payload'
 
+import { systemUserWriteContext } from '@/lib/auth/systemUserWriteContext'
+
 export type EnsureGuestUserResult = {
   userId: number
   created: boolean
   email: string
   name: string
 }
+
+const ALLOWED_TENANT_ROLES = new Set(['admin', 'staff', 'location-manager', 'user'])
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -23,6 +27,28 @@ function extractTenantId(raw: unknown): number | null {
   return null
 }
 
+/** Normalize tenants[n].roles for Payload hasMany select (strings or { value }). */
+function normalizeTenantRoles(roles: unknown): string[] {
+  if (!Array.isArray(roles) || roles.length === 0) return ['user']
+  const values = roles
+    .map((r) => {
+      if (typeof r === 'string') return r
+      if (r && typeof r === 'object' && 'value' in r) {
+        const v = (r as { value: unknown }).value
+        return typeof v === 'string' ? v : null
+      }
+      return null
+    })
+    .filter((v): v is string => typeof v === 'string' && ALLOWED_TENANT_ROLES.has(v))
+  return values.length > 0 ? values : ['user']
+}
+
+type TenantMembership = {
+  id?: string | null
+  tenant?: unknown
+  roles?: unknown
+}
+
 /**
  * Find or create a user for guest event checkout.
  * Does not create a browser session — bookings attach to this userId only.
@@ -36,6 +62,10 @@ export async function ensureGuestUser(opts: {
   const { payload, tenantId } = opts
   const email = normalizeEmail(opts.email)
   const name = opts.name.trim()
+  const writeContext = systemUserWriteContext({
+    // Create: only `user`. Update may preserve existing elevated memberships on other tenants.
+    allowedRoles: ['user', 'admin', 'staff', 'location-manager'],
+  })
 
   if (!email || !email.includes('@')) {
     throw new Error('A valid email is required')
@@ -50,13 +80,14 @@ export async function ensureGuestUser(opts: {
     limit: 1,
     depth: 0,
     overrideAccess: true,
+    context: writeContext,
   })
 
   const doc = existing.docs[0] as
     | {
         id: number
         name?: string | null
-        tenants?: Array<{ tenant?: unknown; roles?: string[] | null }> | null
+        tenants?: TenantMembership[] | null
       }
     | undefined
 
@@ -71,8 +102,9 @@ export async function ensureGuestUser(opts: {
     if (!hasTenant) {
       data.tenants = [
         ...memberships.map((m) => ({
+          ...(typeof m.id === 'string' && m.id ? { id: m.id } : {}),
           tenant: extractTenantId(m.tenant) ?? m.tenant,
-          roles: m.roles?.length ? m.roles : ['user'],
+          roles: normalizeTenantRoles(m.roles),
         })),
         { tenant: tenantId, roles: ['user'] },
       ]
@@ -85,6 +117,7 @@ export async function ensureGuestUser(opts: {
         data,
         overrideAccess: true,
         depth: 0,
+        context: writeContext,
       })
     }
 
@@ -105,6 +138,7 @@ export async function ensureGuestUser(opts: {
     },
     overrideAccess: true,
     depth: 0,
+    context: systemUserWriteContext({ allowedRoles: ['user'] }),
   })
 
   return { userId: Number(created.id), created: true, email, name }
