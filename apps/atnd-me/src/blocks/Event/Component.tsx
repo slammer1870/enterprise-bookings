@@ -3,13 +3,23 @@ import React from 'react'
 import { EventDetailView } from '@/components/events/EventDetailView'
 import { loadEventTimeslot } from '@/components/events/loadEventTimeslot'
 import { relationId } from '@/components/events/eventPageTypes'
+import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
+import type { Media } from '@/payload-types'
 
 type EventBlockProps = {
   timeslot?: number | { id?: number | null } | null
+  coverImage?: (number | null) | Media
+  about?: DefaultTypedEditorState | null
+  mapUrl?: string | null
   blockType?: 'event'
 }
 
-export async function EventBlock({ timeslot: timeslotRef }: EventBlockProps) {
+export async function EventBlock({
+  timeslot: timeslotRef,
+  coverImage,
+  about,
+  mapUrl,
+}: EventBlockProps) {
   const id = relationId(timeslotRef)
   if (id == null) {
     return (
@@ -28,5 +38,12 @@ export async function EventBlock({ timeslot: timeslotRef }: EventBlockProps) {
     )
   }
 
-  return <EventDetailView timeslot={timeslot} />
+  return (
+    <EventDetailView
+      timeslot={timeslot}
+      coverImage={coverImage}
+      about={about}
+      mapUrl={mapUrl}
+    />
+  )
 }

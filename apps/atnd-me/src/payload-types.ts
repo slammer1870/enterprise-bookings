@@ -567,6 +567,7 @@ export interface Page {
         blockType: 'dhLiveMembership';
       }
     | GiftVoucherCheckoutBlock
+    | EventBlock
     | CroiLanHeroWithLocationBlock
     | ClFindSanctuaryBlock
     | ClMissionBlock
@@ -1510,6 +1511,7 @@ export interface ThreeColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
+        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -2629,6 +2631,45 @@ export interface GiftVoucherCheckoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventBlock".
+ */
+export interface EventBlock {
+  /**
+   * Bookable timeslot for this event page. Date, time, host, capacity, and ticket price come from the timeslot / event type.
+   */
+  timeslot: number | Timeslot;
+  /**
+   * Hero cover for the event page. Falls back to a solid background when empty.
+   */
+  coverImage?: (number | null) | Media;
+  /**
+   * Event description shown in the About section. Falls back to the event type description when empty.
+   */
+  about?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Optional. Paste a Google Maps link (including maps.app.goo.gl). Falls back to the branch address when empty.
+   */
+  mapUrl?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'event';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock".
  */
 export interface CroiLanHeroWithLocationBlock {
@@ -2963,6 +3004,7 @@ export interface TwoColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
+        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3067,6 +3109,7 @@ export interface TwoColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
+        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -4532,6 +4575,7 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
         clMission?: T | ClMissionBlockSelect<T>;
@@ -4877,6 +4921,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5509,6 +5554,18 @@ export interface GiftVoucherCheckoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventBlock_select".
+ */
+export interface EventBlockSelect<T extends boolean = true> {
+  timeslot?: T;
+  coverImage?: T;
+  about?: T;
+  mapUrl?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock_select".
  */
 export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
@@ -5784,6 +5841,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5901,6 +5959,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
