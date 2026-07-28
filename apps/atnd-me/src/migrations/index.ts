@@ -147,6 +147,7 @@ import * as migration_20260714_113446 from './20260714_113446';
 import * as migration_20260718_000001_discount_codes_remainder_lineage from './20260718_000001_discount_codes_remainder_lineage';
 import * as migration_20260718_000002_discount_codes_times_redeemed from './20260718_000002_discount_codes_times_redeemed';
 import * as migration_20260728_000001_discount_codes_checkout_gift_credit from './20260728_000001_discount_codes_checkout_gift_credit';
+import * as migration_20260728_000002_gift_voucher_checkout_block from './20260728_000002_gift_voucher_checkout_block';
 import * as migration_20260721_000001_marketing_hero_show_username_claim from './20260721_000001_marketing_hero_show_username_claim';
 import * as migration_20260721_000002_hero_sched_display_heading from './20260721_000002_hero_sched_display_heading';
 import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
@@ -941,5 +942,10 @@ export const migrations = [
     up: migration_20260728_000001_discount_codes_checkout_gift_credit.up,
     down: migration_20260728_000001_discount_codes_checkout_gift_credit.down,
     name: '20260728_000001_discount_codes_checkout_gift_credit',
+  },
+  {
+    up: migration_20260728_000002_gift_voucher_checkout_block.up,
+    down: migration_20260728_000002_gift_voucher_checkout_block.down,
+    name: '20260728_000002_gift_voucher_checkout_block',
   },
 ];
