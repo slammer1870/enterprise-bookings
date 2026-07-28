@@ -17,9 +17,14 @@ vi.mock('@stripe/react-stripe-js', () => ({
   Elements: ({ children }: { children: React.ReactNode; options?: { clientSecret?: string } }) => (
     <>{children}</>
   ),
-  PaymentElement: () => <div data-testid="payment-element" />,
-  useStripe: () => ({ confirmPayment: vi.fn() }),
-  useElements: () => ({}),
+  PaymentElement: ({ onReady }: { onReady?: () => void }) => {
+    React.useEffect(() => {
+      onReady?.()
+    }, [onReady])
+    return <div data-testid="payment-element" />
+  },
+  useStripe: () => ({ confirmPayment: vi.fn().mockResolvedValue({}) }),
+  useElements: () => ({ submit: vi.fn().mockResolvedValue({}) }),
 }))
 
 function deferred<T>() {
