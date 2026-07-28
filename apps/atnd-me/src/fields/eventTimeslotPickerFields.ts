@@ -18,6 +18,15 @@ function tenantWhere(data: unknown): Where[] {
   return tenantId != null ? [{ tenant: { equals: tenantId } }] : []
 }
 
+type EventTimeslotSiblingData = {
+  eventType?: unknown
+  timeslot?: unknown
+}
+
+function asEventTimeslotSiblings(siblingData: unknown): EventTimeslotSiblingData {
+  return (siblingData ?? {}) as EventTimeslotSiblingData
+}
+
 /**
  * Narrow timeslot relationship options: pick event type first, then only
  * upcoming active slots for that type (plus the currently selected slot).
@@ -56,11 +65,13 @@ export function createEventTimeslotPickerFields(opts?: {
       admin: {
         description: timeslotDescription,
         sortOptions: 'startTime',
-        condition: (_data, siblingData) => relationId(siblingData?.eventType) != null,
+        condition: (_data, siblingData) =>
+          relationId(asEventTimeslotSiblings(siblingData).eventType) != null,
       },
       filterOptions: ({ data, siblingData }): Where | false => {
-        const eventTypeId = relationId(siblingData?.eventType)
-        const currentTimeslotId = relationId(siblingData?.timeslot)
+        const siblings = asEventTimeslotSiblings(siblingData)
+        const eventTypeId = relationId(siblings.eventType)
+        const currentTimeslotId = relationId(siblings.timeslot)
         if (eventTypeId == null) {
           if (currentTimeslotId != null) return { id: { equals: currentTimeslotId } }
           return false
