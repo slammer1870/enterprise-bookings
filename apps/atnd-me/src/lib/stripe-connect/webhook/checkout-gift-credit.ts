@@ -1,12 +1,16 @@
 /**
  * Checkout gift-credit leftovers after Stripe applies a one-time amount_off promo.
  * Class pass → remainder discount code; subscription → customer balance credit.
+ *
+ * Promo may arrive as metadata.discountCode (app Apply) or only as a Stripe
+ * promotion_code on the Checkout Session / Subscription (allow_promotion_codes box).
  */
 import type { Payload } from 'payload'
 
 import { consumeDiscountCodeRedemption } from '@/lib/stripe-connect/discountCodes'
 import { issueRemainderDiscountCodeIfNeeded } from '@/lib/stripe-connect/issueRemainderDiscountCode'
 import { issueSubscriptionGiftBalanceIfNeeded } from '@/lib/stripe-connect/issueSubscriptionGiftBalance'
+import { resolveDiscountCodeForGiftCredit } from '@/lib/stripe-connect/resolveDiscountCodeForGiftCredit'
 
 /** Plan/product price in euros from Checkout metadata (fee excluded). */
 export function planPriceEurosFromMetadata(meta: Record<string, string | undefined>): number | null {
@@ -29,11 +33,22 @@ export async function handleClassPassGiftRemainder(params: {
   userId: number
   paymentIntentId: string
   metadata: Record<string, string | undefined>
+  /** When Checkout used allow_promotion_codes, pass the Stripe promo id from session.discounts. */
+  stripePromotionCodeId?: string | null
 }): Promise<void> {
   const { payload, tenantId, userId, paymentIntentId, metadata: meta } = params
-  const discountCodeMeta =
-    typeof meta.discountCode === 'string' ? meta.discountCode.trim() : ''
-  if (!discountCodeMeta) return
+  const discountCodeMeta = await resolveDiscountCodeForGiftCredit({
+    payload,
+    tenantId,
+    metadataDiscountCode: meta.discountCode,
+    stripePromotionCodeId: params.stripePromotionCodeId,
+  })
+  if (!discountCodeMeta) {
+    payload.logger?.info?.(
+      `class_pass_purchase: no discount code resolved for gift remainder (transaction ${paymentIntentId})`,
+    )
+    return
+  }
 
   const planPrice = planPriceEurosFromMetadata(meta)
 
@@ -66,7 +81,7 @@ export async function handleClassPassGiftRemainder(params: {
       depth: 0,
       overrideAccess: true,
     })
-    await issueRemainderDiscountCodeIfNeeded({
+    const issued = await issueRemainderDiscountCodeIfNeeded({
       payload,
       tenantId,
       discountCode: discountCodeMeta,
@@ -78,6 +93,11 @@ export async function handleClassPassGiftRemainder(params: {
           : null,
       paymentIntentId,
     })
+    if (!issued.issued) {
+      payload.logger?.info?.(
+        `class_pass_purchase: remainder not issued (${issued.reason}) for code ${discountCodeMeta} pi ${paymentIntentId}`,
+      )
+    }
   } catch (remainderErr) {
     payload.logger?.error?.(
       `class_pass_purchase: remainder discount issue failed: ${
@@ -96,6 +116,8 @@ export async function handleSubscriptionGiftBalance(params: {
   stripeAccountId: string | null | undefined
   stripeStatus: string | null | undefined
   metadata: Record<string, string | undefined>
+  /** When Checkout used allow_promotion_codes, pass the Stripe promo id from session/sub discounts. */
+  stripePromotionCodeId?: string | null
 }): Promise<void> {
   const {
     payload,
@@ -110,9 +132,18 @@ export async function handleSubscriptionGiftBalance(params: {
 
   if (stripeStatus !== 'active' && stripeStatus !== 'trialing') return
 
-  const discountCodeMeta =
-    typeof meta.discountCode === 'string' ? meta.discountCode.trim() : ''
-  if (!discountCodeMeta) return
+  const discountCodeMeta = await resolveDiscountCodeForGiftCredit({
+    payload,
+    tenantId,
+    metadataDiscountCode: meta.discountCode,
+    stripePromotionCodeId: params.stripePromotionCodeId,
+  })
+  if (!discountCodeMeta) {
+    payload.logger?.info?.(
+      `subscription gift: no discount code resolved for balance credit (sub ${subscriptionId})`,
+    )
+    return
+  }
 
   const accountId =
     typeof stripeAccountId === 'string' && stripeAccountId.trim()
@@ -150,7 +181,7 @@ export async function handleSubscriptionGiftBalance(params: {
       depth: 0,
       overrideAccess: true,
     })
-    await issueSubscriptionGiftBalanceIfNeeded({
+    const credited = await issueSubscriptionGiftBalanceIfNeeded({
       payload,
       tenantId,
       discountCode: discountCodeMeta,
@@ -164,6 +195,11 @@ export async function handleSubscriptionGiftBalance(params: {
           ? (userDoc as { email: string }).email
           : null,
     })
+    if (!credited.credited) {
+      payload.logger?.info?.(
+        `subscription gift: balance not credited (${credited.reason}) for code ${discountCodeMeta} sub ${subscriptionId}`,
+      )
+    }
   } catch (balanceErr) {
     payload.logger?.error?.(
       `subscription gift: balance credit failed: ${

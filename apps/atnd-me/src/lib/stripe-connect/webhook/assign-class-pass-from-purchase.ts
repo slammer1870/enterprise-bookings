@@ -41,6 +41,8 @@ export async function assignClassPassFromPurchase(params: {
   transactionId: string
   tenantContext?: { tenant: number } | null
   purchasedAt?: Date
+  /** When Checkout used allow_promotion_codes, pass the Stripe promo id from session.discounts. */
+  stripePromotionCodeId?: string | null
 }): Promise<AssignClassPassFromPurchaseResult> {
   const { payload, tenantId, metadata: meta, transactionId, tenantContext } = params
   const purchasedAt = params.purchasedAt ?? new Date()
@@ -73,69 +75,76 @@ export async function assignClassPassFromPurchase(params: {
     depth: 0,
     overrideAccess: true,
   })
+
+  let classPassId: number | string
+  let credits: number
+
   if (existing.docs[0]) {
-    return {
-      assigned: true,
-      classPassId: existing.docs[0].id as number | string,
-      credits: coerceCredits((existing.docs[0] as { quantity?: unknown }).quantity),
+    classPassId = existing.docs[0].id as number | string
+    credits = coerceCredits((existing.docs[0] as { quantity?: unknown }).quantity)
+  } else {
+    const classPassType = (await payload
+      .findByID({
+        collection: 'class-pass-types' as import('payload').CollectionSlug,
+        id: classPassTypeId,
+        depth: 0,
+        overrideAccess: true,
+        ...(tenantContext ? { context: tenantContext } : {}),
+      })
+      .catch(() => null)) as { quantity?: unknown; daysUntilExpiration?: unknown } | null
+
+    const passCredits = coerceCredits(classPassType?.quantity)
+    if (passCredits < 1) {
+      payload.logger?.error?.(
+        `class_pass_purchase: class-pass-type ${classPassTypeId} has invalid quantity (${String(classPassType?.quantity)}) for transaction ${transactionId}`,
+      )
+      return { assigned: false, reason: 'invalid_pass_credits' }
     }
-  }
 
-  const classPassType = (await payload
-    .findByID({
-      collection: 'class-pass-types' as import('payload').CollectionSlug,
-      id: classPassTypeId,
-      depth: 0,
-      overrideAccess: true,
+    const daysUntilExpiration = resolveDaysUntilExpiration(classPassType ?? {})
+    const expirationDate = new Date(purchasedAt)
+    expirationDate.setDate(expirationDate.getDate() + daysUntilExpiration)
+    const expirationDateISO = expirationDate.toISOString()
+
+    const created = await payload.create({
+      collection: 'class-passes' as import('payload').CollectionSlug,
+      draft: false,
+      data: {
+        user: userId,
+        tenant: tenantId,
+        type: classPassTypeId,
+        quantity: passCredits,
+        expirationDate: expirationDateISO,
+        purchasedAt: purchasedAt.toISOString().slice(0, 10),
+        status: 'active',
+        transactionId,
+      } as Record<string, unknown>,
       ...(tenantContext ? { context: tenantContext } : {}),
+      overrideAccess: true,
     })
-    .catch(() => null)) as { quantity?: unknown; daysUntilExpiration?: unknown } | null
 
-  const passCredits = coerceCredits(classPassType?.quantity)
-  if (passCredits < 1) {
-    payload.logger?.error?.(
-      `class_pass_purchase: class-pass-type ${classPassTypeId} has invalid quantity (${String(classPassType?.quantity)}) for transaction ${transactionId}`,
+    classPassId = created.id as number | string
+    credits = passCredits
+
+    payload.logger?.info?.(
+      `class_pass_purchase: assigned pass ${classPassId} (${passCredits} credits) to user ${userId} for transaction ${transactionId}`,
     )
-    return { assigned: false, reason: 'invalid_pass_credits' }
   }
 
-  const daysUntilExpiration = resolveDaysUntilExpiration(classPassType ?? {})
-  const expirationDate = new Date(purchasedAt)
-  expirationDate.setDate(expirationDate.getDate() + daysUntilExpiration)
-  const expirationDateISO = expirationDate.toISOString()
-
-  const created = await payload.create({
-    collection: 'class-passes' as import('payload').CollectionSlug,
-    draft: false,
-    data: {
-      user: userId,
-      tenant: tenantId,
-      type: classPassTypeId,
-      quantity: passCredits,
-      expirationDate: expirationDateISO,
-      purchasedAt: purchasedAt.toISOString().slice(0, 10),
-      status: 'active',
-      transactionId,
-    } as Record<string, unknown>,
-    ...(tenantContext ? { context: tenantContext } : {}),
-    overrideAccess: true,
-  })
-
-  payload.logger?.info?.(
-    `class_pass_purchase: assigned pass ${created.id} (${passCredits} credits) to user ${userId} for transaction ${transactionId}`,
-  )
-
+  // Always attempt gift remainder (idempotent via sourcePaymentIntentId) so €0
+  // Checkout replays / missing metadata.discountCode can still recover.
   await handleClassPassGiftRemainder({
     payload,
     tenantId,
     userId,
     paymentIntentId: transactionId,
     metadata: meta,
+    stripePromotionCodeId: params.stripePromotionCodeId,
   })
 
   return {
     assigned: true,
-    classPassId: created.id as number | string,
-    credits: passCredits,
+    classPassId,
+    credits,
   }
 }

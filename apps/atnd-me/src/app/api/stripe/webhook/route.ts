@@ -43,9 +43,14 @@ import { findUserByCustomer } from '@repo/bookings-payments'
 import { handleSubscriptionGiftBalance } from '@/lib/stripe-connect/webhook/checkout-gift-credit'
 import { assignClassPassFromPurchase } from '@/lib/stripe-connect/webhook/assign-class-pass-from-purchase'
 import {
+  extractStripePromotionCodeId,
+  extractStripePromotionCodeIdFromLegacyDiscount,
+} from '@/lib/stripe-connect/resolveDiscountCodeForGiftCredit'
+import {
   issuePurchasedGiftVoucher,
   parseGiftVoucherPurchaseMetadata,
 } from '@/lib/stripe-connect/issuePurchasedGiftVoucher'
+import { getPlatformStripe } from '@/lib/stripe/platform'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -131,12 +136,30 @@ export async function POST(request: NextRequest) {
       const paymentIntentId =
         typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
       if (paymentIntentId) {
+        let stripePromotionCodeId: string | null = null
+        if (!meta.discountCode) {
+          try {
+            const stripe = getPlatformStripe()
+            const sessions = await stripe.checkout.sessions.list(
+              { payment_intent: paymentIntentId, limit: 1 },
+              accountId ? { stripeAccount: accountId } : undefined,
+            )
+            stripePromotionCodeId = extractStripePromotionCodeId(sessions.data[0]?.discounts)
+          } catch (err) {
+            payload.logger?.error?.(
+              `class_pass_purchase: failed to load checkout session for pi ${paymentIntentId}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            )
+          }
+        }
         await assignClassPassFromPurchase({
           payload,
           tenantId: tenant.id,
           metadata: meta,
           transactionId: paymentIntentId,
           tenantContext: paymentIntentTenantContext,
+          stripePromotionCodeId,
         })
       }
     }
@@ -285,6 +308,7 @@ export async function POST(request: NextRequest) {
       payment_status?: string
       payment_intent?: string | { id?: string } | null
       metadata?: Record<string, string>
+      discounts?: unknown
     } | undefined
     const meta = obj?.metadata ?? {}
     const paymentIntentRaw = obj?.payment_intent
@@ -294,6 +318,7 @@ export async function POST(request: NextRequest) {
         typeof paymentIntentRaw === 'object' &&
         typeof paymentIntentRaw.id === 'string' &&
         paymentIntentRaw.id.trim().length > 0)
+    const stripePromotionCodeId = extractStripePromotionCodeId(obj?.discounts)
 
     if (
       obj?.mode === 'payment' &&
@@ -311,6 +336,7 @@ export async function POST(request: NextRequest) {
           metadata: meta,
           transactionId: sessionId,
           tenantContext: { tenant: tenant.id },
+          stripePromotionCodeId,
         })
       } else {
         payload.logger?.error?.(
@@ -517,7 +543,8 @@ export async function POST(request: NextRequest) {
         select: { id: true } as any,
       })
       if (existing.docs.length > 0) {
-        // subscription.updated may have created the record first; still run booking confirmation
+        // subscription.updated may have created the record first; still run booking confirmation.
+        // Do NOT return early — gift-balance handling below must still run.
         const existingSub = existing.docs[0] as { id: number }
         const meta = obj.metadata ?? {}
         const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
@@ -540,9 +567,7 @@ export async function POST(request: NextRequest) {
             }
           }
         }
-        markStripeConnectEventProcessed(event.id)
-        return NextResponse.json({ received: true }, { status: 200 })
-      }
+      } else {
       const allowedStatuses = ['incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'] as const
       const rawStatus = obj.status && allowedStatuses.includes(obj.status as (typeof allowedStatuses)[number])
         ? (obj.status as (typeof allowedStatuses)[number])
@@ -587,6 +612,7 @@ export async function POST(request: NextRequest) {
             payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
           }
         }
+      }
       }
     } else if (
       event.type === 'customer.subscription.updated' ||
@@ -739,6 +765,29 @@ export async function POST(request: NextRequest) {
       })
       const giftUserId = giftUserDoc?.id as number | undefined
       if (giftUserId != null) {
+        let stripePromotionCodeId =
+          extractStripePromotionCodeId((obj as { discounts?: unknown }).discounts) ??
+          extractStripePromotionCodeIdFromLegacyDiscount((obj as { discount?: unknown }).discount)
+
+        // Subscription objects often drop discounts after first invoice; recover from Checkout Session.
+        if (!stripePromotionCodeId && !(obj.metadata as { discountCode?: string } | undefined)?.discountCode) {
+          try {
+            const stripe = getPlatformStripe()
+            const sessions = await stripe.checkout.sessions.list(
+              { subscription: obj.id, limit: 1 },
+              accountId ? { stripeAccount: accountId } : undefined,
+            )
+            const session = sessions.data[0]
+            stripePromotionCodeId = extractStripePromotionCodeId(session?.discounts)
+          } catch (err) {
+            payload.logger?.error?.(
+              `subscription gift: failed to load checkout session for sub ${obj.id}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            )
+          }
+        }
+
         await handleSubscriptionGiftBalance({
           payload,
           tenantId,
@@ -748,6 +797,7 @@ export async function POST(request: NextRequest) {
           stripeAccountId: accountId,
           stripeStatus: typeof obj.status === 'string' ? obj.status : null,
           metadata: (obj.metadata ?? {}) as Record<string, string | undefined>,
+          stripePromotionCodeId,
         })
       }
     }

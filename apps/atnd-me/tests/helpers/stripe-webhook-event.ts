@@ -49,6 +49,7 @@ export function createCheckoutSessionCompletedEvent(overrides: {
   metadata: Record<string, string>
   paymentIntent?: string | null
   amountTotal?: number
+  discounts?: Array<{ promotion_code?: string | { id?: string } | null; coupon?: string | null }>
 }) {
   const {
     id = 'evt_checkout_test',
@@ -57,6 +58,7 @@ export function createCheckoutSessionCompletedEvent(overrides: {
     metadata,
     paymentIntent = null,
     amountTotal = 0,
+    discounts,
   } = overrides
   return {
     id,
@@ -76,6 +78,7 @@ export function createCheckoutSessionCompletedEvent(overrides: {
         payment_intent: paymentIntent,
         livemode: false,
         metadata,
+        ...(discounts ? { discounts } : {}),
       },
     },
     livemode: false,
