@@ -52,6 +52,7 @@ import {
 
 import { DhLiveSchedule } from './DhLiveSchedule/config'
 import { DhLiveMembership } from './DhLiveMembership/config'
+import { GiftVoucherCheckout } from './GiftVoucherCheckout/config'
 
 const allBlocks: Block[] = [
   HeroWithLocation,
@@ -93,6 +94,7 @@ const allBlocks: Block[] = [
   DhGroups,
   DhLiveSchedule,
   DhLiveMembership,
+  GiftVoucherCheckout,
   // Croí Lán Sauna (tenant-scoped extras; croilan.com)
   ClHeroScheduleSanctuary,
   CroiLanHeroWithLocation,
@@ -117,6 +119,7 @@ export const defaultBlockSlugs: string[] = [
   'tenantScopedSchedule', // Root home page: filter schedule by tenant
   'content',
   'cta',
+  'giftVoucherCheckout',
 ]
 
 /** Map of block slug to block config. Includes threeColumnLayout. */

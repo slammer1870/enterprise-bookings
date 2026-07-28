@@ -3,7 +3,7 @@ import { PaymentMethodsConnect } from '@/components/payments/PaymentMethodsConne
 import { currentUser, getSession } from '@/lib/auth/context/get-context-props'
 import { createCaller } from '@/trpc/server'
 import { getRequestHost, redirectToManageIfMultipleBookings } from './utils'
-import { getPayload } from '@/lib/payload'
+import { getCheckoutLegalForTenant } from '@/lib/checkout/getCheckoutLegalForTenant'
 import type { CheckoutLegalConfig } from '@repo/payments-next'
 import type { Timeslot } from '@repo/shared-types'
 
@@ -15,31 +15,7 @@ async function getCheckoutLegal(timeslot: Timeslot): Promise<CheckoutLegalConfig
         ? timeslot.tenant
         : null
 
-  if (!tenantId) return null
-
-  try {
-    const payload = await getPayload()
-    const tenant = await payload.findByID({
-      collection: 'tenants',
-      id: tenantId,
-      depth: 1,
-      overrideAccess: true,
-    })
-
-    const docs = (tenant as any)?.checkoutLegalDocuments ?? []
-    const links = (docs as Array<{ page: unknown }>)
-      .filter((d) => d.page && typeof d.page === 'object')
-      .map((d) => {
-        const page = d.page as { title?: string; slug?: string }
-        return { label: page.title ?? '', href: `/${page.slug ?? ''}` }
-      })
-      .filter((l) => l.label && l.href)
-
-    return links.length > 0 ? { links } : null
-  } catch (err) {
-    console.error('[getCheckoutLegal]', err)
-    return null
-  }
+  return getCheckoutLegalForTenant(tenantId)
 }
 
 async function BookingPageWithLegal({

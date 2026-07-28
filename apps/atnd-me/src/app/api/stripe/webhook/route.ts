@@ -48,6 +48,10 @@ import {
   handleClassPassGiftRemainder,
   handleSubscriptionGiftBalance,
 } from '@/lib/stripe-connect/webhook/checkout-gift-credit'
+import {
+  issuePurchasedGiftVoucher,
+  parseGiftVoucherPurchaseMetadata,
+} from '@/lib/stripe-connect/issuePurchasedGiftVoucher'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -94,6 +98,39 @@ export async function POST(request: NextRequest) {
     const tenant = await resolveTenant(payload, accountId, meta.tenantId)
     const bookingIdsToConfirm = parseBookingIds(meta)
     const paymentIntentTenantContext = tenant ? { tenant: tenant.id } : null
+
+    // Gift voucher purchase → issue DiscountCode + email
+    if (tenant && meta.type === 'gift_voucher_purchase') {
+      const paymentIntentId =
+        typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      const parsed = parseGiftVoucherPurchaseMetadata(meta)
+      if (paymentIntentId && parsed.isGiftVoucher && parsed.purchaserEmail) {
+        try {
+          const result = await issuePurchasedGiftVoucher({
+            payload,
+            tenantId: tenant.id,
+            paymentIntentId,
+            amountEuros: parsed.amountEuros,
+            purchaserEmail: parsed.purchaserEmail,
+            purchaserName: parsed.purchaserName || null,
+            userId: parsed.userId,
+          })
+          if (!result.issued) {
+            payload.logger?.error?.(
+              `gift_voucher_purchase: issue failed (${result.reason}) for pi ${paymentIntentId}`,
+            )
+          }
+        } catch (err) {
+          payload.logger?.error?.(
+            `gift_voucher_purchase: issue threw: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          )
+        }
+      }
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
 
     // Class pass purchase
     if (
