@@ -2641,7 +2641,7 @@ export interface EventBlock {
   /**
    * Upcoming active timeslots for the selected event type. Date, time, host, capacity, and ticket price come from the timeslot / event type.
    */
-  timeslot: number | Timeslot;
+  timeslot?: (number | null) | Timeslot;
   /**
    * Hero cover for the event page. Falls back to a solid background when empty.
    */
@@ -6941,7 +6941,7 @@ export interface EventCheckoutBlock {
   /**
    * Upcoming active timeslots for the selected event type. Checkout quantity, fees, and Stripe payment bind to this timeslot.
    */
-  timeslot: number | Timeslot;
+  timeslot?: (number | null) | Timeslot;
   id?: string | null;
   blockName?: string | null;
   blockType: 'eventCheckout';
