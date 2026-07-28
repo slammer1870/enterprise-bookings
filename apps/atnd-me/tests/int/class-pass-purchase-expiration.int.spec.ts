@@ -18,13 +18,13 @@ import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/stripe/webhook/route'
 import * as webhookVerify from '@/lib/stripe-connect/webhookVerify'
 import * as webhookProcessed from '@/lib/stripe-connect/webhookProcessed'
-import { createPaymentIntentSucceededEvent } from '../helpers/stripe-webhook-event'
+import { createPaymentIntentSucceededEvent, createCheckoutSessionCompletedEvent } from '../helpers/stripe-webhook-event'
 import { classPassExpirationDateOnly } from '@repo/bookings-payments'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
 const runId = Math.random().toString(36).slice(2, 10)
-const connectAccountId = `acct_class_pass_exp_${runId}`
+const connectAccountId = `acct_e2e_connected_${runId}`
 
 function request(body: string, signature = 't=123,v1=valid') {
   return new NextRequest('http://localhost/api/stripe/webhook', {
@@ -93,6 +93,7 @@ describe('Class pass purchase expiration (Stripe webhook)', () => {
     process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder'
     process.env.STRIPE_CONNECT_CLIENT_ID = process.env.STRIPE_CONNECT_CLIENT_ID || 'ca_test_placeholder'
     process.env.STRIPE_CONNECT_WEBHOOK_SECRET = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || 'whsec_placeholder'
+    process.env.ENABLE_TEST_WEBHOOKS = 'true'
     vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReset()
     vi.mocked(webhookProcessed.hasProcessedStripeConnectEvent).mockReset()
     vi.mocked(webhookProcessed.markStripeConnectEventProcessed).mockReset()
@@ -167,6 +168,163 @@ describe('Class pass purchase expiration (Stripe webhook)', () => {
       expect(String(pass.expirationDate).slice(0, 10)).toBe(
         classPassExpirationDateOnly(fixedPurchaseTime, 30),
       )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'checkout.session.completed with no PaymentIntent (100% discount / €0) still assigns the class pass',
+    async () => {
+      vi.useFakeTimers({ now: fixedPurchaseTime, toFake: ['Date'] })
+      let res: Response
+      try {
+        const event = createCheckoutSessionCompletedEvent({
+          id: 'evt_class_pass_exp_zero',
+          account: connectAccountId,
+          sessionId: 'cs_class_pass_exp_zero',
+          amountTotal: 0,
+          paymentIntent: null,
+          metadata: {
+            type: 'class_pass_purchase',
+            userId: String(userId),
+            tenantId: String(tenantId),
+            classPassTypeId: String(classPassTypeId),
+          },
+        })
+        vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+        res = await POST(request(JSON.stringify(event)))
+      } finally {
+        vi.useRealTimers()
+      }
+
+      expect(res.status).toBe(200)
+
+      const passes = await payload.find({
+        collection: 'class-passes',
+        where: {
+          and: [
+            { user: { equals: userId } },
+            { type: { equals: classPassTypeId } },
+            { transactionId: { equals: 'cs_class_pass_exp_zero' } },
+          ],
+        },
+        overrideAccess: true,
+      })
+      expect(passes.docs).toHaveLength(1)
+      const pass = passes.docs[0] as { expirationDate?: string; quantity?: number }
+      expect(pass.quantity).toBe(10)
+      expect(String(pass.expirationDate).slice(0, 10)).toBe(
+        classPassExpirationDateOnly(fixedPurchaseTime, 30),
+      )
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'checkout.session.completed resolves allow_promotion_codes promo and issues remainder without metadata.discountCode',
+    async () => {
+      const promoCode = `CPZERO${runId}`.slice(0, 24).toUpperCase()
+      const stripePromoId = `promo_cp_zero_${runId}`
+      const parent = await payload.create({
+        collection: 'discount-codes',
+        data: {
+          name: 'Zero checkout remainder parent',
+          code: promoCode,
+          type: 'amount_off',
+          value: 150,
+          currency: 'eur',
+          duration: 'once',
+          maxRedemptions: 1,
+          rootPurchasedAt: fixedPurchaseTime.toISOString(),
+          redeemBy: new Date('2031-06-15').toISOString(),
+          tenant: tenantId,
+          stripePromotionCodeId: stripePromoId,
+          skipSync: true,
+        },
+        overrideAccess: true,
+        context: { skipStripeSync: true },
+      })
+
+      const sessionId = `cs_class_pass_promo_only_${runId}`
+      const event = createCheckoutSessionCompletedEvent({
+        id: `evt_class_pass_promo_only_${runId}`,
+        account: connectAccountId,
+        sessionId,
+        amountTotal: 0,
+        paymentIntent: null,
+        discounts: [{ promotion_code: stripePromoId, coupon: null }],
+        metadata: {
+          type: 'class_pass_purchase',
+          userId: String(userId),
+          tenantId: String(tenantId),
+          classPassTypeId: String(classPassTypeId),
+          classPriceBeforeDiscount: '75',
+          planPriceAmount: '7500',
+          // intentionally no discountCode — mimics Stripe promo box
+        },
+      })
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const children = await payload.find({
+        collection: 'discount-codes',
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { parentDiscountCode: { equals: parent.id } },
+          ],
+        },
+        overrideAccess: true,
+      })
+      expect(children.docs).toHaveLength(1)
+      expect((children.docs[0] as { value?: number }).value).toBe(75)
+      expect((children.docs[0] as { sourcePaymentIntentId?: string }).sourcePaymentIntentId).toBe(
+        sessionId,
+      )
+
+      const parentAfter = await payload.findByID({
+        collection: 'discount-codes',
+        id: parent.id,
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(parentAfter.status).toBe('archived')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'checkout.session.completed with a PaymentIntent does not double-assign (paid path uses PI webhook)',
+    async () => {
+      const event = createCheckoutSessionCompletedEvent({
+        id: 'evt_class_pass_exp_paid_session',
+        account: connectAccountId,
+        sessionId: 'cs_class_pass_exp_paid',
+        amountTotal: 2500,
+        paymentIntent: 'pi_class_pass_exp_paid_session',
+        metadata: {
+          type: 'class_pass_purchase',
+          userId: String(userId),
+          tenantId: String(tenantId),
+          classPassTypeId: String(classPassTypeId),
+        },
+      })
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const passes = await payload.find({
+        collection: 'class-passes',
+        where: {
+          and: [
+            { user: { equals: userId } },
+            { transactionId: { equals: 'cs_class_pass_exp_paid' } },
+          ],
+        },
+        overrideAccess: true,
+      })
+      expect(passes.docs).toHaveLength(0)
     },
     TEST_TIMEOUT,
   )

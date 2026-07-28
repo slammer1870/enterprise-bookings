@@ -546,7 +546,10 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       // Optional: resolve tenant discount code → Stripe Promotion Code id.
       // NOTE: Discount codes are created on the tenant's Connect account in atnd-me.
       let promotionCodeId: string | null = null;
-      if (input.discountCode) {
+      const discountCodeNormalized = input.discountCode
+        ? String(input.discountCode).trim().toUpperCase()
+        : "";
+      if (discountCodeNormalized) {
         const tenantIdRaw = meta.tenantId;
         const tenantId =
           typeof tenantIdRaw === "string" ? parseInt(tenantIdRaw, 10) : NaN;
@@ -564,7 +567,6 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           });
         }
 
-        const code = String(input.discountCode).trim().toUpperCase();
         const match = await ctx.payload.find({
           collection: "discount-codes" as any,
           depth: 0,
@@ -582,7 +584,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           (row: { code?: string | null }) =>
             String(row.code ?? "")
               .trim()
-              .toUpperCase() === code,
+              .toUpperCase() === discountCodeNormalized,
         ) as { stripePromotionCodeId?: string | null } | undefined;
         promotionCodeId =
           doc?.stripePromotionCodeId && String(doc.stripePromotionCodeId).trim()
@@ -594,6 +596,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
             message: "Invalid or inactive discount code.",
           });
         }
+        meta.discountCode = discountCodeNormalized;
       }
 
       const payloadUser = await resolvePayloadUser({
@@ -614,6 +617,28 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
       const lineItems: Stripe.Checkout.SessionCreateParams["line_items"] = [
         { price: input.priceId, quantity: input.quantity || 1 },
       ];
+
+      // Resolve plan/product price (cents) for gift leftover metadata — exclude platform fee.
+      try {
+        const priceObjForPlan = await ctx.stripe.prices.retrieve(
+          input.priceId,
+          { expand: [] },
+          stripeOpts
+        );
+        const unitAmount = priceObjForPlan.unit_amount ?? 0;
+        const quantity = input.quantity || 1;
+        if (typeof unitAmount === "number" && unitAmount > 0) {
+          const planPriceCents = unitAmount * quantity;
+          meta.planPriceAmount = String(planPriceCents);
+          meta.classPriceAmount = String(planPriceCents);
+          // Euros string for remainder helper parity with drop-ins.
+          meta.classPriceBeforeDiscount = String(
+            Number((planPriceCents / 100).toFixed(2))
+          );
+        }
+      } catch (e) {
+        console.warn("Checkout plan price lookup failed", e);
+      }
 
       // When getFee is configured, compute booking fee.
       // - Platform-scoped Checkout: add a visible "Booking fee" line item (platform charges customer directly).
@@ -740,6 +765,11 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
           ...(stripeAccountId && connectApplicationFeePercent != null
             ? { application_fee_percent: connectApplicationFeePercent }
             : {}),
+        };
+      }
+      if (input.mode === "payment") {
+        sessionParams.payment_intent_data = {
+          metadata: meta,
         };
       }
 

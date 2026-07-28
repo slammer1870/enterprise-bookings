@@ -100,6 +100,8 @@ describe('createTenantCheckoutSession', () => {
           tenantId: '101',
           bookingId: 'bk_1',
           classPriceAmount: '2000',
+          planPriceAmount: '2000',
+          classPriceBeforeDiscount: '20',
           bookingFeeAmount: '150',
         },
       },
@@ -107,6 +109,8 @@ describe('createTenantCheckoutSession', () => {
         tenantId: '101',
         bookingId: 'bk_1',
         classPriceAmount: '2000',
+        planPriceAmount: '2000',
+        classPriceBeforeDiscount: '20',
         bookingFeeAmount: '150',
       },
     })
@@ -214,6 +218,8 @@ describe('createTenantCheckoutSession', () => {
     expect(createArgs.metadata).toMatchObject({
       bookingFeeAmount: '120',
       classPriceAmount: '4000',
+      planPriceAmount: '4000',
+      classPriceBeforeDiscount: '40',
     })
     expect(createArgs.payment_intent_data).toMatchObject({
       application_fee_amount: 120,

@@ -285,7 +285,7 @@ export interface Tenant {
   apexDomainVerificationToken?: string | null;
   description?: string | null;
   /**
-   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA) are always available.
+   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout) are always available.
    */
   allowedBlocks?:
     | (
@@ -565,6 +565,23 @@ export interface Page {
         id?: string | null;
         blockName?: string | null;
         blockType: 'dhLiveMembership';
+      }
+    | {
+        /**
+         * Optional title shown above the checkout form.
+         */
+        heading?: string | null;
+        /**
+         * Minimum gift voucher amount in euros (must be at least €5).
+         */
+        minAmount?: number | null;
+        /**
+         * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
+         */
+        maxAmount?: number | null;
+        id?: string | null;
+        blockName?: string | null;
+        blockType: 'giftVoucherCheckout';
       }
     | CroiLanHeroWithLocationBlock
     | ClFindSanctuaryBlock
@@ -1507,6 +1524,23 @@ export interface ThreeColumnLayoutBlock {
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveMembership';
+          }
+        | {
+            /**
+             * Optional title shown above the checkout form.
+             */
+            heading?: string | null;
+            /**
+             * Minimum gift voucher amount in euros (must be at least €5).
+             */
+            minAmount?: number | null;
+            /**
+             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
+             */
+            maxAmount?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'giftVoucherCheckout';
           }
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
@@ -2939,6 +2973,23 @@ export interface TwoColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
+        | {
+            /**
+             * Optional title shown above the checkout form.
+             */
+            heading?: string | null;
+            /**
+             * Minimum gift voucher amount in euros (must be at least €5).
+             */
+            minAmount?: number | null;
+            /**
+             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
+             */
+            maxAmount?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'giftVoucherCheckout';
+          }
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3041,6 +3092,23 @@ export interface TwoColumnLayoutBlock {
             id?: string | null;
             blockName?: string | null;
             blockType: 'dhLiveMembership';
+          }
+        | {
+            /**
+             * Optional title shown above the checkout form.
+             */
+            heading?: string | null;
+            /**
+             * Minimum gift voucher amount in euros (must be at least €5).
+             */
+            minAmount?: number | null;
+            /**
+             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
+             */
+            maxAmount?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'giftVoucherCheckout';
           }
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
@@ -3292,6 +3360,14 @@ export interface DiscountCode {
    */
   lastConsumedHoldId?: number | null;
   /**
+   * PaymentIntent or subscription id that last consumed a redemption (Checkout flows without a hold).
+   */
+  lastConsumedIdempotencyKey?: string | null;
+  /**
+   * Subscription id used when leftover gift credit was written to Stripe customer balance (idempotency).
+   */
+  giftBalanceCreditKey?: string | null;
+  /**
    * No redemptions after this date
    */
   redeemBy?: string | null;
@@ -3315,6 +3391,10 @@ export interface DiscountCode {
    * Checkout hold that triggered remainder issuance (idempotency).
    */
   sourceHoldId?: number | null;
+  /**
+   * PaymentIntent that triggered remainder issuance (class-pass Checkout idempotency).
+   */
+  sourcePaymentIntentId?: string | null;
   /**
    * Set after sync to Stripe
    */
@@ -4202,12 +4282,15 @@ export interface DiscountCodesSelect<T extends boolean = true> {
   maxRedemptions?: T;
   timesRedeemed?: T;
   lastConsumedHoldId?: T;
+  lastConsumedIdempotencyKey?: T;
+  giftBalanceCreditKey?: T;
   redeemBy?: T;
   rootPurchasedAt?: T;
   parentDiscountCode?: T;
   externalId?: T;
   sourceBookingId?: T;
   sourceHoldId?: T;
+  sourcePaymentIntentId?: T;
   stripeCouponId?: T;
   stripePromotionCodeId?: T;
   skipSync?: T;
@@ -4485,6 +4568,15 @@ export interface PagesSelect<T extends boolean = true> {
         dhLiveMembership?:
           | T
           | {
+              id?: T;
+              blockName?: T;
+            };
+        giftVoucherCheckout?:
+          | T
+          | {
+              heading?: T;
+              minAmount?: T;
+              maxAmount?: T;
               id?: T;
               blockName?: T;
             };
@@ -4829,6 +4921,15 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveMembership?:
           | T
           | {
+              id?: T;
+              blockName?: T;
+            };
+        giftVoucherCheckout?:
+          | T
+          | {
+              heading?: T;
+              minAmount?: T;
+              maxAmount?: T;
               id?: T;
               blockName?: T;
             };
@@ -5727,6 +5828,15 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
+        giftVoucherCheckout?:
+          | T
+          | {
+              heading?: T;
+              minAmount?: T;
+              maxAmount?: T;
+              id?: T;
+              blockName?: T;
+            };
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5840,6 +5950,15 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         dhLiveMembership?:
           | T
           | {
+              id?: T;
+              blockName?: T;
+            };
+        giftVoucherCheckout?:
+          | T
+          | {
+              heading?: T;
+              minAmount?: T;
+              maxAmount?: T;
               id?: T;
               blockName?: T;
             };

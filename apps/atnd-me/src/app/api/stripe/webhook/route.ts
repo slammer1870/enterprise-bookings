@@ -1,6 +1,6 @@
 /**
- * Stripe Connect webhook: account.*, payment_intent.succeeded, customer.subscription.*, product.*, price.*,
- * coupon.*, promotion_code.*.
+ * Stripe Connect webhook: account.*, payment_intent.succeeded, checkout.session.completed,
+ * customer.subscription.*, product.*, price.*, coupon.*, promotion_code.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
@@ -39,11 +39,18 @@ import {
 } from '@/lib/stripe-connect/webhook/sync-products'
 import { syncDiscountFromWebhookEvent } from '@/lib/stripe-connect/webhook/sync-discount-codes'
 import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-status'
+import { findUserByCustomer } from '@repo/bookings-payments'
+import { handleSubscriptionGiftBalance } from '@/lib/stripe-connect/webhook/checkout-gift-credit'
+import { assignClassPassFromPurchase } from '@/lib/stripe-connect/webhook/assign-class-pass-from-purchase'
 import {
-  resolveDaysUntilExpiration,
-  classPassExpirationDateOnly,
-  findUserByCustomer,
-} from '@repo/bookings-payments'
+  extractStripePromotionCodeId,
+  extractStripePromotionCodeIdFromLegacyDiscount,
+} from '@/lib/stripe-connect/resolveDiscountCodeForGiftCredit'
+import {
+  issuePurchasedGiftVoucher,
+  parseGiftVoucherPurchaseMetadata,
+} from '@/lib/stripe-connect/issuePurchasedGiftVoucher'
+import { getPlatformStripe } from '@/lib/stripe/platform'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -91,56 +98,68 @@ export async function POST(request: NextRequest) {
     const bookingIdsToConfirm = parseBookingIds(meta)
     const paymentIntentTenantContext = tenant ? { tenant: tenant.id } : null
 
-    // Class pass purchase
-    if (
-      tenant &&
-      meta.type === 'class_pass_purchase' &&
-      !meta.bookingId
-    ) {
-      const userId = meta.userId
-      const classPassTypeId = meta.classPassTypeId ? parseInt(meta.classPassTypeId, 10) : NaN
-      const transactionId = obj?.id ?? null
-      if (userId && Number.isFinite(classPassTypeId) && classPassTypeId > 0) {
-        const classPassType = (await payload.findByID({
-          collection: 'class-pass-types' as import('payload').CollectionSlug,
-          id: classPassTypeId,
-          depth: 0,
-          overrideAccess: true,
-        }).catch(() => null)) as { quantity?: number; daysUntilExpiration?: number } | null
-        const passCredits =
-          classPassType && typeof classPassType.quantity === 'number'
-            ? classPassType.quantity
-            : 0
-
-        if (passCredits < 1) {
-          markStripeConnectEventProcessed(event.id)
-          return NextResponse.json({ received: true }, { status: 200 })
+    // Gift voucher purchase → issue DiscountCode + email
+    if (tenant && meta.type === 'gift_voucher_purchase') {
+      const paymentIntentId =
+        typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      const parsed = parseGiftVoucherPurchaseMetadata(meta)
+      if (paymentIntentId && parsed.isGiftVoucher && parsed.purchaserEmail) {
+        try {
+          const result = await issuePurchasedGiftVoucher({
+            payload,
+            tenantId: tenant.id,
+            paymentIntentId,
+            amountEuros: parsed.amountEuros,
+            purchaserEmail: parsed.purchaserEmail,
+            purchaserName: parsed.purchaserName || null,
+            userId: parsed.userId,
+          })
+          if (!result.issued) {
+            payload.logger?.error?.(
+              `gift_voucher_purchase: issue failed (${result.reason}) for pi ${paymentIntentId}`,
+            )
+          }
+        } catch (err) {
+          payload.logger?.error?.(
+            `gift_voucher_purchase: issue threw: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          )
         }
+      }
+      markStripeConnectEventProcessed(event.id)
+      return NextResponse.json({ received: true }, { status: 200 })
+    }
 
-        const now = new Date()
-        const daysUntilExpiration = resolveDaysUntilExpiration(classPassType ?? {})
-        const expirationDate = new Date(now)
-        expirationDate.setDate(expirationDate.getDate() + daysUntilExpiration)
-        const expirationDateISO = expirationDate.toISOString()
-        const expirationDateOnly = expirationDateISO.slice(0, 10)
-        await payload.create({
-          collection: 'class-passes' as import('payload').CollectionSlug,
-          draft: false,
-          data: {
-            user: Number(userId),
-            tenant: tenant.id,
-            type: classPassTypeId,
-            quantity: passCredits,
-            // Payload `date` fields treat string inputs as date-only in local time
-            // and can shift the resulting stored UTC day. Use a full ISO timestamp
-            // so integration tests (and real clients) get stable YYYY-MM-DD.
-            expirationDate: expirationDateISO,
-            purchasedAt: now.toISOString().slice(0, 10),
-            status: 'active',
-            ...(transactionId ? { transactionId } : {}),
-          } as Record<string, unknown>,
-          ...(paymentIntentTenantContext ? { context: paymentIntentTenantContext } : {}),
-          overrideAccess: true,
+    // Class pass purchase (paid Checkout / PaymentIntent path)
+    if (tenant && meta.type === 'class_pass_purchase' && !meta.bookingId) {
+      const paymentIntentId =
+        typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      if (paymentIntentId) {
+        let stripePromotionCodeId: string | null = null
+        if (!meta.discountCode) {
+          try {
+            const stripe = getPlatformStripe()
+            const sessions = await stripe.checkout.sessions.list(
+              { payment_intent: paymentIntentId, limit: 1 },
+              accountId ? { stripeAccount: accountId } : undefined,
+            )
+            stripePromotionCodeId = extractStripePromotionCodeId(sessions.data[0]?.discounts)
+          } catch (err) {
+            payload.logger?.error?.(
+              `class_pass_purchase: failed to load checkout session for pi ${paymentIntentId}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            )
+          }
+        }
+        await assignClassPassFromPurchase({
+          payload,
+          tenantId: tenant.id,
+          metadata: meta,
+          transactionId: paymentIntentId,
+          tenantContext: paymentIntentTenantContext,
+          stripePromotionCodeId,
         })
       }
     }
@@ -273,6 +292,56 @@ export async function POST(request: NextRequest) {
           tenantId: tenant.id,
           tenantContext: paymentIntentTenantContext,
         })
+      }
+    }
+
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
+
+  // Zero-amount Checkout (100% discount): Stripe completes the session as paid with no
+  // PaymentIntent, so payment_intent.succeeded never fires. Assign class passes here.
+  if (event.type === 'checkout.session.completed') {
+    const obj = event.data?.object as {
+      id?: string
+      mode?: string
+      payment_status?: string
+      payment_intent?: string | { id?: string } | null
+      metadata?: Record<string, string>
+      discounts?: unknown
+    } | undefined
+    const meta = obj?.metadata ?? {}
+    const paymentIntentRaw = obj?.payment_intent
+    const hasPaymentIntent =
+      (typeof paymentIntentRaw === 'string' && paymentIntentRaw.trim().length > 0) ||
+      (paymentIntentRaw != null &&
+        typeof paymentIntentRaw === 'object' &&
+        typeof paymentIntentRaw.id === 'string' &&
+        paymentIntentRaw.id.trim().length > 0)
+    const stripePromotionCodeId = extractStripePromotionCodeId(obj?.discounts)
+
+    if (
+      obj?.mode === 'payment' &&
+      obj.payment_status === 'paid' &&
+      !hasPaymentIntent &&
+      meta.type === 'class_pass_purchase'
+    ) {
+      const accountId = getAccountIdFromEvent(event)
+      const tenant = await resolveTenant(payload, accountId, meta.tenantId)
+      const sessionId = typeof obj.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      if (tenant && sessionId) {
+        await assignClassPassFromPurchase({
+          payload,
+          tenantId: tenant.id,
+          metadata: meta,
+          transactionId: sessionId,
+          tenantContext: { tenant: tenant.id },
+          stripePromotionCodeId,
+        })
+      } else {
+        payload.logger?.error?.(
+          `checkout.session.completed: class_pass_purchase skipped (tenant=${tenant?.id ?? 'null'}, session=${sessionId ?? 'null'})`,
+        )
       }
     }
 
@@ -474,7 +543,8 @@ export async function POST(request: NextRequest) {
         select: { id: true } as any,
       })
       if (existing.docs.length > 0) {
-        // subscription.updated may have created the record first; still run booking confirmation
+        // subscription.updated may have created the record first; still run booking confirmation.
+        // Do NOT return early — gift-balance handling below must still run.
         const existingSub = existing.docs[0] as { id: number }
         const meta = obj.metadata ?? {}
         const timeslotIdRaw = getTimeslotIdFromStripeMetadata(meta)
@@ -497,9 +567,7 @@ export async function POST(request: NextRequest) {
             }
           }
         }
-        markStripeConnectEventProcessed(event.id)
-        return NextResponse.json({ received: true }, { status: 200 })
-      }
+      } else {
       const allowedStatuses = ['incomplete', 'incomplete_expired', 'trialing', 'active', 'past_due', 'canceled', 'unpaid', 'paused'] as const
       const rawStatus = obj.status && allowedStatuses.includes(obj.status as (typeof allowedStatuses)[number])
         ? (obj.status as (typeof allowedStatuses)[number])
@@ -544,6 +612,7 @@ export async function POST(request: NextRequest) {
             payload.logger?.error?.(`Failed to confirm booking for timeslot ${timeslotIdRaw}: ${e}`)
           }
         }
+      }
       }
     } else if (
       event.type === 'customer.subscription.updated' ||
@@ -681,6 +750,58 @@ export async function POST(request: NextRequest) {
         })
       }
     }
+
+    // One-time gift leftover → Stripe customer balance (active/trialing only; idempotent per sub id).
+    if (
+      (event.type === 'customer.subscription.created' ||
+        event.type === 'customer.subscription.updated' ||
+        event.type === 'customer.subscription.resumed') &&
+      typeof obj.id === 'string' &&
+      customerId &&
+      tenantId != null
+    ) {
+      const giftUserDoc = await findUserByCustomer(payload, customerId, {
+        stripeAccountId: accountId ?? null,
+      })
+      const giftUserId = giftUserDoc?.id as number | undefined
+      if (giftUserId != null) {
+        let stripePromotionCodeId =
+          extractStripePromotionCodeId((obj as { discounts?: unknown }).discounts) ??
+          extractStripePromotionCodeIdFromLegacyDiscount((obj as { discount?: unknown }).discount)
+
+        // Subscription objects often drop discounts after first invoice; recover from Checkout Session.
+        if (!stripePromotionCodeId && !(obj.metadata as { discountCode?: string } | undefined)?.discountCode) {
+          try {
+            const stripe = getPlatformStripe()
+            const sessions = await stripe.checkout.sessions.list(
+              { subscription: obj.id, limit: 1 },
+              accountId ? { stripeAccount: accountId } : undefined,
+            )
+            const session = sessions.data[0]
+            stripePromotionCodeId = extractStripePromotionCodeId(session?.discounts)
+          } catch (err) {
+            payload.logger?.error?.(
+              `subscription gift: failed to load checkout session for sub ${obj.id}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            )
+          }
+        }
+
+        await handleSubscriptionGiftBalance({
+          payload,
+          tenantId,
+          userId: giftUserId,
+          subscriptionId: obj.id,
+          stripeCustomerId: customerId,
+          stripeAccountId: accountId,
+          stripeStatus: typeof obj.status === 'string' ? obj.status : null,
+          metadata: (obj.metadata ?? {}) as Record<string, string | undefined>,
+          stripePromotionCodeId,
+        })
+      }
+    }
+
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
   }

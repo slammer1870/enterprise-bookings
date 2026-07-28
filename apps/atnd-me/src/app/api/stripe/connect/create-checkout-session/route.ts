@@ -133,8 +133,13 @@ export async function POST(request: NextRequest) {
       ? body.promotionCodeId.trim()
       : undefined
 
-  if (!promotionCodeId && typeof body.discountCode === 'string' && body.discountCode.trim().length > 0) {
-    promotionCodeId = await resolveTenantPromotionCodeId(payload, tenantId, body.discountCode)
+  const discountCodeRaw =
+    typeof body.discountCode === 'string' && body.discountCode.trim().length > 0
+      ? body.discountCode.trim().toUpperCase()
+      : undefined
+
+  if (!promotionCodeId && discountCodeRaw) {
+    promotionCodeId = await resolveTenantPromotionCodeId(payload, tenantId, discountCodeRaw)
     if (!promotionCodeId) {
       return NextResponse.json({ error: 'Invalid or inactive discount code.' }, { status: 400 })
     }
@@ -161,6 +166,7 @@ export async function POST(request: NextRequest) {
     ...metadataFromBody,
     tenantId: String(tenant.id),
     ...(metadataFromBody?.type === 'class_pass_purchase' ? { userId: String(userId) } : {}),
+    ...(discountCodeRaw ? { discountCode: discountCodeRaw } : {}),
   }
 
   const quantity = typeof body.quantity === 'number' && Number.isFinite(body.quantity) && body.quantity > 0 ? body.quantity : 1

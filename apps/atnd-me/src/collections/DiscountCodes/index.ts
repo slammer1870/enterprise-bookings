@@ -174,6 +174,10 @@ export const DiscountCodes: CollectionConfig = {
         { label: 'Forever', value: 'forever' },
         { label: 'Repeating', value: 'repeating' },
       ],
+      admin: {
+        description:
+          'How long the discount applies. Once: a single invoice or one-time payment (use this for gift vouchers and class-pass / drop-in codes). Forever: every invoice for the life of a subscription. Repeating: a fixed number of subscription invoices (set Duration months below).',
+      },
     },
     {
       name: 'durationInMonths',
@@ -213,6 +217,30 @@ export const DiscountCodes: CollectionConfig = {
       access: adminOnlyFieldAccess,
       admin: {
         description: 'Checkout hold that last consumed a redemption (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'lastConsumedIdempotencyKey',
+      type: 'text',
+      label: 'Last consumed idempotency key',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'PaymentIntent or subscription id that last consumed a redemption (Checkout flows without a hold).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'giftBalanceCreditKey',
+      type: 'text',
+      label: 'Gift balance credit key',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'Subscription id used when leftover gift credit was written to Stripe customer balance (idempotency).',
         position: 'sidebar',
         readOnly: true,
       },
@@ -275,6 +303,17 @@ export const DiscountCodes: CollectionConfig = {
       access: adminOnlyFieldAccess,
       admin: {
         description: 'Checkout hold that triggered remainder issuance (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'sourcePaymentIntentId',
+      type: 'text',
+      label: 'Source payment intent ID',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'PaymentIntent that triggered remainder issuance (class-pass Checkout idempotency).',
         position: 'sidebar',
         readOnly: true,
       },

@@ -5,6 +5,11 @@ import type { CheckoutLegalConfig } from "../types/checkout-legal";
 
 type CheckoutLegalAcceptanceProps = {
   config: CheckoutLegalConfig;
+  /**
+   * Leading agreement copy before the linked document titles.
+   * Default matches booking checkout.
+   */
+  agreementPrefix?: string;
 };
 
 function LegalLink({
@@ -40,7 +45,10 @@ function formatLinkList(links: CheckoutLegalConfig["links"]): ReactNode[] {
   });
 }
 
-export function CheckoutLegalAcceptance({ config }: CheckoutLegalAcceptanceProps) {
+export function CheckoutLegalAcceptance({
+  config,
+  agreementPrefix = "By placing your booking, you agree to our",
+}: CheckoutLegalAcceptanceProps) {
   const links = config.links.filter((link) => link.href && link.label);
 
   if (links.length === 0) return null;
@@ -50,7 +58,7 @@ export function CheckoutLegalAcceptance({ config }: CheckoutLegalAcceptanceProps
       className="text-sm text-muted-foreground"
       data-testid="checkout-legal-acceptance"
     >
-      By placing your booking, you agree to our {formatLinkList(links)}.
+      {agreementPrefix} {formatLinkList(links)}.
     </p>
   );
 }

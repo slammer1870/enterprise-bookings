@@ -240,7 +240,7 @@ export const Tenants: CollectionConfig = {
         value: slug,
       })),
       admin: {
-        description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA) are always available.',
+        description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout) are always available.',
       },
       access: {
         update: adminOnlyUpdate, // Only admin can change allowed blocks; tenant-admins cannot

@@ -40,3 +40,51 @@ export function createPaymentIntentSucceededEvent(overrides: {
     ...(account ? { account } : {}),
   }
 }
+
+/** Zero-amount paid Checkout Session (100% discount → no PaymentIntent). */
+export function createCheckoutSessionCompletedEvent(overrides: {
+  id?: string
+  account?: string
+  sessionId?: string
+  metadata: Record<string, string>
+  paymentIntent?: string | null
+  amountTotal?: number
+  discounts?: Array<{ promotion_code?: string | { id?: string } | null; coupon?: string | null }>
+}) {
+  const {
+    id = 'evt_checkout_test',
+    account,
+    sessionId = 'cs_test_123',
+    metadata,
+    paymentIntent = null,
+    amountTotal = 0,
+    discounts,
+  } = overrides
+  return {
+    id,
+    object: 'event' as const,
+    api_version: PLATFORM_STRIPE_API_VERSION,
+    created: Math.floor(Date.now() / 1000),
+    data: {
+      object: {
+        id: sessionId,
+        object: 'checkout.session' as const,
+        mode: 'payment' as const,
+        payment_status: 'paid' as const,
+        status: 'complete' as const,
+        amount_total: amountTotal,
+        currency: 'eur',
+        customer: null,
+        payment_intent: paymentIntent,
+        livemode: false,
+        metadata,
+        ...(discounts ? { discounts } : {}),
+      },
+    },
+    livemode: false,
+    pending_webhooks: 0,
+    request: { id: 'req_test', idempotency_key: null },
+    type: 'checkout.session.completed' as const,
+    ...(account ? { account } : {}),
+  }
+}
