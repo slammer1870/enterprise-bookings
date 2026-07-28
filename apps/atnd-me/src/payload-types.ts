@@ -3292,6 +3292,14 @@ export interface DiscountCode {
    */
   lastConsumedHoldId?: number | null;
   /**
+   * PaymentIntent or subscription id that last consumed a redemption (Checkout flows without a hold).
+   */
+  lastConsumedIdempotencyKey?: string | null;
+  /**
+   * Subscription id used when leftover gift credit was written to Stripe customer balance (idempotency).
+   */
+  giftBalanceCreditKey?: string | null;
+  /**
    * No redemptions after this date
    */
   redeemBy?: string | null;
@@ -3315,6 +3323,10 @@ export interface DiscountCode {
    * Checkout hold that triggered remainder issuance (idempotency).
    */
   sourceHoldId?: number | null;
+  /**
+   * PaymentIntent that triggered remainder issuance (class-pass Checkout idempotency).
+   */
+  sourcePaymentIntentId?: string | null;
   /**
    * Set after sync to Stripe
    */
@@ -4202,12 +4214,15 @@ export interface DiscountCodesSelect<T extends boolean = true> {
   maxRedemptions?: T;
   timesRedeemed?: T;
   lastConsumedHoldId?: T;
+  lastConsumedIdempotencyKey?: T;
+  giftBalanceCreditKey?: T;
   redeemBy?: T;
   rootPurchasedAt?: T;
   parentDiscountCode?: T;
   externalId?: T;
   sourceBookingId?: T;
   sourceHoldId?: T;
+  sourcePaymentIntentId?: T;
   stripeCouponId?: T;
   stripePromotionCodeId?: T;
   skipSync?: T;

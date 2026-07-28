@@ -44,6 +44,10 @@ import {
   classPassExpirationDateOnly,
   findUserByCustomer,
 } from '@repo/bookings-payments'
+import {
+  handleClassPassGiftRemainder,
+  handleSubscriptionGiftBalance,
+} from '@/lib/stripe-connect/webhook/checkout-gift-credit'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -142,6 +146,19 @@ export async function POST(request: NextRequest) {
           ...(paymentIntentTenantContext ? { context: paymentIntentTenantContext } : {}),
           overrideAccess: true,
         })
+
+        const paymentIntentId =
+          typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+        const userIdNum = Number(userId)
+        if (paymentIntentId && Number.isFinite(userIdNum) && userIdNum > 0) {
+          await handleClassPassGiftRemainder({
+            payload,
+            tenantId: tenant.id,
+            userId: userIdNum,
+            paymentIntentId,
+            metadata: meta,
+          })
+        }
       }
     }
 
@@ -681,6 +698,34 @@ export async function POST(request: NextRequest) {
         })
       }
     }
+
+    // One-time gift leftover → Stripe customer balance (active/trialing only; idempotent per sub id).
+    if (
+      (event.type === 'customer.subscription.created' ||
+        event.type === 'customer.subscription.updated' ||
+        event.type === 'customer.subscription.resumed') &&
+      typeof obj.id === 'string' &&
+      customerId &&
+      tenantId != null
+    ) {
+      const giftUserDoc = await findUserByCustomer(payload, customerId, {
+        stripeAccountId: accountId ?? null,
+      })
+      const giftUserId = giftUserDoc?.id as number | undefined
+      if (giftUserId != null) {
+        await handleSubscriptionGiftBalance({
+          payload,
+          tenantId,
+          userId: giftUserId,
+          subscriptionId: obj.id,
+          stripeCustomerId: customerId,
+          stripeAccountId: accountId,
+          stripeStatus: typeof obj.status === 'string' ? obj.status : null,
+          metadata: (obj.metadata ?? {}) as Record<string, string | undefined>,
+        })
+      }
+    }
+
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
   }

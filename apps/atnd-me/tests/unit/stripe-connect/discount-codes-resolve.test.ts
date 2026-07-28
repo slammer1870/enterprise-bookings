@@ -226,4 +226,65 @@ describe('consumeDiscountCodeRedemption', () => {
 
     expect(result).toEqual({ ok: false, reason: 'inactive' })
   })
+
+  it('consumes with idempotencyKey for Checkout (no hold)', async () => {
+    const docs = [
+      {
+        id: 13,
+        code: 'GIFT30',
+        type: 'amount_off',
+        value: 30,
+        currency: 'eur',
+        status: 'active',
+        maxRedemptions: 1,
+        timesRedeemed: 0,
+        lastConsumedHoldId: null,
+        lastConsumedIdempotencyKey: null,
+      },
+    ]
+    const payload = makePayload(docs)
+
+    const result = await consumeDiscountCodeRedemption({
+      payload: payload as never,
+      tenantId: 7,
+      discountCode: 'GIFT30',
+      idempotencyKey: 'pi_abc123',
+    })
+
+    expect(result).toEqual({
+      ok: true,
+      timesRedeemed: 1,
+      archived: true,
+      idempotent: false,
+    })
+    expect(docs[0]?.lastConsumedIdempotencyKey).toBe('pi_abc123')
+    expect(docs[0]?.status).toBe('archived')
+  })
+
+  it('is idempotent for the same idempotencyKey', async () => {
+    const docs = [
+      {
+        id: 14,
+        code: 'GIFT30',
+        type: 'amount_off',
+        value: 30,
+        currency: 'eur',
+        status: 'archived',
+        maxRedemptions: 1,
+        timesRedeemed: 1,
+        lastConsumedIdempotencyKey: 'sub_xyz',
+      },
+    ]
+    const payload = makePayload(docs)
+
+    const result = await consumeDiscountCodeRedemption({
+      payload: payload as never,
+      tenantId: 7,
+      discountCode: 'GIFT30',
+      idempotencyKey: 'sub_xyz',
+    })
+
+    expect(result).toMatchObject({ ok: true, idempotent: true, timesRedeemed: 1 })
+    expect(payload.update).not.toHaveBeenCalled()
+  })
 })

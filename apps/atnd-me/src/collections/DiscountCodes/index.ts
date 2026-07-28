@@ -218,6 +218,30 @@ export const DiscountCodes: CollectionConfig = {
       },
     },
     {
+      name: 'lastConsumedIdempotencyKey',
+      type: 'text',
+      label: 'Last consumed idempotency key',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'PaymentIntent or subscription id that last consumed a redemption (Checkout flows without a hold).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'giftBalanceCreditKey',
+      type: 'text',
+      label: 'Gift balance credit key',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'Subscription id used when leftover gift credit was written to Stripe customer balance (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
       name: 'redeemBy',
       type: 'date',
       label: 'Redeem by',
@@ -275,6 +299,17 @@ export const DiscountCodes: CollectionConfig = {
       access: adminOnlyFieldAccess,
       admin: {
         description: 'Checkout hold that triggered remainder issuance (idempotency).',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
+      name: 'sourcePaymentIntentId',
+      type: 'text',
+      label: 'Source payment intent ID',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description: 'PaymentIntent that triggered remainder issuance (class-pass Checkout idempotency).',
         position: 'sidebar',
         readOnly: true,
       },

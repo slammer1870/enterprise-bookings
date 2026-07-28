@@ -1,7 +1,8 @@
 /**
- * After a drop-in uses an amount_off / maxRedemptions=1 code for less than its full value,
- * issue a new one-time DiscountCode for the leftover and email it to the booking user.
+ * After a one-time amount_off code is used for less than its full value,
+ * issue a new one-time DiscountCode for the leftover and email it to the user.
  * Expiry is always rootPurchasedAt + 5 years (shared across the remainder chain).
+ * Used for drop-ins (hold/booking) and class-pass Checkout (paymentIntentId).
  */
 import type { Payload, Where } from 'payload'
 
@@ -14,13 +15,15 @@ export type IssueRemainderDiscountCodeParams = {
   payload: Payload
   tenantId: number
   discountCode: string
-  /** Class price in euros before the promo was applied */
+  /** Product price in euros before the promo was applied (plan/class only; exclude platform fee) */
   classPriceBeforeDiscount: number
   userId: number
   userEmail?: string | null
   bookingId?: number | null
   /** For idempotency when bookingId is not yet known — use holdId */
   holdId?: number | null
+  /** Class-pass Checkout PaymentIntent id (idempotency) */
+  paymentIntentId?: string | null
 }
 
 export type IssueRemainderDiscountCodeResult =
@@ -44,6 +47,7 @@ type ParentDiscountDoc = {
   createdAt?: string | null
   redeemBy?: string | null
   status?: string | null
+  sourcePaymentIntentId?: string | null
 }
 
 function generateRemainderCode(parentCode: string): string {
@@ -100,8 +104,9 @@ async function findExistingRemainder(
   parentId: number,
   bookingId: number | null | undefined,
   holdId: number | null | undefined,
+  paymentIntentId: string | null | undefined,
 ): Promise<ParentDiscountDoc | null> {
-  if (bookingId == null && holdId == null) return null
+  if (bookingId == null && holdId == null && !paymentIntentId) return null
 
   const and: Where[] = [
     { tenant: { equals: tenantId } },
@@ -111,6 +116,8 @@ async function findExistingRemainder(
     and.push({ sourceBookingId: { equals: bookingId } })
   } else if (holdId != null) {
     and.push({ sourceHoldId: { equals: holdId } })
+  } else if (paymentIntentId) {
+    and.push({ sourcePaymentIntentId: { equals: paymentIntentId } })
   }
 
   const existing = await payload.find({
@@ -168,7 +175,13 @@ export async function issueRemainderDiscountCodeIfNeeded(
     userEmail,
     bookingId,
     holdId,
+    paymentIntentId,
   } = params
+
+  const paymentIntentIdClean =
+    typeof paymentIntentId === 'string' && paymentIntentId.trim()
+      ? paymentIntentId.trim()
+      : null
 
   const parent = await findParentByCode(payload, tenantId, discountCode)
   if (!parent) {
@@ -206,7 +219,14 @@ export async function issueRemainderDiscountCodeIfNeeded(
     return { issued: false, reason: 'root_expired' }
   }
 
-  const existing = await findExistingRemainder(payload, tenantId, parent.id, bookingId, holdId)
+  const existing = await findExistingRemainder(
+    payload,
+    tenantId,
+    parent.id,
+    bookingId,
+    holdId,
+    paymentIntentIdClean,
+  )
   if (existing?.code) {
     return {
       issued: true,
@@ -239,6 +259,7 @@ export async function issueRemainderDiscountCodeIfNeeded(
         parentDiscountCode: parent.id,
         ...(bookingId != null ? { sourceBookingId: bookingId } : {}),
         ...(holdId != null ? { sourceHoldId: holdId } : {}),
+        ...(paymentIntentIdClean ? { sourcePaymentIntentId: paymentIntentIdClean } : {}),
         status: 'active',
       },
       overrideAccess: true,
@@ -266,11 +287,11 @@ export async function issueRemainderDiscountCodeIfNeeded(
         subject: `Your remaining gift credit code: ${remainderCode}`,
         html: `
           <p>Hi,</p>
-          <p>You used part of a one-time discount code on a class booking. Here is a new code for the unused balance:</p>
+          <p>You used part of a one-time discount code. Here is a new code for the unused balance:</p>
           <p><strong>Code:</strong> ${remainderCode}<br/>
           <strong>Amount:</strong> €${remainderValue.toFixed(2)}<br/>
           <strong>Expires:</strong> ${expiryLabel}</p>
-          <p>Enter this code at checkout on your next drop-in booking. It can be used once.</p>
+          <p>Enter this code at checkout on your next drop-in, class pass, or membership purchase. It can be used once.</p>
         `,
       })
     } catch (emailErr) {

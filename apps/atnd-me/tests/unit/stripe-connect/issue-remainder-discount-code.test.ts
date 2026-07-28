@@ -81,6 +81,12 @@ describe('computeRemainderAmount', () => {
     expect(computeRemainderAmount(20, 20)).toBe(0)
     expect(computeRemainderAmount(10, 20)).toBe(0)
   })
+
+  it('is plan-only (fee is never passed into the helper)', () => {
+    // €100 plan + €5 fee would still use 100 as the applied amount basis.
+    expect(computeRemainderAmount(150, 100)).toBe(50)
+    expect(computeRemainderAmount(150, 105)).toBe(45)
+  })
 })
 
 describe('issueRemainderDiscountCodeIfNeeded', () => {
@@ -370,5 +376,58 @@ describe('issueRemainderDiscountCodeIfNeeded', () => {
     expect(payload.create).toHaveBeenCalled()
     expect(payload.sendEmail).not.toHaveBeenCalled()
     expect(payload.logger.warn).toHaveBeenCalled()
+  })
+
+  it('stores sourcePaymentIntentId for class-pass Checkout leftovers', async () => {
+    const payload = makePayload()
+    const result = await issueRemainderDiscountCodeIfNeeded({
+      payload: payload as never,
+      tenantId: 1,
+      discountCode: 'GIFT100',
+      classPriceBeforeDiscount: 20,
+      userId: 5,
+      userEmail: 'user@example.com',
+      paymentIntentId: 'pi_class_pass_1',
+    })
+
+    expect(result.issued).toBe(true)
+    if (!result.issued) return
+    expect(result.remainderValue).toBe(80)
+    const data = payload.create.mock.calls[0]?.[0]?.data
+    expect(data).toMatchObject({
+      sourcePaymentIntentId: 'pi_class_pass_1',
+      value: 80,
+    })
+    expect(data.sourceHoldId).toBeUndefined()
+    expect(payload.sendEmail.mock.calls[0]?.[0]?.html).toContain('class pass')
+  })
+
+  it('is idempotent for the same paymentIntentId', async () => {
+    const payload = makePayload({
+      existingRemainder: {
+        id: 56,
+        code: 'PIPASS80',
+        value: 80,
+        redeemBy: ROOT_EXPIRES,
+        sourcePaymentIntentId: 'pi_class_pass_1',
+      },
+    })
+    const result = await issueRemainderDiscountCodeIfNeeded({
+      payload: payload as never,
+      tenantId: 1,
+      discountCode: 'GIFT100',
+      classPriceBeforeDiscount: 20,
+      userId: 5,
+      userEmail: 'u@example.com',
+      paymentIntentId: 'pi_class_pass_1',
+    })
+    expect(result).toEqual({
+      issued: true,
+      remainderCode: 'PIPASS80',
+      remainderValue: 80,
+      redeemBy: ROOT_EXPIRES,
+      discountCodeId: 56,
+    })
+    expect(payload.create).not.toHaveBeenCalled()
   })
 })

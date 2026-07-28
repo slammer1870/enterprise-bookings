@@ -23,6 +23,8 @@ type DiscountCodeDoc = {
   maxRedemptions?: number | null
   timesRedeemed?: number | null
   lastConsumedHoldId?: number | null
+  lastConsumedIdempotencyKey?: string | null
+  giftBalanceCreditKey?: string | null
   redeemBy?: string | null
   status?: string | null
 }
@@ -207,18 +209,27 @@ function getDrizzle(payload: Payload): DrizzleLike | null {
 }
 
 /**
- * Atomically consume one redemption for a drop-in (idempotent per holdId).
+ * Atomically consume one redemption (idempotent per holdId or idempotencyKey).
  * Archives the code when timesRedeemed reaches maxRedemptions (and deactivates Stripe promo via hook).
+ * Use holdId for drop-in PaymentIntents; use idempotencyKey (e.g. pi_… / sub_…) for Checkout.
  */
 export async function consumeDiscountCodeRedemption(params: {
   payload: Payload
   tenantId: number
   discountCode: string
-  holdId: number
+  holdId?: number
+  idempotencyKey?: string
 }): Promise<ConsumeDiscountCodeRedemptionResult> {
-  const { payload, tenantId, discountCode, holdId } = params
+  const { payload, tenantId, discountCode } = params
+  const holdId =
+    params.holdId != null && Number.isFinite(params.holdId) ? params.holdId : null
+  const idempotencyKey =
+    typeof params.idempotencyKey === 'string' && params.idempotencyKey.trim()
+      ? params.idempotencyKey.trim()
+      : null
+
   const normalized = normalizeDiscountCode(discountCode)
-  if (!normalized || !Number.isFinite(holdId)) {
+  if (!normalized || (holdId == null && !idempotencyKey)) {
     return { ok: false, reason: 'invalid_args' }
   }
 
@@ -227,7 +238,20 @@ export async function consumeDiscountCodeRedemption(params: {
     return { ok: false, reason: 'not_found' }
   }
 
-  if (doc.lastConsumedHoldId != null && Number(doc.lastConsumedHoldId) === holdId) {
+  if (holdId != null && doc.lastConsumedHoldId != null && Number(doc.lastConsumedHoldId) === holdId) {
+    return {
+      ok: true,
+      timesRedeemed: doc.timesRedeemed ?? 0,
+      archived: doc.status === 'archived',
+      idempotent: true,
+    }
+  }
+
+  if (
+    idempotencyKey &&
+    typeof doc.lastConsumedIdempotencyKey === 'string' &&
+    doc.lastConsumedIdempotencyKey === idempotencyKey
+  ) {
     return {
       ok: true,
       timesRedeemed: doc.timesRedeemed ?? 0,
@@ -242,15 +266,26 @@ export async function consumeDiscountCodeRedemption(params: {
       UPDATE "discount_codes"
       SET
         "times_redeemed" = CASE
-          WHEN "last_consumed_hold_id" = ${holdId} THEN COALESCE("times_redeemed", 0)
+          WHEN (
+            (${holdId}::numeric IS NOT NULL AND "last_consumed_hold_id" = ${holdId})
+            OR (
+              ${idempotencyKey}::varchar IS NOT NULL
+              AND "last_consumed_idempotency_key" = ${idempotencyKey}
+            )
+          ) THEN COALESCE("times_redeemed", 0)
           ELSE COALESCE("times_redeemed", 0) + 1
         END,
-        "last_consumed_hold_id" = ${holdId},
+        "last_consumed_hold_id" = COALESCE(${holdId}, "last_consumed_hold_id"),
+        "last_consumed_idempotency_key" = COALESCE(${idempotencyKey}, "last_consumed_idempotency_key"),
         "updated_at" = NOW()
       WHERE "id" = ${doc.id}
         AND "tenant_id" = ${tenantId}
         AND (
-          "last_consumed_hold_id" = ${holdId}
+          (${holdId}::numeric IS NOT NULL AND "last_consumed_hold_id" = ${holdId})
+          OR (
+            ${idempotencyKey}::varchar IS NOT NULL
+            AND "last_consumed_idempotency_key" = ${idempotencyKey}
+          )
           OR (
             "status" = 'active'
             AND (
@@ -259,7 +294,7 @@ export async function consumeDiscountCodeRedemption(params: {
             )
           )
         )
-      RETURNING "id", "times_redeemed", "max_redemptions", "status", "last_consumed_hold_id"
+      RETURNING "id", "times_redeemed", "max_redemptions", "status", "last_consumed_hold_id", "last_consumed_idempotency_key"
     `)) as { rows?: Array<Record<string, unknown>> } | Array<Record<string, unknown>>
 
     const rows = Array.isArray(result) ? result : (result.rows ?? [])
@@ -287,11 +322,17 @@ export async function consumeDiscountCodeRedemption(params: {
       return { ok: true, timesRedeemed, archived: true, idempotent: false }
     }
 
+    const wasIdempotent =
+      (holdId != null && Number(row.last_consumed_hold_id) === holdId && timesRedeemed === (doc.timesRedeemed ?? 0)) ||
+      (idempotencyKey != null &&
+        String(row.last_consumed_idempotency_key ?? '') === idempotencyKey &&
+        timesRedeemed === (doc.timesRedeemed ?? 0))
+
     return {
       ok: true,
       timesRedeemed,
       archived: row.status === 'archived',
-      idempotent: Number(row.last_consumed_hold_id) === holdId && timesRedeemed === (doc.timesRedeemed ?? 0),
+      idempotent: wasIdempotent,
     }
   }
 
@@ -312,7 +353,8 @@ export async function consumeDiscountCodeRedemption(params: {
     id: doc.id,
     data: {
       timesRedeemed: nextTimes,
-      lastConsumedHoldId: holdId,
+      ...(holdId != null ? { lastConsumedHoldId: holdId } : {}),
+      ...(idempotencyKey ? { lastConsumedIdempotencyKey: idempotencyKey } : {}),
       ...(shouldArchive ? { status: 'archived' as const } : {}),
     },
     overrideAccess: true,

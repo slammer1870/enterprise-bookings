@@ -270,6 +270,12 @@ export async function createTenantCheckoutSession(
   }
   if (classPriceAmount != null) {
     normalizedMetadata.classPriceAmount = String(classPriceAmount)
+    // Plan/product price only (cents) for gift leftover math — excludes platform fee.
+    normalizedMetadata.planPriceAmount = String(classPriceAmount)
+    // Euros string for remainder helper parity with drop-ins.
+    normalizedMetadata.classPriceBeforeDiscount = String(
+      Number((classPriceAmount / 100).toFixed(2)),
+    )
   }
   if (resolvedBookingFeeAmount != null) {
     normalizedMetadata.bookingFeeAmount = String(resolvedBookingFeeAmount)
