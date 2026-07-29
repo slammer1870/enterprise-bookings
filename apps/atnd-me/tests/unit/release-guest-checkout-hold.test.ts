@@ -1,5 +1,5 @@
 /**
- * Regression: guest checkout hold release on page exit must use sync XHR
+ * Regression: guest checkout hold release on page exit must use unload-safe transport
  * (async fetch is often cancelled by the browser on unload).
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -24,7 +24,7 @@ describe('releaseGuestCheckoutHold', () => {
     sendBeacon.mockReturnValue(true)
   })
 
-  it('uses synchronous XHR when sync=true (pagehide / beforeunload path)', () => {
+  it('fires sendBeacon and synchronous XHR together when sync=true', () => {
     const result = releaseGuestCheckoutHold({
       timeslotId: 42,
       guestEmail: 'guest@example.com',
@@ -33,16 +33,20 @@ describe('releaseGuestCheckoutHold', () => {
         XMLHttpRequestCtor: MockXHR as unknown as typeof XMLHttpRequest,
         sendBeacon,
         fetchFn: fetchFn as unknown as typeof fetch,
+        BlobCtor: Blob,
       },
     })
 
-    expect(result).toBe('xhr')
+    expect(result).toBe('xhr+beacon')
+    expect(sendBeacon).toHaveBeenCalledWith(
+      '/api/events/guest-release-hold',
+      expect.any(Blob),
+    )
     expect(open).toHaveBeenCalledWith('POST', '/api/events/guest-release-hold', false)
     expect(setRequestHeader).toHaveBeenCalledWith('Content-Type', 'application/json')
     expect(send).toHaveBeenCalledWith(
       JSON.stringify({ timeslotId: 42, guestEmail: 'guest@example.com' }),
     )
-    expect(sendBeacon).not.toHaveBeenCalled()
     expect(fetchFn).not.toHaveBeenCalled()
   })
 
@@ -71,7 +75,7 @@ describe('releaseGuestCheckoutHold', () => {
     expect(fetchFn).not.toHaveBeenCalled()
   })
 
-  it('uses keepalive fetch for non-sync cleanup (in-app navigation)', () => {
+  it('uses keepalive fetch for non-sync cleanup when beacon is unavailable', () => {
     const result = releaseGuestCheckoutHold({
       timeslotId: 9,
       guestEmail: 'nav@example.com',

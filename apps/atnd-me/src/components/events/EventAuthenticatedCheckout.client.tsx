@@ -51,17 +51,57 @@ export function EventAuthenticatedCheckout({
 
   useEffect(() => {
     const timeslotId = timeslot.id
-    return () => {
-      checkoutSessionRef.current += 1
+
+    const releaseViaApi = (sync: boolean) => {
       if (paymentRedirectInProgressRef.current) return
+      const url = '/api/bookings/release-hold'
       const body = JSON.stringify({ timeslotId })
-      fetch('/api/bookings/release-hold', {
+
+      if (sync && typeof XMLHttpRequest !== 'undefined') {
+        try {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', url, false)
+          xhr.setRequestHeader('Content-Type', 'application/json')
+          xhr.withCredentials = true
+          xhr.send(body)
+        } catch {
+          // fall through
+        }
+      }
+
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        try {
+          const blob = new Blob([body], { type: 'application/json' })
+          if (navigator.sendBeacon(url, blob)) {
+            // still also try keepalive fetch as cookies may be required
+          }
+        } catch {
+          // fall through
+        }
+      }
+
+      fetch(url, {
         method: 'POST',
         body,
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         credentials: 'include',
       }).catch(() => {})
+    }
+
+    const handlePageExit = () => {
+      checkoutSessionRef.current += 1
+      releaseViaApi(true)
+    }
+
+    window.addEventListener('pagehide', handlePageExit)
+    window.addEventListener('beforeunload', handlePageExit)
+
+    return () => {
+      checkoutSessionRef.current += 1
+      window.removeEventListener('pagehide', handlePageExit)
+      window.removeEventListener('beforeunload', handlePageExit)
+      releaseViaApi(false)
     }
   }, [timeslot.id])
 

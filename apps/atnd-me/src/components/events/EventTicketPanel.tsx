@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CheckoutForm } from '@repo/payments-next'
 import { QuantitySelector } from '@repo/bookings-next'
 import type { DiscountTier, Timeslot } from '@repo/shared-types'
@@ -85,7 +85,7 @@ export function EventTicketPanel({
   }, [maxQuantity, quantity])
 
   // Release guest hold on refresh / tab close / navigate away / abandoning Continue.
-  // Unload must use sync XHR — see releaseGuestCheckoutHold + unit tests.
+  // Unload must use sync transport — see releaseGuestCheckoutHold + unit tests.
   useEffect(() => {
     if (!settledGuest) return
 
@@ -113,6 +113,51 @@ export function EventTicketPanel({
     }
   }, [settledGuest, timeslot.id])
 
+  // Reserve capacity as soon as Continue is clicked (before PaymentIntent), so exit
+  // release is not racing Stripe / guest-checkout completion.
+  useEffect(() => {
+    if (!settledGuest) return
+
+    const controller = new AbortController()
+    void fetch('/api/events/guest-reserve-hold', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        timeslotId: timeslot.id,
+        quantity,
+        guestName: settledGuest.name,
+        guestEmail: settledGuest.email,
+      }),
+    }).catch(() => {})
+
+    return () => controller.abort()
+  }, [settledGuest, timeslot.id, quantity])
+
+  const reserveGuestHold = useCallback(
+    async (metadata: Record<string, string>) => {
+      if (!settledGuest) return
+      const qty = Math.max(1, parseInt(metadata.quantity ?? String(quantity), 10) || quantity)
+      const res = await fetch('/api/events/guest-reserve-hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timeslotId: timeslot.id,
+          quantity: qty,
+          guestName: settledGuest.name,
+          guestEmail: settledGuest.email,
+        }),
+      })
+      const data = (await res.json().catch(() => null)) as
+        | { holdId?: number; error?: string }
+        | null
+      if (!res.ok) {
+        throw new Error(data?.error || 'Unable to reserve places')
+      }
+      return data?.holdId != null ? { holdId: String(data.holdId) } : undefined
+    },
+    [settledGuest, timeslot.id, quantity],
+  )
   const pricing = useMemo(
     () =>
       calculateQuantityDiscount(
@@ -230,9 +275,12 @@ export function EventTicketPanel({
       className="rounded-xl border border-border bg-card p-5 shadow-sm"
       data-testid="event-ticket-panel"
     >
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold text-foreground">Get tickets</h2>
-        <p className="text-xl font-semibold text-foreground">€{unitPrice.toFixed(2)}</p>
+        <p className="text-xl font-semibold tabular-nums text-foreground">
+          €{unitPrice.toFixed(2)}{' '}
+          <span className="text-sm font-normal text-muted-foreground">each</span>
+        </p>
       </div>
 
       <p
@@ -321,6 +369,7 @@ export function EventTicketPanel({
               }
               createPaymentIntentUrl="/api/events/guest-checkout"
               returnUrl={successUrl}
+              onReserveCheckoutHold={reserveGuestHold}
               onPaymentRedirectStart={() => {
                 paymentRedirectInProgressRef.current = true
               }}

@@ -101,11 +101,13 @@ export async function EventDetailView({
         ? '1 place left'
         : `${remaining} places left`
 
+  const emphasizePlaces = remaining > 0 && remaining <= 6
+
   return (
-    <div className="space-y-6 pt-8 pb-8 md:pt-10">
-      <header className="space-y-4">
+    <div className="pt-24 pb-8">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-x-8 lg:gap-y-6 lg:items-start">
         {coverUrl ? (
-          <div className="relative aspect-[21/9] w-full overflow-hidden rounded-xl md:aspect-[3/1]">
+          <div className="relative order-1 aspect-[21/9] w-full overflow-hidden rounded-xl md:aspect-[3/1] lg:col-span-2">
             <Image
               src={coverUrl}
               alt={cover?.alt || title}
@@ -116,57 +118,35 @@ export async function EventDetailView({
             />
           </div>
         ) : null}
-        <div className="space-y-1.5">
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium uppercase tracking-wide">{dateLabel}</span>
-            <span className="mx-2 text-muted-foreground/50" aria-hidden>
-              ·
-            </span>
-            <span>{timeLabel}</span>
+
+        <header className="order-2 space-y-1.5 lg:col-start-1">
+          <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+            {dateLabel}
           </p>
           <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             {title}
           </h1>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-sm text-muted-foreground">
-            {loc ? <span>{loc.name}</span> : null}
-            {timeslot.location ? <span>{timeslot.location}</span> : null}
-            <span
-              className={
-                remaining > 0 && remaining <= 6
-                  ? 'font-medium text-amber-700 dark:text-amber-400'
-                  : ''
-              }
-              data-testid="event-meta-places"
-            >
-              {placesLabel}
-            </span>
-          </div>
-        </div>
-      </header>
+          <p className="text-base text-muted-foreground">{timeLabel}</p>
+          {(loc || timeslot.location) && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-sm text-muted-foreground">
+              {loc ? <span>{loc.name}</span> : null}
+              {timeslot.location ? <span>{timeslot.location}</span> : null}
+            </div>
+          )}
+          {/* Mobile-only capacity cue; desktop keeps it in the ticket panel. */}
+          <p
+            className={`pt-1 text-sm lg:hidden ${
+              emphasizePlaces
+                ? 'font-medium text-amber-700 dark:text-amber-400'
+                : 'text-muted-foreground'
+            }`}
+            data-testid="event-meta-places"
+          >
+            {placesLabel}
+          </p>
+        </header>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_auto] lg:gap-8">
-        <div className="space-y-6 lg:col-start-1 lg:row-start-1">
-          {staff?.name ? (
-            <HostedBy
-              name={staff.name}
-              description={staff.description}
-              imageUrl={mediaUrl(staffImage)}
-              imageAlt={staffImage?.alt || staff.name}
-            />
-          ) : null}
-
-          {hasAbout ? (
-            <section>
-              {aboutRichText ? (
-                <RichText data={aboutRichText} enableGutter={false} />
-              ) : (
-                <p className="whitespace-pre-wrap text-muted-foreground">{aboutFallback}</p>
-              )}
-            </section>
-          ) : null}
-        </div>
-
-        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-24">
+        <div className="order-3 lg:col-start-2 lg:row-span-3 lg:self-start lg:sticky lg:top-24">
           <EventTicketPanel
             timeslot={serializableTimeslot}
             dropIn={
@@ -185,8 +165,31 @@ export async function EventDetailView({
           />
         </div>
 
+        {(staff?.name || hasAbout) && (
+          <div className="order-4 space-y-6 lg:col-start-1">
+            {staff?.name ? (
+              <HostedBy
+                name={staff.name}
+                description={staff.description}
+                imageUrl={mediaUrl(staffImage)}
+                imageAlt={staffImage?.alt || staff.name}
+              />
+            ) : null}
+
+            {hasAbout ? (
+              <section>
+                {aboutRichText ? (
+                  <RichText data={aboutRichText} enableGutter={false} />
+                ) : (
+                  <p className="whitespace-pre-wrap text-muted-foreground">{aboutFallback}</p>
+                )}
+              </section>
+            ) : null}
+          </div>
+        )}
+
         {resolvedMapUrl ? (
-          <section className="lg:col-start-1 lg:row-start-2">
+          <section className="order-5 lg:col-start-1">
             <h2 className="mb-3 text-xl font-semibold text-foreground">Location</h2>
             <MapBlock
               mapUrl={resolvedMapUrl}

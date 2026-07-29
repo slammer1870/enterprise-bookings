@@ -1,8 +1,9 @@
 /**
  * Release a guest event checkout hold.
  *
- * On tab close / refresh, callers must pass `sync: true` so we use synchronous
- * XHR — async fetch/keepalive is often cancelled before the request leaves the browser.
+ * On tab close / refresh, callers must pass `sync: true`. We fire sendBeacon and
+ * sync XHR together — browsers often cancel async fetch during unload, and sync
+ * XHR alone is deprecated / unreliable in some private-browsing modes.
  */
 export type ReleaseGuestCheckoutHoldDeps = {
   XMLHttpRequestCtor?: typeof XMLHttpRequest
@@ -11,12 +12,17 @@ export type ReleaseGuestCheckoutHoldDeps = {
   BlobCtor?: typeof Blob
 }
 
-export type ReleaseGuestCheckoutHoldResult = 'skipped' | 'xhr' | 'beacon' | 'fetch'
+export type ReleaseGuestCheckoutHoldResult =
+  | 'skipped'
+  | 'xhr'
+  | 'beacon'
+  | 'fetch'
+  | 'xhr+beacon'
 
 export function releaseGuestCheckoutHold(options: {
   timeslotId: number | string
   guestEmail: string
-  /** Prefer sync XHR (required for pagehide / beforeunload). */
+  /** Prefer unload-safe transport (required for pagehide / beforeunload). */
   sync?: boolean
   /** e.g. payment redirect in progress — do not release. */
   skip?: boolean
@@ -34,25 +40,55 @@ export function releaseGuestCheckoutHold(options: {
   const XMLHttpRequestCtor =
     options.deps?.XMLHttpRequestCtor ??
     (typeof XMLHttpRequest !== 'undefined' ? XMLHttpRequest : undefined)
-
-  if (options.sync && XMLHttpRequestCtor) {
-    try {
-      const xhr = new XMLHttpRequestCtor()
-      xhr.open('POST', url, false)
-      xhr.setRequestHeader('Content-Type', 'application/json')
-      xhr.send(body)
-      return 'xhr'
-    } catch {
-      // fall through to beacon / keepalive fetch
-    }
-  }
-
   const sendBeacon =
     options.deps?.sendBeacon ??
     (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function'
       ? navigator.sendBeacon.bind(navigator)
       : undefined)
   const BlobCtor = options.deps?.BlobCtor ?? (typeof Blob !== 'undefined' ? Blob : undefined)
+  const fetchFn = options.deps?.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : undefined)
+
+  if (options.sync) {
+    let beaconOk = false
+    let xhrOk = false
+
+    if (sendBeacon && BlobCtor) {
+      try {
+        const blob = new BlobCtor([body], { type: 'application/json' })
+        beaconOk = Boolean(sendBeacon(url, blob))
+      } catch {
+        // continue
+      }
+    }
+
+    if (XMLHttpRequestCtor) {
+      try {
+        const xhr = new XMLHttpRequestCtor()
+        xhr.open('POST', url, false)
+        xhr.setRequestHeader('Content-Type', 'application/json')
+        xhr.send(body)
+        xhrOk = true
+      } catch {
+        // continue
+      }
+    }
+
+    if (beaconOk && xhrOk) return 'xhr+beacon'
+    if (xhrOk) return 'xhr'
+    if (beaconOk) return 'beacon'
+
+    if (fetchFn) {
+      void fetchFn(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        keepalive: true,
+      }).catch(() => {})
+      return 'fetch'
+    }
+
+    return 'skipped'
+  }
 
   if (sendBeacon && BlobCtor) {
     try {
@@ -63,7 +99,6 @@ export function releaseGuestCheckoutHold(options: {
     }
   }
 
-  const fetchFn = options.deps?.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : undefined)
   if (fetchFn) {
     void fetchFn(url, {
       method: 'POST',
