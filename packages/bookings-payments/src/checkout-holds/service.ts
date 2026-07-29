@@ -36,6 +36,16 @@ function relationId(value: number | { id: number } | null | undefined): number |
   return typeof value === 'object' ? value.id : value
 }
 
+/** Postgres `numeric` often arrives as a string via Payload/drizzle. */
+function coerceNonNegativeInt(value: unknown, fallback = 0): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.trunc(value))
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    if (Number.isFinite(n)) return Math.max(0, Math.trunc(n))
+  }
+  return fallback
+}
+
 export function isHoldActive(
   hold: Pick<CheckoutHoldRecord, 'status' | 'expiresAt'>,
   nowMs: number = Date.now(),
@@ -77,8 +87,7 @@ async function getPlacesForTimeslot(
 
   const eventTypeRaw = timeslot.eventType
   if (typeof eventTypeRaw === 'object' && eventTypeRaw !== null && 'places' in eventTypeRaw) {
-    const places = eventTypeRaw.places
-    return typeof places === 'number' ? places : 0
+    return coerceNonNegativeInt(eventTypeRaw.places, 0)
   }
 
   const eventTypeId =
@@ -89,9 +98,9 @@ async function getPlacesForTimeslot(
     id: eventTypeId,
     depth: 0,
     overrideAccess: true,
-  })) as { places?: number } | null
+  })) as { places?: unknown } | null
 
-  return typeof eventType?.places === 'number' ? eventType.places : 0
+  return coerceNonNegativeInt(eventType?.places, 0)
 }
 
 async function countConfirmedBookings(
@@ -109,6 +118,40 @@ async function countConfirmedBookings(
     overrideAccess: true,
   })
   return result.totalDocs ?? 0
+}
+
+async function expireStaleActiveHolds(
+  payload: PayloadLike,
+  opts: { timeslotId?: number; holdCollection?: CollectionSlug },
+): Promise<void> {
+  const holdCollection = opts.holdCollection ?? CHECKOUT_HOLD_COLLECTION_SLUG
+  const nowIso = new Date().toISOString()
+  const and: Record<string, unknown>[] = [
+    { status: { equals: 'active' } },
+    { expiresAt: { less_than_equal: nowIso } },
+  ]
+  if (opts.timeslotId != null) {
+    and.unshift({ timeslot: { equals: opts.timeslotId } })
+  }
+
+  const stale = await payload.find({
+    collection: holdCollection,
+    where: { and },
+    limit: 100,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  for (const doc of stale.docs ?? []) {
+    await payload
+      .update({
+        collection: holdCollection,
+        id: doc.id,
+        data: { status: 'expired' },
+        overrideAccess: true,
+      })
+      .catch(() => null)
+  }
 }
 
 async function findActiveHoldsForTimeslot(
@@ -139,7 +182,7 @@ export async function countActiveHoldQuantityForTimeslot(
   holdCollection: CollectionSlug = CHECKOUT_HOLD_COLLECTION_SLUG,
 ): Promise<number> {
   const holds = await findActiveHoldsForTimeslot(payload, timeslotId, holdCollection)
-  return holds.reduce((sum, h) => sum + (h.quantity ?? 0), 0)
+  return holds.reduce((sum, h) => sum + coerceNonNegativeInt(h.quantity, 0), 0)
 }
 
 async function findUserActiveHold(
@@ -193,7 +236,7 @@ async function assertCapacityForHold(
 
   const otherHoldsQty = activeHolds
     .filter((h) => relationId(h.user) !== opts.userId)
-    .reduce((sum, h) => sum + h.quantity, 0)
+    .reduce((sum, h) => sum + coerceNonNegativeInt(h.quantity, 0), 0)
 
   const totalNeeded = confirmed + otherHoldsQty + opts.quantity
   const remaining = places - confirmed - otherHoldsQty
@@ -226,6 +269,11 @@ export async function upsertCheckoutHold(
   const nowMs = Date.now()
   const expiresAt = expiresAtFromNow(nowMs)
   const tenantContext = tenantContextForHold(opts.tenantId)
+
+  await expireStaleActiveHolds(payload, {
+    timeslotId: opts.timeslotId,
+    holdCollection,
+  })
 
   const existing = await findUserActiveHold(
     payload,
@@ -397,6 +445,11 @@ export async function computeRemainingCapacityWithHolds(
     holdCollection?: CollectionSlug
   },
 ): Promise<number> {
+  await expireStaleActiveHolds(payload, {
+    timeslotId,
+    holdCollection: slugs?.holdCollection,
+  })
+
   const places = await getPlacesForTimeslot(
     payload,
     timeslotId,

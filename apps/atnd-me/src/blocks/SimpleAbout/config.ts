@@ -1,37 +1,11 @@
 import type { Block, Field } from 'payload'
 
-import {
-  AlignFeature,
-  BlockquoteFeature,
-  FixedToolbarFeature,
-  HeadingFeature,
-  HorizontalRuleFeature,
-  InlineToolbarFeature,
-  LinkFeature,
-  OrderedListFeature,
-  UnorderedListFeature,
-  lexicalEditor,
-} from '@payloadcms/richtext-lexical'
+import { defaultLexical } from '@/fields/defaultLexical'
 
 const contentField: Field = {
   name: 'content',
   type: 'richText',
-  editor: lexicalEditor({
-    features: ({ rootFeatures }) => {
-      return [
-        ...rootFeatures,
-        AlignFeature(),
-        FixedToolbarFeature(),
-        InlineToolbarFeature(),
-        HeadingFeature({ enabledHeadingSizes: ['h2', 'h3', 'h4'] }),
-        LinkFeature(),
-        UnorderedListFeature(),
-        OrderedListFeature(),
-        BlockquoteFeature(),
-        HorizontalRuleFeature(),
-      ]
-    },
-  }),
+  editor: defaultLexical,
   required: true,
   label: false,
 }
@@ -63,4 +37,3 @@ export const SimpleAbout: Block = {
     contentField,
   ],
 }
-

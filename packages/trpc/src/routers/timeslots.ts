@@ -748,10 +748,17 @@ export const timeslotsRouter = {
           const eventTypeId = getId(timeslot.eventType);
           const eventType: any =
             (eventTypeId != null ? eventTypesById.get(eventTypeId) : null) ?? null;
+          // Postgres `numeric` often arrives as a string via Payload/drizzle.
+          const placesRaw =
+            typeof eventType === "object" && eventType !== null ? eventType.places : null;
           const places: number | null =
-            typeof eventType === "object" && eventType !== null
-              ? (typeof eventType.places === "number" ? eventType.places : null)
-              : null;
+            typeof placesRaw === "number" && Number.isFinite(placesRaw)
+              ? Math.max(0, Math.trunc(placesRaw))
+              : typeof placesRaw === "string" &&
+                  placesRaw.trim() !== "" &&
+                  Number.isFinite(Number(placesRaw))
+                ? Math.max(0, Math.trunc(Number(placesRaw)))
+                : null;
           const lockOutTime: number | undefined = typeof timeslot.lockOutTime === "number" ? timeslot.lockOutTime : undefined;
 
           const timeslotBookings = bookingsByTimeslotId.get(timeslotId) ?? [];

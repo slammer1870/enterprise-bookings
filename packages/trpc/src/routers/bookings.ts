@@ -1964,10 +1964,16 @@ export const bookingsRouter = {
               })
             : null;
 
+      // Postgres `numeric` often arrives as a string via Payload/drizzle.
+      const placesRaw = eventType ? (eventType as any).places : null;
       const places =
-        eventType && typeof (eventType as any).places === "number"
-          ? (eventType as any).places
-          : null;
+        typeof placesRaw === "number" && Number.isFinite(placesRaw)
+          ? Math.max(0, Math.trunc(placesRaw))
+          : typeof placesRaw === "string" &&
+              placesRaw.trim() !== "" &&
+              Number.isFinite(Number(placesRaw))
+            ? Math.max(0, Math.trunc(Number(placesRaw)))
+            : null;
       const isChildClass = eventType && (eventType as any).type === "child";
 
       const computeScheduleState = async (): Promise<

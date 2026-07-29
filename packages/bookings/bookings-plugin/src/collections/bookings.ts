@@ -58,10 +58,18 @@ async function resolvePlacesFromTimeslotForCapacity(
   timeslot: Timeslot,
   eventTypesSlug: string,
 ): Promise<number | null> {
+  const coercePlaces = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.trunc(value))
+    if (typeof value === "string" && value.trim() !== "") {
+      const n = Number(value)
+      if (Number.isFinite(n)) return Math.max(0, Math.trunc(n))
+    }
+    return null
+  }
+
   const eventTypeRaw = (timeslot as { eventType?: unknown }).eventType;
   if (typeof eventTypeRaw === "object" && eventTypeRaw !== null) {
-    const places = (eventTypeRaw as { places?: unknown }).places;
-    return typeof places === "number" ? places : null;
+    return coercePlaces((eventTypeRaw as { places?: unknown }).places);
   }
   if (eventTypeRaw == null) return null;
   if (typeof eventTypeRaw !== "string" && typeof eventTypeRaw !== "number") {
@@ -75,8 +83,7 @@ async function resolvePlacesFromTimeslotForCapacity(
       context: { triggerAfterChange: false },
     })
     .catch(() => null);
-  const places = (eventType as { places?: unknown } | null)?.places;
-  return typeof places === "number" ? places : null;
+  return coercePlaces((eventType as { places?: unknown } | null)?.places);
 }
 
 function isBenignWaitlistHookError(error: unknown): boolean {

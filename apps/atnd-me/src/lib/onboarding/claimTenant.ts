@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import type { Payload, PayloadRequest } from 'payload'
 
 import { getTenantSubdomainURL } from '@/utilities/getURL'
+import { systemUserWriteContext } from '@/lib/auth/systemUserWriteContext'
 import { bootstrapNewTenant } from './bootstrapNewTenant'
 import { normalizeAndValidateTenantSlug } from './slug'
 
@@ -181,6 +182,11 @@ export async function claimTenant(opts: {
       },
       overrideAccess: true,
       depth: 0,
+      // Wider than create: rewriting `tenants` must preserve staff/location-manager
+      // memberships on other tenants (same pattern as ensureGuestUser updates).
+      context: systemUserWriteContext({
+        allowedRoles: ['admin', 'user', 'staff', 'location-manager'],
+      }),
       req,
     } as Parameters<typeof payload.update>[0])
 
@@ -203,6 +209,8 @@ export async function claimTenant(opts: {
       },
       overrideAccess: true,
       depth: 0,
+      // New accounts only need tenant admin — keep the allow-list tight.
+      context: systemUserWriteContext({ allowedRoles: ['admin', 'user'] }),
       req,
     } as Parameters<typeof payload.create>[0])
 

@@ -2,6 +2,7 @@ import type { Block } from 'payload'
 
 export const GiftVoucherCheckout: Block = {
   slug: 'giftVoucherCheckout',
+  interfaceName: 'GiftVoucherCheckoutBlock',
   labels: {
     singular: 'Gift voucher checkout',
     plural: 'Gift voucher checkouts',

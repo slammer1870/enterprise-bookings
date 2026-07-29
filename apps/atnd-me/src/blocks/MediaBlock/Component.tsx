@@ -2,7 +2,7 @@ import type { StaticImageData } from 'next/image'
 
 import { cn } from '@/utilities/ui'
 import React from 'react'
-import RichText from '@/components/RichText'
+import ClientRichText from '@/components/RichText/Client'
 
 import type { MediaBlock as MediaBlockProps } from '@/payload-types'
 
@@ -49,7 +49,7 @@ export const MediaBlock: React.FC<Props> = (props) => {
       )}
       {caption && (
         <div className={cn('mt-6', captionClassName)}>
-          <RichText data={caption} enableGutter={false} />
+          <ClientRichText data={caption} enableGutter={false} />
         </div>
       )}
     </div>

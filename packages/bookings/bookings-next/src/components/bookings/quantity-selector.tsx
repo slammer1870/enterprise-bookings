@@ -42,15 +42,17 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
 
   return (
     <div className="space-y-2">
-      <Label>Number of Slots</Label>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
-          {maxQuantity === 1
-            ? '1 slot available'
-            : `${maxQuantity} slots available`}
-        </span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0 space-y-0.5">
+          <Label>Number of Slots</Label>
+          <p className="text-sm text-muted-foreground">
+            {maxQuantity === 1
+              ? '1 slot available'
+              : `${maxQuantity} slots available`}
+          </p>
+        </div>
         {canAdjustQuantity ? (
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <Button
               type="button"
               size="icon"
@@ -61,7 +63,7 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
             >
               <Minus className="h-4 w-4" />
             </Button>
-            <span className="min-w-[2rem] text-center text-lg font-semibold">
+            <span className="min-w-[2rem] text-center text-lg font-semibold tabular-nums">
               {quantity}
             </span>
             <Button
@@ -76,7 +78,7 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
             </Button>
           </div>
         ) : (
-          <span className="min-w-[2rem] text-center text-lg font-semibold">
+          <span className="min-w-[2rem] shrink-0 text-center text-lg font-semibold tabular-nums">
             {quantity}
           </span>
         )}

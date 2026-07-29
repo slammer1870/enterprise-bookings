@@ -9,6 +9,16 @@ export type RemainingCapacityOptions = {
   checkoutHoldCollection?: CollectionSlug;
 };
 
+/** Postgres `numeric` often arrives as a string via Payload/drizzle. */
+function coerceNonNegativeInt(value: unknown, fallback = 0): number {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.max(0, Math.trunc(value));
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    if (Number.isFinite(n)) return Math.max(0, Math.trunc(n));
+  }
+  return fallback;
+}
+
 export function createGetRemainingCapacity(
   slugs: BookingCollectionSlugs,
   options?: RemainingCapacityOptions,
@@ -45,13 +55,13 @@ export function createGetRemainingCapacity(
         context: {
           triggerAfterChange: false,
         },
-      })) as { places?: number } | null;
+      })) as { places?: unknown } | null;
 
       if (!eventType) {
         return 0;
       }
 
-      const places = typeof eventType.places === "number" ? eventType.places : 0;
+      const places = coerceNonNegativeInt(eventType.places, 0);
 
       if (!data?.id) {
         return places;
@@ -92,11 +102,10 @@ export function createGetRemainingCapacity(
 
         const confirmed = confirmedResult.totalDocs ?? 0;
         const held = (holdsResult.docs ?? []).reduce((sum, doc) => {
-          const qty = (doc as { quantity?: number }).quantity;
-          return sum + (typeof qty === "number" ? qty : 0);
+          return sum + coerceNonNegativeInt((doc as { quantity?: unknown }).quantity, 0);
         }, 0);
 
-        return places - confirmed - held;
+        return Math.max(0, places - confirmed - held);
       }
 
       const pendingCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString();
@@ -125,9 +134,7 @@ export function createGetRemainingCapacity(
         },
       });
 
-      const remaining = places - bookings.totalDocs;
-
-      return remaining;
+      return Math.max(0, places - bookings.totalDocs);
     } catch (error: any) {
       if (
         error?.status === 404 ||

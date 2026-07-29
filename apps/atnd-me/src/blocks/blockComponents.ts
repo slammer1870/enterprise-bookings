@@ -104,6 +104,7 @@ export const blockLoaders: Record<string, BlockLoader> = {
     import('@/blocks/DhLiveMembership/Component').then((m) => m.DhLiveMembershipBlock),
   giftVoucherCheckout: () =>
     import('@/blocks/GiftVoucherCheckout/Component').then((m) => m.GiftVoucherCheckoutBlock),
+  event: () => import('@/blocks/Event/Component').then((m) => m.EventBlock),
   clFindSanctuary: () =>
     import('@repo/website/src/blocks/croi-lan-sauna/ClFindSanctuary').then(
       (m) => m.ClFindSanctuaryBlock,

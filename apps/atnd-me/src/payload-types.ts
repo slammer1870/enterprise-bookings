@@ -255,6 +255,7 @@ export interface Timeslot {
    * Whether the timeslot is active and will be shown on the schedule
    */
   active?: boolean | null;
+  adminTitle?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -285,7 +286,7 @@ export interface Tenant {
   apexDomainVerificationToken?: string | null;
   description?: string | null;
   /**
-   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout) are always available.
+   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout, Event) are always available.
    */
   allowedBlocks?:
     | (
@@ -566,23 +567,8 @@ export interface Page {
         blockName?: string | null;
         blockType: 'dhLiveMembership';
       }
-    | {
-        /**
-         * Optional title shown above the checkout form.
-         */
-        heading?: string | null;
-        /**
-         * Minimum gift voucher amount in euros (must be at least €5).
-         */
-        minAmount?: number | null;
-        /**
-         * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-         */
-        maxAmount?: number | null;
-        id?: string | null;
-        blockName?: string | null;
-        blockType: 'giftVoucherCheckout';
-      }
+    | GiftVoucherCheckoutBlock
+    | EventBlock
     | CroiLanHeroWithLocationBlock
     | ClFindSanctuaryBlock
     | ClMissionBlock
@@ -1525,23 +1511,8 @@ export interface ThreeColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
-        | {
-            /**
-             * Optional title shown above the checkout form.
-             */
-            heading?: string | null;
-            /**
-             * Minimum gift voucher amount in euros (must be at least €5).
-             */
-            minAmount?: number | null;
-            /**
-             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-             */
-            maxAmount?: number | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'giftVoucherCheckout';
-          }
+        | GiftVoucherCheckoutBlock
+        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -1619,7 +1590,7 @@ export interface LocationBlock {
   email?: string | null;
   phone?: string | null;
   /**
-   * Google Maps embed URL or iframe src
+   * Optional. Leave blank to auto-embed from the address. Or paste a Google Maps embed URL.
    */
   mapEmbedUrl?: string | null;
   id?: string | null;
@@ -2640,6 +2611,74 @@ export interface DhGroupsBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GiftVoucherCheckoutBlock".
+ */
+export interface GiftVoucherCheckoutBlock {
+  /**
+   * Optional title shown above the checkout form.
+   */
+  heading?: string | null;
+  /**
+   * Minimum gift voucher amount in euros (must be at least €5).
+   */
+  minAmount?: number | null;
+  /**
+   * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
+   */
+  maxAmount?: number | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'giftVoucherCheckout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventBlock".
+ */
+export interface EventBlock {
+  /**
+   * Choose the event type, then a date, then the timeslot.
+   */
+  eventType: number | EventType;
+  /**
+   * Pick a date to list timeslots for that day.
+   */
+  timeslotDate?: string | null;
+  /**
+   * Active timeslots for the selected event type and date. Host, capacity, and ticket price come from the timeslot / event type.
+   */
+  timeslot?: (number | null) | Timeslot;
+  /**
+   * Hero cover for the event page. Falls back to a solid background when empty.
+   */
+  coverImage?: (number | null) | Media;
+  /**
+   * Event description shown in the About section. Falls back to the event type description when empty.
+   */
+  about?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Optional. Paste a Google Maps link (including maps.app.goo.gl). Falls back to the branch address when empty.
+   */
+  mapUrl?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'event';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock".
  */
 export interface CroiLanHeroWithLocationBlock {
@@ -2973,23 +3012,8 @@ export interface TwoColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
-        | {
-            /**
-             * Optional title shown above the checkout form.
-             */
-            heading?: string | null;
-            /**
-             * Minimum gift voucher amount in euros (must be at least €5).
-             */
-            minAmount?: number | null;
-            /**
-             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-             */
-            maxAmount?: number | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'giftVoucherCheckout';
-          }
+        | GiftVoucherCheckoutBlock
+        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3093,23 +3117,8 @@ export interface TwoColumnLayoutBlock {
             blockName?: string | null;
             blockType: 'dhLiveMembership';
           }
-        | {
-            /**
-             * Optional title shown above the checkout form.
-             */
-            heading?: string | null;
-            /**
-             * Minimum gift voucher amount in euros (must be at least €5).
-             */
-            minAmount?: number | null;
-            /**
-             * Optional maximum. Leave empty for no max (API hard ceiling is €10,000).
-             */
-            maxAmount?: number | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'giftVoucherCheckout';
-          }
+        | GiftVoucherCheckoutBlock
+        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3345,6 +3354,9 @@ export interface DiscountCode {
    * Required for amount off.
    */
   currency?: ('eur' | 'gbp' | 'usd') | null;
+  /**
+   * How long the discount applies. Once: a single invoice or one-time payment (use this for gift vouchers and class-pass / drop-in codes). Forever: every invoice for the life of a subscription. Repeating: a fixed number of subscription invoices (set Duration months below).
+   */
   duration: 'once' | 'forever' | 'repeating';
   durationInMonths?: number | null;
   /**
@@ -4118,6 +4130,7 @@ export interface TimeslotsSelect<T extends boolean = true> {
   bookings?: T;
   bookingStatus?: T;
   active?: T;
+  adminTitle?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4571,15 +4584,8 @@ export interface PagesSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
         clMission?: T | ClMissionBlockSelect<T>;
@@ -4924,15 +4930,8 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5554,6 +5553,31 @@ export interface DhGroupsBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "GiftVoucherCheckoutBlock_select".
+ */
+export interface GiftVoucherCheckoutBlockSelect<T extends boolean = true> {
+  heading?: T;
+  minAmount?: T;
+  maxAmount?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventBlock_select".
+ */
+export interface EventBlockSelect<T extends boolean = true> {
+  eventType?: T;
+  timeslotDate?: T;
+  timeslot?: T;
+  coverImage?: T;
+  about?: T;
+  mapUrl?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock_select".
  */
 export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
@@ -5828,15 +5852,8 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5953,15 +5970,8 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               id?: T;
               blockName?: T;
             };
-        giftVoucherCheckout?:
-          | T
-          | {
-              heading?: T;
-              minAmount?: T;
-              maxAmount?: T;
-              id?: T;
-              blockName?: T;
-            };
+        giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -6655,6 +6665,10 @@ export interface PlatformFee {
      * Default fee for subscription payments.
      */
     subscriptionPercent: number;
+    /**
+     * Default fee for gift voucher / discount code purchases.
+     */
+    giftVoucherPercent: number;
   };
   /**
    * Override fee percent for specific tenants.
@@ -6674,6 +6688,10 @@ export interface PlatformFee {
          * Leave empty to use default.
          */
         subscriptionPercent?: number | null;
+        /**
+         * Leave empty to use default.
+         */
+        giftVoucherPercent?: number | null;
         id?: string | null;
       }[]
     | null;
@@ -6704,6 +6722,7 @@ export interface PlatformFeesSelect<T extends boolean = true> {
         dropInPercent?: T;
         classPassPercent?: T;
         subscriptionPercent?: T;
+        giftVoucherPercent?: T;
       };
   overrides?:
     | T
@@ -6712,6 +6731,7 @@ export interface PlatformFeesSelect<T extends boolean = true> {
         dropInPercent?: T;
         classPassPercent?: T;
         subscriptionPercent?: T;
+        giftVoucherPercent?: T;
         id?: T;
       };
   bounds?:
@@ -6915,6 +6935,44 @@ export interface CodeBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'code';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventCheckoutBlock".
+ */
+export interface EventCheckoutBlock {
+  /**
+   * Choose the event type, then a date, then the timeslot.
+   */
+  eventType: number | EventType;
+  /**
+   * Pick a date to list timeslots for that day.
+   */
+  timeslotDate?: string | null;
+  /**
+   * Active timeslots for the selected event type and date. Checkout quantity, fees, and Stripe payment bind to this timeslot.
+   */
+  timeslot?: (number | null) | Timeslot;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'eventCheckout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "MapBlock".
+ */
+export interface MapBlock {
+  /**
+   * Paste a Google Maps link (including maps.app.goo.gl), or Share → Embed a map and paste the iframe src / HTML.
+   */
+  mapUrl: string;
+  /**
+   * Optional text under the map.
+   */
+  caption?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'map';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

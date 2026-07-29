@@ -83,9 +83,16 @@ export async function computeRemainingCapacityForTimeslot(
     depth: 0,
     overrideAccess: true,
     context: { triggerAfterChange: false },
-  })) as { places?: number } | null
+  })) as { places?: unknown } | null
 
-  const places = typeof eventType?.places === 'number' ? eventType.places : 0
+  // Postgres `numeric` often arrives as a string via Payload/drizzle.
+  const placesRaw = eventType?.places
+  const places =
+    typeof placesRaw === 'number' && Number.isFinite(placesRaw)
+      ? Math.max(0, Math.trunc(placesRaw))
+      : typeof placesRaw === 'string' && placesRaw.trim() !== '' && Number.isFinite(Number(placesRaw))
+        ? Math.max(0, Math.trunc(Number(placesRaw)))
+        : 0
 
   const pendingCutoff = new Date(Date.now() - 5 * 60 * 1000).toISOString()
   const bookings = await payload.find({
