@@ -3,7 +3,7 @@
 /**
  * Date filter for event timeslot pickers.
  * - Clears the sibling timeslot when the calendar day actually changes
- * - Seeds the date from the selected timeslot when editing (virtual field is empty)
+ * - Seeds the date from the selected timeslot when editing (date empty on older docs)
  */
 import React, { useEffect, useRef } from 'react'
 import { DateTimeField, useField } from '@payloadcms/ui'

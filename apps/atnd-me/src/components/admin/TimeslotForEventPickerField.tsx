@@ -3,10 +3,18 @@
 /**
  * Timeslot relationship for Event / EventCheckout blocks.
  * - Remounts when event type / date filters change so options refresh
- * - When the selected day has no matching slots, offers create-with-prefill
+ * - When the selected day has no matching slots, skip the empty picker and show create-only UI
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import { Button, RelationshipField, useDocumentDrawer, useField, useFormFields } from '@payloadcms/ui'
+import {
+  Button,
+  FieldDescription,
+  FieldLabel,
+  RelationshipField,
+  useDocumentDrawer,
+  useField,
+  useFormFields,
+} from '@payloadcms/ui'
 import type { RelationshipFieldClientComponent } from 'payload'
 
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
@@ -148,47 +156,71 @@ export const TimeslotForEventPickerField: RelationshipFieldClientComponent = (pr
     [setTimeslot, closeDrawer],
   )
 
-  const showCreateCta =
-    eventTypeId != null && day != null && !checking && emptyForDay && relationIdKey(timeslot) == null
+  const hasTimeslot = relationIdKey(timeslot) != null
+  // Date picked, nothing selected yet, and either still checking or confirmed empty —
+  // don't render an empty relationship picker; create is the only useful action.
+  const showCreateOnly =
+    eventTypeId != null && day != null && !hasTimeslot && (checking || emptyForDay)
+
+  // Remount only when the filter day/type changes so Payload reloads options.
+  // Keep the key free of transient draft noise — date now persists through autosave.
+  const relationshipKey = `${filterKey}:${optionsEpoch}`
+
+  const dayLabel = day
+    ? new Date(`${day}T12:00:00.000Z`).toLocaleDateString(undefined, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : 'this date'
 
   return (
     <div>
-      <RelationshipField key={`${filterKey}:${optionsEpoch}`} {...props} />
-
-      {showCreateCta ? (
-        <div
-          style={{
-            marginTop: '0.75rem',
-            padding: '0.75rem 1rem',
-            border: '1px solid var(--theme-elevation-150)',
-            borderRadius: 4,
-            background: 'var(--theme-elevation-50)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.5rem',
-          }}
-        >
-          <p style={{ margin: 0, fontSize: '0.875rem' }}>
-            No upcoming timeslots for this event type on{' '}
-            <strong>
-              {day
-                ? new Date(`${day}T12:00:00.000Z`).toLocaleDateString(undefined, {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                    year: 'numeric',
-                  })
-                : 'this date'}
-            </strong>
-            . Create one with this date and event type pre-filled.
-          </p>
-          <div>
-            <Button buttonStyle="secondary" size="small" onClick={() => openDrawer()}>
-              Create timeslot
-            </Button>
+      {showCreateOnly ? (
+        <div className="field-type">
+          <FieldLabel
+            label={props.field?.label ?? 'Timeslot'}
+            path={path}
+            required={props.field?.required}
+          />
+          {props.field?.admin?.description ? (
+            <FieldDescription description={props.field.admin.description} path={path} />
+          ) : null}
+          <div
+            style={{
+              marginTop: '0.5rem',
+              padding: '0.75rem 1rem',
+              border: '1px solid var(--theme-elevation-150)',
+              borderRadius: 4,
+              background: 'var(--theme-elevation-50)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.5rem',
+            }}
+          >
+            {checking ? (
+              <p style={{ margin: 0, fontSize: '0.875rem' }}>
+                Checking for timeslots on <strong>{dayLabel}</strong>…
+              </p>
+            ) : (
+              <>
+                <p style={{ margin: 0, fontSize: '0.875rem' }}>
+                  No upcoming timeslots for this event type on <strong>{dayLabel}</strong>. Create
+                  one with this date and event type pre-filled.
+                </p>
+                <div>
+                  <Button buttonStyle="primary" size="small" onClick={() => openDrawer()}>
+                    Create timeslot
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
-      ) : null}
+      ) : (
+        <RelationshipField key={relationshipKey} {...props} />
+      )}
 
       {initialData ? (
         <DocumentDrawer

@@ -155,6 +155,7 @@ import * as migration_20260728_000006_drop_timeslots_event_page_fields from './2
 import * as migration_20260728_000007_event_block_marketing_fields from './20260728_000007_event_block_marketing_fields';
 import * as migration_20260728_000008_event_block_event_type_field from './20260728_000008_event_block_event_type_field';
 import * as migration_20260729_000001_timeslots_admin_title from './20260729_000001_timeslots_admin_title';
+import * as migration_20260729_000002_event_block_timeslot_date from './20260729_000002_event_block_timeslot_date';
 import * as migration_20260721_000001_marketing_hero_show_username_claim from './20260721_000001_marketing_hero_show_username_claim';
 import * as migration_20260721_000002_hero_sched_display_heading from './20260721_000002_hero_sched_display_heading';
 import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
@@ -989,5 +990,10 @@ export const migrations = [
     up: migration_20260729_000001_timeslots_admin_title.up,
     down: migration_20260729_000001_timeslots_admin_title.down,
     name: '20260729_000001_timeslots_admin_title',
+  },
+  {
+    up: migration_20260729_000002_event_block_timeslot_date.up,
+    down: migration_20260729_000002_event_block_timeslot_date.down,
+    name: '20260729_000002_event_block_timeslot_date',
   },
 ];

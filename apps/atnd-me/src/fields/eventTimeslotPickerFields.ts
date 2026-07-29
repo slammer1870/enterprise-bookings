@@ -29,10 +29,6 @@ function asEventTimeslotSiblings(siblingData: unknown): EventTimeslotSiblingData
   return (siblingData ?? {}) as EventTimeslotSiblingData
 }
 
-function hasTimeslotDate(value: unknown): boolean {
-  return timeslotDateFilterBounds(value) != null
-}
-
 /**
  * Narrow timeslot relationship options: pick event type, then date, then only
  * active slots for that type/day (plus the currently selected slot).
@@ -66,10 +62,12 @@ export function createEventTimeslotPickerFields(opts?: {
       name: 'timeslotDate',
       type: 'date',
       required: false,
-      virtual: true,
+      // Must persist: Pages draft autosave (~100ms) rehydrates from the saved doc and
+      // drops virtual fields, which previously hid the timeslot picker mid-edit.
       label: 'Date',
       admin: {
-        description: 'Pick a date to list timeslots for that day. You can create a timeslot if none exist.',
+        description:
+          'Optional filter — pick a date to list timeslots for that day. You can create a timeslot if none exist.',
         date: {
           pickerAppearance: 'dayOnly',
           displayFormat: 'd MMM yyyy',
@@ -94,12 +92,10 @@ export function createEventTimeslotPickerFields(opts?: {
         sortOptions: 'startTime',
         // Prefill create is handled by TimeslotForEventPickerField (date + event type).
         allowCreate: false,
-        condition: (_data, siblingData) => {
-          const siblings = asEventTimeslotSiblings(siblingData)
-          if (relationId(siblings.eventType) == null) return false
-          // Allow existing selection when re-editing; require a date for new picks.
-          return hasTimeslotDate(siblings.timeslotDate) || relationId(siblings.timeslot) != null
-        },
+        // Only gate on event type — do not require timeslotDate. Draft autosave races
+        // used to clear the virtual date and hide this field right after picking a day.
+        condition: (_data, siblingData) =>
+          relationId(asEventTimeslotSiblings(siblingData).eventType) != null,
         components: {
           Field: '@/components/admin/TimeslotForEventPickerField#TimeslotForEventPickerField',
         },
