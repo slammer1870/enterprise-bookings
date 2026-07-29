@@ -73,6 +73,7 @@ export function EventTicketPanel({
    */
   const [settledGuest, setSettledGuest] = useState<{ name: string; email: string } | null>(null)
   const [guestFormError, setGuestFormError] = useState<string | null>(null)
+  const [isReserving, setIsReserving] = useState(false)
   const [feeBreakdown, setFeeBreakdown] = useState<{
     classPriceCents: number
     bookingFeeCents: number
@@ -113,26 +114,8 @@ export function EventTicketPanel({
     }
   }, [settledGuest, timeslot.id])
 
-  // Reserve capacity as soon as Continue is clicked (before PaymentIntent), so exit
-  // release is not racing Stripe / guest-checkout completion.
-  useEffect(() => {
-    if (!settledGuest) return
-
-    const controller = new AbortController()
-    void fetch('/api/events/guest-reserve-hold', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      signal: controller.signal,
-      body: JSON.stringify({
-        timeslotId: timeslot.id,
-        quantity,
-        guestName: settledGuest.name,
-        guestEmail: settledGuest.email,
-      }),
-    }).catch(() => {})
-
-    return () => controller.abort()
-  }, [settledGuest, timeslot.id, quantity])
+  // Single reserve path via CheckoutForm.onReserveCheckoutHold (below). Avoid a parallel
+  // useEffect reserve — concurrent creates race on unique email and break Payment Element.
 
   const reserveGuestHold = useCallback(
     async (metadata: Record<string, string>) => {
@@ -213,7 +196,7 @@ export function EventTicketPanel({
     if (guestFormError) setGuestFormError(null)
   }
 
-  const handleContinueToPayment = (e: React.FormEvent) => {
+  const handleContinueToPayment = async (e: React.FormEvent) => {
     e.preventDefault()
     const name = guestName.trim()
     const email = guestEmail.trim().toLowerCase()
@@ -226,6 +209,33 @@ export function EventTicketPanel({
       return
     }
     setGuestFormError(null)
+    setIsReserving(true)
+
+    // Reserve before mounting CheckoutForm so exit-release has a hold, and so we don't
+    // race a second create when onReserveCheckoutHold runs.
+    try {
+      const res = await fetch('/api/events/guest-reserve-hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          timeslotId: timeslot.id,
+          quantity,
+          guestName: name,
+          guestEmail: email,
+        }),
+      })
+      const data = (await res.json().catch(() => null)) as { error?: string } | null
+      if (!res.ok) {
+        setGuestFormError(data?.error || 'Unable to reserve places. Please try again.')
+        return
+      }
+    } catch {
+      setGuestFormError('Unable to reserve places. Please try again.')
+      return
+    } finally {
+      setIsReserving(false)
+    }
+
     setSettledGuest({ name, email })
   }
 
@@ -351,10 +361,10 @@ export function EventTicketPanel({
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!canContinue}
+                disabled={!canContinue || isReserving}
                 data-testid="guest-checkout-continue"
               >
-                Continue to payment
+                {isReserving ? 'Reserving…' : 'Continue to payment'}
               </Button>
             ) : null}
           </form>

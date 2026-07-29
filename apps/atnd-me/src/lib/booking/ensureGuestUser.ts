@@ -125,21 +125,74 @@ export async function ensureGuestUser(opts: {
   }
 
   const randomPassword = crypto.randomBytes(32).toString('hex')
-  const created = await payload.create({
-    collection: 'users',
-    data: {
-      name,
-      email,
-      password: randomPassword,
-      emailVerified: false,
-      role: ['user'],
-      registrationTenant: tenantId,
-      tenants: [{ tenant: tenantId, roles: ['user'] }],
-    },
-    overrideAccess: true,
-    depth: 0,
-    context: systemUserWriteContext({ allowedRoles: ['user'] }),
-  })
+  try {
+    const created = await payload.create({
+      collection: 'users',
+      data: {
+        name,
+        email,
+        password: randomPassword,
+        emailVerified: false,
+        role: ['user'],
+        registrationTenant: tenantId,
+        tenants: [{ tenant: tenantId, roles: ['user'] }],
+      },
+      overrideAccess: true,
+      depth: 0,
+      context: systemUserWriteContext({ allowedRoles: ['user'] }),
+    })
 
-  return { userId: Number(created.id), created: true, email, name }
+    return { userId: Number(created.id), created: true, email, name }
+  } catch (err) {
+    // Concurrent guest Continuues can race: two creates for the same email → Payload
+    // returns "The following field is invalid: email". Recover by loading the winner.
+    const message = err instanceof Error ? err.message : String(err)
+    const emailConflict =
+      /field is invalid:\s*email/i.test(message) ||
+      (/email/i.test(message) && /(unique|duplicate|already)/i.test(message))
+    if (!emailConflict) throw err
+
+    const raced = await payload.find({
+      collection: 'users',
+      where: { email: { equals: email } },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      context: writeContext,
+    })
+    const racedDoc = raced.docs[0] as
+      | {
+          id: number
+          name?: string | null
+          tenants?: TenantMembership[] | null
+        }
+      | undefined
+    if (!racedDoc?.id) throw err
+
+    const memberships = Array.isArray(racedDoc.tenants) ? [...racedDoc.tenants] : []
+    const hasTenant = memberships.some((m) => extractTenantId(m.tenant) === tenantId)
+    const needsRoleRepair = memberships.some((m) => membershipNeedsRoleRepair(m.roles))
+    const data: Record<string, unknown> = {}
+    if (!racedDoc.name?.trim() && name) data.name = name
+    if (!hasTenant || needsRoleRepair) {
+      data.tenants = rewriteMemberships(memberships, tenantId, hasTenant)
+    }
+    if (Object.keys(data).length > 0) {
+      await payload.update({
+        collection: 'users',
+        id: racedDoc.id,
+        data,
+        overrideAccess: true,
+        depth: 0,
+        context: writeContext,
+      })
+    }
+
+    return {
+      userId: Number(racedDoc.id),
+      created: false,
+      email,
+      name: racedDoc.name?.trim() || name,
+    }
+  }
 }

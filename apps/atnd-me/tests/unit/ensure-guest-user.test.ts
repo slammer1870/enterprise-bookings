@@ -250,4 +250,37 @@ describe('ensureGuestUser', () => {
       }),
     ).rejects.toThrow(/name/i)
   })
+
+  it('recovers when create races on unique email', async () => {
+    mockPayload.find
+      .mockResolvedValueOnce({ docs: [], totalDocs: 0 })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 77,
+            name: 'Winner',
+            tenants: [{ tenant: 7, roles: ['user'] }],
+          },
+        ],
+        totalDocs: 1,
+      })
+    mockPayload.create.mockRejectedValue(
+      new Error('The following field is invalid: email'),
+    )
+
+    const result = await ensureGuestUser({
+      payload: mockPayload as never,
+      name: 'Winner',
+      email: 'race@example.com',
+      tenantId: 7,
+    })
+
+    expect(result).toEqual({
+      userId: 77,
+      created: false,
+      email: 'race@example.com',
+      name: 'Winner',
+    })
+    expect(mockPayload.update).not.toHaveBeenCalled()
+  })
 })
