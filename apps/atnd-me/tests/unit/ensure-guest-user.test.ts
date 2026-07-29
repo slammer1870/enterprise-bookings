@@ -129,6 +129,77 @@ describe('ensureGuestUser', () => {
     )
   })
 
+  it('appends checkout tenant for a tenant-admin of another tenant without dropping admin roles', async () => {
+    mockPayload.find.mockResolvedValue({
+      docs: [
+        {
+          id: 20,
+          name: 'Other Tenant Admin',
+          tenants: [{ id: 'row-admin', tenant: 3, roles: ['admin'] }],
+        },
+      ],
+      totalDocs: 1,
+    })
+    mockPayload.update.mockResolvedValue({ id: 20 })
+
+    const result = await ensureGuestUser({
+      payload: mockPayload as never,
+      name: 'Other Tenant Admin',
+      email: 'admin-elsewhere@example.com',
+      tenantId: 7,
+    })
+
+    expect(result.created).toBe(false)
+    expect(mockPayload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          tenants: [
+            { id: 'row-admin', tenant: 3, roles: ['admin'] },
+            { tenant: 7, roles: ['user'] },
+          ],
+        },
+        context: expect.objectContaining({
+          __atndSystemUserWriteAllowedRoles: ['user', 'admin', 'staff', 'location-manager'],
+        }),
+      }),
+    )
+  })
+
+  it('repairs empty/duplicate roles even when checkout tenant membership already exists', async () => {
+    mockPayload.find.mockResolvedValue({
+      docs: [
+        {
+          id: 15,
+          name: 'Broken Roles',
+          tenants: [
+            { id: 'row-a', tenant: 7, roles: [] },
+            { id: 'row-b', tenant: 3, roles: ['user', 'user'] },
+          ],
+        },
+      ],
+      totalDocs: 1,
+    })
+    mockPayload.update.mockResolvedValue({ id: 15 })
+
+    await ensureGuestUser({
+      payload: mockPayload as never,
+      name: 'Broken Roles',
+      email: 'broken@example.com',
+      tenantId: 7,
+    })
+
+    expect(mockPayload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          tenants: [
+            { id: 'row-a', tenant: 7, roles: ['user'] },
+            { id: 'row-b', tenant: 3, roles: ['user'] },
+          ],
+        },
+      }),
+    )
+  })
+
   it('does not rewrite tenants when membership already exists', async () => {
     mockPayload.find.mockResolvedValue({
       docs: [

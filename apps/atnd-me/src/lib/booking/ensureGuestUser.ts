@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import type { Payload } from 'payload'
 
 import { systemUserWriteContext } from '@/lib/auth/systemUserWriteContext'
+import { normalizeTenantRoles } from '@/collections/Users/sanitizeUserWrite'
 
 export type EnsureGuestUserResult = {
   userId: number
@@ -9,8 +10,6 @@ export type EnsureGuestUserResult = {
   email: string
   name: string
 }
-
-const ALLOWED_TENANT_ROLES = new Set(['admin', 'staff', 'location-manager', 'user'])
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -27,26 +26,33 @@ function extractTenantId(raw: unknown): number | null {
   return null
 }
 
-/** Normalize tenants[n].roles for Payload hasMany select (strings or { value }). */
-function normalizeTenantRoles(roles: unknown): string[] {
-  if (!Array.isArray(roles) || roles.length === 0) return ['user']
-  const values = roles
-    .map((r) => {
-      if (typeof r === 'string') return r
-      if (r && typeof r === 'object' && 'value' in r) {
-        const v = (r as { value: unknown }).value
-        return typeof v === 'string' ? v : null
-      }
-      return null
-    })
-    .filter((v): v is string => typeof v === 'string' && ALLOWED_TENANT_ROLES.has(v))
-  return values.length > 0 ? values : ['user']
+function membershipNeedsRoleRepair(roles: unknown): boolean {
+  if (!Array.isArray(roles) || roles.length === 0) return true
+  const plain = roles.every((r) => typeof r === 'string' && normalizeTenantRoles([r])[0] === r)
+  if (!plain) return true
+  return new Set(roles as string[]).size !== roles.length
 }
 
 type TenantMembership = {
   id?: string | null
   tenant?: unknown
   roles?: unknown
+}
+
+function rewriteMemberships(
+  memberships: TenantMembership[],
+  tenantId: number,
+  hasTenant: boolean,
+): Array<{ id?: string; tenant: unknown; roles: string[] }> {
+  const rewritten = memberships.map((m) => ({
+    ...(typeof m.id === 'string' && m.id ? { id: m.id } : {}),
+    tenant: extractTenantId(m.tenant) ?? m.tenant,
+    roles: normalizeTenantRoles(m.roles),
+  }))
+  if (!hasTenant) {
+    rewritten.push({ tenant: tenantId, roles: ['user'] })
+  }
+  return rewritten
 }
 
 /**
@@ -94,20 +100,14 @@ export async function ensureGuestUser(opts: {
   if (doc) {
     const memberships = Array.isArray(doc.tenants) ? [...doc.tenants] : []
     const hasTenant = memberships.some((m) => extractTenantId(m.tenant) === tenantId)
+    const needsRoleRepair = memberships.some((m) => membershipNeedsRoleRepair(m.roles))
 
     const data: Record<string, unknown> = {}
     if (!doc.name?.trim() && name) {
       data.name = name
     }
-    if (!hasTenant) {
-      data.tenants = [
-        ...memberships.map((m) => ({
-          ...(typeof m.id === 'string' && m.id ? { id: m.id } : {}),
-          tenant: extractTenantId(m.tenant) ?? m.tenant,
-          roles: normalizeTenantRoles(m.roles),
-        })),
-        { tenant: tenantId, roles: ['user'] },
-      ]
+    if (!hasTenant || needsRoleRepair) {
+      data.tenants = rewriteMemberships(memberships, tenantId, hasTenant)
     }
 
     if (Object.keys(data).length > 0) {

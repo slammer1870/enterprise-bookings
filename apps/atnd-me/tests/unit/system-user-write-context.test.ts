@@ -7,7 +7,7 @@ import {
   isSystemUserWrite,
   systemUserWriteContext,
 } from '@/lib/auth/systemUserWriteContext'
-import { sanitizeUserTenantsAndRolesForWrite } from '@/collections/Users/sanitizeUserWrite'
+import { sanitizeUserTenantsAndRolesForWrite, normalizeTenantRoles } from '@/collections/Users/sanitizeUserWrite'
 import type { PayloadRequest } from 'payload'
 
 function req(partial: {
@@ -40,6 +40,15 @@ describe('systemUserWriteContext', () => {
     expect(isSystemUserWrite({ context: systemUserWriteContext() })).toBe(true)
     expect(isSystemUserWrite({ context: {} })).toBe(false)
     expect(isSystemUserWrite(undefined)).toBe(false)
+  })
+})
+
+describe('normalizeTenantRoles', () => {
+  it('defaults empty/invalid to user and dedupes', () => {
+    expect(normalizeTenantRoles(null)).toEqual(['user'])
+    expect(normalizeTenantRoles([])).toEqual(['user'])
+    expect(normalizeTenantRoles(['user', 'user', 'nope'])).toEqual(['user'])
+    expect(normalizeTenantRoles([{ value: 'admin' }, { value: 'admin' }])).toEqual(['admin'])
   })
 })
 

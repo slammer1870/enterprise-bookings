@@ -10,6 +10,34 @@ import { checkRateLimit } from '@/lib/onboarding/rateLimit'
 
 const ELEVATED_GLOBAL_ROLES = new Set(['super-admin', 'admin', 'staff', 'location-manager'])
 
+const ALLOWED_TENANT_ROLES = new Set<string>([
+  'admin',
+  'staff',
+  'location-manager',
+  'user',
+])
+
+/**
+ * Normalize `tenants[n].roles` for Payload hasMany select.
+ * Coerces `{ value }` objects, drops unknowns/duplicates, and never returns empty
+ * (required select fails with "Tenants N > Roles" otherwise).
+ */
+export function normalizeTenantRoles(roles: unknown): string[] {
+  if (!Array.isArray(roles) || roles.length === 0) return ['user']
+  const values = roles
+    .map((r) => {
+      if (typeof r === 'string') return r
+      if (r && typeof r === 'object' && 'value' in r) {
+        const v = (r as { value: unknown }).value
+        return typeof v === 'string' ? v : null
+      }
+      return null
+    })
+    .filter((v): v is string => typeof v === 'string' && ALLOWED_TENANT_ROLES.has(v))
+  const unique = [...new Set(values)]
+  return unique.length > 0 ? unique : ['user']
+}
+
 function clientIpFromReq(req: PayloadRequest): string {
   const headers = req.headers
   if (headers && typeof headers.get === 'function') {
@@ -37,7 +65,8 @@ function clampRolesToAllowList(
       return null
     })
     .filter((v): v is string => typeof v === 'string' && allowed.has(v))
-  return values.length > 0 ? values : [fallback]
+  const unique = [...new Set(values)]
+  return unique.length > 0 ? unique : [fallback]
 }
 
 /** Public HTTP APIs — Local API is trusted server-side (seeds, int tests, scripts). */

@@ -35,6 +35,7 @@ import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForD
 import { isSystemUserWrite } from '@/lib/auth/systemUserWriteContext'
 import {
   assertAnonymousUserCreateRateLimit,
+  normalizeTenantRoles,
   sanitizeUserTenantsAndRolesForWrite,
 } from './sanitizeUserWrite'
 
@@ -61,6 +62,12 @@ const tenantsMembershipField = {
           { label: 'Location Manager', value: 'location-manager' },
           { label: 'User', value: 'user' },
         ],
+        hooks: {
+          // Runs immediately before field validation (after collection beforeChange).
+          // Guests / legacy rows can arrive with empty, duplicate, or `{ value }` roles —
+          // Payload then fails with "Tenants N > Roles". Always coerce to a valid list.
+          beforeChange: [({ value }: { value: unknown }) => normalizeTenantRoles(value)],
+        },
         access: {
           // Admins / tenant-admins in the panel; system Local API via explicit context flag.
           // Never open to anonymous HTTP (Users.create is otherwise public).
