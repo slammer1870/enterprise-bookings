@@ -41,6 +41,14 @@ export const PlatformFees: GlobalConfig = {
           admin: { description: 'Default fee for class pass bookings.' },
         },
         {
+          name: 'coursePercent',
+          type: 'number',
+          label: 'Course (%)',
+          required: true,
+          defaultValue: 3,
+          admin: { description: 'Default fee for course enrollments.' },
+        },
+        {
           name: 'subscriptionPercent',
           type: 'number',
           label: 'Subscription (%)',
@@ -81,6 +89,12 @@ export const PlatformFees: GlobalConfig = {
           name: 'classPassPercent',
           type: 'number',
           label: 'Class pass (%)',
+          admin: { description: 'Leave empty to use default.' },
+        },
+        {
+          name: 'coursePercent',
+          type: 'number',
+          label: 'Course (%)',
           admin: { description: 'Leave empty to use default.' },
         },
         {

@@ -818,7 +818,11 @@ export const timeslotsRouter = {
           const hasPaymentMethods = Boolean(
             eventType?.paymentMethods?.allowedDropIn ||
               (Array.isArray(eventType?.paymentMethods?.allowedPlans) &&
-                eventType.paymentMethods.allowedPlans.length > 0)
+                eventType.paymentMethods.allowedPlans.length > 0) ||
+              (Array.isArray(eventType?.paymentMethods?.allowedClassPasses) &&
+                eventType.paymentMethods.allowedClassPasses.length > 0) ||
+              (Array.isArray(eventType?.paymentMethods?.allowedCourses) &&
+                eventType.paymentMethods.allowedCourses.length > 0)
           );
 
           const maxFromCapOrLegacy = (rawMax: any, legacyAllowMultiple?: boolean): number => {
@@ -848,6 +852,14 @@ export const timeslotsRouter = {
             for (const cp of eventType.paymentMethods.allowedClassPasses as any[]) {
               caps.push(maxFromCapOrLegacy(cp?.maxBookingsPerTimeslot, cp?.allowMultipleBookingsPerTimeslot === true))
             }
+          }
+
+          if (
+            Array.isArray(eventType?.paymentMethods?.allowedCourses) &&
+            eventType.paymentMethods.allowedCourses.length > 0
+          ) {
+            // Course enrollments have no per-timeslot credit cap in v1.
+            caps.push(Infinity)
           }
 
           // If there are no payment methods, the flow is "no payment" and multi-booking is allowed

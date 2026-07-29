@@ -2,6 +2,8 @@ export * from "./timeslot";
 export * from "./subscription";
 export * from "./user";
 export * from "./class-pass-valid-for-lesson";
+export * from "./course-enrollment-valid-for-timeslot";
+export * from "./course-enrollment-booking-fields";
 
 // Export access functions
 // Note: children booking access functions are exported separately to avoid

@@ -20,6 +20,7 @@ type PaymentMethodsLike = {
       }>
     | null
   allowedClassPasses?: Array<{ maxBookingsPerTimeslot?: number | null }> | null
+  allowedCourses?: unknown[] | null
 } | null
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -263,14 +264,15 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     useCheckoutHolds,
   ])
 
-  // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass tabs). Only the timeslot data from the server
+  // Gate for showing "Payment Methods" block (Drop-in / Membership / Class pass / Course tabs). Only the timeslot data from the server
   // is used; there is no client-side Stripe Connect or tenant check. If the server returns a timeslot without
   // eventType.paymentMethods populated (e.g. no tenant context so depth/overrideAccess omit it), this is false.
   const paymentMethods = asPaymentMethodsLike(timeslot.eventType?.paymentMethods)
   const hasPaymentMethods = Boolean(
     paymentMethods?.allowedDropIn ||
     (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
-    (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
+    (paymentMethods?.allowedClassPasses?.length ?? 0) > 0 ||
+    (paymentMethods?.allowedCourses?.length ?? 0) > 0
   )
 
   const capacityMaxQuantity = Math.max(1, timeslot.remainingCapacity || 1)
@@ -316,7 +318,11 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
         return maxFromMaybeCap(rawMax)
       }) ?? []
 
-    const caps = [dropInMax, ...planCapsWithLegacy, ...classPassCaps]
+    // Courses have no per-timeslot credit cap in v1 — treat as unlimited for quantity UI.
+    const courseCap =
+      (paymentMethods?.allowedCourses?.length ?? 0) > 0 ? Infinity : 1
+
+    const caps = [dropInMax, ...planCapsWithLegacy, ...classPassCaps, courseCap]
     return caps.some((c) => c === Infinity) ? Infinity : Math.max(1, ...caps)
   })()
 

@@ -215,7 +215,8 @@ export async function POST(request: NextRequest) {
 
   if (
     mode === 'payment' &&
-    metadataFromBody?.type === 'class_pass_purchase' &&
+    (metadataFromBody?.type === 'class_pass_purchase' ||
+      metadataFromBody?.type === 'course_purchase') &&
     !isTestShortcut &&
     !isTestConnectAccount &&
     typeof tenant.id === 'number' &&
@@ -230,7 +231,8 @@ export async function POST(request: NextRequest) {
       bookingFeeAmount = await calculateBookingFeeAmount({
         payload,
         tenantId: tenant.id,
-        productType: 'class-pass',
+        productType:
+          metadataFromBody?.type === 'course_purchase' ? 'course' : 'class-pass',
         classPriceAmount,
       })
     }
@@ -263,7 +265,9 @@ export async function POST(request: NextRequest) {
           ? 'subscription'
           : mode === 'payment' && metadataFromBody?.type === 'class_pass_purchase'
             ? 'class-pass'
-            : undefined,
+            : mode === 'payment' && metadataFromBody?.type === 'course_purchase'
+              ? 'course'
+              : undefined,
       subscriptionApplicationFeePercent,
     })
 

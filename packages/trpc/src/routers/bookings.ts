@@ -24,8 +24,11 @@ import {
   getRemainingSessionsInPeriod,
   canUseSubscriptionForBooking,
   filterValidClassPassesForTimeslot,
+  filterValidEnrollmentsForTimeslot,
+  courseEnrollmentBookingFields,
   type TimeslotLike,
   type ClassPassLike,
+  type CourseEnrollmentLike,
 } from "@repo/shared-services";
 import {
   upsertCheckoutHold as upsertCheckoutHoldService,
@@ -46,7 +49,8 @@ export const bookingsRouter = {
    * 3. No payment methods on the lesson → book immediately (free/unlimited)
    * 4. Active subscription covering this lesson, within session limit → book immediately
    * 5. Valid class pass covering this lesson (active, credits > 0, not expired) → book immediately, decrement 1 credit
-   * 6. Subscription limit reached / no entitlement → redirect to /bookings/[id] for payment
+   * 6. Valid course enrollment covering this lesson (active, in access window) → book immediately
+   * 7. Subscription limit reached / no entitlement → redirect to /bookings/[id] for payment
    */
   bookSingleSlotTimeslotOrRedirect: protectedProcedure
     .use(requireBookingCollections("timeslots", "bookings", "eventTypes"))
@@ -105,12 +109,18 @@ export const bookingsRouter = {
       }
 
       const paymentMethods = (eventType as any)?.paymentMethods as
-        | { allowedDropIn?: any; allowedPlans?: any[]; allowedClassPasses?: any[] }
+        | {
+            allowedDropIn?: any
+            allowedPlans?: any[]
+            allowedClassPasses?: any[]
+            allowedCourses?: any[]
+          }
         | undefined;
       const hasPaymentMethods = Boolean(
         paymentMethods?.allowedDropIn ||
           (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
-          (paymentMethods?.allowedClassPasses?.length ?? 0) > 0
+          (paymentMethods?.allowedClassPasses?.length ?? 0) > 0 ||
+          (paymentMethods?.allowedCourses?.length ?? 0) > 0
       );
 
       const timeslotTenantId =
@@ -272,7 +282,58 @@ export const bookingsRouter = {
         }
       }
 
-      // 6. No entitlement — redirect to booking page for payment.
+      // 6. Valid course enrollment for this timeslot → book immediately (no credits to decrement).
+      const allowedCourseIds: number[] = ((paymentMethods as any)?.allowedCourses ?? [])
+        .map((c: any) => (typeof c === "object" && c != null ? c.id : c))
+        .filter((id: unknown): id is number => typeof id === "number");
+
+      if (
+        allowedCourseIds.length > 0 &&
+        timeslotTenantId != null &&
+        hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)
+      ) {
+        const slotStartIso =
+          typeof timeslot.startTime === "string"
+            ? timeslot.startTime
+            : new Date(timeslot.startTime as string | number | Date).toISOString();
+        const enrollmentResult = await findSafe(
+          ctx.payload,
+          ctx.bookingsSlugs.courseEnrollments,
+          {
+            where: {
+              and: [
+                { user: { equals: ctx.user.id } },
+                { tenant: { equals: timeslotTenantId } },
+                { course: { in: allowedCourseIds } },
+                { status: { equals: "active" } },
+                { accessStartsAt: { less_than_equal: slotStartIso } },
+                { accessEndsAt: { greater_than_equal: slotStartIso } },
+              ],
+            },
+            limit: 10,
+            depth: 2,
+            sort: "accessEndsAt",
+            overrideAccess: true,
+          },
+        );
+
+        const lessonForFilter = {
+          ...timeslot,
+          eventType: eventType ?? timeslot.eventType,
+        };
+
+        const usableEnrollment = filterValidEnrollmentsForTimeslot(
+          lessonForFilter as Parameters<typeof filterValidEnrollmentsForTimeslot>[0],
+          enrollmentResult.docs as CourseEnrollmentLike[],
+        )[0];
+
+        if (usableEnrollment?.id != null) {
+          await bookOneSlot(courseEnrollmentBookingFields(Number(usableEnrollment.id)));
+          return { redirectUrl: null };
+        }
+      }
+
+      // 7. No entitlement — redirect to booking page for payment.
       return { redirectUrl: `/bookings/${timeslotId}` };
     }),
   checkIn: protectedProcedure
@@ -468,12 +529,24 @@ export const bookingsRouter = {
         pendingBookingIds: z.array(z.number()).optional(),
         /** When provided, bookings are created as confirmed using this class pass (no payment). */
         classPassId: z.number().optional(),
+        /** When provided, bookings are created as confirmed using this course enrollment (no payment). */
+        courseEnrollmentId: z.number().optional(),
       })
     )
     .mutation(async ({ ctx, input }): Promise<Booking[]> => {
-      const { timeslotId, quantity, status: statusInput, subscriptionId, pendingBookingIds, classPassId } = input;
+      const {
+        timeslotId,
+        quantity,
+        status: statusInput,
+        subscriptionId,
+        pendingBookingIds,
+        classPassId,
+        courseEnrollmentId,
+      } = input;
       const status =
-        subscriptionId != null || classPassId != null ? "confirmed" : (statusInput ?? "confirmed");
+        subscriptionId != null || classPassId != null || courseEnrollmentId != null
+          ? "confirmed"
+          : (statusInput ?? "confirmed");
       let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
       if (tenantId == null) {
         tenantId = await resolveTenantIdFromTimeslotId(ctx.payload, timeslotId, ctx.bookingsSlugs.timeslots);
@@ -577,7 +650,7 @@ export const bookingsRouter = {
         });
       }
 
-      let paymentMethodUsed: "subscription" | "class_pass" | undefined;
+      let paymentMethodUsed: "subscription" | "class_pass" | "course_enrollment" | undefined;
       let subscriptionIdUsed: number | undefined;
 
       if (subscriptionId != null) {
@@ -776,6 +849,76 @@ export const bookingsRouter = {
         }
         paymentMethodUsed = "class_pass";
         classPassIdUsed = classPassId;
+      }
+
+      let courseEnrollmentIdUsed: number | undefined;
+      if (courseEnrollmentId != null) {
+        if (status !== "confirmed") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Booking with course enrollment must be confirmed.",
+          });
+        }
+        if (!hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Course enrollments are not available in this application.",
+          });
+        }
+        if (timeslotTenantId == null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Timeslot has no tenant.",
+          });
+        }
+
+        // Ensure event type is populated for allowedCourses / allowedEventTypes checks.
+        if (
+          (typeof timeslot.eventType !== "object" || timeslot.eventType == null) &&
+          hasCollection(ctx.payload, ctx.bookingsSlugs.eventTypes)
+        ) {
+          const coId =
+            typeof timeslot.eventType === "number" ? timeslot.eventType : null;
+          if (coId != null) {
+            const populated = await findByIdSafe<EventType>(
+              ctx.payload,
+              ctx.bookingsSlugs.eventTypes,
+              coId,
+              { depth: 1, overrideAccess: true },
+            );
+            if (populated) (timeslot as any).eventType = populated;
+          }
+        }
+
+        const enrollmentResult = await findSafe(
+          ctx.payload,
+          ctx.bookingsSlugs.courseEnrollments,
+          {
+            where: {
+              and: [
+                { id: { equals: courseEnrollmentId } },
+                { user: { equals: ctx.user.id } },
+                { tenant: { equals: timeslotTenantId } },
+                { status: { equals: "active" } },
+              ],
+            },
+            limit: 1,
+            depth: 2,
+            overrideAccess: true,
+          },
+        );
+        const usableEnrollment = filterValidEnrollmentsForTimeslot(
+          timeslot as Parameters<typeof filterValidEnrollmentsForTimeslot>[0],
+          enrollmentResult.docs as CourseEnrollmentLike[],
+        )[0];
+        if (!usableEnrollment) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid or unauthorized course enrollment for this timeslot.",
+          });
+        }
+        paymentMethodUsed = "course_enrollment";
+        courseEnrollmentIdUsed = courseEnrollmentId;
       }
 
       // When booking via subscription (status confirmed), enforce allowMultipleBookingsPerTimeslot
@@ -993,6 +1136,9 @@ export const bookingsRouter = {
       if (paymentMethodUsed) (baseData as any).paymentMethodUsed = paymentMethodUsed;
       if (subscriptionIdUsed != null) (baseData as any).subscriptionIdUsed = subscriptionIdUsed;
       if (classPassIdUsed != null) (baseData as any).classPassIdUsed = classPassIdUsed;
+      if (courseEnrollmentIdUsed != null) {
+        Object.assign(baseData, courseEnrollmentBookingFields(courseEnrollmentIdUsed));
+      }
 
       const shouldSkipSideEffects = status === "pending";
       for (let i = 0; i < createCount; i++) {
@@ -1075,6 +1221,96 @@ export const bookingsRouter = {
       }
 
       return confirmedBookings;
+    }),
+
+  /**
+   * Returns valid course enrollments for the current user for the given timeslot.
+   */
+  getValidCourseEnrollmentsForTimeslot: protectedProcedure
+    .input(z.object({ timeslotId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      if (
+        !hasCollection(ctx.payload, ctx.bookingsSlugs.timeslots) ||
+        !hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)
+      ) {
+        return [];
+      }
+
+      let tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        tenantId = await resolveTenantIdFromTimeslotId(
+          ctx.payload,
+          input.timeslotId,
+          ctx.bookingsSlugs.timeslots,
+        );
+      }
+      const timeslot = await findByIdSafe<Timeslot>(
+        ctx.payload,
+        ctx.bookingsSlugs.timeslots,
+        input.timeslotId,
+        {
+          depth: 2,
+          overrideAccess: Boolean(tenantId),
+          user: ctx.user,
+        },
+      );
+      if (!timeslot) return [];
+
+      await populateTimeslotEventType(
+        ctx.payload,
+        timeslot,
+        ctx.bookingsSlugs.eventTypes,
+        ctx.bookingsSlugs.classPassTypes,
+      );
+
+      const eventType =
+        typeof timeslot.eventType === "object" ? timeslot.eventType : null;
+      const allowedCourses = (
+        eventType as { paymentMethods?: { allowedCourses?: unknown[] } } | null
+      )?.paymentMethods?.allowedCourses;
+      if (!Array.isArray(allowedCourses) || allowedCourses.length === 0) return [];
+
+      const allowedCourseIds = allowedCourses
+        .map((c) => (typeof c === "object" && c != null && "id" in c ? (c as { id: number }).id : c))
+        .filter((id): id is number => typeof id === "number");
+      if (allowedCourseIds.length === 0) return [];
+
+      const timeslotTenantId =
+        typeof timeslot.tenant === "object" && timeslot.tenant != null
+          ? (timeslot.tenant as { id: number }).id
+          : (timeslot.tenant as number | undefined) ?? null;
+      if (timeslotTenantId == null) return [];
+
+      const slotStartIso =
+        typeof timeslot.startTime === "string"
+          ? timeslot.startTime
+          : new Date(timeslot.startTime as string | number | Date).toISOString();
+
+      const result = await findSafe(
+        ctx.payload,
+        ctx.bookingsSlugs.courseEnrollments,
+        {
+          where: {
+            and: [
+              { user: { equals: ctx.user.id } },
+              { tenant: { equals: timeslotTenantId } },
+              { course: { in: allowedCourseIds } },
+              { status: { equals: "active" } },
+              { accessStartsAt: { less_than_equal: slotStartIso } },
+              { accessEndsAt: { greater_than_equal: slotStartIso } },
+            ],
+          },
+          limit: 25,
+          depth: 2,
+          sort: "accessEndsAt",
+          overrideAccess: true,
+        },
+      );
+
+      return filterValidEnrollmentsForTimeslot(
+        timeslot as Parameters<typeof filterValidEnrollmentsForTimeslot>[0],
+        result.docs as CourseEnrollmentLike[],
+      );
     }),
 
   /**

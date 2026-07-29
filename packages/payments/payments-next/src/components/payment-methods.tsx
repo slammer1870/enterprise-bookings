@@ -68,10 +68,10 @@ type PaymentMethodsProps = {
   checkoutLegal?: CheckoutLegalConfig;
   /**
    * Limit which payment method tabs are offered.
-   * Omit to show all available methods (drop-in, class pass, membership).
+   * Omit to show all available methods (drop-in, class pass, course, membership).
    * Example: `['dropin']` for card/drop-in only (e.g. public event checkout).
    */
-  enabledMethods?: Array<"dropin" | "classpass" | "membership">;
+  enabledMethods?: Array<"dropin" | "classpass" | "membership" | "course">;
 };
 
 type CheckoutSessionInput = {
@@ -113,6 +113,120 @@ export type ClassPassFeeBreakdownComponentProps = {
   classPassTypeId: number;
   classPriceCents: number;
 };
+
+type CourseEnrollmentForTimeslot = {
+  id: number;
+  accessEndsAt?: string | null;
+  course?: number | { id?: number; title?: string | null } | null;
+};
+
+function CourseTabContent({
+  enrollments,
+  isLoading,
+  onConfirm,
+}: {
+  enrollments: CourseEnrollmentForTimeslot[];
+  isLoading?: boolean;
+  onConfirm: (_enrollmentId: number) => Promise<void>;
+}) {
+  const [selectedId, setSelectedId] = useState<number | null>(
+    enrollments.length === 1 && enrollments[0] != null ? enrollments[0].id : null,
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (enrollments.length === 1 && enrollments[0] != null && selectedId == null) {
+      setSelectedId(enrollments[0].id);
+    }
+  }, [enrollments, selectedId]);
+
+  const handleConfirm = async (enrollmentId?: number) => {
+    const id = enrollmentId ?? selectedId;
+    if (id == null) return;
+    setSelectedId(id);
+    setIsSubmitting(true);
+    try {
+      await onConfirm(id);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground animate-pulse">
+        <p>Loading course enrollments…</p>
+      </div>
+    );
+  }
+
+  if (enrollments.length === 0) {
+    return (
+      <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
+        <p className="font-medium">No active course enrollment</p>
+        <p className="mt-1">
+          Enroll in a course that covers this class, then return to confirm your booking.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Use a course enrollment to book this timeslot at no extra charge.
+      </p>
+      {enrollments.map((enrollment) => {
+        const courseTitle =
+          typeof enrollment.course === "object" && enrollment.course != null
+            ? enrollment.course.title || "Course"
+            : "Course";
+        const ends =
+          enrollment.accessEndsAt != null
+            ? new Date(enrollment.accessEndsAt).toLocaleDateString()
+            : null;
+        return (
+          <div
+            key={enrollment.id}
+            className="flex items-center justify-between rounded-md border p-3"
+          >
+            <div className="flex flex-col gap-0.5">
+              <span className="font-medium">{courseTitle}</span>
+              {ends ? (
+                <span className="text-sm text-muted-foreground">Access until {ends}</span>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="courseEnrollment"
+                checked={selectedId === enrollment.id}
+                onChange={() => setSelectedId(enrollment.id)}
+                className="h-4 w-4"
+              />
+              <button
+                type="button"
+                onClick={() => void handleConfirm(enrollment.id)}
+                disabled={isSubmitting}
+                className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+              >
+                Use this course
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() => void handleConfirm()}
+        disabled={selectedId == null || isSubmitting}
+        className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+      >
+        {isSubmitting ? "Booking..." : "Confirm with course"}
+      </button>
+    </div>
+  );
+}
 
 function ClassPassTabContent({
   passes,
@@ -354,7 +468,7 @@ export function PaymentMethods({
   const router = useRouter();
   const searchParams = useSearchParams();
   const methodEnabled = useCallback(
-    (method: "dropin" | "classpass" | "membership") =>
+    (method: "dropin" | "classpass" | "membership" | "course") =>
       !enabledMethods || enabledMethods.includes(method),
     [enabledMethods],
   );
@@ -438,6 +552,17 @@ export function PaymentMethods({
       quantity,
     }),
     enabled: methodEnabled("membership"),
+  });
+
+  const {
+    data: validCourseEnrollments = [],
+    isLoading: isLoadingCourseEnrollments,
+    isFetching: isFetchingCourseEnrollments,
+  } = useQuery({
+    ...trpc.bookings.getValidCourseEnrollmentsForTimeslot.queryOptions({
+      timeslotId: timeslot.id,
+    }),
+    enabled: methodEnabled("course"),
   });
 
   // Get valid class passes for this timeslot (Phase 4.6)
@@ -683,6 +808,24 @@ export function PaymentMethods({
     })
   );
 
+  const { mutateAsync: createBookingsWithCourse } = useMutation(
+    trpc.bookings.createBookings.mutationOptions({
+      onSuccess: () => {
+        _onPaymentSuccess?.();
+        onPaymentRedirectStart?.();
+        const url = successUrlProp ?? "/dashboard";
+        router.push(
+          url.startsWith("http")
+            ? url
+            : `${typeof window !== "undefined" ? window.location.origin : ""}${url.startsWith("/") ? url : `/${url}`}`,
+        );
+      },
+      onError: (error: { message?: string }) => {
+        toast.error(error.message || "Failed to book with course enrollment");
+      },
+    }),
+  );
+
   // Wrapper functions that use tRPC
   // planId here is actually the Stripe price ID from the plan's priceJSON
   const handleCreateCheckoutSession = async (
@@ -920,6 +1063,14 @@ export function PaymentMethods({
       classPassesWithEnoughCredits.length > 0 ||
       purchasablePassesForQuantity.length > 0);
 
+  const allowedCourses = (
+    timeslot.eventType as { paymentMethods?: { allowedCourses?: unknown[] } } | null | undefined
+  )?.paymentMethods?.allowedCourses;
+  const hasCourseTab =
+    methodEnabled("course") &&
+    ((Array.isArray(allowedCourses) && allowedCourses.length > 0) ||
+      validCourseEnrollments.length > 0);
+
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
   let hasMembershipTab =
@@ -959,9 +1110,10 @@ export function PaymentMethods({
     const tabs: string[] = [];
     if (hasDropInTab) tabs.push("dropin");
     if (hasClassPassTab) tabs.push("classpass");
+    if (hasCourseTab) tabs.push("course");
     if (hasMembershipTab) tabs.push("membership");
     return tabs;
-  }, [hasMembershipTab, hasDropInTab, hasClassPassTab]);
+  }, [hasMembershipTab, hasDropInTab, hasClassPassTab, hasCourseTab]);
 
   // Controlled tab so we can auto-switch when the active tab is no longer available
   const defaultTab = availableTabs[0] ?? "dropin";
@@ -993,7 +1145,7 @@ export function PaymentMethods({
   }, [shouldDefaultToMembershipTab, hasMembershipTab, tabManuallySelected]);
 
   // Important: keep this after hooks so changing quantity doesn't break hook order.
-  if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab) {
+  if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab && !hasCourseTab) {
     return (
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
         <p>
@@ -1025,6 +1177,11 @@ export function PaymentMethods({
               Class pass
             </TabsTrigger>
           )}
+          {hasCourseTab && (
+            <TabsTrigger value="course" className="w-full">
+              Course
+            </TabsTrigger>
+          )}
           {hasMembershipTab && (
             <TabsTrigger value="membership" className="w-full">
               Membership
@@ -1048,6 +1205,22 @@ export function PaymentMethods({
               }}
               onPurchase={handleCreateClassPassCheckout}
               ClassPassFeeBreakdownComponent={ClassPassFeeBreakdownComponent}
+            />
+          </TabsContent>
+        )}
+        {hasCourseTab && (
+          <TabsContent value="course">
+            <CourseTabContent
+              enrollments={validCourseEnrollments as CourseEnrollmentForTimeslot[]}
+              isLoading={isLoadingCourseEnrollments || isFetchingCourseEnrollments}
+              onConfirm={async (courseEnrollmentId: number) => {
+                await createBookingsWithCourse({
+                  timeslotId: timeslot.id,
+                  quantity: hasPendingBookings ? pendingBookingIds.length : quantity,
+                  courseEnrollmentId,
+                  pendingBookingIds: hasPendingBookings ? pendingBookingIds : undefined,
+                });
+              }}
             />
           </TabsContent>
         )}

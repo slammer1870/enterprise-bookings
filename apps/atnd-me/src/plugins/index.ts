@@ -98,6 +98,8 @@ import { syncStaffPublicMediaPlugin } from './sync-staff-public-media'
 import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { courseEmailsField } from '@/fields/courseEmailFields'
+import { triggerCourseEmailAfterChange } from '@/lib/course-email/maybe-trigger-course-email'
 import { sortAdminNavGroupsPlugin } from './sort-admin-nav-groups'
 import { userDataImportExportPlugin } from './import-export'
 import { tenantScopedExportJobsPlugin } from './tenant-scoped-export-jobs'
@@ -670,6 +672,7 @@ export const plugins: Plugin[] = [
             { label: 'Stripe', value: 'stripe' },
             { label: 'Class pass', value: 'class_pass' },
             { label: 'Subscription', value: 'subscription' },
+            { label: 'Course enrollment', value: 'course_enrollment' },
           ],
           required: false,
           admin: { description: 'Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.' },
@@ -694,6 +697,18 @@ export const plugins: Plugin[] = [
             description: 'Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.',
             condition: (_: unknown, sibling: { paymentMethodUsed?: string }) =>
               sibling?.paymentMethodUsed === 'subscription',
+          },
+        },
+        {
+          name: 'courseEnrollmentIdUsed',
+          type: 'number',
+          label: 'Course enrollment id (set at create)',
+          required: false,
+          admin: {
+            description:
+              'Set when paymentMethodUsed is course_enrollment; links the booking to the enrollment used.',
+            condition: (_: unknown, sibling: { paymentMethodUsed?: string }) =>
+              sibling?.paymentMethodUsed === 'course_enrollment',
           },
         },
       ],
@@ -817,6 +832,48 @@ export const plugins: Plugin[] = [
         }),
       },
       getStripeAccountIdForRequest,
+    },
+    courses: {
+      enabled: true,
+      eventTypesSlug: 'event-types',
+      coursesOverrides: {
+        access: {
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
+        },
+        fields: ({ defaultFields }) =>
+          [
+            ...defaultFields.map((field) => {
+              const name = 'name' in field ? field.name : undefined
+              if (name === 'priceInformation' || name === 'stripeProductId') {
+                return name === 'priceInformation'
+                  ? withNestedFieldAccess(field, adminOrTenantAdminFieldAccess)
+                  : { ...field, access: adminOnlyFieldAccess }
+              }
+              return field
+            }),
+            courseEmailsField,
+          ] as Field[],
+      },
+      courseEnrollmentsOverrides: {
+        access: {
+          admin: productsRequireStripeConnectAdmin,
+          read: productsRequireStripeConnectRead,
+          create: productsRequireStripeConnectCreate,
+          update: productsRequireStripeConnectUpdate,
+          delete: productsRequireStripeConnectDelete,
+        },
+        hooks: ({ defaultHooks }) => ({
+          ...defaultHooks,
+          afterChange: [
+            ...(defaultHooks.afterChange ?? []),
+            triggerCourseEmailAfterChange,
+          ],
+        }),
+      },
     },
     // Drop-ins: single-use payment options per class option
     dropIns: {
@@ -1014,12 +1071,15 @@ export const plugins: Plugin[] = [
       // From @repo/bookings-payments
       'class-pass-types': {}, // Pass types (e.g. Fitness Only, Sauna Only); tenant-scoped
       'class-passes': {}, // Class passes; tenant-scoped
+      courses: {}, // Course products; tenant-scoped
+      'course-enrollments': {}, // Purchased course enrollments; tenant-scoped
       'transactions': {}, // Payment records per booking (Stripe, class pass, subscription); tenant-scoped via plugin overrides
       'booking-checkout-holds': {}, // Ephemeral checkout capacity holds; tenant-scoped
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
       'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
       'post-booking-email-deliveries': {}, // Post-booking email idempotency tracking
+      'course-email-deliveries': {}, // Course email idempotency tracking
       locations: {}, // Phase 7: branches/sites per tenant; tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
       media: {}, // Tenant-scoped media uploads
@@ -1050,6 +1110,8 @@ export const plugins: Plugin[] = [
       'bookings',
       'class-pass-types',
       'class-passes',
+      'courses',
+      'course-enrollments',
       'transactions',
       'booking-checkout-holds',
       'drop-ins',
@@ -1074,6 +1136,8 @@ export const plugins: Plugin[] = [
       'bookings',
       'class-pass-types',
       'class-passes',
+      'courses',
+      'course-enrollments',
       'transactions',
       'booking-checkout-holds',
       'drop-ins',

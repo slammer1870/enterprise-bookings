@@ -1,0 +1,74 @@
+import { cache } from 'react'
+import { cookies, headers } from 'next/headers'
+import { getPayload } from '@/lib/payload'
+import { getTenantContext } from '@/utilities/getTenantContext'
+import type { CourseDetailDoc } from '@/components/courses/CourseDetailView'
+
+export const queryOpenCourses = cache(async (): Promise<CourseDetailDoc[]> => {
+  const cookieStore = await cookies()
+  const headersList = await headers()
+  const payload = await getPayload()
+  const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
+  const tenantId = tenant?.id
+  if (tenantId == null) return []
+
+  const result = await payload.find({
+    collection: 'courses' as import('payload').CollectionSlug,
+    where: {
+      and: [
+        { tenant: { equals: tenantId } },
+        { status: { equals: 'open' } },
+      ],
+    },
+    sort: 'title',
+    limit: 50,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  return result.docs as CourseDetailDoc[]
+})
+
+export const queryCourseBySlug = cache(
+  async (slug: string): Promise<{ course: CourseDetailDoc; activeEnrollmentCount: number } | null> => {
+    const cookieStore = await cookies()
+    const headersList = await headers()
+    const payload = await getPayload()
+    const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
+    const tenantId = tenant?.id
+    if (tenantId == null) return null
+
+    const result = await payload.find({
+      collection: 'courses' as import('payload').CollectionSlug,
+      where: {
+        and: [
+          { tenant: { equals: tenantId } },
+          { slug: { equals: slug } },
+          { status: { not_equals: 'archived' } },
+        ],
+      },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    const course = result.docs[0] as CourseDetailDoc | undefined
+    if (!course) return null
+
+    const enrollments = await payload.find({
+      collection: 'course-enrollments' as import('payload').CollectionSlug,
+      where: {
+        and: [
+          { course: { equals: course.id } },
+          { tenant: { equals: tenantId } },
+          { status: { equals: 'active' } },
+        ],
+      },
+      limit: 0,
+      depth: 0,
+      overrideAccess: true,
+    })
+
+    return { course, activeEnrollmentCount: enrollments.totalDocs ?? 0 }
+  },
+)

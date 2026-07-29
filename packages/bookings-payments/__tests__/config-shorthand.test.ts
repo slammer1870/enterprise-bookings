@@ -127,4 +127,24 @@ describe("config shorthand (true | object)", () => {
     expect(slugs).toContain("plans");
     expect(slugs).toContain("subscriptions");
   });
+
+  it("accepts courses: true and enables courses + course-enrollments with allowedCourses injection", () => {
+    const plugin = bookingsPaymentsPlugin({
+      courses: true,
+    });
+    const incoming: Partial<Config> = { collections: baseCollections };
+    const result = plugin(incoming as Config) as Config;
+    const slugs = result.collections?.map((c) => c.slug) ?? [];
+    expect(slugs).toContain("courses");
+    expect(slugs).toContain("course-enrollments");
+    expect(slugs).toContain("transactions");
+
+    const eventTypes = result.collections?.find((c) => c.slug === "event-types");
+    const group = eventTypes?.fields?.find(
+      (f) => f.type === "group" && "name" in f && f.name === "paymentMethods",
+    );
+    const fields =
+      group && "fields" in group ? (group.fields as Array<{ name?: string }>) : [];
+    expect(fields.some((f) => f.name === "allowedCourses")).toBe(true);
+  });
 });

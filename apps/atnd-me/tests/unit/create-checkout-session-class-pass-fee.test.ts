@@ -148,6 +148,27 @@ describe('create-checkout-session route – class pass fee regression', () => {
     )
   })
 
+  it('computes fee with productType course for course_purchase', async () => {
+    mockCalculateBookingFeeAmount.mockResolvedValue(120)
+
+    const res = await POST(
+      request({
+        priceId: 'price_course_abc',
+        quantity: 1,
+        mode: 'payment',
+        metadata: { type: 'course_purchase', tenantId: String(ACTIVE_TENANT.id) },
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mockCalculateBookingFeeAmount).toHaveBeenCalledWith(
+      expect.objectContaining({ productType: 'course', classPriceAmount: 3000 }),
+    )
+    expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({ bookingFeeAmount: 120, productType: 'course' }),
+    )
+  })
+
   it('does not compute fee and passes productType undefined for payment mode without class_pass_purchase', async () => {
     await POST(
       request({

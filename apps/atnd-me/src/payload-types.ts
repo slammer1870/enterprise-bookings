@@ -70,6 +70,7 @@ export interface Config {
     timeslots: Timeslot;
     scheduler: Scheduler;
     'post-booking-email-deliveries': PostBookingEmailDelivery;
+    'course-email-deliveries': CourseEmailDelivery;
     'staff-members': StaffMember;
     'event-types': EventType;
     tenants: Tenant;
@@ -77,8 +78,10 @@ export interface Config {
     'discount-codes': DiscountCode;
     'drop-ins': DropIn;
     'class-pass-types': ClassPassType;
+    courses: Course;
     plans: Plan;
     'class-passes': ClassPass;
+    'course-enrollments': CourseEnrollment;
     subscriptions: Subscription;
     transactions: Transaction;
     'booking-checkout-holds': BookingCheckoutHold;
@@ -126,6 +129,7 @@ export interface Config {
     timeslots: TimeslotsSelect<false> | TimeslotsSelect<true>;
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
     'post-booking-email-deliveries': PostBookingEmailDeliveriesSelect<false> | PostBookingEmailDeliveriesSelect<true>;
+    'course-email-deliveries': CourseEmailDeliveriesSelect<false> | CourseEmailDeliveriesSelect<true>;
     'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
     'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
@@ -133,8 +137,10 @@ export interface Config {
     'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
     'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
     'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
+    courses: CoursesSelect<false> | CoursesSelect<true>;
     plans: PlansSelect<false> | PlansSelect<true>;
     'class-passes': ClassPassesSelect<false> | ClassPassesSelect<true>;
+    'course-enrollments': CourseEnrollmentsSelect<false> | CourseEnrollmentsSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'booking-checkout-holds': BookingCheckoutHoldsSelect<false> | BookingCheckoutHoldsSelect<true>;
@@ -181,6 +187,7 @@ export interface Config {
     tasks: {
       generateTimeslotsFromSchedule: TaskGenerateTimeslotsFromSchedule;
       sendPostBookingEmail: TaskSendPostBookingEmail;
+      sendCourseEmail: TaskSendCourseEmail;
       createCollectionExport: TaskCreateCollectionExport;
       createCollectionImport: TaskCreateCollectionImport;
       schedulePublish: TaskSchedulePublish;
@@ -478,6 +485,7 @@ export interface Page {
     | MarketingHeroBlock
     | ThreeColumnLayoutBlock
     | TwoColumnLayoutBlock
+    | EventBlock
     | AboutBlock
     | SimpleAboutBlock
     | LocationBlock
@@ -568,7 +576,6 @@ export interface Page {
         blockType: 'dhLiveMembership';
       }
     | GiftVoucherCheckoutBlock
-    | EventBlock
     | CroiLanHeroWithLocationBlock
     | ClFindSanctuaryBlock
     | ClMissionBlock
@@ -1075,6 +1082,10 @@ export interface EventType {
      */
     allowedClassPasses?: (number | ClassPassType)[] | null;
     /**
+     * Courses that grant free booking of this event type during the enrollee's access window.
+     */
+    allowedCourses?: (number | Course)[] | null;
+    /**
      * Membership plans that grant access to this class option. Users with an active subscription to a selected plan can book without paying per session.
      */
     allowedPlans?: (number | Plan)[] | null;
@@ -1199,6 +1210,106 @@ export interface ClassPassType {
    */
   skipSync?: boolean | null;
   deletedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Courses grant enrolled users free booking of allowed event types during an access window.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "courses".
+ */
+export interface Course {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  title: string;
+  /**
+   * URL slug for /courses/[slug]. Unique per tenant when multi-tenant.
+   */
+  slug: string;
+  /**
+   * Course description shown on the public detail page About section.
+   */
+  about?: string | null;
+  /**
+   * Fixed cohort start. Use with end date (not with duration).
+   */
+  startDate?: string | null;
+  /**
+   * Fixed cohort end. Use with start date (not with duration).
+   */
+  endDate?: string | null;
+  /**
+   * Purchase-relative length (e.g. 8). Use with duration unit (not with fixed dates).
+   */
+  durationLength?: number | null;
+  /**
+   * Unit for purchase-relative duration.
+   */
+  durationUnit?: ('days' | 'weeks') | null;
+  /**
+   * Event types enrollees may book during their access window.
+   */
+  allowedEventTypes: (number | EventType)[];
+  /**
+   * Optional capacity. Leave blank for unlimited.
+   */
+  maxEnrollments?: number | null;
+  /**
+   * Link to a Stripe product with a one-time default price.
+   */
+  stripeProductId?: string | null;
+  /**
+   * Price information. Synced from Stripe when a product is linked.
+   */
+  priceInformation?: {
+    /**
+     * One-time price in euros (from Stripe default price)
+     */
+    price?: number | null;
+  };
+  /**
+   * Open courses can be purchased; archived cannot be used for booking.
+   */
+  status: 'draft' | 'open' | 'closed' | 'archived';
+  /**
+   * Emails sent to the enrollee after purchase or relative to their access window (start/end). Scheduled emails send at 9:00 local.
+   */
+  courseEmails?:
+    | {
+        cc?: string | null;
+        bcc?: string | null;
+        replyTo: string;
+        emailFrom?: string | null;
+        subject: string;
+        /**
+         * Enter the message that should be sent in this email.
+         */
+        message?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        sendTiming:
+          | 'after_purchase'
+          | 'one_week_before_start'
+          | 'one_day_before_start'
+          | 'one_day_after_start'
+          | 'one_day_before_end'
+          | 'one_day_after_end';
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1512,7 +1623,6 @@ export interface ThreeColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
-        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -2632,53 +2742,6 @@ export interface GiftVoucherCheckoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventBlock".
- */
-export interface EventBlock {
-  /**
-   * Choose the event type, then a date, then the timeslot.
-   */
-  eventType: number | EventType;
-  /**
-   * Pick a date to list timeslots for that day.
-   */
-  timeslotDate?: string | null;
-  /**
-   * Active timeslots for the selected event type and date. Host, capacity, and ticket price come from the timeslot / event type.
-   */
-  timeslot?: (number | null) | Timeslot;
-  /**
-   * Hero cover for the event page. Falls back to a solid background when empty.
-   */
-  coverImage?: (number | null) | Media;
-  /**
-   * Event description shown in the About section. Falls back to the event type description when empty.
-   */
-  about?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  /**
-   * Optional. Paste a Google Maps link (including maps.app.goo.gl). Falls back to the branch address when empty.
-   */
-  mapUrl?: string | null;
-  id?: string | null;
-  blockName?: string | null;
-  blockType: 'event';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock".
  */
 export interface CroiLanHeroWithLocationBlock {
@@ -3013,7 +3076,6 @@ export interface TwoColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
-        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3118,7 +3180,6 @@ export interface TwoColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
-        | EventBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3131,6 +3192,53 @@ export interface TwoColumnLayoutBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'twoColumnLayout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventBlock".
+ */
+export interface EventBlock {
+  /**
+   * Choose the event type, then a date, then the timeslot.
+   */
+  eventType: number | EventType;
+  /**
+   * Optional filter — pick a date to list timeslots for that day. You can create a timeslot if none exist.
+   */
+  timeslotDate?: string | null;
+  /**
+   * Active timeslots for the selected event type and date. Host, capacity, and ticket price come from the timeslot / event type. If none exist for the selected date, you can create a timeslot with that date and event type.
+   */
+  timeslot?: (number | null) | Timeslot;
+  /**
+   * Hero cover for the event page. Falls back to a solid background when empty.
+   */
+  coverImage?: (number | null) | Media;
+  /**
+   * Event description shown in the About section. Falls back to the event type description when empty.
+   */
+  about?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Optional. Paste a Google Maps link (including maps.app.goo.gl). Falls back to the branch address when empty.
+   */
+  mapUrl?: string | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'event';
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3172,7 +3280,7 @@ export interface Booking {
   /**
    * Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.
    */
-  paymentMethodUsed?: ('stripe' | 'class_pass' | 'subscription') | null;
+  paymentMethodUsed?: ('stripe' | 'class_pass' | 'subscription' | 'course_enrollment') | null;
   /**
    * Set when paymentMethodUsed is class_pass; used to decrement the correct pass.
    */
@@ -3181,6 +3289,10 @@ export interface Booking {
    * Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.
    */
   subscriptionIdUsed?: number | null;
+  /**
+   * Set when paymentMethodUsed is course_enrollment; links the booking to the enrollment used.
+   */
+  courseEnrollmentIdUsed?: number | null;
   /**
    * Payment transactions for this booking (Stripe, class pass, or subscription). Injected by @repo/bookings-payments when enabled.
    */
@@ -3325,6 +3437,76 @@ export interface PostBookingEmailDelivery {
    * Booking that triggered scheduling or send.
    */
   triggerBooking?: (number | null) | Booking;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Tracks scheduled and sent course emails for idempotency.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "course-email-deliveries".
+ */
+export interface CourseEmailDelivery {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  enrollment: number | CourseEnrollment;
+  course: number | Course;
+  /**
+   * ID of the courseEmails array entry that triggered this delivery.
+   */
+  emailConfigId: string;
+  sendTiming:
+    | 'after_purchase'
+    | 'one_week_before_start'
+    | 'one_day_before_start'
+    | 'one_day_after_start'
+    | 'one_day_before_end'
+    | 'one_day_after_end';
+  status: 'scheduled' | 'sent' | 'cancelled';
+  /**
+   * Payload job queued for scheduled delivery.
+   */
+  payloadJobId?: number | null;
+  scheduledFor?: string | null;
+  sentAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Purchased course enrollments with stamped access windows
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "course-enrollments".
+ */
+export interface CourseEnrollment {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Enrolled user
+   */
+  user: number | User;
+  /**
+   * Course purchased
+   */
+  course: number | Course;
+  status: 'active' | 'cancelled' | 'completed';
+  /**
+   * When the course was purchased
+   */
+  purchasedAt: string;
+  /**
+   * Start of booking access window (stamped at purchase)
+   */
+  accessStartsAt: string;
+  /**
+   * End of booking access window (stamped at purchase)
+   */
+  accessEndsAt: string;
+  /**
+   * External transaction id (e.g. Stripe payment intent id).
+   */
+  transactionId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -3887,6 +4069,7 @@ export interface PayloadJob {
           | 'inline'
           | 'generateTimeslotsFromSchedule'
           | 'sendPostBookingEmail'
+          | 'sendCourseEmail'
           | 'createCollectionExport'
           | 'createCollectionImport'
           | 'schedulePublish';
@@ -3927,6 +4110,7 @@ export interface PayloadJob {
         | 'inline'
         | 'generateTimeslotsFromSchedule'
         | 'sendPostBookingEmail'
+        | 'sendCourseEmail'
         | 'createCollectionExport'
         | 'createCollectionImport'
         | 'schedulePublish'
@@ -3958,6 +4142,10 @@ export interface PayloadLockedDocument {
         value: number | PostBookingEmailDelivery;
       } | null)
     | ({
+        relationTo: 'course-email-deliveries';
+        value: number | CourseEmailDelivery;
+      } | null)
+    | ({
         relationTo: 'staff-members';
         value: number | StaffMember;
       } | null)
@@ -3986,12 +4174,20 @@ export interface PayloadLockedDocument {
         value: number | ClassPassType;
       } | null)
     | ({
+        relationTo: 'courses';
+        value: number | Course;
+      } | null)
+    | ({
         relationTo: 'plans';
         value: number | Plan;
       } | null)
     | ({
         relationTo: 'class-passes';
         value: number | ClassPass;
+      } | null)
+    | ({
+        relationTo: 'course-enrollments';
+        value: number | CourseEnrollment;
       } | null)
     | ({
         relationTo: 'subscriptions';
@@ -4193,6 +4389,24 @@ export interface PostBookingEmailDeliveriesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "course-email-deliveries_select".
+ */
+export interface CourseEmailDeliveriesSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  enrollment?: T;
+  course?: T;
+  emailConfigId?: T;
+  sendTiming?: T;
+  status?: T;
+  payloadJobId?: T;
+  scheduledFor?: T;
+  sentAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "staff-members_select".
  */
 export interface StaffMembersSelect<T extends boolean = true> {
@@ -4219,6 +4433,7 @@ export interface EventTypesSelect<T extends boolean = true> {
     | {
         allowedDropIn?: T;
         allowedClassPasses?: T;
+        allowedCourses?: T;
         allowedPlans?: T;
       };
   postBookingEmails?:
@@ -4362,6 +4577,43 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "courses_select".
+ */
+export interface CoursesSelect<T extends boolean = true> {
+  tenant?: T;
+  title?: T;
+  slug?: T;
+  about?: T;
+  startDate?: T;
+  endDate?: T;
+  durationLength?: T;
+  durationUnit?: T;
+  allowedEventTypes?: T;
+  maxEnrollments?: T;
+  stripeProductId?: T;
+  priceInformation?:
+    | T
+    | {
+        price?: T;
+      };
+  status?: T;
+  courseEmails?:
+    | T
+    | {
+        cc?: T;
+        bcc?: T;
+        replyTo?: T;
+        emailFrom?: T;
+        subject?: T;
+        message?: T;
+        sendTiming?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "plans_select".
  */
 export interface PlansSelect<T extends boolean = true> {
@@ -4413,6 +4665,22 @@ export interface ClassPassesSelect<T extends boolean = true> {
   transactionId?: T;
   status?: T;
   notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "course-enrollments_select".
+ */
+export interface CourseEnrollmentsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  course?: T;
+  status?: T;
+  purchasedAt?: T;
+  accessStartsAt?: T;
+  accessEndsAt?: T;
+  transactionId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4482,6 +4750,7 @@ export interface PagesSelect<T extends boolean = true> {
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
         twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
+        event?: T | EventBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         simpleAbout?: T | SimpleAboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
@@ -4585,7 +4854,6 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
-        event?: T | EventBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
         clMission?: T | ClMissionBlockSelect<T>;
@@ -4931,7 +5199,6 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
-        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5564,20 +5831,6 @@ export interface GiftVoucherCheckoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "EventBlock_select".
- */
-export interface EventBlockSelect<T extends boolean = true> {
-  eventType?: T;
-  timeslotDate?: T;
-  timeslot?: T;
-  coverImage?: T;
-  about?: T;
-  mapUrl?: T;
-  id?: T;
-  blockName?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock_select".
  */
 export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
@@ -5853,7 +6106,6 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
-        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5971,7 +6223,6 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
-        event?: T | EventBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5980,6 +6231,20 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
         clSaunaBenefits?: T | ClSaunaBenefitsBlockSelect<T>;
         hwHeroServices?: T | HwHeroServicesBlockSelect<T>;
       };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EventBlock_select".
+ */
+export interface EventBlockSelect<T extends boolean = true> {
+  eventType?: T;
+  timeslotDate?: T;
+  timeslot?: T;
+  coverImage?: T;
+  about?: T;
+  mapUrl?: T;
   id?: T;
   blockName?: T;
 }
@@ -6509,6 +6774,7 @@ export interface BookingsSelect<T extends boolean = true> {
   paymentMethodUsed?: T;
   classPassIdUsed?: T;
   subscriptionIdUsed?: T;
+  courseEnrollmentIdUsed?: T;
   transactions?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -6662,6 +6928,10 @@ export interface PlatformFee {
      */
     classPassPercent: number;
     /**
+     * Default fee for course enrollments.
+     */
+    coursePercent: number;
+    /**
      * Default fee for subscription payments.
      */
     subscriptionPercent: number;
@@ -6684,6 +6954,10 @@ export interface PlatformFee {
          * Leave empty to use default.
          */
         classPassPercent?: number | null;
+        /**
+         * Leave empty to use default.
+         */
+        coursePercent?: number | null;
         /**
          * Leave empty to use default.
          */
@@ -6721,6 +6995,7 @@ export interface PlatformFeesSelect<T extends boolean = true> {
     | {
         dropInPercent?: T;
         classPassPercent?: T;
+        coursePercent?: T;
         subscriptionPercent?: T;
         giftVoucherPercent?: T;
       };
@@ -6730,6 +7005,7 @@ export interface PlatformFeesSelect<T extends boolean = true> {
         tenant?: T;
         dropInPercent?: T;
         classPassPercent?: T;
+        coursePercent?: T;
         subscriptionPercent?: T;
         giftVoucherPercent?: T;
         id?: T;
@@ -6797,6 +7073,14 @@ export interface TaskSendPostBookingEmail {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "TaskSendCourseEmail".
+ */
+export interface TaskSendCourseEmail {
+  input?: unknown;
+  output?: unknown;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "TaskCreateCollectionExport".
  */
 export interface TaskCreateCollectionExport {
@@ -6817,6 +7101,7 @@ export interface TaskCreateCollectionExport {
       | 'scheduler'
       | 'locations'
       | 'post-booking-email-deliveries'
+      | 'course-email-deliveries'
       | 'redirects'
       | 'forms'
       | 'search'
@@ -6830,6 +7115,8 @@ export interface TaskCreateCollectionExport {
       | 'drop-ins'
       | 'class-pass-types'
       | 'class-passes'
+      | 'courses'
+      | 'course-enrollments'
       | 'subscriptions'
       | 'plans'
       | 'transactions'
@@ -6946,11 +7233,11 @@ export interface EventCheckoutBlock {
    */
   eventType: number | EventType;
   /**
-   * Pick a date to list timeslots for that day.
+   * Optional filter — pick a date to list timeslots for that day. You can create a timeslot if none exist.
    */
   timeslotDate?: string | null;
   /**
-   * Active timeslots for the selected event type and date. Checkout quantity, fees, and Stripe payment bind to this timeslot.
+   * Active timeslots for the selected event type and date. Checkout quantity, fees, and Stripe payment bind to this timeslot. If none exist for the selected date, you can create a timeslot with that date and event type.
    */
   timeslot?: (number | null) | Timeslot;
   id?: string | null;
