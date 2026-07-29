@@ -1,5 +1,6 @@
 import type { TaskHandler } from 'payload'
 import { COURSE_EMAIL_DELIVERIES_SLUG } from '@/collections/CourseEmailDeliveries'
+import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { sendCourseEmail } from '@/lib/course-email/send-course-email'
 import type { CourseEmailConfig, CourseEmailJobInput } from '@/lib/course-email/types'
 import { resolveCourseEmailConfigById } from '@/lib/course-email/types'
@@ -21,7 +22,7 @@ export const sendCourseEmailTask: TaskHandler<'sendCourseEmail'> = async ({ inpu
 
   const enrollment = await req.payload
     .findByID({
-      collection: 'course-enrollments' as import('payload').CollectionSlug,
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.courseEnrollments,
       id: enrollmentId,
       depth: 0,
       overrideAccess: true,
@@ -40,7 +41,7 @@ export const sendCourseEmailTask: TaskHandler<'sendCourseEmail'> = async ({ inpu
   }
 
   const course = await req.payload.findByID({
-    collection: 'courses' as import('payload').CollectionSlug,
+    collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.courses,
     id: courseId,
     depth: 0,
     overrideAccess: true,

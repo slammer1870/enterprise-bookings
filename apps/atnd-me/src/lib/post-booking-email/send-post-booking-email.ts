@@ -2,7 +2,16 @@ import type { BasePayload } from 'payload'
 import { render } from '@react-email/components'
 import { PostBookingEmailLayout } from '@/emails/post-booking-email'
 import { renderPostBookingEmailBodyHtml } from './render-body-html'
-import type { PostBookingEmailConfig } from './types'
+
+/** Fields used by the shared renderer/sender (timing is handled by callers). */
+export type SendableEmailConfig = {
+  cc?: string | null
+  bcc?: string | null
+  replyTo?: string | null
+  emailFrom?: string | null
+  subject?: string | null
+  message?: unknown
+}
 
 function userEmailFromBookingUser(user: unknown): string | null {
   if (user && typeof user === 'object' && 'email' in user) {
@@ -31,7 +40,7 @@ export async function sendPostBookingEmail({
 }: {
   payload: BasePayload
   user: unknown
-  config: PostBookingEmailConfig
+  config: SendableEmailConfig
 }): Promise<void> {
   const to = userEmailFromBookingUser(user)
   if (!to) {
