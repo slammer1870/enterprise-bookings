@@ -28,6 +28,9 @@ vi.mock('@repo/trpc/client', () => ({
       },
     },
     bookings: {
+      getValidCourseEnrollmentsForTimeslot: {
+        queryOptions: () => ({ queryKey: ['bookings.getValidCourseEnrollmentsForTimeslot'] }),
+      },
       getValidClassPassesForTimeslot: {
         queryOptions: () => ({ queryKey: ['bookings.getValidClassPassesForTimeslot'] }),
       },
@@ -99,6 +102,8 @@ describe('PaymentMethods discount forwarding', () => {
             },
             isLoading: false,
           }
+        case 'bookings.getValidCourseEnrollmentsForTimeslot':
+          return { data: [], isLoading: false, isFetching: false }
         case 'bookings.getValidClassPassesForTimeslot':
           return { data: [], isLoading: false }
         case 'bookings.getPurchasableClassPassTypesForTimeslot':
@@ -321,6 +326,8 @@ describe('PaymentMethods discount forwarding', () => {
             },
             isLoading: false,
           }
+        case 'bookings.getValidCourseEnrollmentsForTimeslot':
+          return { data: [], isLoading: false, isFetching: false }
         case 'bookings.getValidClassPassesForTimeslot':
           return { data: [], isLoading: false }
         case 'bookings.getPurchasableClassPassTypesForTimeslot':
