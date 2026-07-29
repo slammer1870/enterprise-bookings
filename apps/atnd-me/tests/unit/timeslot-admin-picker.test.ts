@@ -29,6 +29,11 @@ describe('timeslotDateFilterBounds', () => {
     expect(calendarDayFromDateField(new Date('2026-07-29T00:00:00.000Z'))).toBe('2026-07-29')
   })
 
+  it('keeps midnight-UTC dayOnly values on the picked calendar day', () => {
+    // Regression: toISOString alone is fine here; local getDate() would shift in US timezones.
+    expect(calendarDayFromDateField(new Date(Date.UTC(2026, 6, 29, 0, 0, 0)))).toBe('2026-07-29')
+  })
+
   it('returns start/end ISO bounds for the calendar day in Dublin', () => {
     const bounds = timeslotDateFilterBounds('2026-07-29', 'Europe/Dublin')
     expect(bounds).not.toBeNull()

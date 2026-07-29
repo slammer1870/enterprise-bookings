@@ -69,7 +69,7 @@ export function createEventTimeslotPickerFields(opts?: {
       virtual: true,
       label: 'Date',
       admin: {
-        description: 'Pick a date to list timeslots for that day.',
+        description: 'Pick a date to list timeslots for that day. You can create a timeslot if none exist.',
         date: {
           pickerAppearance: 'dayOnly',
           displayFormat: 'd MMM yyyy',
@@ -88,13 +88,20 @@ export function createEventTimeslotPickerFields(opts?: {
       required: true,
       label: 'Timeslot',
       admin: {
-        description: timeslotDescription,
+        description:
+          timeslotDescription +
+          ' If none exist for the selected date, you can create a timeslot with that date and event type.',
         sortOptions: 'startTime',
+        // Prefill create is handled by TimeslotForEventPickerField (date + event type).
+        allowCreate: false,
         condition: (_data, siblingData) => {
           const siblings = asEventTimeslotSiblings(siblingData)
           if (relationId(siblings.eventType) == null) return false
           // Allow existing selection when re-editing; require a date for new picks.
           return hasTimeslotDate(siblings.timeslotDate) || relationId(siblings.timeslot) != null
+        },
+        components: {
+          Field: '@/components/admin/TimeslotForEventPickerField#TimeslotForEventPickerField',
         },
       },
       filterOptions: ({ data, siblingData }): Where | false => {

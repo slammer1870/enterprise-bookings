@@ -3,17 +3,23 @@
 /**
  * Event type relationship that clears sibling date filter + timeslot when the type
  * changes, so admins are not left with a stale slot from a previous type.
+ *
+ * Compares normalized string IDs so hydration (`3` → `"3"` / `{ id: 3 }`) does not
+ * spuriously clear the rest of the picker.
  */
 import React, { useEffect, useRef } from 'react'
 import { RelationshipField, useField } from '@payloadcms/ui'
 import type { RelationshipFieldClientComponent } from 'payload'
 
-function relationId(value: unknown): number | string | null {
+function relationIdKey(value: unknown): string | null {
   if (value == null || value === '') return null
-  if (typeof value === 'number' || typeof value === 'string') return value
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  if (typeof value === 'string' && value.trim() !== '') {
+    const trimmed = value.trim()
+    return /^\d+$/.test(trimmed) ? trimmed : trimmed
+  }
   if (typeof value === 'object' && value !== null && 'id' in value) {
-    const id = (value as { id: unknown }).id
-    if (typeof id === 'number' || typeof id === 'string') return id
+    return relationIdKey((value as { id: unknown }).id)
   }
   return null
 }
@@ -25,21 +31,22 @@ export const EventTypeForTimeslotFilterField: RelationshipFieldClientComponent =
   const { value: eventType } = useField({ path })
   const { setValue: setTimeslot } = useField({ path: timeslotPath })
   const { setValue: setTimeslotDate } = useField({ path: timeslotDatePath })
-  const previousEventType = useRef<unknown>(undefined)
+  const previousEventTypeKey = useRef<string | null>(null)
   const ready = useRef(false)
 
   useEffect(() => {
+    const nextKey = relationIdKey(eventType)
+
     if (!ready.current) {
       ready.current = true
-      previousEventType.current = eventType
+      previousEventTypeKey.current = nextKey
       return
     }
 
-    const prevId = relationId(previousEventType.current)
-    const nextId = relationId(eventType)
-    previousEventType.current = eventType
+    const prevKey = previousEventTypeKey.current
+    previousEventTypeKey.current = nextKey
 
-    if (prevId !== nextId) {
+    if (prevKey !== nextKey) {
       setTimeslotDate(null, true)
       setTimeslot(null, true)
     }
