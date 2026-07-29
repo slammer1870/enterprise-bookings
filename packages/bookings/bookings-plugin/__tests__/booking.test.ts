@@ -23,6 +23,8 @@ import { setDbString } from "@repo/payload-testing/src/utils/payload-config";
 
 import { User } from "@repo/shared-types";
 
+import { futureTimeslotWindow } from "./timeslot-fixtures";
+
 let payload: Payload;
 let restClient: NextRESTClient;
 let user: User;
@@ -89,9 +91,7 @@ describe("Booking tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          ...futureTimeslotWindow(),
           eventType: classOptionWithoutPaymentMethods.id,
           location: "Test Location",
         },
@@ -151,9 +151,7 @@ describe("Booking tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          ...futureTimeslotWindow(),
           eventType: classOption.id,
           location: "Test Location",
         },
@@ -213,9 +211,7 @@ describe("Booking tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          ...futureTimeslotWindow(),
           eventType: classOption.id,
           location: "Test Location",
         },
@@ -287,9 +283,7 @@ describe("Booking tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          ...futureTimeslotWindow(),
           eventType: classOption.id,
           location: "Test Location",
         },
@@ -330,9 +324,7 @@ describe("Booking tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          ...futureTimeslotWindow(),
           eventType: classOption.id,
           location: "Test Location",
         },
