@@ -66,7 +66,7 @@ const tenantsMembershipField = {
           // Runs immediately before field validation (after collection beforeChange).
           // Guests / legacy rows can arrive with empty, duplicate, or `{ value }` roles —
           // Payload then fails with "Tenants N > Roles". Always coerce to a valid list.
-          beforeChange: [({ value }: { value: unknown }) => normalizeTenantRoles(value)],
+          beforeChange: [({ value }) => normalizeTenantRoles(value)],
         },
         access: {
           // Admins / tenant-admins in the panel; system Local API via explicit context flag.
