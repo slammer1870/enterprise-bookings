@@ -69,8 +69,16 @@ export async function EventDetailView({
       : null
 
   const aboutRichText = aboutProp ?? null
+  // Event type description often gets filled with the same string as the name in admin —
+  // don't echo the title again in the body.
+  const aboutFallbackRaw =
+    typeof eventType?.description === 'string' ? eventType.description.trim() : ''
   const aboutFallback =
-    typeof eventType?.description === 'string' ? eventType.description : null
+    aboutFallbackRaw && aboutFallbackRaw.toLowerCase() !== title.trim().toLowerCase()
+      ? aboutFallbackRaw
+      : null
+
+  const hasAbout = Boolean(aboutRichText) || Boolean(aboutFallback)
 
   const mapFromUrl = typeof mapUrl === 'string' ? mapUrl.trim() : ''
   const mapFromBranch = loc?.address || loc?.name || ''
@@ -86,11 +94,18 @@ export async function EventDetailView({
 
   const serializableTimeslot = JSON.parse(JSON.stringify(timeslot))
 
+  const placesLabel =
+    remaining <= 0
+      ? 'Sold out'
+      : remaining === 1
+        ? '1 place left'
+        : `${remaining} places left`
+
   return (
-    <div className="space-y-10 pt-24 pb-8 md:pt-28 lg:pt-32">
-      <header className="space-y-6">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl md:aspect-[21/9]">
-          {coverUrl ? (
+    <div className="space-y-6 pt-8 pb-8 md:pt-10">
+      <header className="space-y-4">
+        {coverUrl ? (
+          <div className="relative aspect-[21/9] w-full overflow-hidden rounded-xl md:aspect-[3/1]">
             <Image
               src={coverUrl}
               alt={cover?.alt || title}
@@ -99,22 +114,20 @@ export async function EventDetailView({
               className="object-cover"
               priority
             />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-stone-800 via-stone-700 to-stone-900" />
-          )}
-        </div>
-        <div>
-          <p className="mb-2 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            {dateLabel}
+          </div>
+        ) : null}
+        <div className="space-y-1.5">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium uppercase tracking-wide">{dateLabel}</span>
+            <span className="mx-2 text-muted-foreground/50" aria-hidden>
+              ·
+            </span>
+            <span>{timeLabel}</span>
           </p>
-          <h1 className="max-w-3xl text-4xl font-bold text-foreground md:text-5xl">{title}</h1>
-          <p className="mt-3 text-base text-muted-foreground md:text-lg">{timeLabel}</p>
-        </div>
-      </header>
-
-      <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_auto]">
-        <div className="space-y-10 lg:col-start-1 lg:row-start-1">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+          <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-foreground md:text-4xl">
+            {title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-sm text-muted-foreground">
             {loc ? <span>{loc.name}</span> : null}
             {timeslot.location ? <span>{timeslot.location}</span> : null}
             <span
@@ -125,14 +138,14 @@ export async function EventDetailView({
               }
               data-testid="event-meta-places"
             >
-              {remaining <= 0
-                ? 'Sold out'
-                : remaining === 1
-                  ? '1 place left'
-                  : `${remaining} places left`}
+              {placesLabel}
             </span>
           </div>
+        </div>
+      </header>
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:grid-rows-[auto_auto] lg:gap-8">
+        <div className="space-y-6 lg:col-start-1 lg:row-start-1">
           {staff?.name ? (
             <HostedBy
               name={staff.name}
@@ -142,18 +155,18 @@ export async function EventDetailView({
             />
           ) : null}
 
-          <section>
-            {aboutRichText ? (
-              <RichText data={aboutRichText} enableGutter={false} />
-            ) : aboutFallback ? (
-              <p className="whitespace-pre-wrap text-muted-foreground">{aboutFallback}</p>
-            ) : (
-              <p className="text-muted-foreground">Details coming soon.</p>
-            )}
-          </section>
+          {hasAbout ? (
+            <section>
+              {aboutRichText ? (
+                <RichText data={aboutRichText} enableGutter={false} />
+              ) : (
+                <p className="whitespace-pre-wrap text-muted-foreground">{aboutFallback}</p>
+              )}
+            </section>
+          ) : null}
         </div>
 
-        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-28">
+        <div className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:self-start lg:sticky lg:top-24">
           <EventTicketPanel
             timeslot={serializableTimeslot}
             dropIn={
@@ -174,7 +187,7 @@ export async function EventDetailView({
 
         {resolvedMapUrl ? (
           <section className="lg:col-start-1 lg:row-start-2">
-            <h2 className="mb-4 text-2xl font-semibold text-foreground">Location</h2>
+            <h2 className="mb-3 text-xl font-semibold text-foreground">Location</h2>
             <MapBlock
               mapUrl={resolvedMapUrl}
               embedSrc={mapsEmbed?.embedSrc}
