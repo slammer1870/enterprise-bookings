@@ -39,7 +39,7 @@ export const SimpleAboutBlock: React.FC<Props> = ({
   const alt = resolveImageAlt(image)
 
   return (
-    <section className="w-full pt-24 pb-16 sm:pt-28 sm:pb-20">
+    <section className="w-full pt-20 pb-16 sm:pt-24 sm:pb-20">
       <div
         className={cn(
           'flex w-full flex-col gap-12 md:flex-row md:items-center',

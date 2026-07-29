@@ -193,7 +193,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
                 wrapClassName:
                   'flex w-full max-w-md flex-col items-center justify-center gap-3 px-2 text-center',
                 logoClassName:
-                  'h-44 w-44 max-h-[36vh] object-contain drop-shadow-xl sm:h-56 sm:w-56',
+                  'h-56 w-56 max-h-[42vh] object-contain drop-shadow-xl sm:h-64 sm:w-64',
                 headingClassName:
                   'mt-1 w-full max-w-[18rem] px-3 py-2 text-3xl font-semibold leading-snug tracking-tight text-balance text-stone-900 sm:max-w-sm sm:text-4xl',
               })}
