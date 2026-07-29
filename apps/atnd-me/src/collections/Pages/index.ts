@@ -119,7 +119,6 @@ const availableBlocks = [
   DhLiveSchedule,
   DhLiveMembership,
   GiftVoucherCheckout,
-  Event,
   // Croí Lán Sauna (tenant-scoped extras)
   ClHeroScheduleSanctuary,
   CroiLanHeroWithLocation,
@@ -131,9 +130,16 @@ const availableBlocks = [
   HwHeroServices,
 ]
 
+/**
+ * Layout-column nests share `availableBlocks`. Keep the Event landing block
+ * top-level only — nesting it creates pages_blocks_event_2/3/4 tables.
+ * Use Lexical `EventCheckout` inside columns / rich text instead.
+ */
+const nestedLayoutBlocks = availableBlocks
+
 // Create the three column layout block - automatically uses all blocks from the pages config
-const TwoColumnLayout = createTwoColumnLayout(availableBlocks)
-const ThreeColumnLayout = createThreeColumnLayout([...availableBlocks, TwoColumnLayout])
+const TwoColumnLayout = createTwoColumnLayout(nestedLayoutBlocks)
+const ThreeColumnLayout = createThreeColumnLayout([...nestedLayoutBlocks, TwoColumnLayout])
 
 const pageBlocks = [
   ClHeroScheduleSanctuary,
@@ -142,12 +148,13 @@ const pageBlocks = [
   MarketingHero,
   ThreeColumnLayout,
   TwoColumnLayout,
+  Event,
   ...availableBlocks.filter(
     (block) =>
       block.slug !== 'heroScheduleSanctuary' &&
       block.slug !== 'heroWithLocation' &&
       block.slug !== 'hero' &&
-      block.slug !== 'marketingHero'
+      block.slug !== 'marketingHero',
   ),
 ]
 
