@@ -103,6 +103,40 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
     )
   }
 
+  const hasLinks = Boolean(links && links.length > 0)
+
+  const renderCtaButtons = () => {
+    if (!hasLinks || !links) return null
+    return (
+      <div className="flex w-full max-w-sm flex-col gap-3">
+        {links.map((linkItem, index) => {
+          if (!linkItem?.link) return null
+          const { link } = linkItem
+          const href = getHref(link)
+          const isOutline = link.appearance === 'outline'
+          const newTabProps = link.newTab ? { rel: 'noopener noreferrer', target: '_blank' } : {}
+          return (
+            <Button
+              key={index}
+              asChild
+              size="lg"
+              variant={isOutline ? 'outline' : 'default'}
+              className={
+                isOutline
+                  ? 'w-full border-2 border-white bg-transparent text-white hover:bg-white hover:text-stone-900'
+                  : 'w-full bg-white text-stone-900 hover:bg-stone-100'
+              }
+            >
+              <Link href={href} {...newTabProps}>
+                {link.label || 'Book Your Session'}
+              </Link>
+            </Button>
+          )
+        })}
+      </div>
+    )
+  }
+
   return (
     <section id="schedule" className="relative w-full md:min-h-screen">
       {/* Split backgrounds — image left/top (capped at screen height on md+), card right/bottom. */}
@@ -132,14 +166,17 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
         <div className="w-full flex-1 bg-card md:min-h-full md:w-1/2 lg:w-5/12" />
       </div>
 
-      {/* Logo + optional brand heading centred over the bg image area on md+ */}
-      {(logoUrl || brandHeading) && (
-        <div className="pointer-events-none absolute top-0 left-0 z-20 hidden h-screen items-center justify-center md:flex md:w-1/2 lg:w-7/12">
+      {/* Logo + brand heading + CTAs centred over the bg image area on md+ */}
+      {(logoUrl || brandHeading || hasLinks) && (
+        <div className="pointer-events-none absolute top-0 left-0 z-20 hidden h-screen flex-col items-center justify-center gap-8 md:flex md:w-1/2 lg:w-7/12">
           {brandMark({
             logoClassName: 'h-80 w-80 object-contain drop-shadow-xl lg:h-96 lg:w-96',
             headingClassName:
               'max-w-md text-4xl font-semibold tracking-tight text-stone-900 lg:text-5xl',
           })}
+          {hasLinks ? (
+            <div className="pointer-events-auto w-full max-w-sm px-6">{renderCtaButtons()}</div>
+          ) : null}
         </div>
       )}
 
@@ -147,7 +184,7 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
           so the schedule never overlaps the image. */}
       <div className="relative z-10 md:min-h-screen">
         <div className="flex w-full flex-col md:min-h-screen md:flex-row md:items-start">
-          {/* Image panel: spacer on md+ (logo is absolutely positioned above); height capped
+          {/* Image panel: spacer on md+ (logo/CTAs are absolutely positioned above); height capped
               at the viewport so a tall schedule does not stretch this column. */}
           <div className="flex h-[67vh] flex-col items-center px-4 pt-24 pb-8 sm:px-6 md:h-screen md:w-1/2 md:shrink-0 md:px-0 md:pt-0 lg:w-7/12">
             {/* Logo + heading: mobile only — on md+ the absolute layer above handles this */}
@@ -161,35 +198,8 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
                   'mt-1 w-full max-w-[18rem] px-3 py-2 text-3xl font-semibold leading-snug tracking-tight text-balance text-stone-900 sm:max-w-sm sm:text-4xl',
               })}
             </div>
-            {/* Buttons: mobile only — hidden on md+ where the schedule panel is visible */}
-            {links && links.length > 0 && (
-              <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center md:hidden">
-                {links.map((linkItem, index) => {
-                  if (!linkItem?.link) return null
-                  const { link } = linkItem
-                  const href = getHref(link)
-                  const isOutline = link.appearance === 'outline'
-                  const newTabProps = link.newTab ? { rel: 'noopener noreferrer', target: '_blank' } : {}
-                  return (
-                    <Button
-                      key={index}
-                      asChild
-                      size="lg"
-                      variant={isOutline ? 'outline' : 'default'}
-                      className={
-                        isOutline
-                          ? 'w-full border-2 border-white bg-transparent text-white hover:bg-white hover:text-stone-900 sm:w-auto'
-                          : 'w-full bg-white text-stone-900 hover:bg-stone-100 sm:w-auto'
-                      }
-                    >
-                      <Link href={href} {...newTabProps}>
-                        {link.label || 'Book Your Session'}
-                      </Link>
-                    </Button>
-                  )
-                })}
-              </div>
-            )}
+            {/* Buttons: mobile only — desktop CTAs live in the absolute brand layer */}
+            {hasLinks ? <div className="w-full max-w-sm md:hidden">{renderCtaButtons()}</div> : null}
           </div>
 
           {/* Schedule panel — same width as the card strip so it stays clear of the image.
