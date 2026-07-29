@@ -67,7 +67,7 @@ export async function ensureGuestUser(opts: {
     allowedRoles: ['user', 'admin', 'staff', 'location-manager'],
   })
 
-  if (!email || !email.includes('@')) {
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     throw new Error('A valid email is required')
   }
   if (!name) {

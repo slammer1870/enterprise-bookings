@@ -143,7 +143,7 @@ describe('POST /api/events/guest-checkout', () => {
     expect(res.status).toBe(200)
     expect(body.holdId).toBe(HOLD_ID)
     expect(typeof body.clientSecret).toBe('string')
-    expect(body.clientSecret).toMatch(/^pi_/)
+    expect(body.clientSecret).toMatch(/^pi_test_.*_secret_test$/)
     expect(mockEnsureGuestUser).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'sam.guest@example.com',
@@ -231,6 +231,25 @@ describe('POST /api/events/guest-checkout', () => {
     )
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/name/i)
+  })
+
+  it('returns 400 for incomplete emails that would otherwise create orphan holds', async () => {
+    const res = await POST(
+      makeRequest({
+        guestName: 'Sam',
+        guestEmail: 'sam@',
+        metadata: {
+          timeslotId: String(TIMESLOT_ID),
+          quantity: '1',
+          guestName: 'Sam',
+          guestEmail: 'sam@',
+        },
+      }),
+    )
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/valid email/i)
+    expect(mockEnsureGuestUser).not.toHaveBeenCalled()
+    expect(mockUpsertCheckoutHold).not.toHaveBeenCalled()
   })
 
   it('returns 400 when event has no drop-in payment method', async () => {

@@ -13,7 +13,7 @@ export const Event: Block = {
   fields: [
     ...createEventTimeslotPickerFields({
       timeslotDescription:
-        'Upcoming active timeslots for the selected event type. Date, time, host, capacity, and ticket price come from the timeslot / event type.',
+        'Active timeslots for the selected event type and date. Host, capacity, and ticket price come from the timeslot / event type.',
     }),
     {
       name: 'coverImage',

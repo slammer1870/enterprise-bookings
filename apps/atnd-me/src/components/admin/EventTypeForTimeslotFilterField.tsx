@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * Event type relationship that clears the sibling timeslot when the type changes,
- * so admins are not left with a stale slot from a previous type.
+ * Event type relationship that clears sibling date filter + timeslot when the type
+ * changes, so admins are not left with a stale slot from a previous type.
  */
 import React, { useEffect, useRef } from 'react'
 import { RelationshipField, useField } from '@payloadcms/ui'
@@ -21,8 +21,10 @@ function relationId(value: unknown): number | string | null {
 export const EventTypeForTimeslotFilterField: RelationshipFieldClientComponent = (props) => {
   const { path } = props
   const timeslotPath = path.replace(/\.eventType$/, '.timeslot')
+  const timeslotDatePath = path.replace(/\.eventType$/, '.timeslotDate')
   const { value: eventType } = useField({ path })
   const { setValue: setTimeslot } = useField({ path: timeslotPath })
+  const { setValue: setTimeslotDate } = useField({ path: timeslotDatePath })
   const previousEventType = useRef<unknown>(undefined)
   const ready = useRef(false)
 
@@ -38,9 +40,10 @@ export const EventTypeForTimeslotFilterField: RelationshipFieldClientComponent =
     previousEventType.current = eventType
 
     if (prevId !== nextId) {
+      setTimeslotDate(null, true)
       setTimeslot(null, true)
     }
-  }, [eventType, setTimeslot])
+  }, [eventType, setTimeslot, setTimeslotDate])
 
   return <RelationshipField {...props} />
 }

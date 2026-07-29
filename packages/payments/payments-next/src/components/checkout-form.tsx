@@ -303,14 +303,26 @@ export default function CheckoutForm({
             body: errorText,
           });
 
+          let serverMessage: string | null = null;
+          try {
+            const parsed = JSON.parse(errorText) as { error?: unknown };
+            if (typeof parsed.error === "string" && parsed.error.trim()) {
+              serverMessage = parsed.error.trim();
+            }
+          } catch {
+            // body was not JSON
+          }
+
           let errorMessage = "Failed to initialize payment";
 
           if (response.status === 401) {
             errorMessage = "You must be logged in to make a payment";
           } else if (response.status === 400) {
-            errorMessage = "Invalid payment request";
+            errorMessage = serverMessage || "Invalid payment request";
           } else if (response.status >= 500) {
-            errorMessage = "Server error - please try again later";
+            errorMessage = serverMessage || "Server error - please try again later";
+          } else if (serverMessage) {
+            errorMessage = serverMessage;
           }
 
           if (paymentIntentRequestIdRef.current === requestId) {

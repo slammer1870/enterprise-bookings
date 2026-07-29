@@ -61,7 +61,7 @@ export async function EventDetailView({
 
   const title = eventType?.name || 'Event'
   const dateLabel = formatInTimeZone(timeslot.startTime, 'EEEE, d MMMM yyyy', timeZone)
-  const timeLabel = `${formatInTimeZone(timeslot.startTime, 'HH:mm', timeZone)} – ${formatInTimeZone(timeslot.endTime, 'HH:mm', timeZone)}`
+  const timeLabel = `${formatInTimeZone(timeslot.startTime, 'h:mm a', timeZone)} – ${formatInTimeZone(timeslot.endTime, 'h:mm a', timeZone)}`
 
   const staffImage =
     staff?.profileImage && typeof staff.profileImage === 'object'

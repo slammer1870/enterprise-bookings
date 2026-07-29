@@ -23,6 +23,7 @@ import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectFor
 import { validateEventTypeNameUniqueWithinTenant } from '@/hooks/validateEventTypeNameUniqueWithinTenant'
 import { validateTimeslotBranchMatchesTenant } from '@/hooks/validateTimeslotBranchMatchesTenant'
 import { withTimeslotBranchFields } from '@/fields/timeslotBranchFields'
+import { formatTimeslotAdminTitle } from '@/utilities/formatTimeslotAdminTitle'
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { bookingsPlugin } from '@repo/bookings-plugin'
 import { timeslotsRead } from '@/access/timeslotsRead'
@@ -423,11 +424,11 @@ export const plugins: Plugin[] = [
     checkoutHoldCollection: 'booking-checkout-holds',
     timeslotOverrides: {
       versions: false,
-      // Relationship pickers (e.g. Event page block) show start time instead of raw IDs.
+      // Relationship pickers (e.g. Event page block) show a readable date/time title.
       // Must spread plugin defaults so we keep the custom TimeslotAdmin list view.
       admin: {
         group: 'Bookings',
-        useAsTitle: 'startTime',
+        useAsTitle: 'adminTitle',
         components: {
           views: {
             list: {
@@ -450,6 +451,58 @@ export const plugins: Plugin[] = [
             'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
           ),
         ),
+        {
+          name: 'adminTitle',
+          type: 'text',
+          admin: {
+            hidden: true,
+            disableListColumn: true,
+            readOnly: true,
+          },
+          hooks: {
+            beforeChange: [
+              ({ siblingData }) => {
+                const doc = (siblingData ?? {}) as Record<string, unknown>
+                const tenantTz =
+                  doc.tenant && typeof doc.tenant === 'object' && doc.tenant !== null
+                    ? (doc.tenant as { timeZone?: string | null }).timeZone
+                    : null
+                const branchTz =
+                  doc.branch && typeof doc.branch === 'object' && doc.branch !== null
+                    ? (doc.branch as { timeZone?: string | null }).timeZone
+                    : null
+                return (
+                  formatTimeslotAdminTitle({
+                    startTime: doc.startTime as string | undefined,
+                    endTime: doc.endTime as string | undefined,
+                    timeZone: branchTz || tenantTz,
+                  }) ?? undefined
+                )
+              },
+            ],
+            afterRead: [
+              ({ value, siblingData, data }) => {
+                if (typeof value === 'string' && value.trim()) return value
+                const doc = (siblingData ?? data ?? {}) as Record<string, unknown>
+                const tenantTz =
+                  doc.tenant && typeof doc.tenant === 'object' && doc.tenant !== null
+                    ? (doc.tenant as { timeZone?: string | null }).timeZone
+                    : null
+                const branchTz =
+                  doc.branch && typeof doc.branch === 'object' && doc.branch !== null
+                    ? (doc.branch as { timeZone?: string | null }).timeZone
+                    : null
+                return (
+                  formatTimeslotAdminTitle({
+                    startTime: doc.startTime as string | undefined,
+                    endTime: doc.endTime as string | undefined,
+                    timeZone: branchTz || tenantTz,
+                  }) ?? (typeof doc.startTime === 'string' ? doc.startTime : value)
+                )
+              },
+            ],
+          },
+        },
       ],
       hooks: ({ defaultHooks }) => {
         const d = defaultHooks as Record<string, unknown>
@@ -464,6 +517,27 @@ export const plugins: Plugin[] = [
               }),
             validateTimeslotBranchMatchesTenant,
             ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
+          ],
+          afterRead: [
+            ...(Array.isArray(d?.afterRead) ? d.afterRead : []),
+            ({ doc }: { doc: Record<string, unknown> }) => {
+              if (!doc?.startTime) return doc
+              const tenantTz =
+                doc.tenant && typeof doc.tenant === 'object' && doc.tenant !== null
+                  ? (doc.tenant as { timeZone?: string | null }).timeZone
+                  : null
+              const branchTz =
+                doc.branch && typeof doc.branch === 'object' && doc.branch !== null
+                  ? (doc.branch as { timeZone?: string | null }).timeZone
+                  : null
+              const title = formatTimeslotAdminTitle({
+                startTime: doc.startTime as string,
+                endTime: doc.endTime as string | undefined,
+                timeZone: branchTz || tenantTz,
+              })
+              if (title) doc.adminTitle = title
+              return doc
+            },
           ],
         }
       },

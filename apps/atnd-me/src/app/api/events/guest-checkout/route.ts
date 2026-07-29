@@ -67,7 +67,9 @@ export async function POST(request: NextRequest) {
   if (!guestName || guestName.length < 2) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   }
-  if (!guestEmail || !guestEmail.includes('@')) {
+  // Reject partial addresses like `sam@` / `sam@ex` — each would create a distinct
+  // guest user + checkout hold and exhaust capacity while the user is still typing.
+  if (!guestEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
     return NextResponse.json({ error: 'A valid email is required' }, { status: 400 })
   }
 
@@ -291,9 +293,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (isTestMode) {
+    // Must match CheckoutForm's `pi_test_.*_secret_test` mock pattern so Stripe Elements
+    // is not bootstrapped with an invalid PaymentIntent client secret.
+    const mockId = `pi_test_${Date.now()}`
     return NextResponse.json(
       {
-        clientSecret: `pi_${Date.now()}_secret_test`,
+        clientSecret: `${mockId}_secret_test`,
         amount: price,
         holdId: hold.holdId,
         stripeAccountId: tenant.stripeConnectAccountId,

@@ -255,6 +255,7 @@ export interface Timeslot {
    * Whether the timeslot is active and will be shown on the schedule
    */
   active?: boolean | null;
+  adminTitle?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -2635,11 +2636,15 @@ export interface GiftVoucherCheckoutBlock {
  */
 export interface EventBlock {
   /**
-   * Choose the event type first to narrow the timeslot list.
+   * Choose the event type, then a date, then the timeslot.
    */
   eventType: number | EventType;
   /**
-   * Upcoming active timeslots for the selected event type. Date, time, host, capacity, and ticket price come from the timeslot / event type.
+   * Pick a date to list timeslots for that day.
+   */
+  timeslotDate?: string | null;
+  /**
+   * Active timeslots for the selected event type and date. Host, capacity, and ticket price come from the timeslot / event type.
    */
   timeslot?: (number | null) | Timeslot;
   /**
@@ -4125,6 +4130,7 @@ export interface TimeslotsSelect<T extends boolean = true> {
   bookings?: T;
   bookingStatus?: T;
   active?: T;
+  adminTitle?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5562,6 +5568,7 @@ export interface GiftVoucherCheckoutBlockSelect<T extends boolean = true> {
  */
 export interface EventBlockSelect<T extends boolean = true> {
   eventType?: T;
+  timeslotDate?: T;
   timeslot?: T;
   coverImage?: T;
   about?: T;
@@ -6935,11 +6942,15 @@ export interface CodeBlock {
  */
 export interface EventCheckoutBlock {
   /**
-   * Choose the event type first to narrow the timeslot list.
+   * Choose the event type, then a date, then the timeslot.
    */
   eventType: number | EventType;
   /**
-   * Upcoming active timeslots for the selected event type. Checkout quantity, fees, and Stripe payment bind to this timeslot.
+   * Pick a date to list timeslots for that day.
+   */
+  timeslotDate?: string | null;
+  /**
+   * Active timeslots for the selected event type and date. Checkout quantity, fees, and Stripe payment bind to this timeslot.
    */
   timeslot?: (number | null) | Timeslot;
   id?: string | null;

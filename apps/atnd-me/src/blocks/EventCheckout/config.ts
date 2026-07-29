@@ -14,7 +14,7 @@ export const EventCheckout: Block = {
     plural: 'Event checkouts',
   },
   fields: createEventTimeslotPickerFields({
-    timeslotDescription:
-      'Upcoming active timeslots for the selected event type. Checkout quantity, fees, and Stripe payment bind to this timeslot.',
+      timeslotDescription:
+      'Active timeslots for the selected event type and date. Checkout quantity, fees, and Stripe payment bind to this timeslot.',
   }),
 }

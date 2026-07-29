@@ -35,6 +35,7 @@ import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997e
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { EventTypeForTimeslotFilterField as EventTypeForTimeslotFilterField_10c71e90c03730207bbccc04ef112f49 } from '@/components/admin/EventTypeForTimeslotFilterField'
+import { TimeslotDateFilterField as TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0 } from '@/components/admin/TimeslotDateFilterField'
 import { default as default_ce6f29e70fd4204b43c477b4bf07b84b } from '@/components/admin/DomainDnsInstructions'
 import { default as default_a5117e5f562e81a9d1ce48d0eee41679 } from '@/components/admin/ApexDnsInstructions'
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
@@ -132,6 +133,7 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@/components/admin/EventTypeForTimeslotFilterField#EventTypeForTimeslotFilterField": EventTypeForTimeslotFilterField_10c71e90c03730207bbccc04ef112f49,
+  "@/components/admin/TimeslotDateFilterField#TimeslotDateFilterField": TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0,
   "@/components/admin/DomainDnsInstructions#default": default_ce6f29e70fd4204b43c477b4bf07b84b,
   "@/components/admin/ApexDnsInstructions#default": default_a5117e5f562e81a9d1ce48d0eee41679,
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,

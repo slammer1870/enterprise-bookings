@@ -164,6 +164,15 @@ describe('ensureGuestUser', () => {
     await expect(
       ensureGuestUser({
         payload: mockPayload as never,
+        name: 'Sam',
+        email: 'sam@',
+        tenantId: 1,
+      }),
+    ).rejects.toThrow(/email/i)
+
+    await expect(
+      ensureGuestUser({
+        payload: mockPayload as never,
         name: '   ',
         email: 'ok@example.com',
         tenantId: 1,

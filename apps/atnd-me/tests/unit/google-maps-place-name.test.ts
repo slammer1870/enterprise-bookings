@@ -37,4 +37,21 @@ describe('normalizeGoogleMapsEmbedUrl place path', () => {
     expect(src).toContain('q=Some%20Studio')
     expect(src).toContain('output=embed')
   })
+
+  it('prefers place name over @lat,lng so business identity is kept', () => {
+    const src = normalizeGoogleMapsEmbedUrl(
+      'https://www.google.com/maps/place/Br%C3%BA+Grappling+Studio/@53.293828,-6.2479142,555m/data=!3m2!1e3!4b1!4m6!3m5!1s0x486709f7523ae025:0x30d55d6cf273af8d',
+    )
+    expect(src).toBe(
+      'https://maps.google.com/maps?q=Br%C3%BA%20Grappling%20Studio&output=embed',
+    )
+    expect(src).not.toContain('53.293828')
+  })
+
+  it('falls back to coordinates when there is no place name', () => {
+    const src = normalizeGoogleMapsEmbedUrl(
+      'https://www.google.com/maps/@53.293828,-6.2479142,15z',
+    )
+    expect(src).toBe('https://maps.google.com/maps?q=53.293828,-6.2479142&z=15&output=embed')
+  })
 })

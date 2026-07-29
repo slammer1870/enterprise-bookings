@@ -424,7 +424,7 @@ export async function POST(request: NextRequest) {
   if (isTestMode) {
     // Stripe Elements expects a PaymentIntent-style client secret shape in tests too.
     return NextResponse.json(
-      { clientSecret: `pi_${Date.now()}_secret_test`, amount: price },
+      { clientSecret: `pi_test_${Date.now()}_secret_test`, amount: price },
       { status: 200 }
     )
   }

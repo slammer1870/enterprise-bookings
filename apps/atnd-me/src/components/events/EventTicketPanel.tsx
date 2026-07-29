@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckoutForm } from '@repo/payments-next'
 import { QuantitySelector } from '@repo/bookings-next'
 import type { DiscountTier, Timeslot } from '@repo/shared-types'
 import { BookingFeeBreakdown } from '@/components/booking/BookingFeeBreakdown'
+import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { calculateQuantityDiscount } from '@repo/shared-utils'
@@ -27,6 +28,11 @@ type EventTicketPanelProps = {
     quantity: number
     successUrl?: string
   }>
+}
+
+/** Require a real mailbox shape so typing `sam@` / `sam@ex` does not start checkout holds. */
+function isCompleteGuestEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 }
 
 function placesLabel(remaining: number): string {
@@ -60,15 +66,50 @@ export function EventTicketPanel({
   const [quantity, setQuantity] = useState(1)
   const [guestName, setGuestName] = useState('')
   const [guestEmail, setGuestEmail] = useState('')
+  /**
+   * Locked identity after Continue. CheckoutForm / guest get-or-create only run for these
+   * values — not while typing `sam@execbjj.c` → `.co` → `.com`.
+   */
+  const [settledGuest, setSettledGuest] = useState<{ name: string; email: string } | null>(null)
+  const [guestFormError, setGuestFormError] = useState<string | null>(null)
   const [feeBreakdown, setFeeBreakdown] = useState<{
     classPriceCents: number
     bookingFeeCents: number
     totalCents: number
   } | null>(null)
+  const paymentRedirectInProgressRef = useRef(false)
 
   useEffect(() => {
     if (quantity > maxQuantity) setQuantity(Math.max(1, maxQuantity))
   }, [maxQuantity, quantity])
+
+  // Release guest hold on refresh / tab close / navigate away / abandoning Continue.
+  useEffect(() => {
+    if (!settledGuest) return
+
+    const timeslotId = timeslot.id
+    const guestEmail = settledGuest.email
+
+    const releaseViaApi = () => {
+      if (paymentRedirectInProgressRef.current) return
+      fetch('/api/events/guest-release-hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeslotId, guestEmail }),
+        keepalive: true,
+      }).catch(() => {})
+    }
+
+    const handlePageExit = () => releaseViaApi()
+    window.addEventListener('pagehide', handlePageExit)
+    window.addEventListener('beforeunload', handlePageExit)
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageExit)
+      window.removeEventListener('beforeunload', handlePageExit)
+      releaseViaApi()
+    }
+  }, [settledGuest, timeslot.id])
 
   const pricing = useMemo(
     () =>
@@ -113,6 +154,33 @@ export function EventTicketPanel({
       clearTimeout(timer)
     }
   }, [classPriceCents, isPast, remainingCapacity, timeslot.id, unitPrice])
+
+  const canContinue =
+    guestName.trim().length >= 2 && isCompleteGuestEmail(guestEmail.trim())
+
+  const handleGuestFieldChange = (field: 'name' | 'email', value: string) => {
+    if (field === 'name') setGuestName(value)
+    else setGuestEmail(value)
+    // Editing after Continue must re-confirm so progressive TLDs never create users.
+    if (settledGuest) setSettledGuest(null)
+    if (guestFormError) setGuestFormError(null)
+  }
+
+  const handleContinueToPayment = (e: React.FormEvent) => {
+    e.preventDefault()
+    const name = guestName.trim()
+    const email = guestEmail.trim().toLowerCase()
+    if (name.length < 2) {
+      setGuestFormError('Enter your name to continue.')
+      return
+    }
+    if (!isCompleteGuestEmail(email)) {
+      setGuestFormError('Enter a complete email address (for example you@example.com).')
+      return
+    }
+    setGuestFormError(null)
+    setSettledGuest({ name, email })
+  }
 
   const soldOut = remainingCapacity <= 0
   const emphasizeRemaining = remainingCapacity > 0 && remainingCapacity <= 6
@@ -196,33 +264,52 @@ export function EventTicketPanel({
         </div>
       ) : (
         <div className="mt-4 space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="guest-name">Name</Label>
-            <Input
-              id="guest-name"
-              name="guestName"
-              autoComplete="name"
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              placeholder="Your name"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="guest-email">Email</Label>
-            <Input
-              id="guest-email"
-              name="guestEmail"
-              type="email"
-              autoComplete="email"
-              value={guestEmail}
-              onChange={(e) => setGuestEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </div>
+          <form className="space-y-4" onSubmit={handleContinueToPayment}>
+            <div className="space-y-2">
+              <Label htmlFor="guest-name">Name</Label>
+              <Input
+                id="guest-name"
+                name="guestName"
+                autoComplete="name"
+                value={guestName}
+                onChange={(e) => handleGuestFieldChange('name', e.target.value)}
+                placeholder="Your name"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="guest-email">Email</Label>
+              <Input
+                id="guest-email"
+                name="guestEmail"
+                type="email"
+                autoComplete="email"
+                value={guestEmail}
+                onChange={(e) => handleGuestFieldChange('email', e.target.value)}
+                placeholder="you@example.com"
+                required
+              />
+            </div>
 
-          {guestName.trim().length >= 2 && guestEmail.includes('@') ? (
+            {guestFormError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {guestFormError}
+              </p>
+            ) : null}
+
+            {!settledGuest ? (
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={!canContinue}
+                data-testid="guest-checkout-continue"
+              >
+                Continue to payment
+              </Button>
+            ) : null}
+          </form>
+
+          {settledGuest ? (
             <CheckoutForm
               price={classPrice}
               priceComponent={
@@ -232,16 +319,19 @@ export function EventTicketPanel({
               }
               createPaymentIntentUrl="/api/events/guest-checkout"
               returnUrl={successUrl}
+              onPaymentRedirectStart={() => {
+                paymentRedirectInProgressRef.current = true
+              }}
               metadata={{
                 timeslotId: String(timeslot.id),
                 quantity: String(quantity),
-                guestName: guestName.trim(),
-                guestEmail: guestEmail.trim().toLowerCase(),
+                guestName: settledGuest.name,
+                guestEmail: settledGuest.email,
               }}
             />
           ) : (
             <p className="text-sm text-muted-foreground">
-              Enter your name and email to continue to payment.
+              Enter your details, then continue when your email is complete.
             </p>
           )}
         </div>

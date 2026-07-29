@@ -1,6 +1,7 @@
 import type { Field, Where } from 'payload'
 
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
+import { timeslotDateFilterBounds } from '@/utilities/timeslotDateFilterBounds'
 
 function relationId(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -20,6 +21,7 @@ function tenantWhere(data: unknown): Where[] {
 
 type EventTimeslotSiblingData = {
   eventType?: unknown
+  timeslotDate?: unknown
   timeslot?: unknown
 }
 
@@ -27,9 +29,13 @@ function asEventTimeslotSiblings(siblingData: unknown): EventTimeslotSiblingData
   return (siblingData ?? {}) as EventTimeslotSiblingData
 }
 
+function hasTimeslotDate(value: unknown): boolean {
+  return timeslotDateFilterBounds(value) != null
+}
+
 /**
- * Narrow timeslot relationship options: pick event type first, then only
- * upcoming active slots for that type (plus the currently selected slot).
+ * Narrow timeslot relationship options: pick event type, then date, then only
+ * active slots for that type/day (plus the currently selected slot).
  */
 export function createEventTimeslotPickerFields(opts?: {
   timeslotDescription?: string
@@ -46,7 +52,7 @@ export function createEventTimeslotPickerFields(opts?: {
       required: true,
       label: 'Event type',
       admin: {
-        description: 'Choose the event type first to narrow the timeslot list.',
+        description: 'Choose the event type, then a date, then the timeslot.',
         components: {
           Field: '@/components/admin/EventTypeForTimeslotFilterField#EventTypeForTimeslotFilterField',
         },
@@ -54,6 +60,25 @@ export function createEventTimeslotPickerFields(opts?: {
       filterOptions: ({ data }): Where | true => {
         const clauses = tenantWhere(data)
         return clauses.length > 0 ? { and: clauses } : true
+      },
+    },
+    {
+      name: 'timeslotDate',
+      type: 'date',
+      required: false,
+      virtual: true,
+      label: 'Date',
+      admin: {
+        description: 'Pick a date to list timeslots for that day.',
+        date: {
+          pickerAppearance: 'dayOnly',
+          displayFormat: 'd MMM yyyy',
+        },
+        condition: (_data, siblingData) =>
+          relationId(asEventTimeslotSiblings(siblingData).eventType) != null,
+        components: {
+          Field: '@/components/admin/TimeslotDateFilterField#TimeslotDateFilterField',
+        },
       },
     },
     {
@@ -65,8 +90,12 @@ export function createEventTimeslotPickerFields(opts?: {
       admin: {
         description: timeslotDescription,
         sortOptions: 'startTime',
-        condition: (_data, siblingData) =>
-          relationId(asEventTimeslotSiblings(siblingData).eventType) != null,
+        condition: (_data, siblingData) => {
+          const siblings = asEventTimeslotSiblings(siblingData)
+          if (relationId(siblings.eventType) == null) return false
+          // Allow existing selection when re-editing; require a date for new picks.
+          return hasTimeslotDate(siblings.timeslotDate) || relationId(siblings.timeslot) != null
+        },
       },
       filterOptions: ({ data, siblingData }): Where | false => {
         const siblings = asEventTimeslotSiblings(siblingData)
@@ -82,17 +111,32 @@ export function createEventTimeslotPickerFields(opts?: {
           and: [{ active: { equals: true } }, { startTime: { greater_than_equal: nowIso } }],
         }
 
-        return {
+        const dayBounds = timeslotDateFilterBounds(siblings.timeslotDate)
+        const dayFilter: Where | null = dayBounds
+          ? {
+              and: [
+                { startTime: { greater_than_equal: dayBounds.startIso } },
+                { startTime: { less_than_equal: dayBounds.endIso } },
+              ],
+            }
+          : null
+
+        const scoped: Where = {
           and: [
             ...tenantWhere(data),
             { eventType: { equals: eventTypeId } },
-            currentTimeslotId != null
-              ? {
-                  or: [upcomingActive, { id: { equals: currentTimeslotId } }],
-                }
-              : upcomingActive,
+            ...(dayFilter ? [dayFilter] : []),
+            upcomingActive,
           ],
         }
+
+        if (currentTimeslotId != null) {
+          return {
+            or: [scoped, { id: { equals: currentTimeslotId } }],
+          }
+        }
+
+        return scoped
       },
     },
   ]
