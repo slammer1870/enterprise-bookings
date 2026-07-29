@@ -31,10 +31,15 @@ import { POST } from '@/app/api/events/guest-release-hold/route'
 
 const TIMESLOT_ID = 28093
 
-function makeRequest(body: Record<string, unknown>) {
+function makeRequest(body: Record<string, unknown>, contentType = 'application/json') {
+  const payload = JSON.stringify(body)
   return {
     json: () => Promise.resolve(body),
-    headers: new Headers({ 'x-forwarded-for': '127.0.0.1' }),
+    text: () => Promise.resolve(payload),
+    headers: new Headers({
+      'x-forwarded-for': '127.0.0.1',
+      'content-type': contentType,
+    }),
   } as unknown as import('next/server').NextRequest
 }
 
@@ -63,6 +68,22 @@ describe('POST /api/events/guest-release-hold', () => {
         userId: 101,
       }),
     )
+  })
+
+  it('accepts text/plain JSON bodies from sendBeacon', async () => {
+    mockPayload.find.mockResolvedValue({ docs: [{ id: 101 }], totalDocs: 1 })
+
+    const res = await POST(
+      makeRequest(
+        { timeslotId: TIMESLOT_ID, guestEmail: 'sam.guest@example.com' },
+        'text/plain;charset=UTF-8',
+      ),
+    )
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.released).toBe(1)
+    expect(mockReleaseCheckoutHold).toHaveBeenCalled()
   })
 
   it('returns released: 0 when no guest user exists', async () => {

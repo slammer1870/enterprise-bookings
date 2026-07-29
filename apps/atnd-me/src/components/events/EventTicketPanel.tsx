@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { calculateQuantityDiscount } from '@repo/shared-utils'
+import { releaseGuestCheckoutHold } from '@/lib/booking/releaseGuestCheckoutHold'
 
 type DropInLike = {
   price?: number | null
@@ -84,30 +85,31 @@ export function EventTicketPanel({
   }, [maxQuantity, quantity])
 
   // Release guest hold on refresh / tab close / navigate away / abandoning Continue.
+  // Unload must use sync XHR — see releaseGuestCheckoutHold + unit tests.
   useEffect(() => {
     if (!settledGuest) return
 
     const timeslotId = timeslot.id
     const guestEmail = settledGuest.email
 
-    const releaseViaApi = () => {
-      if (paymentRedirectInProgressRef.current) return
-      fetch('/api/events/guest-release-hold', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ timeslotId, guestEmail }),
-        keepalive: true,
-      }).catch(() => {})
+    const releaseViaApi = (sync = false) => {
+      releaseGuestCheckoutHold({
+        timeslotId,
+        guestEmail,
+        sync,
+        skip: paymentRedirectInProgressRef.current,
+      })
     }
 
-    const handlePageExit = () => releaseViaApi()
+    const handlePageExit = () => releaseViaApi(true)
+
     window.addEventListener('pagehide', handlePageExit)
     window.addEventListener('beforeunload', handlePageExit)
 
     return () => {
       window.removeEventListener('pagehide', handlePageExit)
       window.removeEventListener('beforeunload', handlePageExit)
-      releaseViaApi()
+      releaseViaApi(false)
     }
   }, [settledGuest, timeslot.id])
 

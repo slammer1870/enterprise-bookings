@@ -14,6 +14,7 @@ import { coerceMetadata } from '@/lib/api/request-utils'
 import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
 import {
   upsertCheckoutHold,
+  releaseCheckoutHold,
   computeRemainingCapacityWithHolds,
   CHECKOUT_HOLD_COLLECTION_SLUG,
 } from '@repo/bookings-payments'
@@ -349,6 +350,11 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     )
   } catch (e) {
+    await releaseCheckoutHold(payload, {
+      timeslotId,
+      userId: guest.userId,
+      holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
+    }).catch(() => {})
     const message = e instanceof Error ? e.message : 'Payment intent failed'
     return NextResponse.json({ error: message }, { status: 500 })
   }

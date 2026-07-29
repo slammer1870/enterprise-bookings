@@ -23,7 +23,19 @@ function clientIp(request: NextRequest): string {
  * Used on page exit / refresh / abandoning Continue-to-payment.
  */
 export async function POST(request: NextRequest) {
-  const body = await request.json().catch(() => null)
+  const contentType = request.headers.get('content-type') || ''
+  let body: unknown = null
+  if (contentType.includes('application/json')) {
+    body = await request.json().catch(() => null)
+  } else {
+    // sendBeacon sometimes arrives as text/plain
+    const text = await request.text().catch(() => '')
+    try {
+      body = text ? JSON.parse(text) : null
+    } catch {
+      body = null
+    }
+  }
   if (!body || typeof body !== 'object') {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }

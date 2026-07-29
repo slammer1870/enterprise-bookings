@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const {
   mockEnsureGuestUser,
   mockUpsertCheckoutHold,
+  mockReleaseCheckoutHold,
   mockComputeRemainingCapacityWithHolds,
   mockCreateTenantPaymentIntent,
   mockEnsureStripeCustomerIdForAccount,
@@ -14,6 +15,7 @@ const {
 } = vi.hoisted(() => ({
   mockEnsureGuestUser: vi.fn(),
   mockUpsertCheckoutHold: vi.fn(),
+  mockReleaseCheckoutHold: vi.fn(),
   mockComputeRemainingCapacityWithHolds: vi.fn(),
   mockCreateTenantPaymentIntent: vi.fn(),
   mockEnsureStripeCustomerIdForAccount: vi.fn(),
@@ -33,6 +35,7 @@ vi.mock('@repo/bookings-payments', async (importOriginal) => {
   return {
     ...actual,
     upsertCheckoutHold: mockUpsertCheckoutHold,
+    releaseCheckoutHold: mockReleaseCheckoutHold,
     computeRemainingCapacityWithHolds: mockComputeRemainingCapacityWithHolds,
     ensureStripeCustomerIdForAccount: mockEnsureStripeCustomerIdForAccount,
   }
@@ -125,6 +128,7 @@ describe('POST /api/events/guest-checkout', () => {
       name: 'Sam Guest',
     })
     mockUpsertCheckoutHold.mockResolvedValue({ holdId: HOLD_ID, quantity: 1 })
+    mockReleaseCheckoutHold.mockResolvedValue({ released: 1 })
     mockComputeRemainingCapacityWithHolds.mockResolvedValue(11)
     mockEnsureStripeCustomerIdForAccount.mockResolvedValue({ stripeCustomerId: 'cus_guest' })
     mockCreateTenantPaymentIntent.mockResolvedValue({ client_secret: 'pi_secret_live' })
@@ -306,6 +310,53 @@ describe('POST /api/events/guest-checkout', () => {
             holdId: String(HOLD_ID),
             guestCheckout: 'true',
           }),
+        }),
+      )
+      expect(mockReleaseCheckoutHold).not.toHaveBeenCalled()
+    } finally {
+      vi.stubEnv('NODE_ENV', prevNodeEnv ?? 'test')
+      if (prevEnableTestWebhooks === undefined) {
+        vi.unstubAllEnvs()
+      } else {
+        vi.stubEnv('ENABLE_TEST_WEBHOOKS', prevEnableTestWebhooks)
+      }
+    }
+  })
+
+  it('releases the checkout hold when payment intent creation fails', async () => {
+    const prevNodeEnv = process.env.NODE_ENV
+    const prevEnableTestWebhooks = process.env.ENABLE_TEST_WEBHOOKS
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('ENABLE_TEST_WEBHOOKS', '')
+
+    const { isStripeTestAccount } = await import('@/lib/stripe-connect/test-accounts')
+    ;(isStripeTestAccount as ReturnType<typeof vi.fn>).mockReturnValue(false)
+
+    mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
+      if (collection === 'tenants') {
+        return Promise.resolve({
+          id: TENANT_ID,
+          stripeConnectAccountId: 'acct_1RealConnectAccount',
+          stripeConnectOnboardingStatus: 'active',
+        })
+      }
+      return Promise.resolve(null)
+    })
+    mockCreateTenantPaymentIntent.mockRejectedValue(new Error('Stripe unavailable'))
+
+    try {
+      const res = await POST(makeRequest())
+      const body = await res.json()
+
+      expect(res.status).toBe(500)
+      expect(body.error).toMatch(/Stripe unavailable/i)
+      expect(mockUpsertCheckoutHold).toHaveBeenCalled()
+      expect(mockReleaseCheckoutHold).toHaveBeenCalledWith(
+        mockPayload,
+        expect.objectContaining({
+          timeslotId: TIMESLOT_ID,
+          userId: 101,
         }),
       )
     } finally {
