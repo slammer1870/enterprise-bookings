@@ -10,6 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { calculateQuantityDiscount } from '@repo/shared-utils'
 import { releaseGuestCheckoutHold } from '@/lib/booking/releaseGuestCheckoutHold'
+import {
+  eventPlacesAvailability,
+  eventPlacesLabel,
+  guestCheckoutHoldStorageKey,
+  type StoredGuestCheckout,
+} from '@/components/events/eventPlacesAvailability'
 
 type DropInLike = {
   price?: number | null
@@ -21,6 +27,10 @@ type EventTicketPanelProps = {
   timeslot: Timeslot
   dropIn: DropInLike
   remainingCapacity: number
+  /** places − confirmed; hard sold-out when <= 0. Defaults to remainingCapacity. */
+  remainingConfirmedOnly?: number
+  /** Server-known hold for authenticated viewers. */
+  initialOwnHoldQuantity?: number
   isAuthenticated: boolean
   isPast: boolean
   successUrl?: string
@@ -36,12 +46,6 @@ function isCompleteGuestEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 }
 
-function placesLabel(remaining: number): string {
-  if (remaining <= 0) return 'Sold out'
-  if (remaining === 1) return '1 place left'
-  return `${remaining} places left`
-}
-
 function newCheckoutSessionId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -49,27 +53,61 @@ function newCheckoutSessionId(): string {
   return `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+function readStoredGuestCheckout(timeslotId: number): StoredGuestCheckout | null {
+  if (typeof sessionStorage === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(guestCheckoutHoldStorageKey(timeslotId))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<StoredGuestCheckout>
+    if (
+      typeof parsed.name !== 'string' ||
+      typeof parsed.email !== 'string' ||
+      !isCompleteGuestEmail(parsed.email)
+    ) {
+      return null
+    }
+    return {
+      name: parsed.name.trim(),
+      email: parsed.email.trim().toLowerCase(),
+      quantity: Math.max(1, Number(parsed.quantity) || 1),
+      ownHoldQuantity: Math.max(0, Number(parsed.ownHoldQuantity) || 0),
+    }
+  } catch {
+    return null
+  }
+}
+
+function writeStoredGuestCheckout(timeslotId: number, value: StoredGuestCheckout | null) {
+  if (typeof sessionStorage === 'undefined') return
+  const key = guestCheckoutHoldStorageKey(timeslotId)
+  if (!value) {
+    sessionStorage.removeItem(key)
+    return
+  }
+  sessionStorage.setItem(key, JSON.stringify(value))
+}
+
 export function EventTicketPanel({
   timeslot,
   dropIn,
   remainingCapacity,
+  remainingConfirmedOnly: remainingConfirmedOnlyProp,
+  initialOwnHoldQuantity = 0,
   isAuthenticated,
   isPast,
   successUrl = '/success',
   AuthenticatedCheckout,
 }: EventTicketPanelProps) {
+  const remainingConfirmedOnly =
+    typeof remainingConfirmedOnlyProp === 'number'
+      ? remainingConfirmedOnlyProp
+      : remainingCapacity
+
   const unitPrice = typeof dropIn.price === 'number' ? dropIn.price : 0
   const maxFromDropIn =
     dropIn.maxBookingsPerTimeslot == null
       ? Infinity
       : Math.max(1, Number(dropIn.maxBookingsPerTimeslot) || 1)
-  const maxQuantity = Math.max(
-    1,
-    Math.min(
-      Math.max(0, remainingCapacity),
-      maxFromDropIn === Infinity ? remainingCapacity : maxFromDropIn,
-    ),
-  )
 
   const [quantity, setQuantity] = useState(1)
   const [guestName, setGuestName] = useState('')
@@ -83,6 +121,12 @@ export function EventTicketPanel({
     email: string
     checkoutSessionId: string
   } | null>(null)
+  const [ownHoldQuantity, setOwnHoldQuantity] = useState(() => {
+    const fromServer = Math.max(0, initialOwnHoldQuantity)
+    if (fromServer > 0 || isAuthenticated) return fromServer
+    // Sync read avoids a "temporarily unavailable" flash before the restore effect.
+    return readStoredGuestCheckout(timeslot.id)?.ownHoldQuantity ?? 0
+  })
   const [guestFormError, setGuestFormError] = useState<string | null>(null)
   const [isReserving, setIsReserving] = useState(false)
   const [feeBreakdown, setFeeBreakdown] = useState<{
@@ -93,10 +137,111 @@ export function EventTicketPanel({
   const paymentRedirectInProgressRef = useRef(false)
   /** Bumped on exit so in-flight reserve upserts after leave are rolled back client-side. */
   const checkoutAttemptRef = useRef(0)
+  const didRestoreRef = useRef(false)
+
+  const availability = eventPlacesAvailability({
+    remainingCapacity,
+    remainingConfirmedOnly,
+    ownHoldQuantity,
+  })
+  const viewerRemaining = availability.viewerRemaining
+
+  const maxQuantity = Math.max(
+    1,
+    Math.min(
+      Math.max(viewerRemaining, ownHoldQuantity, 1),
+      maxFromDropIn === Infinity
+        ? Math.max(viewerRemaining, ownHoldQuantity, 1)
+        : maxFromDropIn,
+    ),
+  )
+
+  useEffect(() => {
+    setOwnHoldQuantity((prev) => Math.max(prev, Math.max(0, initialOwnHoldQuantity)))
+  }, [initialOwnHoldQuantity])
 
   useEffect(() => {
     if (quantity > maxQuantity) setQuantity(Math.max(1, maxQuantity))
   }, [maxQuantity, quantity])
+
+  // Restore mid-checkout guest after reload. pagehide releases the prior session's hold;
+  // re-reserve with a fresh checkoutSessionId so the released tombstone cannot block us.
+  useEffect(() => {
+    if (isAuthenticated || didRestoreRef.current) return
+    didRestoreRef.current = true
+    const saved = readStoredGuestCheckout(timeslot.id)
+    if (!saved || saved.ownHoldQuantity <= 0) return
+
+    const checkoutSessionId = newCheckoutSessionId()
+    setGuestName(saved.name)
+    setGuestEmail(saved.email)
+    setQuantity(saved.quantity)
+    setOwnHoldQuantity(saved.ownHoldQuantity)
+    setSettledGuest({
+      name: saved.name,
+      email: saved.email,
+      checkoutSessionId,
+    })
+    setIsReserving(true)
+
+    const attempt = checkoutAttemptRef.current
+    void (async () => {
+      try {
+        const res = await fetch('/api/events/guest-reserve-hold', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            timeslotId: timeslot.id,
+            quantity: saved.quantity,
+            guestName: saved.name,
+            guestEmail: saved.email,
+            checkoutSessionId,
+          }),
+        })
+        const data = (await res.json().catch(() => null)) as
+          | { error?: string; abandoned?: boolean }
+          | null
+        if (attempt !== checkoutAttemptRef.current) return
+        if (!res.ok || data?.abandoned) {
+          setSettledGuest(null)
+          setOwnHoldQuantity(0)
+          writeStoredGuestCheckout(timeslot.id, null)
+          setGuestFormError(
+            data?.error ||
+              'Your previous reservation expired. Enter your details to try again.',
+          )
+          return
+        }
+        setOwnHoldQuantity(saved.quantity)
+        writeStoredGuestCheckout(timeslot.id, {
+          name: saved.name,
+          email: saved.email,
+          quantity: saved.quantity,
+          ownHoldQuantity: saved.quantity,
+        })
+      } catch {
+        if (attempt !== checkoutAttemptRef.current) return
+        setSettledGuest(null)
+        setOwnHoldQuantity(0)
+        writeStoredGuestCheckout(timeslot.id, null)
+      } finally {
+        if (attempt === checkoutAttemptRef.current) setIsReserving(false)
+      }
+    })()
+  }, [isAuthenticated, timeslot.id])
+
+  useEffect(() => {
+    if (!settledGuest || ownHoldQuantity <= 0) {
+      if (!settledGuest) writeStoredGuestCheckout(timeslot.id, null)
+      return
+    }
+    writeStoredGuestCheckout(timeslot.id, {
+      name: settledGuest.name,
+      email: settledGuest.email,
+      quantity,
+      ownHoldQuantity,
+    })
+  }, [settledGuest, ownHoldQuantity, quantity, timeslot.id])
 
   // Release guest hold on refresh / tab close / navigate away / abandoning Continue.
   // Unload must use sync transport — see releaseGuestCheckoutHold + unit tests.
@@ -165,8 +310,11 @@ export function EventTicketPanel({
           checkoutSessionId: settledGuest.checkoutSessionId,
           sync: false,
         })
+        setOwnHoldQuantity(0)
+        writeStoredGuestCheckout(timeslot.id, null)
         return
       }
+      setOwnHoldQuantity(qty)
       return data?.holdId != null ? { holdId: String(data.holdId) } : undefined
     },
     [settledGuest, timeslot.id, quantity],
@@ -185,7 +333,7 @@ export function EventTicketPanel({
   const classPriceCents = Math.round(classPrice * 100)
 
   useEffect(() => {
-    if (isPast || remainingCapacity <= 0 || unitPrice <= 0) {
+    if (isPast || availability.soldOut || availability.temporarilyUnavailable || unitPrice <= 0) {
       setFeeBreakdown(null)
       return
     }
@@ -213,7 +361,14 @@ export function EventTicketPanel({
       controller.abort()
       clearTimeout(timer)
     }
-  }, [classPriceCents, isPast, remainingCapacity, timeslot.id, unitPrice])
+  }, [
+    classPriceCents,
+    isPast,
+    availability.soldOut,
+    availability.temporarilyUnavailable,
+    timeslot.id,
+    unitPrice,
+  ])
 
   const canContinue =
     guestName.trim().length >= 2 && isCompleteGuestEmail(guestEmail.trim())
@@ -222,7 +377,11 @@ export function EventTicketPanel({
     if (field === 'name') setGuestName(value)
     else setGuestEmail(value)
     // Editing after Continue must re-confirm so progressive TLDs never create users.
-    if (settledGuest) setSettledGuest(null)
+    if (settledGuest) {
+      setSettledGuest(null)
+      setOwnHoldQuantity(0)
+      writeStoredGuestCheckout(timeslot.id, null)
+    }
     if (guestFormError) setGuestFormError(null)
   }
 
@@ -261,11 +420,22 @@ export function EventTicketPanel({
         | null
       if (!res.ok || data?.abandoned) {
         setSettledGuest(null)
+        setOwnHoldQuantity(0)
+        writeStoredGuestCheckout(timeslot.id, null)
         setGuestFormError(data?.error || 'Unable to reserve places. Please try again.')
         return
       }
+      setOwnHoldQuantity(quantity)
+      writeStoredGuestCheckout(timeslot.id, {
+        name,
+        email,
+        quantity,
+        ownHoldQuantity: quantity,
+      })
     } catch {
       setSettledGuest(null)
+      setOwnHoldQuantity(0)
+      writeStoredGuestCheckout(timeslot.id, null)
       setGuestFormError('Unable to reserve places. Please try again.')
       return
     } finally {
@@ -273,8 +443,7 @@ export function EventTicketPanel({
     }
   }
 
-  const soldOut = remainingCapacity <= 0
-  const emphasizeRemaining = remainingCapacity > 0 && remainingCapacity <= 6
+  const emphasizeRemaining = viewerRemaining > 0 && viewerRemaining <= 6
 
   if (isPast) {
     return (
@@ -288,7 +457,7 @@ export function EventTicketPanel({
     )
   }
 
-  if (soldOut) {
+  if (availability.soldOut) {
     return (
       <aside
         className="rounded-xl border border-border bg-card p-5 shadow-sm"
@@ -296,6 +465,20 @@ export function EventTicketPanel({
       >
         <h2 className="text-lg font-semibold text-foreground">Get tickets</h2>
         <p className="mt-2 text-sm font-medium text-destructive">Sold out</p>
+      </aside>
+    )
+  }
+
+  if (availability.temporarilyUnavailable) {
+    return (
+      <aside
+        className="rounded-xl border border-border bg-card p-5 shadow-sm"
+        data-testid="event-ticket-panel"
+      >
+        <h2 className="text-lg font-semibold text-foreground">Get tickets</h2>
+        <p className="mt-2 text-sm font-medium text-amber-700 dark:text-amber-400">
+          All places are currently being reserved. Please try again in a few minutes.
+        </p>
       </aside>
     )
   }
@@ -331,7 +514,7 @@ export function EventTicketPanel({
         className={`mt-2 text-sm ${emphasizeRemaining ? 'font-medium text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}
         data-testid="event-places-remaining"
       >
-        {placesLabel(remainingCapacity)}
+        {eventPlacesLabel(viewerRemaining)}
       </p>
 
       <div className="mt-4">
@@ -416,6 +599,7 @@ export function EventTicketPanel({
               onReserveCheckoutHold={reserveGuestHold}
               onPaymentRedirectStart={() => {
                 paymentRedirectInProgressRef.current = true
+                writeStoredGuestCheckout(timeslot.id, null)
                 return () => {
                   paymentRedirectInProgressRef.current = false
                 }

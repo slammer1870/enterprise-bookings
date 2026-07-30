@@ -532,7 +532,17 @@ export async function getActiveCheckoutHold(
   )
 }
 
-export async function computeRemainingCapacityWithHolds(
+export type CapacityWithHoldsBreakdown = {
+  places: number
+  confirmed: number
+  held: number
+  /** places − confirmed − active holds (global free spots for new checkouts). */
+  remaining: number
+  /** places − confirmed only — true sell-out; unpaid holds must not hard-sold-out the page. */
+  remainingConfirmedOnly: number
+}
+
+export async function computeCapacityBreakdownWithHolds(
   payload: PayloadLike,
   timeslotId: number,
   slugs?: {
@@ -541,7 +551,7 @@ export async function computeRemainingCapacityWithHolds(
     bookingsSlug?: CollectionSlug
     holdCollection?: CollectionSlug
   },
-): Promise<number> {
+): Promise<CapacityWithHoldsBreakdown> {
   await expireStaleActiveHolds(payload, {
     timeslotId,
     holdCollection: slugs?.holdCollection,
@@ -559,5 +569,25 @@ export async function computeRemainingCapacityWithHolds(
     timeslotId,
     slugs?.holdCollection,
   )
-  return Math.max(0, places - confirmed - held)
+  return {
+    places,
+    confirmed,
+    held,
+    remaining: Math.max(0, places - confirmed - held),
+    remainingConfirmedOnly: Math.max(0, places - confirmed),
+  }
+}
+
+export async function computeRemainingCapacityWithHolds(
+  payload: PayloadLike,
+  timeslotId: number,
+  slugs?: {
+    timeslotsSlug?: CollectionSlug
+    eventTypesSlug?: CollectionSlug
+    bookingsSlug?: CollectionSlug
+    holdCollection?: CollectionSlug
+  },
+): Promise<number> {
+  const breakdown = await computeCapacityBreakdownWithHolds(payload, timeslotId, slugs)
+  return breakdown.remaining
 }

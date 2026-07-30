@@ -9,6 +9,7 @@ import {
   extendCheckoutHold,
   countActiveHoldQuantityForTimeslot,
   computeRemainingCapacityWithHolds,
+  computeCapacityBreakdownWithHolds,
   isHoldActive,
 } from '../src/checkout-holds/service'
 import { HOLD_TTL_MS, HOLD_MAX_LIFETIME_MS } from '../src/checkout-holds/constants'
@@ -545,6 +546,29 @@ describe('checkout hold service', () => {
 
       const remaining = await computeRemainingCapacityWithHolds(payload as never, TIMESLOT_ID)
       expect(remaining).toBe(0)
+    })
+
+    it('exposes confirmed-only remaining separately from hold-adjusted remaining', async () => {
+      confirmedCount = 1
+      holds.push({
+        id: 1,
+        user: OTHER_USER_ID,
+        timeslot: TIMESLOT_ID,
+        tenant: TENANT_ID,
+        quantity: 2,
+        expiresAt: iso(now + HOLD_TTL_MS),
+        status: 'active',
+      })
+      const payload = makePayload()
+
+      const breakdown = await computeCapacityBreakdownWithHolds(payload as never, TIMESLOT_ID)
+      expect(breakdown).toEqual({
+        places: PLACES,
+        confirmed: 1,
+        held: 2,
+        remaining: PLACES - 1 - 2,
+        remainingConfirmedOnly: PLACES - 1,
+      })
     })
   })
 })

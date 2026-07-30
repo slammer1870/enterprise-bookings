@@ -50,13 +50,18 @@ export {
   extendCheckoutHold,
   getActiveCheckoutHold,
   countActiveHoldQuantityForTimeslot,
+  computeCapacityBreakdownWithHolds,
   computeRemainingCapacityWithHolds,
   isHoldActive,
   isHoldWithinFulfillmentGrace,
   formatCapacityError as formatCheckoutHoldCapacityError,
 } from "./checkout-holds/service";
 export { fulfillCheckoutHold } from "./checkout-holds/fulfill";
-export type { CheckoutHoldRecord, UpsertCheckoutHoldResult } from "./checkout-holds/service";
+export type {
+  CapacityWithHoldsBreakdown,
+  CheckoutHoldRecord,
+  UpsertCheckoutHoldResult,
+} from "./checkout-holds/service";
 export type { FulfillCheckoutHoldResult } from "./checkout-holds/fulfill";
 export { bookingCheckoutHoldsCollection } from "./collections/booking-checkout-holds";
 // Payments endpoints

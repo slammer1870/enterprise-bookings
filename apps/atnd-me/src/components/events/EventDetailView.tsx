@@ -9,6 +9,10 @@ import { HostedBy } from '@/components/events/HostedBy'
 import { EventTicketPanel } from '@/components/events/EventTicketPanel'
 import { EventAuthenticatedCheckout } from '@/components/events/EventAuthenticatedCheckout.client'
 import {
+  eventPlacesAvailability,
+  eventPlacesLabel,
+} from '@/components/events/eventPlacesAvailability'
+import {
   type EventPageTimeslot,
   mediaUrl,
   locationAddress,
@@ -52,6 +56,12 @@ export async function EventDetailView({
   const loc = locationAddress(branch)
   const dropIn = resolveDropInFromEventType(eventType)
   const remaining = typeof timeslot.remainingCapacity === 'number' ? timeslot.remainingCapacity : 0
+  const remainingConfirmedOnly =
+    typeof timeslot.remainingConfirmedOnly === 'number'
+      ? timeslot.remainingConfirmedOnly
+      : remaining
+  const ownHoldQuantity =
+    typeof timeslot.ownHoldQuantity === 'number' ? timeslot.ownHoldQuantity : 0
 
   const endMs = Date.parse(timeslot.endTime)
   const isPast = Number.isFinite(endMs) ? endMs < Date.now() : false
@@ -94,14 +104,19 @@ export async function EventDetailView({
 
   const serializableTimeslot = JSON.parse(JSON.stringify(timeslot))
 
-  const placesLabel =
-    remaining <= 0
-      ? 'Sold out'
-      : remaining === 1
-        ? '1 place left'
-        : `${remaining} places left`
+  const availability = eventPlacesAvailability({
+    remainingCapacity: remaining,
+    remainingConfirmedOnly,
+    ownHoldQuantity,
+  })
+  const placesLabel = availability.soldOut
+    ? 'Sold out'
+    : availability.temporarilyUnavailable
+      ? 'Currently being reserved'
+      : eventPlacesLabel(availability.viewerRemaining)
 
-  const emphasizePlaces = remaining > 0 && remaining <= 6
+  const emphasizePlaces =
+    availability.viewerRemaining > 0 && availability.viewerRemaining <= 6
 
   return (
     <div className="pt-24 pb-8">
@@ -158,6 +173,8 @@ export async function EventDetailView({
               }
             }
             remainingCapacity={remaining}
+            remainingConfirmedOnly={remainingConfirmedOnly}
+            initialOwnHoldQuantity={ownHoldQuantity}
             isAuthenticated={isAuthenticated}
             isPast={isPast}
             successUrl="/success"
