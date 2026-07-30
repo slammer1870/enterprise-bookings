@@ -58,7 +58,8 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
       pm?.allowedDropIn ||
         (Array.isArray(pm?.allowedPlans) && (pm.allowedPlans as unknown[]).length > 0) ||
         (Array.isArray(pm?.allowedClassPasses) &&
-          (pm.allowedClassPasses as unknown[]).length > 0),
+          (pm.allowedClassPasses as unknown[]).length > 0) ||
+        (Array.isArray(pm?.allowedCourses) && (pm.allowedCourses as unknown[]).length > 0),
     )
 
     if (initialCheckoutHold === null && timeslotHasPaymentMethods) {

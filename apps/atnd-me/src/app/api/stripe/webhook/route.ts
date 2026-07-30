@@ -42,6 +42,7 @@ import { getStripeConnectOnboardingStatus } from '@/lib/stripe-connect/account-s
 import { findUserByCustomer } from '@repo/bookings-payments'
 import { handleSubscriptionGiftBalance } from '@/lib/stripe-connect/webhook/checkout-gift-credit'
 import { assignClassPassFromPurchase } from '@/lib/stripe-connect/webhook/assign-class-pass-from-purchase'
+import { assignCourseEnrollmentFromPurchase } from '@/lib/stripe-connect/webhook/assign-course-enrollment-from-purchase'
 import {
   extractStripePromotionCodeId,
   extractStripePromotionCodeIdFromLegacyDiscount,
@@ -160,6 +161,21 @@ export async function POST(request: NextRequest) {
           transactionId: paymentIntentId,
           tenantContext: paymentIntentTenantContext,
           stripePromotionCodeId,
+        })
+      }
+    }
+
+    // Course purchase (paid Checkout / PaymentIntent path)
+    if (tenant && meta.type === 'course_purchase') {
+      const paymentIntentId =
+        typeof obj?.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      if (paymentIntentId) {
+        await assignCourseEnrollmentFromPurchase({
+          payload,
+          tenantId: tenant.id,
+          metadata: meta,
+          transactionId: paymentIntentId,
+          tenantContext: paymentIntentTenantContext,
         })
       }
     }
@@ -341,6 +357,30 @@ export async function POST(request: NextRequest) {
       } else {
         payload.logger?.error?.(
           `checkout.session.completed: class_pass_purchase skipped (tenant=${tenant?.id ?? 'null'}, session=${sessionId ?? 'null'})`,
+        )
+      }
+    }
+
+    if (
+      obj?.mode === 'payment' &&
+      obj.payment_status === 'paid' &&
+      !hasPaymentIntent &&
+      meta.type === 'course_purchase'
+    ) {
+      const accountId = getAccountIdFromEvent(event)
+      const tenant = await resolveTenant(payload, accountId, meta.tenantId)
+      const sessionId = typeof obj.id === 'string' && obj.id.trim() ? obj.id.trim() : null
+      if (tenant && sessionId) {
+        await assignCourseEnrollmentFromPurchase({
+          payload,
+          tenantId: tenant.id,
+          metadata: meta,
+          transactionId: sessionId,
+          tenantContext: { tenant: tenant.id },
+        })
+      } else {
+        payload.logger?.error?.(
+          `checkout.session.completed: course_purchase skipped (tenant=${tenant?.id ?? 'null'}, session=${sessionId ?? 'null'})`,
         )
       }
     }

@@ -42,6 +42,12 @@ export async function EventCheckoutBlock({
     typeof timeslot.eventType === 'object' ? (timeslot.eventType as EventType) : null
   const dropIn = resolveDropInFromEventType(eventType)
   const remaining = typeof timeslot.remainingCapacity === 'number' ? timeslot.remainingCapacity : 0
+  const remainingConfirmedOnly =
+    typeof timeslot.remainingConfirmedOnly === 'number'
+      ? timeslot.remainingConfirmedOnly
+      : remaining
+  const ownHoldQuantity =
+    typeof timeslot.ownHoldQuantity === 'number' ? timeslot.ownHoldQuantity : 0
   const endMs = Date.parse(timeslot.endTime)
   const isPast = Number.isFinite(endMs) ? endMs < Date.now() : false
   const user = await currentUser()
@@ -60,6 +66,8 @@ export async function EventCheckoutBlock({
           }
         }
         remainingCapacity={remaining}
+        remainingConfirmedOnly={remainingConfirmedOnly}
+        initialOwnHoldQuantity={ownHoldQuantity}
         isAuthenticated={Boolean(user?.id)}
         isPast={isPast}
         successUrl="/success"

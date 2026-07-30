@@ -9,6 +9,8 @@ export type TRPCBookingCollectionSlugs = {
   bookings: string;
   classPasses: string;
   classPassTypes: string;
+  courseEnrollments: string;
+  courses: string;
 };
 
 export const DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS: TRPCBookingCollectionSlugs = {
@@ -18,6 +20,8 @@ export const DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS: TRPCBookingCollectionSlugs =
   bookings: "bookings",
   classPasses: "class-passes",
   classPassTypes: "class-pass-types",
+  courseEnrollments: "course-enrollments",
+  courses: "courses",
 };
 
 export function mergeTRPCBookingCollectionSlugs(

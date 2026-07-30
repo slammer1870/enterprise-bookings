@@ -9,6 +9,10 @@ export type EventPageTimeslot = {
   endTime: string
   active?: boolean | null
   remainingCapacity?: number | null
+  /** places − confirmed only (ignores checkout holds). */
+  remainingConfirmedOnly?: number | null
+  /** Active checkout hold quantity for the authenticated viewer, if any. */
+  ownHoldQuantity?: number | null
   location?: string | null
   tenant: number | { id: number }
   branch?: (number | null) | Location

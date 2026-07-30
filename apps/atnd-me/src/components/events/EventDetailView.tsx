@@ -8,6 +8,7 @@ import { MapBlock } from '@/blocks/Map/Component'
 import { HostedBy } from '@/components/events/HostedBy'
 import { EventTicketPanel } from '@/components/events/EventTicketPanel'
 import { EventAuthenticatedCheckout } from '@/components/events/EventAuthenticatedCheckout.client'
+import { EventPlacesMetaLabel } from '@/components/events/EventPlacesMetaLabel.client'
 import {
   type EventPageTimeslot,
   mediaUrl,
@@ -52,6 +53,12 @@ export async function EventDetailView({
   const loc = locationAddress(branch)
   const dropIn = resolveDropInFromEventType(eventType)
   const remaining = typeof timeslot.remainingCapacity === 'number' ? timeslot.remainingCapacity : 0
+  const remainingConfirmedOnly =
+    typeof timeslot.remainingConfirmedOnly === 'number'
+      ? timeslot.remainingConfirmedOnly
+      : remaining
+  const ownHoldQuantity =
+    typeof timeslot.ownHoldQuantity === 'number' ? timeslot.ownHoldQuantity : 0
 
   const endMs = Date.parse(timeslot.endTime)
   const isPast = Number.isFinite(endMs) ? endMs < Date.now() : false
@@ -94,15 +101,6 @@ export async function EventDetailView({
 
   const serializableTimeslot = JSON.parse(JSON.stringify(timeslot))
 
-  const placesLabel =
-    remaining <= 0
-      ? 'Sold out'
-      : remaining === 1
-        ? '1 place left'
-        : `${remaining} places left`
-
-  const emphasizePlaces = remaining > 0 && remaining <= 6
-
   return (
     <div className="pt-24 pb-8">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-x-8 lg:gap-y-6 lg:items-start">
@@ -134,16 +132,16 @@ export async function EventDetailView({
             </div>
           )}
           {/* Mobile-only capacity cue; desktop keeps it in the ticket panel. */}
-          <p
-            className={`pt-1 text-sm lg:hidden ${
-              emphasizePlaces
-                ? 'font-medium text-amber-700 dark:text-amber-400'
-                : 'text-muted-foreground'
-            }`}
-            data-testid="event-meta-places"
-          >
-            {placesLabel}
-          </p>
+          <EventPlacesMetaLabel
+            timeslotId={timeslot.id}
+            remainingCapacity={remaining}
+            remainingConfirmedOnly={remainingConfirmedOnly}
+            initialOwnHoldQuantity={ownHoldQuantity}
+            isAuthenticated={isAuthenticated}
+            className="pt-1 text-sm lg:hidden"
+            emphasizeClassName="font-medium text-amber-700 dark:text-amber-400"
+            mutedClassName="text-muted-foreground"
+          />
         </header>
 
         <div className="order-3 lg:col-start-2 lg:row-span-3 lg:self-start lg:sticky lg:top-24">
@@ -158,6 +156,8 @@ export async function EventDetailView({
               }
             }
             remainingCapacity={remaining}
+            remainingConfirmedOnly={remainingConfirmedOnly}
+            initialOwnHoldQuantity={ownHoldQuantity}
             isAuthenticated={isAuthenticated}
             isPast={isPast}
             successUrl="/success"

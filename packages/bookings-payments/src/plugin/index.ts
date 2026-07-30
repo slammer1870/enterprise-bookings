@@ -5,6 +5,7 @@ import type { BookingsPaymentsPluginConfig } from "../types";
 import type { PluginContext } from "./context";
 import { applyDropInsFeature } from "./apply-drop-ins";
 import { applyClassPassFeature } from "./apply-class-pass";
+import { applyCoursesFeature } from "./apply-courses";
 import { applyPaymentsFeature } from "./apply-payments";
 import { applyMembershipFeature } from "./apply-membership";
 import { injectTransactionsIntoBookings } from "./inject-transactions";
@@ -53,8 +54,13 @@ export const bookingsPaymentsPlugin =
       enabled: true,
       paymentMethodSlugs: [],
     });
+    const courses = normalizeFeatureOption(pluginOptions.courses, {
+      enabled: true,
+      eventTypesSlug: "event-types",
+    });
 
-    const anyEnabled = dropIns?.enabled || classPass?.enabled || membership?.enabled;
+    const anyEnabled =
+      dropIns?.enabled || classPass?.enabled || membership?.enabled || courses?.enabled;
     if (!anyEnabled) {
       return config;
     }
@@ -87,12 +93,17 @@ export const bookingsPaymentsPlugin =
       applyClassPassFeature(ctx, classPass);
     }
 
+    // Courses feature: courses, course-enrollments, allowedCourses injection
+    if (courses?.enabled) {
+      applyCoursesFeature(ctx, courses);
+    }
+
     // Membership feature: memberships, subscriptions, users, endpoints, allowedPlans injection
     if (membership?.enabled) {
       applyMembershipFeature(ctx, membership);
     }
 
-    // Transactions at root: one collection for subscription, class-pass, or drop-in booking payments
+    // Transactions at root: one collection for subscription, class-pass, course, or drop-in booking payments
     const needsTransactions =
       !ctx.collections.some((c) => c.slug === "transactions");
     if (needsTransactions) {

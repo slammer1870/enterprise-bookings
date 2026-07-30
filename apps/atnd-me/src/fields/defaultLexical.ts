@@ -1,13 +1,10 @@
-import type { TextFieldSingleValidation } from 'payload'
 import {
   BlocksFeature,
   FixedToolbarFeature,
   HeadingFeature,
   HorizontalRuleFeature,
   InlineToolbarFeature,
-  LinkFeature,
   lexicalEditor,
-  type LinkFields,
 } from '@payloadcms/richtext-lexical'
 
 import { Banner } from '@/blocks/Banner/config'
@@ -16,37 +13,9 @@ import { EventCheckout } from '@/blocks/EventCheckout/config'
 import { GiftVoucherCheckout } from '@/blocks/GiftVoucherCheckout/config'
 import { Map } from '@/blocks/Map/config'
 import { MediaBlock } from '@/blocks/MediaBlock/config'
+import { pagesPostsLinkFeature } from '@/fields/lexicalLinkFeature'
 
 export { simpleLexical } from '@/fields/simpleLexical'
-
-const linkFeature = LinkFeature({
-  enabledCollections: ['pages', 'posts'],
-  fields: ({ defaultFields }) => {
-    const defaultFieldsWithoutUrl = defaultFields.filter((field) => {
-      if ('name' in field && field.name === 'url') return false
-      return true
-    })
-
-    return [
-      ...defaultFieldsWithoutUrl,
-      {
-        name: 'url',
-        type: 'text',
-        admin: {
-          condition: (_data, siblingData) => siblingData?.linkType !== 'internal',
-        },
-        label: ({ t }) => t('fields:enterURL'),
-        required: true,
-        validate: ((value, options) => {
-          if ((options?.siblingData as LinkFields)?.linkType === 'internal') {
-            return true
-          }
-          return value ? true : 'URL is required'
-        }) as TextFieldSingleValidation,
-      },
-    ]
-  },
-})
 
 /**
  * Single shared rich-text editor for atnd-me.
@@ -65,7 +34,7 @@ export const defaultLexical = lexicalEditor({
 
     return [
       ...withoutLink,
-      linkFeature,
+      pagesPostsLinkFeature,
       HeadingFeature({ enabledHeadingSizes: ['h1', 'h2', 'h3', 'h4'] }),
       BlocksFeature({
         blocks: [Banner, Code, MediaBlock, EventCheckout, GiftVoucherCheckout, Map],

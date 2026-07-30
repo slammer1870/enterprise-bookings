@@ -155,6 +155,27 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
     collectMediaIds(post, undefined, ids)
   }
 
+  // Course cover images appear on public listing/detail pages; Next/Image fetches
+  // `/api/media/file/...` without tenant cookies, so these must be marked isPublic.
+  const courses = await req.payload.find({
+    collection: 'courses',
+    where: { status: { not_equals: 'archived' } },
+    limit: 1000,
+    pagination: false,
+    depth: 1,
+    overrideAccess: true,
+    req,
+    select: {
+      id: true,
+      coverImage: true,
+      tenant: true,
+    } as any,
+  })
+
+  for (const course of courses.docs) {
+    collectMediaIds(course, undefined, ids)
+  }
+
   return ids
 }
 

@@ -4,13 +4,19 @@
 import type { Payload } from 'payload'
 
 /** Product types that map to fee-percent fields in platform-fees global. */
-export type BookingFeeProductType = 'drop-in' | 'class-pass' | 'subscription' | 'gift-voucher'
+export type BookingFeeProductType =
+  | 'drop-in'
+  | 'class-pass'
+  | 'course'
+  | 'subscription'
+  | 'gift-voucher'
 
 /** Shape of platform-fees global (defaults + overrides + bounds). */
 type PlatformFeesGlobal = {
   defaults?: {
     dropInPercent?: number
     classPassPercent?: number
+    coursePercent?: number
     subscriptionPercent?: number
     giftVoucherPercent?: number
   }
@@ -18,6 +24,7 @@ type PlatformFeesGlobal = {
     tenant?: number | { id: number }
     dropInPercent?: number | null
     classPassPercent?: number | null
+    coursePercent?: number | null
     subscriptionPercent?: number | null
     giftVoucherPercent?: number | null
   }>
@@ -30,6 +37,7 @@ type PlatformFeesGlobal = {
 const PRODUCT_FIELD_MAP: Record<BookingFeeProductType, keyof NonNullable<PlatformFeesGlobal['defaults']>> = {
   'drop-in': 'dropInPercent',
   'class-pass': 'classPassPercent',
+  course: 'coursePercent',
   subscription: 'subscriptionPercent',
   'gift-voucher': 'giftVoucherPercent',
 }
@@ -37,6 +45,7 @@ const PRODUCT_FIELD_MAP: Record<BookingFeeProductType, keyof NonNullable<Platfor
 const DEFAULT_PERCENTS: Record<BookingFeeProductType, number> = {
   'drop-in': 2,
   'class-pass': 3,
+  course: 3,
   subscription: 4,
   'gift-voucher': 3,
 }

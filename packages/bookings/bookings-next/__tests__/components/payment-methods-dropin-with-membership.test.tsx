@@ -22,6 +22,9 @@ vi.mock('@repo/trpc/client', () => ({
       },
     },
     bookings: {
+      getValidCourseEnrollmentsForTimeslot: {
+        queryOptions: () => ({ queryKey: ['bookings.getValidCourseEnrollmentsForTimeslot'] }),
+      },
       getValidClassPassesForTimeslot: {
         queryOptions: () => ({ queryKey: ['bookings.getValidClassPassesForTimeslot'] }),
       },
@@ -125,6 +128,8 @@ function setupQuery(subscriptionData: ReturnType<typeof makeSubscriptionQuery>) 
     switch (key) {
       case 'subscriptions.getSubscriptionForTimeslot':
         return subscriptionData
+      case 'bookings.getValidCourseEnrollmentsForTimeslot':
+        return { data: [], isLoading: false, isFetching: false }
       case 'bookings.getValidClassPassesForTimeslot':
         return { data: [], isLoading: false }
       case 'bookings.getPurchasableClassPassTypesForTimeslot':

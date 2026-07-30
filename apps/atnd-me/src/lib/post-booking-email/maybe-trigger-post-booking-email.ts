@@ -202,26 +202,47 @@ async function maybeTriggerSinglePostBookingEmail({
           user,
           config,
         })
-        await req.payload.update({
-          collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
-          id: delivery.id,
-          data: {
-            status: 'sent',
-            sentAt: new Date().toISOString(),
-          },
-          overrideAccess: true,
-        })
       } catch (error) {
         req.payload.logger.error(
           `[post-booking-email] Failed to send delivery ${delivery.id}: ${
             error instanceof Error ? error.message : String(error)
           }`,
         )
-        await req.payload.delete({
-          collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
-          id: delivery.id,
-          overrideAccess: true,
-        }).catch(() => undefined)
+        await req.payload
+          .delete({
+            collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+            id: delivery.id,
+            overrideAccess: true,
+          })
+          .catch(() => undefined)
+        return
+      }
+
+      let markedSent = false
+      for (let attempt = 0; attempt < 3 && !markedSent; attempt += 1) {
+        try {
+          await req.payload.update({
+            collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+            id: delivery.id,
+            data: {
+              status: 'sent',
+              sentAt: new Date().toISOString(),
+            },
+            overrideAccess: true,
+          })
+          markedSent = true
+        } catch (error) {
+          if (attempt < 2) {
+            await new Promise((resolve) => setTimeout(resolve, 25 * (attempt + 1)))
+            continue
+          }
+          // Email already sent — keep the delivery row so idempotency still works.
+          req.payload.logger.error(
+            `[post-booking-email] Sent email but failed to mark delivery ${delivery.id} as sent: ${
+              error instanceof Error ? error.message : String(error)
+            }`,
+          )
+        }
       }
     })()
   })

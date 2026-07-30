@@ -114,6 +114,9 @@ export function EventAuthenticatedCheckout({
       onReserveCheckoutHold={onReserveCheckoutHold}
       onPaymentRedirectStart={() => {
         paymentRedirectInProgressRef.current = true
+        return () => {
+          paymentRedirectInProgressRef.current = false
+        }
       }}
     />
   )

@@ -61,6 +61,16 @@ const defaultFields: NonNullable<CollectionConfig['fields']> = [
     index: true,
   },
   {
+    name: 'checkoutSessionId',
+    type: 'text',
+    required: false,
+    index: true,
+    admin: {
+      description:
+        'Client checkout attempt id. After release, upserts with the same id are ignored so late in-flight reserves cannot recreate capacity holds.',
+    },
+  },
+  {
     name: 'stripePaymentIntentId',
     type: 'text',
     required: false,

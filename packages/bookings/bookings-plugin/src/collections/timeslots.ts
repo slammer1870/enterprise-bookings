@@ -499,6 +499,10 @@ const defaultAccess: AccessControls = {
 
 const defaultAdmin: CollectionAdminOptions = {
   group: "Bookings",
+  // Prevent timeslots from appearing as internal link/relationship targets in Lexical
+  // (they are first in many apps' collection order and enableRichTextLink defaults to true).
+  enableRichTextLink: false,
+  enableRichTextRelationship: false,
   components: {
     views: {
       list: {
@@ -728,7 +732,8 @@ export const generateTimeslotCollection = (
         : defaultAccess),
     },
     admin: {
-      ...(overrides?.admin || defaultAdmin),
+      ...defaultAdmin,
+      ...(overrides?.admin ?? {}),
     },
     hooks: {
       ...(overrides?.hooks && typeof overrides?.hooks === "function"

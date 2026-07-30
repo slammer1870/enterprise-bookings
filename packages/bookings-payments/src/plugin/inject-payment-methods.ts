@@ -94,3 +94,23 @@ export function injectAllowedDropInIntoCollection(
     },
   });
 }
+
+/**
+ * Injects or appends "allowedCourses" into the paymentMethods group of the given collection.
+ * Used when the courses feature is enabled.
+ */
+export function injectAllowedCoursesIntoCollection(
+  collection: CollectionConfig,
+  _slug: string
+): void {
+  injectPaymentMethodField(collection, "allowedCourses", {
+    type: "relationship",
+    label: "Allowed Courses",
+    relationTo: "courses" as CollectionSlug,
+    hasMany: true,
+    admin: {
+      description:
+        "Courses that grant free booking of this event type during the enrollee's access window.",
+    },
+  });
+}

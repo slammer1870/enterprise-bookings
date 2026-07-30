@@ -22,6 +22,8 @@ export type ReleaseGuestCheckoutHoldResult =
 export function releaseGuestCheckoutHold(options: {
   timeslotId: number | string
   guestEmail: string
+  /** Client checkout attempt id — blocks late upserts for this session after release. */
+  checkoutSessionId?: string | null
   /** Prefer unload-safe transport (required for pagehide / beforeunload). */
   sync?: boolean
   /** e.g. payment redirect in progress — do not release. */
@@ -35,6 +37,9 @@ export function releaseGuestCheckoutHold(options: {
   const body = JSON.stringify({
     timeslotId: options.timeslotId,
     guestEmail: options.guestEmail,
+    ...(options.checkoutSessionId
+      ? { checkoutSessionId: options.checkoutSessionId }
+      : {}),
   })
 
   const XMLHttpRequestCtor =

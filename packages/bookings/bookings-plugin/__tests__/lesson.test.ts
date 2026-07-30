@@ -21,6 +21,11 @@ import { NextRESTClient } from "@repo/payload-testing/src/helpers/NextRESTClient
 
 import { EventType, Timeslot } from "@repo/shared-types";
 
+import {
+  earlierTodayTimeslotWindow,
+  futureTimeslotWindow,
+} from "./timeslot-fixtures";
+
 const TEST_TIMEOUT = 30000; // 30 seconds
 const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
 
@@ -238,19 +243,10 @@ describe("Timeslot tests", () => {
   it(
     "should have a booking status of active",
     async () => {
-      const now = new Date(); // Get the current date and time
-      const tomorrow = new Date(now); // Create a new Date object based on the current date
-      tomorrow.setDate(now.getDate() + 1);
-
-      const oneHourLater = new Date(tomorrow); // Create a copy of the current date
-      oneHourLater.setHours(oneHourLater.getHours() + 1);
-
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: tomorrow,
-          startTime: tomorrow,
-          endTime: oneHourLater,
+          ...futureTimeslotWindow({ daysFromNow: 1, startHour: 10 }),
           lockOutTime: 720,
           eventType: eventType.id,
           location: "Test Location",
@@ -272,9 +268,9 @@ describe("Timeslot tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() - 1 * 60 * 60 * 1000),
+          // Must be earlier today (not yesterday): anonymous REST read access
+          // filters startTime > startOfToday, so past calendar days 404.
+          ...earlierTodayTimeslotWindow(),
           eventType: eventType.id,
           location: "Test Location",
         },
@@ -302,9 +298,7 @@ describe("Timeslot tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          ...futureTimeslotWindow(),
           eventType: eventType.id,
           location: "Test Location",
         },
@@ -369,9 +363,7 @@ describe("Timeslot tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          date: new Date(),
-          startTime: new Date(Date.now() + 2 * 60 * 60 * 1000),
-          endTime: new Date(Date.now() + 3 * 60 * 60 * 1000),
+          ...futureTimeslotWindow(),
           eventType: eventType.id,
           location: "Test Location",
         },

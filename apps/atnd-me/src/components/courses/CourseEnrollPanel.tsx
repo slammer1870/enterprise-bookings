@@ -1,0 +1,204 @@
+'use client'
+
+import React, { useState } from 'react'
+import { CheckoutForm } from '@repo/payments-next'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { isCompleteGuestEmail } from '@/lib/courses/resolve-course-for-purchase'
+
+type CourseEnrollPanelProps = {
+  courseId: number
+  price: number
+  remainingEnrollments: number | null
+  isAuthenticated: boolean
+  isOpen: boolean
+  accessWindowLabel: string | null
+  successUrl?: string
+}
+
+function placesLabel(remaining: number | null): string | null {
+  if (remaining == null) return null
+  if (remaining <= 0) return 'Sold out'
+  if (remaining === 1) return '1 place left'
+  return `${remaining} places left`
+}
+
+export function CourseEnrollPanel({
+  courseId,
+  price,
+  remainingEnrollments,
+  isAuthenticated,
+  isOpen,
+  accessWindowLabel,
+  successUrl = '/success',
+}: CourseEnrollPanelProps) {
+  const [guestName, setGuestName] = useState('')
+  const [guestEmail, setGuestEmail] = useState('')
+  const [settledGuest, setSettledGuest] = useState<{ name: string; email: string } | null>(null)
+  const [guestFormError, setGuestFormError] = useState<string | null>(null)
+
+  const soldOut = remainingEnrollments != null && remainingEnrollments <= 0
+  const places = placesLabel(remainingEnrollments)
+  const emphasizePlaces =
+    remainingEnrollments != null && remainingEnrollments > 0 && remainingEnrollments <= 6
+
+  if (!isOpen) {
+    return (
+      <aside
+        className="rounded-xl border border-border bg-card p-5 shadow-sm"
+        data-testid="course-enroll-panel"
+      >
+        <h2 className="text-lg font-semibold text-foreground">Enroll</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Enrollment is closed for this course.</p>
+      </aside>
+    )
+  }
+
+  if (soldOut) {
+    return (
+      <aside
+        className="rounded-xl border border-border bg-card p-5 shadow-sm"
+        data-testid="course-enroll-panel"
+      >
+        <h2 className="text-lg font-semibold text-foreground">Enroll</h2>
+        <p className="mt-2 text-sm font-medium text-destructive">Sold out</p>
+      </aside>
+    )
+  }
+
+  if (price <= 0) {
+    return (
+      <aside
+        className="rounded-xl border border-border bg-card p-5 shadow-sm"
+        data-testid="course-enroll-panel"
+      >
+        <h2 className="text-lg font-semibold text-foreground">Enroll</h2>
+        <p className="mt-2 text-sm text-muted-foreground">Price is not configured for this course.</p>
+      </aside>
+    )
+  }
+
+  const handleContinueToPayment = (e: React.FormEvent) => {
+    e.preventDefault()
+    const name = guestName.trim()
+    const email = guestEmail.trim().toLowerCase()
+    if (name.length < 2) {
+      setGuestFormError('Enter your name to continue.')
+      return
+    }
+    if (!isCompleteGuestEmail(email)) {
+      setGuestFormError('Enter a complete email address (for example you@example.com).')
+      return
+    }
+    setGuestFormError(null)
+    setSettledGuest({ name, email })
+  }
+
+  const priceComponent = (
+    <div className="my-2 text-lg font-medium">Total: €{price.toFixed(2)}</div>
+  )
+
+  return (
+    <aside
+      className="rounded-xl border border-border bg-card p-5 shadow-sm"
+      data-testid="course-enroll-panel"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold text-foreground">Enroll</h2>
+        <p className="text-xl font-semibold tabular-nums text-foreground">€{price.toFixed(2)}</p>
+      </div>
+
+      {accessWindowLabel ? (
+        <p className="mt-2 text-sm text-muted-foreground" data-testid="course-access-window">
+          {accessWindowLabel}
+        </p>
+      ) : null}
+
+      {places ? (
+        <p
+          className={`mt-2 text-sm ${
+            emphasizePlaces
+              ? 'font-medium text-amber-700 dark:text-amber-400'
+              : 'text-muted-foreground'
+          }`}
+          data-testid="course-places-remaining"
+        >
+          {places}
+        </p>
+      ) : null}
+
+      {isAuthenticated ? (
+        <div className="mt-4">
+          <CheckoutForm
+            price={price}
+            priceComponent={priceComponent}
+            createPaymentIntentUrl="/api/courses/purchase"
+            returnUrl={successUrl}
+            metadata={{ courseId: String(courseId) }}
+          />
+        </div>
+      ) : (
+        <div className="mt-4 space-y-4">
+          <form className="space-y-3" onSubmit={handleContinueToPayment}>
+            <div className="space-y-1.5">
+              <Label htmlFor="course-guest-name">Name</Label>
+              <Input
+                id="course-guest-name"
+                value={guestName}
+                onChange={(e) => {
+                  setGuestName(e.target.value)
+                  if (settledGuest) setSettledGuest(null)
+                }}
+                autoComplete="name"
+                data-testid="course-guest-name"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="course-guest-email">Email</Label>
+              <Input
+                id="course-guest-email"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => {
+                  setGuestEmail(e.target.value)
+                  if (settledGuest) setSettledGuest(null)
+                }}
+                autoComplete="email"
+                data-testid="course-guest-email"
+              />
+            </div>
+            {guestFormError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {guestFormError}
+              </p>
+            ) : null}
+            {!settledGuest ? (
+              <Button type="submit" className="w-full" data-testid="course-guest-checkout-continue">
+                Continue to payment
+              </Button>
+            ) : null}
+          </form>
+
+          {settledGuest ? (
+            <CheckoutForm
+              price={price}
+              priceComponent={priceComponent}
+              createPaymentIntentUrl="/api/courses/guest-checkout"
+              returnUrl={successUrl}
+              metadata={{
+                courseId: String(courseId),
+                guestName: settledGuest.name,
+                guestEmail: settledGuest.email,
+              }}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Enter your details, then continue when your email is complete.
+            </p>
+          )}
+        </div>
+      )}
+    </aside>
+  )
+}

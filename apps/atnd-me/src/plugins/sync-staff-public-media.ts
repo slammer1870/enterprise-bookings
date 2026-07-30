@@ -2,17 +2,19 @@ import type { Config, Plugin } from 'payload'
 
 import { syncPublicMediaFlags } from '@/utilities/syncPublicMedia'
 
+const PUBLIC_MEDIA_COLLECTIONS = new Set(['staff-members', 'courses'])
+
 /**
- * Staff profile images appear on the public schedule. Next/Image often fetches
- * `/api/media/file/...` without tenant cookies, so those media docs must be
- * marked `isPublic` when staff are saved (same as pages/navbar/footer).
+ * Staff profile images and course covers appear on public pages. Next/Image often
+ * fetches `/api/media/file/...` without tenant cookies, so those media docs must be
+ * marked `isPublic` when the parent doc is saved (same as pages/navbar/footer).
  */
 export const syncStaffPublicMediaPlugin =
   (): Plugin =>
   (config: Config): Config => ({
     ...config,
     collections: (config.collections ?? []).map((collection) => {
-      if (collection.slug !== 'staff-members') return collection
+      if (!PUBLIC_MEDIA_COLLECTIONS.has(collection.slug)) return collection
       const hooks = collection.hooks ?? {}
       return {
         ...collection,

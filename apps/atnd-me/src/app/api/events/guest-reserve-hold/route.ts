@@ -7,7 +7,11 @@ import {
   resolveTenantSlugOrId,
   resolveTenantForConnect,
 } from '@/lib/stripe-connect/api-helpers'
-import { upsertCheckoutHold, CHECKOUT_HOLD_COLLECTION_SLUG } from '@repo/bookings-payments'
+import {
+  upsertCheckoutHold,
+  computeCapacityBreakdownWithHolds,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from '@repo/bookings-payments'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { checkRateLimit } from '@/lib/onboarding/rateLimit'
 
@@ -20,7 +24,7 @@ function clientIp(request: NextRequest): string {
 
 /**
  * POST /api/events/guest-reserve-hold
- * Body: { timeslotId, quantity?, guestName, guestEmail }
+ * Body: { timeslotId, quantity?, guestName, guestEmail, checkoutSessionId? }
  *
  * Reserves capacity as soon as the guest clicks Continue — before PaymentIntent
  * creation — so page-exit release has something to clear.
@@ -49,6 +53,11 @@ export async function POST(request: NextRequest) {
       ? (body as { guestEmail: string }).guestEmail
       : ''
   const guestEmail = guestEmailRaw.trim().toLowerCase()
+  const checkoutSessionIdRaw = (body as { checkoutSessionId?: unknown }).checkoutSessionId
+  const checkoutSessionId =
+    typeof checkoutSessionIdRaw === 'string' && checkoutSessionIdRaw.trim()
+      ? checkoutSessionIdRaw.trim()
+      : null
 
   if (!guestName || guestName.length < 2) {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -135,12 +144,31 @@ export async function POST(request: NextRequest) {
       userId: guest.userId,
       tenantId,
       quantity,
+      checkoutSessionId,
       holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
       timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
       bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
     })
-    return NextResponse.json({ holdId: hold.holdId, quantity: hold.quantity })
+    if (hold.abandoned) {
+      return NextResponse.json({
+        holdId: null,
+        quantity: 0,
+        abandoned: true,
+      })
+    }
+    const remaining = await computeCapacityBreakdownWithHolds(payload, timeslotId, {
+      timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
+      bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
+      holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
+    })
+    return NextResponse.json({
+      holdId: hold.holdId,
+      quantity: hold.quantity,
+      remainingCapacity: remaining.remaining,
+      remainingConfirmedOnly: remaining.remainingConfirmedOnly,
+    })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unable to reserve places'
     return NextResponse.json({ error: message }, { status: 400 })

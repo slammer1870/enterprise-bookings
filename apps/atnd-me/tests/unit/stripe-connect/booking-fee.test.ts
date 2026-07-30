@@ -64,13 +64,21 @@ describe('Booking fee (step 2.7.1)', () => {
       expect(pct).toBe(2)
     })
 
-    it('returns default 3% for class-pass and 4% for subscription', async () => {
+    it('returns default 3% for class-pass, 3% for course, and 4% for subscription', async () => {
       vi.mocked(mockPayload.findGlobal).mockResolvedValue({
-        defaults: { dropInPercent: 2, classPassPercent: 3, subscriptionPercent: 4 },
+        defaults: {
+          dropInPercent: 2,
+          classPassPercent: 3,
+          coursePercent: 3,
+          subscriptionPercent: 4,
+        },
         overrides: [],
       })
       expect(
         await getEffectiveBookingFeePercent({ tenantId, productType: 'class-pass', payload: mockPayload }),
+      ).toBe(3)
+      expect(
+        await getEffectiveBookingFeePercent({ tenantId, productType: 'course', payload: mockPayload }),
       ).toBe(3)
       expect(
         await getEffectiveBookingFeePercent({ tenantId, productType: 'subscription', payload: mockPayload }),
@@ -83,9 +91,36 @@ describe('Booking fee (step 2.7.1)', () => {
       expect(await getEffectiveBookingFeePercent({ tenantId, productType: 'class-pass', payload: mockPayload })).toBe(
         3,
       )
+      expect(await getEffectiveBookingFeePercent({ tenantId, productType: 'course', payload: mockPayload })).toBe(3)
       expect(await getEffectiveBookingFeePercent({ tenantId, productType: 'subscription', payload: mockPayload })).toBe(
         4,
       )
+    })
+
+    it('applies per-tenant course override when present', async () => {
+      vi.mocked(mockPayload.findGlobal).mockResolvedValue({
+        defaults: {
+          dropInPercent: 2,
+          classPassPercent: 3,
+          coursePercent: 3,
+          subscriptionPercent: 4,
+        },
+        overrides: [
+          {
+            tenant: tenantId,
+            dropInPercent: null,
+            classPassPercent: null,
+            coursePercent: 7,
+            subscriptionPercent: null,
+          },
+        ],
+      })
+      expect(
+        await getEffectiveBookingFeePercent({ tenantId, productType: 'course', payload: mockPayload }),
+      ).toBe(7)
+      expect(
+        await getEffectiveBookingFeePercent({ tenantId, productType: 'class-pass', payload: mockPayload }),
+      ).toBe(3)
     })
 
     it('applies per-tenant override when present (override > default)', async () => {

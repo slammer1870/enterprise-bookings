@@ -3,7 +3,12 @@ import { headers } from 'next/headers'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
-import { computeRemainingCapacityWithHolds, CHECKOUT_HOLD_COLLECTION_SLUG } from '@repo/bookings-payments'
+import {
+  computeCapacityBreakdownWithHolds,
+  getActiveCheckoutHold,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from '@repo/bookings-payments'
+import { currentUser } from '@/lib/auth/context/get-context-props'
 import {
   type EventPageTimeslot,
   relationId,
@@ -30,12 +35,30 @@ export async function loadEventTimeslot(id: number): Promise<EventPageTimeslot |
     return null
   }
 
-  const remainingCapacity = await computeRemainingCapacityWithHolds(payload, id, {
+  const capacity = await computeCapacityBreakdownWithHolds(payload, id, {
     timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
     eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
     bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
     holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
   })
 
-  return { ...timeslot, remainingCapacity }
+  let ownHoldQuantity = 0
+  const user = await currentUser()
+  if (user?.id != null) {
+    const hold = await getActiveCheckoutHold(payload, {
+      timeslotId: id,
+      userId: Number(user.id),
+      holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
+    })
+    if (hold) {
+      ownHoldQuantity = Math.max(0, Number(hold.quantity) || 0)
+    }
+  }
+
+  return {
+    ...timeslot,
+    remainingCapacity: capacity.remaining,
+    remainingConfirmedOnly: capacity.remainingConfirmedOnly,
+    ownHoldQuantity,
+  }
 }

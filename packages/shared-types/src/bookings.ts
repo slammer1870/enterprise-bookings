@@ -171,7 +171,36 @@ export interface EventType {
     allowedDropIn?: DropIn;
     allowedClassPasses?: ClassPassType[];
     allowedPlans?: Plan[];
+    allowedCourses?: Course[];
   };
+}
+
+export interface Course {
+  id: number;
+  title?: string | null;
+  slug?: string | null;
+  status?: "draft" | "open" | "closed" | "archived" | null;
+  startDate?: string | null;
+  endDate?: string | null;
+  durationLength?: number | null;
+  durationUnit?: "days" | "weeks" | null;
+  allowedEventTypes?: Array<number | EventType> | null;
+  maxEnrollments?: number | null;
+  priceInformation?: {
+    price?: number | null;
+  } | null;
+}
+
+export interface CourseEnrollment {
+  id: number;
+  user?: number | { id: number } | null;
+  course?: number | Course | null;
+  status?: "active" | "cancelled" | "completed" | null;
+  purchasedAt?: string | null;
+  accessStartsAt?: string | null;
+  accessEndsAt?: string | null;
+  transactionId?: string | null;
+  tenant?: number | { id: number } | null;
 }
 
 export interface ClassPassType {

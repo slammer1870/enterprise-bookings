@@ -9,7 +9,7 @@
  * Stories:
  *  1. No payment methods → immediate booking, button becomes "Modify Booking"
  *  2. Active subscription → immediate booking, button becomes "Cancel Booking" when single-slot
- *  3. Valid class pass → immediate booking (1 credit deducted), button becomes "Modify Booking"
+ *  3. Valid class pass → immediate booking (1 credit deducted), button becomes "Cancel Booking" when single-slot
  *  4. Payment required (no entitlement) → redirect to /bookings/[id]
  *  5. Subscription limit reached → redirect to /bookings/[id]
  *  5b. 2x/week limit exhausted (3rd check-in) → redirect to /bookings/[id], Membership tab
@@ -228,7 +228,7 @@ test.describe('Schedule immediate booking', () => {
 
   // ── Story 3: Valid class pass → immediate booking ─────────────────────────────
 
-  test('valid class pass: Book creates confirmed booking, decrements 1 credit, button becomes Modify Booking', async ({
+  test('valid class pass: Book creates confirmed booking, decrements 1 credit, button becomes Cancel Booking', async ({
     page,
     testData,
   }) => {
@@ -306,9 +306,11 @@ test.describe('Schedule immediate booking', () => {
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
-    // Button should become "Modify Booking"
+    // Single-slot class pass caps: public schedule can only cancel, not increase quantity.
+    const cancelBtn = await getLessonBookButton(page, scheduleTitle, /cancel booking/i)
+    await expect(cancelBtn).toBeVisible({ timeout: 15000 })
     const modifyBtn = await getLessonBookButton(page, scheduleTitle, /modify booking/i)
-    await expect(modifyBtn).toBeVisible({ timeout: 15000 })
+    await expect(modifyBtn).not.toBeVisible({ timeout: 5000 })
 
     // URL should remain on schedule
     await page.waitForTimeout(300)

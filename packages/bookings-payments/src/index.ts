@@ -3,6 +3,7 @@ export type {
   BookingsPaymentsPluginConfig,
   DropInsConfig,
   ClassPassConfig,
+  CoursesConfig,
   PaymentsConfig,
   MembershipConfig,
   GetSubscriptionBookingFeeCents,
@@ -19,6 +20,21 @@ export {
   resolveDaysUntilExpiration,
   classPassExpirationDateOnly,
 } from "./class-pass/utilities/class-pass-expiration";
+export {
+  computeEnrollmentAccessWindow,
+  resolveCourseDurationMode,
+} from "./course/utilities/compute-enrollment-access-window";
+export type {
+  CourseAccessWindowInput,
+  CourseDurationMode,
+  EnrollmentAccessWindow,
+} from "./course/utilities/compute-enrollment-access-window";
+export { validateCourseDurationMode } from "./course/utilities/validate-course-duration-mode";
+export { buildCourseEnrollmentFromPurchase } from "./course/utilities/build-course-enrollment-from-purchase";
+export type {
+  BuildCourseEnrollmentFromPurchaseArgs,
+  CourseEnrollmentCreateData,
+} from "./course/utilities/build-course-enrollment-from-purchase";
 export { paymentIntentSucceeded } from "./payments/webhooks/payment-intent-succeeded";
 export type { PaymentIntentSucceededArgs } from "./payments/webhooks/payment-intent-succeeded";
 export {
@@ -34,13 +50,18 @@ export {
   extendCheckoutHold,
   getActiveCheckoutHold,
   countActiveHoldQuantityForTimeslot,
+  computeCapacityBreakdownWithHolds,
   computeRemainingCapacityWithHolds,
   isHoldActive,
   isHoldWithinFulfillmentGrace,
   formatCapacityError as formatCheckoutHoldCapacityError,
 } from "./checkout-holds/service";
 export { fulfillCheckoutHold } from "./checkout-holds/fulfill";
-export type { CheckoutHoldRecord, UpsertCheckoutHoldResult } from "./checkout-holds/service";
+export type {
+  CapacityWithHoldsBreakdown,
+  CheckoutHoldRecord,
+  UpsertCheckoutHoldResult,
+} from "./checkout-holds/service";
 export type { FulfillCheckoutHoldResult } from "./checkout-holds/fulfill";
 export { bookingCheckoutHoldsCollection } from "./collections/booking-checkout-holds";
 // Payments endpoints

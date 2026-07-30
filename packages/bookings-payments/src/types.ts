@@ -129,6 +129,20 @@ export type MembershipConfig = {
 export type FeatureOption<T> = true | T;
 
 /**
+ * Courses feature config. When enabled, adds courses + course-enrollments collections
+ * and allowedCourses injection into event-types.
+ */
+export type CoursesConfig = {
+  enabled: boolean;
+  eventTypesSlug?: string;
+  adminGroup?: string;
+  /** Override access/fields/hooks for courses (e.g. tenant-scoped in multi-tenant apps). */
+  coursesOverrides?: CollectionOverrides;
+  /** Override access/fields/hooks for course-enrollments. */
+  courseEnrollmentsOverrides?: CollectionOverrides;
+};
+
+/**
  * Unified bookings-payments plugin config. Each feature accepts the same shape:
  * `true` (enable with defaults) or a config object.
  */
@@ -139,6 +153,8 @@ export type BookingsPaymentsPluginConfig = {
   classPass?: FeatureOption<ClassPassConfig>;
   /** Membership (subscriptions): `true` or `{ ...MembershipConfig }` */
   membership?: FeatureOption<MembershipConfig>;
+  /** Courses: `true` or `{ ...CoursesConfig }` */
+  courses?: FeatureOption<CoursesConfig>;
 };
 
 export type ClassPassLike = {
@@ -155,6 +171,8 @@ export type EventTypeLike = {
   paymentMethods?: {
     /** Relationship to class-pass-types (array of IDs or objects). Which pass types are accepted. */
     allowedClassPasses?: unknown[] | null;
+    /** Relationship to courses (array of IDs or objects). */
+    allowedCourses?: unknown[] | null;
     paymentsEnabled?: boolean;
   };
 };
