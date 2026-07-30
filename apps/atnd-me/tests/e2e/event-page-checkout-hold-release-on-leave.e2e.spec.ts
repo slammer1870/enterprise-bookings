@@ -307,7 +307,8 @@ test.describe('Event page: checkout hold release on leave (before card)', () => 
         ?.checkoutSessionId
       expect(checkoutSessionId).toBeTruthy()
 
-      await page.close()
+      // Default page.close() skips unload handlers — release listeners never run.
+      await page.close({ runBeforeUnload: true })
 
       // Unload release should clear the hold first.
       await expect
@@ -377,8 +378,9 @@ test.describe('Event page: checkout hold release on leave (before card)', () => 
         .poll(() => countActiveHoldsForTimeslot(payload, lessonId), { timeout: 20_000 })
         .toBeGreaterThanOrEqual(1)
 
-      // Hard exit (tab close) — relies on pagehide/beforeunload + beacon/XHR, not React cleanup.
-      await page.close()
+      // Hard exit (tab close) — production uses pagehide/beforeunload + beacon/XHR.
+      // Playwright's default page.close() skips unload handlers; run them explicitly.
+      await page.close({ runBeforeUnload: true })
 
       await expect
         .poll(() => countActiveHoldsForTimeslot(payload, lessonId), { timeout: 25_000 })
