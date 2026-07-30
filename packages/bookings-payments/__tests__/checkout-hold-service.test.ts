@@ -321,6 +321,62 @@ describe('checkout hold service', () => {
       expect(holds.filter((h) => h.status === 'active')).toHaveLength(0)
       expect(payload.create).not.toHaveBeenCalled()
     })
+
+    it('does not recreate capacity when release wins after the initial abandoned check (TOCTOU)', async () => {
+      holds.push({
+        id: 42,
+        user: USER_ID,
+        timeslot: TIMESLOT_ID,
+        tenant: TENANT_ID,
+        quantity: 1,
+        expiresAt: iso(now),
+        status: 'released',
+        checkoutSessionId: 'sess-race',
+      })
+      const payload = makePayload()
+      let releasedSessionLookups = 0
+      const innerFind = payload.find
+      payload.find = vi.fn().mockImplementation(async (args: {
+        collection: string
+        where?: Record<string, unknown>
+        limit?: number
+      }) => {
+        const clauses = Array.isArray((args.where as { and?: unknown[] } | undefined)?.and)
+          ? ((args.where as { and: Record<string, unknown>[] }).and)
+          : []
+        const statusEquals = clauses.find((c) => c.status && typeof c.status === 'object')
+        const sessionEquals = clauses.find(
+          (c) => c.checkoutSessionId && typeof c.checkoutSessionId === 'object',
+        )
+        const lookingForReleasedSession =
+          args.collection === 'booking-checkout-holds' &&
+          (statusEquals?.status as { equals?: string } | undefined)?.equals === 'released' &&
+          Boolean((sessionEquals?.checkoutSessionId as { equals?: string } | undefined)?.equals)
+
+        if (lookingForReleasedSession) {
+          releasedSessionLookups += 1
+          // First check: pretend the session is still live (release hasn't landed yet).
+          if (releasedSessionLookups === 1) {
+            return { docs: [], totalDocs: 0 }
+          }
+        }
+        return innerFind(args)
+      })
+
+      const result = await upsertCheckoutHold(payload as never, {
+        timeslotId: TIMESLOT_ID,
+        userId: USER_ID,
+        tenantId: TENANT_ID,
+        quantity: 1,
+        checkoutSessionId: 'sess-race',
+      })
+
+      expect(result.abandoned).toBe(true)
+      expect(result.quantity).toBe(0)
+      expect(holds.filter((h) => h.status === 'active')).toHaveLength(0)
+      expect(payload.create).not.toHaveBeenCalled()
+      expect(releasedSessionLookups).toBeGreaterThanOrEqual(2)
+    })
   })
 
   describe('adjustCheckoutHoldQuantity', () => {

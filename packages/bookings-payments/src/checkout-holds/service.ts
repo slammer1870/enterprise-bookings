@@ -343,6 +343,23 @@ export async function upsertCheckoutHold(
   })
 
   if (existing) {
+    // Release may have won the race after findUserActiveHold — don't revive capacity.
+    if (checkoutSessionId) {
+      const abandonedBeforeUpdate = await findReleasedHoldForSession(
+        payload,
+        { timeslotId: opts.timeslotId, userId, checkoutSessionId },
+        holdCollection,
+      )
+      if (abandonedBeforeUpdate) {
+        return {
+          holdId: abandonedBeforeUpdate.id,
+          quantity: 0,
+          expiresAt: abandonedBeforeUpdate.expiresAt,
+          abandoned: true,
+        }
+      }
+    }
+
     const updated = (await payload.update({
       collection: holdCollection,
       id: existing.id,
@@ -363,6 +380,25 @@ export async function upsertCheckoutHold(
     }
   }
 
+  // TOCTOU: unload release can mark the session released after the initial abandoned
+  // check and after findUserActiveHold returned null. Re-check before creating capacity
+  // so a late in-flight reserve cannot recreate an active hold after tab close.
+  if (checkoutSessionId) {
+    const abandonedBeforeCreate = await findReleasedHoldForSession(
+      payload,
+      { timeslotId: opts.timeslotId, userId, checkoutSessionId },
+      holdCollection,
+    )
+    if (abandonedBeforeCreate) {
+      return {
+        holdId: abandonedBeforeCreate.id,
+        quantity: 0,
+        expiresAt: abandonedBeforeCreate.expiresAt,
+        abandoned: true,
+      }
+    }
+  }
+
   const created = (await payload.create({
     collection: holdCollection,
     data: {
@@ -378,6 +414,29 @@ export async function upsertCheckoutHold(
     context: tenantContext,
     overrideAccess: true,
   })) as CheckoutHoldRecord
+
+  // Narrow window: release/tombstone landed between the re-check and create.
+  if (checkoutSessionId) {
+    const abandonedAfterCreate = await findReleasedHoldForSession(
+      payload,
+      { timeslotId: opts.timeslotId, userId, checkoutSessionId },
+      holdCollection,
+    )
+    if (abandonedAfterCreate && abandonedAfterCreate.id !== created.id) {
+      await payload.update({
+        collection: holdCollection,
+        id: created.id,
+        data: { status: 'released', checkoutSessionId },
+        overrideAccess: true,
+      })
+      return {
+        holdId: abandonedAfterCreate.id,
+        quantity: 0,
+        expiresAt: abandonedAfterCreate.expiresAt,
+        abandoned: true,
+      }
+    }
+  }
 
   return {
     holdId: created.id,
