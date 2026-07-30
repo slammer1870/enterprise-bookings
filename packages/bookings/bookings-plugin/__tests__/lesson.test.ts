@@ -21,7 +21,10 @@ import { NextRESTClient } from "@repo/payload-testing/src/helpers/NextRESTClient
 
 import { EventType, Timeslot } from "@repo/shared-types";
 
-import { futureTimeslotWindow, pastTimeslotWindow } from "./timeslot-fixtures";
+import {
+  earlierTodayTimeslotWindow,
+  futureTimeslotWindow,
+} from "./timeslot-fixtures";
 
 const TEST_TIMEOUT = 30000; // 30 seconds
 const HOOK_TIMEOUT = 300000; // 5 minutes for setup hooks (DB + Payload init can be slow under turbo parallelism)
@@ -265,7 +268,9 @@ describe("Timeslot tests", () => {
       const lesson = await payload.create({
         collection: "timeslots",
         data: {
-          ...pastTimeslotWindow(),
+          // Must be earlier today (not yesterday): anonymous REST read access
+          // filters startTime > startOfToday, so past calendar days 404.
+          ...earlierTodayTimeslotWindow(),
           eventType: eventType.id,
           location: "Test Location",
         },

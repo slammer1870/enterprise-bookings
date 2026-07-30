@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { futureTimeslotWindow, pastTimeslotWindow } from "./timeslot-fixtures";
+import {
+  earlierTodayTimeslotWindow,
+  futureTimeslotWindow,
+  pastTimeslotWindow,
+} from "./timeslot-fixtures";
 
 describe("timeslot fixtures", () => {
   beforeEach(() => {
@@ -28,5 +32,17 @@ describe("timeslot fixtures", () => {
 
     expect(window.endTime.getTime()).toBeLessThan(now);
     expect(window.startTime.getTime()).toBeLessThan(window.endTime.getTime());
+  });
+
+  it("keeps earlier-today windows readable under UTC startOfToday access", () => {
+    const now = Date.now();
+    const startOfTodayUtc = new Date(now);
+    startOfTodayUtc.setUTCHours(0, 0, 0, 0);
+
+    const window = earlierTodayTimeslotWindow();
+
+    expect(window.startTime.getTime()).toBeGreaterThan(startOfTodayUtc.getTime());
+    expect(window.startTime.getTime()).toBeLessThan(now);
+    expect(window.endTime.getTime()).toBeGreaterThan(window.startTime.getTime());
   });
 });
