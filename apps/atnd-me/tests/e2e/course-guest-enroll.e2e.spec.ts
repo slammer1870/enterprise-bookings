@@ -52,6 +52,7 @@ test.describe('Course guest enroll', () => {
         allowedEventTypes: [eventType.id],
         status: 'open',
         tenant: tenantId,
+        maxEnrollments: 2,
         priceInformation: { price: 80 },
       },
       overrideAccess: true,
@@ -60,6 +61,7 @@ test.describe('Course guest enroll', () => {
 
     await navigateToTenant(page, tenantSlug, `/courses/${slug}`)
     await expect(page.getByTestId('course-enroll-panel')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByTestId('course-places-remaining')).toContainText(/2 places left/i)
 
     await page.getByTestId('course-guest-name').fill(guestName)
     await page.getByTestId('course-guest-email').fill(guestEmail)
@@ -121,6 +123,11 @@ test.describe('Course guest enroll', () => {
         return enrollments.totalDocs
       }, { timeout: 15_000 })
       .toBe(1)
+
+    // Reload: capacity should drop after a successful purchase.
+    await navigateToTenant(page, tenantSlug, `/courses/${slug}`)
+    await expect(page.getByTestId('course-enroll-panel')).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByTestId('course-places-remaining')).toContainText(/1 place left/i)
   })
 
   test('guest cannot continue with incomplete email', async ({ page, testData }) => {

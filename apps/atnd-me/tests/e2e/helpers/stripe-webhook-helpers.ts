@@ -23,14 +23,17 @@ export function signStripeWebhookBody(body: string, secret = webhookSecret()): s
   return `t=${t},v1=${v1}`
 }
 
-function coursePurchasePaymentIntentEvent(args: {
+function paymentIntentSucceededEvent(args: {
   id: string
   account: string
   paymentIntentId: string
   metadata: Record<string, string>
+  amount?: number
+  requestId?: string
 }) {
   const apiVersion =
     process.env.STRIPE_API_VERSION?.trim() || '2026-02-25.clover'
+  const amount = args.amount ?? 7500
   return {
     id: args.id,
     object: 'event' as const,
@@ -40,9 +43,9 @@ function coursePurchasePaymentIntentEvent(args: {
       object: {
         id: args.paymentIntentId,
         object: 'payment_intent' as const,
-        amount: 7500,
-        amount_received: 7500,
-        application_fee_amount: 225,
+        amount,
+        amount_received: amount,
+        application_fee_amount: Math.max(1, Math.round(amount * 0.03)),
         currency: 'eur',
         customer: null,
         livemode: false,
@@ -53,10 +56,26 @@ function coursePurchasePaymentIntentEvent(args: {
     },
     livemode: false,
     pending_webhooks: 0,
-    request: { id: 'req_e2e_course', idempotency_key: null },
+    request: { id: args.requestId ?? 'req_e2e', idempotency_key: null },
     type: 'payment_intent.succeeded' as const,
     account: args.account,
   }
+}
+
+async function postSignedWebhook(
+  request: APIRequestContext,
+  event: unknown,
+): Promise<{ status: number; body: unknown }> {
+  const body = JSON.stringify(event)
+  const res = await request.post(`${BASE_URL}/api/stripe/webhook`, {
+    headers: {
+      'content-type': 'application/json',
+      'stripe-signature': signStripeWebhookBody(body),
+    },
+    data: body,
+  })
+  const json = await res.json().catch(() => ({}))
+  return { status: res.status(), body: json }
 }
 
 export async function postCoursePurchaseWebhook(
@@ -72,10 +91,11 @@ export async function postCoursePurchaseWebhook(
 ): Promise<{ status: number; body: unknown }> {
   const paymentIntentId =
     args.paymentIntentId ?? `pi_e2e_course_${args.courseId}_${Date.now()}`
-  const event = coursePurchasePaymentIntentEvent({
+  const event = paymentIntentSucceededEvent({
     id: args.eventId ?? `evt_e2e_course_${Date.now()}`,
     account: args.connectAccountId,
     paymentIntentId,
+    requestId: 'req_e2e_course',
     metadata: {
       type: 'course_purchase',
       userId: String(args.userId),
@@ -83,14 +103,41 @@ export async function postCoursePurchaseWebhook(
       courseId: String(args.courseId),
     },
   })
-  const body = JSON.stringify(event)
-  const res = await request.post(`${BASE_URL}/api/stripe/webhook`, {
-    headers: {
-      'content-type': 'application/json',
-      'stripe-signature': signStripeWebhookBody(body),
+  return postSignedWebhook(request, event)
+}
+
+/**
+ * Simulate payment_intent.succeeded for an event/drop-in checkout hold.
+ * Webhook fulfills the hold into confirmed bookings (same path as live Stripe).
+ */
+export async function postHoldFulfillmentWebhook(
+  request: APIRequestContext,
+  args: {
+    connectAccountId: string
+    userId: number
+    tenantId: number
+    holdId: number
+    paymentIntentId?: string
+    eventId?: string
+    timeslotId?: number
+    quantity?: number
+  },
+): Promise<{ status: number; body: unknown }> {
+  const paymentIntentId =
+    args.paymentIntentId ?? `pi_e2e_hold_${args.holdId}_${Date.now()}`
+  const event = paymentIntentSucceededEvent({
+    id: args.eventId ?? `evt_e2e_hold_${Date.now()}`,
+    account: args.connectAccountId,
+    paymentIntentId,
+    requestId: 'req_e2e_hold',
+    amount: Math.max(100, (args.quantity ?? 1) * 1500),
+    metadata: {
+      userId: String(args.userId),
+      tenantId: String(args.tenantId),
+      holdId: String(args.holdId),
+      ...(args.timeslotId != null ? { timeslotId: String(args.timeslotId) } : {}),
+      ...(args.quantity != null ? { quantity: String(args.quantity) } : {}),
     },
-    data: body,
   })
-  const json = await res.json().catch(() => ({}))
-  return { status: res.status(), body: json }
+  return postSignedWebhook(request, event)
 }
