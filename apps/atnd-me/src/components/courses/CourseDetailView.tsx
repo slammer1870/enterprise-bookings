@@ -1,12 +1,18 @@
+import Image from 'next/image'
+import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
 import { currentUser } from '@/lib/auth/context/get-context-props'
+import RichText from '@/components/RichText'
 import { CourseEnrollPanel } from '@/components/courses/CourseEnrollPanel'
 import { formatCourseAccessWindowCopy } from '@/lib/courses/format-course-access-window'
+import { mediaUrl } from '@/components/events/eventPageTypes'
+import type { Media } from '@/payload-types'
 
 export type CourseDetailDoc = {
   id: number
   title?: string | null
   slug?: string | null
-  about?: string | null
+  about?: DefaultTypedEditorState | null
+  coverImage?: (number | null) | Media
   status?: string | null
   startDate?: string | null
   endDate?: string | null
@@ -37,11 +43,30 @@ export async function CourseDetailView({
       : null
   const remaining = max == null ? null : Math.max(0, max - activeEnrollmentCount)
   const isOpen = course.status === 'open'
+  const cover =
+    course.coverImage && typeof course.coverImage === 'object'
+      ? (course.coverImage as Media)
+      : null
+  const coverUrl = mediaUrl(cover)
+  const about = course.about ?? null
 
   return (
     <div className="pt-24 pb-8">
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-x-8 lg:gap-y-6 lg:items-start">
-        <header className="order-2 space-y-1.5 lg:col-start-1 lg:order-1">
+        {coverUrl ? (
+          <div className="relative order-1 aspect-[21/9] w-full overflow-hidden rounded-xl md:aspect-[3/1] lg:col-span-2">
+            <Image
+              src={coverUrl}
+              alt={cover?.alt || title}
+              fill
+              sizes="(max-width: 1024px) 100vw, 1024px"
+              className="object-cover"
+              priority
+            />
+          </div>
+        ) : null}
+
+        <header className="order-2 space-y-1.5 lg:col-start-1">
           {accessWindowLabel ? (
             <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
               {accessWindowLabel}
@@ -68,7 +93,7 @@ export async function CourseDetailView({
           ) : null}
         </header>
 
-        <div className="order-1 lg:order-2 lg:col-start-2 lg:row-span-2 lg:self-start lg:sticky lg:top-24">
+        <div className="order-3 lg:col-start-2 lg:row-span-2 lg:self-start lg:sticky lg:top-24">
           <CourseEnrollPanel
             courseId={course.id}
             price={price}
@@ -80,9 +105,9 @@ export async function CourseDetailView({
           />
         </div>
 
-        {course.about?.trim() ? (
-          <section className="order-3 lg:col-start-1">
-            <p className="whitespace-pre-wrap text-muted-foreground">{course.about}</p>
+        {about ? (
+          <section className="order-4 lg:col-start-1">
+            <RichText data={about} enableGutter={false} />
           </section>
         ) : null}
       </div>

@@ -31,7 +31,35 @@ test.describe('Courses listing', () => {
         status: 'open',
         tenant: tenantId,
         priceInformation: { price: 75 },
-        about: 'Learn the fundamentals in six weeks.',
+        about: {
+          root: {
+            type: 'root',
+            format: '',
+            indent: 0,
+            version: 1,
+            direction: 'ltr',
+            children: [
+              {
+                type: 'paragraph',
+                format: '',
+                indent: 0,
+                version: 1,
+                direction: 'ltr',
+                children: [
+                  {
+                    type: 'text',
+                    detail: 0,
+                    format: 0,
+                    mode: 'normal',
+                    style: '',
+                    text: 'Learn the fundamentals in six weeks.',
+                    version: 1,
+                  },
+                ],
+              },
+            ],
+          },
+        },
       },
       overrideAccess: true,
       context: { skipStripeSync: true },

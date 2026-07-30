@@ -22,7 +22,7 @@ export const queryOpenCourses = cache(async (): Promise<CourseDetailDoc[]> => {
     },
     sort: 'title',
     limit: 50,
-    depth: 0,
+    depth: 1,
     overrideAccess: true,
   })
 
@@ -48,7 +48,7 @@ export const queryCourseBySlug = cache(
         ],
       },
       limit: 1,
-      depth: 0,
+      depth: 1,
       overrideAccess: true,
     })
 

@@ -1230,17 +1230,39 @@ export interface Course {
   /**
    * Course description shown on the public detail page About section.
    */
-  about?: string | null;
+  about?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   /**
-   * Fixed cohort start. Use with end date (not with duration).
+   * Hero cover for the course listing and detail pages.
+   */
+  coverImage?: (number | null) | Media;
+  /**
+   * Choose one: fixed cohort dates, or access length starting from purchase.
+   */
+  accessWindowMode: 'fixed' | 'duration';
+  /**
+   * Fixed cohort start date.
    */
   startDate?: string | null;
   /**
-   * Fixed cohort end. Use with start date (not with duration).
+   * Fixed cohort end date.
    */
   endDate?: string | null;
   /**
-   * Purchase-relative length (e.g. 8). Use with duration unit (not with fixed dates).
+   * Access length from purchase (e.g. 8).
    */
   durationLength?: number | null;
   /**
@@ -4584,6 +4606,8 @@ export interface CoursesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   about?: T;
+  coverImage?: T;
+  accessWindowMode?: T;
   startDate?: T;
   endDate?: T;
   durationLength?: T;

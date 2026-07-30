@@ -7,6 +7,7 @@ import {
   coursesUpdateAccess,
   coursesDeleteAccess,
 } from "../access/courses";
+import { resolveCourseDurationMode } from "../utilities/compute-enrollment-access-window";
 import { validateCourseDurationMode } from "../utilities/validate-course-duration-mode";
 import type { CollectionOverrides } from "../../types";
 
@@ -39,6 +40,39 @@ const STATUS_OPTIONS = [
   { label: "Archived", value: "archived" },
 ] as const;
 
+type CourseAccessWindowMode = "fixed" | "duration";
+
+function isAccessWindowMode(value: unknown): value is CourseAccessWindowMode {
+  return value === "fixed" || value === "duration";
+}
+
+/** Clear the unused mode so fixed dates and duration stay mutually exclusive. */
+function applyAccessWindowMode(
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  let mode = isAccessWindowMode(data.accessWindowMode)
+    ? data.accessWindowMode
+    : undefined;
+
+  if (!mode) {
+    const resolved = resolveCourseDurationMode(data);
+    if (resolved === "fixed" || resolved === "duration") {
+      mode = resolved;
+      data.accessWindowMode = mode;
+    }
+  }
+
+  if (mode === "fixed") {
+    data.durationLength = null;
+    data.durationUnit = null;
+  } else if (mode === "duration") {
+    data.startDate = null;
+    data.endDate = null;
+  }
+
+  return data;
+}
+
 export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
   const eventTypesSlug = opts.eventTypesSlug ?? "event-types";
   const adminGroup = opts.adminGroup ?? "Products";
@@ -64,10 +98,35 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
     {
       name: "about",
       label: "About",
-      type: "textarea",
+      type: "richText",
       required: false,
       admin: {
         description: "Course description shown on the public detail page About section.",
+      },
+    },
+    {
+      name: "coverImage",
+      label: "Cover image",
+      type: "upload",
+      relationTo: "media",
+      required: false,
+      admin: {
+        description: "Hero cover for the course listing and detail pages.",
+      },
+    },
+    {
+      name: "accessWindowMode",
+      label: "Access window",
+      type: "radio",
+      required: true,
+      options: [
+        { label: "Fixed start & end dates", value: "fixed" },
+        { label: "Duration from purchase", value: "duration" },
+      ],
+      admin: {
+        description:
+          "Choose one: fixed cohort dates, or access length starting from purchase.",
+        layout: "horizontal",
       },
     },
     {
@@ -76,8 +135,11 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
       type: "date",
       required: false,
       admin: {
-        description: "Fixed cohort start. Use with end date (not with duration).",
+        description: "Fixed cohort start date.",
         date: { pickerAppearance: "dayOnly" },
+        condition: (_data, siblingData) =>
+          (siblingData as { accessWindowMode?: string })?.accessWindowMode ===
+          "fixed",
       },
     },
     {
@@ -86,8 +148,11 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
       type: "date",
       required: false,
       admin: {
-        description: "Fixed cohort end. Use with start date (not with duration).",
+        description: "Fixed cohort end date.",
         date: { pickerAppearance: "dayOnly" },
+        condition: (_data, siblingData) =>
+          (siblingData as { accessWindowMode?: string })?.accessWindowMode ===
+          "fixed",
       },
     },
     {
@@ -97,7 +162,10 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
       required: false,
       min: 1,
       admin: {
-        description: "Purchase-relative length (e.g. 8). Use with duration unit (not with fixed dates).",
+        description: "Access length from purchase (e.g. 8).",
+        condition: (_data, siblingData) =>
+          (siblingData as { accessWindowMode?: string })?.accessWindowMode ===
+          "duration",
       },
     },
     {
@@ -112,6 +180,9 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
       defaultValue: "weeks",
       admin: {
         description: "Unit for purchase-relative duration.",
+        condition: (_data, siblingData) =>
+          (siblingData as { accessWindowMode?: string })?.accessWindowMode ===
+          "duration",
       },
     },
     {
@@ -180,9 +251,33 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
 
   const defaultHooks: NonNullable<CollectionConfig["hooks"]> = {
     beforeValidate: [
-      (async ({ data }) => {
+      (async ({ data, originalDoc }) => {
         if (!data || typeof data !== "object") return data;
-        const result = validateCourseDurationMode(data);
+
+        const merged: Record<string, unknown> = {
+          ...(originalDoc && typeof originalDoc === "object"
+            ? (originalDoc as Record<string, unknown>)
+            : {}),
+          ...(data as Record<string, unknown>),
+        };
+
+        applyAccessWindowMode(merged);
+
+        const mode = isAccessWindowMode(merged.accessWindowMode)
+          ? merged.accessWindowMode
+          : undefined;
+        if (mode) {
+          ;(data as Record<string, unknown>).accessWindowMode = mode;
+          if (mode === "fixed") {
+            ;(data as Record<string, unknown>).durationLength = null;
+            ;(data as Record<string, unknown>).durationUnit = null;
+          } else {
+            ;(data as Record<string, unknown>).startDate = null;
+            ;(data as Record<string, unknown>).endDate = null;
+          }
+        }
+
+        const result = validateCourseDurationMode(merged);
         if (result !== true) {
           throw new Error(result);
         }
@@ -206,7 +301,14 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
     labels: { singular: "Course", plural: "Courses" },
     admin: {
       useAsTitle: "title",
-      defaultColumns: ["title", "slug", "status", "startDate", "endDate"],
+      defaultColumns: [
+        "title",
+        "slug",
+        "status",
+        "accessWindowMode",
+        "startDate",
+        "endDate",
+      ],
       group: adminGroup,
       description:
         "Courses grant enrolled users free booking of allowed event types during an access window.",

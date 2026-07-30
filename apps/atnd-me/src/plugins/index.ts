@@ -99,6 +99,7 @@ import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { courseEmailsField } from '@/fields/courseEmailFields'
+import { simpleLexical } from '@/fields/simpleLexical'
 import { triggerCourseEmailAfterChange } from '@/lib/course-email/maybe-trigger-course-email'
 import { sortAdminNavGroupsPlugin } from './sort-admin-nav-groups'
 import { userDataImportExportPlugin } from './import-export'
@@ -848,6 +849,9 @@ export const plugins: Plugin[] = [
           [
             ...defaultFields.map((field) => {
               const name = 'name' in field ? field.name : undefined
+              if (name === 'about' && field.type === 'richText') {
+                return { ...field, editor: simpleLexical }
+              }
               if (name === 'priceInformation' || name === 'stripeProductId') {
                 return name === 'priceInformation'
                   ? withNestedFieldAccess(field, adminOrTenantAdminFieldAccess)

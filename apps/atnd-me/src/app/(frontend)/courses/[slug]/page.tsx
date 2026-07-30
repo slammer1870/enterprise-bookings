@@ -14,7 +14,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
   if (!result) notFound()
 
   return (
-    <div className="container mx-auto max-w-5xl px-4">
+    <div className="container mx-auto">
       <CourseDetailView
         course={result.course}
         activeEnrollmentCount={result.activeEnrollmentCount}
