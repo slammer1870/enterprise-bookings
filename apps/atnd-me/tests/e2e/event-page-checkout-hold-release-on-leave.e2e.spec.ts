@@ -418,7 +418,10 @@ test.describe('Event page: checkout hold release on leave (before card)', () => 
       )
       .toBeGreaterThanOrEqual(1)
 
-    await expect(page.getByTestId('stripe-not-configured').or(page.getByText(/payment methods/i).first())).toBeVisible({
+    // Test mode: mock PI — same signal as guest cases. Do not `.or()` with
+    // "Payment Methods" text; that heading can be visible at the same time and
+    // trips Playwright strict mode.
+    await expect(page.getByTestId('stripe-not-configured')).toBeVisible({
       timeout: 20_000,
     })
 
