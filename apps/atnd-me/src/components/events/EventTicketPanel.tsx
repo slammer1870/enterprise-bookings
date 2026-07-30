@@ -599,7 +599,7 @@ export function EventTicketPanel({
         />
       </div>
 
-      {feeBreakdown && !isAuthenticated ? (
+      {feeBreakdown ? (
         <div className="mt-4">
           <BookingFeeBreakdown
             classPriceCents={feeBreakdown.classPriceCents}

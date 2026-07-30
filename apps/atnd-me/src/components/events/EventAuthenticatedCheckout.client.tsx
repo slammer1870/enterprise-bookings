@@ -111,6 +111,9 @@ export function EventAuthenticatedCheckout({
       quantity={quantity}
       successUrl={successUrl}
       enabledMethods={['dropin']}
+      // EventTicketPanel already renders BookingFeeBreakdown; keep a no-op so
+      // DropInCheckoutWithFee still shows the fee-inclusive Total.
+      FeeBreakdownComponent={() => null}
       onReserveCheckoutHold={onReserveCheckoutHold}
       onPaymentRedirectStart={() => {
         paymentRedirectInProgressRef.current = true

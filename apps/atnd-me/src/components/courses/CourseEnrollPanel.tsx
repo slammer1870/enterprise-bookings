@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { CheckoutForm } from '@repo/payments-next'
+import { BookingFeeBreakdown } from '@/components/booking/BookingFeeBreakdown'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,11 +38,48 @@ export function CourseEnrollPanel({
   const [guestEmail, setGuestEmail] = useState('')
   const [settledGuest, setSettledGuest] = useState<{ name: string; email: string } | null>(null)
   const [guestFormError, setGuestFormError] = useState<string | null>(null)
+  const [feeBreakdown, setFeeBreakdown] = useState<{
+    classPriceCents: number
+    bookingFeeCents: number
+    totalCents: number
+  } | null>(null)
 
   const soldOut = remainingEnrollments != null && remainingEnrollments <= 0
   const places = placesLabel(remainingEnrollments)
   const emphasizePlaces =
     remainingEnrollments != null && remainingEnrollments > 0 && remainingEnrollments <= 6
+  const classPriceCents = Math.round(price * 100)
+
+  useEffect(() => {
+    if (!isOpen || soldOut || price <= 0) {
+      setFeeBreakdown(null)
+      return
+    }
+    const controller = new AbortController()
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/courses/fee-breakdown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({ courseId, classPriceCents }),
+        })
+        if (!res.ok) return
+        const data = (await res.json()) as {
+          classPriceCents: number
+          bookingFeeCents: number
+          totalCents: number
+        }
+        setFeeBreakdown(data)
+      } catch {
+        // ignore abort / network
+      }
+    }, 200)
+    return () => {
+      controller.abort()
+      clearTimeout(timer)
+    }
+  }, [classPriceCents, courseId, isOpen, price, soldOut])
 
   if (!isOpen) {
     return (
@@ -95,8 +133,11 @@ export function CourseEnrollPanel({
     setSettledGuest({ name, email })
   }
 
+  const totalDisplayCents = feeBreakdown?.totalCents ?? classPriceCents
   const priceComponent = (
-    <div className="my-2 text-lg font-medium">Total: €{price.toFixed(2)}</div>
+    <div className="my-2 text-lg font-medium">
+      Total: €{(totalDisplayCents / 100).toFixed(2)}
+    </div>
   )
 
   return (
@@ -126,6 +167,15 @@ export function CourseEnrollPanel({
         >
           {places}
         </p>
+      ) : null}
+
+      {feeBreakdown ? (
+        <div className="mt-4">
+          <BookingFeeBreakdown
+            classPriceCents={feeBreakdown.classPriceCents}
+            bookingFeeCents={feeBreakdown.bookingFeeCents}
+          />
+        </div>
       ) : null}
 
       {isAuthenticated ? (

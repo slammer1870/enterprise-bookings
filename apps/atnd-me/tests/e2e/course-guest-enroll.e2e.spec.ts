@@ -62,6 +62,10 @@ test.describe('Course guest enroll', () => {
     await navigateToTenant(page, tenantSlug, `/courses/${slug}`)
     await expect(page.getByTestId('course-enroll-panel')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByTestId('course-places-remaining')).toContainText(/2 places left/i)
+    await expect(page.getByTestId('booking-fee-breakdown')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('class-price')).toContainText('€80.00')
+    await expect(page.getByTestId('booking-fee')).toBeVisible()
+    await expect(page.getByTestId('total')).toBeVisible()
 
     await page.getByTestId('course-guest-name').fill(guestName)
     await page.getByTestId('course-guest-email').fill(guestEmail)
