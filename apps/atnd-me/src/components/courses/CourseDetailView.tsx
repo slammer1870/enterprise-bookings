@@ -93,7 +93,7 @@ export async function CourseDetailView({
           ) : null}
         </header>
 
-        <div className="order-3 lg:col-start-2 lg:row-span-2 lg:self-start lg:sticky lg:top-24">
+        <div className="order-3 lg:col-start-2 lg:row-span-3 lg:self-start lg:sticky lg:top-24">
           <CourseEnrollPanel
             courseId={course.id}
             price={price}
@@ -106,9 +106,11 @@ export async function CourseDetailView({
         </div>
 
         {about ? (
-          <section className="order-4 lg:col-start-1">
-            <RichText data={about} enableGutter={false} />
-          </section>
+          <div className="order-4 space-y-6 lg:col-start-1">
+            <section>
+              <RichText data={about} enableGutter={false} />
+            </section>
+          </div>
         ) : null}
       </div>
     </div>
