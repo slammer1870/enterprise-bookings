@@ -306,7 +306,8 @@ describe('checkout hold service', () => {
 
       expect(result.holdId).toBe(1)
       expect(holds.filter((h) => h.status === 'active')).toHaveLength(1)
-      expect(holds.find((h) => h.id === 77)?.status).toBe('released')
+      expect(holds.find((h) => h.id === 77)?.status).toBe('expired')
+      expect(holds.find((h) => h.id === 77)?.checkoutSessionId ?? null).toBeNull()
     })
   })
 
@@ -385,6 +386,44 @@ describe('checkout hold service', () => {
       expect(result.quantity).toBe(0)
       expect(holds.filter((h) => h.status === 'active')).toHaveLength(0)
       expect(payload.create).not.toHaveBeenCalled()
+    })
+
+    it('clears leftover active holds when the session tombstone already exists', async () => {
+      holds.push(
+        {
+          id: 9,
+          user: USER_ID,
+          timeslot: TIMESLOT_ID,
+          tenant: TENANT_ID,
+          quantity: 1,
+          expiresAt: iso(now + HOLD_TTL_MS),
+          status: 'released',
+          checkoutSessionId: 'sess-abandon',
+        },
+        {
+          id: 10,
+          user: USER_ID,
+          timeslot: TIMESLOT_ID,
+          tenant: TENANT_ID,
+          quantity: 1,
+          expiresAt: iso(now + HOLD_TTL_MS),
+          status: 'active',
+          checkoutSessionId: 'sess-other',
+        },
+      )
+      const payload = makePayload()
+
+      const result = await upsertCheckoutHold(payload as never, {
+        timeslotId: TIMESLOT_ID,
+        userId: USER_ID,
+        tenantId: TENANT_ID,
+        quantity: 1,
+        checkoutSessionId: 'sess-abandon',
+      })
+
+      expect(result.abandoned).toBe(true)
+      expect(holds.find((h) => h.id === 10)?.status).toBe('released')
+      expect(holds.filter((h) => h.status === 'active')).toHaveLength(0)
     })
 
     it('does not recreate capacity when release wins after the initial abandoned check (TOCTOU)', async () => {

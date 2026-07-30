@@ -316,6 +316,13 @@ export async function upsertCheckoutHold(
       holdCollection,
     )
     if (abandoned) {
+      // A concurrent create may still be active beside the tombstone — clear it.
+      await releaseActiveHoldsForUserTimeslot(payload, {
+        timeslotId: opts.timeslotId,
+        userId,
+        holdCollection,
+        checkoutSessionId,
+      })
       return {
         holdId: abandoned.id,
         quantity: 0,
@@ -351,6 +358,12 @@ export async function upsertCheckoutHold(
         holdCollection,
       )
       if (abandonedBeforeUpdate) {
+        await releaseActiveHoldsForUserTimeslot(payload, {
+          timeslotId: opts.timeslotId,
+          userId,
+          holdCollection,
+          checkoutSessionId,
+        })
         return {
           holdId: abandonedBeforeUpdate.id,
           quantity: 0,
@@ -360,23 +373,97 @@ export async function upsertCheckoutHold(
       }
     }
 
-    const updated = (await payload.update({
-      collection: holdCollection,
-      id: existing.id,
-      data: {
-        quantity,
-        expiresAt,
-        tenant: opts.tenantId,
-        ...(checkoutSessionId ? { checkoutSessionId } : {}),
-      },
-      context: tenantContext,
-      overrideAccess: true,
-    })) as CheckoutHoldRecord
+    // Re-read: unload release can flip this row to released between checks and update.
+    const stillActive = await findUserActiveHold(
+      payload,
+      { timeslotId: opts.timeslotId, userId },
+      holdCollection,
+    )
+    if (!stillActive || stillActive.id !== existing.id) {
+      if (checkoutSessionId) {
+        const abandonedAfterRace = await findReleasedHoldForSession(
+          payload,
+          { timeslotId: opts.timeslotId, userId, checkoutSessionId },
+          holdCollection,
+        )
+        if (abandonedAfterRace) {
+          return {
+            holdId: abandonedAfterRace.id,
+            quantity: 0,
+            expiresAt: abandonedAfterRace.expiresAt,
+            abandoned: true,
+          }
+        }
+      }
+      // Fall through to create with a fresh row.
+    } else {
+      const updated = (await payload.update({
+        collection: holdCollection,
+        id: existing.id,
+        data: {
+          quantity,
+          expiresAt,
+          tenant: opts.tenantId,
+          // Do not set status: 'active' — that would revive a row released between
+          // stillActive and this write.
+          ...(checkoutSessionId ? { checkoutSessionId } : {}),
+        },
+        context: tenantContext,
+        overrideAccess: true,
+      })) as CheckoutHoldRecord
 
-    return {
-      holdId: updated.id,
-      quantity: updated.quantity,
-      expiresAt: updated.expiresAt,
+      // If unload release won, this row is released (update did not flip status).
+      if (!isHoldActive(updated)) {
+        if (checkoutSessionId) {
+          const abandonedReleased = await findReleasedHoldForSession(
+            payload,
+            { timeslotId: opts.timeslotId, userId, checkoutSessionId },
+            holdCollection,
+          )
+          if (abandonedReleased) {
+            return {
+              holdId: abandonedReleased.id,
+              quantity: 0,
+              expiresAt: abandonedReleased.expiresAt,
+              abandoned: true,
+            }
+          }
+        }
+        // Unexpected non-active state — treat as no hold and fall through to create.
+      } else if (checkoutSessionId) {
+        // Unload release may have planted a tombstone (different row) during the update.
+        const abandonedAfterUpdate = await findReleasedHoldForSession(
+          payload,
+          { timeslotId: opts.timeslotId, userId, checkoutSessionId },
+          holdCollection,
+        )
+        if (abandonedAfterUpdate && abandonedAfterUpdate.id !== updated.id) {
+          await payload.update({
+            collection: holdCollection,
+            id: updated.id,
+            data: { status: 'released', checkoutSessionId },
+            overrideAccess: true,
+          })
+          return {
+            holdId: abandonedAfterUpdate.id,
+            quantity: 0,
+            expiresAt: abandonedAfterUpdate.expiresAt,
+            abandoned: true,
+          }
+        }
+
+        return {
+          holdId: updated.id,
+          quantity: updated.quantity,
+          expiresAt: updated.expiresAt,
+        }
+      } else {
+        return {
+          holdId: updated.id,
+          quantity: updated.quantity,
+          expiresAt: updated.expiresAt,
+        }
+      }
     }
   }
 
@@ -390,6 +477,12 @@ export async function upsertCheckoutHold(
       holdCollection,
     )
     if (abandonedBeforeCreate) {
+      await releaseActiveHoldsForUserTimeslot(payload, {
+        timeslotId: opts.timeslotId,
+        userId,
+        holdCollection,
+        checkoutSessionId,
+      })
       return {
         holdId: abandonedBeforeCreate.id,
         quantity: 0,
@@ -438,8 +531,9 @@ export async function upsertCheckoutHold(
     }
   }
 
-  // Concurrent Continue + CheckoutForm / restore races can create two active rows for the
-  // same user+timeslot (find-then-create is not atomic). Keep this row; release extras.
+  // Concurrent Continue + CheckoutForm races can create two active rows for the same
+  // user+timeslot. Expire extras (not `released`) so we don't plant same-session
+  // tombstones that confuse findReleasedHoldForSession beside an active winner.
   const duplicates = await payload.find({
     collection: holdCollection,
     where: {
@@ -460,7 +554,11 @@ export async function upsertCheckoutHold(
     await payload.update({
       collection: holdCollection,
       id: dup.id,
-      data: { status: 'released' },
+      data: {
+        status: 'expired',
+        checkoutSessionId: null,
+        expiresAt: new Date().toISOString(),
+      },
       overrideAccess: true,
     })
   }
@@ -469,6 +567,43 @@ export async function upsertCheckoutHold(
     holdId: created.id,
     quantity: created.quantity,
     expiresAt: created.expiresAt,
+  }
+}
+
+async function releaseActiveHoldsForUserTimeslot(
+  payload: PayloadLike,
+  opts: {
+    timeslotId: number
+    userId: number
+    holdCollection: CollectionSlug
+    checkoutSessionId?: string | null
+  },
+): Promise<void> {
+  const nowIso = new Date().toISOString()
+  const active = await payload.find({
+    collection: opts.holdCollection,
+    where: {
+      and: [
+        { timeslot: { equals: opts.timeslotId } },
+        { user: { equals: opts.userId } },
+        { status: { equals: 'active' } },
+        { expiresAt: { greater_than: nowIso } },
+      ],
+    },
+    limit: 100,
+    depth: 0,
+    overrideAccess: true,
+  })
+  for (const doc of (active.docs ?? []) as CheckoutHoldRecord[]) {
+    await payload.update({
+      collection: opts.holdCollection,
+      id: doc.id,
+      data: {
+        status: 'released',
+        ...(opts.checkoutSessionId ? { checkoutSessionId: opts.checkoutSessionId } : {}),
+      },
+      overrideAccess: true,
+    })
   }
 }
 
@@ -525,15 +660,14 @@ export async function releaseCheckoutHold(
 
   const docs = (active.docs ?? []) as CheckoutHoldRecord[]
   for (const doc of docs) {
-    // Mark released (keep session id) so late in-flight upserts for this attempt are no-ops.
+    // Always stamp the leaving session id so late upserts for this attempt are no-ops,
+    // even if a concurrent upsert overwrote checkoutSessionId mid-flight.
     await payload.update({
       collection: holdCollection,
       id: doc.id,
       data: {
         status: 'released',
-        ...(checkoutSessionId && !doc.checkoutSessionId
-          ? { checkoutSessionId }
-          : {}),
+        ...(checkoutSessionId ? { checkoutSessionId } : {}),
       },
       overrideAccess: true,
     })

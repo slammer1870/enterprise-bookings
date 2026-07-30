@@ -647,11 +647,11 @@ export function EventTicketPanel({
               </p>
             ) : null}
 
-            {!settledGuest ? (
+            {!settledGuest || isReserving || ownHoldQuantity <= 0 ? (
               <Button
                 type="submit"
                 className="w-full"
-                disabled={!canContinue || isReserving}
+                disabled={!canContinue || isReserving || Boolean(settledGuest)}
                 data-testid="guest-checkout-continue"
               >
                 {isReserving ? 'Reserving…' : 'Continue to payment'}
@@ -659,7 +659,7 @@ export function EventTicketPanel({
             ) : null}
           </form>
 
-          {settledGuest ? (
+          {settledGuest && !isReserving && ownHoldQuantity > 0 ? (
             <CheckoutForm
               price={classPrice}
               priceComponent={
@@ -685,11 +685,13 @@ export function EventTicketPanel({
                 checkoutSessionId: settledGuest.checkoutSessionId,
               }}
             />
-          ) : (
+          ) : settledGuest && isReserving ? (
+            <p className="text-sm text-muted-foreground">Reserving your places…</p>
+          ) : !settledGuest ? (
             <p className="text-sm text-muted-foreground">
               Enter your details, then continue when your email is complete.
             </p>
-          )}
+          ) : null}
         </div>
       )}
     </aside>
