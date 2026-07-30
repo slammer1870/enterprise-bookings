@@ -439,7 +439,7 @@ export const plugins: Plugin[] = [
           views: {
             list: {
               Component:
-                '@repo/bookings-plugin/src/components/lessons/timeslot-admin#TimeslotAdmin',
+                '@/components/timeslot-admin/TimeslotAdmin#TimeslotAdmin',
             },
           },
         },
@@ -1087,6 +1087,7 @@ export const plugins: Plugin[] = [
       'discount-codes': {}, // Phase 4.5: Stripe coupons + promotion codes; tenant-scoped
       'post-booking-email-deliveries': {}, // Post-booking email idempotency tracking
       'course-email-deliveries': {}, // Course email idempotency tracking
+      'emergency-contacts': {}, // Family emergency contacts per account holder
       locations: {}, // Phase 7: branches/sites per tenant; tenant-scoped
       subscriptions: {}, // User subscriptions; tenant-scoped
       media: {}, // Tenant-scoped media uploads
@@ -1130,6 +1131,7 @@ export const plugins: Plugin[] = [
       'forms',
       'form-submissions',
       'scheduler',
+      'emergency-contacts',
     ],
     collectionsCreateRequireTenantForTenantAdmin: ['pages', 'posts', 'navbar', 'footer'],
     collectionsWithTenantField: [
@@ -1156,6 +1158,7 @@ export const plugins: Plugin[] = [
       'forms',
       'form-submissions',
       'scheduler',
+      'emergency-contacts',
     ],
     documentTenantFieldName: 'tenant',
     // Used by the selector→document sync hook. We want tenant-admin autosave drafts

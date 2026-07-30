@@ -2,7 +2,7 @@ import { default as default_c460fff066f5db6b45826c32f5c7748e } from '@/component
 import { default as default_2a89e3b2de91cb0ec6b364df0983fbdc } from '@/components/admin/SyncBranchFieldToPayloadLocationCookie'
 import { SyncTenantSelectorToFormField as SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611 } from '@repo/plugin-clearable-tenant/client'
 import { AssignTenantFieldTrigger as AssignTenantFieldTrigger_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
-import { TimeslotAdmin as TimeslotAdmin_3ef87d1a74d531e63f91140f7dc9d197 } from '@repo/bookings-plugin/src/components/lessons/timeslot-admin'
+import { TimeslotAdmin as TimeslotAdmin_4edb8e9e024eaa7eec297510e069ebc1 } from '@/components/timeslot-admin/TimeslotAdmin'
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { SchedulerTimeSlotFormCleanup as SchedulerTimeSlotFormCleanup_cc812fa1f4d64b1b2d70f2eab2ce5776 } from '@/components/admin/SchedulerTimeSlotFormCleanup'
 import { SchedulerGenerationStatusField as SchedulerGenerationStatusField_c37ffb6f251eeb86340ae663ecf1fc0e } from '@/components/admin/SchedulerGenerationStatusField'
@@ -16,10 +16,10 @@ import { HorizontalRuleFeatureClient as HorizontalRuleFeatureClient_e70f5e05f09f
 import { InlineToolbarFeatureClient as InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { FixedToolbarFeatureClient as FixedToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { BlocksFeatureClient as BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
+import { LinkFeatureClient as LinkFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { UploadFeatureClient as UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { BlockquoteFeatureClient as BlockquoteFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { RelationshipFeatureClient as RelationshipFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
-import { LinkFeatureClient as LinkFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ChecklistFeatureClient as ChecklistFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { OrderedListFeatureClient as OrderedListFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { UnorderedListFeatureClient as UnorderedListFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
@@ -101,7 +101,7 @@ export const importMap = {
   "@/components/admin/SyncBranchFieldToPayloadLocationCookie#default": default_2a89e3b2de91cb0ec6b364df0983fbdc,
   "@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField": SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611,
   "@payloadcms/plugin-multi-tenant/client#AssignTenantFieldTrigger": AssignTenantFieldTrigger_1d0591e3cf4f332c83a86da13a0de59a,
-  "@repo/bookings-plugin/src/components/lessons/timeslot-admin#TimeslotAdmin": TimeslotAdmin_3ef87d1a74d531e63f91140f7dc9d197,
+  "@/components/timeslot-admin/TimeslotAdmin#TimeslotAdmin": TimeslotAdmin_4edb8e9e024eaa7eec297510e069ebc1,
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@/components/admin/SchedulerTimeSlotFormCleanup#SchedulerTimeSlotFormCleanup": SchedulerTimeSlotFormCleanup_cc812fa1f4d64b1b2d70f2eab2ce5776,
   "@/components/admin/SchedulerGenerationStatusField#SchedulerGenerationStatusField": SchedulerGenerationStatusField_c37ffb6f251eeb86340ae663ecf1fc0e,
@@ -115,10 +115,10 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#InlineToolbarFeatureClient": InlineToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#FixedToolbarFeatureClient": FixedToolbarFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#BlocksFeatureClient": BlocksFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
+  "@payloadcms/richtext-lexical/client#LinkFeatureClient": LinkFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#UploadFeatureClient": UploadFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#BlockquoteFeatureClient": BlockquoteFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#RelationshipFeatureClient": RelationshipFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
-  "@payloadcms/richtext-lexical/client#LinkFeatureClient": LinkFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ChecklistFeatureClient": ChecklistFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#OrderedListFeatureClient": OrderedListFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#UnorderedListFeatureClient": UnorderedListFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
