@@ -165,6 +165,8 @@ test.describe('Event page: ticket purchase', () => {
     await navigateToTenant(page, tenant.slug, `/${pageSlug}`)
     await expect(page.getByTestId('event-ticket-panel')).toBeVisible({ timeout: 20_000 })
     await expect(page.getByTestId('event-places-remaining')).toContainText(/places left|place left/i)
+    await expect(page.getByTestId('booking-fee-breakdown')).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByTestId('booking-fee')).toBeVisible()
 
     await page.locator('#guest-name').fill(guestName)
     await page.locator('#guest-email').fill(guestEmail)
