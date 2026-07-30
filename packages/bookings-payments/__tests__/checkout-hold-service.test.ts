@@ -23,11 +23,12 @@ type HoldDoc = {
   id: number
   user: number
   timeslot: number
-  tenant: number
+  tenant?: number
   quantity: number
   expiresAt: string
   firstUpsertedAt?: string
   status: string
+  checkoutSessionId?: string
 }
 
 function iso(ms: number) {
@@ -85,14 +86,27 @@ describe('checkout hold service', () => {
           (c) => c.expiresAt && typeof c.expiresAt === 'object' && 'less_than_equal' in (c.expiresAt as object),
         )
 
-        if (statusEquals && (statusEquals.status as { equals?: string }).equals === 'active') {
-          if (expiresLte) {
-            filtered = filtered.filter((h) => h.status === 'active' && Date.parse(h.expiresAt) <= now)
-          } else if (expiresGt) {
-            filtered = filtered.filter((h) => h.status === 'active' && Date.parse(h.expiresAt) > now)
-          } else {
-            filtered = filtered.filter((h) => h.status === 'active')
+        if (statusEquals) {
+          const status = (statusEquals.status as { equals?: string }).equals
+          if (status === 'active') {
+            if (expiresLte) {
+              filtered = filtered.filter((h) => h.status === 'active' && Date.parse(h.expiresAt) <= now)
+            } else if (expiresGt) {
+              filtered = filtered.filter((h) => h.status === 'active' && Date.parse(h.expiresAt) > now)
+            } else {
+              filtered = filtered.filter((h) => h.status === 'active')
+            }
+          } else if (status) {
+            filtered = filtered.filter((h) => h.status === status)
           }
+        }
+
+        const sessionEquals = clauses.find(
+          (c) => c.checkoutSessionId && typeof c.checkoutSessionId === 'object',
+        )
+        if (sessionEquals) {
+          const sid = (sessionEquals.checkoutSessionId as { equals?: string }).equals
+          if (sid) filtered = filtered.filter((h) => h.checkoutSessionId === sid)
         }
 
         if (limit === 1) filtered = filtered.slice(0, 1)
@@ -231,7 +245,7 @@ describe('checkout hold service', () => {
   })
 
   describe('releaseCheckoutHold', () => {
-    it('deletes the user active hold for the timeslot', async () => {
+    it('marks the user active hold as released for the timeslot', async () => {
       holds.push({
         id: 7,
         user: USER_ID,
@@ -240,6 +254,7 @@ describe('checkout hold service', () => {
         quantity: 2,
         expiresAt: iso(now + HOLD_TTL_MS),
         status: 'active',
+        checkoutSessionId: 'sess-7',
       })
       const payload = makePayload()
 
@@ -249,7 +264,8 @@ describe('checkout hold service', () => {
       })
 
       expect(result.released).toBe(1)
-      expect(holds).toHaveLength(0)
+      expect(holds).toHaveLength(1)
+      expect(holds[0]!.status).toBe('released')
     })
 
     it('returns released 0 when no hold exists', async () => {
@@ -259,6 +275,50 @@ describe('checkout hold service', () => {
         userId: USER_ID,
       })
       expect(result.released).toBe(0)
+    })
+
+    it('plants a released tombstone when releasing a session before upsert completes', async () => {
+      const payload = makePayload()
+      const result = await releaseCheckoutHold(payload as never, {
+        timeslotId: TIMESLOT_ID,
+        userId: USER_ID,
+        checkoutSessionId: 'sess-early',
+      })
+      expect(result.released).toBe(1)
+      expect(holds).toHaveLength(1)
+      expect(holds[0]).toMatchObject({
+        status: 'released',
+        checkoutSessionId: 'sess-early',
+      })
+    })
+  })
+
+  describe('upsertCheckoutHold abandoned session', () => {
+    it('does not recreate an active hold after the same session was released', async () => {
+      holds.push({
+        id: 9,
+        user: USER_ID,
+        timeslot: TIMESLOT_ID,
+        tenant: TENANT_ID,
+        quantity: 1,
+        expiresAt: iso(now + HOLD_TTL_MS),
+        status: 'released',
+        checkoutSessionId: 'sess-abandon',
+      })
+      const payload = makePayload()
+
+      const result = await upsertCheckoutHold(payload as never, {
+        timeslotId: TIMESLOT_ID,
+        userId: USER_ID,
+        tenantId: TENANT_ID,
+        quantity: 1,
+        checkoutSessionId: 'sess-abandon',
+      })
+
+      expect(result.abandoned).toBe(true)
+      expect(result.quantity).toBe(0)
+      expect(holds.filter((h) => h.status === 'active')).toHaveLength(0)
+      expect(payload.create).not.toHaveBeenCalled()
     })
   })
 

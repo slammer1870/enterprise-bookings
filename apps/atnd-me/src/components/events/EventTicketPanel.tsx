@@ -42,6 +42,13 @@ function placesLabel(remaining: number): string {
   return `${remaining} places left`
 }
 
+function newCheckoutSessionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `guest-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 export function EventTicketPanel({
   timeslot,
   dropIn,
@@ -71,7 +78,11 @@ export function EventTicketPanel({
    * Locked identity after Continue. CheckoutForm / guest get-or-create only run for these
    * values — not while typing `sam@execbjj.c` → `.co` → `.com`.
    */
-  const [settledGuest, setSettledGuest] = useState<{ name: string; email: string } | null>(null)
+  const [settledGuest, setSettledGuest] = useState<{
+    name: string
+    email: string
+    checkoutSessionId: string
+  } | null>(null)
   const [guestFormError, setGuestFormError] = useState<string | null>(null)
   const [isReserving, setIsReserving] = useState(false)
   const [feeBreakdown, setFeeBreakdown] = useState<{
@@ -80,6 +91,8 @@ export function EventTicketPanel({
     totalCents: number
   } | null>(null)
   const paymentRedirectInProgressRef = useRef(false)
+  /** Bumped on exit so in-flight reserve upserts after leave are rolled back client-side. */
+  const checkoutAttemptRef = useRef(0)
 
   useEffect(() => {
     if (quantity > maxQuantity) setQuantity(Math.max(1, maxQuantity))
@@ -92,22 +105,28 @@ export function EventTicketPanel({
 
     const timeslotId = timeslot.id
     const guestEmail = settledGuest.email
+    const checkoutSessionId = settledGuest.checkoutSessionId
 
     const releaseViaApi = (sync = false) => {
       releaseGuestCheckoutHold({
         timeslotId,
         guestEmail,
+        checkoutSessionId,
         sync,
         skip: paymentRedirectInProgressRef.current,
       })
     }
 
-    const handlePageExit = () => releaseViaApi(true)
+    const handlePageExit = () => {
+      checkoutAttemptRef.current += 1
+      releaseViaApi(true)
+    }
 
     window.addEventListener('pagehide', handlePageExit)
     window.addEventListener('beforeunload', handlePageExit)
 
     return () => {
+      checkoutAttemptRef.current += 1
       window.removeEventListener('pagehide', handlePageExit)
       window.removeEventListener('beforeunload', handlePageExit)
       releaseViaApi(false)
@@ -120,6 +139,7 @@ export function EventTicketPanel({
   const reserveGuestHold = useCallback(
     async (metadata: Record<string, string>) => {
       if (!settledGuest) return
+      const attempt = checkoutAttemptRef.current
       const qty = Math.max(1, parseInt(metadata.quantity ?? String(quantity), 10) || quantity)
       const res = await fetch('/api/events/guest-reserve-hold', {
         method: 'POST',
@@ -129,13 +149,23 @@ export function EventTicketPanel({
           quantity: qty,
           guestName: settledGuest.name,
           guestEmail: settledGuest.email,
+          checkoutSessionId: settledGuest.checkoutSessionId,
         }),
       })
       const data = (await res.json().catch(() => null)) as
-        | { holdId?: number; error?: string }
+        | { holdId?: number | null; abandoned?: boolean; error?: string }
         | null
       if (!res.ok) {
         throw new Error(data?.error || 'Unable to reserve places')
+      }
+      if (data?.abandoned || attempt !== checkoutAttemptRef.current) {
+        releaseGuestCheckoutHold({
+          timeslotId: timeslot.id,
+          guestEmail: settledGuest.email,
+          checkoutSessionId: settledGuest.checkoutSessionId,
+          sync: false,
+        })
+        return
       }
       return data?.holdId != null ? { holdId: String(data.holdId) } : undefined
     },
@@ -209,10 +239,11 @@ export function EventTicketPanel({
       return
     }
     setGuestFormError(null)
+    const checkoutSessionId = newCheckoutSessionId()
+    // Settle first so page-exit listeners are attached before/while the reserve runs.
+    setSettledGuest({ name, email, checkoutSessionId })
     setIsReserving(true)
 
-    // Reserve before mounting CheckoutForm so exit-release has a hold, and so we don't
-    // race a second create when onReserveCheckoutHold runs.
     try {
       const res = await fetch('/api/events/guest-reserve-hold', {
         method: 'POST',
@@ -222,21 +253,24 @@ export function EventTicketPanel({
           quantity,
           guestName: name,
           guestEmail: email,
+          checkoutSessionId,
         }),
       })
-      const data = (await res.json().catch(() => null)) as { error?: string } | null
-      if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as
+        | { error?: string; abandoned?: boolean }
+        | null
+      if (!res.ok || data?.abandoned) {
+        setSettledGuest(null)
         setGuestFormError(data?.error || 'Unable to reserve places. Please try again.')
         return
       }
     } catch {
+      setSettledGuest(null)
       setGuestFormError('Unable to reserve places. Please try again.')
       return
     } finally {
       setIsReserving(false)
     }
-
-    setSettledGuest({ name, email })
   }
 
   const soldOut = remainingCapacity <= 0
@@ -382,12 +416,16 @@ export function EventTicketPanel({
               onReserveCheckoutHold={reserveGuestHold}
               onPaymentRedirectStart={() => {
                 paymentRedirectInProgressRef.current = true
+                return () => {
+                  paymentRedirectInProgressRef.current = false
+                }
               }}
               metadata={{
                 timeslotId: String(timeslot.id),
                 quantity: String(quantity),
                 guestName: settledGuest.name,
                 guestEmail: settledGuest.email,
+                checkoutSessionId: settledGuest.checkoutSessionId,
               }}
             />
           ) : (

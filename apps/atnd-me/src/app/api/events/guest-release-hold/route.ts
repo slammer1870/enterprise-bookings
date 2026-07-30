@@ -17,7 +17,7 @@ function clientIp(request: NextRequest): string {
 
 /**
  * POST /api/events/guest-release-hold
- * Body: { timeslotId: number | string, guestEmail: string }
+ * Body: { timeslotId: number | string, guestEmail: string, checkoutSessionId?: string }
  *
  * Releases an active checkout hold for a guest (no browser session).
  * Used on page exit / refresh / abandoning Continue-to-payment.
@@ -56,6 +56,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'A valid email is required' }, { status: 400 })
   }
 
+  const checkoutSessionIdRaw = (body as { checkoutSessionId?: unknown }).checkoutSessionId
+  const checkoutSessionId =
+    typeof checkoutSessionIdRaw === 'string' && checkoutSessionIdRaw.trim()
+      ? checkoutSessionIdRaw.trim()
+      : null
+
   const ip = clientIp(request)
   const ipLimit = checkRateLimit({
     key: `guest-release-hold:ip:${ip}`,
@@ -85,6 +91,7 @@ export async function POST(request: NextRequest) {
     const result = await releaseCheckoutHold(payload, {
       timeslotId,
       userId: Number(user.id),
+      checkoutSessionId,
       holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
     })
     return NextResponse.json(result)

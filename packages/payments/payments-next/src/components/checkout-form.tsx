@@ -57,7 +57,11 @@ function PaymentForm({
 }: {
   priceComponent: React.ReactNode;
   price: number;
-  onPaymentRedirectStart?: () => void;
+  /**
+   * Called once validation succeeds and Stripe confirm is about to run.
+   * May return an abort fn invoked if confirm fails without leaving the page.
+   */
+  onPaymentRedirectStart?: () => void | (() => void);
   /** URL Stripe redirects to after payment. Defaults to /dashboard for backwards compatibility. */
   returnUrl?: string;
 }) {
@@ -81,7 +85,6 @@ function PaymentForm({
 
     setIsLoading(true);
     setMessage(null);
-    onPaymentRedirectStart?.();
     trackEvent("Payment Button Clicked", {
       revenue: { amount: Number(price.toFixed(2)), currency: "EUR" },
     });
@@ -95,11 +98,18 @@ function PaymentForm({
       ? baseReturn
       : `${origin}${baseReturn.startsWith("/") ? baseReturn : `/${baseReturn}`}`;
 
+    let abortPaymentRedirect: (() => void) | undefined;
+
     try {
       const { error: submitError } = await elements.submit();
       if (submitError) {
         setMessage(submitError.message || "An unexpected error occurred.");
         return;
+      }
+
+      const maybeAbort = onPaymentRedirectStart?.();
+      if (typeof maybeAbort === "function") {
+        abortPaymentRedirect = maybeAbort;
       }
 
       const { error } = await stripe.confirmPayment({
@@ -114,15 +124,17 @@ function PaymentForm({
       // your `return_url`. For some payment methods like iDEAL, your customer will
       // be redirected to an intermediate site first to authorize the payment, then
       // redirected to the `return_url`.
-      if (
-        error &&
-        (error.type === "card_error" || error.type === "validation_error")
-      ) {
-        setMessage(error.message || "An unexpected error occurred.");
-      } else if (error) {
-        setMessage("An unexpected error occurred.");
+      if (error) {
+        abortPaymentRedirect?.();
+        abortPaymentRedirect = undefined;
+        if (error.type === "card_error" || error.type === "validation_error") {
+          setMessage(error.message || "An unexpected error occurred.");
+        } else {
+          setMessage("An unexpected error occurred.");
+        }
       }
     } catch {
+      abortPaymentRedirect?.();
       // IntegrationError (Element not mounted/ready) rejects instead of returning { error }.
       setMessage(
         "Payment form isn't ready. Please wait a moment and try again.",
@@ -185,8 +197,11 @@ export default function CheckoutForm({
    * POST /api/stripe/create-payment-intent
    */
   createPaymentIntentUrl?: string;
-  /** Called when user starts payment (before redirect to Stripe) so parent can avoid cancelling pending bookings */
-  onPaymentRedirectStart?: () => void;
+  /**
+   * Called when payment confirm is about to redirect. May return an abort fn that runs if
+   * confirm fails without leaving the page.
+   */
+  onPaymentRedirectStart?: () => void | (() => void);
   /**
    * When checkout holds are enabled, reserve capacity before creating the payment intent.
    * Return metadata to merge (e.g. { holdId: "123" }).

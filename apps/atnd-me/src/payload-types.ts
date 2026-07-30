@@ -3685,7 +3685,11 @@ export interface BookingCheckoutHold {
    * When the hold was first created; used for max lifetime cap.
    */
   firstUpsertedAt?: string | null;
-  status: 'active' | 'consumed' | 'expired';
+  status: 'active' | 'consumed' | 'expired' | 'released';
+  /**
+   * Client checkout attempt id. After release, upserts with the same id are ignored so late in-flight reserves cannot recreate capacity holds.
+   */
+  checkoutSessionId?: string | null;
   stripePaymentIntentId?: string | null;
   /**
    * Set when hold expires without fulfillment (e.g. refund path).
@@ -4753,6 +4757,7 @@ export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
   expiresAt?: T;
   firstUpsertedAt?: T;
   status?: T;
+  checkoutSessionId?: T;
   stripePaymentIntentId?: T;
   failureReason?: T;
   updatedAt?: T;

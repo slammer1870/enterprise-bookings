@@ -16,5 +16,5 @@ export const TIMESLOTS_COLLECTION_SLUG = 'timeslots' as CollectionSlug
 export const EVENT_TYPES_COLLECTION_SLUG = 'event-types' as CollectionSlug
 export const TRANSACTIONS_COLLECTION_SLUG = 'transactions' as CollectionSlug
 
-export const CHECKOUT_HOLD_STATUSES = ['active', 'consumed', 'expired'] as const
+export const CHECKOUT_HOLD_STATUSES = ['active', 'consumed', 'expired', 'released'] as const
 export type CheckoutHoldStatus = (typeof CHECKOUT_HOLD_STATUSES)[number]

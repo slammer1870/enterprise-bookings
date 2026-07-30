@@ -93,6 +93,10 @@ export async function POST(request: NextRequest) {
   }
 
   const quantity = Math.max(1, parseInt(metadata?.quantity ?? '1', 10) || 1)
+  const checkoutSessionId =
+    typeof metadata?.checkoutSessionId === 'string' && metadata.checkoutSessionId.trim()
+      ? metadata.checkoutSessionId.trim()
+      : null
 
   const timeslot = (await payload.findByID({
     collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
@@ -228,16 +232,24 @@ export async function POST(request: NextRequest) {
 
   let hold: { holdId: number; quantity: number }
   try {
-    hold = await upsertCheckoutHold(payload, {
+    const upserted = await upsertCheckoutHold(payload, {
       timeslotId,
       userId: guest.userId,
       tenantId,
       quantity,
+      checkoutSessionId,
       holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
       timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
       bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
     })
+    if (upserted.abandoned) {
+      return NextResponse.json(
+        { error: 'Checkout was cancelled. Please start again.' },
+        { status: 409 },
+      )
+    }
+    hold = { holdId: upserted.holdId, quantity: upserted.quantity }
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unable to reserve places'
     return NextResponse.json({ error: message }, { status: 400 })

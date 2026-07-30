@@ -160,6 +160,7 @@ import * as migration_20260729_000003_courses_and_enrollments from './20260729_0
 import * as migration_20260729_000004_course_emails_and_deliveries from './20260729_000004_course_emails_and_deliveries';
 import * as migration_20260729_000005_platform_fees_course_percent from './20260729_000005_platform_fees_course_percent';
 import * as migration_20260729_000006_backfill_timeslots_admin_title from './20260729_000006_backfill_timeslots_admin_title';
+import * as migration_20260729_000007_checkout_hold_session_released from './20260729_000007_checkout_hold_session_released';
 import * as migration_20260730_000001_courses_access_window_mode from './20260730_000001_courses_access_window_mode';
 import * as migration_20260730_000002_courses_cover_image from './20260730_000002_courses_cover_image';
 import * as migration_20260730_000003_courses_about_richtext from './20260730_000003_courses_about_richtext';
@@ -1022,6 +1023,11 @@ export const migrations = [
     up: migration_20260729_000006_backfill_timeslots_admin_title.up,
     down: migration_20260729_000006_backfill_timeslots_admin_title.down,
     name: '20260729_000006_backfill_timeslots_admin_title',
+  },
+  {
+    up: migration_20260729_000007_checkout_hold_session_released.up,
+    down: migration_20260729_000007_checkout_hold_session_released.down,
+    name: '20260729_000007_checkout_hold_session_released',
   },
   {
     up: migration_20260730_000001_courses_access_window_mode.up,
