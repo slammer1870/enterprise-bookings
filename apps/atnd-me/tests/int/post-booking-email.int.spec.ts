@@ -357,7 +357,7 @@ describe('Post-booking email integration', () => {
         expect.arrayContaining(["We'd love your review", 'Thanks for booking']),
       )
 
-      const deliveries = await payload.find({
+      let deliveries = await payload.find({
         collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
         where: {
           and: [
@@ -370,7 +370,30 @@ describe('Post-booking email integration', () => {
         overrideAccess: true,
       })
 
+      for (
+        let attempt = 0;
+        attempt < 20 &&
+        (deliveries.totalDocs < 2 ||
+          deliveries.docs.filter((doc) => doc.status === 'sent').length < 2);
+        attempt += 1
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        deliveries = await payload.find({
+          collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+          where: {
+            and: [
+              { tenant: { equals: tenantId } },
+              { user: { equals: userId } },
+              { timeslot: { equals: multiEmailTimeslot.id } },
+            ],
+          },
+          limit: 10,
+          overrideAccess: true,
+        })
+      }
+
       expect(deliveries.totalDocs).toBe(2)
+      expect(deliveries.docs.every((doc) => doc.status === 'sent')).toBe(true)
     },
     TEST_TIMEOUT,
   )
