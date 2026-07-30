@@ -43,6 +43,9 @@ const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }) => {
     throw new Error('Expected value to be an object')
   }
   const slug = value.slug
+  if (!slug || (relationTo !== 'pages' && relationTo !== 'posts')) {
+    return '#'
+  }
   return relationTo === 'posts' ? `/posts/${slug}` : `/${slug}`
 }
 

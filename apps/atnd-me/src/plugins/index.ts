@@ -432,6 +432,9 @@ export const plugins: Plugin[] = [
       admin: {
         group: 'Bookings',
         useAsTitle: 'adminTitle',
+        // Keep timeslots out of Lexical internal-link / relationship pickers.
+        enableRichTextLink: false,
+        enableRichTextRelationship: false,
         components: {
           views: {
             list: {
