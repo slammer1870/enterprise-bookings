@@ -1,9 +1,12 @@
 /**
  * Event ticket availability for display / sold-out gating.
  *
- * Global `remainingCapacity` subtracts everyone's active checkout holds. Unpaid holds must
- * not hard-sold-out the page (only confirmed bookings do). A viewer who already holds spots
- * must still reach checkout when global remaining is 0 because of their own hold.
+ * Global `remainingCapacity` subtracts everyone's active checkout holds — including the
+ * viewer's. Unpaid holds must not hard-sold-out the page (only confirmed bookings do).
+ * The places label adds the viewer's own hold back so they are not charged for their seat.
+ *
+ * Callers that create a hold against a stale SSR remaining must decrement `remainingCapacity`
+ * locally when the hold is applied (same pattern as manage-booking: remaining + ownHold).
  */
 export type EventPlacesAvailability = {
   /** Hard sell-out: confirmed bookings fill the event. */
@@ -29,9 +32,11 @@ export function eventPlacesAvailability(opts: {
   // Own hold: keep checkout available even when global remaining is 0 (holds fill the room).
   const temporarilyUnavailable =
     !soldOut && remainingCapacity <= 0 && ownHoldQuantity <= 0
-  // Prefer live global remaining; when it is 0 only because of our hold, show our reserved qty.
-  const viewerRemaining =
-    remainingCapacity > 0 ? remainingCapacity : ownHoldQuantity > 0 ? ownHoldQuantity : 0
+  // Global remaining already subtracts this viewer's hold — add it back for their label.
+  const viewerRemaining = Math.min(
+    remainingConfirmedOnly,
+    remainingCapacity + ownHoldQuantity,
+  )
   return { soldOut, temporarilyUnavailable, viewerRemaining }
 }
 

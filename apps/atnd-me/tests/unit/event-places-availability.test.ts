@@ -48,11 +48,11 @@ describe('eventPlacesAvailability', () => {
     })
   })
 
-  it('does not inflate places after a client-side hold on stale SSR remaining', () => {
-    // SSR still shows 3; viewer just reserved 1 on this page — label stays at SSR global.
+  it('adds the viewer own hold back when global remaining already subtracts it', () => {
+    // places=3, viewer hold=1 → global remaining=2; viewer should still see 3.
     expect(
       eventPlacesAvailability({
-        remainingCapacity: 3,
+        remainingCapacity: 2,
         remainingConfirmedOnly: 3,
         ownHoldQuantity: 1,
       }),
@@ -60,6 +60,20 @@ describe('eventPlacesAvailability', () => {
       soldOut: false,
       temporarilyUnavailable: false,
       viewerRemaining: 3,
+    })
+  })
+
+  it('caps viewer remaining at confirmed-only capacity', () => {
+    expect(
+      eventPlacesAvailability({
+        remainingCapacity: 2,
+        remainingConfirmedOnly: 2,
+        ownHoldQuantity: 1,
+      }),
+    ).toEqual({
+      soldOut: false,
+      temporarilyUnavailable: false,
+      viewerRemaining: 2,
     })
   })
 })

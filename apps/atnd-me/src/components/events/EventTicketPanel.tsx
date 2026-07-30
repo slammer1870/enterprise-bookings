@@ -124,9 +124,16 @@ export function EventTicketPanel({
   const [ownHoldQuantity, setOwnHoldQuantity] = useState(() => {
     const fromServer = Math.max(0, initialOwnHoldQuantity)
     if (fromServer > 0 || isAuthenticated) return fromServer
-    // Sync read avoids a "temporarily unavailable" flash before the restore effect.
-    return readStoredGuestCheckout(timeslot.id)?.ownHoldQuantity ?? 0
+    const saved = readStoredGuestCheckout(timeslot.id)
+    if (!saved || saved.ownHoldQuantity <= 0) return 0
+    // Only count a stored guest hold when SSR remaining already looks like it includes
+    // someone's hold. If pagehide released before SSR, remaining === confirmed-only and
+    // adding the stored qty would inflate the label until re-reserve returns.
+    const heldByAnyone = Math.max(0, remainingConfirmedOnly - remainingCapacity)
+    return heldByAnyone >= saved.ownHoldQuantity ? saved.ownHoldQuantity : 0
   })
+  /** Global free spots (everyone's holds subtracted). Synced from SSR + reserve responses. */
+  const [globalRemaining, setGlobalRemaining] = useState(() => Math.max(0, remainingCapacity))
   const [guestFormError, setGuestFormError] = useState<string | null>(null)
   const [isReserving, setIsReserving] = useState(false)
   const [feeBreakdown, setFeeBreakdown] = useState<{
@@ -138,9 +145,16 @@ export function EventTicketPanel({
   /** Bumped on exit so in-flight reserve upserts after leave are rolled back client-side. */
   const checkoutAttemptRef = useRef(0)
   const didRestoreRef = useRef(false)
+  /** Shares one in-flight reserve across Continue, restore, and CheckoutForm. */
+  const reserveInFlightRef = useRef<Promise<void> | null>(null)
+  const lastReservedQtyRef = useRef(0)
+
+  useEffect(() => {
+    setGlobalRemaining(Math.max(0, remainingCapacity))
+  }, [remainingCapacity])
 
   const availability = eventPlacesAvailability({
-    remainingCapacity,
+    remainingCapacity: globalRemaining,
     remainingConfirmedOnly,
     ownHoldQuantity,
   })
@@ -164,8 +178,95 @@ export function EventTicketPanel({
     if (quantity > maxQuantity) setQuantity(Math.max(1, maxQuantity))
   }, [maxQuantity, quantity])
 
+  const applyReserveSuccess = useCallback(
+    (qty: number, remainingFromApi?: number) => {
+      setOwnHoldQuantity(qty)
+      lastReservedQtyRef.current = qty
+      if (typeof remainingFromApi === 'number' && Number.isFinite(remainingFromApi)) {
+        setGlobalRemaining(Math.max(0, remainingFromApi))
+      }
+    },
+    [],
+  )
+
+  const postGuestReserve = useCallback(
+    async (opts: {
+      name: string
+      email: string
+      checkoutSessionId: string
+      quantity: number
+    }): Promise<{
+      holdId?: string
+      abandoned?: boolean
+      error?: string
+      remainingCapacity?: number
+    }> => {
+      const previous = reserveInFlightRef.current
+      let releaseInFlight!: () => void
+      const gate = new Promise<void>((resolve) => {
+        releaseInFlight = resolve
+      })
+      reserveInFlightRef.current = gate
+
+      try {
+        if (previous) await previous.catch(() => undefined)
+
+        const res = await fetch('/api/events/guest-reserve-hold', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            timeslotId: timeslot.id,
+            quantity: opts.quantity,
+            guestName: opts.name,
+            guestEmail: opts.email,
+            checkoutSessionId: opts.checkoutSessionId,
+          }),
+        })
+        const data = (await res.json().catch(() => null)) as
+          | {
+              holdId?: number | null
+              abandoned?: boolean
+              error?: string
+              remainingCapacity?: number
+              quantity?: number
+            }
+          | null
+        if (!res.ok) {
+          return { error: data?.error || 'Unable to reserve places' }
+        }
+        if (data?.abandoned) {
+          return { abandoned: true, error: data.error }
+        }
+        const qty = Math.max(1, Number(data?.quantity) || opts.quantity)
+        applyReserveSuccess(
+          qty,
+          typeof data?.remainingCapacity === 'number' ? data.remainingCapacity : undefined,
+        )
+        writeStoredGuestCheckout(timeslot.id, {
+          name: opts.name,
+          email: opts.email,
+          quantity: qty,
+          ownHoldQuantity: qty,
+        })
+        return {
+          holdId: data?.holdId != null ? String(data.holdId) : undefined,
+          remainingCapacity:
+            typeof data?.remainingCapacity === 'number' ? data.remainingCapacity : undefined,
+        }
+      } finally {
+        releaseInFlight()
+        if (reserveInFlightRef.current === gate) {
+          reserveInFlightRef.current = null
+        }
+      }
+    },
+    [applyReserveSuccess, timeslot.id],
+  )
+
   // Restore mid-checkout guest after reload. pagehide releases the prior session's hold;
   // re-reserve with a fresh checkoutSessionId so the released tombstone cannot block us.
+  // CheckoutForm also reserves on mount — both paths share postGuestReserve's mutex so we
+  // never double-create active holds for the same guest.
   useEffect(() => {
     if (isAuthenticated || didRestoreRef.current) return
     didRestoreRef.current = true
@@ -176,7 +277,11 @@ export function EventTicketPanel({
     setGuestName(saved.name)
     setGuestEmail(saved.email)
     setQuantity(saved.quantity)
-    setOwnHoldQuantity(saved.ownHoldQuantity)
+    const heldByAnyone = Math.max(0, remainingConfirmedOnly - remainingCapacity)
+    if (heldByAnyone >= saved.ownHoldQuantity) {
+      // Soft-sold-out / own hold still in SSR remaining — keep checkout open during restore.
+      setOwnHoldQuantity(saved.ownHoldQuantity)
+    }
     setSettledGuest({
       name: saved.name,
       email: saved.email,
@@ -187,48 +292,34 @@ export function EventTicketPanel({
     const attempt = checkoutAttemptRef.current
     void (async () => {
       try {
-        const res = await fetch('/api/events/guest-reserve-hold', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            timeslotId: timeslot.id,
-            quantity: saved.quantity,
-            guestName: saved.name,
-            guestEmail: saved.email,
-            checkoutSessionId,
-          }),
-        })
-        const data = (await res.json().catch(() => null)) as
-          | { error?: string; abandoned?: boolean }
-          | null
-        if (attempt !== checkoutAttemptRef.current) return
-        if (!res.ok || data?.abandoned) {
-          setSettledGuest(null)
-          setOwnHoldQuantity(0)
-          writeStoredGuestCheckout(timeslot.id, null)
-          setGuestFormError(
-            data?.error ||
-              'Your previous reservation expired. Enter your details to try again.',
-          )
-          return
-        }
-        setOwnHoldQuantity(saved.quantity)
-        writeStoredGuestCheckout(timeslot.id, {
+        const result = await postGuestReserve({
           name: saved.name,
           email: saved.email,
+          checkoutSessionId,
           quantity: saved.quantity,
-          ownHoldQuantity: saved.quantity,
         })
+        if (attempt !== checkoutAttemptRef.current) return
+        if (result.error || result.abandoned) {
+          setSettledGuest(null)
+          setOwnHoldQuantity(0)
+          lastReservedQtyRef.current = 0
+          writeStoredGuestCheckout(timeslot.id, null)
+          setGuestFormError(
+            result.error ||
+              'Your previous reservation expired. Enter your details to try again.',
+          )
+        }
       } catch {
         if (attempt !== checkoutAttemptRef.current) return
         setSettledGuest(null)
         setOwnHoldQuantity(0)
+        lastReservedQtyRef.current = 0
         writeStoredGuestCheckout(timeslot.id, null)
       } finally {
         if (attempt === checkoutAttemptRef.current) setIsReserving(false)
       }
     })()
-  }, [isAuthenticated, timeslot.id])
+  }, [isAuthenticated, timeslot.id, postGuestReserve, remainingCapacity, remainingConfirmedOnly])
 
   useEffect(() => {
     if (!settledGuest || ownHoldQuantity <= 0) {
@@ -278,32 +369,26 @@ export function EventTicketPanel({
     }
   }, [settledGuest, timeslot.id])
 
-  // Single reserve path via CheckoutForm.onReserveCheckoutHold (below). Avoid a parallel
-  // useEffect reserve — concurrent creates race on unique email and break Payment Element.
-
   const reserveGuestHold = useCallback(
     async (metadata: Record<string, string>) => {
       if (!settledGuest) return
       const attempt = checkoutAttemptRef.current
       const qty = Math.max(1, parseInt(metadata.quantity ?? String(quantity), 10) || quantity)
-      const res = await fetch('/api/events/guest-reserve-hold', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timeslotId: timeslot.id,
-          quantity: qty,
-          guestName: settledGuest.name,
-          guestEmail: settledGuest.email,
-          checkoutSessionId: settledGuest.checkoutSessionId,
-        }),
-      })
-      const data = (await res.json().catch(() => null)) as
-        | { holdId?: number | null; abandoned?: boolean; error?: string }
-        | null
-      if (!res.ok) {
-        throw new Error(data?.error || 'Unable to reserve places')
+      // CheckoutForm remounts after Continue already reserved the same qty — skip the
+      // network hop when nothing changed (mutex still serializes genuine overlaps).
+      if (lastReservedQtyRef.current === qty && ownHoldQuantity === qty) {
+        return undefined
       }
-      if (data?.abandoned || attempt !== checkoutAttemptRef.current) {
+      const result = await postGuestReserve({
+        name: settledGuest.name,
+        email: settledGuest.email,
+        checkoutSessionId: settledGuest.checkoutSessionId,
+        quantity: qty,
+      })
+      if (result.error) {
+        throw new Error(result.error)
+      }
+      if (result.abandoned || attempt !== checkoutAttemptRef.current) {
         releaseGuestCheckoutHold({
           timeslotId: timeslot.id,
           guestEmail: settledGuest.email,
@@ -311,13 +396,13 @@ export function EventTicketPanel({
           sync: false,
         })
         setOwnHoldQuantity(0)
+        lastReservedQtyRef.current = 0
         writeStoredGuestCheckout(timeslot.id, null)
         return
       }
-      setOwnHoldQuantity(qty)
-      return data?.holdId != null ? { holdId: String(data.holdId) } : undefined
+      return result.holdId != null ? { holdId: result.holdId } : undefined
     },
-    [settledGuest, timeslot.id, quantity],
+    [settledGuest, timeslot.id, quantity, ownHoldQuantity, postGuestReserve],
   )
   const pricing = useMemo(
     () =>
@@ -380,6 +465,7 @@ export function EventTicketPanel({
     if (settledGuest) {
       setSettledGuest(null)
       setOwnHoldQuantity(0)
+      lastReservedQtyRef.current = 0
       writeStoredGuestCheckout(timeslot.id, null)
     }
     if (guestFormError) setGuestFormError(null)
@@ -404,37 +490,24 @@ export function EventTicketPanel({
     setIsReserving(true)
 
     try {
-      const res = await fetch('/api/events/guest-reserve-hold', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          timeslotId: timeslot.id,
-          quantity,
-          guestName: name,
-          guestEmail: email,
-          checkoutSessionId,
-        }),
-      })
-      const data = (await res.json().catch(() => null)) as
-        | { error?: string; abandoned?: boolean }
-        | null
-      if (!res.ok || data?.abandoned) {
-        setSettledGuest(null)
-        setOwnHoldQuantity(0)
-        writeStoredGuestCheckout(timeslot.id, null)
-        setGuestFormError(data?.error || 'Unable to reserve places. Please try again.')
-        return
-      }
-      setOwnHoldQuantity(quantity)
-      writeStoredGuestCheckout(timeslot.id, {
+      const result = await postGuestReserve({
         name,
         email,
+        checkoutSessionId,
         quantity,
-        ownHoldQuantity: quantity,
       })
+      if (result.error || result.abandoned) {
+        setSettledGuest(null)
+        setOwnHoldQuantity(0)
+        lastReservedQtyRef.current = 0
+        writeStoredGuestCheckout(timeslot.id, null)
+        setGuestFormError(result.error || 'Unable to reserve places. Please try again.')
+        return
+      }
     } catch {
       setSettledGuest(null)
       setOwnHoldQuantity(0)
+      lastReservedQtyRef.current = 0
       writeStoredGuestCheckout(timeslot.id, null)
       setGuestFormError('Unable to reserve places. Please try again.')
       return

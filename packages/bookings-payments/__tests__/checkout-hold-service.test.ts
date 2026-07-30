@@ -110,6 +110,16 @@ describe('checkout hold service', () => {
           if (sid) filtered = filtered.filter((h) => h.checkoutSessionId === sid)
         }
 
+        const idNotEquals = clauses.find(
+          (c) => c.id && typeof c.id === 'object' && 'not_equals' in (c.id as object),
+        )
+        if (idNotEquals) {
+          const skipId = (idNotEquals.id as { not_equals?: number }).not_equals
+          if (typeof skipId === 'number') {
+            filtered = filtered.filter((h) => h.id !== skipId)
+          }
+        }
+
         if (limit === 1) filtered = filtered.slice(0, 1)
         return Promise.resolve({ docs: filtered, totalDocs: filtered.length })
       }),
@@ -242,6 +252,61 @@ describe('checkout hold service', () => {
       })
 
       expect(result.quantity).toBe(1)
+    })
+
+    it('releases duplicate active holds created by a concurrent race', async () => {
+      // Simulate TOCTOU: another create landed while this upsert was in flight.
+      holds.push({
+        id: 77,
+        user: USER_ID,
+        timeslot: TIMESLOT_ID,
+        tenant: TENANT_ID,
+        quantity: 1,
+        expiresAt: iso(now + HOLD_TTL_MS),
+        firstUpsertedAt: iso(now),
+        status: 'active',
+        checkoutSessionId: 'session-a',
+      })
+      const payload = makePayload()
+      // First findUserActiveHold returns null (race window), then create, then collapse.
+      let userActiveLookups = 0
+      const originalFind = payload.find
+      payload.find = vi.fn().mockImplementation(async (args: Parameters<typeof originalFind>[0]) => {
+        const result = await originalFind(args)
+        const clauses = Array.isArray((args.where as { and?: unknown[] } | undefined)?.and)
+          ? ((args.where as { and: Record<string, unknown>[] }).and)
+          : []
+        const userEquals = clauses.find((c) => c.user && typeof c.user === 'object')
+        const statusEquals = clauses.find((c) => c.status && typeof c.status === 'object')
+        const idNotEquals = clauses.find(
+          (c) => c.id && typeof c.id === 'object' && 'not_equals' in (c.id as object),
+        )
+        if (
+          userEquals &&
+          statusEquals &&
+          (statusEquals.status as { equals?: string }).equals === 'active' &&
+          !idNotEquals &&
+          args.limit === 1
+        ) {
+          userActiveLookups += 1
+          if (userActiveLookups === 1) {
+            return { docs: [], totalDocs: 0 }
+          }
+        }
+        return result
+      })
+
+      const result = await upsertCheckoutHold(payload as never, {
+        timeslotId: TIMESLOT_ID,
+        userId: USER_ID,
+        tenantId: TENANT_ID,
+        quantity: 1,
+        checkoutSessionId: 'session-b',
+      })
+
+      expect(result.holdId).toBe(1)
+      expect(holds.filter((h) => h.status === 'active')).toHaveLength(1)
+      expect(holds.find((h) => h.id === 77)?.status).toBe('released')
     })
   })
 

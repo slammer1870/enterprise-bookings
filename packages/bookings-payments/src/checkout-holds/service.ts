@@ -438,6 +438,33 @@ export async function upsertCheckoutHold(
     }
   }
 
+  // Concurrent Continue + CheckoutForm / restore races can create two active rows for the
+  // same user+timeslot (find-then-create is not atomic). Keep this row; release extras.
+  const duplicates = await payload.find({
+    collection: holdCollection,
+    where: {
+      and: [
+        { timeslot: { equals: opts.timeslotId } },
+        { user: { equals: userId } },
+        { status: { equals: 'active' } },
+        { expiresAt: { greater_than: new Date().toISOString() } },
+        { id: { not_equals: created.id } },
+      ],
+    },
+    limit: 100,
+    depth: 0,
+    overrideAccess: true,
+  })
+  for (const dup of (duplicates.docs ?? []) as CheckoutHoldRecord[]) {
+    if (dup.id === created.id) continue
+    await payload.update({
+      collection: holdCollection,
+      id: dup.id,
+      data: { status: 'released' },
+      overrideAccess: true,
+    })
+  }
+
   return {
     holdId: created.id,
     quantity: created.quantity,

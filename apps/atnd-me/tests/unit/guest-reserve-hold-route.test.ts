@@ -7,11 +7,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 const {
   mockEnsureGuestUser,
   mockUpsertCheckoutHold,
+  mockComputeCapacityBreakdownWithHolds,
   mockPayload,
   mockCheckRateLimit,
 } = vi.hoisted(() => ({
   mockEnsureGuestUser: vi.fn(),
   mockUpsertCheckoutHold: vi.fn(),
+  mockComputeCapacityBreakdownWithHolds: vi.fn(),
   mockCheckRateLimit: vi.fn().mockReturnValue({ allowed: true, retryAfterMs: 0 }),
   mockPayload: {
     findByID: vi.fn(),
@@ -27,6 +29,7 @@ vi.mock('@repo/bookings-payments', async (importOriginal) => {
   return {
     ...actual,
     upsertCheckoutHold: mockUpsertCheckoutHold,
+    computeCapacityBreakdownWithHolds: mockComputeCapacityBreakdownWithHolds,
   }
 })
 
@@ -66,6 +69,13 @@ describe('POST /api/events/guest-reserve-hold', () => {
       name: 'Sam Guest',
     })
     mockUpsertCheckoutHold.mockResolvedValue({ holdId: 55, quantity: 2 })
+    mockComputeCapacityBreakdownWithHolds.mockResolvedValue({
+      places: 3,
+      confirmed: 0,
+      held: 2,
+      remaining: 1,
+      remainingConfirmedOnly: 3,
+    })
     mockPayload.findByID.mockResolvedValue({
       id: TIMESLOT_ID,
       active: true,
@@ -85,7 +95,12 @@ describe('POST /api/events/guest-reserve-hold', () => {
     const body = await res.json()
 
     expect(res.status).toBe(200)
-    expect(body).toEqual({ holdId: 55, quantity: 2 })
+    expect(body).toEqual({
+      holdId: 55,
+      quantity: 2,
+      remainingCapacity: 1,
+      remainingConfirmedOnly: 3,
+    })
     expect(mockEnsureGuestUser).toHaveBeenCalledWith(
       expect.objectContaining({
         email: 'sam.guest@example.com',

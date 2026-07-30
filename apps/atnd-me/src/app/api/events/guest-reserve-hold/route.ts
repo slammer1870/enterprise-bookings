@@ -7,7 +7,11 @@ import {
   resolveTenantSlugOrId,
   resolveTenantForConnect,
 } from '@/lib/stripe-connect/api-helpers'
-import { upsertCheckoutHold, CHECKOUT_HOLD_COLLECTION_SLUG } from '@repo/bookings-payments'
+import {
+  upsertCheckoutHold,
+  computeCapacityBreakdownWithHolds,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from '@repo/bookings-payments'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { checkRateLimit } from '@/lib/onboarding/rateLimit'
 
@@ -153,7 +157,18 @@ export async function POST(request: NextRequest) {
         abandoned: true,
       })
     }
-    return NextResponse.json({ holdId: hold.holdId, quantity: hold.quantity })
+    const remaining = await computeCapacityBreakdownWithHolds(payload, timeslotId, {
+      timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
+      bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
+      holdCollection: CHECKOUT_HOLD_COLLECTION_SLUG,
+    })
+    return NextResponse.json({
+      holdId: hold.holdId,
+      quantity: hold.quantity,
+      remainingCapacity: remaining.remaining,
+      remainingConfirmedOnly: remaining.remainingConfirmedOnly,
+    })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Unable to reserve places'
     return NextResponse.json({ error: message }, { status: 400 })
