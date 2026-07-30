@@ -20,7 +20,7 @@ export default async function CoursesPage() {
       {courses.length === 0 ? (
         <p className="mt-8 text-sm text-muted-foreground">No courses are open right now.</p>
       ) : (
-        <ul className="mt-8 space-y-4" data-testid="courses-list">
+        <ul className="mt-8 max-w-xl space-y-4" data-testid="courses-list">
           {courses.map((course) => {
             const windowCopy = formatCourseAccessWindowCopy(course)
             const price =
