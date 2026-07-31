@@ -1,9 +1,61 @@
-import type { Access, CollectionConfig } from 'payload'
+import type { Access, CollectionConfig, FieldHook } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import { getUserTenantIDs, tenantScopedReadFiltered } from '@/access/tenant-scoped'
+import {
+  getUserTenantIDs,
+  tenantScopedCreate,
+  tenantScopedReadFiltered,
+  tenantScopedUpdate,
+} from '@/access/tenant-scoped'
+import { isStaffOnlyUser } from '@/access/userTenantAccess'
 
 export const EMERGENCY_CONTACTS_SLUG = 'emergency-contacts' as const
+
+type PersonRow = {
+  fullName?: string | null
+  personType?: string | null
+  contacts?: Array<{
+    name?: string | null
+    phone?: string | null
+    relationship?: string | null
+  }> | null
+}
+
+function peopleFromDoc(doc: unknown): PersonRow[] {
+  if (!doc || typeof doc !== 'object') return []
+  const people = (doc as { people?: unknown }).people
+  return Array.isArray(people) ? (people as PersonRow[]) : []
+}
+
+const populatePeopleSummary: FieldHook = ({ data, siblingData, originalDoc }) => {
+  const source = siblingData ?? data ?? originalDoc
+  const people = peopleFromDoc(source)
+  if (!people.length) return '—'
+  return people
+    .map((person) => {
+      const name = person.fullName?.trim() || 'Unnamed'
+      const type = person.personType ? ` (${person.personType})` : ''
+      return `${name}${type}`
+    })
+    .join(', ')
+}
+
+const populatePrimaryContact: FieldHook = ({ data, siblingData, originalDoc }) => {
+  const source = siblingData ?? data ?? originalDoc
+  const people = peopleFromDoc(source)
+  for (const person of people) {
+    const contact = person.contacts?.[0]
+    if (!contact) continue
+    const name = contact.name?.trim() || 'Contact'
+    const phone = contact.phone?.trim()
+    const relationship = contact.relationship?.trim()
+    const parts = [name]
+    if (phone) parts.push(phone)
+    if (relationship) parts.push(`(${relationship})`)
+    return parts.join(' · ')
+  }
+  return '—'
+}
 
 const staffOrSuperAdminRead: Access = async (args) => {
   const user = args.req.user
@@ -24,6 +76,16 @@ const staffOrSuperAdminRead: Access = async (args) => {
   }
 }
 
+const tenantAdminCreate: Access = async (args) => {
+  if (isStaffOnlyUser(args.req.user)) return false
+  return tenantScopedCreate(args)
+}
+
+const tenantAdminUpdate: Access = async (args) => {
+  if (isStaffOnlyUser(args.req.user)) return false
+  return tenantScopedUpdate(args)
+}
+
 export const EmergencyContacts: CollectionConfig = {
   slug: EMERGENCY_CONTACTS_SLUG,
   labels: {
@@ -32,16 +94,15 @@ export const EmergencyContacts: CollectionConfig = {
   },
   admin: {
     group: 'Auth',
-    useAsTitle: 'id',
-    defaultColumns: ['user', 'status', 'completedAt', 'updatedAt'],
+    useAsTitle: 'peopleSummary',
+    defaultColumns: ['user', 'peopleSummary', 'primaryContact', 'status', 'completedAt'],
     description:
-      'Family emergency contact details per account holder. Public fill goes through the Emergency Contact Form block APIs.',
+      'Family emergency contact details per account holder. Public fill goes through the Emergency Contact Form block; tenant admins can also create and edit here.',
   },
   access: {
     read: staffOrSuperAdminRead,
-    // Creates/updates go through /api/emergency-contacts with a verification token.
-    create: () => false,
-    update: () => false,
+    create: tenantAdminCreate,
+    update: tenantAdminUpdate,
     delete: ({ req: { user } }) =>
       checkRole(['super-admin', 'admin'], user as SharedUser | null),
   },
@@ -51,6 +112,20 @@ export const EmergencyContacts: CollectionConfig = {
       unique: true,
     },
   ],
+  hooks: {
+    beforeChange: [
+      ({ data, operation, originalDoc }) => {
+        if (!data) return data
+        if (data.status === 'complete' && !data.completedAt && !originalDoc?.completedAt) {
+          data.completedAt = new Date().toISOString()
+        }
+        if (operation === 'create' && data.status === 'complete' && !data.completedAt) {
+          data.completedAt = new Date().toISOString()
+        }
+        return data
+      },
+    ],
+  },
   fields: [
     {
       name: 'user',
@@ -72,6 +147,32 @@ export const EmergencyContacts: CollectionConfig = {
         { label: 'Complete', value: 'complete' },
       ],
       index: true,
+    },
+    {
+      name: 'peopleSummary',
+      type: 'text',
+      label: 'People',
+      virtual: true,
+      admin: {
+        readOnly: true,
+        description: 'Names covered by this record (self, children, etc.).',
+      },
+      hooks: {
+        afterRead: [populatePeopleSummary],
+      },
+    },
+    {
+      name: 'primaryContact',
+      type: 'text',
+      label: 'Primary contact',
+      virtual: true,
+      admin: {
+        readOnly: true,
+        description: 'First listed emergency contact name, phone, and relationship.',
+      },
+      hooks: {
+        afterRead: [populatePrimaryContact],
+      },
     },
     {
       name: 'people',
