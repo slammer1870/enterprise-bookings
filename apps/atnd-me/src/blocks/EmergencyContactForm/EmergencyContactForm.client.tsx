@@ -308,14 +308,6 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
             </fieldset>
           ))}
 
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setPeople((prev) => [...prev, emptyPerson({ personType: 'child' })])}
-          >
-            Add another person
-          </Button>
-
           {saveError ? <p className="text-sm text-destructive">{saveError}</p> : null}
           {saveSuccess ? (
             <p className="text-sm text-green-700 dark:text-green-400">
@@ -323,9 +315,19 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
             </p>
           ) : null}
 
-          <Button type="submit" disabled={saveLoading}>
-            {saveLoading ? 'Saving…' : 'Save emergency contacts'}
-          </Button>
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPeople((prev) => [...prev, emptyPerson({ personType: 'child' })])}
+            >
+              Add another person
+            </Button>
+
+            <Button type="submit" disabled={saveLoading}>
+              {saveLoading ? 'Saving…' : 'Save emergency contacts'}
+            </Button>
+          </div>
         </form>
       ) : (
         <p className="text-sm text-muted-foreground">
