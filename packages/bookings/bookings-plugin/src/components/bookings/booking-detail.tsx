@@ -68,7 +68,11 @@ export const BookingDetail = ({ booking }: { booking: Booking }) => {
               cursor: "pointer",
               color: "inherit",
               font: "inherit",
-              textDecoration: "underline",
+              // Child text-decoration overrides the parent line-through class
+              textDecoration:
+                booking.status === "cancelled"
+                  ? "underline line-through"
+                  : "underline",
             }}
           >
             {label}
