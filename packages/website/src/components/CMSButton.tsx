@@ -4,7 +4,7 @@ import { Button } from '@repo/ui/components/ui/button'
 import { cn } from '@repo/ui/lib/utils'
 import { getLinkHref } from '../utils/getLinkHref'
 import { resolveColorToken } from '../admin/colorTokens'
-import type { LinkAppearances } from '../fields/link'
+import type { LinkAppearances } from '../fields/linkTypes'
 
 type ButtonVariant = 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
 type ButtonSize = 'default' | 'sm' | 'lg' | 'icon' | 'icon-sm' | 'icon-lg'

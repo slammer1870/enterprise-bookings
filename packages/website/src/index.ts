@@ -21,10 +21,10 @@ export { link, appearanceOptions } from "./fields/link";
 export type { LinkAppearances } from "./fields/link";
 export { hexColorField } from "./fields/hexColorField";
 export { bookingThemeField } from "./fields/bookingThemeFields";
-export { CMSButton } from "./components/CMSButton";
-export type { CMSButtonProps } from "./components/CMSButton";
+// CMSButton is intentionally NOT re-exported here — importing the barrel from a
+// client component would pull Payload server modules into the browser bundle.
+// Use: import { CMSButton } from '@repo/website/src/components/CMSButton'
 export { getLinkHref } from "./utils/getLinkHref";
-export { resolveColorToken, normalizeHexForColorInput } from "./admin/colorTokens";
 export { ThreeColumnLayoutBlock } from "./blocks/threeColumnLayout";
 export { createThreeColumnLayout } from "./blocks/threeColumnLayout";
 export { registerBlockComponents, registerBlockLoaders } from "./blocks/threeColumnLayout/registry";

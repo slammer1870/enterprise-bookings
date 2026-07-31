@@ -3,7 +3,7 @@ import React from 'react'
 import type { CallToActionBlock as CTABlockProps } from '@/payload-types'
 
 import ClientRichText from '@/components/RichText/Client'
-import { CMSButton } from '@repo/website'
+import { CMSButton } from '@repo/website/src/components/CMSButton'
 
 export const CallToActionBlock: React.FC<CTABlockProps> = ({ links, richText }) => {
   return (

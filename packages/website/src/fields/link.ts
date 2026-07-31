@@ -1,7 +1,8 @@
 import type { Field, GroupField } from 'payload'
 import { hexColorField } from './hexColorField'
+import type { LinkAppearances } from './linkTypes'
 
-export type LinkAppearances = 'default' | 'outline' | 'secondary' | 'ghost' | 'link'
+export type { LinkAppearances } from './linkTypes'
 
 export const appearanceOptions: Record<LinkAppearances, { label: string; value: string }> = {
   default: {

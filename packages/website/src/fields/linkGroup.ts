@@ -1,5 +1,6 @@
 import type { ArrayField, Field } from 'payload'
-import { link, type LinkAppearances } from './link'
+import { link } from './link'
+import type { LinkAppearances } from './linkTypes'
 
 type LinkGroupType = (_options?: {
   appearances?: LinkAppearances[] | false

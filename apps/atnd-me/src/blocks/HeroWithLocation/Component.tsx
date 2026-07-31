@@ -3,7 +3,10 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { CMSButton, type CMSButtonProps } from '@repo/website'
+import {
+  CMSButton,
+  type CMSButtonProps,
+} from '@repo/website/src/components/CMSButton'
 import { BlockBookingTheme } from '@/components/BlockBookingTheme'
 import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import type { Media } from '@/payload-types'

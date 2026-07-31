@@ -1,7 +1,10 @@
 import { cn } from '@/utilities/ui'
 import Link from 'next/link'
 import React from 'react'
-import { CMSButton, type CMSButtonProps } from '@repo/website'
+import {
+  CMSButton,
+  type CMSButtonProps,
+} from '@repo/website/src/components/CMSButton'
 
 import type { Page, Post } from '@/payload-types'
 
