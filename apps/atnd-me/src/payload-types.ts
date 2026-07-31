@@ -71,6 +71,7 @@ export interface Config {
     scheduler: Scheduler;
     'post-booking-email-deliveries': PostBookingEmailDelivery;
     'course-email-deliveries': CourseEmailDelivery;
+    'emergency-contacts': EmergencyContact;
     'staff-members': StaffMember;
     'event-types': EventType;
     tenants: Tenant;
@@ -130,6 +131,7 @@ export interface Config {
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
     'post-booking-email-deliveries': PostBookingEmailDeliveriesSelect<false> | PostBookingEmailDeliveriesSelect<true>;
     'course-email-deliveries': CourseEmailDeliveriesSelect<false> | CourseEmailDeliveriesSelect<true>;
+    'emergency-contacts': EmergencyContactsSelect<false> | EmergencyContactsSelect<true>;
     'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
     'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
@@ -576,6 +578,7 @@ export interface Page {
         blockType: 'dhLiveMembership';
       }
     | GiftVoucherCheckoutBlock
+    | EmergencyContactFormBlock
     | CroiLanHeroWithLocationBlock
     | ClFindSanctuaryBlock
     | ClMissionBlock
@@ -1645,6 +1648,7 @@ export interface ThreeColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
+        | EmergencyContactFormBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -2764,6 +2768,37 @@ export interface GiftVoucherCheckoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmergencyContactFormBlock".
+ */
+export interface EmergencyContactFormBlock {
+  /**
+   * Optional title shown above the form.
+   */
+  heading?: string | null;
+  /**
+   * Optional intro shown above the email step.
+   */
+  intro?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'emergencyContactForm';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock".
  */
 export interface CroiLanHeroWithLocationBlock {
@@ -3098,6 +3133,7 @@ export interface TwoColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
+        | EmergencyContactFormBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3202,6 +3238,7 @@ export interface TwoColumnLayoutBlock {
             blockType: 'dhLiveMembership';
           }
         | GiftVoucherCheckoutBlock
+        | EmergencyContactFormBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
         | ClFindSanctuaryBlock
@@ -3529,6 +3566,46 @@ export interface CourseEnrollment {
    * External transaction id (e.g. Stripe payment intent id).
    */
   transactionId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Family emergency contact details per account holder. Public fill goes through the Emergency Contact Form block APIs.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emergency-contacts".
+ */
+export interface EmergencyContact {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Account holder / booker this family record belongs to.
+   */
+  user: number | User;
+  status: 'incomplete' | 'complete';
+  /**
+   * Who the emergency contacts are for (self, children, etc.).
+   */
+  people?:
+    | {
+        fullName: string;
+        personType: 'self' | 'child' | 'other';
+        contacts?:
+          | {
+              name: string;
+              phone: string;
+              /**
+               * e.g. parent, spouse, guardian
+               */
+              relationship: string;
+              id?: string | null;
+            }[]
+          | null;
+        medicalNotes?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  completedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4172,6 +4249,10 @@ export interface PayloadLockedDocument {
         value: number | CourseEmailDelivery;
       } | null)
     | ({
+        relationTo: 'emergency-contacts';
+        value: number | EmergencyContact;
+      } | null)
+    | ({
         relationTo: 'staff-members';
         value: number | StaffMember;
       } | null)
@@ -4428,6 +4509,34 @@ export interface CourseEmailDeliveriesSelect<T extends boolean = true> {
   payloadJobId?: T;
   scheduledFor?: T;
   sentAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emergency-contacts_select".
+ */
+export interface EmergencyContactsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  status?: T;
+  people?:
+    | T
+    | {
+        fullName?: T;
+        personType?: T;
+        contacts?:
+          | T
+          | {
+              name?: T;
+              phone?: T;
+              relationship?: T;
+              id?: T;
+            };
+        medicalNotes?: T;
+        id?: T;
+      };
+  completedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -4883,6 +4992,7 @@ export interface PagesSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
         clMission?: T | ClMissionBlockSelect<T>;
@@ -5228,6 +5338,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5860,6 +5971,16 @@ export interface GiftVoucherCheckoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "EmergencyContactFormBlock_select".
+ */
+export interface EmergencyContactFormBlockSelect<T extends boolean = true> {
+  heading?: T;
+  intro?: T;
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "CroiLanHeroWithLocationBlock_select".
  */
 export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
@@ -6135,6 +6256,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -6252,6 +6374,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
               blockName?: T;
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
+        emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -7131,6 +7254,7 @@ export interface TaskCreateCollectionExport {
       | 'locations'
       | 'post-booking-email-deliveries'
       | 'course-email-deliveries'
+      | 'emergency-contacts'
       | 'redirects'
       | 'forms'
       | 'search'

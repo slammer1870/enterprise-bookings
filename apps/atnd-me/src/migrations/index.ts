@@ -164,6 +164,8 @@ import * as migration_20260729_000007_checkout_hold_session_released from './202
 import * as migration_20260730_000001_courses_access_window_mode from './20260730_000001_courses_access_window_mode';
 import * as migration_20260730_000002_courses_cover_image from './20260730_000002_courses_cover_image';
 import * as migration_20260730_000003_courses_about_richtext from './20260730_000003_courses_about_richtext';
+import * as migration_20260730_000004_emergency_contacts from './20260730_000004_emergency_contacts';
+import * as migration_20260730_000005_emergency_contact_form_block from './20260730_000005_emergency_contact_form_block';
 import * as migration_20260721_000001_marketing_hero_show_username_claim from './20260721_000001_marketing_hero_show_username_claim';
 import * as migration_20260721_000002_hero_sched_display_heading from './20260721_000002_hero_sched_display_heading';
 import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
@@ -1043,5 +1045,15 @@ export const migrations = [
     up: migration_20260730_000003_courses_about_richtext.up,
     down: migration_20260730_000003_courses_about_richtext.down,
     name: '20260730_000003_courses_about_richtext',
+  },
+  {
+    up: migration_20260730_000004_emergency_contacts.up,
+    down: migration_20260730_000004_emergency_contacts.down,
+    name: '20260730_000004_emergency_contacts',
+  },
+  {
+    up: migration_20260730_000005_emergency_contact_form_block.up,
+    down: migration_20260730_000005_emergency_contact_form_block.down,
+    name: '20260730_000005_emergency_contact_form_block',
   },
 ];

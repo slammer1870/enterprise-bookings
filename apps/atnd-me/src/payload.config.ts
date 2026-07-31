@@ -18,6 +18,7 @@ import { Scheduler } from './collections/Scheduler'
 import { Locations } from './collections/Locations'
 import { PostBookingEmailDeliveries } from './collections/PostBookingEmailDeliveries'
 import { CourseEmailDeliveries } from './collections/CourseEmailDeliveries'
+import { EmergencyContacts } from './collections/EmergencyContacts'
 import { PlatformFees } from './globals/PlatformFees'
 import { plugins } from './plugins'
 import { defaultLexical } from '@/fields/defaultLexical'
@@ -169,7 +170,7 @@ export default buildConfig({
       }
       : {}),
   }),
-  collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler, Locations, PostBookingEmailDeliveries, CourseEmailDeliveries],
+  collections: [Pages, Posts, Media, Categories, Users, Tenants, DiscountCodes, Navbar, Footer, Scheduler, Locations, PostBookingEmailDeliveries, CourseEmailDeliveries, EmergencyContacts],
   // Global multipart upload limits (busboy). Without this, fileSize defaults to Infinity.
   // abortOnLimit must be true — otherwise oversized files are truncated instead of rejected.
   // Note: Payload still drains the request body before responding, so admin UX also relies on
