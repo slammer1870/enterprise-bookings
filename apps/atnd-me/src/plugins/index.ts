@@ -438,7 +438,7 @@ export const plugins: Plugin[] = [
           views: {
             list: {
               Component:
-                '@/components/timeslot-admin/TimeslotAdmin#TimeslotAdmin',
+                '@repo/bookings-plugin/src/components/lessons/timeslot-admin#TimeslotAdmin',
             },
           },
         },

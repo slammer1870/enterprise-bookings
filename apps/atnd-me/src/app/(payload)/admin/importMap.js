@@ -2,7 +2,7 @@ import { default as default_c460fff066f5db6b45826c32f5c7748e } from '@/component
 import { default as default_2a89e3b2de91cb0ec6b364df0983fbdc } from '@/components/admin/SyncBranchFieldToPayloadLocationCookie'
 import { SyncTenantSelectorToFormField as SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611 } from '@repo/plugin-clearable-tenant/client'
 import { AssignTenantFieldTrigger as AssignTenantFieldTrigger_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
-import { TimeslotAdmin as TimeslotAdmin_4edb8e9e024eaa7eec297510e069ebc1 } from '@/components/timeslot-admin/TimeslotAdmin'
+import { TimeslotAdmin as TimeslotAdmin_3ef87d1a74d531e63f91140f7dc9d197 } from '@repo/bookings-plugin/src/components/lessons/timeslot-admin'
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { SchedulerTimeSlotFormCleanup as SchedulerTimeSlotFormCleanup_cc812fa1f4d64b1b2d70f2eab2ce5776 } from '@/components/admin/SchedulerTimeSlotFormCleanup'
 import { SchedulerGenerationStatusField as SchedulerGenerationStatusField_c37ffb6f251eeb86340ae663ecf1fc0e } from '@/components/admin/SchedulerGenerationStatusField'
@@ -57,12 +57,12 @@ import { MetaDescriptionComponent as MetaDescriptionComponent_a8a977ebc872c5d5ea
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
-import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
-import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
 import { TenantMembershipField as TenantMembershipField_ae33ac801c02897921b5d704508790f3 } from '@/components/admin/users/TenantMembershipField'
 import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
 import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
+import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
+import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
 import { default as default_52e77c52d4964a74462752f328706265 } from '@/components/admin/MediaUpload'
 import { SlugField as SlugField_2b8867833a34864a02ddf429b0728a40 } from '@payloadcms/next/client'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
@@ -101,7 +101,7 @@ export const importMap = {
   "@/components/admin/SyncBranchFieldToPayloadLocationCookie#default": default_2a89e3b2de91cb0ec6b364df0983fbdc,
   "@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField": SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611,
   "@payloadcms/plugin-multi-tenant/client#AssignTenantFieldTrigger": AssignTenantFieldTrigger_1d0591e3cf4f332c83a86da13a0de59a,
-  "@/components/timeslot-admin/TimeslotAdmin#TimeslotAdmin": TimeslotAdmin_4edb8e9e024eaa7eec297510e069ebc1,
+  "@repo/bookings-plugin/src/components/lessons/timeslot-admin#TimeslotAdmin": TimeslotAdmin_3ef87d1a74d531e63f91140f7dc9d197,
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@/components/admin/SchedulerTimeSlotFormCleanup#SchedulerTimeSlotFormCleanup": SchedulerTimeSlotFormCleanup_cc812fa1f4d64b1b2d70f2eab2ce5776,
   "@/components/admin/SchedulerGenerationStatusField#SchedulerGenerationStatusField": SchedulerGenerationStatusField_c37ffb6f251eeb86340ae663ecf1fc0e,
@@ -156,12 +156,12 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
-  "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
-  "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
   "@/components/admin/users/TenantMembershipField#TenantMembershipField": TenantMembershipField_ae33ac801c02897921b5d704508790f3,
   "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
   "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
   "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
+  "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
+  "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
   "@/components/admin/MediaUpload#default": default_52e77c52d4964a74462752f328706265,
   "@payloadcms/next/client#SlugField": SlugField_2b8867833a34864a02ddf429b0728a40,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,

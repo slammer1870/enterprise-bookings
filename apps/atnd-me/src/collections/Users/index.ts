@@ -38,6 +38,7 @@ import {
   normalizeTenantRoles,
   sanitizeUserTenantsAndRolesForWrite,
 } from './sanitizeUserWrite'
+import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
  * Consolidated tenants membership field: replaces the separate `tenantRoles` array.
@@ -618,6 +619,18 @@ export const Users: CollectionConfig = {
     // The multi-tenant plugin's auto-add is disabled (includeDefaultField: false in plugins/index.ts)
     // so we place this field manually here with the `roles` rowField for full control.
     tenantsMembershipField,
+    {
+      name: 'emergencyContacts',
+      label: 'Emergency contacts',
+      type: 'join',
+      collection: EMERGENCY_CONTACTS_SLUG,
+      on: 'user',
+      admin: {
+        description:
+          'Family emergency contact records for this account holder (one per tenant when completed).',
+        defaultColumns: ['status', 'completedAt', 'updatedAt'],
+      },
+    },
     {
       name: 'tenantStripeCustomerMapping',
       type: 'ui',

@@ -22,12 +22,3 @@ export type EmergencyContactRecordSummary = {
   people: EmergencyContactPerson[]
   completedAt?: string | null
 }
-
-export type RosterBookerGroup = {
-  userId: number
-  bookerName: string
-  bookerEmail: string
-  seatCount: number
-  bookingIds: number[]
-  emergencyContact: EmergencyContactRecordSummary | null
-}

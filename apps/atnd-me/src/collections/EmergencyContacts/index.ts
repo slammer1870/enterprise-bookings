@@ -31,7 +31,7 @@ export const EmergencyContacts: CollectionConfig = {
     plural: 'Emergency contacts',
   },
   admin: {
-    group: 'Bookings',
+    group: 'Auth',
     useAsTitle: 'id',
     defaultColumns: ['user', 'status', 'completedAt', 'updatedAt'],
     description:

@@ -28,6 +28,7 @@ const groupPriority = new Map<string, number>(
 /** Slug order within a nav group (unlisted slugs keep their relative order). */
 const ADMIN_NAV_ENTITY_ORDER: Partial<Record<AdminNavGroup, readonly string[]>> = {
   Bookings: ['timeslots'],
+  Auth: ['emergency-contacts'],
 }
 
 function resolveGroup(
