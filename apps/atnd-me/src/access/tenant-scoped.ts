@@ -199,6 +199,7 @@ export async function loadUserDocForTenantMembership(
       collection: 'users',
       id: userId,
       depth: 1,
+      joins: false,
       overrideAccess: true,
     })
     .catch(() => null)

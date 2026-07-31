@@ -494,6 +494,7 @@ export const Users: CollectionConfig = {
                 collection: 'users',
                 id: targetId,
                 depth: 0,
+                joins: false,
                 overrideAccess: true,
               })
               if (freshDoc) {
