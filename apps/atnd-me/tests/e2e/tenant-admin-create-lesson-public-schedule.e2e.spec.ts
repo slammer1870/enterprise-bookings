@@ -111,6 +111,36 @@ async function prepareTenantAdminCreatePage(
   await chooseLocationInCreateModal(page)
 }
 
+const EVENT_TYPE_DESCRIPTION =
+  'E2E class option for tenant-admin public schedule lesson coverage'
+
+function eventTypeNameField(page: Page) {
+  return page.locator('#field-name').or(page.getByRole('textbox', { name: /^Name\s*\*?$/i })).first()
+}
+
+function eventTypePlacesField(page: Page) {
+  return page
+    .locator('#field-places')
+    .or(page.getByRole('spinbutton', { name: /Places/i }))
+    .first()
+}
+
+function eventTypeDescriptionField(page: Page) {
+  return page
+    .locator('#field-description')
+    .or(page.getByRole('textbox', { name: /Description/i }))
+    .first()
+}
+
+async function readEventTypeFormValues(page: Page) {
+  const [name, places, description] = await Promise.all([
+    eventTypeNameField(page).inputValue().catch(() => ''),
+    eventTypePlacesField(page).inputValue().catch(() => ''),
+    eventTypeDescriptionField(page).inputValue().catch(() => ''),
+  ])
+  return { name, places, description }
+}
+
 async function fillEventTypeCreateForm(page: Page, className: string) {
   await expect(page.getByText('Creating new Event Type').first()).toBeVisible({
     timeout: process.env.CI ? 60000 : 30000,
@@ -119,30 +149,74 @@ async function fillEventTypeCreateForm(page: Page, className: string) {
   // Wait for any deferred router.refresh() from tenant/location modals to settle before
   // filling — a soft re-render fires after load state, silently wiping field values.
   await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+  await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 15000 }).catch(() => null)
 
   const doFill = async () => {
-    await fillStable(page, () => page.getByRole('textbox', { name: /^Name\s*\*?$/i }), className)
-    await fillStable(page, () => page.getByRole('spinbutton', { name: /Places/i }), '10')
-    await fillStable(
-      page,
-      () => page.getByRole('textbox', { name: /Description/i }),
-      'E2E class option for tenant-admin public schedule lesson coverage',
+    await fillStable(page, () => eventTypeNameField(page), className)
+    await fillStable(page, () => eventTypePlacesField(page), '10')
+    await fillStable(page, () => eventTypeDescriptionField(page), EVENT_TYPE_DESCRIPTION)
+  }
+
+  const valuesMatch = async () => {
+    const values = await readEventTypeFormValues(page)
+    return (
+      values.name === className &&
+      values.places === '10' &&
+      values.description === EVENT_TYPE_DESCRIPTION
     )
   }
 
   await doFill()
 
-  // Short pause then verify values are still present — if a deferred re-render wiped
-  // them, fill once more before proceeding to save.
-  await page.waitForTimeout(700)
-  const nameVal = await page
-    .getByRole('textbox', { name: /^Name\s*\*?$/i })
-    .first()
-    .inputValue()
-    .catch(() => '')
-  if (nameVal !== className) {
+  // Payload can still re-hydrate after the first fill and wipe React form state while the
+  // DOM briefly looks correct. Re-check all required fields (not just Name) and refill.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await page.waitForTimeout(process.env.CI ? 1000 : 700)
+    if (await valuesMatch()) return
     await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
     await doFill()
+  }
+
+  await expect
+    .poll(async () => readEventTypeFormValues(page), { timeout: 10000 })
+    .toEqual({
+      name: className,
+      places: '10',
+      description: EVENT_TYPE_DESCRIPTION,
+    })
+}
+
+async function saveEventTypeWithFormRetry(page: Page, className: string) {
+  const saveOptions = {
+    apiPath: '/api/event-types',
+    expectedUrlPattern: /\/admin\/collections\/event-types\/\d+/,
+    collectionName: 'event-types',
+  } as const
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const values = await readEventTypeFormValues(page)
+    if (
+      values.name !== className ||
+      values.places !== '10' ||
+      values.description !== EVENT_TYPE_DESCRIPTION
+    ) {
+      await fillEventTypeCreateForm(page, className)
+    }
+
+    try {
+      await saveObjectAndWaitForNavigation(page, saveOptions)
+      return
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const emptyRequiredFields =
+        /Save failed for event-types \(400\)/.test(msg) &&
+        /Name|Places|Description/.test(msg)
+      if (!emptyRequiredFields || attempt === 1) throw err
+
+      // Form state was wiped between the last DOM check and POST — refill and retry once.
+      await page.waitForTimeout(500)
+      await fillEventTypeCreateForm(page, className)
+    }
   }
 }
 
@@ -201,11 +275,7 @@ test.describe('Tenant admin lesson creation appears on public schedule', () => {
       `${tenantOrigin}/admin/collections/event-types/create`,
     )
     await fillEventTypeCreateForm(page, className)
-    await saveObjectAndWaitForNavigation(page, {
-      apiPath: '/api/event-types',
-      expectedUrlPattern: /\/admin\/collections\/event-types\/\d+/,
-      collectionName: 'event-types',
-    })
+    await saveEventTypeWithFormRetry(page, className)
     const eventTypeId = await extractIdFromAdminUrl(page, 'event-types')
 
     // Create the timeslot via the REST API rather than through the admin UI date-picker.
