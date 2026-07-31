@@ -94,7 +94,7 @@ export const EmergencyContacts: CollectionConfig = {
   },
   admin: {
     group: 'Auth',
-    useAsTitle: 'peopleSummary',
+    useAsTitle: 'user',
     defaultColumns: ['user', 'peopleSummary', 'primaryContact', 'status', 'completedAt'],
     description:
       'Family emergency contact details per account holder. Public fill goes through the Emergency Contact Form block; tenant admins can also create and edit here.',
