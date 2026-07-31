@@ -1,6 +1,8 @@
 import type { Field, GroupField } from 'payload'
+import { hexColorField } from './hexColorField'
+import type { LinkAppearances } from './linkTypes'
 
-export type LinkAppearances = 'default' | 'outline'
+export type { LinkAppearances } from './linkTypes'
 
 export const appearanceOptions: Record<LinkAppearances, { label: string; value: string }> = {
   default: {
@@ -11,15 +13,36 @@ export const appearanceOptions: Record<LinkAppearances, { label: string; value: 
     label: 'Outline',
     value: 'outline',
   },
+  secondary: {
+    label: 'Secondary',
+    value: 'secondary',
+  },
+  ghost: {
+    label: 'Ghost',
+    value: 'ghost',
+  },
+  link: {
+    label: 'Link',
+    value: 'link',
+  },
 }
 
 type LinkType = (_options?: {
   appearances?: LinkAppearances[] | false
+  colors?: boolean
   disableLabel?: boolean
+  /** Collections available for internal links. Defaults to pages + posts. */
+  relationTo?: string[]
   overrides?: Partial<GroupField>
 }) => Field
 
-export const link: LinkType = ({ appearances, disableLabel = false, overrides = {} } = {}) => {
+export const link: LinkType = ({
+  appearances,
+  colors = true,
+  disableLabel = false,
+  relationTo = ['pages', 'posts'],
+  overrides = {},
+} = {}) => {
   const linkResult: GroupField = {
     name: 'link',
     type: 'group',
@@ -73,7 +96,7 @@ export const link: LinkType = ({ appearances, disableLabel = false, overrides = 
         condition: (_, siblingData) => siblingData?.type === 'reference',
       },
       label: 'Document to link to',
-      relationTo: ['pages', 'posts'],
+      relationTo: relationTo as ('pages' | 'posts')[],
       required: true,
     },
     {
@@ -108,7 +131,13 @@ export const link: LinkType = ({ appearances, disableLabel = false, overrides = 
   }
 
   if (appearances !== false) {
-    let appearanceOptionsToUse = [appearanceOptions.default, appearanceOptions.outline]
+    let appearanceOptionsToUse = [
+      appearanceOptions.default,
+      appearanceOptions.outline,
+      appearanceOptions.secondary,
+      appearanceOptions.ghost,
+      appearanceOptions.link,
+    ]
 
     if (appearances) {
       appearanceOptionsToUse = appearances.map((appearance) => appearanceOptions[appearance])
@@ -122,6 +151,24 @@ export const link: LinkType = ({ appearances, disableLabel = false, overrides = 
       },
       defaultValue: 'default',
       options: appearanceOptionsToUse,
+    })
+  }
+
+  if (colors !== false && appearances !== false) {
+    linkResult.fields.push({
+      type: 'row',
+      fields: [
+        hexColorField({
+          name: 'backgroundColor',
+          label: 'Background color',
+          description: 'Leave empty to use the theme default for this appearance.',
+        }),
+        hexColorField({
+          name: 'foregroundColor',
+          label: 'Text color',
+          description: 'Leave empty to use the theme default for this appearance.',
+        }),
+      ],
     })
   }
 

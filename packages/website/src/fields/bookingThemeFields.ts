@@ -1,4 +1,5 @@
 import type { Field } from 'payload'
+import { hexColorField } from './hexColorField'
 
 /** Button state keys — keep in sync with apps/atnd-me/src/utilities/bookingThemeTypes.ts */
 const BOOKING_THEME_STATE_KEYS = [
@@ -23,27 +24,14 @@ const BUTTON_STATE_LABELS: Record<BookingThemeStateKey, string> = {
   closed: 'Closed',
 }
 
-function bookingThemeColorField(name: 'backgroundColor' | 'foregroundColor', label: string): Field {
-  return {
-    name,
-    type: 'text',
-    label,
-    admin: {
-      components: {
-        Field: '@/components/admin/booking-theme/BookingThemeColorField#BookingThemeColorField',
-      },
-    },
-  }
-}
-
 function buttonStateGroup(name: BookingThemeStateKey, label: string): Field {
   return {
     name,
     type: 'group',
     label,
     fields: [
-      bookingThemeColorField('backgroundColor', 'Background color'),
-      bookingThemeColorField('foregroundColor', 'Text color'),
+      hexColorField({ name: 'backgroundColor', label: 'Background color' }),
+      hexColorField({ name: 'foregroundColor', label: 'Text color' }),
     ],
   }
 }

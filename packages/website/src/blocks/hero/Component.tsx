@@ -2,8 +2,8 @@
 
 import React from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { Button } from '@repo/ui/components/ui/button'
+import { CMSButton } from '../../components/CMSButton'
+import type { CMSButtonProps } from '../../components/CMSButton'
 
 interface HeroBlockProps {
   backgroundImage: {
@@ -16,17 +16,7 @@ interface HeroBlockProps {
   } | number | string
   title?: string
   links?: Array<{
-    link: {
-      type?: 'reference' | 'custom'
-      url?: string
-      label?: string
-      appearance?: 'default' | 'outline'
-      newTab?: boolean
-      reference?: {
-        value: string | number | { slug?: string }
-        relationTo: string
-      }
-    }
+    link: CMSButtonProps
   }>
 }
 
@@ -49,29 +39,6 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
       : typeof logo === 'string'
         ? logo
         : null
-
-  type LinkType = {
-    type?: 'reference' | 'custom'
-    url?: string
-    label?: string
-    appearance?: 'default' | 'outline'
-    newTab?: boolean
-    reference?: {
-      value: string | number | { slug?: string }
-      relationTo: string
-    }
-  }
-
-  const getHref = (link: LinkType | undefined) => {
-    if (!link) return '#'
-    if (link.type === 'reference' && link.reference) {
-      const ref = link.reference.value
-      const slug = typeof ref === 'object' && ref?.slug ? ref.slug : ''
-      const relationTo = link.reference.relationTo
-      return relationTo !== 'pages' ? `/${relationTo}/${slug}` : `/${slug}`
-    }
-    return link.url || '#'
-  }
 
   return (
     <div
@@ -111,28 +78,23 @@ export const HeroBlock: React.FC<HeroBlockProps> = ({
           <div className="flex flex-col sm:flex-row gap-4 w-full">
             {links.map((linkItem, index) => {
               if (!linkItem?.link) return null
-              const { link } = linkItem
-              const appearance = link.appearance || 'default'
-              const href = getHref(link)
-              const newTabProps = link.newTab
-                ? { rel: 'noopener noreferrer', target: '_blank' }
-                : {}
-
+              const appearance = linkItem.link.appearance || 'default'
               return (
-                <Button
+                <CMSButton
                   key={index}
-                  asChild
-                  variant={appearance === 'outline' ? 'outline' : 'default'}
-                  className={
-                    appearance === 'outline'
-                      ? 'border-2 border-white text-white hover:bg-white hover:text-gray-900 bg-transparent w-auto flex-1'
-                      : 'bg-white text-gray-900 hover:bg-gray-100 w-auto flex-1'
+                  {...linkItem.link}
+                  appearance={appearance}
+                  label={linkItem.link.label || 'Learn More'}
+                  className="w-auto flex-1"
+                  backgroundColor={
+                    linkItem.link.backgroundColor ??
+                    (appearance === 'outline' ? '#ffffff' : '#ffffff')
                   }
-                >
-                  <Link href={href} {...newTabProps}>
-                    {link.label || 'Learn More'}
-                  </Link>
-                </Button>
+                  foregroundColor={
+                    linkItem.link.foregroundColor ??
+                    (appearance === 'outline' ? '#ffffff' : '#111827')
+                  }
+                />
               )
             })}
           </div>

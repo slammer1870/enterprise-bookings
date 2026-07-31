@@ -1,11 +1,10 @@
 import React from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import type { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
-import { Button } from '@repo/ui/components/ui/button'
 import { cn } from '@repo/ui/lib/utils'
-import { getLinkHref } from '../../utils/getLinkHref'
+import { CMSButton } from '../../components/CMSButton'
+import type { CMSButtonProps } from '../../components/CMSButton'
 import { UsernameClaimForm } from './UsernameClaimForm'
 
 type MediaResource = { url?: string; alt?: string } | number | string
@@ -15,17 +14,7 @@ interface MarketingHeroBlockProps {
   subheadline?: SerializedEditorState
   showUsernameClaim?: boolean | null
   links?: Array<{
-    link: {
-      type?: 'reference' | 'custom'
-      url?: string
-      label?: string
-      appearance?: 'default' | 'outline'
-      newTab?: boolean
-      reference?: {
-        value: string | number | { slug?: string }
-        relationTo: string
-      }
-    }
+    link: CMSButtonProps
   }>
   backgroundMedia?: MediaResource
   foregroundMedia?: MediaResource
@@ -116,22 +105,16 @@ export const MarketingHeroBlock: React.FC<MarketingHeroBlockProps> = ({
             links.length > 0 && (
               <div className="flex flex-col sm:flex-row gap-4">
                 {links.map(({ link }, i) => {
-                  const href = getLinkHref(link)
-                  const appearance = link?.appearance ?? (i === 0 ? 'default' : 'outline')
+                  if (!link) return null
+                  const appearance = link.appearance ?? (i === 0 ? 'default' : 'outline')
                   return (
-                    <Button
+                    <CMSButton
                       key={i}
-                      asChild
-                      variant={appearance === 'outline' ? 'outline' : 'default'}
+                      {...link}
+                      appearance={appearance}
+                      label={link.label ?? 'Learn more'}
                       size="lg"
-                    >
-                      <Link
-                        href={href}
-                        {...(link?.newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                      >
-                        {link?.label ?? 'Learn more'}
-                      </Link>
-                    </Button>
+                    />
                   )
                 })}
               </div>

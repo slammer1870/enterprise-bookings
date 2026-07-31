@@ -1,18 +1,17 @@
 import React from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
 import { RichText } from '@payloadcms/richtext-lexical/react'
 import type { SerializedEditorState } from '@payloadcms/richtext-lexical/lexical'
-import { Button } from '@repo/ui/components/ui/button'
 import { cn } from '@repo/ui/lib/utils'
-import { getLinkHref } from '../../utils/getLinkHref'
+import { CMSButton } from '../../components/CMSButton'
+import type { CMSButtonProps } from '../../components/CMSButton'
 
 type MediaResource = { url?: string; alt?: string } | number | string
 
 interface MarketingCtaBlockProps {
   heading?: string
   description?: SerializedEditorState
-  links?: Array<{ link: { type?: 'reference' | 'custom'; url?: string; label?: string; appearance?: 'default' | 'outline'; newTab?: boolean; reference?: { value: string | number | { slug?: string }; relationTo: string } } }>
+  links?: Array<{ link: CMSButtonProps }>
   backgroundMedia?: MediaResource
   variant?: 'default' | 'highlighted' | 'bordered'
   alignment?: 'left' | 'center' | 'right'
@@ -95,34 +94,29 @@ export const MarketingCtaBlock: React.FC<MarketingCtaBlockProps> = ({
           {links && links.length > 0 && (
             <div className="flex flex-col sm:flex-row gap-4 mt-4">
               {links.map(({ link }, i) => {
-                const href = getLinkHref(link)
+                if (!link) return null
                 const appearance =
-                  (variant ?? 'default') === 'highlighted'
+                  link.appearance ??
+                  ((variant ?? 'default') === 'highlighted'
                     ? i === 0
                       ? 'outline'
                       : 'default'
                     : i === 0
                       ? 'default'
-                      : 'outline'
+                      : 'outline')
                 return (
-                  <Button
+                  <CMSButton
                     key={i}
-                    asChild
-                    variant={appearance === 'outline' ? 'outline' : 'default'}
+                    {...link}
+                    appearance={appearance}
+                    label={link.label ?? 'Learn more'}
                     size="lg"
                     className={
                       (variant ?? 'default') === 'highlighted' && appearance === 'outline'
                         ? 'border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary'
                         : undefined
                     }
-                  >
-                    <Link
-                      href={href}
-                      {...(link?.newTab ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                    >
-                      {link?.label ?? 'Learn more'}
-                    </Link>
-                  </Button>
+                  />
                 )
               })}
             </div>

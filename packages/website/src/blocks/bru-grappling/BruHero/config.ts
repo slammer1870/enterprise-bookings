@@ -1,4 +1,5 @@
 import type { Block } from 'payload'
+import { linkGroup } from '../../../fields/linkGroup'
 
 export const BruHero: Block = {
   slug: 'bruHero',
@@ -40,44 +41,16 @@ export const BruHero: Block = {
       required: false,
       label: 'Description',
     },
-    {
-      name: 'primaryButton',
-      type: 'group',
-      required: false,
-      fields: [
-        {
-          name: 'text',
-          type: 'text',
-          required: false,
-          label: 'Button Text',
+    linkGroup({
+      appearances: ['default', 'outline', 'secondary'],
+      overrides: {
+        maxRows: 2,
+        label: 'Buttons',
+        admin: {
+          initCollapsed: false,
+          description: 'Primary and optional secondary CTA buttons.',
         },
-        {
-          name: 'link',
-          type: 'text',
-          required: false,
-          label: 'Button Link',
-        },
-      ],
-    },
-    {
-      name: 'secondaryButton',
-      type: 'group',
-      required: false,
-      fields: [
-        {
-          name: 'text',
-          type: 'text',
-          required: false,
-          label: 'Button Text',
-        },
-        {
-          name: 'link',
-          type: 'text',
-          required: false,
-          label: 'Button Link',
-        },
-      ],
-    },
+      },
+    }),
   ],
 }
-

@@ -71,7 +71,6 @@ export interface Config {
     scheduler: Scheduler;
     'post-booking-email-deliveries': PostBookingEmailDelivery;
     'course-email-deliveries': CourseEmailDelivery;
-    'emergency-contacts': EmergencyContact;
     'staff-members': StaffMember;
     'event-types': EventType;
     tenants: Tenant;
@@ -92,6 +91,7 @@ export interface Config {
     footer: Footer;
     forms: Form;
     'form-submissions': FormSubmission;
+    'emergency-contacts': EmergencyContact;
     'admin-invitations': AdminInvitation;
     accounts: Account;
     sessions: Session;
@@ -121,6 +121,7 @@ export interface Config {
       'event-typesPaymentMethods': 'event-types';
     };
     users: {
+      emergencyContacts: 'emergency-contacts';
       account: 'accounts';
       session: 'sessions';
       userSubscription: 'subscriptions';
@@ -131,7 +132,6 @@ export interface Config {
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
     'post-booking-email-deliveries': PostBookingEmailDeliveriesSelect<false> | PostBookingEmailDeliveriesSelect<true>;
     'course-email-deliveries': CourseEmailDeliveriesSelect<false> | CourseEmailDeliveriesSelect<true>;
-    'emergency-contacts': EmergencyContactsSelect<false> | EmergencyContactsSelect<true>;
     'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
     'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
@@ -152,6 +152,7 @@ export interface Config {
     footer: FooterSelect<false> | FooterSelect<true>;
     forms: FormsSelect<false> | FormsSelect<true>;
     'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
+    'emergency-contacts': EmergencyContactsSelect<false> | EmergencyContactsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
@@ -635,6 +636,14 @@ export interface HeroScheduleSanctuaryBlock {
            * Choose how the link should be rendered.
            */
           appearance?: ('default' | 'outline') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -763,6 +772,14 @@ export interface Category {
 export interface User {
   id: number;
   /**
+   * Family emergency contact records for this account holder (one per tenant when completed).
+   */
+  emergencyContacts?: {
+    docs?: (number | EmergencyContact)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
+  };
+  /**
    * The tenant this user originally registered with (based on domain / subdomain).
    */
   registrationTenant?: (number | null) | Tenant;
@@ -853,6 +870,54 @@ export interface User {
     | null;
   password?: string | null;
   collection: 'users';
+}
+/**
+ * Family emergency contact details per account holder. Public fill goes through the Emergency Contact Form block; tenant admins can also create and edit here.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emergency-contacts".
+ */
+export interface EmergencyContact {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Account holder / booker this family record belongs to.
+   */
+  user: number | User;
+  status: 'incomplete' | 'complete';
+  /**
+   * Names covered by this record (self, children, etc.).
+   */
+  peopleSummary?: string | null;
+  /**
+   * First listed emergency contact name, phone, and relationship.
+   */
+  primaryContact?: string | null;
+  /**
+   * Who the emergency contacts are for (self, children, etc.).
+   */
+  people?:
+    | {
+        fullName: string;
+        personType: 'self' | 'child' | 'other';
+        contacts?:
+          | {
+              name: string;
+              phone: string;
+              /**
+               * e.g. parent, spouse, guardian
+               */
+              relationship: string;
+              id?: string | null;
+            }[]
+          | null;
+        medicalNotes?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  completedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * Branches or sites for a tenant (e.g. Town A / Town B). Slug is unique per tenant.
@@ -1433,6 +1498,14 @@ export interface HeroWithLocationBlock {
            * Choose how the link should be rendered.
            */
           appearance?: ('default' | 'outline') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -1477,6 +1550,14 @@ export interface HeroBlock {
            * Choose how the link should be rendered.
            */
           appearance?: ('default' | 'outline') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -1530,6 +1611,14 @@ export interface MarketingHeroBlock {
            * Choose how the link should be rendered.
            */
           appearance?: ('default' | 'outline') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -2036,6 +2125,14 @@ export interface CallToActionBlock {
            * Choose how the link should be rendered.
            */
           appearance?: ('default' | 'outline') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -2085,6 +2182,14 @@ export interface MarketingCtaBlock {
            * Choose how the link should be rendered.
            */
           appearance?: ('default' | 'outline') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -2140,7 +2245,15 @@ export interface ContentBlock {
           /**
            * Choose how the link should be rendered.
            */
-          appearance?: ('default' | 'outline') | null;
+          appearance?: ('default' | 'outline' | 'secondary' | 'ghost' | 'link') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -2404,14 +2517,41 @@ export interface BruHeroBlock {
   title?: string | null;
   subtitle?: string | null;
   description?: string | null;
-  primaryButton?: {
-    text?: string | null;
-    link?: string | null;
-  };
-  secondaryButton?: {
-    text?: string | null;
-    link?: string | null;
-  };
+  /**
+   * Primary and optional secondary CTA buttons.
+   */
+  links?:
+    | {
+        link: {
+          type?: ('reference' | 'custom') | null;
+          newTab?: boolean | null;
+          reference?:
+            | ({
+                relationTo: 'pages';
+                value: number | Page;
+              } | null)
+            | ({
+                relationTo: 'posts';
+                value: number | Post;
+              } | null);
+          url?: string | null;
+          label: string;
+          /**
+           * Choose how the link should be rendered.
+           */
+          appearance?: ('default' | 'outline' | 'secondary') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
+        };
+        id?: string | null;
+      }[]
+    | null;
   id?: string | null;
   blockName?: string | null;
   blockType: 'bruHero';
@@ -2896,6 +3036,14 @@ export interface CroiLanHeroWithLocationBlock {
            * Choose how the link should be rendered.
            */
           appearance?: ('default' | 'outline') | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          backgroundColor?: string | null;
+          /**
+           * Leave empty to use the theme default for this appearance.
+           */
+          foregroundColor?: string | null;
         };
         id?: string | null;
       }[]
@@ -3570,46 +3718,6 @@ export interface CourseEnrollment {
   createdAt: string;
 }
 /**
- * Family emergency contact details per account holder. Public fill goes through the Emergency Contact Form block APIs.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "emergency-contacts".
- */
-export interface EmergencyContact {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  /**
-   * Account holder / booker this family record belongs to.
-   */
-  user: number | User;
-  status: 'incomplete' | 'complete';
-  /**
-   * Who the emergency contacts are for (self, children, etc.).
-   */
-  people?:
-    | {
-        fullName: string;
-        personType: 'self' | 'child' | 'other';
-        contacts?:
-          | {
-              name: string;
-              phone: string;
-              /**
-               * e.g. parent, spouse, guardian
-               */
-              relationship: string;
-              id?: string | null;
-            }[]
-          | null;
-        medicalNotes?: string | null;
-        id?: string | null;
-      }[]
-    | null;
-  completedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4249,10 +4357,6 @@ export interface PayloadLockedDocument {
         value: number | CourseEmailDelivery;
       } | null)
     | ({
-        relationTo: 'emergency-contacts';
-        value: number | EmergencyContact;
-      } | null)
-    | ({
         relationTo: 'staff-members';
         value: number | StaffMember;
       } | null)
@@ -4331,6 +4435,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'form-submissions';
         value: number | FormSubmission;
+      } | null)
+    | ({
+        relationTo: 'emergency-contacts';
+        value: number | EmergencyContact;
       } | null)
     | ({
         relationTo: 'admin-invitations';
@@ -4509,34 +4617,6 @@ export interface CourseEmailDeliveriesSelect<T extends boolean = true> {
   payloadJobId?: T;
   scheduledFor?: T;
   sentAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "emergency-contacts_select".
- */
-export interface EmergencyContactsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  status?: T;
-  people?:
-    | T
-    | {
-        fullName?: T;
-        personType?: T;
-        contacts?:
-          | T
-          | {
-              name?: T;
-              phone?: T;
-              relationship?: T;
-              id?: T;
-            };
-        medicalNotes?: T;
-        id?: T;
-      };
-  completedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5034,6 +5114,8 @@ export interface HeroScheduleSanctuaryBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -5160,6 +5242,8 @@ export interface HeroWithLocationBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -5188,6 +5272,8 @@ export interface HeroBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -5214,6 +5300,8 @@ export interface MarketingHeroBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -5592,6 +5680,8 @@ export interface CallToActionBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -5617,6 +5707,8 @@ export interface MarketingCtaBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -5646,6 +5738,8 @@ export interface ContentBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -5696,17 +5790,22 @@ export interface BruHeroBlockSelect<T extends boolean = true> {
   title?: T;
   subtitle?: T;
   description?: T;
-  primaryButton?:
+  links?:
     | T
     | {
-        text?: T;
-        link?: T;
-      };
-  secondaryButton?:
-    | T
-    | {
-        text?: T;
-        link?: T;
+        link?:
+          | T
+          | {
+              type?: T;
+              newTab?: T;
+              reference?: T;
+              url?: T;
+              label?: T;
+              appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
+            };
+        id?: T;
       };
   id?: T;
   blockName?: T;
@@ -6053,6 +6152,8 @@ export interface CroiLanHeroWithLocationBlockSelect<T extends boolean = true> {
               url?: T;
               label?: T;
               appearance?: T;
+              backgroundColor?: T;
+              foregroundColor?: T;
             };
         id?: T;
       };
@@ -6654,6 +6755,36 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emergency-contacts_select".
+ */
+export interface EmergencyContactsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  status?: T;
+  peopleSummary?: T;
+  primaryContact?: T;
+  people?:
+    | T
+    | {
+        fullName?: T;
+        personType?: T;
+        contacts?:
+          | T
+          | {
+              name?: T;
+              phone?: T;
+              relationship?: T;
+              id?: T;
+            };
+        medicalNotes?: T;
+        id?: T;
+      };
+  completedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "admin-invitations_select".
  */
 export interface AdminInvitationsSelect<T extends boolean = true> {
@@ -6711,6 +6842,7 @@ export interface VerificationsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  emergencyContacts?: T;
   registrationTenant?: T;
   onboardingPasswordSetAt?: T;
   locations?: T;

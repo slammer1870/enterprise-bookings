@@ -8,6 +8,7 @@
     "@payloadcms/plugin-form-builder": "*",
     "@payloadcms/plugin-seo": "*",
     "@payloadcms/richtext-lexical": "*",
+    "@payloadcms/ui": "*",
     "@repo/shared-utils": "workspace:*",
     "next": "*",
     "payload": "*",
@@ -16,6 +17,7 @@
     "react-hook-form": "*"
   },
   "devDependencies": {
+    "@payloadcms/ui": "3.84.1",
     "@repo/eslint-config": "workspace:*",
     "@repo/typescript-config": "workspace:*",
     "@repo/ui": "workspace:*",
@@ -29,8 +31,9 @@
     "@repo/bookings-next": "workspace:*",
     "@repo/shared-types": "workspace:*",
     "@repo/ui": "workspace:*",
+    "lucide-react": "0.554.0",
     "monaco-editor": "^0.52.2",
-    "lucide-react": "0.554.0"
+    "react-colorful": "^5.7.0"
   },
   "scripts": {
     "check-types": "tsc --noEmit",
