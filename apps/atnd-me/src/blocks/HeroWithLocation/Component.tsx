@@ -3,7 +3,7 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Button } from '@repo/ui/components/ui/button'
+import { CMSButton, type CMSButtonProps } from '@repo/website'
 import { BlockBookingTheme } from '@/components/BlockBookingTheme'
 import { ScheduleLazy } from '@/components/bookings/ScheduleLazy'
 import type { Media } from '@/payload-types'
@@ -11,17 +11,7 @@ import type { BookingThemeConfig } from '@/utilities/bookingThemeTypes'
 import { getMediaUrl } from '@/utilities/getMediaUrl'
 
 type LinkItem = {
-  link: {
-    type?: 'reference' | 'custom'
-    url?: string
-    label?: string
-    appearance?: 'default' | 'outline'
-    newTab?: boolean
-    reference?: {
-      value: string | number | { slug?: string }
-      relationTo: string
-    }
-  }
+  link: CMSButtonProps
 }
 
 interface HeroWithLocationBlockProps {
@@ -61,17 +51,6 @@ function resolveMediaUrl(
     return getMediaUrl(m.url, m.updatedAt) || undefined
   }
   return undefined
-}
-
-function getHref(link: LinkItem['link']): string {
-  if (!link) return '#'
-  if (link.type === 'reference' && link.reference) {
-    const ref = link.reference.value
-    const slug = typeof ref === 'object' && ref?.slug ? ref.slug : ''
-    const relationTo = link.reference.relationTo
-    return relationTo !== 'pages' ? `/${relationTo}/${slug}` : `/${slug}`
-  }
-  return link.url || '#'
 }
 
 function MapPinIcon({ className }: { className?: string }) {
@@ -233,24 +212,22 @@ export const HeroWithLocationBlock: React.FC<HeroWithLocationBlockProps> = ({
                     {links.map((linkItem, index) => {
                       if (!linkItem?.link) return null
                       const { link } = linkItem
-                      const href = getHref(link)
-                      const isOutline = link.appearance === 'outline'
-                      const newTabProps = link.newTab ? { rel: 'noopener noreferrer', target: '_blank' } : {}
+                      const appearance = link.appearance || 'default'
                       return (
-                        <Button
+                        <CMSButton
                           key={index}
-                          asChild
-                          variant={isOutline ? 'outline' : 'default'}
-                          className={
-                            isOutline
-                              ? 'border-2 border-white bg-transparent text-white hover:bg-white hover:text-stone-900'
-                              : 'border-0 bg-orange-500 text-white hover:bg-orange-600'
+                          {...link}
+                          appearance={appearance}
+                          label={link.label || 'Book Your Session'}
+                          backgroundColor={
+                            link.backgroundColor ??
+                            (appearance === 'outline' ? '#ffffff' : '#f97316')
                           }
-                        >
-                          <Link href={href} {...newTabProps}>
-                            {link.label || 'Book Your Session'}
-                          </Link>
-                        </Button>
+                          foregroundColor={
+                            link.foregroundColor ??
+                            (appearance === 'outline' ? '#ffffff' : '#ffffff')
+                          }
+                        />
                       )
                     })}
                   </div>

@@ -2,21 +2,11 @@
 
 import React from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { Button } from '@repo/ui/components/ui/button'
+import { CMSButton } from '../../../components/CMSButton'
+import type { CMSButtonProps } from '../../../components/CMSButton'
 
 type LinkItem = {
-  link: {
-    type?: 'reference' | 'custom'
-    url?: string
-    label?: string
-    appearance?: 'default' | 'outline'
-    newTab?: boolean
-    reference?: {
-      value: string | number | { slug?: string }
-      relationTo: string
-    }
-  }
+  link: CMSButtonProps
 }
 
 type MediaLike =
@@ -42,17 +32,6 @@ function resolveMediaUrl(media: MediaLike): string | undefined {
     return url.includes('?') ? `${url}&${q}` : `${url}?${q}`
   }
   return url
-}
-
-function getHref(link: LinkItem['link']): string {
-  if (!link) return '#'
-  if (link.type === 'reference' && link.reference) {
-    const ref = link.reference.value
-    const slug = typeof ref === 'object' && ref?.slug ? ref.slug : ''
-    const relationTo = link.reference.relationTo
-    return relationTo !== 'pages' ? `/${relationTo}/${slug}` : `/${slug}`
-  }
-  return link.url || '#'
 }
 
 export type ClHeroScheduleSanctuaryBlockProps = {
@@ -112,25 +91,20 @@ export const ClHeroScheduleSanctuaryBlock: React.FC<ClHeroScheduleSanctuaryBlock
         {links.map((linkItem, index) => {
           if (!linkItem?.link) return null
           const { link } = linkItem
-          const href = getHref(link)
-          const isOutline = link.appearance === 'outline'
-          const newTabProps = link.newTab ? { rel: 'noopener noreferrer', target: '_blank' } : {}
+          const appearance = link.appearance || 'default'
           return (
-            <Button
+            <CMSButton
               key={index}
-              asChild
+              {...link}
+              appearance={appearance}
+              label={link.label || 'Book Your Session'}
               size="lg"
-              variant={isOutline ? 'outline' : 'default'}
-              className={
-                isOutline
-                  ? 'w-full border-2 border-white bg-transparent text-white hover:bg-white hover:text-stone-900'
-                  : 'w-full bg-white text-stone-900 hover:bg-stone-100'
+              className="w-full"
+              backgroundColor={link.backgroundColor ?? '#ffffff'}
+              foregroundColor={
+                link.foregroundColor ?? (appearance === 'outline' ? '#ffffff' : '#1c1917')
               }
-            >
-              <Link href={href} {...newTabProps}>
-                {link.label || 'Book Your Session'}
-              </Link>
-            </Button>
+            />
           )
         })}
       </div>

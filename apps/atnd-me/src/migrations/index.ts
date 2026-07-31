@@ -166,6 +166,7 @@ import * as migration_20260730_000002_courses_cover_image from './20260730_00000
 import * as migration_20260730_000003_courses_about_richtext from './20260730_000003_courses_about_richtext';
 import * as migration_20260730_000004_emergency_contacts from './20260730_000004_emergency_contacts';
 import * as migration_20260730_000005_emergency_contact_form_block from './20260730_000005_emergency_contact_form_block';
+import * as migration_20260731_000001_link_button_colors from './20260731_000001_link_button_colors';
 import * as migration_20260721_000001_marketing_hero_show_username_claim from './20260721_000001_marketing_hero_show_username_claim';
 import * as migration_20260721_000002_hero_sched_display_heading from './20260721_000002_hero_sched_display_heading';
 import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
@@ -1055,5 +1056,10 @@ export const migrations = [
     up: migration_20260730_000005_emergency_contact_form_block.up,
     down: migration_20260730_000005_emergency_contact_form_block.down,
     name: '20260730_000005_emergency_contact_form_block',
+  },
+  {
+    up: migration_20260731_000001_link_button_colors.up,
+    down: migration_20260731_000001_link_button_colors.down,
+    name: '20260731_000001_link_button_colors',
   },
 ];

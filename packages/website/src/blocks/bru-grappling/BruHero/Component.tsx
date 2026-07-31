@@ -2,15 +2,14 @@
 
 import React from 'react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { Button } from '@repo/ui/components/ui/button'
+import { CMSButton, type CMSButtonProps } from '../../../components/CMSButton'
 import { useAnalyticsTracker } from '@repo/analytics'
 
 type ImageLike =
   | {
-    url?: string
-    alt?: string
-  }
+      url?: string
+      alt?: string
+    }
   | number
   | string
 
@@ -33,31 +32,12 @@ export const BruHeroBlock: React.FC<{
   title: string
   subtitle: string
   description: string
-  primaryButton: {
-    text: string
-    /**
-     * Can be null/empty when coming from CMS content.
-     * Never pass null to `next/link` (it will crash server render).
-     */
-    link?: string | null
-  }
-  secondaryButton?: {
-    text?: string
-    link?: string | null
-  }
-}> = ({ backgroundImage, logo, title, subtitle, description, primaryButton, secondaryButton }) => {
+  links?: Array<{ link: CMSButtonProps }> | null
+}> = ({ backgroundImage, logo, title, subtitle, description, links }) => {
   const { trackEvent } = useAnalyticsTracker()
 
   const bgUrl = getImageUrl(backgroundImage)
   const logoUrl = getImageUrl(logo)
-  const primaryHref =
-    typeof primaryButton?.link === 'string' && primaryButton.link.trim()
-      ? primaryButton.link
-      : null
-  const secondaryHref =
-    typeof secondaryButton?.link === 'string' && secondaryButton.link.trim()
-      ? secondaryButton.link
-      : null
 
   return (
     <section className="relative min-h-screen z-10">
@@ -98,24 +78,32 @@ export const BruHeroBlock: React.FC<{
               <h3 className="mb-8 text-xl text-gray-700">{description}</h3>
             </div>
             <div className="flex w-full flex-col gap-4 sm:flex-row">
-              {primaryHref ? (
-                <Button
-                  asChild
-                  variant="default"
-                  size="lg"
-                  className="w-full bg-[#FECE7E] text-black hover:bg-[#FECE7E]/90 font-medium sm:flex-1"
-                  onClick={() => {
-                    trackEvent('Bru Trial Button Clicked')
-                  }}
-                >
-                  <Link href={primaryHref}>{primaryButton.text}</Link>
-                </Button>
-              ) : null}
-              {secondaryHref && secondaryButton?.text && (
-                <Button asChild variant="secondary" size="lg" className="w-full font-medium sm:flex-1">
-                  <Link href={secondaryHref}>{secondaryButton.text}</Link>
-                </Button>
-              )}
+              {(links || []).map(({ link }, index) => {
+                if (!link) return null
+                const appearance = link.appearance || (index === 0 ? 'default' : 'secondary')
+                return (
+                  <CMSButton
+                    key={index}
+                    {...link}
+                    appearance={appearance}
+                    size="lg"
+                    className="w-full font-medium sm:flex-1"
+                    backgroundColor={
+                      link.backgroundColor ?? (index === 0 ? '#FECE7E' : undefined)
+                    }
+                    foregroundColor={
+                      link.foregroundColor ?? (index === 0 ? '#000000' : undefined)
+                    }
+                    onClick={
+                      index === 0
+                        ? () => {
+                            trackEvent('Bru Trial Button Clicked')
+                          }
+                        : undefined
+                    }
+                  />
+                )
+              })}
             </div>
           </div>
         </div>
@@ -123,4 +111,3 @@ export const BruHeroBlock: React.FC<{
     </section>
   )
 }
-
