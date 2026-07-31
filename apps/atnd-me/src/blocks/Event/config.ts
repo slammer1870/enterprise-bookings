@@ -1,7 +1,7 @@
 import type { Block } from 'payload'
 
 import { createEventTimeslotPickerFields } from '@/fields/eventTimeslotPickerFields'
-import { simpleLexical } from '@/fields/simpleLexical'
+import { defaultLexical } from '@/fields/defaultLexical'
 
 export const Event: Block = {
   slug: 'event',
@@ -30,7 +30,7 @@ export const Event: Block = {
       type: 'richText',
       required: false,
       label: 'About',
-      editor: simpleLexical,
+      editor: defaultLexical,
       admin: {
         description:
           'Event description shown in the About section. Falls back to the event type description when empty.',
