@@ -190,7 +190,7 @@ export function ClassPassPurchaseForm({ defaultQuantity = 1 }: ClassPassPurchase
             max={100}
             value={quantity}
             onChange={(e) => setQuantity(parseInt(String(e.target.value), 10) || 1)}
-            className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className="mt-1 block w-full rounded-md border border-input bg-background px-3 py-2 text-base md:text-sm"
           />
         </div>
         {error && (
