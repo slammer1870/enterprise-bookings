@@ -388,8 +388,15 @@ describe('Stripe subscription webhooks (Connect)', () => {
       expect(updated.status).toBe('active')
       expect(updated.skipSync).toBe(false)
 
-      // Clean up
-      await payload.delete({ collection: 'plans', id: upgradedPlanId, overrideAccess: true })
+      // Soft-delete cleanup only — hard delete runs planBeforeDeleteArchive which
+      // archives the Stripe product and fails with placeholder API keys in CI.
+      await payload.update({
+        collection: 'plans',
+        id: upgradedPlanId,
+        data: { deletedAt: new Date().toISOString() },
+        context: { skipStripeSync: true },
+        overrideAccess: true,
+      })
     },
     TEST_TIMEOUT,
   )
