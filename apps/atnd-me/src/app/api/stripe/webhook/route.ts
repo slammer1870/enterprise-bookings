@@ -685,6 +685,29 @@ export async function POST(request: NextRequest) {
           updateData.endDate = stripeDateOnly(currentPeriodEnd)
         }
         updateData.cancelAt = stripeDateOnly(cancelAt)
+        
+        // Update plan if subscription product has changed (e.g., upgrade/downgrade)
+        if (planProductId) {
+          const planResult = await payload.find({
+            collection: 'plans',
+            where: {
+              stripeProductId: { equals: planProductId },
+              tenant: { equals: tenantId },
+            },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+            select: { id: true } as any,
+          })
+          const plan = planResult.docs[0] as { id: number } | undefined
+          if (plan) {
+            updateData.plan = plan.id
+            payload.logger?.info?.(`subscription.updated: updating plan to ${plan.id} for sub=${obj.id}`)
+          } else {
+            payload.logger?.warn?.(`subscription.updated: plan not found for stripeProductId=${planProductId}, tenant=${tenantId}, sub=${obj.id}`)
+          }
+        }
+        
         await payload.update({
           collection: 'subscriptions' as import('payload').CollectionSlug,
           id: sub.id,

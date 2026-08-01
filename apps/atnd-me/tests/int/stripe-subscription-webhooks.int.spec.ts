@@ -315,6 +315,85 @@ describe('Stripe subscription webhooks (Connect)', () => {
   )
 
   it(
+    'customer.subscription.updated: updates plan when subscription is upgraded',
+    async () => {
+      // Create an upgraded plan with a different product ID
+      const upgradedStripeProductId = `prod_sub_upgraded_${runId}`
+      const upgradedPlan = await payload.create({
+        collection: 'plans',
+        data: {
+          name: 'Upgraded Plan',
+          status: 'active',
+          tenant: tenantId,
+          stripeProductId: upgradedStripeProductId,
+        },
+        overrideAccess: true,
+      })
+      const upgradedPlanId = upgradedPlan.id as number
+
+      // Create subscription with original plan
+      const existing = await payload.create({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        data: {
+          tenant: tenantId,
+          user: userId,
+          plan: planId,
+          status: 'active',
+          stripeSubscriptionId: 'sub_upgrade_test',
+          skipSync: true,
+        } as Record<string, unknown>,
+        overrideAccess: true,
+      })
+      const existingSubId = (existing as { id: number }).id
+      const stripeSubId = 'sub_upgrade_test'
+
+      // Send subscription.updated webhook with new product ID
+      const now = Math.floor(Date.now() / 1000)
+      const upgradeEvent = {
+        id: `evt_sub_upgrade_${Date.now()}`,
+        type: 'customer.subscription.updated',
+        account: accountId,
+        data: {
+          object: {
+            id: stripeSubId,
+            object: 'subscription',
+            customer: stripeCustomerId,
+            status: 'active',
+            current_period_start: now,
+            current_period_end: now + 30 * 24 * 60 * 60,
+            cancel_at: null,
+            metadata: {},
+            items: {
+              object: 'list',
+              data: [{ id: 'si_test', plan: { product: upgradedStripeProductId } }],
+            },
+          },
+        },
+      }
+
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(upgradeEvent as never)
+      const res = await POST(request(JSON.stringify(upgradeEvent)))
+      expect(res.status).toBe(200)
+
+      const updated = await payload.findByID({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        id: existingSubId,
+        overrideAccess: true,
+        depth: 0,
+      }) as { plan?: number; status?: string; skipSync?: boolean }
+      
+      // Verify plan was updated to the upgraded plan
+      expect(updated.plan).toBe(upgradedPlanId)
+      expect(updated.status).toBe('active')
+      expect(updated.skipSync).toBe(false)
+
+      // Clean up
+      await payload.delete({ collection: 'plans', id: upgradedPlanId, overrideAccess: true })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'customer.subscription.deleted: sets subscription to canceled with endDate',
     async () => {
       const existing = await payload.create({

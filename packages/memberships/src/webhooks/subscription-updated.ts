@@ -51,50 +51,61 @@ export const subscriptionUpdated: StripeWebhookHandler<{
         ? foundSubscription.user.id
         : foundSubscription.user;
 
-    const plan = await payload.find({
-      collection: "plans",
-      where: { stripeProductId: { equals: planId } },
-      limit: 1,
-    });
+  const plan = await payload.find({
+    collection: "plans",
+    where: { stripeProductId: { equals: planId } },
+    limit: 1,
+  });
 
-    // Get current_period_start and current_period_end from subscription or items
-    // In newer Stripe API versions, these may only be on subscription items
-    // Note: TypeScript types may not include these on SubscriptionItem, but they exist in webhook payloads
-    const firstItem = event.data.object.items.data[0] as
-      | (Stripe.SubscriptionItem & {
-          current_period_start?: number;
-          current_period_end?: number;
-        })
-      | undefined;
-    const currentPeriodStart =
-      event.data.object.current_period_start ?? firstItem?.current_period_start;
-    const currentPeriodEnd =
-      event.data.object.current_period_end ?? firstItem?.current_period_end;
-
+  // Log plan lookup result
+  if (plan.docs[0]?.id) {
     payload.logger.info(
-      `Current period start: ${currentPeriodStart} as date: ${new Date(currentPeriodStart * 1000).toISOString()}`
+      `Found plan ${plan.docs[0].id} for product ${planId}`
     );
+  } else {
+    payload.logger.warn(
+      `Plan not found for Stripe product ${planId}. Subscription ${event.data.object.id} will not have plan updated.`
+    );
+  }
 
-    // Combine both updates into a single operation
-    // Use skipSync to prevent beforeChange hook from calling Stripe API
-    await payload.update({
-      collection: "subscriptions",
-      id: foundSubscription.id as number,
-      data: {
-        status: event.data.object.status,
-        startDate: currentPeriodStart
-          ? new Date(currentPeriodStart * 1000).toISOString()
-          : null,
-        endDate: currentPeriodEnd
-          ? new Date(currentPeriodEnd * 1000).toISOString()
-          : null,
-        cancelAt: event.data.object.cancel_at
-          ? new Date(event.data.object.cancel_at * 1000).toISOString()
-          : null,
-        ...(plan.docs[0]?.id && { plan: plan.docs[0].id }),
-      },
-      context: { skipStripeSync: true },
-    });
+  // Get current_period_start and current_period_end from subscription or items
+  // In newer Stripe API versions, these may only be on subscription items
+  // Note: TypeScript types may not include these on SubscriptionItem, but they exist in webhook payloads
+  const firstItem = event.data.object.items.data[0] as
+    | (Stripe.SubscriptionItem & {
+        current_period_start?: number;
+        current_period_end?: number;
+      })
+    | undefined;
+  const currentPeriodStart =
+    event.data.object.current_period_start ?? firstItem?.current_period_start;
+  const currentPeriodEnd =
+    event.data.object.current_period_end ?? firstItem?.current_period_end;
+
+  payload.logger.info(
+    `Current period start: ${currentPeriodStart} as date: ${new Date(currentPeriodStart * 1000).toISOString()}`
+  );
+
+  // Combine both updates into a single operation
+  // Use skipSync to prevent beforeChange hook from calling Stripe API
+  await payload.update({
+    collection: "subscriptions",
+    id: foundSubscription.id as number,
+    data: {
+      status: event.data.object.status,
+      startDate: currentPeriodStart
+        ? new Date(currentPeriodStart * 1000).toISOString()
+        : null,
+      endDate: currentPeriodEnd
+        ? new Date(currentPeriodEnd * 1000).toISOString()
+        : null,
+      cancelAt: event.data.object.cancel_at
+        ? new Date(event.data.object.cancel_at * 1000).toISOString()
+        : null,
+      ...(plan.docs[0]?.id && { plan: plan.docs[0].id }),
+    },
+    context: { skipStripeSync: true },
+  });
 
     if (timeslotIdRaw) {
       const timeslotIdNum = Number(timeslotIdRaw);
