@@ -326,6 +326,7 @@ describe('Stripe subscription webhooks (Connect)', () => {
           status: 'active',
           tenant: tenantId,
           stripeProductId: upgradedStripeProductId,
+          skipSync: true, // Skip Stripe sync to avoid API calls in tests
         },
         overrideAccess: true,
       })
