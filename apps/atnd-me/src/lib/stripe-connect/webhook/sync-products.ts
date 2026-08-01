@@ -7,9 +7,18 @@ type StripeProductWithExpandedPrice = Stripe.Product & {
   default_price?: string | Stripe.Price | null
 }
 
+type PlanInterval = 'day' | 'week' | 'month' | 'year'
+
+function normalizePlanInterval(interval: string | undefined): PlanInterval | undefined {
+  if (interval === 'day' || interval === 'week' || interval === 'month' || interval === 'year') {
+    return interval
+  }
+  return undefined
+}
+
 function normalizePriceFields(price: Stripe.Price | null): {
   priceJSON: string | null
-  planPriceInformation: { price?: number; interval?: string; intervalCount?: number }
+  planPriceInformation: { price?: number; interval?: PlanInterval; intervalCount?: number }
   classPassPriceInformation: { price?: number }
 } {
   const unitAmount = typeof price?.unit_amount === 'number' ? price.unit_amount / 100 : undefined
@@ -19,7 +28,7 @@ function normalizePriceFields(price: Stripe.Price | null): {
     priceJSON: price ? JSON.stringify(price) : null,
     planPriceInformation: {
       price: unitAmount,
-      interval: recurring?.interval,
+      interval: normalizePlanInterval(recurring?.interval),
       intervalCount: recurring?.interval_count,
     },
     classPassPriceInformation: {
@@ -186,7 +195,7 @@ export async function ensureInactivePlanForStripeProduct({
 
   let name = `Imported plan (${stripeProductId})`
   let priceJSON: string | null = null
-  let priceInformation: { price?: number; interval?: string; intervalCount?: number } = {}
+  let priceInformation: { price?: number; interval?: PlanInterval; intervalCount?: number } = {}
 
   if (accountId) {
     try {
@@ -218,13 +227,13 @@ export async function ensureInactivePlanForStripeProduct({
     collection: 'plans',
     data: {
       name,
-      status: 'inactive',
+      status: 'inactive' as const,
       tenant: tenantId,
       stripeProductId,
       skipSync: true,
       ...(priceJSON ? { priceJSON } : {}),
       ...(priceInformation.price != null ? { priceInformation } : {}),
-    } as Record<string, unknown>,
+    },
     context: { tenant: tenantId, skipStripeSync: true },
     overrideAccess: true,
   })
