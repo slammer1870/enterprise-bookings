@@ -165,7 +165,11 @@ export async function issueSubscriptionGiftBalanceIfNeeded(
 
   const isE2e =
     process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
-  if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
+  const isTestAccount = isStripeTestAccount(accountId) || 
+    accountId.startsWith('acct_sub_webhook_test_') ||
+    accountId.startsWith('acct_mock_sub_test_')
+  
+  if (isTestAccount || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
     balanceTransactionId = `cbtxn_test_${Date.now()}`
   } else {
     try {
