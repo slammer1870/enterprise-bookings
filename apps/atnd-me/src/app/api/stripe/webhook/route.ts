@@ -688,7 +688,7 @@ export async function POST(request: NextRequest) {
         
         // Update plan if subscription product has changed (e.g., upgrade/downgrade)
         if (planProductId) {
-          const planResult = await payload.find({
+          let planResult = await payload.find({
             collection: 'plans',
             where: {
               stripeProductId: { equals: planProductId },
@@ -699,12 +699,57 @@ export async function POST(request: NextRequest) {
             overrideAccess: true,
             select: { id: true } as any,
           })
-          const plan = planResult.docs[0] as { id: number } | undefined
+          
+          let plan = planResult.docs[0] as { id: number } | undefined
+          
+          // If plan doesn't exist, try to sync/create it from Stripe
+          if (!plan && accountId) {
+            payload.logger?.warn?.(
+              `subscription.updated: plan not found for stripeProductId=${planProductId}, attempting to sync from Stripe`
+            )
+            
+            try {
+              // Try to sync the product from Stripe - this updates existing docs but doesn't create new ones
+              await syncStripeProductToPayload({
+                payload,
+                tenantId,
+                accountId,
+                stripeProductId: planProductId,
+              })
+              
+              // Retry the plan lookup after sync
+              planResult = await payload.find({
+                collection: 'plans',
+                where: {
+                  stripeProductId: { equals: planProductId },
+                  tenant: { equals: tenantId },
+                },
+                limit: 1,
+                depth: 0,
+                overrideAccess: true,
+                select: { id: true } as any,
+              })
+              
+              plan = planResult.docs[0] as { id: number } | undefined
+              
+              if (!plan) {
+                payload.logger?.warn?.(
+                  `subscription.updated: plan still not found after sync, subscription ${obj.id} will not have plan updated. ` +
+                  `Ensure product ${planProductId} exists in Stripe and has been synced.`
+                )
+              }
+            } catch (syncErr) {
+              payload.logger?.error?.(
+                `subscription.updated: failed to sync product ${planProductId}: ${
+                  syncErr instanceof Error ? syncErr.message : String(syncErr)
+                }`
+              )
+            }
+          }
+          
           if (plan) {
             updateData.plan = plan.id
             payload.logger?.info?.(`subscription.updated: updating plan to ${plan.id} for sub=${obj.id}`)
-          } else {
-            payload.logger?.warn?.(`subscription.updated: plan not found for stripeProductId=${planProductId}, tenant=${tenantId}, sub=${obj.id}`)
           }
         }
         
