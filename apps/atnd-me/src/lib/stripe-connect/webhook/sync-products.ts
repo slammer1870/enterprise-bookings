@@ -67,6 +67,34 @@ async function updateLinkedDocsForCollection({
   }
 }
 
+async function retrieveStripeProduct({
+  accountId,
+  stripeProductId,
+  fallbackProduct,
+}: {
+  accountId: string
+  stripeProductId: string
+  fallbackProduct?: Partial<Stripe.Product> | null
+}): Promise<StripeProductWithExpandedPrice> {
+  const stripe = getPlatformStripe()
+  try {
+    return (await stripe.products.retrieve(
+      stripeProductId,
+      { expand: ['default_price'] },
+      { stripeAccount: accountId },
+    )) as StripeProductWithExpandedPrice
+  } catch (error) {
+    if (!fallbackProduct?.id) throw error
+    return {
+      id: fallbackProduct.id,
+      object: 'product',
+      active: fallbackProduct.active ?? false,
+      name: fallbackProduct.name ?? '',
+      default_price: fallbackProduct.default_price ?? null,
+    } as StripeProductWithExpandedPrice
+  }
+}
+
 export async function syncStripeProductToPayload({
   payload,
   tenantId,
@@ -80,24 +108,11 @@ export async function syncStripeProductToPayload({
   stripeProductId: string
   fallbackProduct?: Partial<Stripe.Product> | null
 }): Promise<void> {
-  const stripe = getPlatformStripe()
-  let product: StripeProductWithExpandedPrice
-  try {
-    product = (await stripe.products.retrieve(
-      stripeProductId,
-      { expand: ['default_price'] },
-      { stripeAccount: accountId },
-    )) as StripeProductWithExpandedPrice
-  } catch (error) {
-    if (!fallbackProduct?.id) throw error
-    product = {
-      id: fallbackProduct.id,
-      object: 'product',
-      active: fallbackProduct.active ?? false,
-      name: fallbackProduct.name ?? '',
-      default_price: fallbackProduct.default_price ?? null,
-    } as StripeProductWithExpandedPrice
-  }
+  const product = await retrieveStripeProduct({
+    accountId,
+    stripeProductId,
+    fallbackProduct,
+  })
 
   const defaultPrice =
     typeof product.default_price === 'object' && product.default_price != null
@@ -133,6 +148,92 @@ export async function syncStripeProductToPayload({
       priceInformation: normalized.classPassPriceInformation,
     },
   })
+}
+
+/**
+ * Find a tenant plan by Stripe product ID, or create an inactive stub so
+ * subscription upgrades can attach a plan without listing it for purchase.
+ * Membership purchase UIs only show status=active plans.
+ */
+export async function ensureInactivePlanForStripeProduct({
+  payload,
+  tenantId,
+  accountId,
+  stripeProductId,
+  fallbackProduct,
+}: {
+  payload: Payload
+  tenantId: number
+  accountId: string | null | undefined
+  stripeProductId: string
+  fallbackProduct?: Partial<Stripe.Product> | null
+}): Promise<{ id: number; created: boolean } | null> {
+  const existing = await payload.find({
+    collection: 'plans',
+    where: {
+      and: [
+        { tenant: { equals: tenantId } },
+        { stripeProductId: { equals: stripeProductId } },
+      ],
+    },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+    select: { id: true } as any,
+  })
+  const found = existing.docs[0] as { id: number } | undefined
+  if (found) return { id: found.id, created: false }
+
+  let name = `Imported plan (${stripeProductId})`
+  let priceJSON: string | null = null
+  let priceInformation: { price?: number; interval?: string; intervalCount?: number } = {}
+
+  if (accountId) {
+    try {
+      const product = await retrieveStripeProduct({
+        accountId,
+        stripeProductId,
+        fallbackProduct,
+      })
+      if (typeof product.name === 'string' && product.name.trim()) {
+        name = product.name.trim()
+      }
+      const defaultPrice =
+        typeof product.default_price === 'object' && product.default_price != null
+          ? (product.default_price as Stripe.Price)
+          : null
+      const normalized = normalizePriceFields(defaultPrice)
+      priceJSON = normalized.priceJSON
+      priceInformation = normalized.planPriceInformation
+    } catch (error) {
+      payload.logger?.warn?.(
+        `ensureInactivePlanForStripeProduct: could not load Stripe product ${stripeProductId}; creating inactive stub: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      )
+    }
+  }
+
+  const created = await payload.create({
+    collection: 'plans',
+    data: {
+      name,
+      status: 'inactive',
+      tenant: tenantId,
+      stripeProductId,
+      skipSync: true,
+      ...(priceJSON ? { priceJSON } : {}),
+      ...(priceInformation.price != null ? { priceInformation } : {}),
+    } as Record<string, unknown>,
+    context: { tenant: tenantId, skipStripeSync: true },
+    overrideAccess: true,
+  })
+
+  payload.logger?.info?.(
+    `ensureInactivePlanForStripeProduct: created inactive plan ${created.id} for product ${stripeProductId} (tenant=${tenantId})`,
+  )
+
+  return { id: created.id as number, created: true }
 }
 
 export function getStripeProductIdFromWebhookObject(

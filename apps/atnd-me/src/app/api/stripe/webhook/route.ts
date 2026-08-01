@@ -34,6 +34,7 @@ import {
   findOrCreateAndConfirmBookingForTimeslot,
 } from '@/lib/stripe-connect/webhook'
 import {
+  ensureInactivePlanForStripeProduct,
   getStripeProductIdFromWebhookObject,
   syncStripeProductToPayload,
 } from '@/lib/stripe-connect/webhook/sync-products'
@@ -686,70 +687,28 @@ export async function POST(request: NextRequest) {
         }
         updateData.cancelAt = stripeDateOnly(cancelAt)
         
-        // Update plan if subscription product has changed (e.g., upgrade/downgrade)
+        // Update plan if subscription product has changed (e.g., upgrade/downgrade).
+        // Missing plans are auto-created as inactive so they are not offered for purchase.
         if (planProductId) {
-          let planResult = await payload.find({
-            collection: 'plans',
-            where: {
-              stripeProductId: { equals: planProductId },
-              tenant: { equals: tenantId },
-            },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-            select: { id: true } as any,
-          })
-          
-          let plan = planResult.docs[0] as { id: number } | undefined
-          
-          // If plan doesn't exist, try to sync/create it from Stripe
-          if (!plan && accountId) {
-            payload.logger?.warn?.(
-              `subscription.updated: plan not found for stripeProductId=${planProductId}, attempting to sync from Stripe`
-            )
-            
-            try {
-              // Try to sync the product from Stripe - this updates existing docs but doesn't create new ones
-              await syncStripeProductToPayload({
-                payload,
-                tenantId,
-                accountId,
-                stripeProductId: planProductId,
-              })
-              
-              // Retry the plan lookup after sync
-              planResult = await payload.find({
-                collection: 'plans',
-                where: {
-                  stripeProductId: { equals: planProductId },
-                  tenant: { equals: tenantId },
-                },
-                limit: 1,
-                depth: 0,
-                overrideAccess: true,
-                select: { id: true } as any,
-              })
-              
-              plan = planResult.docs[0] as { id: number } | undefined
-              
-              if (!plan) {
-                payload.logger?.warn?.(
-                  `subscription.updated: plan still not found after sync, subscription ${obj.id} will not have plan updated. ` +
-                  `Ensure product ${planProductId} exists in Stripe and has been synced.`
-                )
-              }
-            } catch (syncErr) {
-              payload.logger?.error?.(
-                `subscription.updated: failed to sync product ${planProductId}: ${
-                  syncErr instanceof Error ? syncErr.message : String(syncErr)
-                }`
+          try {
+            const ensured = await ensureInactivePlanForStripeProduct({
+              payload,
+              tenantId,
+              accountId,
+              stripeProductId: planProductId,
+            })
+            if (ensured) {
+              updateData.plan = ensured.id
+              payload.logger?.info?.(
+                `subscription.updated: updating plan to ${ensured.id}${ensured.created ? ' (created inactive)' : ''} for sub=${obj.id}`,
               )
             }
-          }
-          
-          if (plan) {
-            updateData.plan = plan.id
-            payload.logger?.info?.(`subscription.updated: updating plan to ${plan.id} for sub=${obj.id}`)
+          } catch (planErr) {
+            payload.logger?.error?.(
+              `subscription.updated: failed to resolve plan for stripeProductId=${planProductId}, sub=${obj.id}: ${
+                planErr instanceof Error ? planErr.message : String(planErr)
+              }`,
+            )
           }
         }
         

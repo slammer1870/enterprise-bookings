@@ -315,6 +315,85 @@ describe('Stripe subscription webhooks (Connect)', () => {
   )
 
   it(
+    'customer.subscription.updated: creates inactive plan when product has no matching plan',
+    async () => {
+      const missingProductId = `prod_sub_missing_${runId}`
+      const existing = await payload.create({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        data: {
+          tenant: tenantId,
+          user: userId,
+          plan: planId,
+          status: 'active',
+          stripeSubscriptionId: 'sub_missing_plan_test',
+          skipSync: true,
+        } as Record<string, unknown>,
+        overrideAccess: true,
+      })
+      const existingSubId = (existing as { id: number }).id
+      const now = Math.floor(Date.now() / 1000)
+      const event = {
+        id: `evt_sub_missing_plan_${Date.now()}`,
+        type: 'customer.subscription.updated',
+        account: accountId,
+        data: {
+          object: {
+            id: 'sub_missing_plan_test',
+            object: 'subscription',
+            customer: stripeCustomerId,
+            status: 'active',
+            current_period_start: now,
+            current_period_end: now + 30 * 24 * 60 * 60,
+            cancel_at: null,
+            metadata: {},
+            items: {
+              object: 'list',
+              data: [{ id: 'si_test', plan: { product: missingProductId } }],
+            },
+          },
+        },
+      }
+
+      vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+      const res = await POST(request(JSON.stringify(event)))
+      expect(res.status).toBe(200)
+
+      const createdPlans = await payload.find({
+        collection: 'plans',
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { stripeProductId: { equals: missingProductId } },
+          ],
+        },
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(createdPlans.docs).toHaveLength(1)
+      const createdPlan = createdPlans.docs[0] as { id: number; status?: string }
+      // Auto-created plans must not be offered for purchase.
+      expect(createdPlan.status).toBe('inactive')
+
+      const updated = await payload.findByID({
+        collection: 'subscriptions' as import('payload').CollectionSlug,
+        id: existingSubId,
+        overrideAccess: true,
+        depth: 0,
+      }) as { plan?: number }
+      expect(updated.plan).toBe(createdPlan.id)
+
+      await payload.update({
+        collection: 'plans',
+        id: createdPlan.id,
+        data: { deletedAt: new Date().toISOString() },
+        context: { skipStripeSync: true },
+        overrideAccess: true,
+      })
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
     'customer.subscription.updated: updates plan when subscription is upgraded',
     async () => {
       // Create an upgraded plan with a different product ID
