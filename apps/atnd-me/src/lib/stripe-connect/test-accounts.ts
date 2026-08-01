@@ -5,7 +5,7 @@
  * don't require real Connect accounts.
  */
 const E2E_ACCOUNT_REGEX =
-  /^acct_(fee_disclosure_|smoke_|cp_only_|dropin_discount_|e2e_connected_|e2e_gated_|leave_|sub_webhook_test_|mock_sub_test_)/
+  /^acct_(fee_disclosure_|smoke_|cp_only_|dropin_discount_|e2e_connected_|e2e_gated_|leave_)/
 
 /**
  * Returns true when the account ID is a known E2E/test placeholder (e.g. acct_cp_only_2).
