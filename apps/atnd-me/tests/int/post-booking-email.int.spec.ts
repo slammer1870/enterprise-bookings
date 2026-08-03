@@ -505,11 +505,13 @@ describe('Post-booking email integration', () => {
       const timeZone = resolveTimeslotTimeZone(
         nextDayTimeslot as Parameters<typeof resolveTimeslotTimeZone>[0],
       )
-      const expectedScheduledFor = resolveNextDay9am(start, timeZone).toISOString()
-      expect(deliveriesBeforeCancel.docs[0]?.scheduledFor).toBe(expectedScheduledFor)
+      // Compare instants — Payload stores UTC; TZDate.toISOString() may use +01:00.
+      const scheduledForMs = new Date(
+        deliveriesBeforeCancel.docs[0]?.scheduledFor as string,
+      ).getTime()
+      expect(scheduledForMs).toBe(resolveNextDay9am(start, timeZone).getTime())
       // Must not schedule from checkout time (tomorrow morning).
-      const bookingDaySchedule = resolveNextDay9am(new Date(), timeZone).toISOString()
-      expect(deliveriesBeforeCancel.docs[0]?.scheduledFor).not.toBe(bookingDaySchedule)
+      expect(scheduledForMs).not.toBe(resolveNextDay9am(new Date(), timeZone).getTime())
 
       const payloadJobId = (deliveriesBeforeCancel.docs[0] as { payloadJobId?: number })
         ?.payloadJobId

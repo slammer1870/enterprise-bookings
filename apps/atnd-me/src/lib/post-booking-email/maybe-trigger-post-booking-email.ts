@@ -145,7 +145,10 @@ async function maybeTriggerSinglePostBookingEmail({
       return
     }
     // 9am local on the calendar day after the booked class, not after checkout.
-    const scheduledFor = resolveNextDay9am(timeslotStartTime, timeZone).toISOString()
+    // Normalize via Date so we persist UTC ISO (TZDate.toISOString may keep +01:00).
+    const scheduledFor = new Date(
+      resolveNextDay9am(timeslotStartTime, timeZone),
+    ).toISOString()
 
     const delivery = await createDeliveryRecord(req, {
       tenantId,
