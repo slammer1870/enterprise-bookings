@@ -6,18 +6,28 @@ import {
 } from '@/lib/post-booking-email/batch-context'
 
 describe('resolveNextDay9am', () => {
-  it('schedules 9am the next calendar day in tenant timezone', () => {
-    const confirmedAt = '2026-07-10T22:30:00.000Z'
-    const scheduled = resolveNextDay9am(confirmedAt, 'Europe/Dublin')
+  it('schedules 9am the next calendar day after timeslot start in tenant timezone', () => {
+    // Class at 23:30 Dublin on 10 Jul → send 9am Dublin on 11 Jul (IST = UTC+1)
+    const timeslotStart = '2026-07-10T22:30:00.000Z'
+    const scheduled = resolveNextDay9am(timeslotStart, 'Europe/Dublin')
 
     expect(scheduled.getTime()).toBe(new Date('2026-07-11T08:00:00.000Z').getTime())
   })
 
-  it('uses tenant timezone when booking is late evening US Pacific', () => {
-    const confirmedAt = '2026-07-10T06:00:00.000Z'
-    const scheduled = resolveNextDay9am(confirmedAt, 'America/Los_Angeles')
+  it('uses tenant timezone when class is late evening US Pacific', () => {
+    // 10 Jul 23:00 PDT → send 9am PDT on 11 Jul (= 16:00 UTC)
+    const timeslotStart = '2026-07-11T06:00:00.000Z'
+    const scheduled = resolveNextDay9am(timeslotStart, 'America/Los_Angeles')
 
-    expect(scheduled.getTime()).toBe(new Date('2026-07-10T16:00:00.000Z').getTime())
+    expect(scheduled.getTime()).toBe(new Date('2026-07-11T16:00:00.000Z').getTime())
+  })
+
+  it('anchors to the class day, not the booking/checkout day', () => {
+    // Booked today, class next week Wednesday 14:00 Dublin → Thursday 9am Dublin
+    const timeslotStart = '2026-07-15T13:00:00.000Z'
+    const scheduled = resolveNextDay9am(timeslotStart, 'Europe/Dublin')
+
+    expect(scheduled.getTime()).toBe(new Date('2026-07-16T08:00:00.000Z').getTime())
   })
 })
 

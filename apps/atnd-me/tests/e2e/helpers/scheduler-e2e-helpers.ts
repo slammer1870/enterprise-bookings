@@ -711,12 +711,14 @@ export async function getSchedulerTimeSlotCountFromDB(
   return Array.isArray(timeSlot) ? timeSlot.length : 0
 }
 
-/** Expand every day row in the scheduler week.days array. */
+/** Expand every day row (and nested timeSlot arrays) in the scheduler week.days form. */
 export async function ensureAllSchedulerDaysExpanded(page: Page): Promise<void> {
-  const showAll = page.getByRole('button', { name: 'Show All' })
-  if (await showAll.isVisible().catch(() => false)) {
+  // Days + nested timeSlot arrays each expose "Show All"; click until none remain.
+  for (let i = 0; i < 10; i += 1) {
+    const showAll = page.getByRole('button', { name: 'Show All' }).first()
+    if (!(await showAll.isVisible().catch(() => false))) break
     await showAll.click({ timeout: 15_000 })
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(300)
   }
 }
 

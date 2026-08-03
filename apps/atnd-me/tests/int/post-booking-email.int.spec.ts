@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { POST_BOOKING_EMAIL_DELIVERIES_SLUG } from '@/collections/PostBookingEmailDeliveries'
+import { resolveNextDay9am } from '@/lib/post-booking-email/resolve-send-time'
+import { resolveTimeslotTimeZone } from '@repo/shared-utils'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
@@ -448,10 +450,12 @@ describe('Post-booking email integration', () => {
         overrideAccess: true,
       })
 
+      // Class is several days out so a booking-day schedule would differ from class-day.
       const start = new Date()
-      start.setHours(14, 0, 0, 0)
+      start.setUTCDate(start.getUTCDate() + 5)
+      start.setUTCHours(14, 0, 0, 0)
       const end = new Date(start)
-      end.setHours(15, 0, 0, 0)
+      end.setUTCHours(15, 0, 0, 0)
 
       const nextDayTimeslot = await payload.create({
         collection: 'timeslots',
@@ -497,6 +501,17 @@ describe('Post-booking email integration', () => {
 
       expect(deliveriesBeforeCancel.totalDocs).toBe(1)
       expect(deliveriesBeforeCancel.docs[0]?.status).toBe('scheduled')
+
+      const timeZone = resolveTimeslotTimeZone(
+        nextDayTimeslot as Parameters<typeof resolveTimeslotTimeZone>[0],
+      )
+      // Compare instants — Payload stores UTC; TZDate.toISOString() may use +01:00.
+      const scheduledForMs = new Date(
+        deliveriesBeforeCancel.docs[0]?.scheduledFor as string,
+      ).getTime()
+      expect(scheduledForMs).toBe(resolveNextDay9am(start, timeZone).getTime())
+      // Must not schedule from checkout time (tomorrow morning).
+      expect(scheduledForMs).not.toBe(resolveNextDay9am(new Date(), timeZone).getTime())
 
       const payloadJobId = (deliveriesBeforeCancel.docs[0] as { payloadJobId?: number })
         ?.payloadJobId
