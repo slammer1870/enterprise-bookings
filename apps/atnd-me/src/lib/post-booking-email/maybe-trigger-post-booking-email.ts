@@ -134,7 +134,18 @@ async function maybeTriggerSinglePostBookingEmail({
       overrideAccess: true,
     })
     const timeZone = resolveTimeslotTimeZone(timeslot as Parameters<typeof resolveTimeslotTimeZone>[0])
-    const scheduledFor = resolveNextDay9am(new Date(), timeZone).toISOString()
+    const timeslotStartTime =
+      timeslot && typeof timeslot === 'object' && 'startTime' in timeslot
+        ? (timeslot as { startTime?: unknown }).startTime
+        : null
+    if (typeof timeslotStartTime !== 'string' && !(timeslotStartTime instanceof Date)) {
+      req.payload.logger.error(
+        `[post-booking-email] Missing timeslot startTime for timeslot ${timeslotId}; skipping next-day schedule`,
+      )
+      return
+    }
+    // 9am local on the calendar day after the booked class, not after checkout.
+    const scheduledFor = resolveNextDay9am(timeslotStartTime, timeZone).toISOString()
 
     const delivery = await createDeliveryRecord(req, {
       tenantId,

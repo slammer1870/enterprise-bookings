@@ -4,7 +4,10 @@ import { buildFormStyleEmailsField } from './formEmailFields'
 export const POST_BOOKING_EMAIL_SEND_TIMING_OPTIONS = [
   { label: 'Immediately after all bookings', value: 'after_all_bookings' },
   { label: 'Immediately after first booking', value: 'after_first_booking' },
-  { label: 'The next day following first booking', value: 'next_day_after_first_booking' },
+  {
+    label: '9am the day after the first class',
+    value: 'next_day_after_first_booking',
+  },
 ] as const
 
 export type PostBookingEmailSendTiming =
