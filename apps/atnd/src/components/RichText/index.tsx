@@ -12,10 +12,12 @@ import {
 } from '@payloadcms/richtext-lexical/react'
 
 import { CodeBlock, CodeBlockProps } from '@/blocks/Code/Component'
+import { Media } from '@/components/Media'
 
 import type {
   BannerBlock as BannerBlockProps,
   CallToActionBlock as CTABlockProps,
+  Media as MediaType,
   MediaBlock as MediaBlockProps,
 } from '@/payload-types'
 import { BannerBlock } from '@/blocks/Banner/Component'
@@ -38,6 +40,35 @@ const internalDocToHref = ({ linkNode }: { linkNode: SerializedLinkNode }) => {
 const jsxConverters: JSXConvertersFunction<NodeTypes> = ({ defaultConverters }) => ({
   ...defaultConverters,
   ...LinkJSXConverter({ internalDocToHref }),
+  // Default UploadJSXConverter emits <source media="(max-width: {size.width}px)"> for every
+  // image size, including cropped ones (square 500×500, og). Below 501px that selects the
+  // square crop. Render the original asset with responsive CSS instead.
+  upload: ({ node }) => {
+    const value = node.value
+    if (typeof value !== 'object' || !value) return null
+
+    const uploadDoc = value as MediaType
+    const alt =
+      (typeof node.fields?.alt === 'string' && node.fields.alt) || uploadDoc.alt || ''
+
+    if (typeof uploadDoc.mimeType === 'string' && !uploadDoc.mimeType.startsWith('image')) {
+      return (
+        <a href={uploadDoc.url || '#'} rel="noopener noreferrer">
+          {uploadDoc.filename || 'Download'}
+        </a>
+      )
+    }
+
+    return (
+      <Media
+        alt={alt}
+        className="max-w-full"
+        imgClassName="max-w-full h-auto w-full"
+        resource={uploadDoc}
+        size="100vw"
+      />
+    )
+  },
   blocks: {
     banner: ({ node }) => <BannerBlock className="col-start-2 mb-4" {...node.fields} />,
     mediaBlock: ({ node }) => (
