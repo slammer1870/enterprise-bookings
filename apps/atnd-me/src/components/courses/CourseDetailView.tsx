@@ -3,6 +3,7 @@ import type { DefaultTypedEditorState } from '@payloadcms/richtext-lexical'
 import { currentUser } from '@/lib/auth/context/get-context-props'
 import RichText from '@/components/RichText'
 import { CourseEnrollPanel } from '@/components/courses/CourseEnrollPanel'
+import { coursePlacesLabel } from '@/components/courses/coursePlacesLabel'
 import { formatCourseAccessWindowCopy } from '@/lib/courses/format-course-access-window'
 import { mediaUrl } from '@/components/events/eventPageTypes'
 import type { Media } from '@/payload-types'
@@ -42,6 +43,7 @@ export async function CourseDetailView({
       ? course.maxEnrollments
       : null
   const remaining = max == null ? null : Math.max(0, max - activeEnrollmentCount)
+  const places = coursePlacesLabel(remaining)
   const isOpen = course.status === 'open'
   const cover =
     course.coverImage && typeof course.coverImage === 'object'
@@ -75,20 +77,16 @@ export async function CourseDetailView({
           <h1 className="max-w-3xl text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             {title}
           </h1>
-          {remaining != null ? (
+          {places ? (
             <p
               className={`pt-1 text-sm lg:hidden ${
-                remaining > 0 && remaining <= 6
+                remaining != null && remaining > 0 && remaining <= 6
                   ? 'font-medium text-amber-700 dark:text-amber-400'
                   : 'text-muted-foreground'
               }`}
               data-testid="course-meta-places"
             >
-              {remaining <= 0
-                ? 'Sold out'
-                : remaining === 1
-                  ? '1 place left'
-                  : `${remaining} places left`}
+              {places}
             </p>
           ) : null}
         </header>
