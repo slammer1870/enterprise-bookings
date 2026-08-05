@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { isCompleteGuestEmail } from '@/lib/courses/resolve-course-for-purchase'
+import { coursePlacesLabel } from '@/components/courses/coursePlacesLabel'
 
 type CourseEnrollPanelProps = {
   courseId: number
@@ -16,13 +17,6 @@ type CourseEnrollPanelProps = {
   isOpen: boolean
   accessWindowLabel: string | null
   successUrl?: string
-}
-
-function placesLabel(remaining: number | null): string | null {
-  if (remaining == null) return null
-  if (remaining <= 0) return 'Sold out'
-  if (remaining === 1) return '1 place left'
-  return `${remaining} places left`
 }
 
 export function CourseEnrollPanel({
@@ -45,7 +39,7 @@ export function CourseEnrollPanel({
   } | null>(null)
 
   const soldOut = remainingEnrollments != null && remainingEnrollments <= 0
-  const places = placesLabel(remainingEnrollments)
+  const places = coursePlacesLabel(remainingEnrollments)
   const emphasizePlaces =
     remainingEnrollments != null && remainingEnrollments > 0 && remainingEnrollments <= 6
   const classPriceCents = Math.round(price * 100)
