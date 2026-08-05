@@ -57,10 +57,10 @@ export const ImageMedia: React.FC<MediaProps> = (props) => {
         .join(', ')
 
   return (
-    <picture className={cn(pictureClassName)}>
+    <picture className={cn(!fill && 'max-w-full', pictureClassName)}>
       <NextImage
         alt={alt || ''}
-        className={cn(imgClassName)}
+        className={cn(!fill && 'max-w-full h-auto', imgClassName)}
         fill={fill}
         height={!fill ? height : undefined}
         placeholder="blur"
