@@ -32,14 +32,15 @@ export async function findExistingPostBookingEmailDelivery(
 }
 
 /**
- * Once-ever check for next-day-after-first-class emails: any prior scheduled/sent
- * delivery for this user + tenant (ignores event type, timeslot, and email config).
+ * Once-ever check for first-booking timings: any prior scheduled/sent delivery
+ * for this user + tenant + sendTiming (ignores event type, timeslot, and email config).
  */
-export async function findExistingLifetimeNextDayPostBookingEmailDelivery(
+export async function findExistingLifetimeFirstBookingPostBookingEmailDelivery(
   req: PayloadRequest,
   key: {
     tenantId: number
     userId: number
+    sendTiming: 'after_first_booking' | 'next_day_after_first_booking'
   },
 ) {
   const existing = await req.payload.find({
@@ -48,7 +49,7 @@ export async function findExistingLifetimeNextDayPostBookingEmailDelivery(
       and: [
         { tenant: { equals: key.tenantId } },
         { user: { equals: key.userId } },
-        { sendTiming: { equals: 'next_day_after_first_booking' } },
+        { sendTiming: { equals: key.sendTiming } },
         { status: { in: ['scheduled', 'sent'] } },
       ],
     },

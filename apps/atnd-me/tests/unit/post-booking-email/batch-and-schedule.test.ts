@@ -39,7 +39,7 @@ describe('post-booking email batch context', () => {
     })
   })
 
-  it('triggers after first booking only on batch index 0', () => {
+  it('triggers after first-ever booking only on batch index 0', () => {
     expect(
       shouldTriggerPostBookingEmailForBatch('after_first_booking', {
         batchSize: 3,
