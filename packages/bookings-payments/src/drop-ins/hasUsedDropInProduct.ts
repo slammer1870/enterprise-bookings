@@ -2,7 +2,7 @@ import type { CollectionSlug, Where } from "payload";
 
 type PayloadLike = {
   // Keep loose: callers pass the full Payload instance; we only need find().
-  find: (...args: any[]) => Promise<{ docs: Array<{ id?: number }> }>;
+  find: (..._args: any[]) => Promise<{ docs: Array<{ id?: number }> }>;
 };
 
 export type HasUsedDropInProductArgs = {

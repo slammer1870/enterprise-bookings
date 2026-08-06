@@ -1,6 +1,7 @@
 import type { TaskHandler } from 'payload'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { POST_BOOKING_EMAIL_DELIVERIES_SLUG } from '@/collections/PostBookingEmailDeliveries'
+import { userHasPriorConfirmedBookingForTenant } from '@/lib/post-booking-email/delivery-queries'
 import { sendPostBookingEmail } from '@/lib/post-booking-email/send-post-booking-email'
 import type { PostBookingEmailConfig, PostBookingEmailJobInput } from '@/lib/post-booking-email/types'
 import { resolvePostBookingEmailConfigById } from '@/lib/post-booking-email/types'
@@ -37,6 +38,29 @@ export const sendPostBookingEmailTask: TaskHandler<'sendPostBookingEmail'> = asy
         req,
       })
       return { output: { skipped: true, reason: 'booking_not_confirmed' } }
+    }
+
+    // Guard already-queued jobs for existing customers (booked this event type before).
+    const bookingCreatedAt =
+      typeof booking.createdAt === 'string' && booking.createdAt.length > 0
+        ? booking.createdAt
+        : null
+    if (bookingCreatedAt) {
+      const hasPriorBooking = await userHasPriorConfirmedBookingForTenant(req, {
+        tenantId: jobInput.tenantId,
+        userId,
+        beforeCreatedAt: bookingCreatedAt,
+      })
+      if (hasPriorBooking) {
+        await req.payload.update({
+          collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+          id: deliveryId,
+          data: { status: 'cancelled' },
+          overrideAccess: true,
+          req,
+        })
+        return { output: { skipped: true, reason: 'not_first_booking' } }
+      }
     }
   }
 

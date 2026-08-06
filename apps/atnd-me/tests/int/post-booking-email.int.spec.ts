@@ -545,4 +545,243 @@ describe('Post-booking email integration', () => {
     },
     TEST_TIMEOUT,
   )
+
+  it(
+    'schedules next-day email only once across bookings for the tenant',
+    async () => {
+      const onceEverUser = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Once Ever Post-booking User',
+          email: `post-booking-once-ever-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const onceEverUserId = onceEverUser.id as number
+
+      const createNextDayEventType = async (name: string) =>
+        payload.create({
+          collection: 'event-types',
+          data: {
+            name,
+            places: 10,
+            description: 'Test class',
+            tenant: tenantId,
+            postBookingEmails: [
+              {
+                replyTo: 'Studio <studio@example.com>',
+                subject: 'Thanks for your first class',
+                message: testEmailMessage,
+                sendTiming: 'next_day_after_first_booking',
+              },
+            ],
+          },
+          overrideAccess: true,
+        })
+
+      const firstEventType = await createNextDayEventType(`Once-ever Class A ${Date.now()}`)
+      const secondEventType = await createNextDayEventType(`Once-ever Class B ${Date.now()}`)
+
+      const createFutureTimeslot = async (eventTypeId: number, daysAhead: number) => {
+        const start = new Date()
+        start.setUTCDate(start.getUTCDate() + daysAhead)
+        start.setUTCHours(14, 0, 0, 0)
+        const end = new Date(start)
+        end.setUTCHours(15, 0, 0, 0)
+
+        return payload.create({
+          collection: 'timeslots',
+          data: {
+            tenant: tenantId,
+            eventType: eventTypeId,
+            date: start.toISOString().slice(0, 10),
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+            lockOutTime: 0,
+            active: true,
+          },
+          overrideAccess: true,
+        })
+      }
+
+      const firstTimeslot = await createFutureTimeslot(firstEventType.id as number, 5)
+      const secondTimeslot = await createFutureTimeslot(secondEventType.id as number, 8)
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: firstTimeslot.id,
+          user: onceEverUserId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 1, batchIndex: 0 },
+        },
+        overrideAccess: true,
+      })
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: secondTimeslot.id,
+          user: onceEverUserId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 1, batchIndex: 0 },
+        },
+        overrideAccess: true,
+      })
+
+      const deliveries = await payload.find({
+        collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { user: { equals: onceEverUserId } },
+            { sendTiming: { equals: 'next_day_after_first_booking' } },
+            { status: { in: ['scheduled', 'sent'] } },
+          ],
+        },
+        limit: 10,
+        overrideAccess: true,
+      })
+
+      expect(deliveries.totalDocs).toBe(1)
+      const deliveryTimeslot = deliveries.docs[0]?.timeslot
+      const deliveryTimeslotId =
+        typeof deliveryTimeslot === 'object' && deliveryTimeslot !== null && 'id' in deliveryTimeslot
+          ? (deliveryTimeslot as { id: number }).id
+          : deliveryTimeslot
+      expect(deliveryTimeslotId).toBe(firstTimeslot.id)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'does not schedule next-day email when the user already has a prior confirmed booking for the tenant',
+    async () => {
+      const existingUser = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Existing Booker',
+          email: `post-booking-existing-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const existingUserId = existingUser.id as number
+
+      const priorEventType = await payload.create({
+        collection: 'event-types',
+        data: {
+          name: `Prior Class ${Date.now()}`,
+          places: 10,
+          description: 'Other class type with prior booking',
+          tenant: tenantId,
+          postBookingEmails: [],
+        },
+        overrideAccess: true,
+      })
+
+      const emailEventType = await payload.create({
+        collection: 'event-types',
+        data: {
+          name: `Existing Booker Class ${Date.now()}`,
+          places: 10,
+          description: 'Test class',
+          tenant: tenantId,
+          postBookingEmails: [
+            {
+              replyTo: 'Studio <studio@example.com>',
+              subject: 'Thanks for your first class',
+              message: testEmailMessage,
+              sendTiming: 'next_day_after_first_booking',
+            },
+          ],
+        },
+        overrideAccess: true,
+      })
+
+      const createFutureTimeslot = async (eventTypeId: number, daysAhead: number) => {
+        const start = new Date()
+        start.setUTCDate(start.getUTCDate() + daysAhead)
+        start.setUTCHours(14, 0, 0, 0)
+        const end = new Date(start)
+        end.setUTCHours(15, 0, 0, 0)
+
+        return payload.create({
+          collection: 'timeslots',
+          data: {
+            tenant: tenantId,
+            eventType: eventTypeId,
+            date: start.toISOString().slice(0, 10),
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+            lockOutTime: 0,
+            active: true,
+          },
+          overrideAccess: true,
+        })
+      }
+
+      const priorTimeslot = await createFutureTimeslot(priorEventType.id as number, 3)
+      const laterTimeslot = await createFutureTimeslot(emailEventType.id as number, 6)
+
+      // Prior booking on a different event type — still blocks tenant-scoped first-class email.
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: priorTimeslot.id,
+          user: existingUserId,
+          status: 'confirmed',
+        },
+        context: {
+          skipPostBookingEmail: true,
+        },
+        overrideAccess: true,
+      })
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: laterTimeslot.id,
+          user: existingUserId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 1, batchIndex: 0 },
+        },
+        overrideAccess: true,
+      })
+
+      const deliveries = await payload.find({
+        collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { user: { equals: existingUserId } },
+            { eventType: { equals: emailEventType.id } },
+            { sendTiming: { equals: 'next_day_after_first_booking' } },
+          ],
+        },
+        limit: 10,
+        overrideAccess: true,
+      })
+
+      expect(deliveries.totalDocs).toBe(0)
+    },
+    TEST_TIMEOUT,
+  )
 })
