@@ -4,8 +4,8 @@
  * Verifies:
  * - Schedule CTA is "Book Trial Class" when the viewer has no confirmed bookings and the class
  *   uses a drop-in with a trial discount tier.
- * - After any confirmed booking exists for the viewer, the booking page no longer treats the
- *   lesson as a first-time trial.
+ * - After any confirmed booking exists for the viewer, the schedule CTA becomes "Book" (not trial)
+ *   and the booking page no longer treats the lesson as a first-time trial.
  * - On the drop-in payment panel for that lesson, the trial discount copy is not shown.
  */
 import { test, expect } from './helpers/fixtures'
@@ -160,7 +160,19 @@ test.describe('Trial class offer (first-time bookings only)', () => {
     })
 
     await navigateToTenant(page, tenantSlug, '/')
-    await page.waitForLoadState('domcontentloaded').catch(() => null)
+    await page.waitForURL((url) => url.pathname === '/' || url.pathname === '/home', {
+      timeout: 15_000,
+    }).catch(() => null)
+    await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15_000 }).catch(
+      () => null,
+    )
+    await advanceScheduleToDate(page, targetDate)
+    await expect(page.getByText(classOption.name, { exact: true }).first()).toBeVisible({ timeout: 20_000 })
+    await expect(getTrialScheduleRow().getByRole('button', { name: /^book$/i })).toBeVisible({
+      timeout: 15_000,
+    })
+    await expect(getTrialScheduleRow().getByRole('button', { name: /book trial class/i })).toHaveCount(0)
+
     await navigateToTenant(page, tenantSlug, `/bookings/${trialTimeslot.id}`)
     await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => null)
     await expect(page.getByText(/payment methods/i).first()).toBeVisible({ timeout: 15_000 })
