@@ -1106,6 +1106,12 @@ export function PaymentMethods({
     hasDropInTab = dropInAllowsQuantity(allowedDropIn as DropIn, quantity + confirmedForTimeslot);
   }
 
+  // Once-per-user drop-in products: hide after the viewer has purchased that product.
+  // Event-only checkout (dropInOnly) is exempt — once-per-user is for class bookings.
+  if (hasDropInTab && timeslot.viewerHasUsedDropIn && !dropInOnly) {
+    hasDropInTab = false;
+  }
+
   const availableTabs = useMemo(() => {
     const tabs: string[] = [];
     if (hasDropInTab) tabs.push("dropin");
@@ -1149,9 +1155,11 @@ export function PaymentMethods({
     return (
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
         <p>
-          {quantity > 1
-            ? "No payment methods are available for multiple bookings. Try reducing the quantity or use a different payment method."
-            : "No payment methods are available for this timeslot."}
+          {timeslot.viewerHasUsedDropIn
+            ? "You have already used this drop-in. Please book with a membership or another payment method."
+            : quantity > 1
+              ? "No payment methods are available for multiple bookings. Try reducing the quantity or use a different payment method."
+              : "No payment methods are available for this timeslot."}
         </p>
       </div>
     );
@@ -1339,10 +1347,12 @@ export function PaymentMethods({
                       ? {
                           bookingIds: pendingBookingIds.join(","),
                           timeslotId: timeslot.id.toString(),
+                          ...(dropInOnly ? { eventCheckout: "true" } : {}),
                         }
                       : {
                           timeslotId: timeslot.id.toString(),
                           quantity: String(quantity),
+                          ...(dropInOnly ? { eventCheckout: "true" } : {}),
                         }
                   }
                 />

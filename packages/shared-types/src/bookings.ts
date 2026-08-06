@@ -111,6 +111,11 @@ export type Timeslot = {
    * If not provided, CheckInButton will fetch it separately (backwards compatible).
    */
   myBookingCount?: number;
+  /**
+   * True when the viewer has already purchased this timeslot's once-per-user drop-in product.
+   * When set, the drop-in payment tab should be hidden.
+   */
+  viewerHasUsedDropIn?: boolean;
 };
 
 export type TimeslotAvailability = "open" | "full" | "closed";

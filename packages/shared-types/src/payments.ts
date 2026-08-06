@@ -14,6 +14,10 @@ export interface DropIn {
    * - `null`/`undefined` => no per-viewer limit (still bounded by event type capacity)
    */
   maxBookingsPerTimeslot?: number | null;
+  /**
+   * When true, each customer may purchase this drop-in product only once.
+   */
+  oncePerUser?: boolean | null;
   discountTiers?:
     | {
         minQuantity: number;

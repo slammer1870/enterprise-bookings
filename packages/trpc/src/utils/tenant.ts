@@ -249,6 +249,7 @@ export async function populateTimeslotEventType(
             plain.paymentMethods.allowedDropIn = {
               ...(typeof allowedDropIn === "object" && allowedDropIn != null ? allowedDropIn : {}),
               maxBookingsPerTimeslot: dropInDoc.maxBookingsPerTimeslot ?? null,
+              oncePerUser: dropInDoc.oncePerUser === true,
               // If numeric cap is explicitly null, treat as "no per-user cap" in
               // legacy semantics too. Some response shaping paths map
               // `maxBookingsPerTimeslot` null/undefined to `1` based on

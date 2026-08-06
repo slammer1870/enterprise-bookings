@@ -1159,7 +1159,7 @@ export interface EventType {
     allowedPlans?: (number | Plan)[] | null;
   };
   /**
-   * Add one or more emails for this event type — for example, a confirmation after every booking and a review request after the first booking in a checkout. Each email is sent to the customer who made the booking. Timing applies per checkout — multi-seat bookings send one email per configured message, not one per seat.
+   * Emails sent to the customer after they book this event type. Use separate rows for different messages (for example a checkout confirmation and a one-time follow-up). See “When to send” for timing rules.
    */
   postBookingEmails?:
     | {
@@ -1186,6 +1186,9 @@ export interface EventType {
           };
           [k: string]: unknown;
         } | null;
+        /**
+         * Checkout timings apply per purchase: multi-seat checkouts send one email for the whole checkout, not one per seat. “Once per customer (this studio)” sends at 9:00 local on the calendar day after the booked class, only for that customer’s first confirmed booking at this studio — never again for later bookings or other event types. Customers who already have a confirmed booking here are skipped.
+         */
         sendTiming: 'after_all_bookings' | 'after_first_booking' | 'next_day_after_first_booking';
         id?: string | null;
       }[]
@@ -1209,6 +1212,10 @@ export interface DropIn {
    * Leave blank for no per-user limit (still bounded by the event type capacity). When set, users can book up to this many spots per timeslot for this drop-in.
    */
   maxBookingsPerTimeslot?: number | null;
+  /**
+   * When enabled, each customer can purchase this drop-in only once. After that, only membership or other payment methods remain available wherever this drop-in is assigned.
+   */
+  oncePerUser?: boolean | null;
   discountTiers?:
     | {
         minQuantity: number;
@@ -3533,6 +3540,10 @@ export interface Transaction {
    */
   stripePaymentIntentId?: string | null;
   /**
+   * Drop-in product id when paymentMethod is stripe (drop-in checkout).
+   */
+  dropInId?: number | null;
+  /**
    * Subscription id when paymentMethod is subscription (booking created by subscription).
    */
   subscriptionId?: number | null;
@@ -4753,6 +4764,7 @@ export interface DropInsSelect<T extends boolean = true> {
   price?: T;
   adjustable?: T;
   maxBookingsPerTimeslot?: T;
+  oncePerUser?: T;
   discountTiers?:
     | T
     | {
@@ -4930,6 +4942,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   paymentMethod?: T;
   classPassId?: T;
   stripePaymentIntentId?: T;
+  dropInId?: T;
   subscriptionId?: T;
   updatedAt?: T;
   createdAt?: T;

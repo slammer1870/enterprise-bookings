@@ -95,8 +95,32 @@ describe('fulfillCheckoutHold', () => {
     expect(result.refunded).toBe(false)
     expect(hold.status).toBe('consumed')
     expect(createdBookings.every((b) => b.status === 'confirmed')).toBe(true)
+    expect(createdBookings.every((b) => b.paymentMethodUsed === 'stripe')).toBe(true)
     expect(onRefund).not.toHaveBeenCalled()
     expect(payload.create).toHaveBeenCalledTimes(4) // 2 bookings + 2 transactions
+  })
+
+  it('always writes stripe transactions and stamps dropInId when provided (incl. €0 / no PI)', async () => {
+    const payload = makePayload()
+
+    const result = await fulfillCheckoutHold(payload as never, {
+      holdId: HOLD_ID,
+      userId: USER_ID,
+      tenantId: TENANT_ID,
+      dropInId: 77,
+    })
+
+    expect(result.confirmedBookingIds).toHaveLength(2)
+    const txnCreates = (payload.create as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([args]) => args.collection === 'transactions',
+    )
+    expect(txnCreates).toHaveLength(2)
+    expect(txnCreates[0]?.[0].data).toMatchObject({
+      paymentMethod: 'stripe',
+      dropInId: 77,
+      tenant: TENANT_ID,
+    })
+    expect(txnCreates[0]?.[0].data.stripePaymentIntentId).toBeUndefined()
   })
 
   it('is idempotent when hold already consumed (no prior transactions)', async () => {

@@ -24,33 +24,37 @@ export async function confirmBookingsFromPaymentIntent(
   bookingIds: number[],
   opts: {
     paymentIntentId?: string
+    dropInId?: number | null
     tenantId: number
     tenantContext?: { tenant?: number } | null
   }
 ): Promise<void> {
   const tenantContext = opts.tenantContext ?? { tenant: opts.tenantId }
+  const dropInId =
+    typeof opts.dropInId === 'number' && Number.isFinite(opts.dropInId) && opts.dropInId > 0
+      ? opts.dropInId
+      : null
   const batchSize = bookingIds.length
   for (let batchIndex = 0; batchIndex < bookingIds.length; batchIndex++) {
     const bookingId = bookingIds[batchIndex]
     try {
-      if (opts.paymentIntentId) {
-        await payload.create({
-          collection: 'transactions',
-          data: {
-            booking: bookingId,
-            paymentMethod: 'stripe',
-            stripePaymentIntentId: opts.paymentIntentId,
-            tenant: opts.tenantId,
-          },
-          ...(tenantContext ? { context: tenantContext } : {}),
-          overrideAccess: true,
-        } as Record<string, unknown>)
-      }
+      await payload.create({
+        collection: 'transactions',
+        data: {
+          booking: bookingId,
+          paymentMethod: 'stripe',
+          ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
+          ...(dropInId != null ? { dropInId } : {}),
+          tenant: opts.tenantId,
+        },
+        ...(tenantContext ? { context: tenantContext } : {}),
+        overrideAccess: true,
+      } as Record<string, unknown>)
 
       await payload.update({
         collection: 'bookings',
         id: bookingId,
-        data: { status: 'confirmed' },
+        data: { status: 'confirmed', paymentMethodUsed: 'stripe' },
         context: {
           ...(tenantContext ?? {}),
           postBookingEmailBatch: { batchSize, batchIndex },
@@ -79,12 +83,17 @@ export async function confirmBookingsFromQuantityFlow(
     userId: number
     quantity: number
     paymentIntentId?: string
+    dropInId?: number | null
     tenantId: number
     tenantContext?: { tenant?: number } | null
   }
 ): Promise<void> {
   const tenantContext = opts.tenantContext ?? { tenant: opts.tenantId }
   const { timeslotId, userId, quantity, paymentIntentId, tenantId } = opts
+  const dropInId =
+    typeof opts.dropInId === 'number' && Number.isFinite(opts.dropInId) && opts.dropInId > 0
+      ? opts.dropInId
+      : null
   const qty = Math.max(1, quantity)
 
   const timeslot = (await payload.findByID({
@@ -127,7 +136,7 @@ export async function confirmBookingsFromQuantityFlow(
     await payload.update({
       collection: 'bookings',
       id: b.id,
-      data: { status: 'confirmed' },
+      data: { status: 'confirmed', paymentMethodUsed: 'stripe' },
       context: {
         ...(tenantContext ?? {}),
         postBookingEmailBatch: { batchSize, batchIndex },
@@ -135,19 +144,18 @@ export async function confirmBookingsFromQuantityFlow(
       overrideAccess: true,
     })
     batchIndex += 1
-    if (paymentIntentId) {
-      await payload.create({
-        collection: 'transactions',
-        data: {
-          booking: b.id,
-          paymentMethod: 'stripe',
-          stripePaymentIntentId: paymentIntentId,
-          tenant: tenantId,
-        },
-        ...(tenantContext ? { context: tenantContext } : {}),
-        overrideAccess: true,
-      } as Record<string, unknown>)
-    }
+    await payload.create({
+      collection: 'transactions',
+      data: {
+        booking: b.id,
+        paymentMethod: 'stripe',
+        ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
+        ...(dropInId != null ? { dropInId } : {}),
+        tenant: tenantId,
+      },
+      ...(tenantContext ? { context: tenantContext } : {}),
+      overrideAccess: true,
+    } as Record<string, unknown>)
   }
 
   for (let i = 0; i < toCreate; i++) {
@@ -158,6 +166,7 @@ export async function confirmBookingsFromQuantityFlow(
         user: userId,
         tenant: tenantId,
         status: 'confirmed',
+        paymentMethodUsed: 'stripe',
       },
       context: {
         ...(tenantContext ?? {}),
@@ -166,13 +175,14 @@ export async function confirmBookingsFromQuantityFlow(
       overrideAccess: true,
     } as Record<string, unknown>)
     batchIndex += 1
-    if (paymentIntentId && created?.id) {
+    if (created?.id) {
       await payload.create({
         collection: 'transactions',
         data: {
           booking: created.id,
           paymentMethod: 'stripe',
-          stripePaymentIntentId: paymentIntentId,
+          ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
+          ...(dropInId != null ? { dropInId } : {}),
           tenant: tenantId,
         },
         ...(tenantContext ? { context: tenantContext } : {}),

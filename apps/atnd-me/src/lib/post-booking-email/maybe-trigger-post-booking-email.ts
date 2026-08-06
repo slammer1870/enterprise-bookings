@@ -9,7 +9,11 @@ import {
   isCancelledTransition,
   maybeCancelScheduledPostBookingEmail,
 } from './cancel-scheduled-post-booking-email'
-import { findExistingPostBookingEmailDelivery } from './delivery-queries'
+import {
+  findExistingLifetimeNextDayPostBookingEmailDelivery,
+  findExistingPostBookingEmailDelivery,
+  userHasPriorConfirmedBookingForTenant,
+} from './delivery-queries'
 import { resolveNextDay9am } from './resolve-send-time'
 import { resolveEventTypePostBookingEmailsForBooking } from './resolve-event-type-post-booking-email'
 import { sendPostBookingEmail } from './send-post-booking-email'
@@ -100,7 +104,7 @@ async function maybeTriggerSinglePostBookingEmail({
   config,
 }: {
   req: PayloadRequest
-  booking: { id: number }
+  booking: { id: number; createdAt?: string | null }
   batchContext: ReturnType<typeof resolvePostBookingEmailBatchContext>
   eventTypeId: number
   timeslotId: number
@@ -117,16 +121,42 @@ async function maybeTriggerSinglePostBookingEmail({
     return
   }
 
-  const existing = await findExistingPostBookingEmailDelivery(req, {
-    tenantId,
-    userId,
-    timeslotId,
-    eventTypeId,
-    emailConfigId: config.id,
-  })
+  // Next-day "first class" emails are once-ever per user/tenant.
+  // Other timings remain idempotent per timeslot (and per checkout batch above).
+  const existing =
+    sendTiming === 'next_day_after_first_booking'
+      ? await findExistingLifetimeNextDayPostBookingEmailDelivery(req, {
+          tenantId,
+          userId,
+        })
+      : await findExistingPostBookingEmailDelivery(req, {
+          tenantId,
+          userId,
+          timeslotId,
+          eventTypeId,
+          emailConfigId: config.id,
+        })
   if (existing) return
 
   if (sendTiming === 'next_day_after_first_booking') {
+    const bookingCreatedAt =
+      typeof booking.createdAt === 'string' && booking.createdAt.length > 0
+        ? booking.createdAt
+        : null
+    if (!bookingCreatedAt) {
+      req.payload.logger.error(
+        `[post-booking-email] Missing createdAt for booking ${booking.id}; skipping next-day schedule`,
+      )
+      return
+    }
+
+    const hasPriorBooking = await userHasPriorConfirmedBookingForTenant(req, {
+      tenantId,
+      userId,
+      beforeCreatedAt: bookingCreatedAt,
+    })
+    if (hasPriorBooking) return
+
     const timeslot = await req.payload.findByID({
       collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       id: timeslotId,
@@ -271,6 +301,7 @@ export async function maybeTriggerPostBookingEmail({
   booking: {
     id: number
     status?: string
+    createdAt?: string | null
     user?: unknown
     timeslot?: unknown
     tenant?: unknown
@@ -348,6 +379,7 @@ export const triggerPostBookingEmailAfterChange: CollectionAfterChangeHook = asy
     booking: doc as {
       id: number
       status?: string
+      createdAt?: string | null
       user?: unknown
       timeslot?: unknown
       tenant?: unknown

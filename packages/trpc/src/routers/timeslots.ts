@@ -23,6 +23,7 @@ import {
 import { resolveGetByDateBranch } from "../utils/scheduleBranch";
 
 import { EventType, Timeslot, TimeslotScheduleState, ScheduleTimeslot } from "@repo/shared-types";
+import { hasUsedDropInProduct } from "@repo/bookings-payments";
 import {
   checkRole,
   getDayRange,
@@ -31,6 +32,74 @@ import {
   sanitizeBetterAuthSession,
   sanitizeBetterAuthUser,
 } from "@repo/shared-utils";
+
+function getId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (value && typeof value === "object" && "id" in value) {
+    return getId((value as { id?: unknown }).id);
+  }
+  return null;
+}
+
+async function attachViewerHasUsedDropIn(
+  payload: {
+    find: (..._args: any[]) => Promise<any>;
+    findByID?: (..._args: any[]) => Promise<any>;
+  },
+  timeslot: Timeslot,
+  userId: number | null | undefined,
+  bookingsSlug: string,
+): Promise<void> {
+  timeslot.viewerHasUsedDropIn = false;
+  if (userId == null) return;
+
+  const allowed = timeslot.eventType?.paymentMethods?.allowedDropIn as
+    | number
+    | { id?: number; oncePerUser?: boolean | null }
+    | null
+    | undefined;
+  if (!allowed) return;
+
+  const dropInId = typeof allowed === "number" ? allowed : getId(allowed);
+  if (dropInId == null) return;
+
+  // Nested population / unpopulated relation ids can omit oncePerUser — re-fetch.
+  let oncePerUser =
+    typeof allowed === "object" ? allowed.oncePerUser === true : false;
+  if (!oncePerUser && typeof payload.findByID === "function") {
+    const dropInDoc = await payload
+      .findByID({
+        collection: "drop-ins",
+        id: dropInId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .catch(() => null);
+    oncePerUser = dropInDoc?.oncePerUser === true;
+    // Mutate in place — `allowed` is the same object as paymentMethods.allowedDropIn.
+    // Avoid reassigning a partial object into the full DropIn-typed field.
+    if (typeof allowed === "object" && allowed != null) {
+      allowed.oncePerUser = oncePerUser;
+    }
+  }
+  if (!oncePerUser) return;
+
+  try {
+    timeslot.viewerHasUsedDropIn = await hasUsedDropInProduct({
+      payload,
+      userId,
+      dropInId,
+      bookingsSlug,
+      transactionsSlug: "transactions",
+    });
+  } catch {
+    timeslot.viewerHasUsedDropIn = false;
+  }
+}
 
 export const timeslotsRouter = {
   getById: protectedProcedure
@@ -98,6 +167,13 @@ export const timeslotsRouter = {
         fallbackTimeZone
       );
 
+      await attachViewerHasUsedDropIn(
+        ctx.payload,
+        timeslot,
+        getId(ctx.user),
+        ctx.bookingsSlugs.bookings,
+      );
+
       return timeslot;
     }),
 
@@ -156,6 +232,13 @@ export const timeslotsRouter = {
         ctx.payload,
         tenantId,
         fallbackTimeZone
+      );
+
+      await attachViewerHasUsedDropIn(
+        ctx.payload,
+        timeslot,
+        getId(ctx.user),
+        ctx.bookingsSlugs.bookings,
       );
 
       // Validate timeslot is bookable

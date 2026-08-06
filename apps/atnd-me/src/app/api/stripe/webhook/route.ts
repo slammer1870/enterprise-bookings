@@ -190,10 +190,15 @@ export async function POST(request: NextRequest) {
       if (!Number.isNaN(userId)) {
         const { fulfillCheckoutHold } = await import('@repo/bookings-payments')
         const stripeClient = (await import('@/lib/stripe')).stripe
+        const dropInIdFromMeta =
+          typeof meta.dropInId === 'string' && /^\d+$/.test(meta.dropInId)
+            ? parseInt(meta.dropInId, 10)
+            : null
         const fulfillResult = await fulfillCheckoutHold(payload, {
           holdId,
           userId,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
+          dropInId: dropInIdFromMeta,
           tenantId: tenant.id,
           tenantContext: paymentIntentTenantContext,
           refundPaymentIntent:
@@ -281,10 +286,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const dropInIdFromMeta =
+      typeof meta.dropInId === 'string' && /^\d+$/.test(meta.dropInId)
+        ? parseInt(meta.dropInId, 10)
+        : null
+
     // Explicit booking IDs (drop-in / modify-booking flow)
     if (tenant && bookingIdsToConfirm.length > 0) {
       await confirmBookingsFromPaymentIntent(payload, bookingIdsToConfirm, {
         paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
+        dropInId: dropInIdFromMeta,
         tenantId: tenant.id,
         tenantContext: paymentIntentTenantContext,
       })
@@ -306,6 +317,7 @@ export async function POST(request: NextRequest) {
           userId,
           quantity,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
+          dropInId: dropInIdFromMeta,
           tenantId: tenant.id,
           tenantContext: paymentIntentTenantContext,
         })
