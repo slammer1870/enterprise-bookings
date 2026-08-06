@@ -467,6 +467,8 @@ export async function loginAsRegularUserViaApi(
       data: { email: email.toLowerCase(), password },
       failOnStatusCode: false,
       headers: signInHeaders,
+      // Dev cold-compile of /api/auth can exceed the default 10s actionTimeout.
+      timeout: 60_000,
     })
 
     if (res.ok()) break

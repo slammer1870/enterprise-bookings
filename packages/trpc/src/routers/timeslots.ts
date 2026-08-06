@@ -46,7 +46,10 @@ function getId(value: unknown): number | null {
 }
 
 async function attachViewerHasUsedDropIn(
-  payload: { find: (..._args: any[]) => Promise<any> },
+  payload: {
+    find: (..._args: any[]) => Promise<any>;
+    findByID?: (..._args: any[]) => Promise<any>;
+  },
   timeslot: Timeslot,
   userId: number | null | undefined,
   bookingsSlug: string,
@@ -61,10 +64,34 @@ async function attachViewerHasUsedDropIn(
     | undefined;
   if (!allowed) return;
 
-  const oncePerUser =
-    typeof allowed === "object" ? allowed.oncePerUser === true : false;
   const dropInId = typeof allowed === "number" ? allowed : getId(allowed);
-  if (!oncePerUser || dropInId == null) return;
+  if (dropInId == null) return;
+
+  // Nested population / unpopulated relation ids can omit oncePerUser — re-fetch.
+  let oncePerUser =
+    typeof allowed === "object" ? allowed.oncePerUser === true : false;
+  if (!oncePerUser && typeof payload.findByID === "function") {
+    const dropInDoc = await payload
+      .findByID({
+        collection: "drop-ins",
+        id: dropInId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .catch(() => null);
+    oncePerUser = dropInDoc?.oncePerUser === true;
+    if (
+      typeof allowed === "object" &&
+      allowed != null &&
+      timeslot.eventType?.paymentMethods
+    ) {
+      timeslot.eventType.paymentMethods.allowedDropIn = {
+        ...allowed,
+        oncePerUser,
+      };
+    }
+  }
+  if (!oncePerUser) return;
 
   try {
     timeslot.viewerHasUsedDropIn = await hasUsedDropInProduct({

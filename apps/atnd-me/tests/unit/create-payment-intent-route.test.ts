@@ -119,11 +119,16 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
       expiresAt: new Date().toISOString(),
     })
     mockComputeRemainingCapacityWithHolds.mockResolvedValue(10)
-    mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
-      if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
-      if (collection === 'tenants') return Promise.resolve(makeTenant())
-      return Promise.resolve(null)
-    })
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
+        if (collection === 'tenants') return Promise.resolve(makeTenant())
+        if (collection === 'drop-ins') {
+          return Promise.resolve({ id: id ?? 1, oncePerUser: false, maxBookingsPerTimeslot: null })
+        }
+        return Promise.resolve(null)
+      },
+    )
   })
 
   it('returns 200 with clientSecret for a legitimate drop-in booking', async () => {
@@ -195,21 +200,16 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
 
   it('returns 400 when oncePerUser drop-in was already used', async () => {
     mockHasUsedDropInProduct.mockResolvedValue(true)
-    mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
-      if (collection === 'timeslots') {
-        return Promise.resolve(
-          makeTimeslot({
-            eventType: {
-              paymentMethods: {
-                allowedDropIn: { id: 1, oncePerUser: true, maxBookingsPerTimeslot: null },
-              },
-            },
-          }),
-        )
-      }
-      if (collection === 'tenants') return Promise.resolve(makeTenant())
-      return Promise.resolve(null)
-    })
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
+        if (collection === 'tenants') return Promise.resolve(makeTenant())
+        if (collection === 'drop-ins') {
+          return Promise.resolve({ id: id ?? 1, oncePerUser: true, maxBookingsPerTimeslot: null })
+        }
+        return Promise.resolve(null)
+      },
+    )
 
     const res = await POST(makeRequest())
     const body = await res.json()
@@ -221,21 +221,16 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
 
   it('skips oncePerUser enforcement for eventCheckout metadata', async () => {
     mockHasUsedDropInProduct.mockResolvedValue(true)
-    mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
-      if (collection === 'timeslots') {
-        return Promise.resolve(
-          makeTimeslot({
-            eventType: {
-              paymentMethods: {
-                allowedDropIn: { id: 1, oncePerUser: true, maxBookingsPerTimeslot: null },
-              },
-            },
-          }),
-        )
-      }
-      if (collection === 'tenants') return Promise.resolve(makeTenant())
-      return Promise.resolve(null)
-    })
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
+        if (collection === 'tenants') return Promise.resolve(makeTenant())
+        if (collection === 'drop-ins') {
+          return Promise.resolve({ id: id ?? 1, oncePerUser: true, maxBookingsPerTimeslot: null })
+        }
+        return Promise.resolve(null)
+      },
+    )
 
     const res = await POST(
       makeRequest({

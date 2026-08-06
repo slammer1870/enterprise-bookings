@@ -21,9 +21,29 @@ function toIds(docs: Array<{ id?: number }>): number[] {
     .filter((id): id is number => Number.isFinite(id) && id > 0);
 }
 
+async function findMatchingTxn(
+  payload: PayloadLike,
+  transactionsSlug: CollectionSlug | string,
+  where: Where,
+  req?: unknown,
+): Promise<boolean> {
+  const txns = await payload.find({
+    collection: transactionsSlug,
+    where,
+    depth: 0,
+    limit: 1,
+    overrideAccess: true,
+    ...(req ? { req } : {}),
+  });
+  return (txns.docs?.length ?? 0) > 0;
+}
+
 /**
  * Returns true if the user (or a child account under parentUser) has a prior
  * stripe booking transaction stamped with this drop-in product id.
+ *
+ * Prefer querying transactions via nested `booking.user` so heavy bookers
+ * (200+ bookings) are not truncated by a booking-id preload limit.
  */
 export async function hasUsedDropInProduct(
   args: HasUsedDropInProductArgs
@@ -40,8 +60,45 @@ export async function hasUsedDropInProduct(
   if (!Number.isFinite(userId) || userId <= 0) return false;
   if (!Number.isFinite(dropInId) || dropInId <= 0) return false;
 
+  const stripeDropInWhere: Where = {
+    and: [
+      { paymentMethod: { equals: "stripe" } },
+      { dropInId: { equals: dropInId } },
+    ],
+  };
+
   try {
-    // Prefer family-aware query; fall back to user-only if nested path is unsupported.
+    // Direct nested path — no booking-id fanout, works for users with 200+ bookings.
+    try {
+      const familyTxnWhere: Where = {
+        and: [
+          ...(Array.isArray(stripeDropInWhere.and) ? stripeDropInWhere.and : [stripeDropInWhere]),
+          {
+            or: [
+              { "booking.user": { equals: userId } },
+              { "booking.user.parentUser": { equals: userId } },
+            ],
+          },
+        ],
+      };
+      return await findMatchingTxn(payload, transactionsSlug, familyTxnWhere, req);
+    } catch {
+      // Nested parentUser unsupported — try user-only nested path.
+      try {
+        const userTxnWhere: Where = {
+          and: [
+            ...(Array.isArray(stripeDropInWhere.and) ? stripeDropInWhere.and : [stripeDropInWhere]),
+            { "booking.user": { equals: userId } },
+          ],
+        };
+        return await findMatchingTxn(payload, transactionsSlug, userTxnWhere, req);
+      } catch {
+        // Fall through to booking-id preload.
+      }
+    }
+
+    // Fallback: load booking ids (newest first) then match transactions.
+    // Newest-first matters — once-per-user purchases are recent for heavy bookers.
     let bookingIds: number[] = [];
     const familyWhere: Where = {
       or: [
@@ -55,7 +112,8 @@ export async function hasUsedDropInProduct(
         collection: bookingsSlug,
         where: familyWhere,
         depth: 0,
-        limit: 200,
+        limit: 500,
+        sort: "-id",
         overrideAccess: true,
         select: { id: true },
         ...(req ? { req } : {}),
@@ -66,7 +124,8 @@ export async function hasUsedDropInProduct(
         collection: bookingsSlug,
         where: { user: { equals: userId } },
         depth: 0,
-        limit: 200,
+        limit: 500,
+        sort: "-id",
         overrideAccess: true,
         select: { id: true },
         ...(req ? { req } : {}),
@@ -76,22 +135,18 @@ export async function hasUsedDropInProduct(
 
     if (bookingIds.length === 0) return false;
 
-    const txns = await payload.find({
-      collection: transactionsSlug,
-      where: {
+    return await findMatchingTxn(
+      payload,
+      transactionsSlug,
+      {
         and: [
           { booking: { in: bookingIds } },
           { paymentMethod: { equals: "stripe" } },
           { dropInId: { equals: dropInId } },
         ],
       },
-      depth: 0,
-      limit: 1,
-      overrideAccess: true,
-      ...(req ? { req } : {}),
-    });
-
-    return (txns.docs?.length ?? 0) > 0;
+      req,
+    );
   } catch {
     // Fail open so checkout is not blocked if the eligibility query errors.
     return false;

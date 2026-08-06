@@ -180,25 +180,30 @@ export async function POST(request: NextRequest) {
 
   // Per-viewer cap for drop-in multi-booking (confirmed bookings only).
   // Note: when we confirm existing pending bookings via metadata, cap must still apply.
+  // Always re-fetch the drop-in by id — nested population can omit oncePerUser.
   const dropInRaw = timeslot?.eventType?.paymentMethods?.allowedDropIn ?? null
-  let dropInDoc: any = null
-  if (dropInRaw && typeof dropInRaw === 'object') {
-    dropInDoc = dropInRaw
-  } else if (typeof dropInRaw === 'number') {
-    dropInDoc = await payload.findByID({
-      collection: 'drop-ins',
-      id: dropInRaw,
-      depth: 0,
-      overrideAccess: true,
-    }).catch(() => null)
-  }
+  const dropInIdFromRel =
+    typeof dropInRaw === 'number'
+      ? dropInRaw
+      : dropInRaw && typeof dropInRaw === 'object' && typeof dropInRaw.id === 'number'
+        ? dropInRaw.id
+        : null
+  const dropInDoc =
+    dropInIdFromRel != null
+      ? await payload
+          .findByID({
+            collection: 'drop-ins',
+            id: dropInIdFromRel,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null)
+      : null
 
   const dropInId =
     dropInDoc != null && typeof dropInDoc.id === 'number'
       ? dropInDoc.id
-      : typeof dropInRaw === 'number'
-        ? dropInRaw
-        : null
+      : dropInIdFromRel
 
   // Once-per-user applies to class booking drop-ins only — not event/guest checkout.
   const isEventCheckout =

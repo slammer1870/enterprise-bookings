@@ -73,6 +73,8 @@ async function postSignedWebhook(
       'stripe-signature': signStripeWebhookBody(body),
     },
     data: body,
+    // Dev cold-compile of the webhook route can exceed the default 10s actionTimeout.
+    timeout: 60_000,
   })
   const json = await res.json().catch(() => ({}))
   return { status: res.status(), body: json }
@@ -121,6 +123,8 @@ export async function postHoldFulfillmentWebhook(
     eventId?: string
     timeslotId?: number
     quantity?: number
+    /** Drop-in product id — required for once-per-user tracking on fulfill. */
+    dropInId?: number
   },
 ): Promise<{ status: number; body: unknown }> {
   const paymentIntentId =
@@ -137,6 +141,7 @@ export async function postHoldFulfillmentWebhook(
       holdId: String(args.holdId),
       ...(args.timeslotId != null ? { timeslotId: String(args.timeslotId) } : {}),
       ...(args.quantity != null ? { quantity: String(args.quantity) } : {}),
+      ...(args.dropInId != null ? { dropInId: String(args.dropInId) } : {}),
     },
   })
   return postSignedWebhook(request, event)
