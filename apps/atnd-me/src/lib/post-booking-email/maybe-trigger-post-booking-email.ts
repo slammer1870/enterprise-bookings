@@ -10,7 +10,7 @@ import {
   maybeCancelScheduledPostBookingEmail,
 } from './cancel-scheduled-post-booking-email'
 import {
-  findExistingLifetimeNextDayPostBookingEmailDelivery,
+  findExistingLifetimeFirstBookingPostBookingEmailDelivery,
   findExistingPostBookingEmailDelivery,
   userHasPriorConfirmedBookingForTenant,
 } from './delivery-queries'
@@ -121,31 +121,33 @@ async function maybeTriggerSinglePostBookingEmail({
     return
   }
 
-  // Next-day "first class" emails are once-ever per user/tenant.
+  // First-ever timings are once-ever per user/tenant.
   // Other timings remain idempotent per timeslot (and per checkout batch above).
-  const existing =
-    sendTiming === 'next_day_after_first_booking'
-      ? await findExistingLifetimeNextDayPostBookingEmailDelivery(req, {
-          tenantId,
-          userId,
-        })
-      : await findExistingPostBookingEmailDelivery(req, {
-          tenantId,
-          userId,
-          timeslotId,
-          eventTypeId,
-          emailConfigId: config.id,
-        })
+  const isFirstEverTiming =
+    sendTiming === 'after_first_booking' || sendTiming === 'next_day_after_first_booking'
+  const existing = isFirstEverTiming
+    ? await findExistingLifetimeFirstBookingPostBookingEmailDelivery(req, {
+        tenantId,
+        userId,
+        sendTiming,
+      })
+    : await findExistingPostBookingEmailDelivery(req, {
+        tenantId,
+        userId,
+        timeslotId,
+        eventTypeId,
+        emailConfigId: config.id,
+      })
   if (existing) return
 
-  if (sendTiming === 'next_day_after_first_booking') {
+  if (isFirstEverTiming) {
     const bookingCreatedAt =
       typeof booking.createdAt === 'string' && booking.createdAt.length > 0
         ? booking.createdAt
         : null
     if (!bookingCreatedAt) {
       req.payload.logger.error(
-        `[post-booking-email] Missing createdAt for booking ${booking.id}; skipping next-day schedule`,
+        `[post-booking-email] Missing createdAt for booking ${booking.id}; skipping ${sendTiming}`,
       )
       return
     }
@@ -156,7 +158,9 @@ async function maybeTriggerSinglePostBookingEmail({
       beforeCreatedAt: bookingCreatedAt,
     })
     if (hasPriorBooking) return
+  }
 
+  if (sendTiming === 'next_day_after_first_booking') {
     const timeslot = await req.payload.findByID({
       collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       id: timeslotId,

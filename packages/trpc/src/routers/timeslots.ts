@@ -786,28 +786,25 @@ export const timeslotsRouter = {
         }
 
         // Trial eligibility check (one query) if needed.
+        // Use populated eventTypesById — timeslotDocs are depth 0 so eventType is only an ID.
         const viewerId = getId(user);
-        const hasTrialableTimeslot = timeslotDocs.some((l) => {
-          const co = l.eventType as any;
-          return (
-            co?.paymentMethods?.allowedDropIn?.discountTiers?.some?.((t: any) => t?.type === "trial") ??
-            false
-          );
-        });
+        const hasTrialableTimeslot = [...eventTypesById.values()].some(
+          (et) =>
+            et?.paymentMethods?.allowedDropIn?.discountTiers?.some?.(
+              (t: any) => t?.type === "trial",
+            ) ?? false,
+        );
 
         let viewerHasAnyConfirmedBooking = false;
         if (viewerId && hasTrialableTimeslot && hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
           try {
-            const anyConfirmed = await ctx.payload.find({
+            // Prefer user-only first (matches booking-status adult path). Nested
+            // user.parentUser can throw on some adapters — don't let that wipe a match.
+            const ownConfirmed = await ctx.payload.find({
               collection: ctx.bookingsSlugs.bookings as CollectionSlug,
               where: {
                 and: [
-                  {
-                    or: [
-                      { user: { equals: viewerId } },
-                      { "user.parentUser": { equals: viewerId } },
-                    ],
-                  },
+                  { user: { equals: viewerId } },
                   { status: { equals: "confirmed" } },
                 ],
               },
@@ -816,10 +813,31 @@ export const timeslotsRouter = {
               overrideAccess: true,
               req: queryOptions.req,
             });
-            viewerHasAnyConfirmedBooking = (anyConfirmed?.docs?.length ?? 0) > 0;
+            viewerHasAnyConfirmedBooking = (ownConfirmed?.docs?.length ?? 0) > 0;
+
+            if (!viewerHasAnyConfirmedBooking) {
+              try {
+                const childConfirmed = await ctx.payload.find({
+                  collection: ctx.bookingsSlugs.bookings as CollectionSlug,
+                  where: {
+                    and: [
+                      { "user.parentUser": { equals: viewerId } },
+                      { status: { equals: "confirmed" } },
+                    ],
+                  },
+                  depth: 0,
+                  limit: 1,
+                  overrideAccess: true,
+                  req: queryOptions.req,
+                });
+                viewerHasAnyConfirmedBooking = (childConfirmed?.docs?.length ?? 0) > 0;
+              } catch {
+                // Nested parentUser unsupported — keep user-only result.
+              }
+            }
           } catch {
             // If this fails for any reason, fall back to non-trialable behavior.
-            viewerHasAnyConfirmedBooking = false;
+            viewerHasAnyConfirmedBooking = true;
           }
         }
 

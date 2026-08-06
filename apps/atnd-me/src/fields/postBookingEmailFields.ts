@@ -7,7 +7,7 @@ export const POST_BOOKING_EMAIL_SEND_TIMING_OPTIONS = [
     value: 'after_all_bookings',
   },
   {
-    label: 'Immediately after the first booking in the checkout',
+    label: 'Immediately after the first booking — once per customer (this studio)',
     value: 'after_first_booking',
   },
   {
@@ -28,7 +28,7 @@ const postBookingEmailSendTimingField: Field = {
   options: [...POST_BOOKING_EMAIL_SEND_TIMING_OPTIONS],
   admin: {
     description:
-      'Checkout timings apply per purchase: multi-seat checkouts send one email for the whole checkout, not one per seat. “Once per customer (this studio)” sends at 9:00 local on the calendar day after the booked class, only for that customer’s first confirmed booking at this studio — never again for later bookings or other event types. Customers who already have a confirmed booking here are skipped.',
+      'Checkout timings apply per purchase: multi-seat checkouts send one email for the whole checkout, not one per seat. “Once per customer (this studio)” options only send for that customer’s first confirmed booking at this studio — never again for later bookings or other event types. The immediate option sends right after that first booking; the 9am option sends at 9:00 local on the calendar day after the booked class. Customers who already have a confirmed booking here are skipped.',
   },
 }
 

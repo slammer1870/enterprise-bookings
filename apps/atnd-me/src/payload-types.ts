@@ -1187,7 +1187,7 @@ export interface EventType {
           [k: string]: unknown;
         } | null;
         /**
-         * Checkout timings apply per purchase: multi-seat checkouts send one email for the whole checkout, not one per seat. “Once per customer (this studio)” sends at 9:00 local on the calendar day after the booked class, only for that customer’s first confirmed booking at this studio — never again for later bookings or other event types. Customers who already have a confirmed booking here are skipped.
+         * Checkout timings apply per purchase: multi-seat checkouts send one email for the whole checkout, not one per seat. “Once per customer (this studio)” options only send for that customer’s first confirmed booking at this studio — never again for later bookings or other event types. The immediate option sends right after that first booking; the 9am option sends at 9:00 local on the calendar day after the booked class. Customers who already have a confirmed booking here are skipped.
          */
         sendTiming: 'after_all_bookings' | 'after_first_booking' | 'next_day_after_first_booking';
         id?: string | null;
