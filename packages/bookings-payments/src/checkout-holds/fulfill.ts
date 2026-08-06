@@ -43,6 +43,8 @@ export async function fulfillCheckoutHold(
     holdId: number
     userId: number
     paymentIntentId?: string
+    /** Drop-in product id for once-per-user tracking (stripe/drop-in checkouts). */
+    dropInId?: number | null
     tenantId: number
     holdCollection?: CollectionSlug
     bookingsSlug?: CollectionSlug
@@ -150,6 +152,11 @@ export async function fulfillCheckoutHold(
 
   const confirmedBookingIds: number[] = []
 
+  const dropInId =
+    typeof opts.dropInId === 'number' && Number.isFinite(opts.dropInId) && opts.dropInId > 0
+      ? opts.dropInId
+      : null
+
   for (let i = 0; i < hold.quantity; i++) {
     const created = (await payload.create({
       collection: bookingsSlug,
@@ -158,6 +165,7 @@ export async function fulfillCheckoutHold(
         user: opts.userId,
         tenant: opts.tenantId,
         status: 'confirmed',
+        paymentMethodUsed: 'stripe',
       },
       context: {
         ...(tenantContext ?? {}),
@@ -171,19 +179,18 @@ export async function fulfillCheckoutHold(
 
     confirmedBookingIds.push(created.id)
 
-    if (opts.paymentIntentId) {
-      await payload.create({
-        collection: transactionsSlug,
-        data: {
-          booking: created.id,
-          paymentMethod: 'stripe',
-          stripePaymentIntentId: opts.paymentIntentId,
-          tenant: opts.tenantId,
-        },
-        ...(tenantContext ? { context: tenantContext } : {}),
-        overrideAccess: true,
-      })
-    }
+    await payload.create({
+      collection: transactionsSlug,
+      data: {
+        booking: created.id,
+        paymentMethod: 'stripe',
+        ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
+        ...(dropInId != null ? { dropInId } : {}),
+        tenant: opts.tenantId,
+      },
+      ...(tenantContext ? { context: tenantContext } : {}),
+      overrideAccess: true,
+    })
   }
 
   return { confirmedBookingIds, refunded: false }

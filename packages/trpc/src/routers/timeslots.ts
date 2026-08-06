@@ -23,6 +23,7 @@ import {
 import { resolveGetByDateBranch } from "../utils/scheduleBranch";
 
 import { EventType, Timeslot, TimeslotScheduleState, ScheduleTimeslot } from "@repo/shared-types";
+import { hasUsedDropInProduct } from "@repo/bookings-payments";
 import {
   checkRole,
   getDayRange,
@@ -31,6 +32,52 @@ import {
   sanitizeBetterAuthSession,
   sanitizeBetterAuthUser,
 } from "@repo/shared-utils";
+
+function getId(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (value && typeof value === "object" && "id" in value) {
+    return getId((value as { id?: unknown }).id);
+  }
+  return null;
+}
+
+async function attachViewerHasUsedDropIn(
+  payload: { find: (..._args: any[]) => Promise<any> },
+  timeslot: Timeslot,
+  userId: number | null | undefined,
+  bookingsSlug: string,
+): Promise<void> {
+  timeslot.viewerHasUsedDropIn = false;
+  if (userId == null) return;
+
+  const allowed = timeslot.eventType?.paymentMethods?.allowedDropIn as
+    | number
+    | { id?: number; oncePerUser?: boolean | null }
+    | null
+    | undefined;
+  if (!allowed) return;
+
+  const oncePerUser =
+    typeof allowed === "object" ? allowed.oncePerUser === true : false;
+  const dropInId = typeof allowed === "number" ? allowed : getId(allowed);
+  if (!oncePerUser || dropInId == null) return;
+
+  try {
+    timeslot.viewerHasUsedDropIn = await hasUsedDropInProduct({
+      payload,
+      userId,
+      dropInId,
+      bookingsSlug,
+      transactionsSlug: "transactions",
+    });
+  } catch {
+    timeslot.viewerHasUsedDropIn = false;
+  }
+}
 
 export const timeslotsRouter = {
   getById: protectedProcedure
@@ -98,6 +145,13 @@ export const timeslotsRouter = {
         fallbackTimeZone
       );
 
+      await attachViewerHasUsedDropIn(
+        ctx.payload,
+        timeslot,
+        getId(ctx.user),
+        ctx.bookingsSlugs.bookings,
+      );
+
       return timeslot;
     }),
 
@@ -156,6 +210,13 @@ export const timeslotsRouter = {
         ctx.payload,
         tenantId,
         fallbackTimeZone
+      );
+
+      await attachViewerHasUsedDropIn(
+        ctx.payload,
+        timeslot,
+        getId(ctx.user),
+        ctx.bookingsSlugs.bookings,
       );
 
       // Validate timeslot is bookable

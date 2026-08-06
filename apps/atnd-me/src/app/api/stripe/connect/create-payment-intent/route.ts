@@ -16,6 +16,7 @@ import {
   getActiveCheckoutHold,
   fulfillCheckoutHold,
   computeRemainingCapacityWithHolds,
+  hasUsedDropInProduct,
   CHECKOUT_HOLD_COLLECTION_SLUG,
 } from '@repo/bookings-payments'
 import {
@@ -192,6 +193,47 @@ export async function POST(request: NextRequest) {
     }).catch(() => null)
   }
 
+  const dropInId =
+    dropInDoc != null && typeof dropInDoc.id === 'number'
+      ? dropInDoc.id
+      : typeof dropInRaw === 'number'
+        ? dropInRaw
+        : null
+
+  // Once-per-user applies to class booking drop-ins only — not event/guest checkout.
+  const isEventCheckout =
+    metadata?.eventCheckout === 'true' || metadata?.guestCheckout === 'true'
+
+  if (!isEventCheckout && dropInDoc?.oncePerUser === true && dropInId != null) {
+    try {
+      const alreadyUsed = await hasUsedDropInProduct({
+        payload,
+        userId: user.id,
+        dropInId,
+        bookingsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
+        transactionsSlug: 'transactions',
+      })
+      if (alreadyUsed) {
+        return alertResponse(
+          {
+            error:
+              'You have already used this drop-in. Please book with a membership or another payment method.',
+          },
+          400,
+        )
+      }
+    } catch (err) {
+      payload.logger?.error?.(
+        `create-payment-intent: hasUsedDropInProduct failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
+    }
+  }
+
+  // Only stamp dropInId for class bookings so event purchases do not consume once-per-user.
+  const trackableDropInId = !isEventCheckout ? dropInId : null
+
   const configuredMaxRaw = dropInDoc?.maxBookingsPerTimeslot
   const maxPerViewer =
     dropInDoc == null
@@ -357,6 +399,7 @@ export async function POST(request: NextRequest) {
       holdId,
       userId: user.id,
       tenantId,
+      dropInId: trackableDropInId,
       tenantContext: { tenant: tenantId },
       timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
@@ -457,6 +500,7 @@ export async function POST(request: NextRequest) {
         userId: String(user.id),
         quantity: String(quantity),
         holdId: String(holdId),
+        ...(trackableDropInId != null ? { dropInId: String(trackableDropInId) } : {}),
         ...(discountCodeMeta ? { discountCode: discountCodeMeta } : {}),
         ...(typeof metadata?.classPriceBeforeDiscount === 'string' &&
         metadata.classPriceBeforeDiscount.trim()

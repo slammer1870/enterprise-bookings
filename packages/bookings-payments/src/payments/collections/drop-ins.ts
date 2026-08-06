@@ -51,6 +51,17 @@ export function dropInsCollection(
         },
       },
       {
+        name: "oncePerUser",
+        label: "Once per user",
+        type: "checkbox",
+        defaultValue: false,
+        required: false,
+        admin: {
+          description:
+            "When enabled, each customer can purchase this drop-in only once. After that, only membership or other payment methods remain available wherever this drop-in is assigned.",
+        },
+      },
+      {
         name: "discountTiers",
         label: "Discount Tiers",
         type: "array",

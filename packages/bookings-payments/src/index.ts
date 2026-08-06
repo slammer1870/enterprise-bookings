@@ -63,6 +63,8 @@ export type {
   UpsertCheckoutHoldResult,
 } from "./checkout-holds/service";
 export type { FulfillCheckoutHoldResult } from "./checkout-holds/fulfill";
+export { hasUsedDropInProduct } from "./drop-ins/hasUsedDropInProduct";
+export type { HasUsedDropInProductArgs } from "./drop-ins/hasUsedDropInProduct";
 export { bookingCheckoutHoldsCollection } from "./collections/booking-checkout-holds";
 // Payments endpoints
 export { createCustomersProxy } from "./payments/endpoints/customers";

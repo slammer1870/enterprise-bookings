@@ -10,6 +10,7 @@ const {
   mockPayload,
   mockGetActiveCheckoutHold,
   mockComputeRemainingCapacityWithHolds,
+  mockHasUsedDropInProduct,
 } = vi.hoisted(() => ({
   mockPayload: {
     findByID: vi.fn(),
@@ -19,6 +20,7 @@ const {
   },
   mockGetActiveCheckoutHold: vi.fn(),
   mockComputeRemainingCapacityWithHolds: vi.fn().mockResolvedValue(10),
+  mockHasUsedDropInProduct: vi.fn().mockResolvedValue(false),
 }))
 
 vi.mock('@/lib/booking/payment-intent', () => ({
@@ -43,6 +45,7 @@ vi.mock('@repo/bookings-payments', () => ({
   getActiveCheckoutHold: mockGetActiveCheckoutHold,
   computeRemainingCapacityWithHolds: mockComputeRemainingCapacityWithHolds,
   fulfillCheckoutHold: vi.fn(),
+  hasUsedDropInProduct: mockHasUsedDropInProduct,
   CHECKOUT_HOLD_COLLECTION_SLUG: 'booking-checkout-holds',
 }))
 
@@ -188,5 +191,63 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
 
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/fully booked/i)
+  })
+
+  it('returns 400 when oncePerUser drop-in was already used', async () => {
+    mockHasUsedDropInProduct.mockResolvedValue(true)
+    mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'timeslots') {
+        return Promise.resolve(
+          makeTimeslot({
+            eventType: {
+              paymentMethods: {
+                allowedDropIn: { id: 1, oncePerUser: true, maxBookingsPerTimeslot: null },
+              },
+            },
+          }),
+        )
+      }
+      if (collection === 'tenants') return Promise.resolve(makeTenant())
+      return Promise.resolve(null)
+    })
+
+    const res = await POST(makeRequest())
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/already used this drop-in/i)
+    expect(mockHasUsedDropInProduct).toHaveBeenCalled()
+  })
+
+  it('skips oncePerUser enforcement for eventCheckout metadata', async () => {
+    mockHasUsedDropInProduct.mockResolvedValue(true)
+    mockPayload.findByID.mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'timeslots') {
+        return Promise.resolve(
+          makeTimeslot({
+            eventType: {
+              paymentMethods: {
+                allowedDropIn: { id: 1, oncePerUser: true, maxBookingsPerTimeslot: null },
+              },
+            },
+          }),
+        )
+      }
+      if (collection === 'tenants') return Promise.resolve(makeTenant())
+      return Promise.resolve(null)
+    })
+
+    const res = await POST(
+      makeRequest({
+        metadata: {
+          timeslotId: String(TIMESLOT_ID),
+          holdId: String(HOLD_ID),
+          eventCheckout: 'true',
+        },
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mockHasUsedDropInProduct).not.toHaveBeenCalled()
   })
 })

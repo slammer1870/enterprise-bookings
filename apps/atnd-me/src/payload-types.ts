@@ -1209,6 +1209,10 @@ export interface DropIn {
    * Leave blank for no per-user limit (still bounded by the event type capacity). When set, users can book up to this many spots per timeslot for this drop-in.
    */
   maxBookingsPerTimeslot?: number | null;
+  /**
+   * When enabled, each customer can purchase this drop-in only once. After that, only membership or other payment methods remain available wherever this drop-in is assigned.
+   */
+  oncePerUser?: boolean | null;
   discountTiers?:
     | {
         minQuantity: number;
@@ -3533,6 +3537,10 @@ export interface Transaction {
    */
   stripePaymentIntentId?: string | null;
   /**
+   * Drop-in product id when paymentMethod is stripe (drop-in checkout).
+   */
+  dropInId?: number | null;
+  /**
    * Subscription id when paymentMethod is subscription (booking created by subscription).
    */
   subscriptionId?: number | null;
@@ -4753,6 +4761,7 @@ export interface DropInsSelect<T extends boolean = true> {
   price?: T;
   adjustable?: T;
   maxBookingsPerTimeslot?: T;
+  oncePerUser?: T;
   discountTiers?:
     | T
     | {
@@ -4930,6 +4939,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   paymentMethod?: T;
   classPassId?: T;
   stripePaymentIntentId?: T;
+  dropInId?: T;
   subscriptionId?: T;
   updatedAt?: T;
   createdAt?: T;

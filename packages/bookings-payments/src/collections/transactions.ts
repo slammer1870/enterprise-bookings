@@ -61,6 +61,16 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     },
   },
   {
+    name: "dropInId",
+    type: "number",
+    required: false,
+    admin: {
+      description: "Drop-in product id when paymentMethod is stripe (drop-in checkout).",
+      condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
+        siblingData?.paymentMethod === "stripe",
+    },
+  },
+  {
     name: "subscriptionId",
     type: "number",
     required: false,
