@@ -80,15 +80,10 @@ async function attachViewerHasUsedDropIn(
       })
       .catch(() => null);
     oncePerUser = dropInDoc?.oncePerUser === true;
-    if (
-      typeof allowed === "object" &&
-      allowed != null &&
-      timeslot.eventType?.paymentMethods
-    ) {
-      timeslot.eventType.paymentMethods.allowedDropIn = {
-        ...allowed,
-        oncePerUser,
-      };
+    // Mutate in place — `allowed` is the same object as paymentMethods.allowedDropIn.
+    // Avoid reassigning a partial object into the full DropIn-typed field.
+    if (typeof allowed === "object" && allowed != null) {
+      allowed.oncePerUser = oncePerUser;
     }
   }
   if (!oncePerUser) return;
