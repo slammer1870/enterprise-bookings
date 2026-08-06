@@ -1159,7 +1159,7 @@ export interface EventType {
     allowedPlans?: (number | Plan)[] | null;
   };
   /**
-   * Add one or more emails for this event type — for example, a confirmation after every booking and a one-time review request after the customer’s first class. Each email is sent to the customer who made the booking. Multi-seat checkouts send one email per configured message, not one per seat. “9am the day after the first class” is sent only once ever per customer for this tenant, and only if they have no earlier confirmed booking for this tenant.
+   * Emails sent to the customer after they book this event type. Use separate rows for different messages (for example a checkout confirmation and a one-time follow-up). See “When to send” for timing rules.
    */
   postBookingEmails?:
     | {
@@ -1186,6 +1186,9 @@ export interface EventType {
           };
           [k: string]: unknown;
         } | null;
+        /**
+         * Checkout timings apply per purchase: multi-seat checkouts send one email for the whole checkout, not one per seat. “Once per customer (this studio)” sends at 9:00 local on the calendar day after the booked class, only for that customer’s first confirmed booking at this studio — never again for later bookings or other event types. Customers who already have a confirmed booking here are skipped.
+         */
         sendTiming: 'after_all_bookings' | 'after_first_booking' | 'next_day_after_first_booking';
         id?: string | null;
       }[]

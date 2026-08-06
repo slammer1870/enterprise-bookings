@@ -403,6 +403,22 @@ describe('Post-booking email integration', () => {
   it(
     'cancels a scheduled next-day email when the last confirmed booking is cancelled',
     async () => {
+      // Fresh user: shared beforeAll user already has tenant bookings from earlier tests,
+      // which would skip once-per-customer next-day scheduling.
+      const cancelUser = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Cancel Next-day User',
+          email: `post-booking-cancel-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const cancelUserId = cancelUser.id as number
+
       const nextDayEventType = await payload.create({
         collection: 'event-types',
         data: {
@@ -476,7 +492,7 @@ describe('Post-booking email integration', () => {
         data: {
           tenant: tenantId,
           timeslot: nextDayTimeslot.id,
-          user: userId,
+          user: cancelUserId,
           status: 'confirmed',
         },
         context: {
@@ -490,7 +506,7 @@ describe('Post-booking email integration', () => {
         where: {
           and: [
             { tenant: { equals: tenantId } },
-            { user: { equals: userId } },
+            { user: { equals: cancelUserId } },
             { timeslot: { equals: nextDayTimeslot.id } },
             { sendTiming: { equals: 'next_day_after_first_booking' } },
           ],
