@@ -8,14 +8,9 @@ import {
 type HeadersLike = Pick<Headers, 'get'>
 
 type PayloadFind = {
-  find: (args: {
-    collection: string
-    where: Record<string, unknown>
-    limit: number
-    depth: number
-    overrideAccess: boolean
-    select?: Record<string, boolean>
-  }) => Promise<{ docs: unknown[] }>
+  // Loose Local API shape so callers can pass `req.payload` without slug generics.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  find: (args: any) => Promise<{ docs: unknown[] }>
 }
 
 function platformOrigin(): string {

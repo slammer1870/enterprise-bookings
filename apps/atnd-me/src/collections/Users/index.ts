@@ -132,14 +132,17 @@ export const Users: CollectionConfig = {
   // link. Build an absolute, trusted origin instead (tenant host when allowed, else platform).
   auth: {
     forgotPassword: {
-      generateEmailHTML: async ({ req, token, user }) => {
+      generateEmailHTML: async (args) => {
+        const req = args?.req
+        const token = args?.token
+        const user = args?.user
         const adminRoute = req?.payload?.config?.routes?.admin || '/admin'
         const resetRoute = req?.payload?.config?.admin?.routes?.reset || '/reset'
         const origin = await resolveTrustedPasswordResetOrigin({
           headers: req?.headers,
           payload: req?.payload,
         })
-        const resetURL = getAbsoluteURL(`${adminRoute}${resetRoute}/${token}`, origin)
+        const resetURL = getAbsoluteURL(`${adminRoute}${resetRoute}/${token ?? ''}`, origin)
         const email = typeof user?.email === 'string' ? user.email : 'there'
         return `You are receiving this because you (or someone else) requested a password reset for ${email}.
 <a href="${resetURL}">${resetURL}</a>
