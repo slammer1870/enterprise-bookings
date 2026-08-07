@@ -9,9 +9,12 @@ import { getPayload } from '@/lib/payload'
 import { assertTenantEmailDomainAccess } from '@/lib/resend/assertTenantEmailDomainAccess'
 import {
   createOrGetDomain,
+  deleteDomain,
+  getDomain,
   mapResendStatusToEmailDomainStatus,
   verifyDomain,
 } from '@/lib/resend/domains'
+import { resolveEmailSendingDomain } from '@/lib/resend/resolveTenantEmailFrom'
 import { syncTenantEmailDomainFromResend } from '@/lib/resend/syncTenantEmailDomain'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
@@ -54,8 +57,9 @@ export async function POST(request: NextRequest) {
   }
 
   const domainRaw = typeof (tenant as any).domain === 'string' ? (tenant as any).domain : ''
-  const domain = normalizeCustomDomain(domainRaw)
-  if (!domain) {
+  const websiteDomain = normalizeCustomDomain(domainRaw)
+  const emailDomain = resolveEmailSendingDomain(websiteDomain)
+  if (!emailDomain) {
     return NextResponse.json({ error: 'Tenant has no custom domain' }, { status: 400 })
   }
 
@@ -64,8 +68,21 @@ export async function POST(request: NextRequest) {
       ? String((tenant as any).resendDomainId).trim()
       : null
 
+  if (resendDomainId) {
+    const existing = await getDomain(resendDomainId)
+    if (existing && existing.name.toLowerCase() !== emailDomain) {
+      const created = await createOrGetDomain(emailDomain)
+      if (created?.id && created.id !== resendDomainId) {
+        await deleteDomain(resendDomainId).catch(() => undefined)
+        resendDomainId = created.id
+      } else if (created?.id) {
+        resendDomainId = created.id
+      }
+    }
+  }
+
   if (!resendDomainId) {
-    const created = await createOrGetDomain(domain)
+    const created = await createOrGetDomain(emailDomain)
     resendDomainId = created?.id || null
   }
 
@@ -86,7 +103,8 @@ export async function POST(request: NextRequest) {
   })
 
   return NextResponse.json({
-    domain,
+    domain: emailDomain,
+    websiteDomain,
     status: synced.emailDomainStatus,
     resendDomainId: synced.resendDomainId,
     records: resendDomain.records || [],

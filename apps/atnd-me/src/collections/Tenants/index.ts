@@ -200,48 +200,6 @@ export const Tenants: CollectionConfig = {
       },
     },
     {
-      name: 'emailDomainDnsInstructions',
-      type: 'ui',
-      admin: {
-        condition: (data) => Boolean(data?.domain),
-        components: { Field: '@/components/admin/EmailDomainDnsInstructions' },
-      },
-    },
-    {
-      name: 'resendDomainId',
-      type: 'text',
-      required: false,
-      index: true,
-      admin: {
-        hidden: true,
-        description: 'Resend Domains API id for this tenant custom domain (set by hooks/API).',
-      },
-      access: { update: adminOnlyUpdate },
-    },
-    {
-      name: 'emailDomainStatus',
-      type: 'select',
-      required: false,
-      options: [...EMAIL_DOMAIN_STATUS_OPTIONS],
-      defaultValue: 'not_configured',
-      admin: {
-        description: 'Resend email sending domain verification status for tenants.domain.',
-        condition: (data) => Boolean(data?.domain),
-      },
-      access: { update: adminOnlyUpdate },
-    },
-    {
-      name: 'emailDomainVerifiedAt',
-      type: 'date',
-      required: false,
-      admin: {
-        description: 'When the Resend sending domain was last verified.',
-        condition: (data) => Boolean(data?.domain),
-        readOnly: true,
-      },
-      access: { update: adminOnlyUpdate },
-    },
-    {
       name: 'redirectApex',
       type: 'checkbox',
       defaultValue: false,
@@ -276,6 +234,47 @@ export const Tenants: CollectionConfig = {
         condition: (data) => Boolean(data?.redirectApex),
         components: { Field: '@/components/admin/ApexDnsInstructions' },
       },
+    },
+    {
+      name: 'emailDomainDnsInstructions',
+      type: 'ui',
+      admin: {
+        condition: (data) => Boolean(data?.domain),
+        components: { Field: '@/components/admin/EmailDomainDnsInstructions' },
+      },
+    },
+    {
+      name: 'resendDomainId',
+      type: 'text',
+      required: false,
+      index: true,
+      admin: {
+        hidden: true,
+        description: 'Resend Domains API id for this tenant custom domain (set by hooks/API).',
+      },
+      access: { update: adminOnlyUpdate },
+    },
+    {
+      name: 'emailDomainStatus',
+      type: 'select',
+      required: false,
+      options: [...EMAIL_DOMAIN_STATUS_OPTIONS],
+      defaultValue: 'not_configured',
+      admin: {
+        hidden: true,
+        description: 'Resend email sending domain verification status (shown in Email sending domain panel).',
+      },
+      access: { update: adminOnlyUpdate },
+    },
+    {
+      name: 'emailDomainVerifiedAt',
+      type: 'date',
+      required: false,
+      admin: {
+        hidden: true,
+        description: 'When the Resend sending domain was last verified.',
+      },
+      access: { update: adminOnlyUpdate },
     },
     {
       name: 'description',

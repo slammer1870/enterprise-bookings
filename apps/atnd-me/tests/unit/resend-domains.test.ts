@@ -6,6 +6,7 @@ import {
   deleteDomain,
 } from '../../src/lib/resend/domains'
 import {
+  resolveEmailSendingDomain,
   resolveTenantBasedBetterAuthFrom,
   sanitizeEmailFromForTenantDomain,
 } from '../../src/lib/resend/resolveTenantEmailFrom'
@@ -27,6 +28,18 @@ describe('mapResendStatusToEmailDomainStatus', () => {
   })
 })
 
+describe('resolveEmailSendingDomain', () => {
+  it('strips leading www for email sending', () => {
+    expect(resolveEmailSendingDomain('www.boatyardsauna.ie')).toBe('boatyardsauna.ie')
+    expect(resolveEmailSendingDomain('WWW.BoatyardSauna.ie')).toBe('boatyardsauna.ie')
+  })
+
+  it('keeps non-www domains as-is', () => {
+    expect(resolveEmailSendingDomain('boatyardsauna.ie')).toBe('boatyardsauna.ie')
+    expect(resolveEmailSendingDomain('book.studio.example.com')).toBe('book.studio.example.com')
+  })
+})
+
 describe('resolveTenantBasedBetterAuthFrom', () => {
   it('uses tenant domain only when verified', () => {
     expect(
@@ -44,6 +57,16 @@ describe('resolveTenantBasedBetterAuthFrom', () => {
         emailDomainVerified: false,
       }),
     ).toEqual({ fromName: 'Studio', fromAddress: 'auth@atnd.me' })
+  })
+
+  it('sends from apex when website domain is www.*', () => {
+    expect(
+      resolveTenantBasedBetterAuthFrom({
+        tenantName: 'Boatyard',
+        tenantDomain: 'www.boatyardsauna.ie',
+        emailDomainVerified: true,
+      }),
+    ).toEqual({ fromName: 'Boatyard', fromAddress: 'auth@boatyardsauna.ie' })
   })
 })
 

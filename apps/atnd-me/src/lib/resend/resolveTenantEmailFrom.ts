@@ -3,20 +3,36 @@ import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 export type TenantEmailFromInput = {
   tenantName?: string | null
+  /** Website custom domain (tenants.domain), e.g. www.studio.example.com */
   tenantDomain?: string | null
-  /** When true, From may use auth@{tenantDomain}. When false/undefined, platform default. */
+  /** When true, From may use auth@{emailSendingDomain}. When false/undefined, platform default. */
   emailDomainVerified?: boolean | null
 }
 
 /**
+ * Domain used for Resend verification + From addresses.
+ * Strips a leading `www.` so website hosts like `www.boatyardsauna.ie` send as
+ * `auth@boatyardsauna.ie` (not `auth@www.boatyardsauna.ie`).
+ */
+export function resolveEmailSendingDomain(websiteDomain: string | null | undefined): string | null {
+  const normalized = websiteDomain ? normalizeCustomDomain(websiteDomain) : ''
+  if (!normalized) return null
+  if (normalized.startsWith('www.')) {
+    const apex = normalized.slice('www.'.length)
+    if (apex.includes('.')) return apex
+  }
+  return normalized
+}
+
+/**
  * Resolve Better Auth / transactional From for a tenant.
- * Only uses auth@{tenantDomain} when the Resend domain is verified.
+ * Only uses auth@{emailSendingDomain} when the Resend domain is verified.
  */
 export function resolveTenantBasedBetterAuthFrom(args: TenantEmailFromInput) {
   const fromName = sanitizeFromName(args.tenantName) || 'ATND ME'
-  const normalizedDomain = args.tenantDomain ? normalizeCustomDomain(args.tenantDomain) : null
-  const useTenantDomain = Boolean(args.emailDomainVerified && normalizedDomain)
-  const fromAddressEmail = useTenantDomain ? `auth@${normalizedDomain}` : 'auth@atnd.me'
+  const emailDomain = resolveEmailSendingDomain(args.tenantDomain)
+  const useTenantDomain = Boolean(args.emailDomainVerified && emailDomain)
+  const fromAddressEmail = useTenantDomain ? `auth@${emailDomain}` : 'auth@atnd.me'
 
   return {
     fromName,
@@ -30,8 +46,8 @@ export function isEmailDomainVerified(status: unknown): boolean {
 }
 
 /**
- * If `emailFrom` uses the tenant custom domain but that domain is not verified,
- * return undefined so the Resend adapter default From is used.
+ * If `emailFrom` uses the tenant email sending domain (or www variant) but that
+ * domain is not verified, return undefined so the Resend adapter default From is used.
  * Unrelated From domains are left as-is (existing 403 fallback still applies).
  */
 export function sanitizeEmailFromForTenantDomain(args: {
@@ -42,15 +58,18 @@ export function sanitizeEmailFromForTenantDomain(args: {
   const from = typeof args.emailFrom === 'string' ? args.emailFrom.trim() : ''
   if (!from) return undefined
 
-  const tenantDomain = args.tenantDomain ? normalizeCustomDomain(args.tenantDomain) : null
-  if (!tenantDomain) return from
+  const websiteDomain = args.tenantDomain ? normalizeCustomDomain(args.tenantDomain) : null
+  const emailDomain = resolveEmailSendingDomain(args.tenantDomain)
+  if (!emailDomain && !websiteDomain) return from
 
   const match = from.match(/([^\s<>"']+@[^\s<>"']+\.[^\s<>"']+)/)
   const address = match?.[1]?.toLowerCase()
   if (!address || !address.includes('@')) return from
 
   const host = address.split('@')[1] || ''
-  if (host === tenantDomain && !args.emailDomainVerified) {
+  const hostIsTenantEmailDomain =
+    host === emailDomain || host === websiteDomain || host === `www.${emailDomain}`
+  if (hostIsTenantEmailDomain && !args.emailDomainVerified) {
     return undefined
   }
   return from

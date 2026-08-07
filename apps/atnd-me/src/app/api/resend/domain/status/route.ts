@@ -7,7 +7,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { assertTenantEmailDomainAccess } from '@/lib/resend/assertTenantEmailDomainAccess'
-import { createOrGetDomain, getDomain, mapResendStatusToEmailDomainStatus } from '@/lib/resend/domains'
+import { createOrGetDomain, deleteDomain, getDomain, mapResendStatusToEmailDomainStatus } from '@/lib/resend/domains'
+import { resolveEmailSendingDomain } from '@/lib/resend/resolveTenantEmailFrom'
 import { syncTenantEmailDomainFromResend } from '@/lib/resend/syncTenantEmailDomain'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
@@ -42,10 +43,12 @@ export async function GET(request: NextRequest) {
   }
 
   const domainRaw = typeof (tenant as any).domain === 'string' ? (tenant as any).domain : ''
-  const domain = normalizeCustomDomain(domainRaw)
-  if (!domain) {
+  const websiteDomain = normalizeCustomDomain(domainRaw)
+  const emailDomain = resolveEmailSendingDomain(websiteDomain)
+  if (!emailDomain) {
     return NextResponse.json({
       domain: null,
+      websiteDomain: websiteDomain || null,
       status: 'not_configured',
       resendDomainId: null,
       records: [],
@@ -59,8 +62,17 @@ export async function GET(request: NextRequest) {
       : null
 
   let resendDomain = resendDomainId ? await getDomain(resendDomainId) : null
+  // Migrate away from a wrongly provisioned www.* Resend domain.
+  if (resendDomain && resendDomain.name.toLowerCase() !== emailDomain) {
+    const oldId = resendDomain.id
+    resendDomain = await createOrGetDomain(emailDomain)
+    if (resendDomain && oldId !== resendDomain.id) {
+      await deleteDomain(oldId).catch(() => undefined)
+    }
+    resendDomainId = resendDomain?.id || null
+  }
   if (!resendDomain) {
-    resendDomain = await createOrGetDomain(domain)
+    resendDomain = await createOrGetDomain(emailDomain)
     resendDomainId = resendDomain?.id || null
   }
 
@@ -78,7 +90,8 @@ export async function GET(request: NextRequest) {
     : 'failed'
 
   return NextResponse.json({
-    domain,
+    domain: emailDomain,
+    websiteDomain,
     status,
     resendDomainId: resendDomain?.id || null,
     records: resendDomain?.records || [],

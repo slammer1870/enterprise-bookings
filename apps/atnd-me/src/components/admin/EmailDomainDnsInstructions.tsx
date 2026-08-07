@@ -17,7 +17,9 @@ type DnsRecord = {
 }
 
 type StatusPayload = {
+  /** Email sending domain (www. stripped), e.g. boatyardsauna.ie */
   domain: string | null
+  websiteDomain?: string | null
   status: string
   resendDomainId: string | null
   records: DnsRecord[]
@@ -105,14 +107,14 @@ export const EmailDomainDnsInstructions: React.FC = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tenantId: Number(tenantId) }),
       })
-      const json = (await res.json()) as StatusPayload
+      const json = (await res.json()) as StatusPayload & { error?: string }
       if (!res.ok) {
-        setError(json.error || 'Verification check failed')
+        setError(json.error || `Verification check failed (${res.status})`)
         return
       }
       setData(json)
-    } catch {
-      setError('Verification check failed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verification check failed')
     } finally {
       setChecking(false)
     }
@@ -123,18 +125,34 @@ export const EmailDomainDnsInstructions: React.FC = () => {
   const records = data?.records || []
   const status = data?.status || 'not_configured'
   const isVerified = status === 'verified'
+  const emailDomain = data?.domain || domainValue.replace(/^www\./i, '')
+  const websiteDomain = data?.websiteDomain || domainValue
+  const strippedWww = Boolean(
+    websiteDomain &&
+      emailDomain &&
+      websiteDomain.toLowerCase().startsWith('www.') &&
+      websiteDomain.toLowerCase() !== emailDomain.toLowerCase(),
+  )
 
   return (
     <div style={{ padding: '12px 0' }} data-testid="email-domain-dns-instructions">
       <h4 style={{ marginBottom: 8 }}>Email sending domain (Resend)</h4>
       <p style={{ marginBottom: 12, fontSize: 12, color: 'var(--theme-elevation-500)' }}>
         Separate from the website CNAME above. Add these DNS records so we can send mail as{' '}
-        <strong>auth@{domainValue}</strong>.
+        <strong>auth@{emailDomain}</strong>
+        {strippedWww ? (
+          <>
+            {' '}
+            (apex domain — not <code>www</code>).
+          </>
+        ) : (
+          '.'
+        )}
       </p>
 
       {isVerified ? (
         <p style={{ marginBottom: 12, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
-          ✓ {domainValue} is verified for email sending.
+          ✓ {emailDomain} is verified for email sending.
         </p>
       ) : (
         <p style={{ marginBottom: 12, color: 'var(--theme-elevation-500)', fontSize: 13 }}>
@@ -195,10 +213,11 @@ export const EmailDomainDnsInstructions: React.FC = () => {
           </tbody>
         </table>
       ) : (
-        !loading && (
+        !loading &&
+        !error && (
           <p style={{ fontSize: 12, color: 'var(--theme-elevation-500)' }}>
-            No DNS records yet. Save the tenant with a custom domain, then refresh — or click Check
-            status to provision the Resend domain.
+            No DNS records yet. Click Check status to provision the Resend domain for{' '}
+            <strong>{emailDomain}</strong>.
           </p>
         )
       )}

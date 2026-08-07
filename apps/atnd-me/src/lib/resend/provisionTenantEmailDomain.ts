@@ -1,9 +1,11 @@
 import type { BasePayload } from 'payload'
 import { createOrGetDomain, deleteDomain } from './domains'
+import { resolveEmailSendingDomain } from './resolveTenantEmailFrom'
 import { syncTenantEmailDomainFromResend } from './syncTenantEmailDomain'
 
 /**
  * Provision or tear down a Resend sending domain when tenants.domain changes.
+ * Uses the email sending domain (www. stripped), not the raw website hostname.
  * Best-effort: failures are logged and do not throw (website domain still works).
  */
 export async function provisionTenantEmailDomain(args: {
@@ -16,7 +18,9 @@ export async function provisionTenantEmailDomain(args: {
   const { payload, tenantId, newDomain, previousResendDomainId, req } = args
 
   try {
-    if (!newDomain) {
+    const emailDomain = resolveEmailSendingDomain(newDomain)
+
+    if (!emailDomain) {
       if (previousResendDomainId) {
         await deleteDomain(previousResendDomainId).catch((err: unknown) => {
           console.error(
@@ -35,9 +39,9 @@ export async function provisionTenantEmailDomain(args: {
     }
 
     // Domain changed: remove previous Resend domain if different
-    const domain = await createOrGetDomain(newDomain)
+    const domain = await createOrGetDomain(emailDomain)
     if (!domain?.id) {
-      console.error(`[resend/provision] Failed to create/get Resend domain for "${newDomain}"`)
+      console.error(`[resend/provision] Failed to create/get Resend domain for "${emailDomain}"`)
       await syncTenantEmailDomainFromResend({
         payload,
         tenantId,
