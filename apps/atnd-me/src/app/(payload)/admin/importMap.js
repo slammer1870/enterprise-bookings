@@ -38,6 +38,7 @@ import { EventTypeForTimeslotFilterField as EventTypeForTimeslotFilterField_10c7
 import { TimeslotDateFilterField as TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0 } from '@/components/admin/TimeslotDateFilterField'
 import { TimeslotForEventPickerField as TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7 } from '@/components/admin/TimeslotForEventPickerField'
 import { default as default_ce6f29e70fd4204b43c477b4bf07b84b } from '@/components/admin/DomainDnsInstructions'
+import { default as default_abb3478227777dca3f79955efb5fd481 } from '@/components/admin/EmailDomainDnsInstructions'
 import { default as default_a5117e5f562e81a9d1ce48d0eee41679 } from '@/components/admin/ApexDnsInstructions'
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
 import { StripeDashboardLinkField as StripeDashboardLinkField_3f461e6c95821294340135c2293fe078 } from '@/components/admin/StripeDashboardLinkField'
@@ -137,6 +138,7 @@ export const importMap = {
   "@/components/admin/TimeslotDateFilterField#TimeslotDateFilterField": TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0,
   "@/components/admin/TimeslotForEventPickerField#TimeslotForEventPickerField": TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7,
   "@/components/admin/DomainDnsInstructions#default": default_ce6f29e70fd4204b43c477b4bf07b84b,
+  "@/components/admin/EmailDomainDnsInstructions#default": default_abb3478227777dca3f79955efb5fd481,
   "@/components/admin/ApexDnsInstructions#default": default_a5117e5f562e81a9d1ce48d0eee41679,
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,
   "@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField": StripeDashboardLinkField_3f461e6c95821294340135c2293fe078,

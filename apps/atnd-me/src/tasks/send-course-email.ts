@@ -4,6 +4,7 @@ import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collecti
 import { sendCourseEmail } from '@/lib/course-email/send-course-email'
 import type { CourseEmailConfig, CourseEmailJobInput } from '@/lib/course-email/types'
 import { resolveCourseEmailConfigById } from '@/lib/course-email/types'
+import { loadTenantEmailFromGate } from '@/lib/resend/loadTenantEmailFromGate'
 
 export const sendCourseEmailTask: TaskHandler<'sendCourseEmail'> = async ({ input, req }) => {
   const jobInput = input as CourseEmailJobInput
@@ -62,10 +63,13 @@ export const sendCourseEmailTask: TaskHandler<'sendCourseEmail'> = async ({ inpu
     overrideAccess: true,
   })
 
+  const tenantEmailFrom = await loadTenantEmailFromGate(req.payload, jobInput.tenantId)
+
   await sendCourseEmail({
     payload: req.payload,
     user,
     config,
+    tenantEmailFrom,
   })
 
   await req.payload.update({

@@ -16,6 +16,7 @@ import {
 } from './delivery-queries'
 import { resolveNextDay9am } from './resolve-send-time'
 import { resolveEventTypePostBookingEmailsForBooking } from './resolve-event-type-post-booking-email'
+import { loadTenantEmailFromGate } from '@/lib/resend/loadTenantEmailFromGate'
 import { sendPostBookingEmail } from './send-post-booking-email'
 import type { PostBookingEmailConfig } from './types'
 import { resolveTimeslotTimeZone } from '@repo/shared-utils'
@@ -245,10 +246,12 @@ async function maybeTriggerSinglePostBookingEmail({
   scheduleOnNextEventLoop(() => {
     void (async () => {
       try {
+        const tenantEmailFrom = await loadTenantEmailFromGate(req.payload, tenantId)
         await sendPostBookingEmail({
           payload: req.payload,
           user,
           config,
+          tenantEmailFrom,
         })
       } catch (error) {
         req.payload.logger.error(
