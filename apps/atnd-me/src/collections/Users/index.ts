@@ -33,6 +33,8 @@ import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { cookiesFromHeaders } from '@/utilities/cookiesFromHeaders'
 import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForDocumentWrite'
 import { isSystemUserWrite } from '@/lib/auth/systemUserWriteContext'
+import { getAbsoluteURL } from '@/utilities/getURL'
+import { resolveTrustedPasswordResetOrigin } from '@/utilities/resolveTrustedPasswordResetOrigin'
 import {
   assertAnonymousUserCreateRateLimit,
   normalizeTenantRoles,
@@ -123,6 +125,30 @@ export const Users: CollectionConfig = {
     },
     read: userTenantRead,
     update: userTenantUpdate,
+  },
+  // Merged by payload-auth's Better Auth users builder (`...existingUserCollection.auth`).
+  // Payload's default getRequestOrigin() returns '' when Host is not an exact CORS match
+  // (tenant subdomains / proxy proto mismatch), producing a relative `/admin/reset/<token>`
+  // link. Build an absolute, trusted origin instead (tenant host when allowed, else platform).
+  auth: {
+    forgotPassword: {
+      generateEmailHTML: async (args) => {
+        const req = args?.req
+        const token = args?.token
+        const user = args?.user
+        const adminRoute = req?.payload?.config?.routes?.admin || '/admin'
+        const resetRoute = req?.payload?.config?.admin?.routes?.reset || '/reset'
+        const origin = await resolveTrustedPasswordResetOrigin({
+          headers: req?.headers,
+          payload: req?.payload,
+        })
+        const resetURL = getAbsoluteURL(`${adminRoute}${resetRoute}/${token ?? ''}`, origin)
+        const email = typeof user?.email === 'string' ? user.email : 'there'
+        return `You are receiving this because you (or someone else) requested a password reset for ${email}.
+<a href="${resetURL}">${resetURL}</a>
+If you did not request this, you can ignore this email.`
+      },
+    },
   },
   hooks: {
     afterLogin: [afterLoginRedirect],

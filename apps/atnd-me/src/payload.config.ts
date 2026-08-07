@@ -68,6 +68,11 @@ const disableSchemaPush =
 const disableSchemaPushDuringMigrations = disableSchemaPush && !isPayloadMigrateCliRun
 
 export default buildConfig({
+  // Required for absolute URLs in auth emails (forgot-password reset links).
+  // Without this, Payload's getRequestOrigin() returns '' when the request Host is
+  // not an exact CORS match (tenant subdomains, custom domains, proxy proto mismatch),
+  // and the email link becomes a relative path like `/admin/reset/<token>`.
+  serverURL: getServerSideURL(),
   admin: {
     // Override Payload admin head metadata (title/description/favicon) for white-labeling.
     // Note: this is static config (not request/tenant scoped).
