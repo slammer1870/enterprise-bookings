@@ -15,6 +15,15 @@ import {
 import { registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
+import { provisionTenantEmailDomain } from '@/lib/resend/provisionTenantEmailDomain'
+
+const EMAIL_DOMAIN_STATUS_OPTIONS = [
+  'not_configured',
+  'not_started',
+  'pending',
+  'verified',
+  'failed',
+] as const
 const EXTRA_BLOCK_LABELS: Record<string, string> = {
   location: 'Location',
   faqs: 'FAQs',
@@ -227,6 +236,47 @@ export const Tenants: CollectionConfig = {
       },
     },
     {
+      name: 'emailDomainDnsInstructions',
+      type: 'ui',
+      admin: {
+        condition: (data) => Boolean(data?.domain),
+        components: { Field: '@/components/admin/EmailDomainDnsInstructions' },
+      },
+    },
+    {
+      name: 'resendDomainId',
+      type: 'text',
+      required: false,
+      index: true,
+      admin: {
+        hidden: true,
+        description: 'Resend Domains API id for this tenant custom domain (set by hooks/API).',
+      },
+      access: { update: adminOnlyUpdate },
+    },
+    {
+      name: 'emailDomainStatus',
+      type: 'select',
+      required: false,
+      options: [...EMAIL_DOMAIN_STATUS_OPTIONS],
+      defaultValue: 'not_configured',
+      admin: {
+        hidden: true,
+        description: 'Resend email sending domain verification status (shown in Email sending domain panel).',
+      },
+      access: { update: adminOnlyUpdate },
+    },
+    {
+      name: 'emailDomainVerifiedAt',
+      type: 'date',
+      required: false,
+      admin: {
+        hidden: true,
+        description: 'When the Resend sending domain was last verified.',
+      },
+      access: { update: adminOnlyUpdate },
+    },
+    {
       name: 'description',
       type: 'textarea',
       required: false,
@@ -351,7 +401,7 @@ export const Tenants: CollectionConfig = {
   hooks: {
     afterChange: [
       async ({ doc, previousDoc, operation, req, context }) => {
-        if (context?.skipApexHook) return
+        if (context?.skipApexHook || context?.skipEmailDomainHook) return
         const rootHostname = (() => {
           const url = process.env.NEXT_PUBLIC_SERVER_URL
           if (!url) return null
@@ -465,6 +515,22 @@ export const Tenants: CollectionConfig = {
             req,
             overrideAccess: true,
             context: { skipApexHook: true },
+          })
+        }
+
+        // Resend email sending domain: provision/cleanup when tenants.domain changes.
+        const domainChanged = newDomain !== prevDomain
+        if (operation === 'create' || domainChanged) {
+          const previousResendDomainId =
+            typeof previousDoc?.resendDomainId === 'string' && previousDoc.resendDomainId.trim()
+              ? previousDoc.resendDomainId.trim()
+              : null
+          await provisionTenantEmailDomain({
+            payload: req.payload,
+            tenantId: doc.id,
+            newDomain,
+            previousResendDomainId,
+            req,
           })
         }
 

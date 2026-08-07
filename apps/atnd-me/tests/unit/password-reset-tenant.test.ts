@@ -48,7 +48,15 @@ describe('Password reset email tenant From header', () => {
       const findImpl = vi.fn(async ({ collection, where }: any) => {
         expect(collection).toBe('tenants')
         expect(where).toEqual({ domain: { equals: 'studio.example.com' } })
-        return { docs: [{ name: 'Studio Yoga', domain: 'studio.example.com' }] }
+        return {
+          docs: [
+            {
+              name: 'Studio Yoga',
+              domain: 'studio.example.com',
+              emailDomainStatus: 'verified',
+            },
+          ],
+        }
       })
 
       const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
@@ -67,6 +75,30 @@ describe('Password reset email tenant From header', () => {
     },
     15_000,
   )
+
+  it('uses platform From when custom domain is not Resend-verified', async () => {
+    const findImpl = vi.fn(async () => ({
+      docs: [
+        {
+          name: 'Studio Yoga',
+          domain: 'studio.example.com',
+          emailDomainStatus: 'not_started',
+        },
+      ],
+    }))
+
+    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
+
+    await betterAuthPluginOptions.betterAuthOptions.emailAndPassword.sendResetPassword({
+      user: { email: 'person@example.com', name: 'Person' },
+      url: 'https://studio.example.com/reset-password?token=tok',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [_url, init] = fetchMock.mock.calls[0] as any[]
+    const payload = JSON.parse(init.body)
+    expect(payload.from).toBe('Studio Yoga <auth@atnd.me>')
+  })
 
   it('uses tenant name and auth@atnd.me for platform subdomains', async () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {

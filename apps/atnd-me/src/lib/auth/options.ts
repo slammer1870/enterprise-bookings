@@ -4,7 +4,10 @@ import { buildSanitizedBetterAuthCustomSession, sanitizeTenantMemberships } from
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
-import { sanitizeFromAddress, sanitizeFromName } from '@/utilities/emailConfig'
+import {
+  isEmailDomainVerified,
+  resolveTenantBasedBetterAuthFrom,
+} from '@/lib/resend/resolveTenantEmailFrom'
 
 /**
  * Generate trusted origins for Better Auth, including wildcard patterns for tenant subdomains.
@@ -212,7 +215,31 @@ async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
   return [...new Set([...base, origin.origin])]
 }
 
-async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ name: string; domain?: string | null } | null> {
+type TenantEmailFromContext = {
+  name: string
+  domain?: string | null
+  emailDomainVerified?: boolean
+}
+
+function tenantFromDoc(tenant: {
+  name?: unknown
+  domain?: unknown
+  emailDomainStatus?: unknown
+} | undefined, fallbackDomain?: string): TenantEmailFromContext | null {
+  const name = tenant?.name != null ? String(tenant.name).trim() : ''
+  if (!name) return null
+  const domain =
+    tenant?.domain != null && String(tenant.domain).trim()
+      ? String(tenant.domain).trim()
+      : fallbackDomain || null
+  return {
+    name,
+    domain,
+    emailDomainVerified: isEmailDomainVerified(tenant?.emailDomainStatus),
+  }
+}
+
+async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<TenantEmailFromContext | null> {
   let hostname = ''
   try {
     hostname = new URL(magicLinkUrl).hostname.toLowerCase()
@@ -222,7 +249,7 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
 
   if (!hostname) return null
 
-  async function findTenantBySlug(slug: string): Promise<{ name: string; domain?: string | null } | null> {
+  async function findTenantBySlug(slug: string): Promise<TenantEmailFromContext | null> {
     if (!slug) return null
     const { getPayload } = await import('@/lib/payload')
     const payload = await getPayload()
@@ -232,15 +259,12 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
       limit: 1,
       depth: 0,
       overrideAccess: true,
-      select: { name: true, domain: true } as any,
+      select: { name: true, domain: true, emailDomainStatus: true } as any,
     })
-    const tenant = result.docs[0] as { name?: unknown; domain?: unknown } | undefined
-    const name = tenant?.name != null ? String(tenant.name).trim() : ''
-    const domain = tenant?.domain != null ? String(tenant.domain).trim() : null
-    return name ? { name, domain: domain || null } : null
+    return tenantFromDoc(result.docs[0] as any)
   }
 
-  async function findTenantByDomain(domain: string): Promise<{ name: string; domain?: string | null } | null> {
+  async function findTenantByDomain(domain: string): Promise<TenantEmailFromContext | null> {
     const { getPayload } = await import('@/lib/payload')
     const payload = await getPayload()
     const result = await payload.find({
@@ -249,12 +273,9 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
       limit: 1,
       depth: 0,
       overrideAccess: true,
-      select: { name: true, domain: true } as any,
+      select: { name: true, domain: true, emailDomainStatus: true } as any,
     })
-    const tenant = result.docs[0] as { name?: unknown; domain?: unknown } | undefined
-    const name = tenant?.name != null ? String(tenant.name).trim() : ''
-    const storedDomain = tenant?.domain != null ? String(tenant.domain).trim() : ''
-    return name ? { name, domain: storedDomain || domain } : null
+    return tenantFromDoc(result.docs[0] as any, domain)
   }
 
   // Local dev: support tenant.localhost
@@ -288,21 +309,6 @@ async function resolveTenantForMagicLinkUrl(magicLinkUrl: string): Promise<{ nam
 
 const BOOKING_MAGIC_LINK_EXPIRY_SECONDS = 36 * 60 * 60 // 36 hours
 
-function resolveTenantBasedBetterAuthFrom(args: { tenantName?: string | null; tenantDomain?: string | null }) {
-  const fromName = sanitizeFromName(args.tenantName) || 'ATND ME'
-
-  // Resend requires a syntactically valid email address, and the sender domain must be
-  // verified. Better Auth already retries with `DEFAULT_FROM_ADDRESS` when Resend rejects
-  // unverified domains, so we only sanitize to prevent malformed `from` headers (422s).
-  const normalizedDomain = args.tenantDomain ? normalizeCustomDomain(args.tenantDomain) : null
-  const fromAddressEmail = normalizedDomain ? `auth@${normalizedDomain}` : 'auth@atnd.me'
-
-  return {
-    fromName,
-    fromAddress: sanitizeFromAddress(fromAddressEmail) || 'auth@atnd.me',
-  }
-}
-
 const betterAuthConfig = {
   appName: 'ATND ME',
   adminUserIds: ['1'],
@@ -334,12 +340,20 @@ const betterAuthConfig = {
   },
   resolveMagicLinkFrom: async ({ url }: { url: string }) => {
     const tenant = await resolveTenantForMagicLinkUrl(url)
-    return resolveTenantBasedBetterAuthFrom({ tenantName: tenant?.name, tenantDomain: tenant?.domain })
+    return resolveTenantBasedBetterAuthFrom({
+      tenantName: tenant?.name,
+      tenantDomain: tenant?.domain,
+      emailDomainVerified: tenant?.emailDomainVerified,
+    })
   },
   resolveResetPasswordAppName: async ({ url }: { url: string }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
   resolveResetPasswordFrom: async ({ url }: { url: string }) => {
     const tenant = await resolveTenantForMagicLinkUrl(url)
-    return resolveTenantBasedBetterAuthFrom({ tenantName: tenant?.name, tenantDomain: tenant?.domain })
+    return resolveTenantBasedBetterAuthFrom({
+      tenantName: tenant?.name,
+      tenantDomain: tenant?.domain,
+      emailDomainVerified: tenant?.emailDomainVerified,
+    })
   },
   roles: {
     adminRoles: ['super-admin', 'admin', 'staff', 'location-manager'],

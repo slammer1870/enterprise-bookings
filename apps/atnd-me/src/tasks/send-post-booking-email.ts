@@ -5,6 +5,7 @@ import { userHasPriorConfirmedBookingForTenant } from '@/lib/post-booking-email/
 import { sendPostBookingEmail } from '@/lib/post-booking-email/send-post-booking-email'
 import type { PostBookingEmailConfig, PostBookingEmailJobInput } from '@/lib/post-booking-email/types'
 import { resolvePostBookingEmailConfigById } from '@/lib/post-booking-email/types'
+import { loadTenantEmailFromGate } from '@/lib/resend/loadTenantEmailFromGate'
 
 export const sendPostBookingEmailTask: TaskHandler<'sendPostBookingEmail'> = async ({ input, req }) => {
   const jobInput = input as PostBookingEmailJobInput
@@ -86,10 +87,13 @@ export const sendPostBookingEmailTask: TaskHandler<'sendPostBookingEmail'> = asy
     overrideAccess: true,
   })
 
+  const tenantEmailFrom = await loadTenantEmailFromGate(req.payload, jobInput.tenantId)
+
   await sendPostBookingEmail({
     payload: req.payload,
     user,
     config,
+    tenantEmailFrom,
   })
 
   await req.payload.update({

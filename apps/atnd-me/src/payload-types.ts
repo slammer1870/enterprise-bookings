@@ -289,6 +289,18 @@ export interface Tenant {
    */
   domain?: string | null;
   /**
+   * Resend Domains API id for this tenant custom domain (set by hooks/API).
+   */
+  resendDomainId?: string | null;
+  /**
+   * Resend email sending domain verification status for tenants.domain.
+   */
+  emailDomainStatus?: ('not_configured' | 'not_started' | 'pending' | 'verified' | 'failed') | null;
+  /**
+   * When the Resend sending domain was last verified.
+   */
+  emailDomainVerifiedAt?: string | null;
+  /**
    * Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
    */
   redirectApex?: boolean | null;
@@ -4686,6 +4698,9 @@ export interface TenantsSelect<T extends boolean = true> {
   slug?: T;
   timeZone?: T;
   domain?: T;
+  resendDomainId?: T;
+  emailDomainStatus?: T;
+  emailDomainVerifiedAt?: T;
   redirectApex?: T;
   apexDomain?: T;
   apexDomainVerificationToken?: T;

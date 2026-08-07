@@ -1,6 +1,7 @@
 import type { BasePayload } from 'payload'
 import { render } from '@react-email/components'
 import { PostBookingEmailLayout } from '@/emails/post-booking-email'
+import { sanitizeEmailFromForTenantDomain } from '@/lib/resend/resolveTenantEmailFrom'
 import { renderPostBookingEmailBodyHtml } from './render-body-html'
 
 /** Fields used by the shared renderer/sender (timing is handled by callers). */
@@ -11,6 +12,11 @@ export type SendableEmailConfig = {
   emailFrom?: string | null
   subject?: string | null
   message?: unknown
+}
+
+export type TenantEmailFromGate = {
+  domain?: string | null
+  verified?: boolean | null
 }
 
 function userEmailFromBookingUser(user: unknown): string | null {
@@ -37,10 +43,13 @@ export async function sendPostBookingEmail({
   payload,
   user,
   config,
+  tenantEmailFrom,
 }: {
   payload: BasePayload
   user: unknown
   config: SendableEmailConfig
+  /** When set, omit emailFrom if it uses an unverified tenant domain. */
+  tenantEmailFrom?: TenantEmailFromGate | null
 }): Promise<void> {
   const to = userEmailFromBookingUser(user)
   if (!to) {
@@ -69,7 +78,14 @@ export async function sendPostBookingEmail({
 
   const cc = splitCommaSeparated(config.cc)
   const bcc = splitCommaSeparated(config.bcc)
-  const from = typeof config.emailFrom === 'string' ? config.emailFrom.trim() : undefined
+  const rawFrom = typeof config.emailFrom === 'string' ? config.emailFrom.trim() : undefined
+  const from = tenantEmailFrom
+    ? sanitizeEmailFromForTenantDomain({
+        emailFrom: rawFrom,
+        tenantDomain: tenantEmailFrom.domain,
+        emailDomainVerified: tenantEmailFrom.verified,
+      })
+    : rawFrom
   const replyTo = typeof config.replyTo === 'string' ? config.replyTo.trim() : undefined
 
   await payload.sendEmail({

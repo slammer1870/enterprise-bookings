@@ -48,7 +48,15 @@ describe('Magic-link email tenant From header', () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {
       expect(collection).toBe('tenants')
       expect(where).toEqual({ domain: { equals: 'studio.example.com' } })
-      return { docs: [{ name: 'Studio Yoga', domain: 'studio.example.com' }] }
+      return {
+        docs: [
+          {
+            name: 'Studio Yoga',
+            domain: 'studio.example.com',
+            emailDomainStatus: 'verified',
+          },
+        ],
+      }
     })
 
     const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
@@ -69,11 +77,44 @@ describe('Magic-link email tenant From header', () => {
     15_000,
   )
 
+  it('uses platform From when custom domain is not Resend-verified', async () => {
+    const findImpl = vi.fn(async () => ({
+      docs: [
+        {
+          name: 'Studio Yoga',
+          domain: 'studio.example.com',
+          emailDomainStatus: 'pending',
+        },
+      ],
+    }))
+
+    const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
+
+    await betterAuthPluginOptions.betterAuthOptions.magicLink.sendMagicLink({
+      email: 'person@example.com',
+      token: 'tok',
+      url: 'https://studio.example.com/api/auth/magic-link?token=tok',
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [_url, init] = fetchMock.mock.calls[0] as any[]
+    const payload = JSON.parse(init.body)
+    expect(payload.from).toBe('Studio Yoga <auth@atnd.me>')
+  })
+
   it('transliterates accented tenant names in the From header', async () => {
     const findImpl = vi.fn(async ({ collection, where }: any) => {
       expect(collection).toBe('tenants')
       expect(where).toEqual({ domain: { equals: 'bru.example.com' } })
-      return { docs: [{ name: 'Brú Grappling', domain: 'bru.example.com' }] }
+      return {
+        docs: [
+          {
+            name: 'Brú Grappling',
+            domain: 'bru.example.com',
+            emailDomainStatus: 'verified',
+          },
+        ],
+      }
     })
 
     const { betterAuthPluginOptions, fetchMock } = await setup({ findImpl })
