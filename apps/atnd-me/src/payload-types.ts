@@ -72,6 +72,12 @@ export interface Config {
     'post-booking-email-deliveries': PostBookingEmailDelivery;
     'course-email-deliveries': CourseEmailDelivery;
     'event-types': EventType;
+    'emergency-contacts': EmergencyContact;
+    'admin-invitations': AdminInvitation;
+    accounts: Account;
+    sessions: Session;
+    verifications: Verification;
+    users: User;
     tenants: Tenant;
     locations: Location;
     'discount-codes': DiscountCode;
@@ -84,12 +90,6 @@ export interface Config {
     subscriptions: Subscription;
     transactions: Transaction;
     'booking-checkout-holds': BookingCheckoutHold;
-    'emergency-contacts': EmergencyContact;
-    'admin-invitations': AdminInvitation;
-    accounts: Account;
-    sessions: Session;
-    verifications: Verification;
-    users: User;
     pages: Page;
     posts: Post;
     navbar: Navbar;
@@ -113,17 +113,17 @@ export interface Config {
     timeslots: {
       bookings: 'bookings';
     };
-    'drop-ins': {
-      'event-typesPaymentMethods': 'event-types';
-    };
-    plans: {
-      'event-typesPaymentMethods': 'event-types';
-    };
     users: {
       emergencyContacts: 'emergency-contacts';
       account: 'accounts';
       session: 'sessions';
       userSubscription: 'subscriptions';
+    };
+    'drop-ins': {
+      'event-typesPaymentMethods': 'event-types';
+    };
+    plans: {
+      'event-typesPaymentMethods': 'event-types';
     };
   };
   collectionsSelect: {
@@ -132,6 +132,12 @@ export interface Config {
     'post-booking-email-deliveries': PostBookingEmailDeliveriesSelect<false> | PostBookingEmailDeliveriesSelect<true>;
     'course-email-deliveries': CourseEmailDeliveriesSelect<false> | CourseEmailDeliveriesSelect<true>;
     'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
+    'emergency-contacts': EmergencyContactsSelect<false> | EmergencyContactsSelect<true>;
+    'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
+    accounts: AccountsSelect<false> | AccountsSelect<true>;
+    sessions: SessionsSelect<false> | SessionsSelect<true>;
+    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     locations: LocationsSelect<false> | LocationsSelect<true>;
     'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
@@ -144,12 +150,6 @@ export interface Config {
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'booking-checkout-holds': BookingCheckoutHoldsSelect<false> | BookingCheckoutHoldsSelect<true>;
-    'emergency-contacts': EmergencyContactsSelect<false> | EmergencyContactsSelect<true>;
-    'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
-    accounts: AccountsSelect<false> | AccountsSelect<true>;
-    sessions: SessionsSelect<false> | SessionsSelect<true>;
-    verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     navbar: NavbarSelect<false> | NavbarSelect<true>;
@@ -796,6 +796,9 @@ export interface User {
    * When the user set a password from the onboarding checklist (claim flow creates a random password).
    */
   onboardingPasswordSetAt?: string | null;
+  /**
+   * Tenant memberships and per-tenant roles. Locations appear for Staff / Location Manager rows (empty = all locations).
+   */
   tenants?:
     | {
         tenant: number | Tenant;
@@ -3715,6 +3718,41 @@ export interface CourseEnrollment {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations".
+ */
+export interface AdminInvitation {
+  id: number;
+  role: 'super-admin' | 'admin' | 'staff' | 'location-manager' | 'user';
+  token: string;
+  url?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Verifications are used to verify authentication requests
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications".
+ */
+export interface Verification {
+  id: number;
+  /**
+   * The identifier of the verification request
+   */
+  identifier: string;
+  /**
+   * The value to be verified
+   */
+  value: string;
+  /**
+   * The date and time when the verification request will expire
+   */
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3879,41 +3917,6 @@ export interface BookingCheckoutHold {
   failureReason?: string | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations".
- */
-export interface AdminInvitation {
-  id: number;
-  role: 'super-admin' | 'admin' | 'staff' | 'location-manager' | 'user';
-  token: string;
-  url?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Verifications are used to verify authentication requests
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications".
- */
-export interface Verification {
-  id: number;
-  /**
-   * The identifier of the verification request
-   */
-  identifier: string;
-  /**
-   * The value to be verified
-   */
-  value: string;
-  /**
-   * The date and time when the verification request will expire
-   */
-  expiresAt: string;
-  createdAt: string;
-  updatedAt: string;
 }
 /**
  * Navigation bar per tenant. To show a navbar when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).
@@ -4358,6 +4361,30 @@ export interface PayloadLockedDocument {
         value: number | EventType;
       } | null)
     | ({
+        relationTo: 'emergency-contacts';
+        value: number | EmergencyContact;
+      } | null)
+    | ({
+        relationTo: 'admin-invitations';
+        value: number | AdminInvitation;
+      } | null)
+    | ({
+        relationTo: 'accounts';
+        value: number | Account;
+      } | null)
+    | ({
+        relationTo: 'sessions';
+        value: number | Session;
+      } | null)
+    | ({
+        relationTo: 'verifications';
+        value: number | Verification;
+      } | null)
+    | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null)
+    | ({
         relationTo: 'tenants';
         value: number | Tenant;
       } | null)
@@ -4404,30 +4431,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'booking-checkout-holds';
         value: number | BookingCheckoutHold;
-      } | null)
-    | ({
-        relationTo: 'emergency-contacts';
-        value: number | EmergencyContact;
-      } | null)
-    | ({
-        relationTo: 'admin-invitations';
-        value: number | AdminInvitation;
-      } | null)
-    | ({
-        relationTo: 'accounts';
-        value: number | Account;
-      } | null)
-    | ({
-        relationTo: 'sessions';
-        value: number | Session;
-      } | null)
-    | ({
-        relationTo: 'verifications';
-        value: number | Verification;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
       } | null)
     | ({
         relationTo: 'pages';
@@ -4644,6 +4647,141 @@ export interface EventTypesSelect<T extends boolean = true> {
       };
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emergency-contacts_select".
+ */
+export interface EmergencyContactsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  status?: T;
+  peopleSummary?: T;
+  primaryContact?: T;
+  people?:
+    | T
+    | {
+        fullName?: T;
+        personType?: T;
+        contacts?:
+          | T
+          | {
+              name?: T;
+              phone?: T;
+              relationship?: T;
+              id?: T;
+            };
+        medicalNotes?: T;
+        id?: T;
+      };
+  completedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations_select".
+ */
+export interface AdminInvitationsSelect<T extends boolean = true> {
+  role?: T;
+  token?: T;
+  url?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts_select".
+ */
+export interface AccountsSelect<T extends boolean = true> {
+  accountId?: T;
+  providerId?: T;
+  user?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  idToken?: T;
+  accessTokenExpiresAt?: T;
+  refreshTokenExpiresAt?: T;
+  scope?: T;
+  password?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sessions_select".
+ */
+export interface SessionsSelect<T extends boolean = true> {
+  expiresAt?: T;
+  token?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  ipAddress?: T;
+  userAgent?: T;
+  user?: T;
+  impersonatedBy?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications_select".
+ */
+export interface VerificationsSelect<T extends boolean = true> {
+  identifier?: T;
+  value?: T;
+  expiresAt?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  emergencyContacts?: T;
+  registrationTenant?: T;
+  onboardingPasswordSetAt?: T;
+  tenants?:
+    | T
+    | {
+        tenant?: T;
+        roles?: T;
+        locations?: T;
+        id?: T;
+      };
+  name?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
+  account?: T;
+  session?: T;
+  stripeCustomerId?: T;
+  stripeCustomers?:
+    | T
+    | {
+        stripeAccountId?: T;
+        stripeCustomerId?: T;
+        id?: T;
+      };
+  userSubscription?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4935,141 +5073,6 @@ export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
   failureReason?: T;
   updatedAt?: T;
   createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "emergency-contacts_select".
- */
-export interface EmergencyContactsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  status?: T;
-  peopleSummary?: T;
-  primaryContact?: T;
-  people?:
-    | T
-    | {
-        fullName?: T;
-        personType?: T;
-        contacts?:
-          | T
-          | {
-              name?: T;
-              phone?: T;
-              relationship?: T;
-              id?: T;
-            };
-        medicalNotes?: T;
-        id?: T;
-      };
-  completedAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations_select".
- */
-export interface AdminInvitationsSelect<T extends boolean = true> {
-  role?: T;
-  token?: T;
-  url?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts_select".
- */
-export interface AccountsSelect<T extends boolean = true> {
-  accountId?: T;
-  providerId?: T;
-  user?: T;
-  accessToken?: T;
-  refreshToken?: T;
-  idToken?: T;
-  accessTokenExpiresAt?: T;
-  refreshTokenExpiresAt?: T;
-  scope?: T;
-  password?: T;
-  createdAt?: T;
-  updatedAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions_select".
- */
-export interface SessionsSelect<T extends boolean = true> {
-  expiresAt?: T;
-  token?: T;
-  createdAt?: T;
-  updatedAt?: T;
-  ipAddress?: T;
-  userAgent?: T;
-  user?: T;
-  impersonatedBy?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications_select".
- */
-export interface VerificationsSelect<T extends boolean = true> {
-  identifier?: T;
-  value?: T;
-  expiresAt?: T;
-  createdAt?: T;
-  updatedAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  emergencyContacts?: T;
-  registrationTenant?: T;
-  onboardingPasswordSetAt?: T;
-  tenants?:
-    | T
-    | {
-        tenant?: T;
-        roles?: T;
-        locations?: T;
-        id?: T;
-      };
-  name?: T;
-  emailVerified?: T;
-  image?: T;
-  createdAt?: T;
-  updatedAt?: T;
-  role?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
-  account?: T;
-  session?: T;
-  stripeCustomerId?: T;
-  stripeCustomers?:
-    | T
-    | {
-        stripeAccountId?: T;
-        stripeCustomerId?: T;
-        id?: T;
-      };
-  userSubscription?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

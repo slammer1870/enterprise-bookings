@@ -114,6 +114,10 @@ describe('userTenantAccess helpers', () => {
       ).toBe(true)
     })
 
+    it('falls back to derived global role when tenants memberships are omitted', () => {
+      expect(isStaffOnlyUser({ id: 1, role: ['staff'] })).toBe(true)
+    })
+
     it('is false when org admin or super-admin', () => {
       expect(
         isStaffOnlyUser({
@@ -128,6 +132,7 @@ describe('userTenantAccess helpers', () => {
         }),
       ).toBe(false)
       expect(isStaffOnlyUser({ id: 1, role: ['super-admin'] })).toBe(false)
+      expect(isStaffOnlyUser({ id: 1, role: ['admin'] })).toBe(false)
     })
 
     it('does not treat pure location-manager as staff-only (use isPureLocationManager)', () => {

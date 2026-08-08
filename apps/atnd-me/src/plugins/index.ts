@@ -89,6 +89,7 @@ import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
 import { fixBetterAuthImageField } from './fix-better-auth-image-field'
 import { fixBetterAuthAfterReadHooks } from './fix-better-auth-after-read-hooks'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
+import { hideStaffNavCollections } from './hide-staff-nav-collections'
 import { hideWebsiteCollectionsFromTenantAdmins } from './hide-website-collections-from-tenant-admins'
 import { staffRosterUsersFieldAccessPlugin } from './staff-roster-users-field-access'
 import { simplifyUsersAdminForTenantAdminsPlugin } from './simplify-users-admin-for-tenant-admins'
@@ -591,6 +592,8 @@ export const plugins: Plugin[] = [
       },
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
+        // Staff operate timeslots; event-type config stays out of their sidebar.
+        admin: tenantOrgPayloadAdminAccess,
         read: tenantScopedPublicReadStrict,
         create: async (args) => {
           if (isStaffOnlyUser(args.req.user)) return false
@@ -1196,6 +1199,8 @@ export const plugins: Plugin[] = [
   // User data export — after multi-tenant access rules are applied.
   userDataImportExportPlugin(),
   tenantScopedExportJobsPlugin(),
+  // Staff-only sidebar: Timeslots / Users / Emergency contacts (Payload nav uses admin.hidden).
+  hideStaffNavCollections(),
   // Must run last so all plugin-added collections/globals get explicit groups and sort order.
   sortAdminNavGroupsPlugin(),
 ]

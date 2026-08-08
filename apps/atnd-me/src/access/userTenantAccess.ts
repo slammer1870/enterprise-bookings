@@ -174,10 +174,20 @@ export const usersPayloadAdminAccess = async ({ req }: AccessArgs): Promise<bool
   }
 }
 
-/** Staff role without org `admin` — operational access only (no CMS / schedule configuration). */
+/**
+ * Staff role without org `admin` — operational access only (no CMS / schedule configuration).
+ * Prefers `tenants[].roles`; falls back to derived global `role` when memberships are omitted
+ * from the session (JWT / shallow admin user).
+ */
 export function isStaffOnlyUser(user: unknown): boolean {
   if (!user) return false
-  return isStaff(user) && !isTenantAdmin(user)
+  if (isAdmin(user) || isTenantAdmin(user)) return false
+  if (isStaff(user)) return true
+  // Derived global role cache (see deriveRoleFromTenants) — never grant org admin via this path.
+  if (checkRole(['staff'], user as SharedUser) && !checkRole(['admin', 'super-admin'], user as SharedUser)) {
+    return true
+  }
+  return false
 }
 
 /**

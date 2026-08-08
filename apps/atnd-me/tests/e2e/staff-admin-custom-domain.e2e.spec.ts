@@ -73,8 +73,9 @@ test.describe('Staff admin access (custom domain host)', () => {
       collection: 'users',
       where: { email: { equals: staffEmail } },
       data: {
-        tenants: [{ tenant: tenant1.id }],
+        tenants: [{ tenant: tenant1.id, roles: ['staff'] }],
         registrationTenant: tenant1.id,
+        role: ['staff'],
       },
       overrideAccess: true,
     })

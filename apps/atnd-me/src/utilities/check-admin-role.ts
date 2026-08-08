@@ -74,3 +74,16 @@ export function isAdmin(user: unknown): boolean {
 export function isStaff(user: unknown): boolean {
   return extractTenantMembershipRoles(user).includes('staff')
 }
+
+/**
+ * Staff without org admin — operational admin UI only.
+ * Prefers `tenants[].roles`; falls back to derived global `role` when the client
+ * session omits membership rows (common in Payload admin `useAuth`).
+ */
+export function isStaffOnlyUser(user: unknown): boolean {
+  if (!user) return false
+  if (isAdmin(user) || isTenantAdmin(user)) return false
+  if (isStaff(user)) return true
+  const roles = extractRoles(user)
+  return roles.includes('staff') && !roles.includes('admin') && !roles.includes('super-admin')
+}

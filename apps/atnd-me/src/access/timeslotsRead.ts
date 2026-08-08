@@ -208,10 +208,12 @@ async function whereForSelectedTenantAndOptionalBranch(args: {
 }
 
 /**
- * Pure `location-manager`: always limited to assigned branches; `payload-tenant` / `payload-location`
- * must stay within membership + assignment (cookie cannot widen scope).
+ * Staff / location-manager with `tenants[].locations` assignments: always limited to those
+ * branches; `payload-tenant` / `payload-location` must stay within membership + assignment
+ * (cookie cannot widen scope). Unrestricted callers (empty assignment / admin row) fall through
+ * to normal tenant + optional branch cookie filtering.
  */
-async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promise<Where | false> {
+async function whereForBranchAssignedTimeslots(req: PayloadRequest): Promise<Where | false> {
   const user = req.user as unknown as SharedUser
   const tenantIds = await resolveTenantAdminTenantIds({
     user,
@@ -303,10 +305,11 @@ async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promis
 /**
  * Timeslots read access:
  * - Super-admin: full access
- * - Tenant-admin/staff: tenant scoping; when admin cookies set `payload-tenant` and
+ * - Tenant-admin / unrestricted staff: tenant scoping; when admin cookies set `payload-tenant` and
  *   optionally `payload-location`, list queries are scoped to that branch (location must
  *   belong to the selected tenant).
- * - Pure location-manager: tenant + assigned branches only (same cookie semantics; branch list from `users.locations`).
+ * - Staff / location-manager with `tenants[].locations` assignments: tenant + assigned branches
+ *   only (cookie cannot widen scope).
  * - Regular users/public: tenantScopedPublicReadStrict + inactive hidden for anonymous
  *
  * NOTE: We intentionally do NOT filter by endTime here. The rule is
@@ -346,8 +349,9 @@ export const timeslotsRead: Access = async (args) => {
     const cookieSrc = tenantAdminCookieSource(args.req)
     const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
     const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+    const uid = toUserId(user) ?? 0
     const cacheKey = shouldApplyAdminBranchFilter(args.req)
-      ? `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+      ? `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:${uid}:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
       : `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:public-booking:${normalizeContextTenantId(ctx.tenant) ?? 'none'}`
 
     const cached = ctx[cacheKey]
@@ -356,10 +360,35 @@ export const timeslotsRead: Access = async (args) => {
     }
 
     const constraint = await (async () => {
-      if (
-        shouldApplyAdminBranchFilter(args.req) &&
-        (selectedTenantId != null || selectedBranchId != null)
-      ) {
+      if (!shouldApplyAdminBranchFilter(args.req)) {
+        const publicBookingWhere = whereForPublicBookingTenant(ctx)
+        if (publicBookingWhere) return publicBookingWhere
+        return resolveTenantAdminReadConstraint({ req: args.req as any })
+      }
+
+      // Staff (and dual-role users) with non-empty `tenants[].locations` must not widen
+      // via payload-location / "all sites" beyond their assignment.
+      const membershipTenantIds = await resolveTenantAdminTenantIds({
+        user,
+        payload: args.req.payload,
+        context: args.req.context as Record<string, unknown> | undefined,
+      })
+      const scopeTenantIds =
+        selectedTenantId != null && membershipTenantIds.includes(selectedTenantId)
+          ? [selectedTenantId]
+          : membershipTenantIds
+      if (scopeTenantIds.length) {
+        const branchScope = await resolveBranchAssignmentScope({
+          payload: args.req.payload,
+          user,
+          tenantIds: scopeTenantIds,
+        })
+        if (branchScope.kind === 'ids') {
+          return whereForBranchAssignedTimeslots(args.req)
+        }
+      }
+
+      if (selectedTenantId != null || selectedBranchId != null) {
         return whereForSelectedTenantAndOptionalBranch({
           payload: args.req.payload,
           user,
@@ -398,7 +427,7 @@ export const timeslotsRead: Access = async (args) => {
     }
 
     const lmConstraint = shouldApplyAdminBranchFilter(args.req)
-      ? await whereForPureLocationManagerTimeslots(args.req)
+      ? await whereForBranchAssignedTimeslots(args.req)
       : whereForPublicBookingTenant(args.req.context as Record<string, unknown> | undefined) ??
         (await resolveTenantAdminReadConstraint({ req: args.req as any }))
     ctx[cacheKey] = lmConstraint
@@ -432,7 +461,7 @@ export const timeslotsRead: Access = async (args) => {
           args.req.user = elevatedUser as typeof args.req.user
           try {
             const lmConstraint = shouldApplyAdminBranchFilter(args.req)
-              ? await whereForPureLocationManagerTimeslots(args.req)
+              ? await whereForBranchAssignedTimeslots(args.req)
               : whereForPublicBookingTenant(ctx) ??
                 (await resolveTenantAdminReadConstraint({ req: args.req as any }))
             ctx[cacheKey] = lmConstraint
@@ -448,7 +477,7 @@ export const timeslotsRead: Access = async (args) => {
           const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
           const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
           const cacheKey = shouldApplyAdminBranchFilter(args.req)
-            ? `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:elevated:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+            ? `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:elevated:${uid}:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
             : `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:elevated:public-booking:${normalizeContextTenantId(ctx.tenant) ?? 'none'}`
 
           const cachedElevated = ctx[cacheKey]
@@ -457,10 +486,40 @@ export const timeslotsRead: Access = async (args) => {
           }
 
           const elevatedConstraint = await (async () => {
-            if (
-              shouldApplyAdminBranchFilter(args.req) &&
-              (selectedTenantId != null || selectedBranchId != null)
-            ) {
+            if (!shouldApplyAdminBranchFilter(args.req)) {
+              const publicBookingWhere = whereForPublicBookingTenant(ctx)
+              if (publicBookingWhere) return publicBookingWhere
+              const prevUser = args.req.user
+              args.req.user = elevatedUser as typeof args.req.user
+              try {
+                return await resolveTenantAdminReadConstraint({ req: args.req as any })
+              } finally {
+                args.req.user = prevUser
+              }
+            }
+
+            const scopeTenantIds =
+              selectedTenantId != null && adminStaffTenants.includes(selectedTenantId)
+                ? [selectedTenantId]
+                : adminStaffTenants
+            if (scopeTenantIds.length) {
+              const branchScope = await resolveBranchAssignmentScope({
+                payload: args.req.payload,
+                user: elevatedUser,
+                tenantIds: scopeTenantIds,
+              })
+              if (branchScope.kind === 'ids') {
+                const prevUser = args.req.user
+                args.req.user = elevatedUser as typeof args.req.user
+                try {
+                  return await whereForBranchAssignedTimeslots(args.req)
+                } finally {
+                  args.req.user = prevUser
+                }
+              }
+            }
+
+            if (selectedTenantId != null || selectedBranchId != null) {
               return whereForSelectedTenantAndOptionalBranch({
                 payload: args.req.payload,
                 user: elevatedUser,
