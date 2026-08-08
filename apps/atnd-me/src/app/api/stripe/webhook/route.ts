@@ -34,6 +34,7 @@ import {
   findOrCreateAndConfirmBookingForTimeslot,
 } from '@/lib/stripe-connect/webhook'
 import {
+  ensureInactivePlanForStripeProduct,
   getStripeProductIdFromWebhookObject,
   syncStripeProductToPayload,
 } from '@/lib/stripe-connect/webhook/sync-products'
@@ -697,6 +698,32 @@ export async function POST(request: NextRequest) {
           updateData.endDate = stripeDateOnly(currentPeriodEnd)
         }
         updateData.cancelAt = stripeDateOnly(cancelAt)
+        
+        // Update plan if subscription product has changed (e.g., upgrade/downgrade).
+        // Missing plans are auto-created as inactive so they are not offered for purchase.
+        if (planProductId) {
+          try {
+            const ensured = await ensureInactivePlanForStripeProduct({
+              payload,
+              tenantId,
+              accountId,
+              stripeProductId: planProductId,
+            })
+            if (ensured) {
+              updateData.plan = ensured.id
+              payload.logger?.info?.(
+                `subscription.updated: updating plan to ${ensured.id}${ensured.created ? ' (created inactive)' : ''} for sub=${obj.id}`,
+              )
+            }
+          } catch (planErr) {
+            payload.logger?.error?.(
+              `subscription.updated: failed to resolve plan for stripeProductId=${planProductId}, sub=${obj.id}: ${
+                planErr instanceof Error ? planErr.message : String(planErr)
+              }`,
+            )
+          }
+        }
+        
         await payload.update({
           collection: 'subscriptions' as import('payload').CollectionSlug,
           id: sub.id,

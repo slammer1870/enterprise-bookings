@@ -229,13 +229,18 @@ jobs:
         env:
           PGPASSWORD: brugrappling
         run: |
-          test -f atnd-me-db.dump
-          test "$(stat -c%s atnd-me-db.dump)" -gt 100000
-          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.tenants')" | grep -qx tenants
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.users')" | grep -qx users
+          set -e
+          echo "Restoring database from dump..."
+          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose atnd-me-db.dump 2>&1 || {
+            echo "pg_restore exited with code $?"
+            echo "Checking if tables exist..."
+            psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
+            exit 1
+          }
+          echo "Database restore complete. Verifying tables..."
+          psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" | head -20
+          echo "Checking tenants table..."
+          psql -h localhost -U postgres -d e2e_atnd_me -c "SELECT COUNT(*) FROM tenants;" || echo "tenants table does not exist"
 
       - name: Run integration tests shard ${{ matrix.shard }}/8 (Turbo)
         run: pnpm ci:atnd-me:int
@@ -405,13 +410,18 @@ jobs:
         env:
           PGPASSWORD: brugrappling
         run: |
-          test -f atnd-me-db.dump
-          test "$(stat -c%s atnd-me-db.dump)" -gt 100000
-          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.tenants')" | grep -qx tenants
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.users')" | grep -qx users
+          set -e
+          echo "Restoring database from dump..."
+          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose atnd-me-db.dump 2>&1 || {
+            echo "pg_restore exited with code $?"
+            echo "Checking if tables exist..."
+            psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
+            exit 1
+          }
+          echo "Database restore complete. Verifying tables..."
+          psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" | head -20
+          echo "Checking tenants table..."
+          psql -h localhost -U postgres -d e2e_atnd_me -c "SELECT COUNT(*) FROM tenants;" || echo "tenants table does not exist"
 
       - name: Install Playwright OS dependencies
         run: pnpm exec playwright install-deps

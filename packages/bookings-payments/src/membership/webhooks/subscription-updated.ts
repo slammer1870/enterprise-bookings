@@ -77,6 +77,17 @@ export const subscriptionUpdated: StripeWebhookHandler<{
       `Current period start: ${currentPeriodStart} as date: ${new Date(currentPeriodStart * 1000).toISOString()}`
     );
 
+    // Log plan lookup result
+    if (plan.docs[0]?.id) {
+      payload.logger.info(
+        `Found plan ${plan.docs[0].id} for product ${planId}`
+      );
+    } else {
+      payload.logger.warn(
+        `Plan not found for Stripe product ${planId}. Subscription ${event.data.object.id} will not have plan updated.`
+      );
+    }
+
     // Combine both updates into a single operation
     // Use skipSync to prevent beforeChange hook from calling Stripe API
     await payload.update({
