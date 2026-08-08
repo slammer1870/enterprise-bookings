@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { useAuth, useField, ArrayField } from "@payloadcms/ui"
-import { isAdmin, isTenantAdmin } from "@/utilities/check-admin-role"
+import { isAdmin } from "@/utilities/check-admin-role"
 
 type TenantEntry = {
   id?: string | number
@@ -146,10 +146,10 @@ function TenantLocationsPicker({
 export function TenantMembershipField(props: Record<string, unknown>) {
   const { user } = useAuth()
 
-  const isSuperAdmin = isAdmin(user)
-  const isTenantAdminUser = isTenantAdmin(user)
-
-  if (isSuperAdmin || !isTenantAdminUser) {
+  // Platform super-admins keep the full Payload array. Tenant admins (and anyone
+  // else who can edit users) get the scoped UI — session `role` is often stripped
+  // by field access, so we must not require isTenantAdmin() to choose the UI.
+  if (isAdmin(user)) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     return <ArrayField {...(props as any)} />
   }
@@ -163,13 +163,9 @@ function TenantMembershipFieldInner({
 }: Record<string, unknown> & { user: unknown }) {
   const { value, setValue } = useField<TenantEntry[]>({ path: "tenants" })
 
-  const isSuperAdmin = isAdmin(user)
-  const isTenantAdminUser = isTenantAdmin(user)
-
-  // Prefer `/api/tenants` (scoped to orgs this user admins). Session JWT may still list
-  // memberships where the viewer is only a customer/staff — those must not be addable.
+  // Prefer `/api/tenants` (scoped to orgs this user admins). Session JWT may omit
+  // `role` / `tenants` due to field-level access — never gate the fetch on that.
   const [adminTenantEntries, setAdminTenantEntries] = React.useState<TenantEntry[]>(() => {
-    if (isSuperAdmin || !isTenantAdminUser) return []
     const sessionTenants = (user as unknown as { tenants?: TenantEntry[] } | null)?.tenants
     if (!Array.isArray(sessionTenants)) return []
     return sessionTenants.filter((e) => {
@@ -179,7 +175,6 @@ function TenantMembershipFieldInner({
   })
 
   React.useEffect(() => {
-    if (isSuperAdmin || !isTenantAdminUser) return
     let cancelled = false
     const qs = new URLSearchParams({
       limit: "100",
@@ -209,7 +204,7 @@ function TenantMembershipFieldInner({
     return () => {
       cancelled = true
     }
-  }, [user, isSuperAdmin, isTenantAdminUser])
+  }, [user])
 
   const adminTenantIdSet = React.useMemo(
     () => new Set(adminTenantEntries.map((e) => getTenantId(e.tenant))),
@@ -280,7 +275,9 @@ function TenantMembershipFieldInner({
       <label className="field-label">Tenant Memberships</label>
       {visibleEntries.length === 0 ? (
         <p style={{ color: "var(--theme-elevation-400)", fontSize: "0.85rem" }}>
-          No memberships for your tenants yet. Add one below.
+          {missingAdminTenants.length > 0
+            ? "No memberships for your tenants yet. Add one below."
+            : "No memberships for your tenants yet."}
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
@@ -353,6 +350,7 @@ function TenantMembershipFieldInner({
         </div>
       )}
 
+      {/* Only offer Add when the viewer has at least one admin tenant not already on this user. */}
       {missingAdminTenants.length > 0 ? (
         <div style={{ marginTop: "0.75rem" }}>
           <div style={{ fontSize: "0.8rem", marginBottom: "0.35rem" }}>Add membership</div>
@@ -369,6 +367,16 @@ function TenantMembershipFieldInner({
             ))}
           </div>
         </div>
+      ) : visibleEntries.length > 0 ? (
+        <p
+          style={{
+            marginTop: "0.75rem",
+            color: "var(--theme-elevation-400)",
+            fontSize: "0.75rem",
+          }}
+        >
+          This user already has membership for every tenant you admin.
+        </p>
       ) : null}
 
       <p

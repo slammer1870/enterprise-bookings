@@ -40,9 +40,27 @@ function extractRoles(user: unknown): string[] {
   return out
 }
 
-/** Tenant organization admin (Payload role `admin`). */
+/** Roles assigned on any `tenants[n].roles` row (authoritative for tenant admins). */
+function extractTenantMembershipRoles(user: unknown): string[] {
+  if (!user || typeof user !== 'object') return []
+  const tenants = (user as { tenants?: unknown }).tenants
+  if (!Array.isArray(tenants)) return []
+  const out: string[] = []
+  for (const entry of tenants) {
+    if (!entry || typeof entry !== 'object') continue
+    const roles = (entry as { roles?: unknown }).roles
+    if (!Array.isArray(roles)) continue
+    for (const r of roles) {
+      if (typeof r === 'string' && r) out.push(r)
+    }
+  }
+  return out
+}
+
+/** Tenant organization admin (global `admin` or any tenants[n].roles includes admin). */
 export function isTenantAdmin(user: unknown): boolean {
-  return extractRoles(user).includes('admin')
+  if (extractRoles(user).includes('admin')) return true
+  return extractTenantMembershipRoles(user).includes('admin')
 }
 
 /** Platform super-admin. */
@@ -51,5 +69,6 @@ export function isAdmin(user: unknown): boolean {
 }
 
 export function isStaff(user: unknown): boolean {
-  return extractRoles(user).includes('staff')
+  if (extractRoles(user).includes('staff')) return true
+  return extractTenantMembershipRoles(user).includes('staff')
 }

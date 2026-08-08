@@ -8,10 +8,10 @@ import type { CollectionConfig, Config, GlobalConfig, Plugin } from 'payload'
  */
 const ADMIN_NAV_GROUP_ORDER = [
   'Bookings',
+  'Auth',
   'Configuration',
   'Products',
   'Billing',
-  'Auth',
   'Website',
   'Collection',
 ] as const
