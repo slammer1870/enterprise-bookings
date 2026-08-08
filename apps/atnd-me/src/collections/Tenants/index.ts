@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { defaultTimezones } from 'payload/shared'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import {
@@ -7,7 +8,7 @@ import {
   resolveOrgAdminTenantIds,
 } from '@/access/tenant-scoped'
 import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
-import { isValidTimeZone, normalizeAndValidateTenantSlugFormat } from '@repo/shared-utils'
+import { normalizeAndValidateTenantSlugFormat } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
 import {
   isCustomDomainDnsValidationEnabled,
@@ -20,6 +21,14 @@ import { registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
 import { provisionTenantEmailDomain } from '@/lib/resend/provisionTenantEmailDomain'
+
+const DEFAULT_TENANT_TIME_ZONE = 'Europe/Dublin'
+
+/** Payload's defaults omit Dublin; put it first since it's the app/tenant default. */
+const tenantTimeZoneOptions = [
+  { label: '(UTC+00:00) Dublin (GMT/IST)', value: DEFAULT_TENANT_TIME_ZONE },
+  ...defaultTimezones.filter((tz) => tz.value !== DEFAULT_TENANT_TIME_ZONE),
+]
 
 const EMAIL_DOMAIN_STATUS_OPTIONS = [
   'not_configured',
@@ -192,16 +201,13 @@ export const Tenants: CollectionConfig = {
     },
     {
       name: 'timeZone',
-      type: 'text',
+      type: 'select',
       required: false,
+      defaultValue: DEFAULT_TENANT_TIME_ZONE,
+      options: tenantTimeZoneOptions,
       admin: {
         description:
-          'IANA timezone for this tenant, for example Europe/Dublin or America/New_York. If empty, the app default timezone is used.',
-      },
-      validate: (value: unknown) => {
-        const timeZone = typeof value === 'string' ? value.trim() : ''
-        if (!timeZone) return true
-        return isValidTimeZone(timeZone) || 'Enter a valid IANA timezone'
+          'Timezone for schedules and booking times for this tenant. Defaults to Dublin.',
       },
     },
     {

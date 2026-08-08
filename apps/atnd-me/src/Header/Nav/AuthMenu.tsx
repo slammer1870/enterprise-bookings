@@ -8,6 +8,7 @@ import { cn } from '@/utilities/ui'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import React, { use, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
 
 function getUserInitial(user: Pick<User, 'name' | 'email'> | null): string {
   const name = typeof user?.name === 'string' ? user.name.trim() : ''
@@ -18,6 +19,27 @@ function getUserInitial(user: Pick<User, 'name' | 'email'> | null): string {
 
 function describeUserLabel(user: Pick<User, 'name' | 'email'>): string {
   return (typeof user.name === 'string' && user.name.trim()) || (typeof user.email === 'string' && user.email.trim()) || 'Account'
+}
+
+async function openBillingPortal(): Promise<void> {
+  const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })
+  if (!res.ok) {
+    const txt = await res.text().catch(() => '')
+    let message = 'Failed to open billing portal'
+    if (txt.trim()) {
+      try {
+        const parsed = JSON.parse(txt) as { error?: unknown }
+        message = typeof parsed?.error === 'string' && parsed.error.trim() ? parsed.error : txt.trim()
+      } catch {
+        message = txt.trim()
+      }
+    }
+    throw new Error(message)
+  }
+  const json = (await res.json()) as { url?: unknown }
+  const url = typeof json?.url === 'string' ? json.url : ''
+  if (!url) throw new Error('Billing portal URL missing')
+  window.location.assign(url)
 }
 
 export function HeaderAuthMenu({
@@ -91,19 +113,10 @@ export function HeaderAuthMenu({
               if (billingLoading) return
               setBillingLoading(true)
               try {
-                const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })
-                if (!res.ok) {
-                  const txt = await res.text().catch(() => '')
-                  throw new Error(txt && txt.trim() ? txt : 'Failed to open billing portal')
-                }
-                const json = (await res.json()) as { url?: unknown }
-                const url = typeof json?.url === 'string' ? json.url : ''
-                if (!url) throw new Error('Billing portal URL missing')
-                window.location.assign(url)
+                await openBillingPortal()
               } catch (e) {
-                // Fallback to keep the user in a sane state.
                 console.error(e)
-                router.refresh()
+                toast.error(e instanceof Error ? e.message : 'Failed to open billing portal')
               } finally {
                 setBillingLoading(false)
               }
@@ -172,19 +185,10 @@ export function HeaderAuthMenu({
             setBillingLoading(true)
             try {
               detailsRef.current?.removeAttribute('open')
-              const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })
-              if (!res.ok) {
-                const txt = await res.text().catch(() => '')
-                throw new Error(txt && txt.trim() ? txt : 'Failed to open billing portal')
-              }
-              const json = (await res.json()) as { url?: unknown }
-              const url = typeof json?.url === 'string' ? json.url : ''
-              if (!url) throw new Error('Billing portal URL missing')
-              window.location.assign(url)
+              await openBillingPortal()
             } catch (e) {
-              // Fallback to keep the user in a sane state.
               console.error(e)
-              router.refresh()
+              toast.error(e instanceof Error ? e.message : 'Failed to open billing portal')
             } finally {
               setBillingLoading(false)
             }

@@ -1,13 +1,20 @@
-import type { Access, CollectionConfig, FieldHook } from 'payload'
+import type { Access, AccessArgs, CollectionConfig, FieldHook } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import {
   getUserTenantIDs,
+  resolveTenantAdminReadConstraint,
   tenantScopedCreate,
   tenantScopedReadFiltered,
   tenantScopedUpdate,
 } from '@/access/tenant-scoped'
-import { isStaffOnlyUser } from '@/access/userTenantAccess'
+import {
+  isAdmin,
+  isLocationManager,
+  isStaff,
+  isStaffOnlyUser,
+  isTenantAdmin,
+} from '@/access/userTenantAccess'
 
 export const EMERGENCY_CONTACTS_SLUG = 'emergency-contacts' as const
 
@@ -57,14 +64,23 @@ const populatePrimaryContact: FieldHook = ({ data, siblingData, originalDoc }) =
   return '—'
 }
 
+/**
+ * Portal readers (org admin / staff / location-manager): tenant-scoped roster.
+ * Do not use {@link tenantScopedReadFiltered} here — it hard-denies pure location-managers.
+ */
 const staffOrSuperAdminRead: Access = async (args) => {
   const user = args.req.user
   if (!user) return false
-  if (checkRole(['super-admin'], user as SharedUser | null)) {
+  if (checkRole(['super-admin'], user as SharedUser | null) || isAdmin(user)) {
     return tenantScopedReadFiltered(args)
   }
-  if (checkRole(['admin', 'staff', 'location-manager'], user as SharedUser | null)) {
-    return tenantScopedReadFiltered(args)
+  if (
+    isTenantAdmin(user) ||
+    isStaff(user) ||
+    isLocationManager(user) ||
+    checkRole(['admin', 'staff', 'location-manager'], user as SharedUser | null)
+  ) {
+    return resolveTenantAdminReadConstraint({ req: args.req })
   }
   // Account holders can read their own record (e.g. admin UI / future account page).
   const tenantIds = getUserTenantIDs(user)
@@ -74,6 +90,13 @@ const staffOrSuperAdminRead: Access = async (args) => {
       ...(tenantIds.length > 0 ? [{ tenant: { in: tenantIds } }] : []),
     ],
   }
+}
+
+/** Sidebar: staff and location-managers need this collection (org admins too). */
+const emergencyContactsAdminAccess = ({ req: { user } }: AccessArgs): boolean => {
+  if (!user) return false
+  if (isAdmin(user) || isTenantAdmin(user) || isStaff(user) || isLocationManager(user)) return true
+  return checkRole(['super-admin', 'admin', 'staff', 'location-manager'], user as SharedUser | null)
 }
 
 const tenantAdminCreate: Access = async (args) => {
@@ -100,11 +123,12 @@ export const EmergencyContacts: CollectionConfig = {
       'Family emergency contact details per account holder. Public fill goes through the Emergency Contact Form block; tenant admins can also create and edit here.',
   },
   access: {
+    admin: emergencyContactsAdminAccess,
     read: staffOrSuperAdminRead,
     create: tenantAdminCreate,
     update: tenantAdminUpdate,
     delete: ({ req: { user } }) =>
-      checkRole(['super-admin', 'admin'], user as SharedUser | null),
+      checkRole(['super-admin', 'admin'], user as SharedUser | null) || isTenantAdmin(user),
   },
   indexes: [
     {

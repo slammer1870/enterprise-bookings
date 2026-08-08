@@ -48,12 +48,14 @@ export const SchedulerListView = async (props: {
   let docs: Array<{ id: number }> = []
   let totalDocs = 0
   try {
+    // Respect collection access (location-managers are branch-scoped).
     const result = await payload.find({
       collection: 'scheduler',
       where: Object.keys(where).length ? where : undefined,
       limit: 2,
       depth: 0,
-      overrideAccess: true,
+      overrideAccess: false,
+      user: props.user as never,
       select: { id: true } as never,
     })
     docs = (result.docs ?? []) as Array<{ id: number }>

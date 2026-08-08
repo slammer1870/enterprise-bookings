@@ -4,7 +4,6 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
 import { getPayloadTenantIdFromRequest, getTenantSlugFromHost } from '../utilities/tenantRequest'
-import { isPureLocationManager } from './locationManagerScope'
 import {
   getTenantMembershipIdsFromUserDoc,
   getUserTenantIDs,
@@ -79,9 +78,12 @@ export function isLocationManager(u: unknown): boolean {
   return hasTenantMembershipRole(u, 'location-manager')
 }
 
-/** Tenant-scoped roles that use the tenant selector / cookie rules (org admin or staff). */
+/**
+ * Tenant-scoped portal roles that use the tenant selector / cookie rules
+ * (org admin, staff, or location-manager).
+ */
 export function isTenantPortalUser(u: unknown): boolean {
-  return isTenantAdmin(u) || isStaff(u)
+  return isTenantAdmin(u) || isStaff(u) || isLocationManager(u)
 }
 
 /**
@@ -284,12 +286,16 @@ function resolvePortalUserScopedTenantId(req: TenantScopedReq, assignedTenantIds
  * User read access for multi-tenant apps.
  *
  * - Super admin: can read all users (no query filter)
- * - Tenant admin / staff: can only read users for their domain(s) (tenant = domain):
+ * - Tenant admin / staff / location-manager: can only read users for their domain(s)
+ *   (tenant = domain):
  *   - Users who registered at their domain (registrationTenant in tenant IDs)
  *   - Users who have a booking at their domain
  *   - The tenant portal user themselves
  *   When req.context.tenant or the admin `payload-tenant` cookie selects a tenant, scope to that domain only.
  * - Regular user: can only read themselves
+ *
+ * Note: pure location-managers may read the tenant roster (same as staff) but remain
+ * self-only for updates via {@link userTenantUpdate}.
  */
 export const userTenantRead: Access = async ({ req }) => {
   const { user, payload } = req
@@ -304,6 +310,12 @@ export const userTenantRead: Access = async ({ req }) => {
 
   if (isTenantPortalUser(accessUser)) {
     let tenantIds = getUserTenantIds(accessUser as unknown as SharedUser)
+    // Membership rows are authoritative; global `role` can lag and make getUserTenantIds
+    // return [] even when tenants[] is already populated on the hydrated user.
+    if (tenantIds !== null && tenantIds.length === 0) {
+      const fromMembership = getTenantMembershipIdsFromUserDoc(accessUser)
+      if (fromMembership.length > 0) tenantIds = fromMembership
+    }
     let fullUser: SharedUser | null =
       accessUser !== user && accessUser && typeof accessUser === 'object'
         ? (accessUser as SharedUser)
@@ -313,8 +325,10 @@ export const userTenantRead: Access = async ({ req }) => {
       fullUser = fullUser ?? (await getTenantPortalUserWithTenants(user, payload))
       if (fullUser) {
         tenantIds = getUserTenantIds(fullUser)
-        if (tenantIds === null && !isAdmin(user)) {
-          tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+        if (tenantIds === null || tenantIds.length === 0) {
+          if (!isAdmin(user)) {
+            tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+          }
         }
       }
     }
@@ -363,8 +377,9 @@ export const userTenantRead: Access = async ({ req }) => {
  * User update access for multi-tenant apps.
  *
  * - Super admin: can update any user
- * - Tenant admin: can only update users for their domain(s) (same scoping as read)
- * - Staff / pure location-manager: self only (membership/locations stay field-access locked)
+ * - Tenant admin / location-manager: can update users for their domain(s) (same scoping as read).
+ *   `tenants[]` / elevated roles stay locked via field-level access.
+ * - Staff-only: self only (membership/locations stay field-access locked)
  * - Regular user: can only update themselves
  */
 export const userTenantUpdate: Access = async ({ req, id }) => {
@@ -378,9 +393,9 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
   // Hydrate when session has derived global role but omits `tenants` (Better Auth shallow user).
   const accessUser = await resolveUserWithTenantMemberships(user, payload)
 
-  // Staff and site managers are not tenant-portal updaters of other users, but may edit
-  // their own profile. `tenants[]` / locations remain protected by field-level access.
-  if (isStaffOnlyUser(accessUser) || isPureLocationManager(accessUser)) {
+  // Staff may edit their own profile only. Location-managers use the portal-scoped path
+  // below so they can create/edit member accounts (name, email, etc.).
+  if (isStaffOnlyUser(accessUser) && !isLocationManager(accessUser)) {
     const updateUserId = toUserId(user)
     if (updateUserId == null) return false
     const targetId = typeof id === 'number' ? id : typeof id === 'string' ? parseInt(id, 10) : null
@@ -389,6 +404,11 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
 
   if (isTenantPortalUser(accessUser)) {
     let tenantIds = getUserTenantIds(accessUser as unknown as SharedUser)
+    // Membership rows are authoritative when global role cache lags.
+    if (tenantIds !== null && tenantIds.length === 0) {
+      const fromMembership = getTenantMembershipIdsFromUserDoc(accessUser)
+      if (fromMembership.length > 0) tenantIds = fromMembership
+    }
     let fullUser: SharedUser | null =
       accessUser !== user && accessUser && typeof accessUser === 'object'
         ? (accessUser as SharedUser)
@@ -397,8 +417,10 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
       fullUser = fullUser ?? (await getTenantPortalUserWithTenants(user, payload))
       if (fullUser) {
         tenantIds = getUserTenantIds(fullUser)
-        if (tenantIds === null && !isAdmin(user)) {
-          tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+        if (tenantIds === null || tenantIds.length === 0) {
+          if (!isAdmin(user)) {
+            tenantIds = getTenantMembershipIdsFromUserDoc(fullUser)
+          }
         }
       }
     }
