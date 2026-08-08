@@ -56,11 +56,13 @@ export function filterTenantsForTenantAdmin({
 }
 
 /**
- * Merge incoming `tenants` data (submitted by a tenant admin) with the DB state for
- * tenants outside the admin's scope.
+ * Merge incoming `tenants` data (submitted by a tenant admin) with the DB state.
  *
  * Rules:
- * - Own-tenant entries: take from `incoming` (admin is allowed to edit these)
+ * - Own-tenant entries present in `incoming`: take from `incoming` (admin may edit roles)
+ * - Own-tenant entries present in DB but omitted from `incoming`: preserve from DB
+ *   (tenant-admin UI is role-edit-only; a partial form must not wipe other orgs the
+ *   editor also admins — e.g. dual-tenant admin saving with only one row submitted)
  * - Foreign-tenant entries: preserve from `dbTenants` (admin cannot touch these)
  * - Admin cannot inject new entries for tenants they don't control
  *
@@ -82,20 +84,36 @@ export function mergeTenantEntriesForAdmin({
     return tid != null && adminSet.has(tid)
   })
 
+  const incomingOwnIds = new Set(
+    ownFromIncoming
+      .map((e) => extractTenantId(e?.tenant))
+      .filter((id): id is number => id != null),
+  )
+
   // Coerce `tenant` to a bare numeric ID when the DB entry was loaded with depth > 0
   // (populated as a full object). Payload's field-level beforeChange validator expects a
   // plain ID for relationship fields; passing a populated object causes a 400 validation error.
+  const withBareTenantId = (e: TenantEntry): TenantEntry => {
+    const tid = extractTenantId(e?.tenant)
+    return tid != null ? { ...e, tenant: tid } : e
+  }
+
+  // Dual-tenant admins: omitted own rows are not "foreign", so restore them from DB.
+  const omittedOwnFromDb = dbTenants
+    .filter((e) => {
+      const tid = extractTenantId(e?.tenant)
+      return tid != null && adminSet.has(tid) && !incomingOwnIds.has(tid)
+    })
+    .map(withBareTenantId)
+
   const foreignFromDb = dbTenants
     .filter((e) => {
       const tid = extractTenantId(e?.tenant)
       return tid == null || !adminSet.has(tid)
     })
-    .map((e) => {
-      const tid = extractTenantId(e?.tenant)
-      return tid != null ? { ...e, tenant: tid } : e
-    })
+    .map(withBareTenantId)
 
-  return [...ownFromIncoming, ...foreignFromDb]
+  return [...ownFromIncoming, ...omittedOwnFromDb, ...foreignFromDb]
 }
 
 const ROLE_PRIORITY = ['admin', 'staff', 'location-manager', 'user'] as const

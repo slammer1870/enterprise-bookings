@@ -121,4 +121,61 @@ describe('mergeTenantEntriesForAdmin', () => {
     expect(incoming).toHaveLength(1)
     expect(dbTenants).toHaveLength(1)
   })
+
+  it('preserves omitted own-tenant entries when admin controls multiple tenants', () => {
+    // Dual-tenant admin saves with only tenant 1 in the form (stale/partial UI).
+    // Tenant 2 is still "own" — must be restored from DB, not dropped.
+    const incoming: TenantEntry[] = [{ tenant: 1, roles: ['staff'] }]
+    const dbTenants: TenantEntry[] = [
+      { tenant: 1, roles: ['admin'] },
+      { tenant: 2, roles: ['admin'] },
+    ]
+
+    const result = mergeTenantEntriesForAdmin({
+      incoming,
+      adminTenantIds: [1, 2],
+      dbTenants,
+    })
+
+    const tenantIds = result.map((e) => e.tenant)
+    expect(tenantIds).toContain(1)
+    expect(tenantIds).toContain(2)
+
+    // Tenant 1 comes from incoming (role edit applied)
+    const t1 = result.find((e) => e.tenant === 1)
+    expect(t1?.roles).toEqual(['staff'])
+
+    // Tenant 2 omitted from incoming — preserved from DB
+    const t2 = result.find((e) => e.tenant === 2)
+    expect(t2?.roles).toEqual(['admin'])
+  })
+
+  it('preserves omitted own-tenant entries even when incoming is empty', () => {
+    const result = mergeTenantEntriesForAdmin({
+      incoming: [],
+      adminTenantIds: [1, 2],
+      dbTenants: [
+        { tenant: 1, roles: ['admin'] },
+        { tenant: 2, roles: ['admin'] },
+      ],
+    })
+
+    expect(result.map((e) => e.tenant).sort()).toEqual([1, 2])
+  })
+
+  it('coerces omitted own-tenant populated objects to bare IDs', () => {
+    const result = mergeTenantEntriesForAdmin({
+      incoming: [{ tenant: 1, roles: ['admin'] }],
+      adminTenantIds: [1, 2],
+      dbTenants: [
+        { tenant: { id: 1 }, roles: ['admin'] },
+        { tenant: { id: 2, name: 'Other Org' }, roles: ['admin'] },
+      ],
+    })
+
+    const t2 = result.find((e) => e.tenant === 2)
+    expect(t2).toBeDefined()
+    expect(t2?.tenant).toBe(2)
+    expect(t2?.roles).toEqual(['admin'])
+  })
 })

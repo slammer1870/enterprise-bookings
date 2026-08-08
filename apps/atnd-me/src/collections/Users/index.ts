@@ -498,7 +498,8 @@ If you did not request this, you can ignore this email.`
         }
 
         // Tenants write guard: tenant admins can only modify their own tenant entries.
-        // Foreign entries are preserved from DB; injected foreign entries are stripped.
+        // Foreign entries and omitted own-tenant entries (dual-admin partial forms) are
+        // preserved from DB; injected foreign entries are stripped.
         //
         // Relationship validation accepts merged foreign IDs because `tenants.tenant`
         // filterOptions returns true for tenant admins (Tenants.read stays scoped so
