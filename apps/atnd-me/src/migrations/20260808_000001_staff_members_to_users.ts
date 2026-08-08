@@ -2,20 +2,36 @@ import { MigrateUpArgs, MigrateDownArgs, sql } from '@payloadcms/db-postgres'
 
 /**
  * Consolidate staff-members into users:
- * 1. Add users.profile_image_id
- * 2. Copy profile images from staff_members → users
+ * 1. Replace users.image (varchar) with users.image_id (media upload)
+ * 2. Copy profile images from staff_members → users.image_id
  * 3. Remap timeslots / scheduler staff_member_id from staff_members.id → users.id
  * 4. Move users_rels locations onto users_tenants locations (best-effort)
  * 5. Drop staff_members
  */
 export async function up({ db }: MigrateUpArgs): Promise<void> {
+  // Better Auth stored `image` as a varchar URL. Convert to a media upload column.
   await db.execute(sql`
     DO $$ BEGIN
-      IF NOT EXISTS (
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'image'
+          AND data_type IN ('character varying', 'text', 'varchar')
+      ) THEN
+        ALTER TABLE "users" DROP COLUMN "image";
+      END IF;
+    END $$;
+  `)
+
+  // Drop leftover profile_image_id from earlier preview migration attempts.
+  await db.execute(sql`
+    DO $$ BEGIN
+      IF EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'profile_image_id'
       ) THEN
-        ALTER TABLE "users" ADD COLUMN "profile_image_id" integer;
+        ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_profile_image_id_media_id_fk";
+        DROP INDEX IF EXISTS "users_profile_image_idx";
+        ALTER TABLE "users" DROP COLUMN "profile_image_id";
       END IF;
     END $$;
   `)
@@ -23,18 +39,29 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
     DO $$ BEGIN
       IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'users_profile_image_id_media_id_fk'
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'users' AND column_name = 'image_id'
+      ) THEN
+        ALTER TABLE "users" ADD COLUMN "image_id" integer;
+      END IF;
+    END $$;
+  `)
+
+  await db.execute(sql`
+    DO $$ BEGIN
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'users_image_id_media_id_fk'
       ) THEN
         ALTER TABLE "users"
-          ADD CONSTRAINT "users_profile_image_id_media_id_fk"
-          FOREIGN KEY ("profile_image_id") REFERENCES "public"."media"("id")
+          ADD CONSTRAINT "users_image_id_media_id_fk"
+          FOREIGN KEY ("image_id") REFERENCES "public"."media"("id")
           ON DELETE set null ON UPDATE no action;
       END IF;
     END $$;
   `)
 
   await db.execute(sql`
-    CREATE INDEX IF NOT EXISTS "users_profile_image_idx" ON "users" USING btree ("profile_image_id");
+    CREATE INDEX IF NOT EXISTS "users_image_idx" ON "users" USING btree ("image_id");
   `)
 
   // Copy images from staff_members when present
@@ -45,11 +72,11 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
         WHERE table_schema = 'public' AND table_name = 'staff_members'
       ) THEN
         UPDATE "users" u
-        SET profile_image_id = sm.profile_image_id
+        SET image_id = sm.profile_image_id
         FROM "staff_members" sm
         WHERE sm.user_id = u.id
           AND sm.profile_image_id IS NOT NULL
-          AND u.profile_image_id IS NULL;
+          AND u.image_id IS NULL;
       END IF;
     END $$;
   `)
@@ -223,8 +250,9 @@ export async function down({ db }: MigrateDownArgs): Promise<void> {
   `)
 
   await db.execute(sql`
-    ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_profile_image_id_media_id_fk";
-    DROP INDEX IF EXISTS "users_profile_image_idx";
-    ALTER TABLE "users" DROP COLUMN IF EXISTS "profile_image_id";
+    ALTER TABLE "users" DROP CONSTRAINT IF EXISTS "users_image_id_media_id_fk";
+    DROP INDEX IF EXISTS "users_image_idx";
+    ALTER TABLE "users" DROP COLUMN IF EXISTS "image_id";
+    ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "image" varchar;
   `)
 }

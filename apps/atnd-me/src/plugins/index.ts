@@ -86,6 +86,7 @@ import {
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
+import { fixBetterAuthImageField } from './fix-better-auth-image-field'
 import { fixBetterAuthAfterReadHooks } from './fix-better-auth-after-read-hooks'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
 import { hideWebsiteCollectionsFromTenantAdmins } from './hide-website-collections-from-tenant-admins'
@@ -412,6 +413,8 @@ export const plugins: Plugin[] = [
   fixBetterAuthTimestamps(),
   // Restrict who can edit the Better Auth `role` field (RBAC lives on `role` only).
   fixBetterAuthRoleField(),
+  // Convert Better Auth text `image` into a media upload (staff photos migrate here).
+  fixBetterAuthImageField(),
   // Exclude credential/session secrets from import-export output.
   disableSensitiveUserExportFields(),
   // Must run after fixBetterAuthRoleField and all other plugins so the

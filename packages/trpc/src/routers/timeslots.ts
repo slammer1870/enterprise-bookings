@@ -553,13 +553,13 @@ export const timeslotsRouter = {
 
         const sanitizeStaffMember = (doc: any) => {
           if (!doc || typeof doc !== "object") return null;
+          // User model stores the photo on `image` (upload); public schedule keeps `profileImage`.
+          const media = doc.image ?? doc.profileImage;
           return {
             id: relationId(doc.id) ?? 0,
             name: doc.name ?? null,
             profileImage:
-              doc.profileImage && typeof doc.profileImage === "object" && doc.profileImage.url
-                ? { url: doc.profileImage.url }
-                : null,
+              media && typeof media === "object" && media.url ? { url: media.url } : null,
           };
         };
 
@@ -682,7 +682,7 @@ export const timeslotsRouter = {
         };
 
         // Populate staff users in one query so public schedule cards can show
-        // name + profileImage without exposing email/roles/billing.
+        // name + image without exposing email/roles/billing.
         const staffMemberIds = Array.from(
           new Set(timeslotDocs.map((l) => relationId(l.staffMember)).filter(Boolean) as number[])
         );
@@ -698,7 +698,7 @@ export const timeslotsRouter = {
             select: {
               id: true,
               name: true,
-              profileImage: true,
+              image: true,
             } as any,
           });
           (staffMembers.docs as any[]).forEach((staffMember) => {

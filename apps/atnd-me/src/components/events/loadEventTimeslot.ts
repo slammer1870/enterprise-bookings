@@ -24,13 +24,11 @@ function sanitizeStaffMember(value: unknown): EventPageStaffMember | number | nu
   const doc = value as {
     id?: unknown
     name?: unknown
-    profileImage?: { url?: string | null } | number | null
+    image?: { url?: string | null } | number | null
   }
   const profileImage =
-    doc.profileImage &&
-    typeof doc.profileImage === 'object' &&
-    typeof doc.profileImage.url === 'string'
-      ? { url: doc.profileImage.url }
+    doc.image && typeof doc.image === 'object' && typeof doc.image.url === 'string'
+      ? { url: doc.image.url }
       : null
 
   return {
@@ -74,7 +72,7 @@ export async function loadEventTimeslot(id: number): Promise<EventPageTimeslot |
         select: {
           id: true,
           name: true,
-          profileImage: true,
+          image: true,
         } as any,
       })
       .catch(() => null)

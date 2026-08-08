@@ -781,10 +781,6 @@ export interface Category {
 export interface User {
   id: number;
   /**
-   * Public schedule / event host photo (selectable media).
-   */
-  profileImage?: (number | null) | Media;
-  /**
    * Family emergency contact records for this account holder (one per tenant when completed).
    */
   emergencyContacts?: {
@@ -820,9 +816,9 @@ export interface User {
    */
   emailVerified: boolean;
   /**
-   * The image of the user
+   * Public schedule / event host photo (selectable media).
    */
-  image?: string | null;
+  image?: (number | null) | Media;
   createdAt: string;
   updatedAt: string;
   /**
@@ -5029,7 +5025,6 @@ export interface VerificationsSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
-  profileImage?: T;
   emergencyContacts?: T;
   registrationTenant?: T;
   onboardingPasswordSetAt?: T;

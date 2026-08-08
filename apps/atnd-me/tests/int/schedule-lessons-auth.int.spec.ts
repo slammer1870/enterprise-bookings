@@ -103,7 +103,7 @@ describe('Schedule timeslots visibility for authenticated users', () => {
       id: instructorUser.id,
       data: {
         role: ['staff'],
-        profileImage: profileImageId,
+        image: profileImageId,
         tenants: [{ tenant: testTenant.id, roles: ['staff'] }],
       },
       overrideAccess: true,

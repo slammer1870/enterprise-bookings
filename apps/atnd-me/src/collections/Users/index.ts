@@ -641,22 +641,8 @@ If you did not request this, you can ignore this email.`
   // - registrationTenant (singular, custom): where user originally registered
   // - tenants (plural, plugin-managed): tenants user has access to (added automatically by multi-tenant plugin)
   fields: [
-    {
-      name: 'profileImage',
-      label: 'Profile Image',
-      type: 'upload',
-      relationTo: 'media',
-      required: false,
-      admin: {
-        position: 'sidebar',
-        description: 'Public schedule / event host photo (selectable media).',
-      },
-      access: {
-        read: () => true,
-        update: ({ req: { user } }) =>
-          Boolean(user && (isAdmin(user) || isTenantAdmin(user))),
-      },
-    },
+    // `image` (upload → media) is provided by Better Auth and converted to a real
+    // upload field in `fixBetterAuthImageField` (staff photos migrate onto it).
     {
       name: 'emergencyContacts',
       label: 'Emergency contacts',
