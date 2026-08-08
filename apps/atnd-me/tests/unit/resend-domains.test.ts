@@ -299,11 +299,10 @@ describe('assertTenantEmailDomainAccess', () => {
   it('forbids tenant-admin for another tenant', async () => {
     const payload = {
       auth: async () => ({
-        user: { id: 9, role: ['admin'], tenants: [{ tenant: 2 }] },
+        user: { id: 9, tenants: [{ tenant: 2, roles: ['admin'] }] },
       }),
       findByID: async () => ({
         id: 9,
-        role: ['admin'],
         tenants: [{ tenant: 2, roles: ['admin'] }],
       }),
     } as any

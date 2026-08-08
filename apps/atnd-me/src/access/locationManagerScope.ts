@@ -2,15 +2,33 @@ import type { Payload } from 'payload'
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
 
+function membershipRoles(user: unknown): string[] {
+  if (!user || typeof user !== 'object') return []
+  const tenants = (user as { tenants?: unknown }).tenants
+  if (!Array.isArray(tenants)) return []
+  const out: string[] = []
+  for (const entry of tenants) {
+    if (!entry || typeof entry !== 'object') continue
+    const roles = (entry as { roles?: unknown }).roles
+    if (!Array.isArray(roles)) continue
+    for (const r of roles) {
+      if (typeof r === 'string' && r) out.push(r)
+    }
+  }
+  return out
+}
+
 /**
- * Site / branch manager: `location-manager` only (no org `admin`, `staff`, or platform `super-admin`).
+ * Site / branch manager: `location-manager` only on `tenants[n].roles`
+ * (no org `admin` / `staff` membership, no platform `super-admin`).
  * Dual-role users follow the broader role’s access paths.
  */
 export function isPureLocationManager(user: unknown): boolean {
   if (!user || typeof user !== 'object') return false
-  const u = user as SharedUser
-  if (!checkRole(['location-manager'], u)) return false
-  if (checkRole(['super-admin', 'admin', 'staff'], u)) return false
+  const roles = membershipRoles(user)
+  if (!roles.includes('location-manager')) return false
+  if (roles.includes('admin') || roles.includes('staff')) return false
+  if (checkRole(['super-admin'], user as SharedUser)) return false
   return true
 }
 

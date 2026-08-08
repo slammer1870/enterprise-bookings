@@ -119,14 +119,14 @@ export function mergeTenantEntriesForAdmin({
 const ROLE_PRIORITY = ['admin', 'staff', 'location-manager', 'user'] as const
 
 /**
- * Derive the canonical global `role` value from a user's `tenants[n].roles` entries.
+ * Derive the denormalized global `role` value from a user's `tenants[n].roles` entries.
+ *
+ * Org authority lives on `tenants[n].roles`. Global `role` is only authoritative for
+ * platform `super-admin`; other values here are a JWT / Better Auth fast-path cache.
  *
  * - Picks the highest-priority role across all tenant entries.
  * - Defaults to `['user']` when no roles are found.
  * - Preserves `['super-admin']` unchanged — super-admin is never in per-tenant roles.
- *
- * Used in the `beforeChange` hook to keep `data.role` (JWT fast-path) in sync with
- * the authoritative per-tenant role assignments.
  */
 export function deriveRoleFromTenants(
   tenants: TenantEntry[],

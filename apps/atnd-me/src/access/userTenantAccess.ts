@@ -29,7 +29,33 @@ function appendBookingUserOrClauses(
   }
 }
 
-/** Platform super-admin (full system access). */
+/**
+ * Roles on any `tenants[n].roles` row.
+ * Authoritative for org roles (`admin` / `staff` / `location-manager` / `user`).
+ * Global `role` is only for platform `super-admin` (plus a derived JWT cache via
+ * `deriveRoleFromTenants` — never treat that cache as the source of truth here).
+ */
+function tenantMembershipRoles(u: unknown): string[] {
+  if (!u || typeof u !== 'object') return []
+  const tenants = (u as { tenants?: unknown }).tenants
+  if (!Array.isArray(tenants)) return []
+  const out: string[] = []
+  for (const entry of tenants) {
+    if (!entry || typeof entry !== 'object') continue
+    const roles = (entry as { roles?: unknown }).roles
+    if (!Array.isArray(roles)) continue
+    for (const r of roles) {
+      if (typeof r === 'string' && r) out.push(r)
+    }
+  }
+  return out
+}
+
+function hasTenantMembershipRole(u: unknown, roleName: string): boolean {
+  return tenantMembershipRoles(u).includes(roleName)
+}
+
+/** Platform super-admin (full system access). Only global `role` defines this. */
 export function isAdmin(u: unknown): boolean {
   if (checkRole(['super-admin'], u as SharedUser)) return true
   const role = (u as { role?: string | string[] })?.role
@@ -38,31 +64,19 @@ export function isAdmin(u: unknown): boolean {
   return false
 }
 
-/** Tenant organization admin (former tenant-admin). */
+/** Tenant organization admin — from `tenants[n].roles` only. */
 export function isTenantAdmin(u: unknown): boolean {
-  if (checkRole(['admin'], u as SharedUser)) return true
-  const role = (u as { role?: string | string[] })?.role
-  if (Array.isArray(role) && role.includes('admin')) return true
-  if (role === 'admin') return true
-  return false
+  return hasTenantMembershipRole(u, 'admin')
 }
 
-/** Tenant staff: limited operational access (bookings / attendance). */
+/** Tenant staff — from `tenants[n].roles` only. */
 export function isStaff(u: unknown): boolean {
-  if (checkRole(['staff'], u as SharedUser)) return true
-  const role = (u as { role?: string | string[] })?.role
-  if (Array.isArray(role) && role.includes('staff')) return true
-  if (role === 'staff') return true
-  return false
+  return hasTenantMembershipRole(u, 'staff')
 }
 
-/** Branch/site manager: assigned locations only; Payload admin for limited ops (Phase 7+). */
+/** Branch/site manager — from `tenants[n].roles` only. */
 export function isLocationManager(u: unknown): boolean {
-  if (checkRole(['location-manager'], u as SharedUser)) return true
-  const role = (u as { role?: string | string[] })?.role
-  if (Array.isArray(role) && role.includes('location-manager')) return true
-  if (role === 'location-manager') return true
-  return false
+  return hasTenantMembershipRole(u, 'location-manager')
 }
 
 /** Tenant-scoped roles that use the tenant selector / cookie rules (org admin or staff). */

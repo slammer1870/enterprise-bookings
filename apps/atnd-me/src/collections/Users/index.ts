@@ -188,10 +188,10 @@ const tenantsMembershipField = {
     return true
   },
   admin: {
+    ...tenantsMembershipArrayField.admin,
     position: 'sidebar' as const,
-    components: {
-      Field: '@/components/admin/users/TenantMembershipField#TenantMembershipField',
-    },
+    description:
+      'Tenant memberships and per-tenant roles. Locations appear for Staff / Location Manager rows (empty = all locations).',
   },
 }
 

@@ -40,7 +40,10 @@ function extractRoles(user: unknown): string[] {
   return out
 }
 
-/** Roles assigned on any `tenants[n].roles` row (authoritative for tenant admins). */
+/**
+ * Roles on any `tenants[n].roles` row.
+ * Authoritative for org roles; global `role` is only for platform `super-admin`.
+ */
 function extractTenantMembershipRoles(user: unknown): string[] {
   if (!user || typeof user !== 'object') return []
   const tenants = (user as { tenants?: unknown }).tenants
@@ -57,18 +60,17 @@ function extractTenantMembershipRoles(user: unknown): string[] {
   return out
 }
 
-/** Tenant organization admin (global `admin` or any tenants[n].roles includes admin). */
+/** Tenant organization admin — from `tenants[n].roles` only. */
 export function isTenantAdmin(user: unknown): boolean {
-  if (extractRoles(user).includes('admin')) return true
   return extractTenantMembershipRoles(user).includes('admin')
 }
 
-/** Platform super-admin. */
+/** Platform super-admin — global `role` only. */
 export function isAdmin(user: unknown): boolean {
   return extractRoles(user).includes('super-admin')
 }
 
+/** Tenant staff — from `tenants[n].roles` only. */
 export function isStaff(user: unknown): boolean {
-  if (extractRoles(user).includes('staff')) return true
   return extractTenantMembershipRoles(user).includes('staff')
 }
