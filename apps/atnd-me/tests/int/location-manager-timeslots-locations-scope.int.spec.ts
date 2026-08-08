@@ -213,15 +213,19 @@ describe('location-manager timeslots + locations scope', () => {
         [PAYLOAD_LOCATION_COOKIE]: String(locB.id),
       })
 
-      await expect(
-        payload.find({
-          collection: 'timeslots',
-          where: {},
-          limit: 100,
-          req: req as any,
-          overrideAccess: false,
-        }),
-      ).rejects.toThrow(/not allowed|Forbidden/i)
+      // Stale/out-of-scope location cookie must not return `read: false` (that hides
+      // Timeslots from the Bookings nav). Fall back to assigned-branch scope instead.
+      const res = await payload.find({
+        collection: 'timeslots',
+        where: {},
+        limit: 100,
+        req: req as any,
+        overrideAccess: false,
+      })
+
+      const ids = res.docs.map((d) => d.id)
+      expect(ids).toContain(timeslotBranchA)
+      expect(ids).not.toContain(timeslotBranchB)
     },
     TEST_TIMEOUT,
   )

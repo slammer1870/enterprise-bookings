@@ -166,7 +166,9 @@ function TenantMembershipFieldInner({
   const isSuperAdmin = isAdmin(user)
   const isTenantAdminUser = isTenantAdmin(user)
 
-  const adminTenantEntries = React.useMemo((): TenantEntry[] => {
+  // Prefer `/api/tenants` (scoped to orgs this user admins). Session JWT may still list
+  // memberships where the viewer is only a customer/staff — those must not be addable.
+  const [adminTenantEntries, setAdminTenantEntries] = React.useState<TenantEntry[]>(() => {
     if (isSuperAdmin || !isTenantAdminUser) return []
     const sessionTenants = (user as unknown as { tenants?: TenantEntry[] } | null)?.tenants
     if (!Array.isArray(sessionTenants)) return []
@@ -174,6 +176,39 @@ function TenantMembershipFieldInner({
       const roles = Array.isArray(e.roles) ? e.roles : []
       return roles.includes("admin")
     })
+  })
+
+  React.useEffect(() => {
+    if (isSuperAdmin || !isTenantAdminUser) return
+    let cancelled = false
+    const qs = new URLSearchParams({
+      limit: "100",
+      depth: "0",
+      sort: "name",
+    })
+    fetch(`/api/tenants?${qs.toString()}`, { credentials: "include" })
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        const docs = Array.isArray(data?.docs) ? data.docs : []
+        const fromApi: TenantEntry[] = docs
+          .filter(
+            (d: { id?: unknown; name?: unknown }) =>
+              (typeof d.id === "number" || typeof d.id === "string") &&
+              typeof d.name === "string",
+          )
+          .map((d: { id: number | string; name: string }) => ({
+            tenant: { id: d.id, name: d.name },
+            roles: ["admin"],
+          }))
+        if (fromApi.length > 0) setAdminTenantEntries(fromApi)
+      })
+      .catch(() => {
+        /* keep session fallback */
+      })
+    return () => {
+      cancelled = true
+    }
   }, [user, isSuperAdmin, isTenantAdminUser])
 
   const adminTenantIdSet = React.useMemo(

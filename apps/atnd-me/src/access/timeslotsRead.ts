@@ -5,6 +5,8 @@ import {
   tenantScopedPublicReadStrict,
   resolveTenantAdminReadConstraint,
   resolveTenantAdminTenantIds,
+  getUserTenantIDs,
+  loadUserDocForTenantMembership,
 } from './tenant-scoped'
 import {
   getPayloadLocationIdFromRequest,
@@ -117,8 +119,23 @@ function toUserId(user: unknown): number | null {
 }
 
 /**
+ * Fallback tenant scope for org admins/staff. Prefer this over `false` when sidebar
+ * cookies are stale/invalid — Payload treats collection `read: false` as "hide from nav".
+ */
+function whereForTenantMembership(tenantIds: number[]): Where | false {
+  if (!tenantIds.length) return false
+  if (tenantIds.length === 1) {
+    return { tenant: { equals: tenantIds[0]! } } as Where
+  }
+  return { tenant: { in: tenantIds } } as Where
+}
+
+/**
  * When Payload admin sets `payload-location`, constrain timeslots to that branch only if
  * the location row belongs to the selected `payload-tenant` (blocks cookie tampering).
+ *
+ * Invalid/stale cookies must NOT return `false` when the user still has tenant membership —
+ * that removes Timeslots from the Bookings nav group. Fall back to tenant-scoped read instead.
  */
 async function whereForSelectedTenantAndOptionalBranch(args: {
   payload: PayloadRequest['payload']
@@ -134,42 +151,54 @@ async function whereForSelectedTenantAndOptionalBranch(args: {
     payload,
     context,
   })
+  if (!tenantIds.length) return false
+
+  const membershipFallback = whereForTenantMembership(tenantIds)
 
   let tenantIdToUse = selectedTenantId
   if (tenantIdToUse == null) {
     // Base/root admin pages may only have `payload-location`. Derive the tenant from the
     // selected location and still enforce tenant membership (prevents cookie tampering).
-    if (selectedBranchId == null) return false
-    const location = await payload.findByID({
-      collection: 'locations',
-      id: selectedBranchId,
-      depth: 0,
-      overrideAccess: true,
-    })
-    if (!location) return false
+    if (selectedBranchId == null) return membershipFallback
+    const location = await payload
+      .findByID({
+        collection: 'locations',
+        id: selectedBranchId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .catch(() => null)
+    if (!location) return membershipFallback
     const locTenantId = relationIdFromLocationTenant(location.tenant)
-    if (locTenantId == null) return false
-    if (!tenantIds.includes(locTenantId)) return false
+    if (locTenantId == null || !tenantIds.includes(locTenantId)) return membershipFallback
     tenantIdToUse = locTenantId
-  } else {
-    if (!tenantIds.includes(tenantIdToUse)) return false
+  } else if (!tenantIds.includes(tenantIdToUse)) {
+    // Stale payload-tenant for another org — keep collection visible, scope to real membership.
+    return membershipFallback
   }
 
   if (selectedBranchId == null) {
     return { tenant: { equals: tenantIdToUse } } as Where
   }
 
-  const location = await payload.findByID({
-    collection: 'locations',
-    id: selectedBranchId,
-    depth: 0,
-    overrideAccess: true,
-  })
+  const location = await payload
+    .findByID({
+      collection: 'locations',
+      id: selectedBranchId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    .catch(() => null)
 
-  if (!location) return false
+  if (!location) {
+    return { tenant: { equals: tenantIdToUse } } as Where
+  }
 
   const locTenantId = relationIdFromLocationTenant(location.tenant)
-  if (locTenantId !== tenantIdToUse) return false
+  if (locTenantId !== tenantIdToUse) {
+    // Tampered/stale location for another tenant: ignore branch, keep selected tenant scope.
+    return { tenant: { equals: tenantIdToUse } } as Where
+  }
 
   // Implicit AND on `tenant` + `branch` (same as a single `{ and: [...] }` for Payload).
   return {
@@ -203,7 +232,10 @@ async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promis
 
   if (scopeAll.kind === 'unrestricted') {
     if (selectedTenantId != null) {
-      if (!tenantIds.includes(selectedTenantId)) return false
+      if (!tenantIds.includes(selectedTenantId)) {
+        // Stale tenant cookie — keep nav visible with membership scope.
+        return resolveTenantAdminReadConstraint({ req: req as any })
+      }
       if (selectedBranchId != null) {
         return {
           tenant: { equals: selectedTenantId },
@@ -217,8 +249,12 @@ async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promis
 
   if (!scopeAll.ids.length) return false
 
+  const assignedFallback = {
+    and: [{ tenant: { in: tenantIds } }, { branch: { in: scopeAll.ids } }],
+  } as Where
+
   if (selectedTenantId != null) {
-    if (!tenantIds.includes(selectedTenantId)) return false
+    if (!tenantIds.includes(selectedTenantId)) return assignedFallback
 
     const tenantScope = await resolveBranchAssignmentScope({
       payload: req.payload,
@@ -235,10 +271,16 @@ async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promis
       return { tenant: { equals: selectedTenantId } } as Where
     }
     const branchesInTenant = tenantScope.ids
-    if (!branchesInTenant.length) return false
+    if (!branchesInTenant.length) return assignedFallback
 
     if (selectedBranchId != null) {
-      if (!branchesInTenant.includes(selectedBranchId)) return false
+      if (!branchesInTenant.includes(selectedBranchId)) {
+        // Stale/out-of-scope location cookie — ignore it, keep assigned branches.
+        return {
+          tenant: { equals: selectedTenantId },
+          branch: { in: branchesInTenant },
+        } as Where
+      }
       return {
         tenant: { equals: selectedTenantId },
         branch: { equals: selectedBranchId },
@@ -252,7 +294,7 @@ async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promis
   }
 
   const base = await resolveTenantAdminReadConstraint({ req: req as any })
-  if (base === false) return false
+  if (base === false) return assignedFallback
   return {
     and: [base as Where, { branch: { in: scopeAll.ids } }],
   } as Where
@@ -361,6 +403,88 @@ export const timeslotsRead: Access = async (args) => {
         (await resolveTenantAdminReadConstraint({ req: args.req as any }))
     ctx[cacheKey] = lmConstraint
     return lmConstraint as unknown as boolean | Where
+  }
+
+  // JWT/session may omit global `role` while `tenants[n].roles` still has admin/staff/LM.
+  // Without this, checkRole fails above and we fall through to public read → `false` on
+  // the admin panel (no host tenant) → Timeslots disappears from the Bookings nav.
+  if (user) {
+    const uid = toUserId(user)
+    if (uid != null) {
+      const fullUser = await loadUserDocForTenantMembership(args.req.payload, uid)
+      if (fullUser) {
+        const adminStaffTenants = getUserTenantIDs(fullUser, ['admin', 'staff'])
+        const lmTenants = getUserTenantIDs(fullUser, ['location-manager'])
+        const elevatedUser = fullUser as unknown as SharedUser
+
+        if (lmTenants.length > 0 && adminStaffTenants.length === 0) {
+          // Pure LM via tenants[].roles only — keep branch assignment scope.
+          const ctx = (args.req.context ??= {}) as Record<string, unknown>
+          const cookieSrc = tenantAdminCookieSource(args.req)
+          const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
+          const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+          const cacheKey = `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_LM_PREFIX}:elevated:${uid}:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+          const cachedLm = ctx[cacheKey]
+          if (cachedLm !== undefined) {
+            return cachedLm as unknown as boolean | Where
+          }
+          const prevUser = args.req.user
+          args.req.user = elevatedUser as typeof args.req.user
+          try {
+            const lmConstraint = shouldApplyAdminBranchFilter(args.req)
+              ? await whereForPureLocationManagerTimeslots(args.req)
+              : whereForPublicBookingTenant(ctx) ??
+                (await resolveTenantAdminReadConstraint({ req: args.req as any }))
+            ctx[cacheKey] = lmConstraint
+            return lmConstraint as unknown as boolean | Where
+          } finally {
+            args.req.user = prevUser
+          }
+        }
+
+        if (adminStaffTenants.length > 0) {
+          const ctx = (args.req.context ??= {}) as Record<string, unknown>
+          const cookieSrc = tenantAdminCookieSource(args.req)
+          const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
+          const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+          const cacheKey = shouldApplyAdminBranchFilter(args.req)
+            ? `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:elevated:${selectedTenantId ?? 'none'}:${selectedBranchId ?? 'all'}`
+            : `${PAYLOAD_CTX_CACHED_TIMESLOTS_READ_ADMIN_PREFIX}:elevated:public-booking:${normalizeContextTenantId(ctx.tenant) ?? 'none'}`
+
+          const cachedElevated = ctx[cacheKey]
+          if (cachedElevated !== undefined) {
+            return cachedElevated as unknown as boolean | Where
+          }
+
+          const elevatedConstraint = await (async () => {
+            if (
+              shouldApplyAdminBranchFilter(args.req) &&
+              (selectedTenantId != null || selectedBranchId != null)
+            ) {
+              return whereForSelectedTenantAndOptionalBranch({
+                payload: args.req.payload,
+                user: elevatedUser,
+                context: args.req.context as Record<string, unknown> | undefined,
+                selectedTenantId,
+                selectedBranchId,
+              })
+            }
+            const publicBookingWhere = whereForPublicBookingTenant(ctx)
+            if (publicBookingWhere) return publicBookingWhere
+            const prevUser = args.req.user
+            args.req.user = elevatedUser as typeof args.req.user
+            try {
+              return await resolveTenantAdminReadConstraint({ req: args.req as any })
+            } finally {
+              args.req.user = prevUser
+            }
+          })()
+
+          ctx[cacheKey] = elevatedConstraint
+          return elevatedConstraint as unknown as boolean | Where
+        }
+      }
+    }
   }
 
   const base = await tenantScopedPublicReadStrict(args)

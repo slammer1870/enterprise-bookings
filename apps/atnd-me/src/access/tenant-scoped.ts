@@ -3,6 +3,7 @@ import {
   checkRole,
   getCachedTenantIdForDomain,
   getCachedTenantIdForSlug,
+  PAYLOAD_CTX_CACHED_ORG_ADMIN_TENANT_IDS,
   PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS,
   rememberTenantDomainResolution,
   rememberTenantSlugResolution,
@@ -76,7 +77,16 @@ export function getUserTenantIDs(
       ids.push(tenantId)
     } else {
       const roles = Array.isArray(e.roles) ? (e.roles as unknown[]) : []
-      if (roles.some((r) => typeof r === 'string' && roleFilter.has(r))) {
+      if (
+        roles.some((r) => {
+          if (typeof r === 'string') return roleFilter.has(r)
+          if (r && typeof r === 'object' && 'value' in r) {
+            const v = (r as { value: unknown }).value
+            return typeof v === 'string' && roleFilter.has(v)
+          }
+          return false
+        })
+      ) {
         ids.push(tenantId)
       }
     }
@@ -250,6 +260,66 @@ function writeTenantAdminIdsTtl(cacheKey: string, ids: number[]): void {
 /** Clears the in-process TTL cache (e.g. integration tests). */
 export function clearTenantAdminTenantIdsTtlCache(): void {
   tenantAdminIdsTtlCache.clear()
+}
+
+/**
+ * Tenant IDs where the user is an org admin (`tenants[n].roles` includes `admin`).
+ * Used for Tenants relationship pickers (e.g. Users membership) so options are only
+ * orgs the viewer can administer — not every membership row (customer/staff elsewhere).
+ */
+export async function resolveOrgAdminTenantIds(args: {
+  user: unknown
+  payload: Payload
+  context?: Record<string, unknown> | null | undefined
+  skipTtlCache?: boolean
+}): Promise<number[]> {
+  const ctx = args.context
+  if (ctx) {
+    const hit = ctx[PAYLOAD_CTX_CACHED_ORG_ADMIN_TENANT_IDS]
+    if (Array.isArray(hit) && hit.every((n) => typeof n === 'number')) {
+      return hit as number[]
+    }
+  }
+
+  const { user, payload } = args
+  const ttlKey = !args.skipTtlCache ? tenantAdminIdsTtlKey(user) : null
+  const ttlCacheKey = ttlKey ? `org-admin:${ttlKey}` : null
+  if (ttlCacheKey) {
+    const ttlHit = readTenantAdminIdsTtl(ttlCacheKey)
+    if (ttlHit !== null) {
+      if (ctx) ctx[PAYLOAD_CTX_CACHED_ORG_ADMIN_TENANT_IDS] = ttlHit
+      return ttlHit
+    }
+  }
+
+  const finish = (result: number[]) => {
+    if (ctx) ctx[PAYLOAD_CTX_CACHED_ORG_ADMIN_TENANT_IDS] = result
+    if (ttlCacheKey) writeTenantAdminIdsTtl(ttlCacheKey, result)
+    return result
+  }
+
+  // Platform super-admin: unconstrained elsewhere; callers treat [] as "use open access".
+  if (checkRole(['super-admin'], user as SharedUser)) {
+    return finish([])
+  }
+
+  const fromJwt = getUserTenantIDs(user, 'admin')
+  if (fromJwt.length > 0) return finish(fromJwt)
+
+  const idRaw =
+    typeof user === 'object' && user !== null && 'id' in user
+      ? (user as { id: unknown }).id
+      : null
+  const id =
+    typeof idRaw === 'number'
+      ? idRaw
+      : typeof idRaw === 'string'
+        ? parseInt(idRaw, 10)
+        : NaN
+  if (!Number.isFinite(id)) return finish([])
+
+  const fullUser = await loadUserDocForTenantMembership(payload, id)
+  return finish(fullUser ? getUserTenantIDs(fullUser, 'admin') : [])
 }
 
 export async function resolveTenantAdminTenantIds(args: {

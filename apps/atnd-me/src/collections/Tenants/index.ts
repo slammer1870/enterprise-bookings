@@ -1,7 +1,11 @@
 import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import { getUserTenantIds } from '@/access/tenant-scoped'
+import {
+  getTenantMembershipIdsFromUserDoc,
+  loadUserDocForTenantMembership,
+  resolveOrgAdminTenantIds,
+} from '@/access/tenant-scoped'
 import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
 import { isValidTimeZone, normalizeAndValidateTenantSlugFormat } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
@@ -89,35 +93,69 @@ export const Tenants: CollectionConfig = {
   },
   access: {
     admin: tenantOrgPayloadAdminAccess,
-    read: (args) => {
-      const { req: { user } } = args
-      if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
+    read: async (args) => {
+      const {
+        req: { user, payload, context },
+      } = args
+      // No anonymous / unauthenticated listing. Public site + middleware resolve tenants
+      // via trusted Local API (`overrideAccess: true`), not open REST read.
+      if (!user) return false
+
+      if (checkRole(['super-admin'], user as unknown as SharedUser)) {
         return true
       }
-      if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-        // Tenant admins may only list/find tenants they belong to (prevents enumerating
-        // other orgs in relationship pickers). Cross-tenant user edits keep foreign
-        // membership rows via Users merge-on-write + Local API overrideAccess — not via
-        // open Tenants read.
-        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-        if (tenantIds === null || tenantIds.length === 0) return false
+      if (checkRole(['admin'], user as unknown as SharedUser)) {
+        // Only orgs this user admins — drives Users membership pickers. Membership as
+        // user/staff elsewhere must not appear as addable tenants. Cross-tenant user
+        // edits keep foreign rows via Users merge-on-write + Local API overrideAccess.
+        const tenantIds = await resolveOrgAdminTenantIds({
+          user,
+          payload,
+          context: context as Record<string, unknown> | undefined,
+        })
+        if (tenantIds.length === 0) return false
         return { id: { in: tenantIds } }
       }
-      // Public / anonymous: allow read (public site resolution by slug/domain).
-      return true
+
+      // Staff / location-managers / members: only tenants they belong to (or registered with).
+      let membershipIds = getTenantMembershipIdsFromUserDoc(user)
+      if (membershipIds.length === 0) {
+        const idRaw =
+          typeof user === 'object' && user !== null && 'id' in user
+            ? (user as { id: unknown }).id
+            : null
+        const userId =
+          typeof idRaw === 'number'
+            ? idRaw
+            : typeof idRaw === 'string'
+              ? parseInt(idRaw, 10)
+              : NaN
+        if (Number.isFinite(userId)) {
+          const fullUser = await loadUserDocForTenantMembership(payload, userId)
+          membershipIds = fullUser ? getTenantMembershipIdsFromUserDoc(fullUser) : []
+        }
+      }
+      if (membershipIds.length === 0) return false
+      return { id: { in: membershipIds } }
     },
     create: (args) => {
       const { req: { user } } = args
       if (!user) return false
       return checkRole(['super-admin'], user as unknown as SharedUser)
     },
-    update: (args) => {
-      const { req: { user } } = args
+    update: async (args) => {
+      const {
+        req: { user, payload, context },
+      } = args
       if (!user) return false
       if (checkRole(['super-admin'], user as unknown as SharedUser)) return true
       if (checkRole(['admin'], user as unknown as SharedUser)) {
-        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-        if (tenantIds === null || tenantIds.length === 0) return false
+        const tenantIds = await resolveOrgAdminTenantIds({
+          user,
+          payload,
+          context: context as Record<string, unknown> | undefined,
+        })
+        if (tenantIds.length === 0) return false
         return { id: { in: tenantIds } }
       }
       return false

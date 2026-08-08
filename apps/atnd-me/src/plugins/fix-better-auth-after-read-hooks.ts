@@ -1,7 +1,7 @@
 import type { CollectionConfig, Config, Plugin } from 'payload'
 
 import { isAdmin } from '@/access/userTenantAccess'
-import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
+import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
 
 /**
@@ -38,9 +38,8 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       // Do NOT use isTenantAdmin(req.user) as a gate here: session/JWT users and users
       // created via the Local API with overrideAccess:true may have their `role` field
       // stripped by field-level access control (fixBetterAuthRoleField plugin). Instead,
-      // let resolveTenantAdminTenantIds be the single source of truth — it loads the full
-      // user doc from DB (with overrideAccess:true) and checks tenants[n].roles directly.
-      const adminTenantIds = await resolveTenantAdminTenantIds({
+      // Orgs this user administers only (not staff/customer memberships elsewhere).
+      const adminTenantIds = await resolveOrgAdminTenantIds({
         user: req.user,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         payload: req.payload as any,

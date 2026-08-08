@@ -248,26 +248,20 @@ describe('timeslotsRead branch filter (payload-location)', () => {
         [PAYLOAD_LOCATION_COOKIE]: String(locOther.id),
       })
 
-      let result: Awaited<ReturnType<typeof payload.find>> | null = null
-      let caught: unknown
-      try {
-        result = await payload.find({
-          collection: 'timeslots',
-          where: {},
-          limit: 100,
-          req: req as any,
-          overrideAccess: false,
-        })
-      } catch (e) {
-        caught = e
-      }
+      // Tampered location must not deny collection read (nav would hide Timeslots).
+      // Ignore the bad branch cookie and keep the selected tenant scope.
+      const result = await payload.find({
+        collection: 'timeslots',
+        where: {},
+        limit: 100,
+        req: req as any,
+        overrideAccess: false,
+      })
 
-      if (result) {
-        const ids = result.docs.map((d) => d.id)
-        expect(ids).not.toContain(timeslotOtherTenant)
-      } else {
-        expect(caught).toBeTruthy()
-      }
+      const ids = result.docs.map((d) => d.id)
+      expect(ids).not.toContain(timeslotOtherTenant)
+      expect(ids).toContain(timeslotBranchA)
+      expect(ids).toContain(timeslotBranchB)
     },
     TEST_TIMEOUT,
   )

@@ -54,46 +54,18 @@ describe('Tenant Listing Page Access', () => {
   })
 
   it(
-    'allows public read access to all tenants (for listing page)',
+    'denies public read access that would enumerate all tenants',
     async () => {
-      // Verify test tenants still exist
-      const existingTenants = await Promise.all(
-        testTenants.map(t => 
-          payload.findByID({
-            collection: 'tenants',
-            id: t.id,
-            overrideAccess: true,
-          }).catch(() => null)
-        )
-      )
-      const validTenants = existingTenants.filter(t => t !== null)
-      
-      if (validTenants.length === 0) {
-        payload.logger.warn('All test tenants were deleted, skipping test')
-        return
-      }
-
-      // Query all tenants without authentication
-      // This simulates what the /tenants page does
+      // /tenants page is intentionally notFound(); REST/Local API must not list the platform.
       const tenantsResult = await payload.find({
         collection: 'tenants',
         limit: 100,
-        depth: 1, // Populate logo relationship
-        // No user, rely on collection read access (should be public)
-        overrideAccess: false, // Use access control
+        depth: 0,
+        overrideAccess: false,
         sort: 'name',
       })
 
-      // Should return at least some tenants (may include others from other tests)
-      expect(tenantsResult.docs.length).toBeGreaterThanOrEqual(validTenants.length)
-
-      // Verify our test tenants are included (if they still exist)
-      const testTenantSlugs = validTenants.map(t => (t as any).slug)
-      const foundSlugs = tenantsResult.docs.map((t: any) => t.slug)
-      
-      for (const slug of testTenantSlugs) {
-        expect(foundSlugs).toContain(slug)
-      }
+      expect(tenantsResult.docs.length).toBe(0)
     },
     TEST_TIMEOUT,
   )

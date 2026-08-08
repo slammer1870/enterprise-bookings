@@ -55,9 +55,66 @@ function rewriteMemberships(
   return rewritten
 }
 
+function hasRegistrationTenant(raw: unknown): boolean {
+  if (raw == null || raw === '') return false
+  return extractTenantId(raw) != null || typeof raw === 'string'
+}
+
+type ExistingGuestUser = {
+  id: number
+  name?: string | null
+  tenants?: TenantMembership[] | null
+  registrationTenant?: unknown
+}
+
+async function syncExistingGuestUser(opts: {
+  payload: Payload
+  doc: ExistingGuestUser
+  name: string
+  tenantId: number
+  writeContext: ReturnType<typeof systemUserWriteContext>
+}): Promise<Omit<EnsureGuestUserResult, 'email'>> {
+  const { payload, doc, name, tenantId, writeContext } = opts
+  const memberships = Array.isArray(doc.tenants) ? [...doc.tenants] : []
+  const hasTenant = memberships.some((m) => extractTenantId(m.tenant) === tenantId)
+  const needsRoleRepair = memberships.some((m) => membershipNeedsRoleRepair(m.roles))
+
+  const data: Record<string, unknown> = {}
+  if (!doc.name?.trim() && name) {
+    data.name = name
+  }
+  if (!hasTenant || needsRoleRepair) {
+    data.tenants = rewriteMemberships(memberships, tenantId, hasTenant)
+  }
+  // Guest course/event signup must always have a registration tenant. Backfill if
+  // the account was created elsewhere without one (or an earlier write omitted it).
+  if (!hasRegistrationTenant(doc.registrationTenant)) {
+    data.registrationTenant = tenantId
+  }
+
+  if (Object.keys(data).length > 0) {
+    await payload.update({
+      collection: 'users',
+      id: doc.id,
+      data,
+      overrideAccess: true,
+      depth: 0,
+      context: writeContext,
+    })
+  }
+
+  return {
+    userId: Number(doc.id),
+    created: false,
+    name: doc.name?.trim() || name,
+  }
+}
+
 /**
- * Find or create a user for guest event checkout.
- * Does not create a browser session — bookings attach to this userId only.
+ * Find or create a user for guest event/course checkout.
+ * Always assigns `registrationTenant` on create, and backfills it when missing
+ * on an existing account. Does not create a browser session — bookings attach
+ * to this userId only.
  */
 export async function ensureGuestUser(opts: {
   payload: Payload
@@ -89,39 +146,17 @@ export async function ensureGuestUser(opts: {
     context: writeContext,
   })
 
-  const doc = existing.docs[0] as
-    | {
-        id: number
-        name?: string | null
-        tenants?: TenantMembership[] | null
-      }
-    | undefined
+  const doc = existing.docs[0] as ExistingGuestUser | undefined
 
   if (doc) {
-    const memberships = Array.isArray(doc.tenants) ? [...doc.tenants] : []
-    const hasTenant = memberships.some((m) => extractTenantId(m.tenant) === tenantId)
-    const needsRoleRepair = memberships.some((m) => membershipNeedsRoleRepair(m.roles))
-
-    const data: Record<string, unknown> = {}
-    if (!doc.name?.trim() && name) {
-      data.name = name
-    }
-    if (!hasTenant || needsRoleRepair) {
-      data.tenants = rewriteMemberships(memberships, tenantId, hasTenant)
-    }
-
-    if (Object.keys(data).length > 0) {
-      await payload.update({
-        collection: 'users',
-        id: doc.id,
-        data,
-        overrideAccess: true,
-        depth: 0,
-        context: writeContext,
-      })
-    }
-
-    return { userId: Number(doc.id), created: false, email, name: doc.name?.trim() || name }
+    const result = await syncExistingGuestUser({
+      payload,
+      doc,
+      name,
+      tenantId,
+      writeContext,
+    })
+    return { ...result, email }
   }
 
   const randomPassword = crypto.randomBytes(32).toString('hex')
@@ -160,39 +195,16 @@ export async function ensureGuestUser(opts: {
       overrideAccess: true,
       context: writeContext,
     })
-    const racedDoc = raced.docs[0] as
-      | {
-          id: number
-          name?: string | null
-          tenants?: TenantMembership[] | null
-        }
-      | undefined
+    const racedDoc = raced.docs[0] as ExistingGuestUser | undefined
     if (!racedDoc?.id) throw err
 
-    const memberships = Array.isArray(racedDoc.tenants) ? [...racedDoc.tenants] : []
-    const hasTenant = memberships.some((m) => extractTenantId(m.tenant) === tenantId)
-    const needsRoleRepair = memberships.some((m) => membershipNeedsRoleRepair(m.roles))
-    const data: Record<string, unknown> = {}
-    if (!racedDoc.name?.trim() && name) data.name = name
-    if (!hasTenant || needsRoleRepair) {
-      data.tenants = rewriteMemberships(memberships, tenantId, hasTenant)
-    }
-    if (Object.keys(data).length > 0) {
-      await payload.update({
-        collection: 'users',
-        id: racedDoc.id,
-        data,
-        overrideAccess: true,
-        depth: 0,
-        context: writeContext,
-      })
-    }
-
-    return {
-      userId: Number(racedDoc.id),
-      created: false,
-      email,
-      name: racedDoc.name?.trim() || name,
-    }
+    const result = await syncExistingGuestUser({
+      payload,
+      doc: racedDoc,
+      name,
+      tenantId,
+      writeContext,
+    })
+    return { ...result, email }
   }
 }

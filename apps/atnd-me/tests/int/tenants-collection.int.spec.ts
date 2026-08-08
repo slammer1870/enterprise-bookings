@@ -91,30 +91,56 @@ describe('Tenants collection', () => {
   )
 
   it(
-    'exposes tenants for public read (listing page)',
+    'denies unauthenticated tenants listing (no platform enumeration)',
     async () => {
-      const slug = `public-tenant-${Date.now()}`
+      const slug = `private-tenant-${Date.now()}`
 
-      // Create via admin
       await payload.create({
         collection: 'tenants',
         data: {
-          name: 'Public Tenant',
+          name: 'Private Tenant',
           slug,
         },
         user: adminUser,
         overrideAccess: false,
       })
 
-      // Public read (no user)
       const found = await payload.find({
         collection: 'tenants',
         where: { slug: { equals: slug } },
-        // no user, rely on collection read access
+        limit: 10,
+        overrideAccess: false,
       })
 
-      expect(found.docs.length).toBe(1)
-      expect(found.docs[0]?.slug).toBe(slug)
+      expect(found.docs.length).toBe(0)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'denies regular users from listing tenants they do not belong to',
+    async () => {
+      const slug = `memberless-tenant-${Date.now()}`
+
+      const created = await payload.create({
+        collection: 'tenants',
+        data: {
+          name: 'Memberless Tenant',
+          slug,
+        },
+        user: adminUser,
+        overrideAccess: false,
+      })
+
+      const found = await payload.find({
+        collection: 'tenants',
+        where: { id: { equals: created.id } },
+        limit: 1,
+        user: regularUser,
+        overrideAccess: false,
+      })
+
+      expect(found.docs.length).toBe(0)
     },
     TEST_TIMEOUT,
   )

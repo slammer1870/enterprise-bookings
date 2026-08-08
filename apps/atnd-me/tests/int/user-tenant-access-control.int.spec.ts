@@ -998,7 +998,7 @@ describe('User Tenant Access Control', () => {
     // -------------------------------------------------------------------------
     // Regression: cross-tenant user privacy + save bugs
     // Fixed by:
-    //   1. Tenants read scoped to the admin's own tenants (no org enumeration).
+    //   1. Tenants read scoped to orgs the admin administers (no org enumeration).
     //   2. afterRead hook filtering the tenants array to only the admin's entries.
     //   3. beforeValidate hook stripping foreign tenant entries before Payload
     //      validates relationship fields (prevents 400 "invalid relationships").
@@ -1142,9 +1142,9 @@ describe('User Tenant Access Control', () => {
       )
     })
 
-    describe('Tenants collection read access (scoped to own tenants)', () => {
+    describe('Tenants collection read access (scoped to orgs they admin)', () => {
       it(
-        'tenant admin can read their own tenant by ID',
+        'tenant admin can read a tenant they admin by ID',
         async () => {
           const result = await payload.findByID({
             collection: 'tenants',
@@ -1160,7 +1160,7 @@ describe('User Tenant Access Control', () => {
       )
 
       it(
-        'tenant admin cannot findByID a tenant they do not belong to',
+        'tenant admin cannot findByID a tenant they do not admin',
         async () => {
           // Scoped read prevents enumerating other orgs. Cross-tenant user saves still work
           // via Users beforeValidate strip + beforeChange merge (not open Tenants read).
@@ -1177,7 +1177,7 @@ describe('User Tenant Access Control', () => {
       )
 
       it(
-        'tenant admin cannot find tenants they do not belong to',
+        'tenant admin cannot find tenants they do not admin',
         async () => {
           const result = await payload.find({
             collection: 'tenants',
@@ -1193,7 +1193,41 @@ describe('User Tenant Access Control', () => {
       )
 
       it(
-        'tenant admin CANNOT update a tenant they do not belong to (write guard still enforced)',
+        'tenant admin who is only a user of another tenant cannot list that tenant',
+        async () => {
+          // Admin of testTenant + plain user of secondTenant — second must not appear in
+          // Tenants find (Users membership picker / relationship options).
+          const dualMembershipAdmin = (await payload.create({
+            collection: 'users',
+            data: {
+              name: 'Dual Membership Admin',
+              email: `dual-admin-${Date.now()}@test.com`,
+              password: 'test',
+              role: ['admin'],
+              emailVerified: true,
+              tenants: [
+                { tenant: testTenant.id, roles: ['admin'] },
+                { tenant: secondTenant.id, roles: ['user'] },
+              ],
+            },
+            overrideAccess: true,
+          } as Parameters<typeof payload.create>[0])) as User
+
+          const listed = await payload.find({
+            collection: 'tenants',
+            limit: 100,
+            user: dualMembershipAdmin,
+            overrideAccess: false,
+          })
+          const ids = listed.docs.map((d) => d.id)
+          expect(ids).toContain(testTenant.id)
+          expect(ids).not.toContain(secondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant admin CANNOT update a tenant they do not admin (write guard still enforced)',
         async () => {
           const req = {
             ...payload,

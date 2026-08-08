@@ -8,7 +8,7 @@ import {
   getTenantMembershipIdsFromUserDoc,
   getUserTenantIds,
   loadUserDocForTenantMembership,
-  resolveTenantAdminTenantIds,
+  resolveOrgAdminTenantIds,
 } from '../../access/tenant-scoped'
 import { userSensitiveFieldReadForStaffRoster } from '../../access/staffRosterUserFieldAccess'
 import {
@@ -51,86 +51,111 @@ import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 const superAdminOnlyAdminCondition = (_data: unknown, _sibling: unknown, { user }: { user?: unknown }) =>
   Boolean(user && isAdmin(user))
 
-const tenantsMembershipField = {
-  ...tenantsArrayField({
-    tenantsArrayFieldName: 'tenants',
-    tenantsArrayTenantFieldName: 'tenant',
-    tenantsCollectionSlug: 'tenants',
-    rowFields: [
-      {
-        name: 'roles',
-        type: 'select',
-        hasMany: true,
-        required: true,
-        defaultValue: ['user'],
-        options: [
-          { label: 'Admin', value: 'admin' },
-          { label: 'Staff', value: 'staff' },
-          { label: 'Location Manager', value: 'location-manager' },
-          { label: 'User', value: 'user' },
-        ],
-        hooks: {
-          // Runs immediately before field validation (after collection beforeChange).
-          // Guests / legacy rows can arrive with empty, duplicate, or `{ value }` roles —
-          // Payload then fails with "Tenants N > Roles". Always coerce to a valid list.
-          beforeChange: [({ value }) => normalizeTenantRoles(value)],
-        },
-        access: {
-          // Admins / tenant-admins in the panel; system Local API via explicit context flag.
-          // Never open to anonymous HTTP (Users.create is otherwise public).
-          create: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
-            isSystemUserWrite(req) ||
-            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
-          update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
-            isSystemUserWrite(req) ||
-            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
-        },
+const tenantsMembershipArrayField = tenantsArrayField({
+  tenantsArrayFieldName: 'tenants',
+  tenantsArrayTenantFieldName: 'tenant',
+  tenantsCollectionSlug: 'tenants',
+  rowFields: [
+    {
+      name: 'roles',
+      type: 'select',
+      hasMany: true,
+      required: true,
+      defaultValue: ['user'],
+      options: [
+        { label: 'Admin', value: 'admin' },
+        { label: 'Staff', value: 'staff' },
+        { label: 'Location Manager', value: 'location-manager' },
+        { label: 'User', value: 'user' },
+      ],
+      hooks: {
+        // Runs immediately before field validation (after collection beforeChange).
+        // Guests / legacy rows can arrive with empty, duplicate, or `{ value }` roles —
+        // Payload then fails with "Tenants N > Roles". Always coerce to a valid list.
+        beforeChange: [({ value }) => normalizeTenantRoles(value)],
       },
-      {
-        name: 'locations',
-        type: 'relationship',
-        relationTo: 'locations',
-        hasMany: true,
-        required: false,
-        admin: {
-          description:
-            'Branches this staff / location-manager can access. Leave empty for all locations. Hidden when the row includes Admin (admins always get all locations).',
-          condition: (_data, siblingData) => {
-            const roles = Array.isArray((siblingData as { roles?: unknown })?.roles)
-              ? ((siblingData as { roles: unknown[] }).roles as string[])
-              : []
-            if (roles.includes('admin')) return false
-            return roles.includes('staff') || roles.includes('location-manager')
-          },
-        },
-        access: {
-          create: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
-            isSystemUserWrite(req) ||
-            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
-          update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
-            isSystemUserWrite(req) ||
-            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
-        },
-        filterOptions: ({ siblingData }) => {
-          const tenant = (siblingData as { tenant?: unknown } | undefined)?.tenant
-          const tid =
-            tenant && typeof tenant === 'object' && tenant !== null && 'id' in tenant
-              ? (tenant as { id: unknown }).id
-              : tenant
-          if (tid == null || tid === '') return false
-          return { tenant: { equals: tid } }
-        },
+      access: {
+        // Admins / tenant-admins in the panel; system Local API via explicit context flag.
+        // Never open to anonymous HTTP (Users.create is otherwise public).
+        create: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+          isSystemUserWrite(req) ||
+          Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+        update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+          isSystemUserWrite(req) ||
+          Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
       },
-    ],
-    arrayFieldAccess: {
-      read: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
-        isSystemUserWrite(req) ||
-        Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
-      update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
-        isSystemUserWrite(req) ||
-        Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
     },
-  }),
+    {
+      name: 'locations',
+      type: 'relationship',
+      relationTo: 'locations',
+      hasMany: true,
+      required: false,
+      admin: {
+        description:
+          'Branches this staff / location-manager can access. Leave empty for all locations. Hidden when the row includes Admin (admins always get all locations).',
+        condition: (_data, siblingData) => {
+          const roles = Array.isArray((siblingData as { roles?: unknown })?.roles)
+            ? ((siblingData as { roles: unknown[] }).roles as string[])
+            : []
+          if (roles.includes('admin')) return false
+          return roles.includes('staff') || roles.includes('location-manager')
+        },
+      },
+      access: {
+        create: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+          isSystemUserWrite(req) ||
+          Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+        update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+          isSystemUserWrite(req) ||
+          Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+      },
+      filterOptions: ({ siblingData }) => {
+        const tenant = (siblingData as { tenant?: unknown } | undefined)?.tenant
+        const tid =
+          tenant && typeof tenant === 'object' && tenant !== null && 'id' in tenant
+            ? (tenant as { id: unknown }).id
+            : tenant
+        if (tid == null || tid === '') return false
+        return { tenant: { equals: tid } }
+      },
+    },
+  ],
+  arrayFieldAccess: {
+    read: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+      isSystemUserWrite(req) ||
+      Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+    update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+      isSystemUserWrite(req) ||
+      Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+  },
+})
+
+{
+  const tenantRel = tenantsMembershipArrayField.fields.find(
+    (f) => 'name' in f && f.name === 'tenant',
+  )
+  if (tenantRel && tenantRel.type === 'relationship') {
+    // Default ArrayField (super-admin) + relationship validation: tenant-admins may only
+    // pick orgs they admin — not every tenant they happen to be a member of.
+    tenantRel.filterOptions = async ({ req }) => {
+      const user = req?.user
+      if (!user) return false
+      if (isAdmin(user)) return true
+      if (!isTenantAdmin(user)) return false
+      const tenantIds = await resolveOrgAdminTenantIds({
+        user,
+        payload: req.payload,
+        context: req.context as Record<string, unknown> | undefined,
+      })
+      if (tenantIds.length === 0) return false
+      return { id: { in: tenantIds } }
+    }
+  }
+}
+
+const tenantsMembershipField = {
+  ...tenantsMembershipArrayField,
   validate: (value: unknown) => {
     if (!Array.isArray(value)) return true
     const ids = (value as { tenant?: unknown }[]).map((entry) => {
@@ -217,7 +242,7 @@ If you did not request this, you can ignore this email.`
         const tenants = (data as Record<string, unknown>).tenants
         if (!Array.isArray(tenants)) return data
 
-        const adminTenantIds = await resolveTenantAdminTenantIds({
+        const adminTenantIds = await resolveOrgAdminTenantIds({
           user: req.user,
           payload: req.payload,
           context: req.context as Record<string, unknown> | undefined,
@@ -243,9 +268,9 @@ If you did not request this, you can ignore this email.`
         // Do NOT use isTenantAdmin(req.user) as a gate here: session/JWT users and users
         // created via the Local API with overrideAccess:true may have their `role` field
         // stripped by field-level access control (fixBetterAuthRoleField plugin). Instead,
-        // let resolveTenantAdminTenantIds be the single source of truth — it loads the full
+        // let resolveOrgAdminTenantIds be the single source of truth — it loads the full
         // user doc from DB (with overrideAccess:true) and checks tenants[n].roles directly.
-        const adminTenantIds = await resolveTenantAdminTenantIds({
+        const adminTenantIds = await resolveOrgAdminTenantIds({
           user: req.user,
           payload: req.payload,
           context: req.context as Record<string, unknown> | undefined,
@@ -416,7 +441,7 @@ If you did not request this, you can ignore this email.`
             )
 
             if (isActualEscalation) {
-              const grantingAdminTenantIds = await resolveTenantAdminTenantIds({
+              const grantingAdminTenantIds = await resolveOrgAdminTenantIds({
                 user: req.user,
                 payload: req.payload,
                 context: req.context as Record<string, unknown> | undefined,
@@ -484,11 +509,11 @@ If you did not request this, you can ignore this email.`
         // We do NOT gate this on isTenantAdmin(req.user): the `role` field may be stripped
         // from the session user by field-level access control (fixBetterAuthRoleField plugin),
         // making isTenantAdmin return false even for legitimate tenant admins. Instead we call
-        // resolveTenantAdminTenantIds unconditionally and only apply the guard when it returns
+        // resolveOrgAdminTenantIds unconditionally and only apply the guard when it returns
         // a non-empty list (it loads the full user from DB and checks tenants[n].roles).
         if (req.user && !isAdmin(req.user) &&
             (data as Record<string, unknown>).tenants !== undefined) {
-          const grantingAdminTenantIds = await resolveTenantAdminTenantIds({
+          const grantingAdminTenantIds = await resolveOrgAdminTenantIds({
             user: req.user,
             payload: req.payload,
             context: req.context as Record<string, unknown> | undefined,
@@ -653,6 +678,7 @@ If you did not request this, you can ignore this email.`
         description:
           'The tenant this user originally registered with (based on domain / subdomain).',
         condition: superAdminOnlyAdminCondition,
+        disableListColumn: true,
       },
       // Note: Field-level access control can only return boolean values.
       // The relationship dropdown is automatically filtered by the Tenants collection's read access control.
