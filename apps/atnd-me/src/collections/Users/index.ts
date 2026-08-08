@@ -140,7 +140,9 @@ const tenantsMembershipArrayField = tenantsArrayField({
     // pick orgs they admin — not every tenant they happen to be a member of.
     tenantRel.filterOptions = async ({ req }) => {
       const user = req?.user
-      if (!user) return false
+      // Local API / system writes often omit req.user; allow (anonymous REST still has
+      // tenants stripped in sanitizeUserTenantsAndRolesForWrite).
+      if (!user) return true
       if (isAdmin(user)) return true
       if (!isTenantAdmin(user)) return false
       const tenantIds = await resolveOrgAdminTenantIds({
