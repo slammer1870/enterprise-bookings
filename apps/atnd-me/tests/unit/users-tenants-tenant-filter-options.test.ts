@@ -37,7 +37,7 @@ describe('usersTenantsTenantFilterOptions', () => {
     expect(resolveOrgAdminTenantIds).not.toHaveBeenCalled()
   })
 
-  it('scopes org admins to tenants they administer (not every membership)', async () => {
+  it('returns true for org admins so merged foreign IDs pass relationship validation', async () => {
     resolveOrgAdminTenantIds.mockResolvedValue([10])
 
     const result = await usersTenantsTenantFilterOptions({
@@ -55,26 +55,29 @@ describe('usersTenantsTenantFilterOptions', () => {
       } as any,
     })
 
-    expect(result).toEqual({ id: { in: [10] } })
+    expect(result).toBe(true)
     expect(getTenantMembershipIdsFromUserDoc).not.toHaveBeenCalled()
   })
 
-  it('does not return true for org admins (prevents foreign tenant assignment)', async () => {
-    resolveOrgAdminTenantIds.mockResolvedValue([10])
+  it('scopes non-admins to their memberships', async () => {
+    resolveOrgAdminTenantIds.mockResolvedValue([])
+    getTenantMembershipIdsFromUserDoc.mockReturnValue([10, 20])
 
     const result = await usersTenantsTenantFilterOptions({
       req: {
         user: {
           id: 3,
           role: ['user'],
-          tenants: [{ tenant: 10, roles: ['admin'] }],
+          tenants: [
+            { tenant: 10, roles: ['user'] },
+            { tenant: 20, roles: ['user'] },
+          ],
         },
         payload: {},
         context: {},
       } as any,
     })
 
-    expect(result).not.toBe(true)
-    expect(result).toEqual({ id: { in: [10] } })
+    expect(result).toEqual({ id: { in: [10, 20] } })
   })
 })

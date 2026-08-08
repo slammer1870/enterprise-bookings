@@ -139,9 +139,9 @@ const tenantsMembershipArrayField = tenantsArrayField({
     (f) => 'name' in f && f.name === 'tenant',
   )
   if (tenantRel && tenantRel.type === 'relationship') {
-    // Org admins: only orgs they administer. Do not return `true` — that lets the
-    // relationship picker / validation accept foreign tenant IDs. Foreign rows on
-    // shared users are stripped beforeValidate and merged back in beforeChange.
+    // Org admins: filterOptions returns true for relationship validation because
+    // beforeChange re-merges foreign DB rows before field validate runs. The picker
+    // is scoped by Tenants.read → resolveOrgAdminTenantIds.
     tenantRel.filterOptions = usersTenantsTenantFilterOptions
   }
 }
@@ -472,9 +472,9 @@ If you did not request this, you can ignore this email.`
         // Foreign entries and omitted own-tenant entries (dual-admin partial forms) are
         // preserved from DB; injected foreign entries are stripped.
         //
-        // Relationship validation only accepts orgs the admin administers
-        // (`usersTenantsTenantFilterOptions`); foreign rows are stripped beforeValidate
-        // and merged back here from the DB.
+        // Foreign rows are stripped in beforeValidate for the form, then merged back
+        // here from the DB before field validation — so tenant filterOptions stays open
+        // for org admins while Tenants.read keeps the picker scoped.
         //
         // We do NOT gate this on isTenantAdmin(req.user): the `role` field may be stripped
         // from the session user by field-level access control (fixBetterAuthRoleField plugin),

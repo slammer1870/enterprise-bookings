@@ -21,7 +21,7 @@ describe('validateTenantsMembershipArray', () => {
     vi.clearAllMocks()
   })
 
-  it('rejects duplicate tenants', async () => {
+  it('rejects duplicate tenants for super-admins', async () => {
     const result = await validateTenantsMembershipArray(
       [{ tenant: 1 }, { tenant: 1 }],
       { req: { user: { role: ['super-admin'] }, payload: {}, context: {} } as any },
@@ -38,7 +38,7 @@ describe('validateTenantsMembershipArray', () => {
     expect(resolveOrgAdminTenantIds).not.toHaveBeenCalled()
   })
 
-  it('rejects more rows than the org admin administers', async () => {
+  it('rejects more editable rows than the org admin administers', async () => {
     resolveOrgAdminTenantIds.mockResolvedValue([10])
 
     const result = await validateTenantsMembershipArray(
@@ -55,18 +55,24 @@ describe('validateTenantsMembershipArray', () => {
     expect(result).toMatch(/up to 1 tenant/)
   })
 
-  it('rejects tenants outside the org admin set', async () => {
+  it('ignores foreign rows re-merged from DB when applying the cap', async () => {
     resolveOrgAdminTenantIds.mockResolvedValue([10])
 
-    const result = await validateTenantsMembershipArray([{ tenant: 20 }], {
-      req: {
-        user: { id: 1, role: ['admin'], tenants: [{ tenant: 10, roles: ['admin'] }] },
-        payload: {},
-        context: {},
-      } as any,
-    })
+    const result = await validateTenantsMembershipArray(
+      [
+        { tenant: 10, roles: ['staff'] },
+        { tenant: 20, roles: ['user'] }, // foreign — preserved by beforeChange merge
+      ],
+      {
+        req: {
+          user: { id: 1, role: ['admin'], tenants: [{ tenant: 10, roles: ['admin'] }] },
+          payload: {},
+          context: {},
+        } as any,
+      },
+    )
 
-    expect(result).toBe('You can only assign tenants you administer.')
+    expect(result).toBe(true)
   })
 
   it('allows assigning exactly the admin’s own tenants', async () => {

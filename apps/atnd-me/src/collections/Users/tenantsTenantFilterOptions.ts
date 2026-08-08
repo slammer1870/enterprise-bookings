@@ -10,13 +10,13 @@ import { isAdmin } from '@/access/userTenantAccess'
 /**
  * `users.tenants[].tenant` relationship filterOptions.
  *
- * Org admins may only pick tenants they administer (not every membership).
- * Returning `true` for tenant admins previously allowed the relationship picker /
- * validation path to accept foreign tenant IDs when collection read was open or
- * the session omitted a derived global `admin` role.
+ * Org admins: return `true` so field validation can accept foreign tenant IDs that
+ * collection `beforeChange` re-merges from the DB (after beforeValidate strips them
+ * for the form). The admin UI picker is scoped by `Tenants.read` →
+ * `resolveOrgAdminTenantIds`, not by this filterOptions result.
  *
- * Cross-tenant user edits still work: afterRead + beforeValidate strip foreign
- * rows before validation; beforeChange merges them back from the DB.
+ * Injected foreign memberships that are not already on the target user are still
+ * dropped by strip + mergeTenantEntriesForAdmin.
  */
 export async function usersTenantsTenantFilterOptions({
   req,
@@ -34,9 +34,8 @@ export async function usersTenantsTenantFilterOptions({
     payload: req.payload,
     context: req.context as Record<string, unknown> | undefined,
   })
-  if (orgAdminIds.length > 0) {
-    return { id: { in: orgAdminIds } }
-  }
+  // Org admin: open relationship validation (picker uses Tenants.read).
+  if (orgAdminIds.length > 0) return true
 
   // Non-admins (location-manager / staff / user): only their memberships, so
   // profile updates don't 400 on existing tenants[] rows.
