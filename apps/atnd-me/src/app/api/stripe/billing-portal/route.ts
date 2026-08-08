@@ -27,6 +27,9 @@ export async function POST(request: NextRequest) {
   const payload = await getPayload()
   const authResult = await payload.auth({ headers: request.headers })
   const user = authResult?.user ?? null
+  // Prefer host / tenant-slug / custom domain — not only payload-tenant.
+  // Public frontend middleware often skips setting payload-tenant (cold private windows),
+  // so cookie-only resolution returns "No tenant context" while the user is clearly on a tenant site.
   const tenantContext = await getTenantContext(payload, {
     cookies: request.cookies,
     headers: request.headers,
@@ -44,16 +47,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid user' }, { status: 400 })
   }
 
-  const tenantCookie = request.cookies.get('payload-tenant')?.value
-  const tenantId = tenantCookie && /^\d+$/.test(tenantCookie) ? parseInt(tenantCookie, 10) : null
-  if (tenantId == null) {
+  if (!tenantContext?.id) {
     return NextResponse.json({ error: 'No tenant context' }, { status: 400 })
   }
 
   const tenant = await payload
     .findByID({
       collection: 'tenants',
-      id: tenantId,
+      id: tenantContext.id,
       depth: 0,
       overrideAccess: true,
       select: { stripeConnectAccountId: true, stripeConnectOnboardingStatus: true } as any,

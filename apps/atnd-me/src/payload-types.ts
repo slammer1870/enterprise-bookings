@@ -797,7 +797,7 @@ export interface User {
    */
   onboardingPasswordSetAt?: string | null;
   /**
-   * Tenant memberships and per-tenant roles. Locations appear for Staff / Location Manager rows (empty = all locations).
+   * Tenant memberships and per-tenant roles. Org admins can only assign tenants they administer (same count as their own). Locations appear for Staff / Location Manager rows (empty = all locations).
    */
   tenants?:
     | {
