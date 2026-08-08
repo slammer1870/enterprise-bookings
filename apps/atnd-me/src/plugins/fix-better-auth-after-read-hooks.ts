@@ -1,4 +1,9 @@
-import type { CollectionConfig, Config, Plugin } from 'payload'
+import type {
+  CollectionBeforeValidateHook,
+  CollectionConfig,
+  Config,
+  Plugin,
+} from 'payload'
 
 import { isAdmin } from '@/access/userTenantAccess'
 import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
@@ -56,6 +61,12 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       return filterTenantsForTenantAdmin({ doc, adminTenantIds })
     }
 
+    const stripForeignTenantsHook: CollectionBeforeValidateHook = async ({ data, req }) =>
+      stripForeignTenantsBeforeValidate({
+        data: data as Record<string, unknown> | null | undefined,
+        req,
+      })
+
     const patched: CollectionConfig = {
       ...usersCollection,
       hooks: {
@@ -71,12 +82,7 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
         ],
         beforeValidate: [
           ...(usersCollection.hooks?.beforeValidate ?? []),
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (async ({ data, req }) =>
-            stripForeignTenantsBeforeValidate({
-              data: data as Record<string, unknown> | null | undefined,
-              req,
-            })) as any,
+          stripForeignTenantsHook,
         ],
         afterRead: [
           ...(usersCollection.hooks?.afterRead ?? []),
