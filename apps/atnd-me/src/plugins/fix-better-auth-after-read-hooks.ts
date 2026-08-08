@@ -3,17 +3,18 @@ import type { CollectionConfig, Config, Plugin } from 'payload'
 import { isAdmin } from '@/access/userTenantAccess'
 import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
+import { assertAnonymousUserCreateRateLimit } from '@/collections/Users/sanitizeUserWrite'
+import { stripForeignTenantsBeforeValidate } from '@/collections/Users/stripForeignTenantsBeforeValidate'
 
 /**
- * Restores the Users collection `afterRead` hook that is silently dropped by the
- * payload-auth (Better Auth) plugin.
+ * Restores Users collection hooks silently dropped by the payload-auth (Better Auth) plugin.
  *
  * Why: Better Auth rebuilds the Users collection hooks object and only re-merges
  * `beforeChange`, `afterChange`, `beforeLogin`, `afterLogin`, `afterLogout`, and
- * `beforeDelete`. Any `afterRead` hooks defined on the Users collection are lost.
+ * `beforeDelete`. Hooks such as `afterRead`, `beforeValidate`, and `beforeOperation`
+ * defined on the Users collection are lost.
  *
- * This plugin runs after Better Auth and appends the tenant-privacy afterRead hook
- * directly onto the final collection config so it always executes.
+ * This plugin runs after Better Auth and re-attaches the missing hooks.
  */
 export const fixBetterAuthAfterReadHooks = (): Plugin =>
   (incomingConfig: Config): Config => {
@@ -30,7 +31,11 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       req,
     }: {
       doc: Record<string, unknown>
-      req: { user?: unknown; payload: { findByID: unknown; find: unknown; [key: string]: unknown }; context?: Record<string, unknown> | undefined }
+      req: {
+        user?: unknown
+        payload: { findByID: unknown; find: unknown; [key: string]: unknown }
+        context?: Record<string, unknown> | undefined
+      }
     }): Promise<Record<string, unknown>> => {
       if (!req.user) return doc
       if (isAdmin(req.user)) return doc // super-admin: see everything
@@ -55,6 +60,24 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       ...usersCollection,
       hooks: {
         ...usersCollection.hooks,
+        beforeOperation: [
+          ...(usersCollection.hooks?.beforeOperation ?? []),
+          async ({ args, operation, req }) => {
+            if (operation === 'create') {
+              assertAnonymousUserCreateRateLimit(req)
+            }
+            return args
+          },
+        ],
+        beforeValidate: [
+          ...(usersCollection.hooks?.beforeValidate ?? []),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (async ({ data, req }) =>
+            stripForeignTenantsBeforeValidate({
+              data: data as Record<string, unknown> | null | undefined,
+              req,
+            })) as any,
+        ],
         afterRead: [
           ...(usersCollection.hooks?.afterRead ?? []),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

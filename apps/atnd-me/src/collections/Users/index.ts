@@ -40,6 +40,7 @@ import {
   normalizeTenantRoles,
   sanitizeUserTenantsAndRolesForWrite,
 } from './sanitizeUserWrite'
+import { stripForeignTenantsBeforeValidate } from './stripForeignTenantsBeforeValidate'
 import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
@@ -144,14 +145,32 @@ const tenantsMembershipArrayField = tenantsArrayField({
       // tenants stripped in sanitizeUserTenantsAndRolesForWrite).
       if (!user) return true
       if (isAdmin(user)) return true
-      if (!isTenantAdmin(user)) return false
-      const tenantIds = await resolveOrgAdminTenantIds({
-        user,
-        payload: req.payload,
-        context: req.context as Record<string, unknown> | undefined,
-      })
-      if (tenantIds.length === 0) return false
-      return { id: { in: tenantIds } }
+      // Tenant admins: allow any tenant ID through relationship validation.
+      // beforeChange merges preserve foreign memberships on the target user; those IDs
+      // must pass validation even though Tenants.read is scoped (picker uses /api/tenants).
+      if (isTenantAdmin(user)) return true
+
+      // Non-admins (location-manager / staff / user): only their memberships, so
+      // profile updates don't 400 on existing tenants[] rows.
+      let membershipIds = getTenantMembershipIdsFromUserDoc(user)
+      if (membershipIds.length === 0) {
+        const idRaw =
+          typeof user === 'object' && user !== null && 'id' in user
+            ? (user as { id: unknown }).id
+            : null
+        const userId =
+          typeof idRaw === 'number'
+            ? idRaw
+            : typeof idRaw === 'string'
+              ? parseInt(idRaw, 10)
+              : NaN
+        if (Number.isFinite(userId)) {
+          const fullUser = await loadUserDocForTenantMembership(req.payload, userId)
+          membershipIds = fullUser ? getTenantMembershipIdsFromUserDoc(fullUser) : []
+        }
+      }
+      if (membershipIds.length === 0) return false
+      return { id: { in: membershipIds } }
     }
   }
 }
@@ -227,37 +246,14 @@ If you did not request this, you can ignore this email.`
       },
     ],
     beforeValidate: [
-      // Strip foreign tenant entries from submitted data before Payload runs relationship
-      // validation. Without this, a tenant admin who sees cross-tenant entries in the form
-      // (e.g. when form-state is built from a cached/partial load) would get a 400
-      // "invalid relationships" error because Payload validates each `tenant` relationship
-      // value against the requesting user's read access, and the admin can't read foreign
-      // tenant documents.
-      //
-      // The beforeChange hook below will merge the stripped entries back from the DB after
-      // validation passes, so no data is lost.
-      async ({ data, req }) => {
-        if (!data) return data
-        if (!req.user || isAdmin(req.user)) return data
-        if (!isTenantAdmin(req.user)) return data
-
-        const tenants = (data as Record<string, unknown>).tenants
-        if (!Array.isArray(tenants)) return data
-
-        const adminTenantIds = await resolveOrgAdminTenantIds({
-          user: req.user,
-          payload: req.payload,
-          context: req.context as Record<string, unknown> | undefined,
-        })
-        if (adminTenantIds.length === 0) return data
-
-        ;(data as Record<string, unknown>).tenants = tenants.filter((e) => {
-          const tid = extractTenantId((e as TenantEntry)?.tenant)
-          return tid != null && adminTenantIds.includes(tid)
-        })
-
-        return data
-      },
+      // Strip foreign tenant entries before relationship validation.
+      // NOTE: payload-auth drops `beforeValidate` — also re-attached in
+      // `fixBetterAuthUsersHooks` (see plugins/fix-better-auth-after-read-hooks.ts).
+      async ({ data, req }) =>
+        stripForeignTenantsBeforeValidate({
+          data: data as Record<string, unknown> | null | undefined,
+          req,
+        }),
     ],
     afterRead: [
       // Filter tenants[] and registrationTenant to only entries the requesting user controls.
@@ -504,9 +500,9 @@ If you did not request this, you can ignore this email.`
         // Tenants write guard: tenant admins can only modify their own tenant entries.
         // Foreign entries are preserved from DB; injected foreign entries are stripped.
         //
-        // The Tenants collection `read` access returns `true` for all authenticated admins so
-        // Payload's field-level relationship validation (which uses `find`) accepts the foreign
-        // tenant IDs in the merged result without a 400 error.
+        // Relationship validation accepts merged foreign IDs because `tenants.tenant`
+        // filterOptions returns true for tenant admins (Tenants.read stays scoped so
+        // /api/tenants does not enumerate the platform).
         //
         // We do NOT gate this on isTenantAdmin(req.user): the `role` field may be stripped
         // from the session user by field-level access control (fixBetterAuthRoleField plugin),

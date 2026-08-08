@@ -99,7 +99,8 @@ export const Tenants: CollectionConfig = {
       } = args
       // No anonymous / unauthenticated listing. Public site + middleware resolve tenants
       // via trusted Local API (`overrideAccess: true`), not open REST read.
-      if (!user) return false
+      // Return an empty constraint (not `false`) so finds resolve to [] instead of Forbidden.
+      if (!user) return { id: { in: [] } }
 
       if (checkRole(['super-admin'], user as unknown as SharedUser)) {
         return true
@@ -113,7 +114,7 @@ export const Tenants: CollectionConfig = {
           payload,
           context: context as Record<string, unknown> | undefined,
         })
-        if (tenantIds.length === 0) return false
+        if (tenantIds.length === 0) return { id: { in: [] } }
         return { id: { in: tenantIds } }
       }
 
@@ -135,7 +136,7 @@ export const Tenants: CollectionConfig = {
           membershipIds = fullUser ? getTenantMembershipIdsFromUserDoc(fullUser) : []
         }
       }
-      if (membershipIds.length === 0) return false
+      if (membershipIds.length === 0) return { id: { in: [] } }
       return { id: { in: membershipIds } }
     },
     create: (args) => {

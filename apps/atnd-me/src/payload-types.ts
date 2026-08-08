@@ -1927,7 +1927,11 @@ export interface TenantScopedScheduleBlock {
     };
   };
   /**
-   * Optional. When set, this tenant’s schedule is shown by default. Visitors can still change the tenant using the dropdown.
+   * Tenants shown in the schedule dropdown. Do not leave this empty if visitors need to switch orgs — the platform no longer exposes every tenant publicly.
+   */
+  tenants?: (number | Tenant)[] | null;
+  /**
+   * Optional. When set, this tenant’s schedule is shown by default. Must also be included in Tenants above (or it is added automatically).
    */
   defaultTenant?: (number | null) | Tenant;
   id?: string | null;
@@ -5701,6 +5705,7 @@ export interface TenantScopedScheduleBlockSelect<T extends boolean = true> {
               foregroundColor?: T;
             };
       };
+  tenants?: T;
   defaultTenant?: T;
   id?: T;
   blockName?: T;
