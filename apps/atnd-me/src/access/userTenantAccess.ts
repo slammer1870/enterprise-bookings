@@ -85,6 +85,38 @@ export function isTenantPortalUser(u: unknown): boolean {
 }
 
 /**
+ * Derived global `role` may still appear on shallow JWT/session users that omit `tenants`.
+ * Never authoritative for org access — only a signal to hydrate memberships from the DB.
+ */
+function hasDerivedPortalRoleHint(u: unknown): boolean {
+  if (checkRole(['admin', 'staff', 'location-manager'], u as SharedUser)) return true
+  const role = (u as { role?: string | string[] })?.role
+  if (Array.isArray(role)) {
+    return role.some((r) => r === 'admin' || r === 'staff' || r === 'location-manager')
+  }
+  return role === 'admin' || role === 'staff' || role === 'location-manager'
+}
+
+function sessionLacksTenantMemberships(u: unknown): boolean {
+  const tenants = (u as { tenants?: unknown })?.tenants
+  return !Array.isArray(tenants) || tenants.length === 0
+}
+
+/**
+ * Shallow sessions often have derived global role but no `tenants` array.
+ * Load memberships, then apply tenants[n].roles as the source of truth.
+ */
+async function resolveUserWithTenantMemberships(
+  user: unknown,
+  payload: Payload,
+): Promise<unknown> {
+  if (!sessionLacksTenantMemberships(user)) return user
+  if (!hasDerivedPortalRoleHint(user)) return user
+  const full = await getTenantPortalUserWithTenants(user, payload)
+  return full ?? user
+}
+
+/**
  * Payload `access.admin`: show the collection in the admin sidebar.
  * Excludes staff-only users (org `admin` / platform `super-admin` only) for a minimal staff dashboard.
  */
@@ -108,15 +140,19 @@ export const usersPayloadAdminAccess = async ({ req }: AccessArgs): Promise<bool
   // Platform super-admins always have full admin panel access.
   if (isAdmin(user)) return true
 
+  const accessUser = await resolveUserWithTenantMemberships(user, req.payload)
+
   // On the base domain (no tenant subdomain) allow any admin / staff / location-manager.
   const tenantSlug = getTenantSlugFromHost(req.headers)
   if (!tenantSlug) {
-    return isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
+    return (
+      isTenantAdmin(accessUser) || isStaff(accessUser) || isLocationManager(accessUser)
+    )
   }
 
   // On a tenant subdomain: the user must hold admin / staff / location-manager for THIS
   // specific tenant — otherwise Payload shows /admin/unauthorized.
-  const adminTenantIds = getUserTenantIDs(user, ['admin', 'staff', 'location-manager'])
+  const adminTenantIds = getUserTenantIDs(accessUser, ['admin', 'staff', 'location-manager'])
   if (adminTenantIds.length === 0) return false
 
   try {
@@ -132,7 +168,9 @@ export const usersPayloadAdminAccess = async ({ req }: AccessArgs): Promise<bool
     return adminTenantIds.includes(tenantId as number)
   } catch {
     // Fail open if the DB is temporarily unavailable so legitimate admins aren't locked out.
-    return isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
+    return (
+      isTenantAdmin(accessUser) || isStaff(accessUser) || isLocationManager(accessUser)
+    )
   }
 }
 
@@ -251,12 +289,18 @@ export const userTenantRead: Access = async ({ req }) => {
     return true
   }
 
-  if (isTenantPortalUser(user)) {
-    let tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    let fullUser: SharedUser | null = null
+  // Hydrate when session has derived global role but omits `tenants` (Better Auth shallow user).
+  const accessUser = await resolveUserWithTenantMemberships(user, payload)
+
+  if (isTenantPortalUser(accessUser)) {
+    let tenantIds = getUserTenantIds(accessUser as unknown as SharedUser)
+    let fullUser: SharedUser | null =
+      accessUser !== user && accessUser && typeof accessUser === 'object'
+        ? (accessUser as SharedUser)
+        : null
     // Session user may not have tenants populated; fetch full user so we can resolve tenant IDs
     if (tenantIds !== null && tenantIds.length === 0) {
-      fullUser = await getTenantPortalUserWithTenants(user, payload)
+      fullUser = fullUser ?? (await getTenantPortalUserWithTenants(user, payload))
       if (fullUser) {
         tenantIds = getUserTenantIds(fullUser)
         if (tenantIds === null && !isAdmin(user)) {
@@ -266,7 +310,7 @@ export const userTenantRead: Access = async ({ req }) => {
     }
     // Fallback: tenants relation may be empty from join table; use registrationTenant
     if (tenantIds !== null && tenantIds.length === 0) {
-      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? user
+      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? accessUser
       const reg = (u as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
       const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
       if (typeof tid === 'number') tenantIds = [tid]
@@ -317,24 +361,30 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
   const { user, payload } = req
   if (!user) return false
 
+  if (isAdmin(user)) {
+    return true
+  }
+
+  // Hydrate when session has derived global role but omits `tenants` (Better Auth shallow user).
+  const accessUser = await resolveUserWithTenantMemberships(user, payload)
+
   // Staff and site managers are not tenant-portal updaters of other users, but may edit
   // their own profile. `tenants[]` / locations remain protected by field-level access.
-  if (isStaffOnlyUser(user) || isPureLocationManager(user)) {
+  if (isStaffOnlyUser(accessUser) || isPureLocationManager(accessUser)) {
     const updateUserId = toUserId(user)
     if (updateUserId == null) return false
     const targetId = typeof id === 'number' ? id : typeof id === 'string' ? parseInt(id, 10) : null
     return targetId != null && targetId === updateUserId
   }
 
-  if (isAdmin(user)) {
-    return true
-  }
-
-  if (isTenantPortalUser(user)) {
-    let tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    let fullUser: SharedUser | null = null
+  if (isTenantPortalUser(accessUser)) {
+    let tenantIds = getUserTenantIds(accessUser as unknown as SharedUser)
+    let fullUser: SharedUser | null =
+      accessUser !== user && accessUser && typeof accessUser === 'object'
+        ? (accessUser as SharedUser)
+        : null
     if (tenantIds !== null && tenantIds.length === 0) {
-      fullUser = await getTenantPortalUserWithTenants(user, payload)
+      fullUser = fullUser ?? (await getTenantPortalUserWithTenants(user, payload))
       if (fullUser) {
         tenantIds = getUserTenantIds(fullUser)
         if (tenantIds === null && !isAdmin(user)) {
@@ -343,7 +393,7 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
       }
     }
     if (tenantIds !== null && tenantIds.length === 0) {
-      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? user
+      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? accessUser
       const reg = (u as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
       const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
       if (typeof tid === 'number') tenantIds = [tid]
