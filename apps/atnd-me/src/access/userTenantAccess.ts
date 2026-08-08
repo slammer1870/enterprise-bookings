@@ -4,6 +4,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
 import { getPayloadTenantIdFromRequest, getTenantSlugFromHost } from '../utilities/tenantRequest'
+import { isPureLocationManager } from './locationManagerScope'
 import {
   getTenantMembershipIdsFromUserDoc,
   getUserTenantIDs,
@@ -28,7 +29,33 @@ function appendBookingUserOrClauses(
   }
 }
 
-/** Platform super-admin (full system access). */
+/**
+ * Roles on any `tenants[n].roles` row.
+ * Authoritative for org roles (`admin` / `staff` / `location-manager` / `user`).
+ * Global `role` is only for platform `super-admin` (plus a derived JWT cache via
+ * `deriveRoleFromTenants` — never treat that cache as the source of truth here).
+ */
+function tenantMembershipRoles(u: unknown): string[] {
+  if (!u || typeof u !== 'object') return []
+  const tenants = (u as { tenants?: unknown }).tenants
+  if (!Array.isArray(tenants)) return []
+  const out: string[] = []
+  for (const entry of tenants) {
+    if (!entry || typeof entry !== 'object') continue
+    const roles = (entry as { roles?: unknown }).roles
+    if (!Array.isArray(roles)) continue
+    for (const r of roles) {
+      if (typeof r === 'string' && r) out.push(r)
+    }
+  }
+  return out
+}
+
+function hasTenantMembershipRole(u: unknown, roleName: string): boolean {
+  return tenantMembershipRoles(u).includes(roleName)
+}
+
+/** Platform super-admin (full system access). Only global `role` defines this. */
 export function isAdmin(u: unknown): boolean {
   if (checkRole(['super-admin'], u as SharedUser)) return true
   const role = (u as { role?: string | string[] })?.role
@@ -37,36 +64,56 @@ export function isAdmin(u: unknown): boolean {
   return false
 }
 
-/** Tenant organization admin (former tenant-admin). */
+/** Tenant organization admin — from `tenants[n].roles` only. */
 export function isTenantAdmin(u: unknown): boolean {
-  if (checkRole(['admin'], u as SharedUser)) return true
-  const role = (u as { role?: string | string[] })?.role
-  if (Array.isArray(role) && role.includes('admin')) return true
-  if (role === 'admin') return true
-  return false
+  return hasTenantMembershipRole(u, 'admin')
 }
 
-/** Tenant staff: limited operational access (bookings / attendance). */
+/** Tenant staff — from `tenants[n].roles` only. */
 export function isStaff(u: unknown): boolean {
-  if (checkRole(['staff'], u as SharedUser)) return true
-  const role = (u as { role?: string | string[] })?.role
-  if (Array.isArray(role) && role.includes('staff')) return true
-  if (role === 'staff') return true
-  return false
+  return hasTenantMembershipRole(u, 'staff')
 }
 
-/** Branch/site manager: assigned locations only; Payload admin for limited ops (Phase 7+). */
+/** Branch/site manager — from `tenants[n].roles` only. */
 export function isLocationManager(u: unknown): boolean {
-  if (checkRole(['location-manager'], u as SharedUser)) return true
-  const role = (u as { role?: string | string[] })?.role
-  if (Array.isArray(role) && role.includes('location-manager')) return true
-  if (role === 'location-manager') return true
-  return false
+  return hasTenantMembershipRole(u, 'location-manager')
 }
 
 /** Tenant-scoped roles that use the tenant selector / cookie rules (org admin or staff). */
 export function isTenantPortalUser(u: unknown): boolean {
   return isTenantAdmin(u) || isStaff(u)
+}
+
+/**
+ * Derived global `role` may still appear on shallow JWT/session users that omit `tenants`.
+ * Never authoritative for org access — only a signal to hydrate memberships from the DB.
+ */
+function hasDerivedPortalRoleHint(u: unknown): boolean {
+  if (checkRole(['admin', 'staff', 'location-manager'], u as SharedUser)) return true
+  const role = (u as { role?: string | string[] })?.role
+  if (Array.isArray(role)) {
+    return role.some((r) => r === 'admin' || r === 'staff' || r === 'location-manager')
+  }
+  return role === 'admin' || role === 'staff' || role === 'location-manager'
+}
+
+function sessionLacksTenantMemberships(u: unknown): boolean {
+  const tenants = (u as { tenants?: unknown })?.tenants
+  return !Array.isArray(tenants) || tenants.length === 0
+}
+
+/**
+ * Shallow sessions often have derived global role but no `tenants` array.
+ * Load memberships, then apply tenants[n].roles as the source of truth.
+ */
+async function resolveUserWithTenantMemberships(
+  user: unknown,
+  payload: Payload,
+): Promise<unknown> {
+  if (!sessionLacksTenantMemberships(user)) return user
+  if (!hasDerivedPortalRoleHint(user)) return user
+  const full = await getTenantPortalUserWithTenants(user, payload)
+  return full ?? user
 }
 
 /**
@@ -93,15 +140,19 @@ export const usersPayloadAdminAccess = async ({ req }: AccessArgs): Promise<bool
   // Platform super-admins always have full admin panel access.
   if (isAdmin(user)) return true
 
+  const accessUser = await resolveUserWithTenantMemberships(user, req.payload)
+
   // On the base domain (no tenant subdomain) allow any admin / staff / location-manager.
   const tenantSlug = getTenantSlugFromHost(req.headers)
   if (!tenantSlug) {
-    return isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
+    return (
+      isTenantAdmin(accessUser) || isStaff(accessUser) || isLocationManager(accessUser)
+    )
   }
 
   // On a tenant subdomain: the user must hold admin / staff / location-manager for THIS
   // specific tenant — otherwise Payload shows /admin/unauthorized.
-  const adminTenantIds = getUserTenantIDs(user, ['admin', 'staff', 'location-manager'])
+  const adminTenantIds = getUserTenantIDs(accessUser, ['admin', 'staff', 'location-manager'])
   if (adminTenantIds.length === 0) return false
 
   try {
@@ -117,14 +168,26 @@ export const usersPayloadAdminAccess = async ({ req }: AccessArgs): Promise<bool
     return adminTenantIds.includes(tenantId as number)
   } catch {
     // Fail open if the DB is temporarily unavailable so legitimate admins aren't locked out.
-    return isTenantAdmin(user) || isStaff(user) || isLocationManager(user)
+    return (
+      isTenantAdmin(accessUser) || isStaff(accessUser) || isLocationManager(accessUser)
+    )
   }
 }
 
-/** Staff role without org `admin` — operational access only (no CMS / schedule configuration). */
+/**
+ * Staff role without org `admin` — operational access only (no CMS / schedule configuration).
+ * Prefers `tenants[].roles`; falls back to derived global `role` when memberships are omitted
+ * from the session (JWT / shallow admin user).
+ */
 export function isStaffOnlyUser(user: unknown): boolean {
   if (!user) return false
-  return isStaff(user) && !isTenantAdmin(user)
+  if (isAdmin(user) || isTenantAdmin(user)) return false
+  if (isStaff(user)) return true
+  // Derived global role cache (see deriveRoleFromTenants) — never grant org admin via this path.
+  if (checkRole(['staff'], user as SharedUser) && !checkRole(['admin', 'super-admin'], user as SharedUser)) {
+    return true
+  }
+  return false
 }
 
 /**
@@ -236,12 +299,18 @@ export const userTenantRead: Access = async ({ req }) => {
     return true
   }
 
-  if (isTenantPortalUser(user)) {
-    let tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    let fullUser: SharedUser | null = null
+  // Hydrate when session has derived global role but omits `tenants` (Better Auth shallow user).
+  const accessUser = await resolveUserWithTenantMemberships(user, payload)
+
+  if (isTenantPortalUser(accessUser)) {
+    let tenantIds = getUserTenantIds(accessUser as unknown as SharedUser)
+    let fullUser: SharedUser | null =
+      accessUser !== user && accessUser && typeof accessUser === 'object'
+        ? (accessUser as SharedUser)
+        : null
     // Session user may not have tenants populated; fetch full user so we can resolve tenant IDs
     if (tenantIds !== null && tenantIds.length === 0) {
-      fullUser = await getTenantPortalUserWithTenants(user, payload)
+      fullUser = fullUser ?? (await getTenantPortalUserWithTenants(user, payload))
       if (fullUser) {
         tenantIds = getUserTenantIds(fullUser)
         if (tenantIds === null && !isAdmin(user)) {
@@ -251,7 +320,7 @@ export const userTenantRead: Access = async ({ req }) => {
     }
     // Fallback: tenants relation may be empty from join table; use registrationTenant
     if (tenantIds !== null && tenantIds.length === 0) {
-      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? user
+      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? accessUser
       const reg = (u as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
       const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
       if (typeof tid === 'number') tenantIds = [tid]
@@ -294,26 +363,38 @@ export const userTenantRead: Access = async ({ req }) => {
  * User update access for multi-tenant apps.
  *
  * - Super admin: can update any user
- * - Tenant admin / staff: can only update users for their domain(s) (same scoping as read)
+ * - Tenant admin: can only update users for their domain(s) (same scoping as read)
+ * - Staff / pure location-manager: self only (membership/locations stay field-access locked)
  * - Regular user: can only update themselves
  */
 export const userTenantUpdate: Access = async ({ req, id }) => {
   const { user, payload } = req
   if (!user) return false
 
-  if (isStaffOnlyUser(user)) {
-    return false
-  }
-
   if (isAdmin(user)) {
     return true
   }
 
-  if (isTenantPortalUser(user)) {
-    let tenantIds = getUserTenantIds(user as unknown as SharedUser)
-    let fullUser: SharedUser | null = null
+  // Hydrate when session has derived global role but omits `tenants` (Better Auth shallow user).
+  const accessUser = await resolveUserWithTenantMemberships(user, payload)
+
+  // Staff and site managers are not tenant-portal updaters of other users, but may edit
+  // their own profile. `tenants[]` / locations remain protected by field-level access.
+  if (isStaffOnlyUser(accessUser) || isPureLocationManager(accessUser)) {
+    const updateUserId = toUserId(user)
+    if (updateUserId == null) return false
+    const targetId = typeof id === 'number' ? id : typeof id === 'string' ? parseInt(id, 10) : null
+    return targetId != null && targetId === updateUserId
+  }
+
+  if (isTenantPortalUser(accessUser)) {
+    let tenantIds = getUserTenantIds(accessUser as unknown as SharedUser)
+    let fullUser: SharedUser | null =
+      accessUser !== user && accessUser && typeof accessUser === 'object'
+        ? (accessUser as SharedUser)
+        : null
     if (tenantIds !== null && tenantIds.length === 0) {
-      fullUser = await getTenantPortalUserWithTenants(user, payload)
+      fullUser = fullUser ?? (await getTenantPortalUserWithTenants(user, payload))
       if (fullUser) {
         tenantIds = getUserTenantIds(fullUser)
         if (tenantIds === null && !isAdmin(user)) {
@@ -322,7 +403,7 @@ export const userTenantUpdate: Access = async ({ req, id }) => {
       }
     }
     if (tenantIds !== null && tenantIds.length === 0) {
-      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? user
+      const u = fullUser ?? (await getTenantPortalUserWithTenants(user, payload)) ?? accessUser
       const reg = (u as unknown as { registrationTenant?: number | { id: number } }).registrationTenant
       const tid = typeof reg === 'object' && reg !== null && 'id' in reg ? reg.id : reg
       if (typeof tid === 'number') tenantIds = [tid]

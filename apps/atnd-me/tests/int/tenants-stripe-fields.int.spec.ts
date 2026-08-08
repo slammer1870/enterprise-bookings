@@ -74,6 +74,8 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
         password: 'test',
         role: ['user'],
         emailVerified: true,
+        // Membership required to read the tenant (platform enumeration is denied).
+        tenants: [{ tenant: testTenantId, roles: ['user'] }],
       },
       draft: false,
       overrideAccess: true,
@@ -257,7 +259,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
   )
 
   it(
-    'regular users (and public read) do not see Stripe fields',
+    'regular members do not see Stripe fields; public cannot read tenants',
     async () => {
       const foundAsRegular = await payload.findByID({
         collection: 'tenants',
@@ -277,11 +279,7 @@ describe('Tenants collection – Stripe Connect fields (step 2.1)', () => {
         limit: 1,
         overrideAccess: false,
       })
-      const doc = foundPublic.docs[0] as TenantWithStripe | undefined
-      expect(doc).toBeDefined()
-      expect(doc?.slug).toBeDefined()
-      expect(doc?.stripeConnectAccountId).toBeUndefined()
-      expect(doc?.stripeConnectLastError).toBeUndefined()
+      expect(foundPublic.docs.length).toBe(0)
     },
     TEST_TIMEOUT,
   )

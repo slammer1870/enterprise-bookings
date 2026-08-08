@@ -123,6 +123,7 @@ export const defaultBlockSlugs: string[] = [
   'tenantScopedSchedule', // Root home page: filter schedule by tenant
   'content',
   'cta',
+  'formBlock',
   'giftVoucherCheckout',
   'emergencyContactForm',
   'event',

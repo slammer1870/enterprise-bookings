@@ -998,9 +998,7 @@ describe('User Tenant Access Control', () => {
     // -------------------------------------------------------------------------
     // Regression: cross-tenant user privacy + save bugs
     // Fixed by:
-    //   1. Tenants collection read access allowing findByID for any admin
-    //      (prevents 403 during Payload depth-1 relationship population, which
-    //      was killing the form-state builder before afterRead could filter).
+    //   1. Tenants read scoped to orgs the admin administers (no org enumeration).
     //   2. afterRead hook filtering the tenants array to only the admin's entries.
     //   3. beforeValidate hook stripping foreign tenant entries before Payload
     //      validates relationship fields (prevents 400 "invalid relationships").
@@ -1144,31 +1142,43 @@ describe('User Tenant Access Control', () => {
       )
     })
 
-    describe('Tenants collection read access (regression: admin read access)', () => {
+    describe('Tenants collection read access (scoped to orgs they admin)', () => {
       it(
-        'tenant admin can read any tenant by ID (required for Payload relationship population, avoids 403 on form-state build)',
+        'tenant admin can read a tenant they admin by ID',
         async () => {
-          // Before the fix, findByID for a tenant outside the admin's scope would return
-          // a 403, killing Payload's form-state builder before afterRead could filter.
           const result = await payload.findByID({
             collection: 'tenants',
-            id: secondTenant.id, // a tenant the admin does NOT belong to
+            id: testTenant.id,
             user: tenantAdminUser,
             overrideAccess: false,
           })
 
           expect(result).toBeDefined()
-          expect(result.id).toBe(secondTenant.id)
+          expect(result.id).toBe(testTenant.id)
         },
         TEST_TIMEOUT,
       )
 
       it(
-        'tenant admin can read any tenant (required for relationship field validation on cross-tenant user saves)',
+        'tenant admin cannot findByID a tenant they do not admin',
         async () => {
-          // Tenant admins need to be able to read ANY tenant so that Payload's field-level
-          // relationship validation passes when a cross-tenant user's merged tenants array
-          // contains foreign tenant IDs (preserved from DB by the write guard).
+          // Scoped read prevents enumerating other orgs. Cross-tenant user saves still work
+          // via Users beforeValidate strip + beforeChange merge (not open Tenants read).
+          await expect(
+            payload.findByID({
+              collection: 'tenants',
+              id: secondTenant.id,
+              user: tenantAdminUser,
+              overrideAccess: false,
+            }),
+          ).rejects.toThrow()
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant admin cannot find tenants they do not admin',
+        async () => {
           const result = await payload.find({
             collection: 'tenants',
             where: { id: { equals: secondTenant.id } },
@@ -1177,16 +1187,87 @@ describe('User Tenant Access Control', () => {
             overrideAccess: false,
           })
 
-          expect(result.docs).toHaveLength(1)
-          expect(result.docs[0]?.id).toBe(secondTenant.id)
+          expect(result.docs).toHaveLength(0)
         },
         TEST_TIMEOUT,
       )
 
       it(
-        'tenant admin CANNOT update a tenant they do not belong to (write guard still enforced)',
+        'tenant admin who is only a user of another tenant cannot list that tenant',
         async () => {
-          // Read access is open to allow relationship validation; update access is still restricted.
+          // Admin of testTenant + plain user of secondTenant — second must not appear in
+          // Tenants find (Users membership picker / relationship options).
+          const dualMembershipAdmin = (await payload.create({
+            collection: 'users',
+            data: {
+              name: 'Dual Membership Admin',
+              email: `dual-admin-${Date.now()}@test.com`,
+              password: 'test',
+              role: ['admin'],
+              emailVerified: true,
+              tenants: [
+                { tenant: testTenant.id, roles: ['admin'] },
+                { tenant: secondTenant.id, roles: ['user'] },
+              ],
+            },
+            overrideAccess: true,
+          } as Parameters<typeof payload.create>[0])) as User
+
+          const listed = await payload.find({
+            collection: 'tenants',
+            limit: 100,
+            user: dualMembershipAdmin,
+            overrideAccess: false,
+          })
+          const ids = listed.docs.map((d) => d.id)
+          expect(ids).toContain(testTenant.id)
+          expect(ids).not.toContain(secondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'org admin with stale global role still cannot list non-admin membership tenants',
+        async () => {
+          // Simulates Better Auth / field-access sessions where derived global `role`
+          // is missing or stale, while tenants[n].roles still includes admin.
+          const dualMembershipAdmin = (await payload.create({
+            collection: 'users',
+            data: {
+              name: 'Stale Role Dual Admin',
+              email: `stale-role-dual-${Date.now()}@test.com`,
+              password: 'test',
+              role: ['user'],
+              emailVerified: true,
+              tenants: [
+                { tenant: testTenant.id, roles: ['admin'] },
+                { tenant: secondTenant.id, roles: ['user'] },
+              ],
+            },
+            overrideAccess: true,
+          } as Parameters<typeof payload.create>[0])) as User
+
+          const sessionUser = {
+            ...dualMembershipAdmin,
+            role: ['user'],
+          }
+
+          const listed = await payload.find({
+            collection: 'tenants',
+            limit: 100,
+            user: sessionUser,
+            overrideAccess: false,
+          })
+          const ids = listed.docs.map((d) => d.id)
+          expect(ids).toContain(testTenant.id)
+          expect(ids).not.toContain(secondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant admin CANNOT update a tenant they do not admin (write guard still enforced)',
+        async () => {
           const req = {
             ...payload,
             user: tenantAdminUser,
@@ -1316,7 +1397,7 @@ describe('User Tenant Access Control', () => {
     )
 
     it(
-      'does not leak timeslots, class options, or staffMembers without tenant context for regular users or public reads',
+      'does not leak timeslots or class options without tenant context for regular users or public reads',
       async () => {
         const lessonDate = new Date()
         lessonDate.setHours(10, 0, 0, 0)
@@ -1347,30 +1428,6 @@ describe('User Tenant Access Control', () => {
           { overrideAccess: true }
         ))
 
-        const instructorUser = (await payload.create({
-          collection: 'users',
-          data: {
-            name: `Leak Test StaffMember ${Date.now()}`,
-            email: `leak-test-instructor-${Date.now()}@test.com`,
-            password: 'test',
-            role: ['user'],
-            emailVerified: true,
-          },
-          draft: false,
-          overrideAccess: true,
-        } as Parameters<typeof payload.create>[0])) as User
-
-        const instructor = await createWithTenantContext(
-          'staff-members',
-          {
-            user: instructorUser.id,
-            description: 'Tenant-scoped instructor should not leak',
-            active: true,
-          },
-          testTenant.id,
-          { overrideAccess: true }
-        )
-
         const publicReq = {
           ...payload,
           payload,
@@ -1396,7 +1453,7 @@ describe('User Tenant Access Control', () => {
           }
         }
 
-        const [publicTimeslots, publicEventTypes, publicStaffMembers, regularTimeslots, regularEventTypes, regularStaffMembers] =
+        const [publicTimeslots, publicEventTypes, regularTimeslots, regularEventTypes] =
           await Promise.all([
             runNoLeakQuery(
               payload.find({
@@ -1418,15 +1475,6 @@ describe('User Tenant Access Control', () => {
             ),
             runNoLeakQuery(
               payload.find({
-                collection: 'staff-members',
-                where: { id: { equals: (instructor as { id: number }).id } },
-                limit: 10,
-                req: publicReq,
-                overrideAccess: false,
-              }),
-            ),
-            runNoLeakQuery(
-              payload.find({
                 collection: 'timeslots',
                 where: { id: { equals: lesson.id } },
                 limit: 10,
@@ -1443,23 +1491,98 @@ describe('User Tenant Access Control', () => {
                 overrideAccess: false,
               }),
             ),
-            runNoLeakQuery(
-              payload.find({
-                collection: 'staff-members',
-                where: { id: { equals: (instructor as { id: number }).id } },
-                limit: 10,
-                req: regularUserReq,
-                overrideAccess: false,
-              }),
-            ),
           ])
 
         expect(publicTimeslots === 0 || publicTimeslots === 'forbidden').toBe(true)
         expect(publicEventTypes === 0 || publicEventTypes === 'forbidden').toBe(true)
-        expect(publicStaffMembers === 0 || publicStaffMembers === 'forbidden').toBe(true)
         expect(regularTimeslots === 0 || regularTimeslots === 'forbidden').toBe(true)
         expect(regularEventTypes === 0 || regularEventTypes === 'forbidden').toBe(true)
-        expect(regularStaffMembers === 0 || regularStaffMembers === 'forbidden').toBe(true)
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'tenant admin can only find tenants they admin; cross-tenant user edit preserves foreign membership',
+      async () => {
+        const otherTenant = (await payload.create({
+          collection: 'tenants',
+          data: {
+            name: `Other Tenant ${Date.now()}`,
+            slug: `other-tenant-${Date.now()}`,
+          },
+          overrideAccess: true,
+        })) as { id: number }
+
+        const tenantAdmin = (await payload.create({
+          collection: 'users',
+          data: {
+            name: `Tenant Admin Scope ${Date.now()}`,
+            email: `tenant-admin-scope-${Date.now()}@test.com`,
+            password: 'test',
+            role: ['admin'],
+            emailVerified: true,
+            tenants: [{ tenant: testTenant.id, roles: ['admin'] }],
+          },
+          draft: false,
+          overrideAccess: true,
+        } as Parameters<typeof payload.create>[0])) as User
+
+        const crossUser = (await payload.create({
+          collection: 'users',
+          data: {
+            name: `Cross Tenant User ${Date.now()}`,
+            email: `cross-tenant-${Date.now()}@test.com`,
+            password: 'test',
+            role: ['user'],
+            emailVerified: true,
+            tenants: [
+              { tenant: testTenant.id, roles: ['user'] },
+              { tenant: otherTenant.id, roles: ['user'] },
+            ],
+          },
+          draft: false,
+          overrideAccess: true,
+        } as Parameters<typeof payload.create>[0])) as User
+
+        const adminReq = {
+          user: tenantAdmin,
+          payload,
+          headers: new Headers(),
+          context: {},
+        } as any
+
+        const tenantsFind = await payload.find({
+          collection: 'tenants',
+          limit: 100,
+          req: adminReq,
+          overrideAccess: false,
+        })
+        const foundIds = tenantsFind.docs.map((d) => d.id)
+        expect(foundIds).toContain(testTenant.id)
+        expect(foundIds).not.toContain(otherTenant.id)
+
+        // Update roles for own tenant only — merge should preserve foreign membership
+        await payload.update({
+          collection: 'users',
+          id: crossUser.id,
+          data: {
+            tenants: [{ tenant: testTenant.id, roles: ['staff'] }],
+          },
+          req: adminReq,
+          overrideAccess: false,
+        })
+
+        const reloaded = await payload.findByID({
+          collection: 'users',
+          id: crossUser.id,
+          depth: 0,
+          overrideAccess: true,
+        })
+        const membershipTenantIds = (Array.isArray((reloaded as any).tenants) ? (reloaded as any).tenants : [])
+          .map((e: any) => (typeof e.tenant === 'object' ? e.tenant?.id : e.tenant))
+          .filter((id: unknown) => id != null)
+        expect(membershipTenantIds).toContain(testTenant.id)
+        expect(membershipTenantIds).toContain(otherTenant.id)
       },
       TEST_TIMEOUT,
     )

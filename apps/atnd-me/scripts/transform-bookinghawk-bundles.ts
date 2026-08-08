@@ -2,8 +2,8 @@
 /**
  * Phase 1 — Transform BookingHawk credit bundle export into atnd-me class-pass import JSON.
  *
- * Fetches per-bundle usage from BookingHawk, computes remaining quantity, preserves the
- * original BookingHawk expiryDate (falls back to purchase + 5 years for "no expiry"),
+ * Fetches per-bundle usage from BookingHawk, computes remaining quantity, uses the
+ * BookingHawk expiryDate from the export (falls back to purchase + 1 year for "no expiry"),
  * and writes class-passes-import.json for phase 2.
  *
  * Usage (from apps/atnd-me):
@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 
 const BOOKINGHAWK_ORIGIN = 'https://bookinghawk.com'
 const DEFAULT_BUSINESS_ID = '781'
-const EXPIRY_YEARS = 5
+const EXPIRY_FALLBACK_YEARS = 1
 
 type Args = {
   inputPath: string
@@ -190,13 +190,16 @@ function isNoExpiry(value: string | undefined): boolean {
   return !trimmed || trimmed === 'no expiry'
 }
 
-/** Prefer BookingHawk expiryDate; fall back to purchase + 5 years when "no expiry". */
+/** Prefer BookingHawk expiryDate; fall back to purchase + 1 year when "no expiry". */
 function resolveExpirationDate(
   purchasedAt: string,
   expiryDateRaw: string | undefined,
 ): { expirationDate: string; usedFallback: boolean } | { error: string } {
   if (isNoExpiry(expiryDateRaw)) {
-    return { expirationDate: addYears(purchasedAt, EXPIRY_YEARS), usedFallback: true }
+    return {
+      expirationDate: addYears(purchasedAt, EXPIRY_FALLBACK_YEARS),
+      usedFallback: true,
+    }
   }
 
   const parsed = parseBookingHawkDate(expiryDateRaw!)
@@ -379,7 +382,7 @@ async function main() {
       })
 
       console.log(
-        `${label} ok: ${passTypeName} — ${remainingQuantity} remaining (${usedQuantity} used), exp=${expirationDate}${usedFallback ? ' [no-expiry→5y]' : ''}`,
+        `${label} ok: ${passTypeName} — ${remainingQuantity} remaining (${usedQuantity} used), exp=${expirationDate}${usedFallback ? ' [no-expiry→1y]' : ''}`,
       )
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)

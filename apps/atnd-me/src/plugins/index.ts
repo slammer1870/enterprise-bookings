@@ -86,14 +86,18 @@ import {
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
+import { fixBetterAuthImageField } from './fix-better-auth-image-field'
 import { fixBetterAuthAfterReadHooks } from './fix-better-auth-after-read-hooks'
 import { hideBetterAuthCollectionsFromTenantAdmins } from './hide-better-auth-collections-from-tenant-admins'
+import { hideStaffNavCollections } from './hide-staff-nav-collections'
 import { hideWebsiteCollectionsFromTenantAdmins } from './hide-website-collections-from-tenant-admins'
 import { staffRosterUsersFieldAccessPlugin } from './staff-roster-users-field-access'
+import { simplifyUsersAdminForTenantAdminsPlugin } from './simplify-users-admin-for-tenant-admins'
 import { tenantScopeFormSubmissions } from './tenant-scope-form-submissions'
 import { s3Storage } from '@payloadcms/storage-s3'
 import { getActiveR2Config } from '@/lib/storage/config'
 import { syncStaffPublicMediaPlugin } from './sync-staff-public-media'
+import { staffMemberUserFilterOptions } from '@/utilities/staffMemberUserFilterOptions'
 
 import { Page, Post, Tenant } from '@/payload-types'
 import { getAbsoluteURL, getServerSideURL, getTenantSiteURL } from '@/utilities/getURL'
@@ -410,6 +414,8 @@ export const plugins: Plugin[] = [
   fixBetterAuthTimestamps(),
   // Restrict who can edit the Better Auth `role` field (RBAC lives on `role` only).
   fixBetterAuthRoleField(),
+  // Convert Better Auth text `image` into a media upload (staff photos migrate here).
+  fixBetterAuthImageField(),
   // Exclude credential/session secrets from import-export output.
   disableSensitiveUserExportFields(),
   // Must run after fixBetterAuthRoleField and all other plugins so the
@@ -419,6 +425,8 @@ export const plugins: Plugin[] = [
   hideBetterAuthCollectionsFromTenantAdmins(),
   // Hide platform website management collections from tenant-admins.
   hideWebsiteCollectionsFromTenantAdmins(),
+  // Hide ban/accounts/sessions/raw Stripe noise on Users for tenant admins.
+  simplifyUsersAdminForTenantAdminsPlugin(),
   bookingsPlugin({
     enabled: true,
     slugs: ATND_ME_BOOKINGS_COLLECTION_SLUGS,
@@ -452,9 +460,32 @@ export const plugins: Plugin[] = [
       ],
       fields: ({ defaultFields }) => [
         ...withTimeslotBranchFields(
-          withExplicitTenantSyncFields(defaultFields).map((f) =>
-            'name' in f && f.name === 'eventType' ? { ...f, label: 'Event Type' } : f,
-          ),
+          withExplicitTenantSyncFields(defaultFields).map((f): Field => {
+            if ('name' in f && f.name === 'eventType') return { ...f, label: 'Event Type' } as Field
+            if ('name' in f && f.name === 'staffMember') {
+              return {
+                ...f,
+                relationTo: 'users',
+                filterOptions: staffMemberUserFilterOptions as any,
+              } as Field
+            }
+            if ('type' in f && f.type === 'row' && 'fields' in f && Array.isArray(f.fields)) {
+              return {
+                ...f,
+                fields: f.fields.map((inner) => {
+                  if ('name' in inner && inner.name === 'staffMember') {
+                    return {
+                      ...inner,
+                      relationTo: 'users',
+                      filterOptions: staffMemberUserFilterOptions as any,
+                    }
+                  }
+                  return inner
+                }),
+              } as Field
+            }
+            return f as Field
+          }),
         ),
         {
           name: 'adminTitle',
@@ -561,6 +592,8 @@ export const plugins: Plugin[] = [
       },
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
+        // Staff operate timeslots; event-type config stays out of their sidebar.
+        admin: tenantOrgPayloadAdminAccess,
         read: tenantScopedPublicReadStrict,
         create: async (args) => {
           if (isStaffOnlyUser(args.req.user)) return false
@@ -623,40 +656,6 @@ export const plugins: Plugin[] = [
           beforeChange: [...(Array.isArray(d?.beforeChange) ? d.beforeChange : []), requireStripeConnectForPayments],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- plugin HooksConfig omits beforeChange
         } as any
-      },
-    },
-    staffMembersOverrides: {
-      access: ({ defaultAccess }) => ({
-        ...defaultAccess,
-        read: tenantScopedPublicReadStrict,
-        create: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedCreate(args)
-        },
-        update: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedUpdate(args)
-        },
-        delete: async (args) => {
-          if (isStaffOnlyUser(args.req.user)) return false
-          return tenantScopedDelete(args)
-        },
-      }),
-      fields: ({ defaultFields }) => withExplicitTenantSyncFields(defaultFields),
-      hooks: ({ defaultHooks }) => {
-        const d = defaultHooks as Record<string, unknown>
-        return {
-          ...defaultHooks,
-          beforeValidate: [
-            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
-              await assignTenantOnCreateFromRequest({
-                data: data as Record<string, unknown> | undefined,
-                operation,
-                req,
-              }),
-            ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
-          ],
-        }
       },
     },
     bookingOverrides: {
@@ -1028,10 +1027,9 @@ export const plugins: Plugin[] = [
     // Opt out of baseListFilter on users so tenant selector doesn't filter the list.
     useUsersTenantFilter: false,
     // Use Tenants collection access from collections/Tenants (not the plugin wrapper).
-    // The plugin's withTenantAccess would constrain tenant-admins to `{ id: { in: own } }`,
-    // which breaks Payload relationship validation / form-state when a cross-tenant user's
-    // merged `tenants` array includes foreign tenant IDs. Collection-level update/delete
-    // access still restricts writes; only read is intentionally open for admins.
+    // Collection `read` is scoped to orgs the viewer administers (Users membership picker).
+    // Cross-tenant user edits keep foreign membership rows via Users beforeValidate strip +
+    // beforeChange merge (not by opening Tenants.read).
     useTenantsCollectionAccess: false,
     // Do not auto-add the tenants array to users — we place it manually in the Users collection
     // with a `roles` rowField so the consolidated tenants[n].roles structure is authoritative.
@@ -1068,7 +1066,6 @@ export const plugins: Plugin[] = [
         // withTenantAccess generates { tenant: { in: [] } } which matches no documents.
         useTenantAccess: false,
       },
-      'staff-members': { customTenantField: true },
       'event-types': { customTenantField: true },
       bookings: {}, // Tenant-scoped for tracking which tenant bookings belong to
       // From @repo/bookings-payments
@@ -1109,7 +1106,6 @@ export const plugins: Plugin[] = [
     rootDocCollections: ['navbar', 'footer'],
     collectionsRequireTenantOnCreate: [
       'timeslots',
-      'staff-members',
       'event-types',
       'bookings',
       'class-pass-types',
@@ -1136,7 +1132,6 @@ export const plugins: Plugin[] = [
       'navbar',
       'footer',
       'timeslots',
-      'staff-members',
       'event-types',
       'bookings',
       'class-pass-types',
@@ -1203,6 +1198,8 @@ export const plugins: Plugin[] = [
   // User data export — after multi-tenant access rules are applied.
   userDataImportExportPlugin(),
   tenantScopedExportJobsPlugin(),
+  // Staff-only sidebar: Timeslots / Users / Emergency contacts (Payload nav uses admin.hidden).
+  hideStaffNavCollections(),
   // Must run last so all plugin-added collections/globals get explicit groups and sort order.
   sortAdminNavGroupsPlugin(),
 ]

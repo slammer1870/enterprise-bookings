@@ -4,10 +4,13 @@
  * Reads payload-tenant cookie (sidebar selection) on the server so the client can pass it to the API;
  * the cookie is often path-scoped to /admin and not sent to /api/analytics.
  * The client defaults to a 7-day range and loads “previous period” via a separate request when comparison is enabled.
+ * Staff-only users are redirected to Timeslots (their primary workbench).
  */
 import React from 'react'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import type { AdminViewServerProps } from 'payload'
+import { isStaffOnlyUser } from '@/access/userTenantAccess'
 import { AnalyticsDashboardClient } from './AnalyticsDashboardClient'
 
 export async function AnalyticsDashboard(props: AdminViewServerProps) {
@@ -20,6 +23,10 @@ export async function AnalyticsDashboard(props: AdminViewServerProps) {
         <p>You must be logged in to view the dashboard.</p>
       </div>
     )
+  }
+
+  if (isStaffOnlyUser(user)) {
+    redirect('/admin/collections/timeslots')
   }
 
   let selectedTenantId: number | null = null

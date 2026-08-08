@@ -6,6 +6,10 @@
 export const PAYLOAD_CTX_CACHED_TENANT_ADMIN_TENANT_IDS =
   "__atndCachedTenantAdminTenantIds" as const;
 
+/** Tenants where the user holds `tenants[n].roles` including `admin` (org admin of). */
+export const PAYLOAD_CTX_CACHED_ORG_ADMIN_TENANT_IDS =
+  "__atndCachedOrgAdminTenantIds" as const;
+
 const LOOKUP_CACHE_KEY = "__atndTenantLookupCache" as const;
 
 function getLookupCache(ctx: Record<string, unknown>): Map<string, number> {

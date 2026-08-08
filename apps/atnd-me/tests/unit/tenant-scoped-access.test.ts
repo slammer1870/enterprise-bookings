@@ -81,6 +81,16 @@ describe('getUserTenantIDs', () => {
     const user = { tenants: [{ tenant: 1, roles: ['user'] }] }
     expect(getUserTenantIDs(user, 'admin')).toEqual([])
   })
+
+  it('matches roles stored as { value } objects', () => {
+    const user = {
+      tenants: [
+        { tenant: 1, roles: [{ value: 'admin' }] },
+        { tenant: 2, roles: [{ value: 'user' }] },
+      ],
+    }
+    expect(getUserTenantIDs(user, 'admin')).toEqual([1])
+  })
 })
 
 describe('tenant scoped access', () => {

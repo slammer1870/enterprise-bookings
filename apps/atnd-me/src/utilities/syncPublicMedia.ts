@@ -111,25 +111,59 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
     collectMediaIds(doc, undefined, ids)
   }
 
-  // Staff profile images appear on the public schedule; Next.js image optimization fetches
-  // `/api/media/file/...` without tenant cookies, so these must be marked isPublic.
-  const staffMembers = await req.payload.find({
-    collection: 'staff-members',
-    where: { active: { equals: true } },
+  // Only user images for hosts assigned on an active timeslot appear on the public
+  // schedule/event pages. Next/Image fetches `/api/media/file/...` without tenant
+  // cookies, so those media docs must be marked isPublic — not every user image.
+  const hostedTimeslots = await req.payload.find({
+    collection: 'timeslots',
+    where: {
+      and: [{ staffMember: { exists: true } }, { active: { not_equals: false } }],
+    },
     limit: 1000,
     pagination: false,
-    depth: 1,
+    depth: 0,
     overrideAccess: true,
     req,
     select: {
       id: true,
-      profileImage: true,
-      tenant: true,
+      staffMember: true,
     } as any,
   })
 
-  for (const staffMember of staffMembers.docs) {
-    collectMediaIds(staffMember, undefined, ids)
+  const staffUserIds = new Set<number>()
+  for (const slot of hostedTimeslots.docs) {
+    const raw = (slot as { staffMember?: unknown }).staffMember
+    const id =
+      typeof raw === 'number'
+        ? raw
+        : typeof raw === 'string' && /^\d+$/.test(raw)
+          ? parseInt(raw, 10)
+          : raw && typeof raw === 'object' && raw !== null && 'id' in raw
+            ? Number((raw as { id: unknown }).id)
+            : NaN
+    if (Number.isFinite(id)) staffUserIds.add(id)
+  }
+
+  if (staffUserIds.size > 0) {
+    const staffUsers = await req.payload.find({
+      collection: 'users',
+      where: {
+        and: [{ id: { in: [...staffUserIds] } }, { image: { exists: true } }],
+      },
+      limit: 1000,
+      pagination: false,
+      depth: 1,
+      overrideAccess: true,
+      req,
+      select: {
+        id: true,
+        image: true,
+      } as any,
+    })
+
+    for (const staffUser of staffUsers.docs) {
+      collectMediaIds(staffUser, undefined, ids)
+    }
   }
 
   // Published post images (hero, rich-text MediaBlocks, SEO meta) must be public

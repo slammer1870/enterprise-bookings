@@ -3,27 +3,10 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Booking } from "@repo/shared-types";
-
-function relationUserId(user: Booking["user"]): number | null {
-  if (typeof user === "number" && Number.isFinite(user)) return user;
-  if (user && typeof user === "object" && "id" in user) {
-    const id = (user as { id: unknown }).id;
-    if (typeof id === "number" && Number.isFinite(id)) return id;
-    if (typeof id === "string" && /^\d+$/.test(id)) return Number(id);
-  }
-  return null;
-}
-
-function userLabel(user: Booking["user"]): string {
-  if (user && typeof user === "object") {
-    const name = "name" in user ? (user as { name?: string | null }).name : null;
-    const email = "email" in user ? (user as { email?: string | null }).email : null;
-    if (name) return name;
-    if (email) return email;
-  }
-  const id = relationUserId(user);
-  return id != null ? `User #${id}` : "Unknown user";
-}
+import {
+  bookingUserLabel,
+  relationUserId,
+} from "../../utils/booking-user-label";
 
 export const BookingDetail = ({ booking }: { booking: Booking }) => {
   const [activeUserId, setActiveUserId] = useState<number | null>(null);
@@ -31,7 +14,7 @@ export const BookingDetail = ({ booking }: { booking: Booking }) => {
   const [mounted, setMounted] = useState(false);
 
   const userId = relationUserId(booking.user);
-  const label = userLabel(booking.user);
+  const label = bookingUserLabel(booking.user);
   const userEditUrl =
     activeUserId != null ? `/admin/collections/users/${activeUserId}` : null;
 

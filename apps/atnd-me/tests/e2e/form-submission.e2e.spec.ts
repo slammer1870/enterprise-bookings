@@ -40,15 +40,7 @@ test.describe('Form submissions', () => {
 
     if (!tenantId || !tenantSlug) throw new Error('Tenant required')
 
-    // Enable the Form block for this tenant (default blocks do not include it).
-    await payload.update({
-      collection: 'tenants',
-      id: tenantId,
-      data: {
-        allowedBlocks: ['formBlock'],
-      },
-      overrideAccess: true,
-    })
+    // formBlock is a default block — no allowedBlocks update needed.
 
     // Create a simple form (tenant-scoped) and a page that renders it.
     const unique = `${Date.now()}-w${w}`

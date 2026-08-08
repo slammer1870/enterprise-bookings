@@ -1,19 +1,25 @@
-import type { CollectionConfig, Config, Plugin } from 'payload'
+import type {
+  CollectionBeforeValidateHook,
+  CollectionConfig,
+  Config,
+  Plugin,
+} from 'payload'
 
 import { isAdmin } from '@/access/userTenantAccess'
-import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
+import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
+import { assertAnonymousUserCreateRateLimit } from '@/collections/Users/sanitizeUserWrite'
+import { stripForeignTenantsBeforeValidate } from '@/collections/Users/stripForeignTenantsBeforeValidate'
 
 /**
- * Restores the Users collection `afterRead` hook that is silently dropped by the
- * payload-auth (Better Auth) plugin.
+ * Restores Users collection hooks silently dropped by the payload-auth (Better Auth) plugin.
  *
  * Why: Better Auth rebuilds the Users collection hooks object and only re-merges
  * `beforeChange`, `afterChange`, `beforeLogin`, `afterLogin`, `afterLogout`, and
- * `beforeDelete`. Any `afterRead` hooks defined on the Users collection are lost.
+ * `beforeDelete`. Hooks such as `afterRead`, `beforeValidate`, and `beforeOperation`
+ * defined on the Users collection are lost.
  *
- * This plugin runs after Better Auth and appends the tenant-privacy afterRead hook
- * directly onto the final collection config so it always executes.
+ * This plugin runs after Better Auth and re-attaches the missing hooks.
  */
 export const fixBetterAuthAfterReadHooks = (): Plugin =>
   (incomingConfig: Config): Config => {
@@ -30,7 +36,11 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       req,
     }: {
       doc: Record<string, unknown>
-      req: { user?: unknown; payload: { findByID: unknown; find: unknown; [key: string]: unknown }; context?: Record<string, unknown> | undefined }
+      req: {
+        user?: unknown
+        payload: { findByID: unknown; find: unknown; [key: string]: unknown }
+        context?: Record<string, unknown> | undefined
+      }
     }): Promise<Record<string, unknown>> => {
       if (!req.user) return doc
       if (isAdmin(req.user)) return doc // super-admin: see everything
@@ -38,9 +48,8 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       // Do NOT use isTenantAdmin(req.user) as a gate here: session/JWT users and users
       // created via the Local API with overrideAccess:true may have their `role` field
       // stripped by field-level access control (fixBetterAuthRoleField plugin). Instead,
-      // let resolveTenantAdminTenantIds be the single source of truth — it loads the full
-      // user doc from DB (with overrideAccess:true) and checks tenants[n].roles directly.
-      const adminTenantIds = await resolveTenantAdminTenantIds({
+      // Orgs this user administers only (not staff/customer memberships elsewhere).
+      const adminTenantIds = await resolveOrgAdminTenantIds({
         user: req.user,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         payload: req.payload as any,
@@ -52,10 +61,29 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       return filterTenantsForTenantAdmin({ doc, adminTenantIds })
     }
 
+    const stripForeignTenantsHook: CollectionBeforeValidateHook = async ({ data, req }) =>
+      stripForeignTenantsBeforeValidate({
+        data: data as Record<string, unknown> | null | undefined,
+        req,
+      })
+
     const patched: CollectionConfig = {
       ...usersCollection,
       hooks: {
         ...usersCollection.hooks,
+        beforeOperation: [
+          ...(usersCollection.hooks?.beforeOperation ?? []),
+          async ({ args, operation, req }) => {
+            if (operation === 'create') {
+              assertAnonymousUserCreateRateLimit(req)
+            }
+            return args
+          },
+        ],
+        beforeValidate: [
+          ...(usersCollection.hooks?.beforeValidate ?? []),
+          stripForeignTenantsHook,
+        ],
         afterRead: [
           ...(usersCollection.hooks?.afterRead ?? []),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any

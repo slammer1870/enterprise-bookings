@@ -3,7 +3,6 @@ import type { Config, CollectionSlug, Plugin } from "payload";
 import { generateTimeslotCollection } from "../collections/timeslots";
 import { generateEventTypesCollection } from "../collections/event-types";
 import { generateBookingCollection } from "../collections/bookings";
-import { generateStaffMemberCollection } from "../collections/staff-members";
 
 import { BookingsPluginConfig } from "../types";
 
@@ -15,10 +14,8 @@ import { resolveBookingCollectionSlugs } from "../resolve-slugs";
 
 function createGenerateTimeslotsTaskInputSchema(slugs: {
   eventTypes: string;
-  staffMembers: string;
 }) {
   const eventTypesSlug = slugs.eventTypes as CollectionSlug;
-  const staffMembersSlug = slugs.staffMembers as CollectionSlug;
 
   return [
     {
@@ -70,7 +67,7 @@ function createGenerateTimeslotsTaskInputSchema(slugs: {
                 {
                   name: "staffMember",
                   type: "relationship" as const,
-                  relationTo: staffMembersSlug,
+                  relationTo: "users" as CollectionSlug,
                 },
                 {
                   name: "lockOutTime",
@@ -126,12 +123,10 @@ export const bookingsPlugin =
     // configs and Payload's shallow plugin clones would otherwise accumulate duplicates).
     const collections = [...(config.collections || [])];
 
-    const staffMembers = generateStaffMemberCollection(pluginOptions, slugs);
     const timeslots = generateTimeslotCollection(pluginOptions, slugs);
     const eventTypes = generateEventTypesCollection(pluginOptions, slugs);
     const bookings = generateBookingCollection(pluginOptions, slugs);
 
-    collections.push(staffMembers);
     collections.push(timeslots);
     collections.push(eventTypes);
     collections.push(bookings);
@@ -158,29 +153,7 @@ export const bookingsPlugin =
       slug: "generateTimeslotsFromSchedule",
       handler: createGenerateTimeslotsFromScheduleHandler(slugs),
       inputSchema: createGenerateTimeslotsTaskInputSchema(slugs),
-      outputSchema: [
-        {
-          name: "success",
-          type: "checkbox",
-        },
-        {
-          name: "message",
-          type: "text",
-        },
-      ],
-      onSuccess: async () => {
-        console.log("Task completed");
-      },
-      onFail: async () => {
-        console.log("Task failed");
-      },
     });
-
-    const timezones = config.admin?.timezones || {
-      defaultTimezone: "Europe/Dublin",
-    };
-
-    config.admin!.timezones = timezones;
 
     return config;
   };

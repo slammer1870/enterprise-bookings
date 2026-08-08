@@ -7,7 +7,7 @@ import {
   resolveTenantAdminTenantIds,
   tenantScopedCreate,
 } from '@/access/tenant-scoped'
-import { isPureLocationManager, resolvePureLocationManagerBranchIds } from '@/access/locationManagerScope'
+import { isPureLocationManager, resolveBranchAssignmentScope } from '@/access/locationManagerScope'
 
 /**
  * Timeslot creates: staff blocked; tenant + optional branch rules come from {@link tenantScopedCreate}
@@ -35,10 +35,13 @@ export const timeslotsUpdateAccess: Access = async (args) => {
   if (tenantIds.length === 0) return false
 
   if (isPureLocationManager(user)) {
-    const branchIds = await resolvePureLocationManagerBranchIds({ payload, user, tenantIds })
-    if (branchIds.length === 0) return false
+    const scope = await resolveBranchAssignmentScope({ payload, user, tenantIds })
+    if (scope.kind === 'unrestricted') {
+      return { tenant: { in: tenantIds } } as Where
+    }
+    if (scope.ids.length === 0) return false
     return {
-      and: [{ tenant: { in: tenantIds } }, { branch: { in: branchIds } }],
+      and: [{ tenant: { in: tenantIds } }, { branch: { in: scope.ids } }],
     } as Where
   }
 

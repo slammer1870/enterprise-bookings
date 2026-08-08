@@ -1,7 +1,11 @@
 import type { CollectionConfig } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import { getUserTenantIds } from '@/access/tenant-scoped'
+import {
+  getTenantMembershipIdsFromUserDoc,
+  loadUserDocForTenantMembership,
+  resolveOrgAdminTenantIds,
+} from '@/access/tenant-scoped'
 import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
 import { isValidTimeZone, normalizeAndValidateTenantSlugFormat } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
@@ -35,7 +39,6 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   missionElements: 'Mission Elements',
   mediaBlock: 'Media Block',
   archive: 'Archive',
-  formBlock: 'Form Block',
   threeColumnLayout: 'Three Column Layout',
   twoColumnLayout: 'Two Column Layout',
   bruHero: 'Hero (Brú)',
@@ -90,43 +93,72 @@ export const Tenants: CollectionConfig = {
   },
   access: {
     admin: tenantOrgPayloadAdminAccess,
-    read: (args) => {
-      const { req: { user } } = args
-      if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
+    read: async (args) => {
+      const {
+        req: { user, payload, context },
+      } = args
+      // No anonymous / unauthenticated listing. Public site + middleware resolve tenants
+      // via trusted Local API (`overrideAccess: true`), not open REST read.
+      // Return an empty constraint (not `false`) so finds resolve to [] instead of Forbidden.
+      if (!user) return { id: { in: [] } }
+
+      if (checkRole(['super-admin'], user as unknown as SharedUser)) {
         return true
       }
-      if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-        // Allow tenant admins to read any tenant document (both findByID and find).
-        //
-        // Why: Payload's field-level relationship validation uses `find` with a WHERE
-        // clause to verify that the tenant IDs in a user's `tenants` array are accessible.
-        // When a tenant admin edits a cross-tenant user, the merged `tenants` array contains
-        // foreign tenant IDs (preserved from DB by the write guard). Restricting `find` to
-        // own tenants would cause a 400 "invalid relationships" error for those IDs.
-        //
-        // Security: the Users `beforeChange` write guard (mergeTenantEntriesForAdmin) ensures
-        // that a tenant admin can only modify their own tenant's entries; foreign entries are
-        // always restored from DB unchanged. Sensitive fields on the Tenants document
-        // (Stripe keys, connect account, etc.) are still protected by field-level access.
-        return true
+
+      // Org admins: only orgs they administer — drives Users membership pickers.
+      // Do not gate on global `role` including `admin`: Better Auth / field access may
+      // omit derived role while `tenants[n].roles` still includes admin. Membership as
+      // user/staff elsewhere must not appear as addable tenants.
+      const orgAdminTenantIds = await resolveOrgAdminTenantIds({
+        user,
+        payload,
+        context: context as Record<string, unknown> | undefined,
+      })
+      if (orgAdminTenantIds.length > 0) {
+        return { id: { in: orgAdminTenantIds } }
       }
-      return true
+
+      // Staff / location-managers / members: only tenants they belong to (or registered with).
+      let membershipIds = getTenantMembershipIdsFromUserDoc(user)
+      if (membershipIds.length === 0) {
+        const idRaw =
+          typeof user === 'object' && user !== null && 'id' in user
+            ? (user as { id: unknown }).id
+            : null
+        const userId =
+          typeof idRaw === 'number'
+            ? idRaw
+            : typeof idRaw === 'string'
+              ? parseInt(idRaw, 10)
+              : NaN
+        if (Number.isFinite(userId)) {
+          const fullUser = await loadUserDocForTenantMembership(payload, userId)
+          membershipIds = fullUser ? getTenantMembershipIdsFromUserDoc(fullUser) : []
+        }
+      }
+      if (membershipIds.length === 0) return { id: { in: [] } }
+      return { id: { in: membershipIds } }
     },
     create: (args) => {
       const { req: { user } } = args
       if (!user) return false
       return checkRole(['super-admin'], user as unknown as SharedUser)
     },
-    update: (args) => {
-      const { req: { user } } = args
+    update: async (args) => {
+      const {
+        req: { user, payload, context },
+      } = args
       if (!user) return false
       if (checkRole(['super-admin'], user as unknown as SharedUser)) return true
-      if (checkRole(['admin'], user as unknown as SharedUser)) {
-        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-        if (tenantIds === null || tenantIds.length === 0) return false
-        return { id: { in: tenantIds } }
-      }
-      return false
+      // Same as read: prefer org-admin memberships over derived global `admin` role.
+      const tenantIds = await resolveOrgAdminTenantIds({
+        user,
+        payload,
+        context: context as Record<string, unknown> | undefined,
+      })
+      if (tenantIds.length === 0) return false
+      return { id: { in: tenantIds } }
     },
     delete: (args) => {
       const { req: { user } } = args
@@ -290,7 +322,7 @@ export const Tenants: CollectionConfig = {
         value: slug,
       })),
       admin: {
-        description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout, Event) are always available.',
+        description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Form, Gift voucher checkout, Event) are always available.',
       },
       access: {
         update: adminOnlyUpdate, // Only admin can change allowed blocks; tenant-admins cannot
@@ -518,9 +550,10 @@ export const Tenants: CollectionConfig = {
           })
         }
 
-        // Resend email sending domain: provision/cleanup when tenants.domain changes.
+        // Resend email sending domain: provision on create when a custom domain is set,
+        // or whenever domain changes (including clear → teardown).
         const domainChanged = newDomain !== prevDomain
-        if (operation === 'create' || domainChanged) {
+        if ((operation === 'create' && newDomain) || (operation !== 'create' && domainChanged)) {
           const previousResendDomainId =
             typeof previousDoc?.resendDomainId === 'string' && previousDoc.resendDomainId.trim()
               ? previousDoc.resendDomainId.trim()

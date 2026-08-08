@@ -169,6 +169,8 @@ import * as migration_20260730_000005_emergency_contact_form_block from './20260
 import * as migration_20260731_000001_link_button_colors from './20260731_000001_link_button_colors';
 import * as migration_20260731_000002_drop_in_once_per_user from './20260731_000002_drop_in_once_per_user';
 import * as migration_20260806_000001_tenants_email_domain_verification from './20260806_000001_tenants_email_domain_verification';
+import * as migration_20260808_000001_staff_members_to_users from './20260808_000001_staff_members_to_users';
+import * as migration_20260808_000002_pages_rels_tenant_scoped_schedule_tenants from './20260808_000002_pages_rels_tenant_scoped_schedule_tenants';
 import * as migration_20260721_000001_marketing_hero_show_username_claim from './20260721_000001_marketing_hero_show_username_claim';
 import * as migration_20260721_000002_hero_sched_display_heading from './20260721_000002_hero_sched_display_heading';
 import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
@@ -1073,5 +1075,15 @@ export const migrations = [
     up: migration_20260806_000001_tenants_email_domain_verification.up,
     down: migration_20260806_000001_tenants_email_domain_verification.down,
     name: '20260806_000001_tenants_email_domain_verification',
+  },
+  {
+    up: migration_20260808_000001_staff_members_to_users.up,
+    down: migration_20260808_000001_staff_members_to_users.down,
+    name: '20260808_000001_staff_members_to_users',
+  },
+  {
+    up: migration_20260808_000002_pages_rels_tenant_scoped_schedule_tenants.up,
+    down: migration_20260808_000002_pages_rels_tenant_scoped_schedule_tenants.down,
+    name: '20260808_000002_pages_rels_tenant_scoped_schedule_tenants',
   },
 ];

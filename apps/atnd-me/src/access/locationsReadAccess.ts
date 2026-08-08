@@ -9,11 +9,9 @@ import {
   type RequestLike,
 } from '@/access/tenant-scoped'
 import {
-  branchIdsForUserInTenants,
   isPureLocationManager,
-  loadUserForLocationAssignments,
   relationIdFromPayloadField,
-  resolvePureLocationManagerBranchIds,
+  resolveBranchAssignmentScope,
 } from '@/access/locationManagerScope'
 import {
   getPayloadLocationIdFromRequest,
@@ -29,18 +27,80 @@ function tenantAdminCookieSource(req: PayloadRequest): {
   }
 }
 
-function toUserId(user: unknown): number | null {
-  if (user == null || typeof user !== 'object' || !('id' in user)) return null
-  const id = (user as { id: unknown }).id
-  if (typeof id === 'number' && Number.isFinite(id)) return id
-  if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
-  return null
+async function whereForBranchScopedUser(args: {
+  req: PayloadRequest
+  user: unknown
+}): Promise<boolean | Where> {
+  const { req, user } = args
+  const tenantIds = await resolveTenantAdminTenantIds({
+    user,
+    payload: req.payload,
+    context: req.context as Record<string, unknown> | undefined,
+  })
+  if (!tenantIds.length) return false
+
+  const scopeAll = await resolveBranchAssignmentScope({
+    payload: req.payload,
+    user,
+    tenantIds,
+  })
+
+  const cookieSrc = tenantAdminCookieSource(req)
+  const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
+  const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
+
+  if (scopeAll.kind === 'unrestricted') {
+    if (selectedTenantId != null) {
+      if (!tenantIds.includes(selectedTenantId)) return false
+      if (selectedBranchId != null) {
+        return { id: { equals: selectedBranchId } } as Where
+      }
+      return { tenant: { equals: selectedTenantId } } as Where
+    }
+    return resolveTenantAdminReadConstraint({ req: req as any })
+  }
+
+  if (!scopeAll.ids.length) return false
+
+  if (selectedTenantId != null) {
+    if (!tenantIds.includes(selectedTenantId)) return false
+
+    const tenantScope = await resolveBranchAssignmentScope({
+      payload: req.payload,
+      user,
+      tenantIds: [selectedTenantId],
+    })
+    if (tenantScope.kind === 'unrestricted') {
+      if (selectedBranchId != null) return { id: { equals: selectedBranchId } } as Where
+      return { tenant: { equals: selectedTenantId } } as Where
+    }
+    const branchesInTenant = tenantScope.ids
+    if (!branchesInTenant.length) return false
+
+    if (selectedBranchId != null) {
+      if (!branchesInTenant.includes(selectedBranchId)) return false
+      const location = await req.payload.findByID({
+        collection: 'locations',
+        id: selectedBranchId,
+        depth: 0,
+        overrideAccess: true,
+      })
+      if (!location) return false
+      const locTenantId = relationIdFromPayloadField(location.tenant)
+      if (locTenantId !== selectedTenantId) return false
+      return { id: { equals: selectedBranchId } } as Where
+    }
+
+    return { id: { in: branchesInTenant } } as Where
+  }
+
+  return { id: { in: scopeAll.ids } } as Where
 }
 
 /**
- * Locations read: same tenant rules as {@link tenantScopedPublicReadStrict}, but pure
- * `location-manager` users only see assigned branch rows (by `id`), with optional
- * `payload-tenant` / `payload-location` cookie semantics aligned to timeslots.
+ * Locations read: tenant rules + branch assignment from `tenants[].locations`.
+ * Org admins always see all tenant locations. Staff / location-managers with a
+ * non-empty assignment see only those branches; empty assignment = all locations.
  */
 export const locationsReadAccess: Access = async (args) => {
   const { req } = args
@@ -50,56 +110,14 @@ export const locationsReadAccess: Access = async (args) => {
     return true
   }
 
-  if (user && checkRole(['admin', 'staff'], user as SharedUser)) {
+  // Org admin: all locations in their tenants
+  if (user && checkRole(['admin'], user as SharedUser)) {
     return resolveTenantAdminReadConstraint({ req: req as any })
   }
 
-  if (user && isPureLocationManager(user)) {
-    const tenantIds = await resolveTenantAdminTenantIds({
-      user,
-      payload: req.payload,
-      context: req.context as Record<string, unknown> | undefined,
-    })
-    if (!tenantIds.length) return false
-
-    const branchIdsAll = await resolvePureLocationManagerBranchIds({
-      payload: req.payload,
-      user,
-      tenantIds,
-    })
-    if (!branchIdsAll.length) return false
-
-    const cookieSrc = tenantAdminCookieSource(req as PayloadRequest)
-    const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
-    const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
-
-    if (selectedTenantId != null) {
-      if (!tenantIds.includes(selectedTenantId)) return false
-
-      const uid = toUserId(user)
-      if (uid == null) return false
-      const full = await loadUserForLocationAssignments(req.payload, uid)
-      const branchesInTenant = branchIdsForUserInTenants(full, [selectedTenantId])
-      if (!branchesInTenant.length) return false
-
-      if (selectedBranchId != null) {
-        if (!branchesInTenant.includes(selectedBranchId)) return false
-        const location = await req.payload.findByID({
-          collection: 'locations',
-          id: selectedBranchId,
-          depth: 0,
-          overrideAccess: true,
-        })
-        if (!location) return false
-        const locTenantId = relationIdFromPayloadField(location.tenant)
-        if (locTenantId !== selectedTenantId) return false
-        return { id: { equals: selectedBranchId } } as Where
-      }
-
-      return { id: { in: branchesInTenant } } as Where
-    }
-
-    return { id: { in: branchIdsAll } } as Where
+  // Staff or pure location-manager: honor tenants[].locations (empty = all)
+  if (user && (checkRole(['staff'], user as SharedUser) || isPureLocationManager(user))) {
+    return whereForBranchScopedUser({ req: req as PayloadRequest, user })
   }
 
   const tenantId = await resolveTenantIdFromRequest(req as RequestLike)

@@ -272,17 +272,37 @@ describe('syncTenantEmailDomainFromResend', () => {
       }),
     )
   })
+
+  it('passes req to findByID and update for transaction continuity', async () => {
+    const req = { transactionID: 'tx-1' }
+    const update = vi.fn(async () => ({}))
+    const findByID = vi.fn().mockResolvedValue({
+      resendDomainId: null,
+      emailDomainStatus: 'not_configured',
+      emailDomainVerifiedAt: null,
+    })
+
+    await syncTenantEmailDomainFromResend({
+      payload: { findByID, update } as any,
+      tenantId: 1,
+      resendDomainId: 'dom_1',
+      resendStatus: 'pending',
+      req,
+    })
+
+    expect(findByID).toHaveBeenCalledWith(expect.objectContaining({ req }))
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ req }))
+  })
 })
 
 describe('assertTenantEmailDomainAccess', () => {
   it('forbids tenant-admin for another tenant', async () => {
     const payload = {
       auth: async () => ({
-        user: { id: 9, role: ['admin'], tenants: [{ tenant: 2 }] },
+        user: { id: 9, tenants: [{ tenant: 2, roles: ['admin'] }] },
       }),
       findByID: async () => ({
         id: 9,
-        role: ['admin'],
         tenants: [{ tenant: 2, roles: ['admin'] }],
       }),
     } as any

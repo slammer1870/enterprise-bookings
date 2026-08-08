@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { Booking } from "@repo/shared-types";
 import { Button, SelectInput } from "@payloadcms/ui";
 import { Label } from "@repo/ui/components/ui/label";
+import { bookingUserLabel } from "../../utils/booking-user-label";
 import {
   Sheet,
   SheetContent,
@@ -122,12 +123,8 @@ export function EditBooking({
           </p>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex flex-col gap-2">
-              <span className="text-sm font-medium">Name</span>
-              <p className="text-sm">
-                {typeof booking.user === "object"
-                  ? booking.user.email
-                  : String(booking.user)}
-              </p>
+              <span className="text-sm font-medium">Customer</span>
+              <p className="text-sm">{bookingUserLabel(booking.user)}</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-booking-status" className="text-xs">Status</Label>

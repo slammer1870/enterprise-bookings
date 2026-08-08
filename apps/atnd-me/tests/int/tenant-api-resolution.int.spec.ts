@@ -121,7 +121,7 @@ describe('Tenant API Resolution', () => {
   )
 
   it(
-    'allows public access to tenant lookup (for middleware)',
+    'resolves tenant by slug via trusted Local API (middleware pattern)',
     async () => {
       // Verify tenant still exists
       const verifyTenant = await payload.findByID({
@@ -136,8 +136,8 @@ describe('Tenant API Resolution', () => {
         return
       }
 
-      // Test that tenant lookup works without authentication
-      // This simulates what middleware needs to do
+      // Middleware / getTenantContext use overrideAccess: true — public REST must not
+      // enumerate tenants, but server-side resolution by known slug still works.
       const tenantResult = await payload.find({
         collection: 'tenants',
         where: {
@@ -147,12 +147,20 @@ describe('Tenant API Resolution', () => {
         },
         limit: 1,
         depth: 0,
-        // No user, rely on collection read access (should be public)
-        overrideAccess: false, // Use access control
+        overrideAccess: true,
       })
 
       expect(tenantResult.docs.length).toBe(1)
       expect(tenantResult.docs[0]?.slug).toBe(testTenant.slug)
+
+      const deniedPublic = await payload.find({
+        collection: 'tenants',
+        where: { slug: { equals: testTenant.slug } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: false,
+      })
+      expect(deniedPublic.docs.length).toBe(0)
     },
     TEST_TIMEOUT,
   )

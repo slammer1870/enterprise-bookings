@@ -11,19 +11,44 @@ import {
 import { currentUser } from '@/lib/auth/context/get-context-props'
 import {
   type EventPageTimeslot,
+  type EventPageStaffMember,
   relationId,
 } from '@/components/events/eventPageTypes'
+
+function sanitizeStaffMember(value: unknown): EventPageStaffMember | number | null {
+  if (value == null) return null
+  const id = relationId(value)
+  if (id == null) return null
+  if (typeof value !== 'object') return id
+
+  const doc = value as {
+    id?: unknown
+    name?: unknown
+    image?: { url?: string | null } | number | null
+  }
+  const profileImage =
+    doc.image && typeof doc.image === 'object' && typeof doc.image.url === 'string'
+      ? { url: doc.image.url }
+      : null
+
+  return {
+    id,
+    name: typeof doc.name === 'string' ? doc.name : null,
+    profileImage,
+  }
+}
 
 export async function loadEventTimeslot(id: number): Promise<EventPageTimeslot | null> {
   const payload = await getPayload()
   const headersList = await headers()
   const tenant = await getTenantWithBranding(payload, { headers: headersList })
 
+  // depth 2 for eventType/branch/media; staff is re-loaded narrowly below
   const timeslot = (await payload
     .findByID({
       collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       id,
-      depth: 3,
+      depth: 2,
       overrideAccess: true,
     })
     .catch(() => null)) as EventPageTimeslot | null
@@ -33,6 +58,25 @@ export async function loadEventTimeslot(id: number): Promise<EventPageTimeslot |
   const timeslotTenantId = relationId(timeslot.tenant)
   if (tenant?.id != null && timeslotTenantId != null && tenant.id !== timeslotTenantId) {
     return null
+  }
+
+  const staffId = relationId(timeslot.staffMember)
+  let staffMember: EventPageStaffMember | number | null = staffId
+  if (staffId != null) {
+    const staffUser = await payload
+      .findByID({
+        collection: 'users',
+        id: staffId,
+        depth: 1,
+        overrideAccess: true,
+        select: {
+          id: true,
+          name: true,
+          image: true,
+        } as any,
+      })
+      .catch(() => null)
+    staffMember = sanitizeStaffMember(staffUser) ?? staffId
   }
 
   const capacity = await computeCapacityBreakdownWithHolds(payload, id, {
@@ -57,6 +101,7 @@ export async function loadEventTimeslot(id: number): Promise<EventPageTimeslot |
 
   return {
     ...timeslot,
+    staffMember,
     remainingCapacity: capacity.remaining,
     remainingConfirmedOnly: capacity.remainingConfirmedOnly,
     ownHoldQuantity,

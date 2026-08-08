@@ -25,6 +25,9 @@ export async function syncTenantEmailDomainFromResend(
   args: SyncTenantEmailDomainArgs,
 ): Promise<{ emailDomainStatus: EmailDomainStatus; resendDomainId: string | null }> {
   const { payload, tenantId, clear } = args
+  // Pass req through so nested Local API calls stay in the parent transaction
+  // (e.g. Tenants afterChange during create — without req, findByID 404s).
+  const reqOpt = args.req ? { req: args.req as any } : {}
 
   if (clear) {
     const existing = await payload.findByID({
@@ -37,6 +40,7 @@ export async function syncTenantEmailDomainFromResend(
         emailDomainStatus: true,
         emailDomainVerifiedAt: true,
       } as Record<string, boolean>,
+      ...reqOpt,
     })
     const prev = existing as {
       resendDomainId?: string | null
@@ -61,7 +65,7 @@ export async function syncTenantEmailDomainFromResend(
       },
       overrideAccess: true,
       context: { skipApexHook: true, skipEmailDomainHook: true },
-      ...(args.req ? { req: args.req as any } : {}),
+      ...reqOpt,
     })
     return { emailDomainStatus: 'not_configured', resendDomainId: null }
   }
@@ -82,6 +86,7 @@ export async function syncTenantEmailDomainFromResend(
       emailDomainStatus: true,
       emailDomainVerifiedAt: true,
     } as Record<string, boolean>,
+    ...reqOpt,
   })
   const prev = existing as {
     resendDomainId?: string | null
@@ -115,7 +120,7 @@ export async function syncTenantEmailDomainFromResend(
     },
     overrideAccess: true,
     context: { skipApexHook: true, skipEmailDomainHook: true },
-    ...(args.req ? { req: args.req as any } : {}),
+    ...reqOpt,
   })
 
   return { emailDomainStatus: status, resendDomainId }

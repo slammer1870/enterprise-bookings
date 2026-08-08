@@ -1,5 +1,5 @@
 /**
- * Phase 7 Chunk 5 — `location-manager` role + `users.locations` assignments (org admin vs self).
+ * `location-manager` / staff branch assignments live on `tenants[].locations`.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
@@ -10,7 +10,23 @@ import { checkRole } from '@repo/shared-utils'
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
 
-describe('location-manager users.locations', () => {
+function locationsOnTenantRow(user: { tenants?: unknown }, tenantId: number): number[] {
+  const tenants = Array.isArray(user.tenants) ? user.tenants : []
+  for (const entry of tenants as Array<{ tenant?: unknown; locations?: unknown }>) {
+    const tid =
+      typeof entry.tenant === 'object' && entry.tenant !== null && 'id' in entry.tenant
+        ? (entry.tenant as { id: number }).id
+        : entry.tenant
+    if (Number(tid) !== tenantId) continue
+    if (!Array.isArray(entry.locations)) return []
+    return entry.locations.map((x) =>
+      typeof x === 'object' && x !== null && 'id' in x ? (x as { id: number }).id : Number(x),
+    )
+  }
+  return []
+}
+
+describe('location-manager tenants[].locations', () => {
   let payload: Payload
   let tenant: Tenant
   let locA: { id: number }
@@ -76,8 +92,7 @@ describe('location-manager users.locations', () => {
         password: 'test',
         role: ['location-manager'],
         emailVerified: true,
-        tenants: [{ tenant: tenant.id, roles: ['location-manager'] }],
-        locations: [locA.id],
+        tenants: [{ tenant: tenant.id, roles: ['location-manager'], locations: [locA.id] }],
       },
       draft: false,
       overrideAccess: true,
@@ -112,7 +127,7 @@ describe('location-manager users.locations', () => {
   )
 
   it(
-    'location-manager cannot change their own users.locations (field is stripped, not applied)',
+    'location-manager cannot change their own tenants[].locations (field access strips the write)',
     async () => {
       const req = {
         ...payload,
@@ -120,10 +135,14 @@ describe('location-manager users.locations', () => {
         context: { tenant: tenant.id },
       } as Parameters<typeof payload.update>[0]['req']
 
+      // Collection update of self is allowed for profile fields; tenants[] update is denied
+      // by field-level access so the assignment must remain unchanged.
       await payload.update({
         collection: 'users',
         id: locationManager.id,
-        data: { locations: [locB.id] },
+        data: {
+          tenants: [{ tenant: tenant.id, roles: ['location-manager'], locations: [locB.id] }],
+        },
         req,
         overrideAccess: false,
       })
@@ -131,22 +150,16 @@ describe('location-manager users.locations', () => {
       const after = await payload.findByID({
         collection: 'users',
         id: locationManager.id,
-        req,
-        overrideAccess: false,
-        depth: 1,
+        overrideAccess: true,
+        depth: 0,
       })
-      const locIds = Array.isArray(after.locations)
-        ? after.locations.map((x: unknown) =>
-            typeof x === 'object' && x !== null && 'id' in x ? (x as { id: number }).id : x,
-          )
-        : []
-      expect(locIds).toEqual([locA.id])
+      expect(locationsOnTenantRow(after as any, tenant.id as number)).toEqual([locA.id])
     },
     TEST_TIMEOUT,
   )
 
   it(
-    'org admin can assign and update users.locations for a location-manager',
+    'org admin can assign and update tenants[].locations for a location-manager',
     async () => {
       const req = {
         ...payload,
@@ -157,7 +170,11 @@ describe('location-manager users.locations', () => {
       await payload.update({
         collection: 'users',
         id: locationManager.id,
-        data: { locations: [locA.id, locB.id] },
+        data: {
+          tenants: [
+            { tenant: tenant.id, roles: ['location-manager'], locations: [locA.id, locB.id] },
+          ],
+        },
         req,
         overrideAccess: false,
       })
@@ -167,13 +184,10 @@ describe('location-manager users.locations', () => {
         id: locationManager.id,
         req,
         overrideAccess: false,
-        depth: 1,
+        depth: 0,
       })
 
-      const locIds = fresh.locations
-      const ids = Array.isArray(locIds)
-        ? locIds.map((x: unknown) => (typeof x === 'object' && x !== null && 'id' in x ? (x as { id: number }).id : x))
-        : []
+      const ids = locationsOnTenantRow(fresh as any, tenant.id as number)
       expect(ids).toEqual(expect.arrayContaining([locA.id, locB.id]))
       expect(ids.length).toBe(2)
     },

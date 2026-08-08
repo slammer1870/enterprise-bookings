@@ -1,6 +1,6 @@
 /**
  * Active `locations` rows for the current admin tenant (`payload-tenant`), for the branch/site selector.
- * Respects membership and pure `location-manager` assignments.
+ * Respects membership and `tenants[].locations` assignments for staff / location-managers.
  */
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
@@ -11,10 +11,7 @@ import { getPayload } from '@/lib/payload'
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
 import { isAdmin } from '@/access/userTenantAccess'
 import { getUserTenantIds, loadUserDocForTenantMembership } from '@/access/tenant-scoped'
-import {
-  isPureLocationManager,
-  resolvePureLocationManagerBranchIds,
-} from '@/access/locationManagerScope'
+import { resolveBranchAssignmentScope } from '@/access/locationManagerScope'
 import { getPayloadTenantIdFromRequest } from '@/utilities/tenantRequest'
 
 type LocationRow = { id: number; name: string; slug: string }
@@ -72,14 +69,18 @@ export async function GET(request: NextRequest) {
 
     let docs = (found.docs ?? []) as Array<{ id?: number; name?: string; slug?: string }>
 
-    if (isPureLocationManager(user)) {
-      const branchIds = await resolvePureLocationManagerBranchIds({
+    // Org admins and staff/LM with empty `tenants[].locations` stay unrestricted within the tenant.
+    // Staff / location-managers with a non-empty assignment only see those branches.
+    if (!isAdmin(user)) {
+      const scope = await resolveBranchAssignmentScope({
         payload,
         user,
         tenantIds: [tenantId],
       })
-      const allowed = new Set(branchIds)
-      docs = docs.filter((d) => typeof d.id === 'number' && allowed.has(d.id))
+      if (scope.kind === 'ids') {
+        const allowed = new Set(scope.ids)
+        docs = docs.filter((d) => typeof d.id === 'number' && allowed.has(d.id))
+      }
     }
 
     const locations: LocationRow[] = docs

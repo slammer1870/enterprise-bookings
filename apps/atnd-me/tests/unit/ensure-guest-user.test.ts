@@ -84,6 +84,7 @@ describe('ensureGuestUser', () => {
           __atndSystemUserWriteAllowedRoles: ['user', 'admin', 'staff', 'location-manager'],
         }),
         data: {
+          registrationTenant: 7,
           tenants: [
             { id: 'row-1', tenant: 3, roles: ['user'] },
             { tenant: 7, roles: ['user'] },
@@ -119,6 +120,7 @@ describe('ensureGuestUser', () => {
     expect(mockPayload.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
+          registrationTenant: 7,
           tenants: [
             { tenant: 1, roles: ['user'] },
             { tenant: 2, roles: ['admin'] },
@@ -153,6 +155,7 @@ describe('ensureGuestUser', () => {
     expect(mockPayload.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: {
+          registrationTenant: 7,
           tenants: [
             { id: 'row-admin', tenant: 3, roles: ['admin'] },
             { tenant: 7, roles: ['user'] },
@@ -171,6 +174,7 @@ describe('ensureGuestUser', () => {
         {
           id: 15,
           name: 'Broken Roles',
+          registrationTenant: 7,
           tenants: [
             { id: 'row-a', tenant: 7, roles: [] },
             { id: 'row-b', tenant: 3, roles: ['user', 'user'] },
@@ -200,12 +204,13 @@ describe('ensureGuestUser', () => {
     )
   })
 
-  it('does not rewrite tenants when membership already exists', async () => {
+  it('does not rewrite tenants when membership and registrationTenant already exist', async () => {
     mockPayload.find.mockResolvedValue({
       docs: [
         {
           id: 12,
           name: 'Member',
+          registrationTenant: 7,
           tenants: [{ tenant: 7, roles: ['user'] }],
         },
       ],
@@ -220,6 +225,36 @@ describe('ensureGuestUser', () => {
     })
 
     expect(mockPayload.update).not.toHaveBeenCalled()
+  })
+
+  it('backfills registrationTenant when an existing user is missing it', async () => {
+    mockPayload.find.mockResolvedValue({
+      docs: [
+        {
+          id: 13,
+          name: 'No Reg Tenant',
+          registrationTenant: null,
+          tenants: [{ tenant: 7, roles: ['user'] }],
+        },
+      ],
+      totalDocs: 1,
+    })
+    mockPayload.update.mockResolvedValue({ id: 13 })
+
+    await ensureGuestUser({
+      payload: mockPayload as never,
+      name: 'No Reg Tenant',
+      email: 'noreg@example.com',
+      tenantId: 7,
+    })
+
+    expect(mockPayload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'users',
+        id: 13,
+        data: { registrationTenant: 7 },
+      }),
+    )
   })
 
   it('rejects invalid email / empty name', async () => {
@@ -259,6 +294,7 @@ describe('ensureGuestUser', () => {
           {
             id: 77,
             name: 'Winner',
+            registrationTenant: 7,
             tenants: [{ tenant: 7, roles: ['user'] }],
           },
         ],
@@ -282,5 +318,39 @@ describe('ensureGuestUser', () => {
       name: 'Winner',
     })
     expect(mockPayload.update).not.toHaveBeenCalled()
+  })
+
+  it('backfills registrationTenant when create races and winner lacks it', async () => {
+    mockPayload.find
+      .mockResolvedValueOnce({ docs: [], totalDocs: 0 })
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            id: 78,
+            name: 'Winner',
+            registrationTenant: null,
+            tenants: [{ tenant: 7, roles: ['user'] }],
+          },
+        ],
+        totalDocs: 1,
+      })
+    mockPayload.create.mockRejectedValue(
+      new Error('The following field is invalid: email'),
+    )
+    mockPayload.update.mockResolvedValue({ id: 78 })
+
+    await ensureGuestUser({
+      payload: mockPayload as never,
+      name: 'Winner',
+      email: 'race-noreg@example.com',
+      tenantId: 7,
+    })
+
+    expect(mockPayload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 78,
+        data: { registrationTenant: 7 },
+      }),
+    )
   })
 })

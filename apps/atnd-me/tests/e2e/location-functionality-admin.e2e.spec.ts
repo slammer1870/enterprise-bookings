@@ -2,11 +2,16 @@ import { test, expect } from './helpers/fixtures'
 import {
   copySessionCookiesToTenantDomain,
   loginAsLocationManager,
+  loginAsStaff,
   loginAsSuperAdmin,
   loginAsTenantAdmin,
 } from './helpers/auth-helpers'
-import { createTestEventType, createTestTimeslot, getPayloadInstance } from './helpers/data-helpers'
-import { ensureSidebarOpen } from './helpers/admin-tenant-selector-helpers'
+import {
+  createTestEventType,
+  createTestTimeslot,
+  createTestUser,
+  getPayloadInstance,
+} from './helpers/data-helpers'
 import { uniqueClassName } from '@repo/testing-config/src/playwright'
 
 function tenantAdminOrigin(slug: string): string {
@@ -364,6 +369,131 @@ test.describe('Location functionality (admin)', () => {
     const northMarker = page.getByText(classNorth, { exact: false }).first()
     await expect(northMarker).toBeVisible({ timeout: 30_000 })
     await expect(page.getByText(classSouth, { exact: false })).toHaveCount(0)
+  })
+
+  test('staff assigned to one branch: site/branch selector only offers that location', async ({
+    page,
+    request,
+    testData,
+  }) => {
+    const tenant = testData.tenants[0]
+    if (!tenant?.id || !tenant.slug) throw new Error('Expected tenant fixture')
+
+    const { north, south } = testData.tenant1Locations
+    if (!north?.id || !south?.id) throw new Error('Expected tenant locations fixture')
+
+    const payload = await getPayloadInstance()
+    const w = testData.workerIndex
+    const stamp = Date.now()
+
+    await Promise.all([
+      payload.update({
+        collection: 'locations',
+        id: north.id,
+        data: { active: true },
+        overrideAccess: true,
+      }),
+      payload.update({
+        collection: 'locations',
+        id: south.id,
+        data: { active: true },
+        overrideAccess: true,
+      }),
+    ])
+
+    const staffEmail = `staffloc${w}${stamp}@test.com`
+    const staffUser = await createTestUser(staffEmail, 'password', 'E2E Staff Single Branch', ['staff'], tenant.id)
+    await payload.update({
+      collection: 'users',
+      id: staffUser.id,
+      data: {
+        tenants: [{ tenant: tenant.id, roles: ['staff'], locations: [north.id] }],
+        registrationTenant: tenant.id,
+        role: ['staff'],
+      } as Parameters<typeof payload.update>[0]['data'],
+      overrideAccess: true,
+    })
+
+    const classNorth = uniqueClassName('E2E staff-branch north marker')
+    const classSouth = uniqueClassName('E2E staff-branch south marker')
+    const etNorth = await createTestEventType(tenant.id, classNorth, 10, '', w)
+    const etSouth = await createTestEventType(tenant.id, classSouth, 10, '', w)
+
+    const startTime = new Date()
+    startTime.setHours(10, 0, 0, 0)
+    const endTime = new Date(startTime)
+    endTime.setHours(11, 0, 0, 0)
+
+    await createTestTimeslot(tenant.id, etNorth.id, startTime, endTime, undefined, true, north.id)
+    await createTestTimeslot(tenant.id, etSouth.id, startTime, endTime, undefined, true, south.id)
+
+    const adminOrigin = tenantAdminOrigin(tenant.slug)
+
+    try {
+      await loginAsStaff(page, staffEmail, {
+        request,
+        password: 'password',
+        adminOrigin,
+      })
+
+      await page.goto(`${adminOrigin}/admin/collections/timeslots`, {
+        waitUntil: 'domcontentloaded',
+        timeout: process.env.CI ? 120_000 : 60_000,
+      })
+      await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
+        timeout: process.env.CI ? 120_000 : 60_000,
+      })
+
+      await page.context().addCookies([
+        { name: 'payload-tenant', value: String(tenant.id), url: `${adminOrigin}/` },
+        { name: 'payload-tenant', value: String(tenant.id), url: `${adminOrigin}/admin/` },
+        { name: 'payload-tenant', value: String(tenant.id), url: `${adminOrigin}/admin/collections/` },
+        { name: 'payload-tenant', value: String(tenant.id), url: `${adminOrigin}/api/admin/` },
+        { name: 'tenant-slug', value: tenant.slug, url: `${adminOrigin}/` },
+      ])
+      await page.reload({ waitUntil: 'domcontentloaded', timeout: process.env.CI ? 120_000 : 60_000 })
+      await expect(page.getByRole('heading', { name: /timeslots/i }).first()).toBeVisible({
+        timeout: process.env.CI ? 120_000 : 60_000,
+      })
+
+      // API must only return the assigned branch (selector options source of truth).
+      // Use in-page fetch — Node's APIRequestContext cannot resolve `*.localhost`.
+      const optionsJson = await page.evaluate(async () => {
+        const res = await fetch('/api/admin/branch-selector-options', {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+        if (!res.ok) throw new Error(`branch-selector-options ${res.status}`)
+        return (await res.json()) as { locations?: Array<{ id: number; name: string }> }
+      })
+      const optionIds = (optionsJson.locations ?? []).map((l) => l.id).sort((a, b) => a - b)
+      expect(optionIds).toEqual([north.id])
+
+      // With a single allowed location the sidebar selector is hidden (no other site to pick).
+      await expect(page.getByTestId('branch-site-selector')).toHaveCount(0)
+
+      // List data must stay on the assigned branch even without a location cookie.
+      await expect(page.getByText(classNorth, { exact: false }).first()).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByText(classSouth, { exact: false })).toHaveCount(0)
+
+      // Cookie tampering must not widen selector options or list visibility.
+      await setPayloadLocationCookieAndReload(page, adminOrigin, south.id)
+      const tamperedJson = await page.evaluate(async () => {
+        const res = await fetch('/api/admin/branch-selector-options', {
+          credentials: 'include',
+          cache: 'no-store',
+        })
+        if (!res.ok) throw new Error(`branch-selector-options ${res.status}`)
+        return (await res.json()) as { locations?: Array<{ id: number }> }
+      })
+      expect((tamperedJson.locations ?? []).map((l) => l.id)).toEqual([north.id])
+      await expect(page.getByText(classNorth, { exact: false }).first()).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByText(classSouth, { exact: false })).toHaveCount(0)
+    } finally {
+      await payload
+        .delete({ collection: 'users', id: staffUser.id, overrideAccess: true })
+        .catch(() => null)
+    }
   })
 })
 

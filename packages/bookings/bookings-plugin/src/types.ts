@@ -47,7 +47,7 @@ export type BookingsPluginConfig = {
   enabled?: boolean;
 
   /**
-   * Collection slugs (defaults: timeslots, event-types, staffMembers, bookings).
+   * Collection slugs (defaults: timeslots, event-types, bookings).
    */
   slugs?: Partial<BookingCollectionSlugs>;
 
@@ -68,11 +68,6 @@ export type BookingsPluginConfig = {
     access?: AccessOverride;
   } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
   eventTypesOverrides?: {
-    fields?: FieldsOverride;
-    hooks?: HooksOverride;
-    access?: AccessOverride;
-  } & Partial<Omit<CollectionConfig, "fields" | "hooks" | "access">>;
-  staffMembersOverrides?: {
     fields?: FieldsOverride;
     hooks?: HooksOverride;
     access?: AccessOverride;

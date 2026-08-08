@@ -98,17 +98,17 @@ describe('Schedule timeslots visibility for authenticated users', () => {
     })
     profileImageId = (profileImage as any).id as number
 
-    const instructor = await payload.create({
-      collection: 'staff-members',
+    await payload.update({
+      collection: 'users',
+      id: instructorUser.id,
       data: {
-        user: instructorUser.id,
-        active: true,
-        profileImage: profileImageId,
-        tenant: testTenant.id,
+        role: ['staff'],
+        image: profileImageId,
+        tenants: [{ tenant: testTenant.id, roles: ['staff'] }],
       },
       overrideAccess: true,
     })
-    instructorId = (instructor as any).id as number
+    instructorId = instructorUser.id as number
 
     // Create payment method dependencies for the class option (to validate sanitization)
     const plan = await payload.create({
@@ -249,22 +249,18 @@ describe('Schedule timeslots visibility for authenticated users', () => {
           collection: 'users',
           where: { id: { equals: regularUser.id } },
         })
-        if (instructorId) {
-          await payload.delete({
-            collection: 'staff-members',
-            where: { id: { equals: instructorId } },
-          })
-        }
         if (profileImageId) {
           await payload.delete({
             collection: 'media',
             where: { id: { equals: profileImageId } },
           })
         }
-        await payload.delete({
-          collection: 'users',
-          where: { id: { equals: instructorUser.id } },
-        })
+        if (instructorUser?.id) {
+          await payload.delete({
+            collection: 'users',
+            where: { id: { equals: instructorUser.id } },
+          })
+        }
         await payload.delete({
           collection: 'tenants',
           where: { id: { equals: testTenant.id } },
