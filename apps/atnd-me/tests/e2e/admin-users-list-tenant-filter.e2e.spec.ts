@@ -57,11 +57,17 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
     await createTestUser(multiAdminEmail, 'password', 'Multi-Tenant Admin', ['admin'], tenant1.id)
 
     const payload = await getPayloadInstance()
+    // Per-tenant roles are required — without them beforeChange derives global role to `user`
+    // and the admin tenant selector never renders.
     await payload.update({
       collection: 'users',
       where: { email: { equals: multiAdminEmail } },
       data: {
-        tenants: [{ tenant: tenant1.id }, { tenant: tenant2.id }],
+        tenants: [
+          { tenant: tenant1.id, roles: ['admin'] },
+          { tenant: tenant2.id, roles: ['admin'] },
+        ],
+        role: ['admin'],
         registrationTenant: tenant1.id,
       },
       overrideAccess: true,
@@ -146,7 +152,11 @@ test.describe('Admin users list — tenant selector filters rows for multi-tenan
       collection: 'users',
       where: { email: { equals: multiAdminEmail } },
       data: {
-        tenants: [{ tenant: tenant1.id }, { tenant: tenant2.id }],
+        tenants: [
+          { tenant: tenant1.id, roles: ['admin'] },
+          { tenant: tenant2.id, roles: ['admin'] },
+        ],
+        role: ['admin'],
         registrationTenant: tenant1.id,
       },
       overrideAccess: true,
