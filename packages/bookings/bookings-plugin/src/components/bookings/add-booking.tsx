@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from "@repo/ui/components/ui/dialog";
 import { Button as UiButton } from "@repo/ui/components/ui/button";
+import { bookingUserOptionLabel } from "../../utils/booking-user-label";
 
 const statusOptions = [
   { label: "Pending", value: "pending" },
@@ -90,7 +91,7 @@ export const AddBooking = ({
   const userOptions = [
     { label: "Select user", value: "" },
     ...(users.map((user) => ({
-      label: `${user.name ?? user.email} – ${user.email}`,
+      label: bookingUserOptionLabel(user),
       value: String(user.id),
     })) ?? []),
   ] as { label: string; value: string }[];
