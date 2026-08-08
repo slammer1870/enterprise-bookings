@@ -1,13 +1,12 @@
-import type { Access, CollectionConfig, Field, Payload, Where } from 'payload'
+import type { CollectionConfig, Field, Payload } from 'payload'
 import { extractUtcWallClock } from '@repo/shared-utils'
 import {
-    tenantScopedCreate,
-    tenantScopedUpdate,
-    tenantScopedDelete,
-    tenantScopedReadFiltered,
-} from '../../access/tenant-scoped'
-import { isStaffOnlyUser, tenantOrgPayloadAdminAccess } from '../../access/userTenantAccess'
-import { getPayloadLocationIdFromRequest } from '../../utilities/tenantRequest'
+    schedulerAdminAccess,
+    schedulerCreateAccess,
+    schedulerDeleteAccess,
+    schedulerReadAccess,
+    schedulerUpdateAccess,
+} from '../../access/schedulerAccess'
 import { schedulerGenerationStatusEndpoint } from '../../endpoints/admin/scheduler-generation-status'
 import { SKIP_SCHEDULER_GENERATION } from '../../lib/scheduler/constants'
 import { runSchedulerGenerationJob } from '../../lib/scheduler/run-generation-job'
@@ -29,26 +28,6 @@ function relationId(value: unknown): number | null {
         if (typeof id === 'string' && /^\d+$/.test(id)) return parseInt(id, 10)
     }
     return null
-}
-
-/**
- * Read access for Scheduler: extends tenant-scoped filtering with an optional branch
- * filter when `payload-location` cookie is set. This scopes the list so that each
- * location's scheduler is shown independently when a branch is selected.
- */
-const schedulerReadAccess: Access = async (args) => {
-    const { req } = args
-    const base = await tenantScopedReadFiltered(args)
-    if (base === false) return false
-
-    const typedReq = req as typeof req & { cookies?: { get: (name: string) => { value?: string } | undefined } }
-    const cookieSrc = typedReq.cookies?.get ? { cookies: typedReq.cookies } : {}
-    const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
-    if (selectedBranchId == null) return base
-
-    const branchFilter: Where = { branch: { equals: selectedBranchId } }
-    if (base === true) return branchFilter
-    return { and: [base as Where, branchFilter] }
 }
 
 // Multi-tenant Scheduler collection (converted from scheduler global)
@@ -189,20 +168,11 @@ export const Scheduler: CollectionConfig = {
         },
     },
     access: {
-        admin: tenantOrgPayloadAdminAccess,
+        admin: schedulerAdminAccess,
         read: schedulerReadAccess,
-        create: async (args) => {
-            if (isStaffOnlyUser(args.req.user)) return false
-            return tenantScopedCreate(args)
-        },
-        update: async (args) => {
-            if (isStaffOnlyUser(args.req.user)) return false
-            return tenantScopedUpdate(args)
-        },
-        delete: async (args) => {
-            if (isStaffOnlyUser(args.req.user)) return false
-            return tenantScopedDelete(args)
-        },
+        create: schedulerCreateAccess,
+        update: schedulerUpdateAccess,
+        delete: schedulerDeleteAccess,
     },
     hooks: {
         beforeValidate: [

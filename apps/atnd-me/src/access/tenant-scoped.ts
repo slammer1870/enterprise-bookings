@@ -858,7 +858,8 @@ export const tenantScopedReadFiltered: Access = async ({ req }) => {
     return await resolveTenantAdminReadConstraint({ req })
   }
 
-  // Pure location-managers are denied on tenant-wide filtered collections (e.g. Pages, Scheduler).
+  // Pure location-managers are denied on tenant-wide filtered collections (e.g. Pages).
+  // Scheduler uses dedicated {@link schedulerReadAccess} (branch-scoped) instead of this helper.
   // Collections that location-managers legitimately need (bookings) use tenantScopedPublicReadStrict
   // which already grants them a tenant-scoped Where via checkRole(['admin','staff','location-manager']).
   if (isPureLocationManager(user)) {

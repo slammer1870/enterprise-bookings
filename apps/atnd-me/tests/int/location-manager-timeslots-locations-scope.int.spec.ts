@@ -1,10 +1,12 @@
 /**
- * Phase 7 Chunk 6 — pure `location-manager`: timeslots + locations read scope; no location writes; no Pages reads.
+ * Phase 7 Chunk 6 — pure `location-manager`: timeslots + locations + scheduler scope;
+ * no location writes; no Pages reads.
  */
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import type { User, Tenant } from '@repo/shared-types'
+import { SKIP_SCHEDULER_GENERATION } from '@/lib/scheduler/constants'
 import { PAYLOAD_LOCATION_COOKIE } from '@/utilities/tenantRequest'
 
 const HOOK_TIMEOUT = 300000
@@ -34,6 +36,8 @@ describe('location-manager timeslots + locations scope', () => {
   let eventTypeId: number
   let timeslotBranchA: number
   let timeslotBranchB: number
+  let schedulerBranchA: number
+  let schedulerBranchB: number
   let pageId: number | null = null
 
   beforeAll(async () => {
@@ -122,6 +126,33 @@ describe('location-manager timeslots + locations scope', () => {
 
     timeslotBranchA = await mkSlot(0, locA.id)
     timeslotBranchB = await mkSlot(1, locB.id)
+
+    const startDate = new Date()
+    startDate.setUTCDate(startDate.getUTCDate() + 7)
+    const endDate = new Date(startDate)
+    endDate.setUTCDate(endDate.getUTCDate() + 14)
+
+    const mkScheduler = async (branchId: number) => {
+      const doc = await payload.create({
+        collection: 'scheduler',
+        data: {
+          tenant: tenant.id,
+          branch: branchId,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+          lockOutTime: 0,
+          defaultEventType: eventTypeId,
+          clearExisting: false,
+          week: { days: Array.from({ length: 7 }, () => ({ timeSlot: [] })) },
+        },
+        overrideAccess: true,
+        context: { [SKIP_SCHEDULER_GENERATION]: true },
+      } as any)
+      return doc.id as number
+    }
+
+    schedulerBranchA = await mkScheduler(locA.id as number)
+    schedulerBranchB = await mkScheduler(locB.id as number)
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -130,6 +161,11 @@ describe('location-manager timeslots + locations scope', () => {
       if (pageId != null) {
         await payload.delete({ collection: 'pages', id: pageId, overrideAccess: true })
       }
+      await payload.delete({
+        collection: 'scheduler',
+        where: { id: { in: [schedulerBranchA, schedulerBranchB] } },
+        overrideAccess: true,
+      })
       await payload.delete({
         collection: 'timeslots',
         where: { id: { in: [timeslotBranchA, timeslotBranchB] } },
@@ -226,6 +262,73 @@ describe('location-manager timeslots + locations scope', () => {
       const ids = res.docs.map((d) => d.id)
       expect(ids).toContain(timeslotBranchA)
       expect(ids).not.toContain(timeslotBranchB)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'location-manager can read assigned-branch scheduler but not other branches',
+    async () => {
+      const req = {
+        user: lm,
+        context: { tenant: tenant.id },
+        payload,
+        headers: new Headers(),
+      } as unknown as Parameters<typeof payload.find>[0]['req']
+
+      const allowed = await payload.find({
+        collection: 'scheduler',
+        where: { id: { equals: schedulerBranchA } },
+        limit: 1,
+        req,
+        overrideAccess: false,
+        depth: 0,
+      })
+      expect(allowed.docs.map((d) => d.id)).toContain(schedulerBranchA)
+
+      const denied = await payload.find({
+        collection: 'scheduler',
+        where: { id: { equals: schedulerBranchB } },
+        limit: 1,
+        req,
+        overrideAccess: false,
+        depth: 0,
+      })
+      expect(denied.docs.map((d) => d.id)).not.toContain(schedulerBranchB)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'location-manager can update assigned-branch scheduler',
+    async () => {
+      const req = {
+        user: lm,
+        context: { tenant: tenant.id },
+        payload,
+        headers: new Headers(),
+      } as unknown as Parameters<typeof payload.update>[0]['req']
+
+      const updated = await payload.update({
+        collection: 'scheduler',
+        id: schedulerBranchA,
+        data: { lockOutTime: 15 },
+        req,
+        overrideAccess: false,
+        context: { [SKIP_SCHEDULER_GENERATION]: true },
+      } as any)
+      expect(updated.lockOutTime).toBe(15)
+
+      await expect(
+        payload.update({
+          collection: 'scheduler',
+          id: schedulerBranchB,
+          data: { lockOutTime: 99 },
+          req,
+          overrideAccess: false,
+          context: { [SKIP_SCHEDULER_GENERATION]: true },
+        } as any),
+      ).rejects.toThrow()
     },
     TEST_TIMEOUT,
   )

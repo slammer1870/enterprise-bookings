@@ -5,6 +5,7 @@ import {
   isStaff,
   isStaffOnlyUser,
   isTenantAdmin,
+  isTenantPortalUser,
   tenantOrgPayloadAdminAccess,
 } from '@/access/userTenantAccess'
 
@@ -142,6 +143,30 @@ describe('userTenantAccess helpers', () => {
       }
       expect(isStaffOnlyUser(lm)).toBe(false)
       expect(isPureLocationManager(lm)).toBe(true)
+    })
+  })
+
+  describe('isTenantPortalUser', () => {
+    it('includes org admin, staff, and location-manager memberships', () => {
+      expect(
+        isTenantPortalUser({ id: 1, tenants: [{ tenant: 7, roles: ['admin'] }] }),
+      ).toBe(true)
+      expect(
+        isTenantPortalUser({ id: 1, tenants: [{ tenant: 7, roles: ['staff'] }] }),
+      ).toBe(true)
+      expect(
+        isTenantPortalUser({
+          id: 1,
+          tenants: [{ tenant: 7, roles: ['location-manager'] }],
+        }),
+      ).toBe(true)
+    })
+
+    it('excludes regular members and derived global role alone', () => {
+      expect(
+        isTenantPortalUser({ id: 1, tenants: [{ tenant: 7, roles: ['user'] }] }),
+      ).toBe(false)
+      expect(isTenantPortalUser({ id: 1, role: ['location-manager'] })).toBe(false)
     })
   })
 

@@ -17,6 +17,7 @@ import {
   isAdmin,
   isTenantAdmin,
   isStaff,
+  isLocationManager,
   usersPayloadAdminAccess,
 } from '../../access/userTenantAccess'
 
@@ -269,8 +270,15 @@ If you did not request this, you can ignore this email.`
       async ({ data, operation, req }) => {
         if (operation === 'create' && data && !data.registrationTenant) {
           const user = req.user
-          // Covers both tenant-admins ('admin' role) and platform super-admins ('super-admin' role).
-          if (user && checkRole(['admin', 'super-admin'], user as unknown as SharedUser)) {
+          // Tenant portal creators (org admin / location-manager) and platform super-admins.
+          // Location-managers need registrationTenant so the new member stays in their roster scope.
+          const canAssignRegistrationTenant =
+            Boolean(user) &&
+            (isAdmin(user) ||
+              isTenantAdmin(user) ||
+              isLocationManager(user) ||
+              checkRole(['admin', 'super-admin', 'location-manager'], user as unknown as SharedUser))
+          if (canAssignRegistrationTenant) {
             const rawTenant = req.context?.tenant as unknown
             if (rawTenant) {
               ;(data as { registrationTenant?: string | number }).registrationTenant =

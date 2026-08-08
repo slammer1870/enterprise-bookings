@@ -33,6 +33,7 @@ describe('location-manager tenants[].locations', () => {
   let locB: { id: number }
   let orgAdmin: User
   let locationManager: User
+  let memberUser: User
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -97,6 +98,21 @@ describe('location-manager tenants[].locations', () => {
       draft: false,
       overrideAccess: true,
     } as Parameters<typeof payload.create>[0])) as User
+
+    memberUser = (await payload.create({
+      collection: 'users',
+      data: {
+        name: 'Tenant Member',
+        email: `lm-member-${ts}@test.com`,
+        password: 'test',
+        role: ['user'],
+        emailVerified: true,
+        registrationTenant: tenant.id,
+        tenants: [{ tenant: tenant.id, roles: ['user'] }],
+      },
+      draft: false,
+      overrideAccess: true,
+    } as Parameters<typeof payload.create>[0])) as User
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -122,6 +138,30 @@ describe('location-manager tenants[].locations', () => {
         limit: 1,
       })
       expect(r.docs.length).toBe(1)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'location-manager can read other tenant users in admin roster',
+    async () => {
+      const req = {
+        user: locationManager,
+        context: { tenant: tenant.id },
+        payload,
+        headers: new Headers(),
+      } as unknown as Parameters<typeof payload.find>[0]['req']
+
+      const r = await payload.find({
+        collection: 'users',
+        where: { id: { equals: memberUser.id } },
+        req,
+        overrideAccess: false,
+        limit: 1,
+        depth: 0,
+      })
+      expect(r.docs.length).toBe(1)
+      expect(r.docs[0]?.id).toBe(memberUser.id)
     },
     TEST_TIMEOUT,
   )
@@ -190,6 +230,45 @@ describe('location-manager tenants[].locations', () => {
       const ids = locationsOnTenantRow(fresh as any, tenant.id as number)
       expect(ids).toEqual(expect.arrayContaining([locA.id, locB.id]))
       expect(ids.length).toBe(2)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'location-manager can create a user with name and email',
+    async () => {
+      const req = {
+        user: locationManager,
+        context: { tenant: tenant.id },
+        payload,
+        headers: new Headers(),
+      } as unknown as Parameters<typeof payload.create>[0]['req']
+
+      const created = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'LM Created Member',
+          email: `lm-created-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        req,
+        overrideAccess: false,
+      } as Parameters<typeof payload.create>[0])
+
+      expect(created.id).toBeTruthy()
+      expect(created.name).toBe('LM Created Member')
+
+      const updated = await payload.update({
+        collection: 'users',
+        id: created.id,
+        data: { name: 'LM Renamed Member' },
+        req,
+        overrideAccess: false,
+      })
+      expect(updated.name).toBe('LM Renamed Member')
     },
     TEST_TIMEOUT,
   )

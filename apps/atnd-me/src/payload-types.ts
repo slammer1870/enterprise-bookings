@@ -72,12 +72,12 @@ export interface Config {
     'post-booking-email-deliveries': PostBookingEmailDelivery;
     'course-email-deliveries': CourseEmailDelivery;
     'event-types': EventType;
+    users: User;
     'emergency-contacts': EmergencyContact;
     'admin-invitations': AdminInvitation;
     accounts: Account;
     sessions: Session;
     verifications: Verification;
-    users: User;
     tenants: Tenant;
     locations: Location;
     'discount-codes': DiscountCode;
@@ -132,12 +132,12 @@ export interface Config {
     'post-booking-email-deliveries': PostBookingEmailDeliveriesSelect<false> | PostBookingEmailDeliveriesSelect<true>;
     'course-email-deliveries': CourseEmailDeliveriesSelect<false> | CourseEmailDeliveriesSelect<true>;
     'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
     'emergency-contacts': EmergencyContactsSelect<false> | EmergencyContactsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
-    users: UsersSelect<false> | UsersSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     locations: LocationsSelect<false> | LocationsSelect<true>;
     'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
@@ -279,9 +279,60 @@ export interface Tenant {
    */
   slug: string;
   /**
-   * IANA timezone for this tenant, for example Europe/Dublin or America/New_York. If empty, the app default timezone is used.
+   * Timezone for schedules and booking times for this tenant. Defaults to Dublin.
    */
-  timeZone?: string | null;
+  timeZone?:
+    | (
+        | 'Europe/Dublin'
+        | 'Pacific/Midway'
+        | 'Pacific/Niue'
+        | 'Pacific/Honolulu'
+        | 'Pacific/Rarotonga'
+        | 'America/Anchorage'
+        | 'Pacific/Gambier'
+        | 'America/Los_Angeles'
+        | 'America/Tijuana'
+        | 'America/Denver'
+        | 'America/Phoenix'
+        | 'America/Chicago'
+        | 'America/Guatemala'
+        | 'America/New_York'
+        | 'America/Bogota'
+        | 'America/Caracas'
+        | 'America/Santiago'
+        | 'America/Buenos_Aires'
+        | 'America/Sao_Paulo'
+        | 'Atlantic/South_Georgia'
+        | 'Atlantic/Azores'
+        | 'Atlantic/Cape_Verde'
+        | 'Europe/London'
+        | 'Europe/Berlin'
+        | 'Africa/Lagos'
+        | 'Europe/Athens'
+        | 'Africa/Cairo'
+        | 'Europe/Moscow'
+        | 'Asia/Riyadh'
+        | 'Asia/Dubai'
+        | 'Asia/Baku'
+        | 'Asia/Karachi'
+        | 'Asia/Tashkent'
+        | 'Asia/Calcutta'
+        | 'Asia/Dhaka'
+        | 'Asia/Almaty'
+        | 'Asia/Jakarta'
+        | 'Asia/Bangkok'
+        | 'Asia/Shanghai'
+        | 'Asia/Singapore'
+        | 'Asia/Tokyo'
+        | 'Asia/Seoul'
+        | 'Australia/Brisbane'
+        | 'Australia/Sydney'
+        | 'Pacific/Guam'
+        | 'Pacific/Noumea'
+        | 'Pacific/Auckland'
+        | 'Pacific/Fiji'
+      )
+    | null;
   /**
    * Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. When VALIDATE_TENANT_CUSTOM_DOMAIN_DNS=true, the domain must have DNS records (A, AAAA, or CNAME) before saving.
    */
@@ -4361,6 +4412,10 @@ export interface PayloadLockedDocument {
         value: number | EventType;
       } | null)
     | ({
+        relationTo: 'users';
+        value: number | User;
+      } | null)
+    | ({
         relationTo: 'emergency-contacts';
         value: number | EmergencyContact;
       } | null)
@@ -4379,10 +4434,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'verifications';
         value: number | Verification;
-      } | null)
-    | ({
-        relationTo: 'users';
-        value: number | User;
       } | null)
     | ({
         relationTo: 'tenants';
@@ -4650,6 +4701,57 @@ export interface EventTypesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  emergencyContacts?: T;
+  registrationTenant?: T;
+  onboardingPasswordSetAt?: T;
+  tenants?:
+    | T
+    | {
+        tenant?: T;
+        roles?: T;
+        locations?: T;
+        id?: T;
+      };
+  name?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
+  account?: T;
+  session?: T;
+  stripeCustomerId?: T;
+  stripeCustomers?:
+    | T
+    | {
+        stripeAccountId?: T;
+        stripeCustomerId?: T;
+        id?: T;
+      };
+  userSubscription?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "emergency-contacts_select".
  */
 export interface EmergencyContactsSelect<T extends boolean = true> {
@@ -4731,57 +4833,6 @@ export interface VerificationsSelect<T extends boolean = true> {
   expiresAt?: T;
   createdAt?: T;
   updatedAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  emergencyContacts?: T;
-  registrationTenant?: T;
-  onboardingPasswordSetAt?: T;
-  tenants?:
-    | T
-    | {
-        tenant?: T;
-        roles?: T;
-        locations?: T;
-        id?: T;
-      };
-  name?: T;
-  emailVerified?: T;
-  image?: T;
-  createdAt?: T;
-  updatedAt?: T;
-  role?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
-  account?: T;
-  session?: T;
-  stripeCustomerId?: T;
-  stripeCustomers?:
-    | T
-    | {
-        stripeAccountId?: T;
-        stripeCustomerId?: T;
-        id?: T;
-      };
-  userSubscription?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
