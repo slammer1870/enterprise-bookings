@@ -863,9 +863,10 @@ export async function setupE2ETestData(workerIndex: number = 0): Promise<{
     collection: 'users',
     where: { email: { equals: locationManager1.email } },
     data: {
-      tenants: [{ tenant: tenant1.id, roles: ['location-manager'] }],
+      tenants: [
+        { tenant: tenant1.id, roles: ['location-manager'], locations: [branchNorth.id] },
+      ],
       registrationTenant: tenant1.id,
-      locations: [branchNorth.id],
     } as Parameters<typeof payload.update>[0]['data'],
     overrideAccess: true,
   })

@@ -38,8 +38,8 @@ import { EventTypeForTimeslotFilterField as EventTypeForTimeslotFilterField_10c7
 import { TimeslotDateFilterField as TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0 } from '@/components/admin/TimeslotDateFilterField'
 import { TimeslotForEventPickerField as TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7 } from '@/components/admin/TimeslotForEventPickerField'
 import { default as default_ce6f29e70fd4204b43c477b4bf07b84b } from '@/components/admin/DomainDnsInstructions'
-import { default as default_abb3478227777dca3f79955efb5fd481 } from '@/components/admin/EmailDomainDnsInstructions'
 import { default as default_a5117e5f562e81a9d1ce48d0eee41679 } from '@/components/admin/ApexDnsInstructions'
+import { default as default_abb3478227777dca3f79955efb5fd481 } from '@/components/admin/EmailDomainDnsInstructions'
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
 import { StripeDashboardLinkField as StripeDashboardLinkField_3f461e6c95821294340135c2293fe078 } from '@/components/admin/StripeDashboardLinkField'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
@@ -48,6 +48,12 @@ import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { ImportListMenuItem as ImportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
 import { CreateStripeSubscriptionButton as CreateStripeSubscriptionButton_ed3014cce3aceb51cef0b2454cfe3a0b } from '@/components/admin/CreateStripeSubscriptionButton'
+import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
+import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
+import { TenantMembershipField as TenantMembershipField_ae33ac801c02897921b5d704508790f3 } from '@/components/admin/users/TenantMembershipField'
+import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
+import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
+import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { HexColorField as HexColorField_ca548eebdfa866ec41325bf80e7732ed } from '@repo/website/src/admin/HexColorField'
 import { MultiLocationOnlyRelationshipField as MultiLocationOnlyRelationshipField_0b514c4784cda3a47f7469391b2c945a } from '@/components/admin/MultiLocationOnlyRelationshipField'
 import { BookingThemePreviewField as BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b } from '@/components/admin/booking-theme/BookingThemePreviewField'
@@ -58,12 +64,6 @@ import { MetaDescriptionComponent as MetaDescriptionComponent_a8a977ebc872c5d5ea
 import { PreviewComponent as PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860 } from '@payloadcms/plugin-seo/client'
 import { RowLabel as RowLabel_ec255a65fa6fa8d1faeb09cf35284224 } from '@/Header/RowLabel'
 import { RowLabel as RowLabel_1f6ff6ff633e3695d348f4f3c58f1466 } from '@/Footer/RowLabel'
-import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
-import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
-import { TenantMembershipField as TenantMembershipField_ae33ac801c02897921b5d704508790f3 } from '@/components/admin/users/TenantMembershipField'
-import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
-import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
-import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { default as default_52e77c52d4964a74462752f328706265 } from '@/components/admin/MediaUpload'
 import { SlugField as SlugField_2b8867833a34864a02ddf429b0728a40 } from '@payloadcms/next/client'
 import { LinkToDoc as LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634 } from '@payloadcms/plugin-search/client'
@@ -138,8 +138,8 @@ export const importMap = {
   "@/components/admin/TimeslotDateFilterField#TimeslotDateFilterField": TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0,
   "@/components/admin/TimeslotForEventPickerField#TimeslotForEventPickerField": TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7,
   "@/components/admin/DomainDnsInstructions#default": default_ce6f29e70fd4204b43c477b4bf07b84b,
-  "@/components/admin/EmailDomainDnsInstructions#default": default_abb3478227777dca3f79955efb5fd481,
   "@/components/admin/ApexDnsInstructions#default": default_a5117e5f562e81a9d1ce48d0eee41679,
+  "@/components/admin/EmailDomainDnsInstructions#default": default_abb3478227777dca3f79955efb5fd481,
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,
   "@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField": StripeDashboardLinkField_3f461e6c95821294340135c2293fe078,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
@@ -148,6 +148,12 @@ export const importMap = {
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@payloadcms/plugin-import-export/rsc#ImportListMenuItem": ImportListMenuItem_cdf7e044479f899a31f804427d568b36,
   "@/components/admin/CreateStripeSubscriptionButton#CreateStripeSubscriptionButton": CreateStripeSubscriptionButton_ed3014cce3aceb51cef0b2454cfe3a0b,
+  "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
+  "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
+  "@/components/admin/users/TenantMembershipField#TenantMembershipField": TenantMembershipField_ae33ac801c02897921b5d704508790f3,
+  "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
+  "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
+  "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
   "@repo/website/src/admin/HexColorField#HexColorField": HexColorField_ca548eebdfa866ec41325bf80e7732ed,
   "@/components/admin/MultiLocationOnlyRelationshipField#MultiLocationOnlyRelationshipField": MultiLocationOnlyRelationshipField_0b514c4784cda3a47f7469391b2c945a,
   "@/components/admin/booking-theme/BookingThemePreviewField#BookingThemePreviewField": BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b,
@@ -158,12 +164,6 @@ export const importMap = {
   "@payloadcms/plugin-seo/client#PreviewComponent": PreviewComponent_a8a977ebc872c5d5ea7ee689724c0860,
   "@/Header/RowLabel#RowLabel": RowLabel_ec255a65fa6fa8d1faeb09cf35284224,
   "@/Footer/RowLabel#RowLabel": RowLabel_1f6ff6ff633e3695d348f4f3c58f1466,
-  "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
-  "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
-  "@/components/admin/users/TenantMembershipField#TenantMembershipField": TenantMembershipField_ae33ac801c02897921b5d704508790f3,
-  "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
-  "payload-auth/better-auth/plugin/client#AdminInviteButton": AdminInviteButton_5a568d0e24198ca3140489e0d330f424,
-  "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
   "@/components/admin/MediaUpload#default": default_52e77c52d4964a74462752f328706265,
   "@payloadcms/next/client#SlugField": SlugField_2b8867833a34864a02ddf429b0728a40,
   "@payloadcms/plugin-search/client#LinkToDoc": LinkToDoc_aead06e4cbf6b2620c5c51c9ab283634,

@@ -5,7 +5,6 @@ import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
 
 function createSchedulerDaysField(slugs: BookingCollectionSlugs): Field {
   const eventTypesSlug = slugs.eventTypes as CollectionSlug;
-  const staffMembersSlug = slugs.staffMembers as CollectionSlug;
 
   return {
     name: "days",
@@ -116,15 +115,8 @@ function createSchedulerDaysField(slugs: BookingCollectionSlugs): Field {
             name: "staffMember",
             label: "Staff Member",
             type: "relationship",
-            relationTo: staffMembersSlug,
+            relationTo: "users",
             hasMany: false,
-            filterOptions: () => {
-              return {
-                active: {
-                  equals: true,
-                },
-              };
-            },
           },
           {
             name: "lockOutTime",

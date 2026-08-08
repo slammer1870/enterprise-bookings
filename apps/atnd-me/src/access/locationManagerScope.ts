@@ -35,10 +35,92 @@ export function relationIdFromPayloadField(value: unknown): number | null {
   return null
 }
 
+type TenantMembershipRow = {
+  tenant?: unknown
+  roles?: unknown
+  locations?: unknown
+}
+
 /**
- * Hydrate `users.locations` (depth 1, no select) for branch scoping.
- * Omitting `select` ensures Payload fully populates the locations relationship
- * including their `tenant` field at depth 1.
+ * Branch scope from `tenants[].locations` for staff / location-manager rows.
+ * - `unrestricted`: admin on the tenant, or staff/LM with empty locations (= all locations)
+ * - `ids`: non-empty assignment list
+ */
+export type BranchAssignmentScope =
+  | { kind: 'unrestricted' }
+  | { kind: 'ids'; ids: number[] }
+
+function rolesFromEntry(entry: TenantMembershipRow): string[] {
+  if (!Array.isArray(entry.roles)) return []
+  return entry.roles.filter((r): r is string => typeof r === 'string')
+}
+
+/**
+ * Resolve branch assignment scope for the given tenant ids from a user doc's `tenants[]`.
+ */
+export function branchScopeForUserInTenants(
+  userDoc: unknown,
+  tenantIds: number[],
+): BranchAssignmentScope {
+  if (!tenantIds.length) return { kind: 'ids', ids: [] }
+  const set = new Set(tenantIds)
+  const tenants = (userDoc as { tenants?: TenantMembershipRow[] })?.tenants
+  if (!Array.isArray(tenants)) return { kind: 'unrestricted' }
+
+  const assigned = new Set<number>()
+  let sawScopedRow = false
+  let sawUnrestrictedRow = false
+
+  for (const entry of tenants) {
+    const tid = relationIdFromPayloadField(entry?.tenant)
+    if (tid == null || !set.has(tid)) continue
+    const roles = rolesFromEntry(entry)
+    if (roles.includes('admin')) {
+      sawUnrestrictedRow = true
+      continue
+    }
+    if (!roles.includes('staff') && !roles.includes('location-manager')) continue
+
+    const locs = entry.locations
+    if (!Array.isArray(locs) || locs.length === 0) {
+      sawUnrestrictedRow = true
+      continue
+    }
+    sawScopedRow = true
+    for (const loc of locs) {
+      const bid = relationIdFromPayloadField(loc)
+      if (bid != null) assigned.add(bid)
+    }
+  }
+
+  if (sawUnrestrictedRow && !sawScopedRow) return { kind: 'unrestricted' }
+  if (sawUnrestrictedRow && sawScopedRow) {
+    // Mixed: prefer unrestricted if any matching tenant row is unrestricted
+    // when querying multiple tenants; for single-tenant calls this won't mix.
+    if (tenantIds.length === 1) {
+      // Re-evaluate single tenant more carefully — already handled above per-row.
+      // If both somehow true for one tenant, unrestricted wins (admin or empty).
+      return { kind: 'unrestricted' }
+    }
+    return { kind: 'unrestricted' }
+  }
+  if (sawScopedRow) return { kind: 'ids', ids: [...assigned] }
+  // No staff/LM/admin row for these tenants — unrestricted (caller decides)
+  return { kind: 'unrestricted' }
+}
+
+/**
+ * Assigned branch ids from `tenants[].locations` (empty assignment / admin → []).
+ * Prefer {@link branchScopeForUserInTenants} when empty means all locations.
+ */
+export function branchIdsForUserInTenants(userDoc: unknown, tenantIds: number[]): number[] {
+  const scope = branchScopeForUserInTenants(userDoc, tenantIds)
+  if (scope.kind === 'unrestricted') return []
+  return scope.ids
+}
+
+/**
+ * Hydrate user for branch scoping (`tenants` + nested locations).
  */
 export async function loadUserForLocationAssignments(
   payload: Payload,
@@ -48,92 +130,68 @@ export async function loadUserForLocationAssignments(
     .findByID({
       collection: 'users',
       id: userId,
-      depth: 1,
+      depth: 0,
       overrideAccess: true,
     })
     .catch(() => null)
 }
 
 /**
- * Assigned `locations` row ids whose `tenant` is in `tenantIds`.
- * Handles both populated Location objects (depth ≥ 1) and raw IDs (depth 0).
- * When entries are raw IDs without a tenant field, falls back to a DB lookup.
+ * Resolve assigned branch ids for a pure location-manager (or staff with assignments).
+ * Returns `null` when unrestricted (empty locations / admin) within the given tenants.
+ * Returns `number[]` when scoped (may be empty if assignments are orphaned).
  */
-export function branchIdsForUserInTenants(userDoc: unknown, tenantIds: number[]): number[] {
-  if (!tenantIds.length) return []
-  const set = new Set(tenantIds)
-  const locs = (userDoc as { locations?: unknown })?.locations
-  if (!Array.isArray(locs)) return []
-  const out: number[] = []
-  for (const entry of locs) {
-    const bid = relationIdFromPayloadField(entry)
-    if (bid == null) continue
-    const tenantVal =
-      typeof entry === 'object' && entry !== null && 'tenant' in entry
-        ? (entry as { tenant?: unknown }).tenant
-        : null
-    const tid = relationIdFromPayloadField(tenantVal)
-    if (tid != null && set.has(tid)) {
-      out.push(bid)
-    }
-  }
-  return [...new Set(out)]
-}
-
-export async function resolvePureLocationManagerBranchIds(args: {
+export async function resolveBranchAssignmentScope(args: {
   payload: Payload
   user: unknown
   tenantIds: number[]
-}): Promise<number[]> {
+}): Promise<BranchAssignmentScope> {
   const { payload, user, tenantIds } = args
-  if (!tenantIds.length) return []
+  if (!tenantIds.length) return { kind: 'ids', ids: [] }
   const uid = userIdFromUser(user)
-  if (uid == null) return []
+  if (uid == null) return { kind: 'ids', ids: [] }
 
-  // Step 1: get the user's raw location IDs (depth 0; no select — join-table fields like
-  // hasMany relationships may not be included when using `select` in Payload/Drizzle)
-  const rawDoc = await payload
-    .findByID({
-      collection: 'users',
-      id: uid,
-      depth: 0,
-      overrideAccess: true,
-    })
-    .catch(() => null)
+  const rawDoc = await loadUserForLocationAssignments(payload, uid)
+  if (!rawDoc) return { kind: 'ids', ids: [] }
 
-  if (!rawDoc) return []
-  const rawLocs = (rawDoc as { locations?: unknown }).locations
-  if (!Array.isArray(rawLocs) || rawLocs.length === 0) return []
+  const scope = branchScopeForUserInTenants(rawDoc, tenantIds)
+  if (scope.kind === 'unrestricted') return scope
+  if (!scope.ids.length) return { kind: 'ids', ids: [] }
 
-  const locationIds: number[] = []
-  for (const entry of rawLocs) {
-    const id = relationIdFromPayloadField(entry)
-    if (id != null) locationIds.push(id)
-  }
-  if (!locationIds.length) return []
-
-  // Step 2: query the Locations collection to verify tenant associations
+  // Verify location rows belong to the requested tenants
   const found = await payload
     .find({
       collection: 'locations',
-      where: { id: { in: locationIds } },
-      limit: locationIds.length,
+      where: { id: { in: scope.ids } },
+      limit: scope.ids.length,
       depth: 0,
       overrideAccess: true,
       select: { id: true, tenant: true } as any,
     })
     .catch(() => null)
 
-  if (!found) return []
+  if (!found) return { kind: 'ids', ids: [] }
   const set = new Set(tenantIds)
   const out: number[] = []
   for (const loc of found.docs as Array<{ id?: unknown; tenant?: unknown }>) {
     const locId = relationIdFromPayloadField(loc.id)
     if (locId == null) continue
     const tid = relationIdFromPayloadField(loc.tenant)
-    if (tid != null && set.has(tid)) {
-      out.push(locId)
-    }
+    if (tid != null && set.has(tid)) out.push(locId)
   }
-  return [...new Set(out)]
+  return { kind: 'ids', ids: [...new Set(out)] }
+}
+
+/**
+ * @deprecated Prefer {@link resolveBranchAssignmentScope}. Returns [] when unrestricted
+ * (callers that treated empty as "no access" must migrate).
+ */
+export async function resolvePureLocationManagerBranchIds(args: {
+  payload: Payload
+  user: unknown
+  tenantIds: number[]
+}): Promise<number[]> {
+  const scope = await resolveBranchAssignmentScope(args)
+  if (scope.kind === 'unrestricted') return []
+  return scope.ids
 }

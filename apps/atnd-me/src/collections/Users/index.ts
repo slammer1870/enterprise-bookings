@@ -47,6 +47,10 @@ import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
  * Each entry captures both tenant membership AND per-tenant role assignments in one place.
  * The `roles` rowField is the authoritative source for per-tenant access decisions.
  */
+/** Super-admin only in the admin UI (field still exists for hooks / platform ops). */
+const superAdminOnlyAdminCondition = (_data: unknown, _sibling: unknown, { user }: { user?: unknown }) =>
+  Boolean(user && isAdmin(user))
+
 const tenantsMembershipField = {
   ...tenantsArrayField({
     tenantsArrayFieldName: 'tenants',
@@ -80,6 +84,41 @@ const tenantsMembershipField = {
           update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
             isSystemUserWrite(req) ||
             Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+        },
+      },
+      {
+        name: 'locations',
+        type: 'relationship',
+        relationTo: 'locations',
+        hasMany: true,
+        required: false,
+        admin: {
+          description:
+            'Branches this staff / location-manager can access. Leave empty for all locations. Hidden when the row includes Admin (admins always get all locations).',
+          condition: (_data, siblingData) => {
+            const roles = Array.isArray((siblingData as { roles?: unknown })?.roles)
+              ? ((siblingData as { roles: unknown[] }).roles as string[])
+              : []
+            if (roles.includes('admin')) return false
+            return roles.includes('staff') || roles.includes('location-manager')
+          },
+        },
+        access: {
+          create: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+            isSystemUserWrite(req) ||
+            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+          update: ({ req }: { req: { user?: unknown; context?: Record<string, unknown> } }) =>
+            isSystemUserWrite(req) ||
+            Boolean(req.user && (isAdmin(req.user) || isTenantAdmin(req.user))),
+        },
+        filterOptions: ({ siblingData }) => {
+          const tenant = (siblingData as { tenant?: unknown } | undefined)?.tenant
+          const tid =
+            tenant && typeof tenant === 'object' && tenant !== null && 'id' in tenant
+              ? (tenant as { id: unknown }).id
+              : tenant
+          if (tid == null || tid === '') return false
+          return { tenant: { equals: tid } }
         },
       },
     ],
@@ -579,6 +618,22 @@ If you did not request this, you can ignore this email.`
   // - tenants (plural, plugin-managed): tenants user has access to (added automatically by multi-tenant plugin)
   fields: [
     {
+      name: 'profileImage',
+      label: 'Profile Image',
+      type: 'upload',
+      relationTo: 'media',
+      required: false,
+      admin: {
+        position: 'sidebar',
+        description: 'Public schedule / event host photo (selectable media).',
+      },
+      access: {
+        read: () => true,
+        update: ({ req: { user } }) =>
+          Boolean(user && (isAdmin(user) || isTenantAdmin(user))),
+      },
+    },
+    {
       name: 'emergencyContacts',
       label: 'Emergency contacts',
       type: 'join',
@@ -597,22 +652,14 @@ If you did not request this, you can ignore this email.`
       admin: {
         description:
           'The tenant this user originally registered with (based on domain / subdomain).',
+        condition: superAdminOnlyAdminCondition,
       },
       // Note: Field-level access control can only return boolean values.
       // The relationship dropdown is automatically filtered by the Tenants collection's read access control.
       // A beforeChange hook sets this for tenant-admin creates and public sign-up (host/cookies).
       access: {
         read: userSensitiveFieldReadForStaffRoster,
-        update: ({ req: { user } }) => {
-          // Admin can always update
-          if (user && checkRole(['super-admin'], user as unknown as SharedUser)) {
-            return true
-          }
-          if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-            return true
-          }
-          return false
-        },
+        update: ({ req: { user } }) => Boolean(user && isAdmin(user)),
       },
     },
     {
@@ -624,45 +671,23 @@ If you did not request this, you can ignore this email.`
           'When the user set a password from the onboarding checklist (claim flow creates a random password).',
         position: 'sidebar',
         readOnly: true,
+        condition: superAdminOnlyAdminCondition,
       },
       access: {
-        read: ({ req: { user } }) => Boolean(user && (isAdmin(user) || isTenantAdmin(user))),
+        read: ({ req: { user } }) => Boolean(user && isAdmin(user)),
         update: ({ req: { user } }) => Boolean(user && isAdmin(user)),
       },
     },
-    {
-      name: 'locations',
-      type: 'relationship',
-      relationTo: 'locations',
-      hasMany: true,
-      admin: {
-        description:
-          'Branches this user manages (location manager). Org admins assign these; managers cannot self-assign.',
-      },
-      access: {
-        read: userSensitiveFieldReadForStaffRoster,
-        update: ({ req: { user } }) => {
-          if (!user) return false
-          return isAdmin(user) || isTenantAdmin(user)
-        },
-      },
-      filterOptions: ({ data, req }) => {
-        if (req.user && (isAdmin(req.user) || isTenantAdmin(req.user))) return true
-        const tenantIds = getTenantMembershipIdsFromUserDoc(data as SharedUser)
-        if (!tenantIds.length) return false
-        return { tenant: { in: tenantIds } }
-      },
-    },
-    // Consolidated tenants membership + per-tenant roles array.
-    // Replaces the now-removed standalone `tenantRoles` field.
+    // Consolidated tenants membership + per-tenant roles (+ optional branch assignments).
     // The multi-tenant plugin's auto-add is disabled (includeDefaultField: false in plugins/index.ts)
-    // so we place this field manually here with the `roles` rowField for full control.
+    // so we place this field manually here with the `roles` / `locations` rowFields for full control.
     tenantsMembershipField,
     {
       name: 'tenantStripeCustomerMapping',
       type: 'ui',
       admin: {
         position: 'sidebar',
+        condition: superAdminOnlyAdminCondition,
         components: {
           Field: '@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField',
         },

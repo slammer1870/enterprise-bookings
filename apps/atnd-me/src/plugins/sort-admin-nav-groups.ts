@@ -11,8 +11,8 @@ const ADMIN_NAV_GROUP_ORDER = [
   'Configuration',
   'Products',
   'Billing',
-  'Website',
   'Auth',
+  'Website',
   'Collection',
 ] as const
 

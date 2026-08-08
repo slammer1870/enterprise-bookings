@@ -1,5 +1,12 @@
-import type { Media, StaffMember, EventType, Location, DropIn } from '@/payload-types'
+import type { Media, EventType, Location, DropIn } from '@/payload-types'
 import type { DiscountTier } from '@repo/shared-types'
+
+/** Public-safe staff display (never a full User doc). */
+export type EventPageStaffMember = {
+  id: number
+  name?: string | null
+  profileImage?: { url: string } | null
+}
 
 /** Serializable timeslot payload for the public event page. */
 export type EventPageTimeslot = {
@@ -16,7 +23,7 @@ export type EventPageTimeslot = {
   location?: string | null
   tenant: number | { id: number }
   branch?: (number | null) | Location
-  staffMember?: (number | null) | StaffMember
+  staffMember?: (number | null) | EventPageStaffMember
   eventType: number | EventType
 }
 

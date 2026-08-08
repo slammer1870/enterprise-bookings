@@ -2,14 +2,13 @@ import { User } from "./user";
 
 import { DropIn, Plan, Transaction } from "./payments";
 
+/** Display shape for timeslot staff (now a User id + public fields). */
 export type StaffMember = {
   id: number;
   name?: string | null;
   profileImage?: {
     url: string;
   } | null;
-  user?: number | User;
-  active?: boolean | null;
 };
 
 /**

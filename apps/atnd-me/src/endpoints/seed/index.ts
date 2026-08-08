@@ -15,7 +15,6 @@ const collections: CollectionSlug[] = [
   'bookings',
   'timeslots',
   'event-types',
-  'staff-members',
   'navbar',
   'footer',
   'scheduler',
@@ -47,7 +46,6 @@ export const seed = async ({
     'event-types',
     'class-passes',
     'class-pass-types',
-    'staff-members',
     ...collections.filter(
       (c) =>
         ![
@@ -58,7 +56,6 @@ export const seed = async ({
           'event-types',
           'class-passes',
           'class-pass-types',
-          'staff-members',
         ].includes(c),
     ),
     'tenants',

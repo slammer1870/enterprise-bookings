@@ -1425,7 +1425,7 @@ async function migrateEventTypes(
   }
 }
 
-/** Legacy `instructors` / `staff_members` source rows → atnd-me `staff-members` collection. */
+/** Legacy `instructors` / `staff_members` source rows → user ids (timeslot.staffMember → users). */
 async function migrateStaffMembers(
   pool: Pool,
   payload: Awaited<ReturnType<typeof getPayload>>,
@@ -1464,47 +1464,42 @@ async function migrateStaffMembers(
       continue
     }
 
-    // `user` is globally unique on staff-members: reuse row if this user already has staff profile.
-    if (args.upsertByNaturalKey) {
-      const existingStaff = await payload.find({
-        collection: 'staff-members',
-        where: { user: { equals: userFk } } as any,
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-      } as any)
-      const existingDoc = existingStaff?.docs?.[0] as { id?: Id; tenant?: number | { id: number } } | undefined
-      if (existingDoc?.id != null) {
-        const exT =
-          typeof existingDoc.tenant === 'object' && existingDoc.tenant != null && 'id' in existingDoc.tenant
-            ? Number((existingDoc.tenant as { id: number }).id)
-            : coerceNumberId(existingDoc.tenant as Id)
-        if (exT != null && exT !== Number(tenantId)) {
-          console.warn(
-            `StaffMembers: source id=${String(sourceId)} user=${userFk} already has staff-members id=${String(existingDoc.id)} for tenant ${exT}; reusing id for lesson FK map (one staff row per user).`,
-          )
+    // Timeslot.staffMember now points at users — map source instructor → user id.
+    // Ensure the user has staff role on this tenant when possible.
+    if (!args.dryRun) {
+      try {
+        const existing = await payload.findByID({
+          collection: 'users',
+          id: userFk as number,
+          depth: 0,
+          overrideAccess: true,
+        } as any)
+        const tenants = Array.isArray((existing as any)?.tenants) ? [...(existing as any).tenants] : []
+        const tid = Number(tenantId)
+        const idx = tenants.findIndex((e: any) => {
+          const t = typeof e?.tenant === 'object' ? e.tenant?.id : e?.tenant
+          return Number(t) === tid
+        })
+        if (idx >= 0) {
+          const roles = Array.isArray(tenants[idx].roles) ? tenants[idx].roles : []
+          if (!roles.includes('staff') && !roles.includes('admin')) {
+            tenants[idx] = { ...tenants[idx], roles: [...new Set([...roles, 'staff'])] }
+          }
+        } else {
+          tenants.push({ tenant: tid, roles: ['staff'] })
         }
-        maps.instructorIdMap.set(sourceId, existingDoc.id as Id)
-        continue
+        await payload.update({
+          collection: 'users',
+          id: userFk as number,
+          data: { tenants, role: ['staff'] },
+          req,
+          overrideAccess: true,
+        } as any)
+      } catch (err) {
+        console.warn(`StaffMembers: could not ensure staff role for user=${userFk}:`, err)
       }
     }
-
-    const data = omitNil({
-      tenant: Number(tenantId),
-      user: userFk,
-      name: getRowValue(row, 'name') ?? null,
-      description: getRowValue(row, 'description') ?? null,
-      profileImage: null, // media migration not implemented
-      active: getRowValue(row, 'active') ?? true,
-    })
-
-    const created = await payload.create({
-      collection: 'staff-members',
-      data,
-      req,
-      overrideAccess: true,
-    } as any)
-    maps.instructorIdMap.set(sourceId, created.id as Id)
+    maps.instructorIdMap.set(sourceId, userFk)
   }
 }
 

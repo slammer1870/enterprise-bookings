@@ -35,7 +35,6 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   missionElements: 'Mission Elements',
   mediaBlock: 'Media Block',
   archive: 'Archive',
-  formBlock: 'Form Block',
   threeColumnLayout: 'Three Column Layout',
   twoColumnLayout: 'Two Column Layout',
   bruHero: 'Hero (Brú)',
@@ -96,20 +95,15 @@ export const Tenants: CollectionConfig = {
         return true
       }
       if (user && checkRole(['admin'], user as unknown as SharedUser)) {
-        // Allow tenant admins to read any tenant document (both findByID and find).
-        //
-        // Why: Payload's field-level relationship validation uses `find` with a WHERE
-        // clause to verify that the tenant IDs in a user's `tenants` array are accessible.
-        // When a tenant admin edits a cross-tenant user, the merged `tenants` array contains
-        // foreign tenant IDs (preserved from DB by the write guard). Restricting `find` to
-        // own tenants would cause a 400 "invalid relationships" error for those IDs.
-        //
-        // Security: the Users `beforeChange` write guard (mergeTenantEntriesForAdmin) ensures
-        // that a tenant admin can only modify their own tenant's entries; foreign entries are
-        // always restored from DB unchanged. Sensitive fields on the Tenants document
-        // (Stripe keys, connect account, etc.) are still protected by field-level access.
-        return true
+        // Tenant admins may only list/find tenants they belong to (prevents enumerating
+        // other orgs in relationship pickers). Cross-tenant user edits keep foreign
+        // membership rows via Users merge-on-write + Local API overrideAccess — not via
+        // open Tenants read.
+        const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+        if (tenantIds === null || tenantIds.length === 0) return false
+        return { id: { in: tenantIds } }
       }
+      // Public / anonymous: allow read (public site resolution by slug/domain).
       return true
     },
     create: (args) => {
@@ -290,7 +284,7 @@ export const Tenants: CollectionConfig = {
         value: slug,
       })),
       admin: {
-        description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout, Event) are always available.',
+        description: 'Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Form, Gift voucher checkout, Event) are always available.',
       },
       access: {
         update: adminOnlyUpdate, // Only admin can change allowed blocks; tenant-admins cannot

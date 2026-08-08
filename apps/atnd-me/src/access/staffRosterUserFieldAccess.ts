@@ -42,10 +42,11 @@ export const STAFF_ROSTER_SENSITIVE_FIELD_NAMES = new Set([
   'banReason',
   'banExpires',
   'registrationTenant',
-  'locations',
   'tenants',
   'stripeCustomerId',
   'stripeCustomers',
+  // userSubscription intentionally readable by tenant admins (not staff-only).
+  // Staff-only still blocked via userSensitiveFieldReadForStaffRoster.
   'userSubscription',
   'account',
   'session',

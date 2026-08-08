@@ -23,7 +23,7 @@ import {
 import {
   isPureLocationManager,
   relationIdFromPayloadField,
-  resolvePureLocationManagerBranchIds,
+  resolveBranchAssignmentScope,
 } from '@/access/locationManagerScope'
 
 // ---------------------------------------------------------------------------
@@ -585,12 +585,12 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
     })
     if (tenantIds.length === 0) return false
 
-    const allowedBranches = await resolvePureLocationManagerBranchIds({
+    const branchScope = await resolveBranchAssignmentScope({
       payload,
       user,
       tenantIds,
     })
-    if (allowedBranches.length === 0) return false
+    if (branchScope.kind === 'ids' && branchScope.ids.length === 0) return false
 
     const dataTenant = data?.tenant
     if (dataTenant !== undefined && dataTenant !== null && dataTenant !== '') {
@@ -622,10 +622,12 @@ export const tenantScopedCreate: Access = async ({ req: { user, context, payload
       }
     }
 
-    const branchField = (data as { branch?: unknown } | undefined)?.branch
-    const bid = relationIdFromPayloadField(branchField)
-    if (bid != null && !allowedBranches.includes(bid)) {
-      return false
+    if (branchScope.kind === 'ids') {
+      const branchField = (data as { branch?: unknown } | undefined)?.branch
+      const bid = relationIdFromPayloadField(branchField)
+      if (bid != null && !branchScope.ids.includes(bid)) {
+        return false
+      }
     }
 
     return true

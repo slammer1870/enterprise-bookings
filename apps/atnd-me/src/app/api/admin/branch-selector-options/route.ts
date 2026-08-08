@@ -13,7 +13,7 @@ import { isAdmin } from '@/access/userTenantAccess'
 import { getUserTenantIds, loadUserDocForTenantMembership } from '@/access/tenant-scoped'
 import {
   isPureLocationManager,
-  resolvePureLocationManagerBranchIds,
+  resolveBranchAssignmentScope,
 } from '@/access/locationManagerScope'
 import { getPayloadTenantIdFromRequest } from '@/utilities/tenantRequest'
 
@@ -73,13 +73,15 @@ export async function GET(request: NextRequest) {
     let docs = (found.docs ?? []) as Array<{ id?: number; name?: string; slug?: string }>
 
     if (isPureLocationManager(user)) {
-      const branchIds = await resolvePureLocationManagerBranchIds({
+      const scope = await resolveBranchAssignmentScope({
         payload,
         user,
         tenantIds: [tenantId],
       })
-      const allowed = new Set(branchIds)
-      docs = docs.filter((d) => typeof d.id === 'number' && allowed.has(d.id))
+      if (scope.kind === 'ids') {
+        const allowed = new Set(scope.ids)
+        docs = docs.filter((d) => typeof d.id === 'number' && allowed.has(d.id))
+      }
     }
 
     const locations: LocationRow[] = docs

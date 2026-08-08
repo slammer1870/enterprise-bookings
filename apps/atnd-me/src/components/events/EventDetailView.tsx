@@ -11,11 +11,12 @@ import { EventAuthenticatedCheckout } from '@/components/events/EventAuthenticat
 import { EventPlacesMetaLabel } from '@/components/events/EventPlacesMetaLabel.client'
 import {
   type EventPageTimeslot,
+  type EventPageStaffMember,
   mediaUrl,
   locationAddress,
   resolveDropInFromEventType,
 } from '@/components/events/eventPageTypes'
-import type { EventType, StaffMember, Media, Tenant } from '@/payload-types'
+import type { EventType, Media, Tenant } from '@/payload-types'
 import { resolveGoogleMapsEmbed } from '@/utilities/resolveGoogleMapsEmbedUrl'
 
 type EventDetailViewProps = {
@@ -45,7 +46,7 @@ export async function EventDetailView({
     typeof timeslot.eventType === 'object' ? (timeslot.eventType as EventType) : null
   const staff =
     typeof timeslot.staffMember === 'object' && timeslot.staffMember
-      ? (timeslot.staffMember as StaffMember)
+      ? (timeslot.staffMember as EventPageStaffMember)
       : null
   const cover =
     coverImageProp && typeof coverImageProp === 'object' ? (coverImageProp as Media) : null
@@ -70,9 +71,9 @@ export async function EventDetailView({
   const dateLabel = formatInTimeZone(timeslot.startTime, 'EEEE, d MMMM yyyy', timeZone)
   const timeLabel = `${formatInTimeZone(timeslot.startTime, 'h:mm a', timeZone)} – ${formatInTimeZone(timeslot.endTime, 'h:mm a', timeZone)}`
 
-  const staffImage =
-    staff?.profileImage && typeof staff.profileImage === 'object'
-      ? (staff.profileImage as Media)
+  const staffImageUrl =
+    staff?.profileImage && typeof staff.profileImage.url === 'string'
+      ? staff.profileImage.url
       : null
 
   const aboutRichText = aboutProp ?? null
@@ -170,9 +171,8 @@ export async function EventDetailView({
             {staff?.name ? (
               <HostedBy
                 name={staff.name}
-                description={staff.description}
-                imageUrl={mediaUrl(staffImage)}
-                imageAlt={staffImage?.alt || staff.name}
+                imageUrl={staffImageUrl}
+                imageAlt={staff.name}
               />
             ) : null}
 

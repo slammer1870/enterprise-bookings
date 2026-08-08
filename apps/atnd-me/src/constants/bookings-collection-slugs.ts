@@ -8,7 +8,8 @@ import type { TRPCBookingCollectionSlugs } from '@repo/trpc'
 export const ATND_ME_BOOKINGS_COLLECTION_SLUGS = {
   timeslots: 'timeslots',
   eventTypes: 'event-types',
-  staffMembers: 'staff-members',
+  /** @deprecated Staff is users; kept for TRPC type compat until trpc drops the key. */
+  staffMembers: 'users',
   bookings: 'bookings',
   classPasses: 'class-passes',
   classPassTypes: 'class-pass-types',

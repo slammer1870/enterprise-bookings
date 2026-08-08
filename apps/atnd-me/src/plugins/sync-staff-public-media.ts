@@ -2,10 +2,11 @@ import type { Config, Plugin } from 'payload'
 
 import { syncPublicMediaFlags } from '@/utilities/syncPublicMedia'
 
-const PUBLIC_MEDIA_COLLECTIONS = new Set(['staff-members', 'courses'])
+/** Collections whose media must be public for Next/Image without tenant cookies. */
+const PUBLIC_MEDIA_COLLECTIONS = new Set(['users', 'courses'])
 
 /**
- * Staff profile images and course covers appear on public pages. Next/Image often
+ * User profile images and course covers appear on public pages. Next/Image often
  * fetches `/api/media/file/...` without tenant cookies, so those media docs must be
  * marked `isPublic` when the parent doc is saved (same as pages/navbar/footer).
  */

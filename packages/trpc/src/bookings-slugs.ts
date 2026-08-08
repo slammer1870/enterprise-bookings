@@ -16,7 +16,8 @@ export type TRPCBookingCollectionSlugs = {
 export const DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS: TRPCBookingCollectionSlugs = {
   timeslots: "timeslots",
   eventTypes: "event-types",
-  staffMembers: "staff-members",
+  /** Timeslot staffMember relates to users. */
+  staffMembers: "users",
   bookings: "bookings",
   classPasses: "class-passes",
   classPassTypes: "class-pass-types",

@@ -17,6 +17,7 @@ import {
     isCompleteSchedulerTimeSlot,
 } from './normalize-week-days'
 import { defaultSchedulerWeekDays, ensureSevenSchedulerWeekDays } from './default-week-days'
+import { staffMemberUserFilterOptions } from '@/utilities/staffMemberUserFilterOptions'
 
 function relationId(value: unknown): number | null {
     if (value == null || value === '') return null
@@ -144,7 +145,8 @@ const days: Field = {
                 {
                     name: 'staffMember',
                     type: 'relationship',
-                    relationTo: 'staff-members',
+                    relationTo: 'users',
+                    filterOptions: staffMemberUserFilterOptions,
                 },
                 {
                     name: 'lockOutTime',

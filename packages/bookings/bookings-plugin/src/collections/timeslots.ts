@@ -251,7 +251,6 @@ function createTimeslotDefaultFields(
     checkoutHoldCollection: config?.checkoutHoldCollection,
   });
   const getBookingStatus = createGetBookingStatus(slugs);
-  const staffMembersSlug = slugs.staffMembers as CollectionSlug;
   const eventTypesSlug = slugs.eventTypes as CollectionSlug;
   const bookingsSlug = slugs.bookings as CollectionSlug;
 
@@ -410,16 +409,8 @@ function createTimeslotDefaultFields(
         name: "staffMember",
         label: "Staff Member",
         type: "relationship",
-        relationTo: staffMembersSlug,
+        relationTo: "users",
         required: false,
-        filterOptions: () => {
-          // Only show active staffMembers in the relationship dropdown
-          return {
-            active: {
-              equals: true,
-            },
-          };
-        },
         access: {
           read: () => true,
         },
@@ -517,7 +508,6 @@ const defaultAdmin: CollectionAdminOptions = {
 };
 
 function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig {
-  const staffMembersSlug = slugs.staffMembers as CollectionSlug;
   const bookingsSlug = slugs.bookings as CollectionSlug;
   const setLockout = createSetLockout(slugs);
 
@@ -600,76 +590,7 @@ function createTimeslotDefaultHooks(slugs: BookingCollectionSlugs): HooksConfig 
       },
     ],
     beforeChange: [
-      async ({ data, req, operation }) => {
-        if (data && data.staffMember && operation === "create") {
-          try {
-            const staffMember = await req.payload
-              .findByID({
-                collection: staffMembersSlug,
-                id: data.staffMember,
-                req,
-              })
-              .catch(() => null);
-
-            if (!staffMember) {
-              const user = await req.payload
-                .findByID({
-                  collection: "users",
-                  id: data.staffMember,
-                  req,
-                })
-                .catch(() => null);
-
-              if (user) {
-                const existingStaffMember = await req.payload.find({
-                  collection: staffMembersSlug,
-                  where: {
-                    user: {
-                      equals: data.staffMember,
-                    },
-                  },
-                  limit: 1,
-                  req,
-                });
-
-                if (
-                  existingStaffMember.docs &&
-                  existingStaffMember.docs.length > 0 &&
-                  existingStaffMember.docs[0]
-                ) {
-                  const existingDoc = existingStaffMember.docs[0];
-                  data.staffMember =
-                    typeof existingDoc.id === "number"
-                      ? existingDoc.id
-                      : parseInt(existingDoc.id as string);
-                } else {
-                  const newStaffMember = await req.payload.create({
-                    collection: staffMembersSlug,
-                    data: {
-                      user: data.staffMember,
-                      profileImage: (user as any).image || undefined,
-                      active: true,
-                    } as any,
-                    req,
-                  });
-                  data.staffMember =
-                    typeof newStaffMember.id === "number"
-                      ? newStaffMember.id
-                      : parseInt(newStaffMember.id as string);
-                }
-              }
-            }
-          } catch (error) {
-            console.error(
-              "Error handling staffMember backward compatibility:",
-              error
-            );
-            if (data) {
-              data.staffMember = null;
-            }
-          }
-        }
-
+      async ({ data, req }) => {
         if (req?.context?.skipTimeslotTimeNormalization) {
           return data;
         }

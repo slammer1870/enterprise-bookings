@@ -681,36 +681,25 @@ export const timeslotsRouter = {
           };
         };
 
-        // Populate staffMembers in one query so public schedule cards can still show
-        // staffMember names and avatars without exposing extra staffMember fields.
-        //
-        // Use overrideAccess + explicit tenant/id filters (same trust model as timeslots above):
-        // collection read access (e.g. tenantScopedPublicReadStrict on staff-members) can deny
-        // admin/staff users when they view another tenant's public schedule (cross-tenant
-        // booking / subdomain mismatch with JWT tenant list). Timeslots are loaded with
-        // overrideAccess, so lessons would appear without instructors. We only request IDs
-        // already present on timeslots returned for this tenant/day.
+        // Populate staff users in one query so public schedule cards can show
+        // name + profileImage without exposing email/roles/billing.
         const staffMemberIds = Array.from(
           new Set(timeslotDocs.map((l) => relationId(l.staffMember)).filter(Boolean) as number[])
         );
         const staffMembersById: Map<number, any> = new Map();
-        if (staffMemberIds.length > 0 && hasCollection(ctx.payload, ctx.bookingsSlugs.staffMembers)) {
-          const staffMemberWhere: Where =
-            tenantId != null
-              ? {
-                  and: [
-                    { id: { in: staffMemberIds } },
-                    { tenant: { equals: tenantId } },
-                  ],
-                }
-              : { id: { in: staffMemberIds } };
+        if (staffMemberIds.length > 0 && hasCollection(ctx.payload, "users")) {
           const staffMembers = await ctx.payload.find({
-            collection: ctx.bookingsSlugs.staffMembers as CollectionSlug,
-            where: staffMemberWhere,
-            depth: 2,
+            collection: "users" as CollectionSlug,
+            where: { id: { in: staffMemberIds } },
+            depth: 1,
             limit: 0,
             overrideAccess: true,
             req: queryOptions.req,
+            select: {
+              id: true,
+              name: true,
+              profileImage: true,
+            } as any,
           });
           (staffMembers.docs as any[]).forEach((staffMember) => {
             const id = relationId(staffMember?.id);

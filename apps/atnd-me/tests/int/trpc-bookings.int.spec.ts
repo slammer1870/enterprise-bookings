@@ -23,7 +23,7 @@ describe('tRPC Bookings Integration Tests', () => {
   let testTenant: { id: number | string; slug: string }
   // Helper to create tenant-scoped documents with tenant automatically added
   const createWithTenant = async <T = any>(
-    collection: 'timeslots' | 'event-types' | 'bookings' | 'staff-members',
+    collection: 'timeslots' | 'event-types' | 'bookings',
     data: any,
     options?: Omit<Parameters<typeof payload.create>[0], 'collection' | 'data'>
   ): Promise<T> => {
@@ -31,7 +31,6 @@ describe('tRPC Bookings Integration Tests', () => {
       'timeslots',
       'event-types',
       'bookings',
-      'staff-members',
     ] as const
     if ((tenantScopedCollections as readonly string[]).includes(collection)) {
       data = { ...data, tenant: testTenant.id }

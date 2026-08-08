@@ -1,6 +1,6 @@
 import type { Payload, PayloadRequest } from 'payload'
-import type { User, Timeslot, Booking } from '@repo/shared-types'
-import type { Tenant, EventType, StaffMember } from '@/payload-types'
+import type { Timeslot, Booking } from '@repo/shared-types'
+import type { Tenant, EventType, User } from '@/payload-types'
 
 const SAUNA_TENANTS = [
   { name: 'Dundrum', slug: 'dundrum', description: 'Sauna — Dublin South' },
@@ -93,7 +93,7 @@ export async function seedBookings({
 }): Promise<{
   tenants: Tenant[]
   users: User[]
-  staffMembers: StaffMember[]
+  staffMembers: User[]
   eventTypes: EventType[]
   timeslots: Timeslot[]
   bookings: Booking[]
@@ -130,11 +130,6 @@ export async function seedBookings({
     await payload.db.deleteMany({ collection: 'class-pass-types', req, where: {} })
   } catch (e) {
     payload.logger.warn(`  Could not delete class-pass-types: ${e instanceof Error ? e.message : 'Unknown error'}`)
-  }
-  try {
-    await payload.db.deleteMany({ collection: 'staff-members', req, where: {} })
-  } catch (e) {
-    payload.logger.warn(`  Could not delete staffMembers: ${e instanceof Error ? e.message : 'Unknown error'}`)
   }
 
   const demoUserEmails = ['admin@test.com', 'demo1@test.com', 'demo2@test.com', 'demo3@test.com', 'demo4@test.com', 'demo5@test.com']
@@ -269,7 +264,7 @@ export async function seedBookings({
   const allTimeslots: Timeslot[] = []
   const allBookings: Booking[] = []
   const allEventTypes: EventType[] = []
-  const allStaffMembers: StaffMember[] = []
+  const allStaffMembers: User[] = []
 
   const now = new Date()
 
@@ -288,24 +283,28 @@ export async function seedBookings({
       staffMemberUser = await payload.create({
         collection: 'users',
         data: {
-          name: `${tenant.name} StaffMember`,
+          name: `${tenant.name} Staff`,
           email: staffMemberEmail,
           password: 'password',
           emailVerified: true,
-          role: ['user'],
+          role: ['staff'],
+          tenants: [{ tenant: tenant.id, roles: ['staff'] }],
         },
         draft: false,
         overrideAccess: true,
       })
+    } else {
+      await payload.update({
+        collection: 'users',
+        id: staffMemberUser.id,
+        data: {
+          role: ['staff'],
+          tenants: [{ tenant: tenant.id, roles: ['staff'] }],
+        },
+        overrideAccess: true,
+      })
     }
-
-    const staffMember = await createWithTenant(
-      'staff-members',
-      { user: staffMemberUser.id, active: true },
-      tenant.id,
-      { overrideAccess: true },
-    )
-    allStaffMembers.push(staffMember as StaffMember)
+    allStaffMembers.push(staffMemberUser as User)
 
     const saunaOnly = await createWithTenant(
       'class-pass-types',
@@ -502,7 +501,7 @@ export async function seedSchedulers({
   req: PayloadRequest
   tenants: Tenant[]
   eventTypes: EventType[]
-  staffMembers: StaffMember[]
+  staffMembers: User[]
 }): Promise<void> {
   payload.logger.info('— Seeding schedulers for tenants...')
 
@@ -522,7 +521,11 @@ export async function seedSchedulers({
   for (const tenant of tenants) {
     const tenantReq = { ...req, context: { ...req.context, tenant: tenant.id } }
     const tenantEventTypes = eventTypes.filter((co) => getId(co.tenant) === tenant.id)
-    const tenantStaffMembers = staffMembers.filter((inst) => getId(inst.tenant) === tenant.id)
+    const tenantStaffMembers = staffMembers.filter((u) => {
+      const tenants = (u as any).tenants
+      if (!Array.isArray(tenants)) return false
+      return tenants.some((t: any) => getId(t.tenant) === tenant.id)
+    })
 
     const defaultEventType = tenantEventTypes[0]
     const defaultStaffMember = tenantStaffMembers[0]

@@ -13,7 +13,7 @@ import {
 import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
 import {
   isPureLocationManager,
-  resolvePureLocationManagerBranchIds,
+  resolveBranchAssignmentScope,
 } from '@/access/locationManagerScope'
 
 /** Prefix for per-(tenant,branch) cache entries on `req.context`. */
@@ -191,25 +191,50 @@ async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promis
   })
   if (!tenantIds.length) return false
 
-  const branchIdsAll = await resolvePureLocationManagerBranchIds({
+  const scopeAll = await resolveBranchAssignmentScope({
     payload: req.payload,
     user,
     tenantIds,
   })
-  if (!branchIdsAll.length) return false
 
   const cookieSrc = tenantAdminCookieSource(req)
   const selectedTenantId = getPayloadTenantIdFromRequest(cookieSrc)
   const selectedBranchId = getPayloadLocationIdFromRequest(cookieSrc)
 
+  if (scopeAll.kind === 'unrestricted') {
+    if (selectedTenantId != null) {
+      if (!tenantIds.includes(selectedTenantId)) return false
+      if (selectedBranchId != null) {
+        return {
+          tenant: { equals: selectedTenantId },
+          branch: { equals: selectedBranchId },
+        } as Where
+      }
+      return { tenant: { equals: selectedTenantId } } as Where
+    }
+    return resolveTenantAdminReadConstraint({ req: req as any })
+  }
+
+  if (!scopeAll.ids.length) return false
+
   if (selectedTenantId != null) {
     if (!tenantIds.includes(selectedTenantId)) return false
 
-    const branchesInTenant = await resolvePureLocationManagerBranchIds({
+    const tenantScope = await resolveBranchAssignmentScope({
       payload: req.payload,
       user,
       tenantIds: [selectedTenantId],
     })
+    if (tenantScope.kind === 'unrestricted') {
+      if (selectedBranchId != null) {
+        return {
+          tenant: { equals: selectedTenantId },
+          branch: { equals: selectedBranchId },
+        } as Where
+      }
+      return { tenant: { equals: selectedTenantId } } as Where
+    }
+    const branchesInTenant = tenantScope.ids
     if (!branchesInTenant.length) return false
 
     if (selectedBranchId != null) {
@@ -229,7 +254,7 @@ async function whereForPureLocationManagerTimeslots(req: PayloadRequest): Promis
   const base = await resolveTenantAdminReadConstraint({ req: req as any })
   if (base === false) return false
   return {
-    and: [base as Where, { branch: { in: branchIdsAll } }],
+    and: [base as Where, { branch: { in: scopeAll.ids } }],
   } as Where
 }
 

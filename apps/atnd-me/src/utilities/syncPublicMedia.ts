@@ -111,11 +111,11 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
     collectMediaIds(doc, undefined, ids)
   }
 
-  // Staff profile images appear on the public schedule; Next.js image optimization fetches
+  // User profile images appear on the public schedule; Next.js image optimization fetches
   // `/api/media/file/...` without tenant cookies, so these must be marked isPublic.
-  const staffMembers = await req.payload.find({
-    collection: 'staff-members',
-    where: { active: { equals: true } },
+  const staffUsers = await req.payload.find({
+    collection: 'users',
+    where: { profileImage: { exists: true } },
     limit: 1000,
     pagination: false,
     depth: 1,
@@ -124,12 +124,11 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
     select: {
       id: true,
       profileImage: true,
-      tenant: true,
     } as any,
   })
 
-  for (const staffMember of staffMembers.docs) {
-    collectMediaIds(staffMember, undefined, ids)
+  for (const staffUser of staffUsers.docs) {
+    collectMediaIds(staffUser, undefined, ids)
   }
 
   // Published post images (hero, rich-text MediaBlocks, SEO meta) must be public

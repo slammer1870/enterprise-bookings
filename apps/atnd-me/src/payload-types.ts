@@ -71,7 +71,6 @@ export interface Config {
     scheduler: Scheduler;
     'post-booking-email-deliveries': PostBookingEmailDelivery;
     'course-email-deliveries': CourseEmailDelivery;
-    'staff-members': StaffMember;
     'event-types': EventType;
     tenants: Tenant;
     locations: Location;
@@ -85,18 +84,18 @@ export interface Config {
     subscriptions: Subscription;
     transactions: Transaction;
     'booking-checkout-holds': BookingCheckoutHold;
-    pages: Page;
-    posts: Post;
-    navbar: Navbar;
-    footer: Footer;
-    forms: Form;
-    'form-submissions': FormSubmission;
     'emergency-contacts': EmergencyContact;
     'admin-invitations': AdminInvitation;
     accounts: Account;
     sessions: Session;
     verifications: Verification;
     users: User;
+    pages: Page;
+    posts: Post;
+    navbar: Navbar;
+    footer: Footer;
+    forms: Form;
+    'form-submissions': FormSubmission;
     media: Media;
     categories: Category;
     redirects: Redirect;
@@ -132,7 +131,6 @@ export interface Config {
     scheduler: SchedulerSelect<false> | SchedulerSelect<true>;
     'post-booking-email-deliveries': PostBookingEmailDeliveriesSelect<false> | PostBookingEmailDeliveriesSelect<true>;
     'course-email-deliveries': CourseEmailDeliveriesSelect<false> | CourseEmailDeliveriesSelect<true>;
-    'staff-members': StaffMembersSelect<false> | StaffMembersSelect<true>;
     'event-types': EventTypesSelect<false> | EventTypesSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     locations: LocationsSelect<false> | LocationsSelect<true>;
@@ -146,18 +144,18 @@ export interface Config {
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'booking-checkout-holds': BookingCheckoutHoldsSelect<false> | BookingCheckoutHoldsSelect<true>;
-    pages: PagesSelect<false> | PagesSelect<true>;
-    posts: PostsSelect<false> | PostsSelect<true>;
-    navbar: NavbarSelect<false> | NavbarSelect<true>;
-    footer: FooterSelect<false> | FooterSelect<true>;
-    forms: FormsSelect<false> | FormsSelect<true>;
-    'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     'emergency-contacts': EmergencyContactsSelect<false> | EmergencyContactsSelect<true>;
     'admin-invitations': AdminInvitationsSelect<false> | AdminInvitationsSelect<true>;
     accounts: AccountsSelect<false> | AccountsSelect<true>;
     sessions: SessionsSelect<false> | SessionsSelect<true>;
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
+    pages: PagesSelect<false> | PagesSelect<true>;
+    posts: PostsSelect<false> | PostsSelect<true>;
+    navbar: NavbarSelect<false> | NavbarSelect<true>;
+    footer: FooterSelect<false> | FooterSelect<true>;
+    forms: FormsSelect<false> | FormsSelect<true>;
+    'form-submissions': FormSubmissionsSelect<false> | FormSubmissionsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     redirects: RedirectsSelect<false> | RedirectsSelect<true>;
@@ -246,7 +244,7 @@ export interface Timeslot {
    * Room or area within the branch (e.g. Sauna 1). Not the branch name.
    */
   location?: string | null;
-  staffMember?: (number | null) | StaffMember;
+  staffMember?: (number | null) | User;
   eventType: number | EventType;
   /**
    * The number of places remaining
@@ -289,26 +287,26 @@ export interface Tenant {
    */
   domain?: string | null;
   /**
+   * Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
+   */
+  redirectApex?: boolean | null;
+  apexDomain?: string | null;
+  apexDomainVerificationToken?: string | null;
+  /**
    * Resend Domains API id for this tenant custom domain (set by hooks/API).
    */
   resendDomainId?: string | null;
   /**
-   * Resend email sending domain verification status for tenants.domain.
+   * Resend email sending domain verification status (shown in Email sending domain panel).
    */
   emailDomainStatus?: ('not_configured' | 'not_started' | 'pending' | 'verified' | 'failed') | null;
   /**
    * When the Resend sending domain was last verified.
    */
   emailDomainVerifiedAt?: string | null;
-  /**
-   * Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
-   */
-  redirectApex?: boolean | null;
-  apexDomain?: string | null;
-  apexDomainVerificationToken?: string | null;
   description?: string | null;
   /**
-   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Gift voucher checkout, Event) are always available.
+   * Extra blocks this tenant can use on pages. Default blocks (Hero, Hero Schedule, About, Schedule, Content, CTA, Form, Gift voucher checkout, Event) are always available.
    */
   allowedBlocks?:
     | (
@@ -324,7 +322,6 @@ export interface Tenant {
         | 'marketingCta'
         | 'mediaBlock'
         | 'archive'
-        | 'formBlock'
         | 'bruHero'
         | 'bruAbout'
         | 'bruSchedule'
@@ -784,6 +781,10 @@ export interface Category {
 export interface User {
   id: number;
   /**
+   * Public schedule / event host photo (selectable media).
+   */
+  profileImage?: (number | null) | Media;
+  /**
    * Family emergency contact records for this account holder (one per tenant when completed).
    */
   emergencyContacts?: {
@@ -799,14 +800,14 @@ export interface User {
    * When the user set a password from the onboarding checklist (claim flow creates a random password).
    */
   onboardingPasswordSetAt?: string | null;
-  /**
-   * Branches this user manages (location manager). Org admins assign these; managers cannot self-assign.
-   */
-  locations?: (number | Location)[] | null;
   tenants?:
     | {
         tenant: number | Tenant;
         roles: ('admin' | 'staff' | 'location-manager' | 'user')[];
+        /**
+         * Branches this staff / location-manager can access. Leave empty for all locations. Hidden when the row includes Admin (admins always get all locations).
+         */
+        locations?: (number | Location)[] | null;
         id?: string | null;
       }[]
     | null;
@@ -3468,33 +3469,6 @@ export interface EventBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "staff-members".
- */
-export interface StaffMember {
-  id: number;
-  /**
-   * Controlled by the tenant selector when creating tenant-scoped documents.
-   */
-  tenant: number | Tenant;
-  /**
-   * The user associated with this staffMember
-   */
-  user: number | User;
-  name?: string | null;
-  description?: string | null;
-  /**
-   * StaffMember profile image
-   */
-  profileImage?: (number | null) | Media;
-  /**
-   * Whether this staffMember is active and can be assigned to timeslots
-   */
-  active?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "bookings".
  */
 export interface Booking {
@@ -3620,7 +3594,7 @@ export interface Scheduler {
                  */
                 eventType?: (number | null) | EventType;
                 location?: string | null;
-                staffMember?: (number | null) | StaffMember;
+                staffMember?: (number | null) | User;
                 /**
                  * Overrides the default lock out time
                  */
@@ -3907,6 +3881,41 @@ export interface BookingCheckoutHold {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations".
+ */
+export interface AdminInvitation {
+  id: number;
+  role: 'super-admin' | 'admin' | 'staff' | 'location-manager' | 'user';
+  token: string;
+  url?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Verifications are used to verify authentication requests
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications".
+ */
+export interface Verification {
+  id: number;
+  /**
+   * The identifier of the verification request
+   */
+  identifier: string;
+  /**
+   * The value to be verified
+   */
+  value: string;
+  /**
+   * The date and time when the verification request will expire
+   */
+  expiresAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+/**
  * Navigation bar per tenant. To show a navbar when no tenant is assigned (root domain), create one document and leave Tenant empty (admin only).
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4061,41 +4070,6 @@ export interface FormSubmission {
     | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations".
- */
-export interface AdminInvitation {
-  id: number;
-  role: 'super-admin' | 'admin' | 'staff' | 'location-manager' | 'user';
-  token: string;
-  url?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Verifications are used to verify authentication requests
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications".
- */
-export interface Verification {
-  id: number;
-  /**
-   * The identifier of the verification request
-   */
-  identifier: string;
-  /**
-   * The value to be verified
-   */
-  value: string;
-  /**
-   * The date and time when the verification request will expire
-   */
-  expiresAt: string;
-  createdAt: string;
-  updatedAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -4380,10 +4354,6 @@ export interface PayloadLockedDocument {
         value: number | CourseEmailDelivery;
       } | null)
     | ({
-        relationTo: 'staff-members';
-        value: number | StaffMember;
-      } | null)
-    | ({
         relationTo: 'event-types';
         value: number | EventType;
       } | null)
@@ -4436,30 +4406,6 @@ export interface PayloadLockedDocument {
         value: number | BookingCheckoutHold;
       } | null)
     | ({
-        relationTo: 'pages';
-        value: number | Page;
-      } | null)
-    | ({
-        relationTo: 'posts';
-        value: number | Post;
-      } | null)
-    | ({
-        relationTo: 'navbar';
-        value: number | Navbar;
-      } | null)
-    | ({
-        relationTo: 'footer';
-        value: number | Footer;
-      } | null)
-    | ({
-        relationTo: 'forms';
-        value: number | Form;
-      } | null)
-    | ({
-        relationTo: 'form-submissions';
-        value: number | FormSubmission;
-      } | null)
-    | ({
         relationTo: 'emergency-contacts';
         value: number | EmergencyContact;
       } | null)
@@ -4482,6 +4428,30 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: number | User;
+      } | null)
+    | ({
+        relationTo: 'pages';
+        value: number | Page;
+      } | null)
+    | ({
+        relationTo: 'posts';
+        value: number | Post;
+      } | null)
+    | ({
+        relationTo: 'navbar';
+        value: number | Navbar;
+      } | null)
+    | ({
+        relationTo: 'footer';
+        value: number | Footer;
+      } | null)
+    | ({
+        relationTo: 'forms';
+        value: number | Form;
+      } | null)
+    | ({
+        relationTo: 'form-submissions';
+        value: number | FormSubmission;
       } | null)
     | ({
         relationTo: 'media';
@@ -4645,20 +4615,6 @@ export interface CourseEmailDeliveriesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "staff-members_select".
- */
-export interface StaffMembersSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  name?: T;
-  description?: T;
-  profileImage?: T;
-  active?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "event-types_select".
  */
 export interface EventTypesSelect<T extends boolean = true> {
@@ -4698,12 +4654,12 @@ export interface TenantsSelect<T extends boolean = true> {
   slug?: T;
   timeZone?: T;
   domain?: T;
-  resendDomainId?: T;
-  emailDomainStatus?: T;
-  emailDomainVerifiedAt?: T;
   redirectApex?: T;
   apexDomain?: T;
   apexDomainVerificationToken?: T;
+  resendDomainId?: T;
+  emailDomainStatus?: T;
+  emailDomainVerifiedAt?: T;
   description?: T;
   allowedBlocks?: T;
   logo?: T;
@@ -4979,6 +4935,142 @@ export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
   failureReason?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "emergency-contacts_select".
+ */
+export interface EmergencyContactsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  status?: T;
+  peopleSummary?: T;
+  primaryContact?: T;
+  people?:
+    | T
+    | {
+        fullName?: T;
+        personType?: T;
+        contacts?:
+          | T
+          | {
+              name?: T;
+              phone?: T;
+              relationship?: T;
+              id?: T;
+            };
+        medicalNotes?: T;
+        id?: T;
+      };
+  completedAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "admin-invitations_select".
+ */
+export interface AdminInvitationsSelect<T extends boolean = true> {
+  role?: T;
+  token?: T;
+  url?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "accounts_select".
+ */
+export interface AccountsSelect<T extends boolean = true> {
+  accountId?: T;
+  providerId?: T;
+  user?: T;
+  accessToken?: T;
+  refreshToken?: T;
+  idToken?: T;
+  accessTokenExpiresAt?: T;
+  refreshTokenExpiresAt?: T;
+  scope?: T;
+  password?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sessions_select".
+ */
+export interface SessionsSelect<T extends boolean = true> {
+  expiresAt?: T;
+  token?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  ipAddress?: T;
+  userAgent?: T;
+  user?: T;
+  impersonatedBy?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "verifications_select".
+ */
+export interface VerificationsSelect<T extends boolean = true> {
+  identifier?: T;
+  value?: T;
+  expiresAt?: T;
+  createdAt?: T;
+  updatedAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users_select".
+ */
+export interface UsersSelect<T extends boolean = true> {
+  profileImage?: T;
+  emergencyContacts?: T;
+  registrationTenant?: T;
+  onboardingPasswordSetAt?: T;
+  tenants?:
+    | T
+    | {
+        tenant?: T;
+        roles?: T;
+        locations?: T;
+        id?: T;
+      };
+  name?: T;
+  emailVerified?: T;
+  image?: T;
+  createdAt?: T;
+  updatedAt?: T;
+  role?: T;
+  banned?: T;
+  banReason?: T;
+  banExpires?: T;
+  account?: T;
+  session?: T;
+  stripeCustomerId?: T;
+  stripeCustomers?:
+    | T
+    | {
+        stripeAccountId?: T;
+        stripeCustomerId?: T;
+        id?: T;
+      };
+  userSubscription?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -6783,141 +6875,6 @@ export interface FormSubmissionsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "emergency-contacts_select".
- */
-export interface EmergencyContactsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  status?: T;
-  peopleSummary?: T;
-  primaryContact?: T;
-  people?:
-    | T
-    | {
-        fullName?: T;
-        personType?: T;
-        contacts?:
-          | T
-          | {
-              name?: T;
-              phone?: T;
-              relationship?: T;
-              id?: T;
-            };
-        medicalNotes?: T;
-        id?: T;
-      };
-  completedAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "admin-invitations_select".
- */
-export interface AdminInvitationsSelect<T extends boolean = true> {
-  role?: T;
-  token?: T;
-  url?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "accounts_select".
- */
-export interface AccountsSelect<T extends boolean = true> {
-  accountId?: T;
-  providerId?: T;
-  user?: T;
-  accessToken?: T;
-  refreshToken?: T;
-  idToken?: T;
-  accessTokenExpiresAt?: T;
-  refreshTokenExpiresAt?: T;
-  scope?: T;
-  password?: T;
-  createdAt?: T;
-  updatedAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "sessions_select".
- */
-export interface SessionsSelect<T extends boolean = true> {
-  expiresAt?: T;
-  token?: T;
-  createdAt?: T;
-  updatedAt?: T;
-  ipAddress?: T;
-  userAgent?: T;
-  user?: T;
-  impersonatedBy?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "verifications_select".
- */
-export interface VerificationsSelect<T extends boolean = true> {
-  identifier?: T;
-  value?: T;
-  expiresAt?: T;
-  createdAt?: T;
-  updatedAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  emergencyContacts?: T;
-  registrationTenant?: T;
-  onboardingPasswordSetAt?: T;
-  locations?: T;
-  tenants?:
-    | T
-    | {
-        tenant?: T;
-        roles?: T;
-        id?: T;
-      };
-  name?: T;
-  emailVerified?: T;
-  image?: T;
-  createdAt?: T;
-  updatedAt?: T;
-  role?: T;
-  banned?: T;
-  banReason?: T;
-  banExpires?: T;
-  account?: T;
-  session?: T;
-  stripeCustomerId?: T;
-  stripeCustomers?:
-    | T
-    | {
-        stripeAccountId?: T;
-        stripeCustomerId?: T;
-        id?: T;
-      };
-  userSubscription?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
@@ -7357,7 +7314,7 @@ export interface TaskGenerateTimeslotsFromSchedule {
           endTime: string;
           eventType?: (number | null) | EventType;
           location?: string | null;
-          staffMember?: (number | null) | StaffMember;
+          staffMember?: (number | null) | User;
           lockOutTime?: number | null;
         }[];
       }[];
@@ -7370,10 +7327,7 @@ export interface TaskGenerateTimeslotsFromSchedule {
      */
     branch?: number | null;
   };
-  output: {
-    success?: boolean | null;
-    message?: string | null;
-  };
+  output?: unknown;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -7421,7 +7375,6 @@ export interface TaskCreateCollectionExport {
       | 'accounts'
       | 'sessions'
       | 'verifications'
-      | 'staff-members'
       | 'timeslots'
       | 'event-types'
       | 'bookings'
