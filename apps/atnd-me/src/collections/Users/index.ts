@@ -41,6 +41,8 @@ import {
   sanitizeUserTenantsAndRolesForWrite,
 } from './sanitizeUserWrite'
 import { stripForeignTenantsBeforeValidate } from './stripForeignTenantsBeforeValidate'
+import { usersTenantsTenantFilterOptions } from './tenantsTenantFilterOptions'
+import { validateTenantsMembershipArray } from './validateTenantsMembershipArray'
 import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
@@ -137,61 +139,30 @@ const tenantsMembershipArrayField = tenantsArrayField({
     (f) => 'name' in f && f.name === 'tenant',
   )
   if (tenantRel && tenantRel.type === 'relationship') {
-    // Default ArrayField (super-admin) + relationship validation: tenant-admins may only
-    // pick orgs they admin — not every tenant they happen to be a member of.
-    tenantRel.filterOptions = async ({ req }) => {
-      const user = req?.user
-      // Local API / system writes often omit req.user; allow (anonymous REST still has
-      // tenants stripped in sanitizeUserTenantsAndRolesForWrite).
-      if (!user) return true
-      if (isAdmin(user)) return true
-      // Tenant admins: allow any tenant ID through relationship validation.
-      // beforeChange merges preserve foreign memberships on the target user; those IDs
-      // must pass validation even though Tenants.read is scoped (picker uses /api/tenants).
-      if (isTenantAdmin(user)) return true
-
-      // Non-admins (location-manager / staff / user): only their memberships, so
-      // profile updates don't 400 on existing tenants[] rows.
-      let membershipIds = getTenantMembershipIdsFromUserDoc(user)
-      if (membershipIds.length === 0) {
-        const idRaw =
-          typeof user === 'object' && user !== null && 'id' in user
-            ? (user as { id: unknown }).id
-            : null
-        const userId =
-          typeof idRaw === 'number'
-            ? idRaw
-            : typeof idRaw === 'string'
-              ? parseInt(idRaw, 10)
-              : NaN
-        if (Number.isFinite(userId)) {
-          const fullUser = await loadUserDocForTenantMembership(req.payload, userId)
-          membershipIds = fullUser ? getTenantMembershipIdsFromUserDoc(fullUser) : []
-        }
-      }
-      if (membershipIds.length === 0) return false
-      return { id: { in: membershipIds } }
-    }
+    // Org admins: only orgs they administer. Do not return `true` — that lets the
+    // relationship picker / validation accept foreign tenant IDs. Foreign rows on
+    // shared users are stripped beforeValidate and merged back in beforeChange.
+    tenantRel.filterOptions = usersTenantsTenantFilterOptions
   }
 }
 
 const tenantsMembershipField = {
   ...tenantsMembershipArrayField,
-  validate: (value: unknown) => {
-    if (!Array.isArray(value)) return true
-    const ids = (value as { tenant?: unknown }[]).map((entry) => {
-      const t = entry?.tenant
-      if (t && typeof t === 'object' && 'id' in t) return String((t as { id: unknown }).id)
-      return t != null ? String(t) : null
-    }).filter((id): id is string => id != null)
-    if (new Set(ids).size !== ids.length) return 'Each tenant may only be added once.'
-    return true
-  },
+  validate: validateTenantsMembershipArray,
   admin: {
     ...tenantsMembershipArrayField.admin,
     position: 'sidebar' as const,
     description:
-      'Tenant memberships and per-tenant roles. Locations appear for Staff / Location Manager rows (empty = all locations).',
+      'Tenant memberships and per-tenant roles. Org admins can only assign tenants they administer (same count as their own). Locations appear for Staff / Location Manager rows (empty = all locations).',
+    components: {
+      ...(tenantsMembershipArrayField.admin &&
+      typeof tenantsMembershipArrayField.admin === 'object' &&
+      'components' in tenantsMembershipArrayField.admin
+        ? (tenantsMembershipArrayField.admin as { components?: Record<string, unknown> })
+            .components
+        : {}),
+      Field: '@/components/admin/users/TenantsMembershipArrayField#TenantsMembershipArrayField',
+    },
   },
 }
 
@@ -501,9 +472,9 @@ If you did not request this, you can ignore this email.`
         // Foreign entries and omitted own-tenant entries (dual-admin partial forms) are
         // preserved from DB; injected foreign entries are stripped.
         //
-        // Relationship validation accepts merged foreign IDs because `tenants.tenant`
-        // filterOptions returns true for tenant admins (Tenants.read stays scoped so
-        // /api/tenants does not enumerate the platform).
+        // Relationship validation only accepts orgs the admin administers
+        // (`usersTenantsTenantFilterOptions`); foreign rows are stripped beforeValidate
+        // and merged back here from the DB.
         //
         // We do NOT gate this on isTenantAdmin(req.user): the `role` field may be stripped
         // from the session user by field-level access control (fixBetterAuthRoleField plugin),

@@ -1227,6 +1227,45 @@ describe('User Tenant Access Control', () => {
       )
 
       it(
+        'org admin with stale global role still cannot list non-admin membership tenants',
+        async () => {
+          // Simulates Better Auth / field-access sessions where derived global `role`
+          // is missing or stale, while tenants[n].roles still includes admin.
+          const dualMembershipAdmin = (await payload.create({
+            collection: 'users',
+            data: {
+              name: 'Stale Role Dual Admin',
+              email: `stale-role-dual-${Date.now()}@test.com`,
+              password: 'test',
+              role: ['user'],
+              emailVerified: true,
+              tenants: [
+                { tenant: testTenant.id, roles: ['admin'] },
+                { tenant: secondTenant.id, roles: ['user'] },
+              ],
+            },
+            overrideAccess: true,
+          } as Parameters<typeof payload.create>[0])) as User
+
+          const sessionUser = {
+            ...dualMembershipAdmin,
+            role: ['user'],
+          }
+
+          const listed = await payload.find({
+            collection: 'tenants',
+            limit: 100,
+            user: sessionUser,
+            overrideAccess: false,
+          })
+          const ids = listed.docs.map((d) => d.id)
+          expect(ids).toContain(testTenant.id)
+          expect(ids).not.toContain(secondTenant.id)
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
         'tenant admin CANNOT update a tenant they do not admin (write guard still enforced)',
         async () => {
           const req = {

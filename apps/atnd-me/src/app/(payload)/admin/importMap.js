@@ -40,6 +40,7 @@ import { TimeslotForEventPickerField as TimeslotForEventPickerField_30010d743d69
 import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
 import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
 import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
+import { TenantsMembershipArrayField as TenantsMembershipArrayField_b7e4c1a90d2f8e6c5a4b3d2e1f0a9b8c } from '@/components/admin/users/TenantsMembershipArrayField'
 import { StripeDashboardLinkField as StripeDashboardLinkField_3f461e6c95821294340135c2293fe078 } from '@/components/admin/StripeDashboardLinkField'
 import { CustomSelect as CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f } from '@repo/ui/components/ui/custom-select'
 import { ExportListMenuItem as ExportListMenuItem_cdf7e044479f899a31f804427d568b36 } from '@payloadcms/plugin-import-export/rsc'
@@ -139,6 +140,7 @@ export const importMap = {
   "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
   "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
   "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
+  "@/components/admin/users/TenantsMembershipArrayField#TenantsMembershipArrayField": TenantsMembershipArrayField_b7e4c1a90d2f8e6c5a4b3d2e1f0a9b8c,
   "@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField": StripeDashboardLinkField_3f461e6c95821294340135c2293fe078,
   "@repo/ui/components/ui/custom-select#CustomSelect": CustomSelect_9f1e4d41f3d3dac1428d2ac5bd81544f,
   "@payloadcms/plugin-import-export/rsc#ExportListMenuItem": ExportListMenuItem_cdf7e044479f899a31f804427d568b36,

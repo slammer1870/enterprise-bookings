@@ -105,17 +105,18 @@ export const Tenants: CollectionConfig = {
       if (checkRole(['super-admin'], user as unknown as SharedUser)) {
         return true
       }
-      if (checkRole(['admin'], user as unknown as SharedUser)) {
-        // Only orgs this user admins — drives Users membership pickers. Membership as
-        // user/staff elsewhere must not appear as addable tenants. Cross-tenant user
-        // edits keep foreign rows via Users merge-on-write + Local API overrideAccess.
-        const tenantIds = await resolveOrgAdminTenantIds({
-          user,
-          payload,
-          context: context as Record<string, unknown> | undefined,
-        })
-        if (tenantIds.length === 0) return { id: { in: [] } }
-        return { id: { in: tenantIds } }
+
+      // Org admins: only orgs they administer — drives Users membership pickers.
+      // Do not gate on global `role` including `admin`: Better Auth / field access may
+      // omit derived role while `tenants[n].roles` still includes admin. Membership as
+      // user/staff elsewhere must not appear as addable tenants.
+      const orgAdminTenantIds = await resolveOrgAdminTenantIds({
+        user,
+        payload,
+        context: context as Record<string, unknown> | undefined,
+      })
+      if (orgAdminTenantIds.length > 0) {
+        return { id: { in: orgAdminTenantIds } }
       }
 
       // Staff / location-managers / members: only tenants they belong to (or registered with).
@@ -150,16 +151,14 @@ export const Tenants: CollectionConfig = {
       } = args
       if (!user) return false
       if (checkRole(['super-admin'], user as unknown as SharedUser)) return true
-      if (checkRole(['admin'], user as unknown as SharedUser)) {
-        const tenantIds = await resolveOrgAdminTenantIds({
-          user,
-          payload,
-          context: context as Record<string, unknown> | undefined,
-        })
-        if (tenantIds.length === 0) return false
-        return { id: { in: tenantIds } }
-      }
-      return false
+      // Same as read: prefer org-admin memberships over derived global `admin` role.
+      const tenantIds = await resolveOrgAdminTenantIds({
+        user,
+        payload,
+        context: context as Record<string, unknown> | undefined,
+      })
+      if (tenantIds.length === 0) return false
+      return { id: { in: tenantIds } }
     },
     delete: (args) => {
       const { req: { user } } = args
