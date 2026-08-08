@@ -17,6 +17,7 @@ import {
 } from './normalize-week-days'
 import { defaultSchedulerWeekDays, ensureSevenSchedulerWeekDays } from './default-week-days'
 import { staffMemberUserFilterOptions } from '@/utilities/staffMemberUserFilterOptions'
+import { getPayloadLocationIdFromRequest } from '@/utilities/tenantRequest'
 
 function relationId(value: unknown): number | null {
     if (value == null || value === '') return null
