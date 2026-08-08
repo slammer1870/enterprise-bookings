@@ -272,6 +272,27 @@ describe('syncTenantEmailDomainFromResend', () => {
       }),
     )
   })
+
+  it('passes req to findByID and update for transaction continuity', async () => {
+    const req = { transactionID: 'tx-1' }
+    const update = vi.fn(async () => ({}))
+    const findByID = vi.fn().mockResolvedValue({
+      resendDomainId: null,
+      emailDomainStatus: 'not_configured',
+      emailDomainVerifiedAt: null,
+    })
+
+    await syncTenantEmailDomainFromResend({
+      payload: { findByID, update } as any,
+      tenantId: 1,
+      resendDomainId: 'dom_1',
+      resendStatus: 'pending',
+      req,
+    })
+
+    expect(findByID).toHaveBeenCalledWith(expect.objectContaining({ req }))
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({ req }))
+  })
 })
 
 describe('assertTenantEmailDomainAccess', () => {

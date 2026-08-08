@@ -512,9 +512,10 @@ export const Tenants: CollectionConfig = {
           })
         }
 
-        // Resend email sending domain: provision/cleanup when tenants.domain changes.
+        // Resend email sending domain: provision on create when a custom domain is set,
+        // or whenever domain changes (including clear → teardown).
         const domainChanged = newDomain !== prevDomain
-        if (operation === 'create' || domainChanged) {
+        if ((operation === 'create' && newDomain) || (operation !== 'create' && domainChanged)) {
           const previousResendDomainId =
             typeof previousDoc?.resendDomainId === 'string' && previousDoc.resendDomainId.trim()
               ? previousDoc.resendDomainId.trim()

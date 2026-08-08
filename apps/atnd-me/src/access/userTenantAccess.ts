@@ -4,6 +4,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { cookiesFromHeaders } from '../utilities/cookiesFromHeaders'
 import { getPayloadTenantIdFromRequest, getTenantSlugFromHost } from '../utilities/tenantRequest'
+import { isPureLocationManager } from './locationManagerScope'
 import {
   getTenantMembershipIdsFromUserDoc,
   getUserTenantIDs,
@@ -294,14 +295,17 @@ export const userTenantRead: Access = async ({ req }) => {
  * User update access for multi-tenant apps.
  *
  * - Super admin: can update any user
- * - Tenant admin / staff: can only update users for their domain(s) (same scoping as read)
+ * - Tenant admin: can only update users for their domain(s) (same scoping as read)
+ * - Staff / pure location-manager: no Users updates (assignments are org-admin only)
  * - Regular user: can only update themselves
  */
 export const userTenantUpdate: Access = async ({ req, id }) => {
   const { user, payload } = req
   if (!user) return false
 
-  if (isStaffOnlyUser(user)) {
+  // Staff and site managers must not self-edit membership/locations (or fall through to
+  // "regular user can update self" and clear tenants[] via field-level access).
+  if (isStaffOnlyUser(user) || isPureLocationManager(user)) {
     return false
   }
 

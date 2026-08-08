@@ -998,9 +998,7 @@ describe('User Tenant Access Control', () => {
     // -------------------------------------------------------------------------
     // Regression: cross-tenant user privacy + save bugs
     // Fixed by:
-    //   1. Tenants collection read access allowing findByID for any admin
-    //      (prevents 403 during Payload depth-1 relationship population, which
-    //      was killing the form-state builder before afterRead could filter).
+    //   1. Tenants read scoped to the admin's own tenants (no org enumeration).
     //   2. afterRead hook filtering the tenants array to only the admin's entries.
     //   3. beforeValidate hook stripping foreign tenant entries before Payload
     //      validates relationship fields (prevents 400 "invalid relationships").
@@ -1144,31 +1142,43 @@ describe('User Tenant Access Control', () => {
       )
     })
 
-    describe('Tenants collection read access (regression: admin read access)', () => {
+    describe('Tenants collection read access (scoped to own tenants)', () => {
       it(
-        'tenant admin can read any tenant by ID (required for Payload relationship population, avoids 403 on form-state build)',
+        'tenant admin can read their own tenant by ID',
         async () => {
-          // Before the fix, findByID for a tenant outside the admin's scope would return
-          // a 403, killing Payload's form-state builder before afterRead could filter.
           const result = await payload.findByID({
             collection: 'tenants',
-            id: secondTenant.id, // a tenant the admin does NOT belong to
+            id: testTenant.id,
             user: tenantAdminUser,
             overrideAccess: false,
           })
 
           expect(result).toBeDefined()
-          expect(result.id).toBe(secondTenant.id)
+          expect(result.id).toBe(testTenant.id)
         },
         TEST_TIMEOUT,
       )
 
       it(
-        'tenant admin can read any tenant (required for relationship field validation on cross-tenant user saves)',
+        'tenant admin cannot findByID a tenant they do not belong to',
         async () => {
-          // Tenant admins need to be able to read ANY tenant so that Payload's field-level
-          // relationship validation passes when a cross-tenant user's merged tenants array
-          // contains foreign tenant IDs (preserved from DB by the write guard).
+          // Scoped read prevents enumerating other orgs. Cross-tenant user saves still work
+          // via Users beforeValidate strip + beforeChange merge (not open Tenants read).
+          await expect(
+            payload.findByID({
+              collection: 'tenants',
+              id: secondTenant.id,
+              user: tenantAdminUser,
+              overrideAccess: false,
+            }),
+          ).rejects.toThrow()
+        },
+        TEST_TIMEOUT,
+      )
+
+      it(
+        'tenant admin cannot find tenants they do not belong to',
+        async () => {
           const result = await payload.find({
             collection: 'tenants',
             where: { id: { equals: secondTenant.id } },
@@ -1177,8 +1187,7 @@ describe('User Tenant Access Control', () => {
             overrideAccess: false,
           })
 
-          expect(result.docs).toHaveLength(1)
-          expect(result.docs[0]?.id).toBe(secondTenant.id)
+          expect(result.docs).toHaveLength(0)
         },
         TEST_TIMEOUT,
       )
@@ -1186,7 +1195,6 @@ describe('User Tenant Access Control', () => {
       it(
         'tenant admin CANNOT update a tenant they do not belong to (write guard still enforced)',
         async () => {
-          // Read access is open to allow relationship validation; update access is still restricted.
           const req = {
             ...payload,
             user: tenantAdminUser,

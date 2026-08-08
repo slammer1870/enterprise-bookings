@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { isPureLocationManager } from '@/access/locationManagerScope'
 import {
   isAdmin,
   isStaff,
@@ -69,6 +70,11 @@ describe('userTenantAccess helpers', () => {
       expect(isStaffOnlyUser({ id: 1, role: ['admin'] })).toBe(false)
       expect(isStaffOnlyUser({ id: 1, role: ['admin', 'staff'] })).toBe(false)
       expect(isStaffOnlyUser({ id: 1, role: ['super-admin'] })).toBe(false)
+    })
+
+    it('does not treat pure location-manager as staff-only (use isPureLocationManager)', () => {
+      expect(isStaffOnlyUser({ id: 1, role: ['location-manager'] })).toBe(false)
+      expect(isPureLocationManager({ id: 1, role: ['location-manager'] })).toBe(true)
     })
   })
 

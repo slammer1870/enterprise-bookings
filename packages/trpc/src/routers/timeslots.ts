@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import type { CollectionSlug, SelectType, Where } from "payload";
+import type { CollectionSlug, SelectType } from "payload";
 
 import { TRPCRouterRecord } from "@trpc/server";
 import {
