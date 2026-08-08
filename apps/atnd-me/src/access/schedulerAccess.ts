@@ -34,7 +34,7 @@ export const schedulerAdminAccess = async ({ req }: AccessArgs): Promise<boolean
   if (!user) return false
   if (isAdmin(user)) return true
 
-  let accessUser = user
+  let accessUser: unknown = user
   const tenants = (user as { tenants?: unknown }).tenants
   if (!Array.isArray(tenants) || tenants.length === 0) {
     const uid = toUserId(user)
