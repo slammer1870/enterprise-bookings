@@ -8,8 +8,8 @@ import { createDbString } from '@repo/testing-config/src/utils/db'
  * Global setup for Vitest integration tests
  * - If DATABASE_URI is not set: creates a test Postgres container, sets DATABASE_URI, then runs
  *   `payload migrate:fresh` so the schema exists before tests.
- * - If DATABASE_URI is set (e.g. CI workflow or FORCE_EXISTING_DB): assumes the DB is already
- *   migrated (workflow runs migrate:fresh before test:int).
+ * - If DATABASE_URI is set with FORCE_EXISTING_DB (CI): assumes the workflow restored a migrated
+ *   dump; if core tables are missing, runs migrate:fresh as a self-heal.
  */
 export async function globalSetup() {
   console.log('[Vitest Global Setup] Starting...')
@@ -56,10 +56,25 @@ export async function globalSetup() {
   }
 
   // If we created the container, we must run migrations (CI or not). When DATABASE_URI is
-  // pre-set by a workflow, the workflow runs migrate:fresh before test:int, so we skip here.
-  const shouldRunMigrations =
+  // pre-set by a workflow, the workflow runs migrate:fresh before test:int, so we skip here —
+  // unless the restored DB is empty (missing core tables), in which case self-heal.
+  let shouldRunMigrations =
     Boolean(process.env.DATABASE_URI) &&
     (weCreatedDb || process.env.FORCE_EXISTING_DB !== 'true')
+
+  if (!shouldRunMigrations && process.env.DATABASE_URI && process.env.FORCE_EXISTING_DB === 'true') {
+    const schemaOk = await probeCoreTablesExist(process.env.DATABASE_URI)
+    if (!schemaOk) {
+      console.warn(
+        '[Vitest Global Setup] FORCE_EXISTING_DB set but core tables missing — running migrate:fresh',
+      )
+      shouldRunMigrations = true
+    } else if (process.env.CI && !weCreatedDb) {
+      console.log(
+        '[Vitest Global Setup] CI with existing DATABASE_URI: migrations handled by workflow',
+      )
+    }
+  }
 
   if (shouldRunMigrations) {
     console.log('[Vitest Global Setup] Running payload migrate:fresh on new test DB...')
@@ -83,11 +98,34 @@ export async function globalSetup() {
       console.error('[Vitest Global Setup] migrate:fresh failed:', error)
       throw error
     }
-  } else if (process.env.CI && !weCreatedDb) {
-    console.log('[Vitest Global Setup] CI with existing DATABASE_URI: migrations handled by workflow')
   }
 
   console.log('[Vitest Global Setup] Complete')
+}
+
+/** True when public.tenants and public.users both exist (restored CI dump is usable). */
+async function probeCoreTablesExist(databaseUri: string): Promise<boolean> {
+  try {
+    // Dynamic import keeps global-setup light when migrations always run locally.
+    const pg = await import('pg')
+    const Client = pg.Client ?? pg.default?.Client
+    if (!Client) return false
+    const client = new Client({ connectionString: databaseUri })
+    await client.connect()
+    try {
+      const result = await client.query<{ tenants: string | null; users: string | null }>(
+        `SELECT to_regclass('public.tenants')::text AS tenants,
+                to_regclass('public.users')::text AS users`,
+      )
+      const row = result.rows[0]
+      return Boolean(row?.tenants && row?.users)
+    } finally {
+      await client.end().catch(() => undefined)
+    }
+  } catch (err) {
+    console.warn('[Vitest Global Setup] Schema probe failed:', err)
+    return false
+  }
 }
 
 export default globalSetup

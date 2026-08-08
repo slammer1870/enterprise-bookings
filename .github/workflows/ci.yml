@@ -149,10 +149,22 @@ jobs:
       - name: Prepare database (Turbo)
         run: pnpm ci:atnd-me:db
 
+      - name: Verify migrated schema
+        env:
+          PGPASSWORD: brugrappling
+        run: |
+          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
+            "SELECT to_regclass('public.tenants')" | grep -qx tenants
+          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
+            "SELECT to_regclass('public.users')" | grep -qx users
+
       - name: Dump database for test shards
         env:
           PGPASSWORD: brugrappling
-        run: pg_dump -h localhost -U postgres -d e2e_atnd_me -F c -f atnd-me-db.dump
+        run: |
+          pg_dump -h localhost -U postgres -d e2e_atnd_me -F c -f atnd-me-db.dump
+          # Empty / near-empty dumps mean migrate:fresh did not produce a usable schema.
+          test "$(stat -c%s atnd-me-db.dump)" -gt 100000
 
       - name: Upload database artifact
         uses: actions/upload-artifact@v4
@@ -216,7 +228,14 @@ jobs:
       - name: Restore database
         env:
           PGPASSWORD: brugrappling
-        run: pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
+        run: |
+          test -f atnd-me-db.dump
+          test "$(stat -c%s atnd-me-db.dump)" -gt 100000
+          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
+          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
+            "SELECT to_regclass('public.tenants')" | grep -qx tenants
+          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
+            "SELECT to_regclass('public.users')" | grep -qx users
 
       - name: Run integration tests shard ${{ matrix.shard }}/8 (Turbo)
         run: pnpm ci:atnd-me:int
@@ -385,7 +404,14 @@ jobs:
       - name: Restore database
         env:
           PGPASSWORD: brugrappling
-        run: pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
+        run: |
+          test -f atnd-me-db.dump
+          test "$(stat -c%s atnd-me-db.dump)" -gt 100000
+          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl atnd-me-db.dump
+          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
+            "SELECT to_regclass('public.tenants')" | grep -qx tenants
+          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
+            "SELECT to_regclass('public.users')" | grep -qx users
 
       - name: Install Playwright OS dependencies
         run: pnpm exec playwright install-deps
