@@ -127,7 +127,7 @@ describe('location-manager tenants[].locations', () => {
   )
 
   it(
-    'location-manager cannot change their own tenants[].locations (array update blocked for staff-only)',
+    'location-manager cannot change their own tenants[].locations (field access strips the write)',
     async () => {
       const req = {
         ...payload,
@@ -135,18 +135,17 @@ describe('location-manager tenants[].locations', () => {
         context: { tenant: tenant.id },
       } as Parameters<typeof payload.update>[0]['req']
 
-      // Staff-only users cannot update other users; self update of tenants is also restricted.
-      await expect(
-        payload.update({
-          collection: 'users',
-          id: locationManager.id,
-          data: {
-            tenants: [{ tenant: tenant.id, roles: ['location-manager'], locations: [locB.id] }],
-          },
-          req,
-          overrideAccess: false,
-        }),
-      ).rejects.toThrow()
+      // Collection update of self is allowed for profile fields; tenants[] update is denied
+      // by field-level access so the assignment must remain unchanged.
+      await payload.update({
+        collection: 'users',
+        id: locationManager.id,
+        data: {
+          tenants: [{ tenant: tenant.id, roles: ['location-manager'], locations: [locB.id] }],
+        },
+        req,
+        overrideAccess: false,
+      })
 
       const after = await payload.findByID({
         collection: 'users',

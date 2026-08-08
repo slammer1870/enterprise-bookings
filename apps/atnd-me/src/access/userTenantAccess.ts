@@ -296,17 +296,20 @@ export const userTenantRead: Access = async ({ req }) => {
  *
  * - Super admin: can update any user
  * - Tenant admin: can only update users for their domain(s) (same scoping as read)
- * - Staff / pure location-manager: no Users updates (assignments are org-admin only)
+ * - Staff / pure location-manager: self only (membership/locations stay field-access locked)
  * - Regular user: can only update themselves
  */
 export const userTenantUpdate: Access = async ({ req, id }) => {
   const { user, payload } = req
   if (!user) return false
 
-  // Staff and site managers must not self-edit membership/locations (or fall through to
-  // "regular user can update self" and clear tenants[] via field-level access).
+  // Staff and site managers are not tenant-portal updaters of other users, but may edit
+  // their own profile. `tenants[]` / locations remain protected by field-level access.
   if (isStaffOnlyUser(user) || isPureLocationManager(user)) {
-    return false
+    const updateUserId = toUserId(user)
+    if (updateUserId == null) return false
+    const targetId = typeof id === 'number' ? id : typeof id === 'string' ? parseInt(id, 10) : null
+    return targetId != null && targetId === updateUserId
   }
 
   if (isAdmin(user)) {
