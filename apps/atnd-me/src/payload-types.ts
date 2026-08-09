@@ -1222,17 +1222,24 @@ export interface EventType {
     allowedPlans?: (number | Plan)[] | null;
   };
   /**
-   * Emails sent to the customer after they book this event type. Use separate rows for different messages (for example a checkout confirmation and a one-time follow-up). See “When to send” for timing rules.
+   * Emails sent after a booking for this event type. Leave Email To blank to send to the customer, or use placeholders such as {{booking.timeslot.staffMember.email}}. Subject and message also support {{booking…}} placeholders. Use separate rows for different messages. See “When to send” for timing rules.
    */
   postBookingEmails?:
     | {
+        /**
+         * Leave blank to send to the customer. Or set a fixed address, or a placeholder such as {{booking.timeslot.staffMember.email}} / {{booking.user.email}}.
+         */
+        emailTo?: string | null;
         cc?: string | null;
         bcc?: string | null;
         replyTo: string;
         emailFrom?: string | null;
+        /**
+         * Use double curly braces for booking data, e.g. {{booking.user.name}}, {{booking.timeslot.eventType.name}}, {{booking.timeslot.startTime}}, {{booking.timeslot.staffMember.email}}. Date and time values are formatted in the studio timezone.
+         */
         subject: string;
         /**
-         * Enter the message that should be sent in this email.
+         * Enter the message for this email. Use double curly braces for booking data, e.g. {{booking.user.name}}, {{booking.timeslot.eventType.name}}, {{booking.timeslot.startTime}}, {{booking.timeslot.staffMember.email}}. Date and time values are formatted in the studio timezone.
          */
         message?: {
           root: {
@@ -4687,6 +4694,7 @@ export interface EventTypesSelect<T extends boolean = true> {
   postBookingEmails?:
     | T
     | {
+        emailTo?: T;
         cc?: T;
         bcc?: T;
         replyTo?: T;

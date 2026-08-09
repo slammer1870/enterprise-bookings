@@ -19,6 +19,9 @@ export const POST_BOOKING_EMAIL_SEND_TIMING_OPTIONS = [
 export type PostBookingEmailSendTiming =
   (typeof POST_BOOKING_EMAIL_SEND_TIMING_OPTIONS)[number]['value']
 
+const POST_BOOKING_EMAIL_TEMPLATE_HELP =
+  'Use double curly braces for booking data, e.g. {{booking.user.name}}, {{booking.timeslot.eventType.name}}, {{booking.timeslot.startTime}}, {{booking.timeslot.staffMember.email}}. Date and time values are formatted in the studio timezone.'
+
 const postBookingEmailSendTimingField: Field = {
   name: 'sendTiming',
   type: 'select',
@@ -35,6 +38,17 @@ const postBookingEmailSendTimingField: Field = {
 const postBookingEmailRecipientRowField: Field = {
   type: 'row',
   fields: [
+    {
+      name: 'emailTo',
+      type: 'text',
+      label: 'Email To',
+      admin: {
+        description:
+          'Leave blank to send to the customer. Or set a fixed address, or a placeholder such as {{booking.timeslot.staffMember.email}} / {{booking.user.email}}.',
+        placeholder: '{{booking.timeslot.staffMember.email}}',
+        width: '100%',
+      },
+    },
     {
       name: 'cc',
       type: 'text',
@@ -83,12 +97,33 @@ const postBookingEmailSenderRowField: Field = {
   ],
 }
 
+const postBookingEmailSubjectField: Field = {
+  name: 'subject',
+  type: 'text',
+  label: 'Subject',
+  required: true,
+  admin: {
+    description: POST_BOOKING_EMAIL_TEMPLATE_HELP,
+  },
+}
+
+const postBookingEmailMessageField: Field = {
+  name: 'message',
+  type: 'richText',
+  label: 'Message',
+  admin: {
+    description: `Enter the message for this email. ${POST_BOOKING_EMAIL_TEMPLATE_HELP}`,
+  },
+}
+
 export const postBookingEmailsField = buildFormStyleEmailsField({
   name: 'postBookingEmails',
   label: 'Post-booking emails',
   description:
-    'Emails sent to the customer after they book this event type. Use separate rows for different messages (for example a checkout confirmation and a one-time follow-up). See “When to send” for timing rules.',
+    'Emails sent after a booking for this event type. Leave Email To blank to send to the customer, or use placeholders such as {{booking.timeslot.staffMember.email}}. Subject and message also support {{booking…}} placeholders. Use separate rows for different messages. See “When to send” for timing rules.',
   recipientFields: postBookingEmailRecipientRowField,
   senderFields: postBookingEmailSenderRowField,
+  subjectField: postBookingEmailSubjectField,
+  messageField: postBookingEmailMessageField,
   additionalFields: [postBookingEmailSendTimingField],
 })

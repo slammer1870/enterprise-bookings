@@ -84,6 +84,8 @@ export function buildFormStyleEmailsField({
   maxRows,
   recipientFields = formEmailRecipientRowField,
   senderFields = formEmailSenderRowField,
+  subjectField = formEmailSubjectField,
+  messageField = formEmailMessageField,
 }: {
   name: string
   label: string
@@ -92,6 +94,8 @@ export function buildFormStyleEmailsField({
   maxRows?: number
   recipientFields?: Field | false
   senderFields?: Field
+  subjectField?: Field
+  messageField?: Field
 }): Field {
   const itemFields: Field[] = []
 
@@ -99,7 +103,7 @@ export function buildFormStyleEmailsField({
     itemFields.push(recipientFields)
   }
 
-  itemFields.push(senderFields, formEmailSubjectField, formEmailMessageField, ...additionalFields)
+  itemFields.push(senderFields, subjectField, messageField, ...additionalFields)
 
   return {
     name,
