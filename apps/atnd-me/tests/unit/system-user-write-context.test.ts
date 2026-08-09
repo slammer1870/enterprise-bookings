@@ -53,17 +53,40 @@ describe('normalizeTenantRoles', () => {
 })
 
 describe('sanitizeUserTenantsAndRolesForWrite', () => {
-  it('drops tenants and forces role=user for anonymous REST writes', () => {
+  it('drops tenants and forces role=user for anonymous REST creates', () => {
     const data = sanitizeUserTenantsAndRolesForWrite({
       data: {
         tenants: [{ tenant: 4, roles: ['admin'] }],
         role: ['staff', 'location-manager', 'super-admin'],
       },
       req: req({ payloadAPI: 'REST' }),
+      operation: 'create',
     })
 
     expect(data.tenants).toBeUndefined()
     expect(data.role).toEqual(['user'])
+  })
+
+  it('locks tenants/role to originalDoc on anonymous REST updates (forgot-password)', () => {
+    const originalTenants = [{ tenant: 4, roles: ['staff'] }]
+    const data = sanitizeUserTenantsAndRolesForWrite({
+      data: {
+        // Field hooks merge originalDoc into data; a naive delete would wipe these.
+        tenants: [{ tenant: 99, roles: ['admin'] }],
+        role: ['super-admin'],
+        resetPasswordToken: 'tok',
+      },
+      req: req({ payloadAPI: 'REST' }),
+      operation: 'update',
+      originalDoc: {
+        tenants: originalTenants,
+        role: ['staff'],
+      },
+    })
+
+    expect(data.tenants).toEqual(originalTenants)
+    expect(data.role).toEqual(['staff'])
+    expect(data.resetPasswordToken).toBe('tok')
   })
 
   it('preserves tenants/roles for trusted Local API without system flag', () => {

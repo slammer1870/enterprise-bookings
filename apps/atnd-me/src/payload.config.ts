@@ -28,8 +28,13 @@ import { sendPostBookingEmailTask } from './tasks/send-post-booking-email'
 import { sendCourseEmailTask } from './tasks/send-course-email'
 import { createCustomersProxy } from '@repo/bookings-payments'
 import { getStripeAccountIdForRequest } from '@/lib/stripe-connect/getStripeAccountIdForRequest'
-import { resolvePayloadEmailConfig } from './utilities/emailConfig'
-import { createFromFallbackEmailAdapter, resolveResendFromFallbackConfig } from './utilities/emailConfig'
+import {
+  createFromFallbackEmailAdapter,
+  createNoopEmailAdapter,
+  resolvePayloadEmailConfig,
+  resolveResendFromFallbackConfig,
+  shouldUseNoopEmailAdapter,
+} from './utilities/emailConfig'
 import { createSubscriptionInStripeEndpoint } from './endpoints/admin/stripe/create-subscription'
 import { stripeDashboardLinkEndpoint } from './endpoints/admin/stripe/dashboard-link'
 import { updateStripeSubscriptionEndpoint } from './endpoints/admin/stripe/update-subscription'
@@ -144,18 +149,23 @@ export default buildConfig({
   },
   // This config helps us configure global or default features that the other editors can inherit
   editor: defaultLexical,
-  email: (() => {
+  // Decide noop vs Resend inside the adapter factory (Payload calls this at init)
+  // so e2e env flags like PW_E2E_PROFILE are read at server start, not build time.
+  email: ({ payload }) => {
     const primaryArgs = resolvePayloadEmailConfig(process.env)
+    if (shouldUseNoopEmailAdapter(process.env)) {
+      return createNoopEmailAdapter({
+        defaultFromAddress: primaryArgs.defaultFromAddress,
+        defaultFromName: primaryArgs.defaultFromName,
+      })()
+    }
+
     const fallbackArgs = resolveResendFromFallbackConfig(process.env, primaryArgs)
-
-    const primaryAdapter = resendAdapter(primaryArgs)
-    const fallbackAdapter = resendAdapter(fallbackArgs)
-
     return createFromFallbackEmailAdapter({
-      primaryAdapter,
-      fallbackAdapter,
-    })
-  })(),
+      primaryAdapter: resendAdapter(primaryArgs),
+      fallbackAdapter: resendAdapter(fallbackArgs),
+    })({ payload })
+  },
   db: postgresAdapter({
     pool: {
       connectionString: process.env.DATABASE_URI || '',

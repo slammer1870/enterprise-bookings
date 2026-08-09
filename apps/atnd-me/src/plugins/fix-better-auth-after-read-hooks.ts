@@ -10,6 +10,10 @@ import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
 import { assertAnonymousUserCreateRateLimit } from '@/collections/Users/sanitizeUserWrite'
 import { stripForeignTenantsBeforeValidate } from '@/collections/Users/stripForeignTenantsBeforeValidate'
+import {
+  markPasswordResetOperation,
+  preserveTenantsOnPasswordReset,
+} from '@/collections/Users/preserveTenantsOnPasswordReset'
 
 /**
  * Restores Users collection hooks silently dropped by the payload-auth (Better Auth) plugin.
@@ -79,10 +83,15 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
             }
             return args
           },
+          // Flag resetPassword so beforeValidate can strip array fields safely.
+          markPasswordResetOperation,
         ],
         beforeValidate: [
           ...(usersCollection.hooks?.beforeValidate ?? []),
           stripForeignTenantsHook,
+          // Strip tenants/locations before raw db.updateOne in resetPasswordOperation
+          // (bypasses beforeChange). See preserveTenantsOnPasswordReset.ts.
+          preserveTenantsOnPasswordReset,
         ],
         afterRead: [
           ...(usersCollection.hooks?.afterRead ?? []),

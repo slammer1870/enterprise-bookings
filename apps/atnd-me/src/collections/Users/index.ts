@@ -257,11 +257,13 @@ If you did not request this, you can ignore this email.`
     beforeChange: [
       // Harden anonymous + system user writes (tenants / roles).
       // System flows set ATND_SYSTEM_USER_WRITE_CTX + allowedRoles allow-list.
-      async ({ data, req }) => {
+      async ({ data, req, operation, originalDoc }) => {
         if (!data) return data
         return sanitizeUserTenantsAndRolesForWrite({
           data: data as Record<string, unknown>,
           req,
+          operation,
+          originalDoc: originalDoc as Record<string, unknown> | null | undefined,
         })
       },
       // Must run in beforeChange (not beforeValidate): payload-auth's Better Auth merge replaces

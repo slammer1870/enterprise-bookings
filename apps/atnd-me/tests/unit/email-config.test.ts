@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { resolvePayloadEmailConfig, sanitizeFromAddress, sanitizeFromName } from '../../src/utilities/emailConfig'
+import {
+  createNoopEmailAdapter,
+  resolvePayloadEmailConfig,
+  sanitizeFromAddress,
+  sanitizeFromName,
+  shouldUseNoopEmailAdapter,
+} from '../../src/utilities/emailConfig'
 
 describe('payload email config', () => {
   it('transliterates accented from names to ASCII', () => {
@@ -35,5 +41,23 @@ describe('payload email config', () => {
       defaultFromName: 'ATND',
       apiKey: 're_test',
     })
+  })
+
+  it('uses noop email adapter for e2e / explicit test flags', () => {
+    expect(shouldUseNoopEmailAdapter({} as NodeJS.ProcessEnv)).toBe(false)
+    expect(shouldUseNoopEmailAdapter({ PW_E2E_PROFILE: 'true' } as NodeJS.ProcessEnv)).toBe(true)
+    expect(shouldUseNoopEmailAdapter({ ENABLE_TEST_MAGIC_LINKS: 'true' } as NodeJS.ProcessEnv)).toBe(
+      true,
+    )
+    expect(shouldUseNoopEmailAdapter({ PAYLOAD_TEST_EMAIL: 'noop' } as NodeJS.ProcessEnv)).toBe(true)
+  })
+
+  it('noop email adapter resolves sendEmail without throwing', async () => {
+    const adapter = createNoopEmailAdapter({
+      defaultFromAddress: 'auth@atnd.me',
+      defaultFromName: 'ATND',
+    })
+    const initialized = adapter()
+    await expect(initialized.sendEmail()).resolves.toEqual({ id: 'test-email-noop' })
   })
 })

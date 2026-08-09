@@ -70,6 +70,32 @@ export function resolvePayloadEmailConfig(env: NodeJS.ProcessEnv) {
   }
 }
 
+/**
+ * E2E / Playwright (and explicit test opt-in) should not call Resend.
+ * Payload forgot-password writes the reset token then sends email in one transaction;
+ * a 401 from an invalid CI Resend key rolls that write back and fails the endpoint.
+ */
+export function shouldUseNoopEmailAdapter(env: NodeJS.ProcessEnv): boolean {
+  return (
+    env.PAYLOAD_TEST_EMAIL === 'noop' ||
+    env.PW_E2E_PROFILE === 'true' ||
+    env.ENABLE_TEST_MAGIC_LINKS === 'true'
+  )
+}
+
+/** Drop-in Payload email adapter that accepts mail without delivering it. */
+export function createNoopEmailAdapter(args: {
+  defaultFromAddress: string
+  defaultFromName: string
+}) {
+  return () => ({
+    defaultFromAddress: args.defaultFromAddress,
+    defaultFromName: args.defaultFromName,
+    name: 'noop',
+    sendEmail: async () => ({ id: 'test-email-noop' }),
+  })
+}
+
 export function resolveResendFromFallbackConfig(
   _env: NodeJS.ProcessEnv,
   primary: ReturnType<typeof resolvePayloadEmailConfig>,
