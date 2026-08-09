@@ -123,8 +123,9 @@ export default defineConfig({
         env: {
           NODE_ENV: 'production',
           NODE_OPTIONS: nodeOptionsWithLoader,
+          ENABLE_TEST_MAGIC_LINKS: 'true',
           ENABLE_TEST_WEBHOOKS: 'true', // Mock Stripe/create-payment-intent in e2e (avoid "No such destination" for placeholder accounts)
-          PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
+          PW_E2E_PROFILE: 'true', // Disables schema push + uses noop email in app (see payload.config.ts)
           PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
           // Same DB as test workers so tenant/lesson data created in fixtures is visible to the app
           ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),

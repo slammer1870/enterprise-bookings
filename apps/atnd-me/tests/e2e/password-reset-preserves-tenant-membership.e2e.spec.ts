@@ -79,12 +79,17 @@ test.describe('Password reset / change preserves tenant memberships', () => {
       expect(beforeIds).toContain(tenant.id)
 
       // 3. Request a forgot-password token (Payload native auth).
+      // E2E uses the noop email adapter (PW_E2E_PROFILE / ENABLE_TEST_MAGIC_LINKS)
+      // so Resend is not called; Payload still persists resetPasswordToken.
       const forgotRes = await request.post('http://localhost:3000/api/users/forgot-password', {
         data: { email },
         failOnStatusCode: false,
       })
       // Payload returns 200 whether or not the email exists (security).
-      expect([200, 201]).toContain(forgotRes.status())
+      expect(
+        [200, 201],
+        `forgot-password failed (${forgotRes.status()}): ${await forgotRes.text()}`,
+      ).toContain(forgotRes.status())
 
       // 4. Fetch the reset token directly from DB (email is not sent in test env).
       const userWithToken = (await payload.findByID({
