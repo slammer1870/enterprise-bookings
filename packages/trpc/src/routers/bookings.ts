@@ -246,12 +246,17 @@ export const bookingsRouter = {
         if (usablePass != null) {
           const passId = (usablePass as any).id as number;
 
-          const booking = await bookOneSlot({
+          await bookOneSlot({
             paymentMethodUsed: "class_pass",
             classPassIdUsed: passId,
           });
 
           // Decrement class pass by 1 credit.
+          // Note: createDecrementClassPassHook cannot see the transaction that
+          // createBookingTransactionOnCreate just created (same-request DB visibility),
+          // so the decrement must happen explicitly here. The transaction itself is
+          // created solely by the createBookingTransactionOnCreate afterChange hook —
+          // do NOT add a manual payload.create for transactions here.
           const currentQty =
             typeof (usablePass as any).quantity === "number" ? (usablePass as any).quantity : 0;
           const nextQty = Math.max(0, currentQty - 1);
@@ -262,21 +267,6 @@ export const bookingsRouter = {
             data: { quantity: nextQty, status: nextStatus } as Record<string, unknown>,
             overrideAccess: true,
           });
-
-          // Create transaction record for accounting.
-          if (hasCollection(ctx.payload, "transactions")) {
-            const bookingId = (booking as unknown as { id: number }).id;
-            await ctx.payload.create({
-              collection: "transactions" as import("payload").CollectionSlug,
-              data: {
-                booking: bookingId,
-                paymentMethod: "class_pass",
-                classPassId: passId,
-                ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
-              } as Record<string, unknown>,
-              overrideAccess: true,
-            });
-          }
 
           return { redirectUrl: null };
         }
@@ -1162,32 +1152,13 @@ export const bookingsRouter = {
           }
         );
         confirmedBookings.push(booking as Booking);
-        // Create transaction for class_pass so decrement hook can find it; also decrement
-        // immediately for newly created confirmed bookings in this flow.
-        if (
-          paymentMethodUsed === "class_pass" &&
-          classPassIdUsed != null &&
-          hasCollection(ctx.payload, "transactions")
-        ) {
-          const bookingId = (booking as { id: number }).id;
-          const existingTx = await ctx.payload.find({
-            collection: "transactions" as import("payload").CollectionSlug,
-            where: { booking: { equals: bookingId } },
-            limit: 1,
-            overrideAccess: true,
-          });
-          if (existingTx.totalDocs === 0) {
-            await ctx.payload.create({
-              collection: "transactions" as import("payload").CollectionSlug,
-              data: {
-                booking: bookingId,
-                paymentMethod: "class_pass",
-                classPassId: classPassIdUsed,
-                ...(timeslotTenantId != null ? { tenant: timeslotTenantId } : {}),
-              } as Record<string, unknown>,
-              overrideAccess: true,
-            });
-          }
+        // Decrement class pass credit for this newly confirmed booking.
+        // The transaction is created by createBookingTransactionOnCreate (afterChange hook)
+        // which fires because this is a create operation with paymentMethodUsed='class_pass'.
+        // Do NOT add a manual payload.create for transactions here — the hook handles it and
+        // the existingTx guard cannot see the hook's transaction within the same request context,
+        // so it would always create a duplicate.
+        if (paymentMethodUsed === "class_pass" && classPassIdUsed != null) {
           await decrementClassPassCredits(1);
         }
       }
