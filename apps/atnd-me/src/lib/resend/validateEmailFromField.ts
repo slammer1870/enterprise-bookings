@@ -28,7 +28,8 @@ export const validateEmailFromField: TextFieldSingleValidation = async (value, {
   if (!raw) return true
   if (emailFromContainsTemplateVars(raw)) return true
 
-  let tenantId = relationId(data?.tenant)
+  const docData = data as { tenant?: unknown } | null | undefined
+  let tenantId = relationId(docData?.tenant)
   if (tenantId == null) {
     tenantId = await getTenantIdForCreateRequest(req.payload, {
       headers: req.headers,
