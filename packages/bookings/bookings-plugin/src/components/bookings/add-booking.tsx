@@ -4,7 +4,7 @@ import { startTransition, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { User } from "@repo/shared-types";
-import { Button, SelectInput } from "@payloadcms/ui";
+import { Button, SelectInput, ReactSelect, type ReactSelectOption } from "@payloadcms/ui";
 import {
   Dialog,
   DialogContent,
@@ -202,11 +202,20 @@ export const AddBooking = ({
           <label className="text-xs mb-1 block font-medium text-foreground">
             User
           </label>
-          <div className="add-booking-input-wrapper flex min-w-0 max-w-full flex-col gap-1 [&_.field-label]:!hidden [&_.input]:!min-h-7 [&_.input]:!py-0.5 [&_input]:!min-h-7 [&_[role=combobox]]:!min-h-7 [&_[role=combobox]]:!py-0.5 [&_[role=combobox]]:!max-w-full [&_.input]:!min-w-0">
-            <SelectInput
-              path="add-booking-user"
-              name="add-booking-user"
-              value={selectedUserId}
+          <div className="add-booking-input-wrapper flex min-w-0 max-w-full flex-col gap-1 [&_.rs\_\_control]:!min-h-7 [&_.rs\_\_control]:!cursor-pointer [&_.rs\_\_value-container]:!py-0.5 [&_.rs\_\_value-container]:!min-h-0">
+            {/* ReactSelect is used here instead of SelectInput so we can pass
+                menuPosition="fixed", which escapes overflow-clipping ancestors
+                (the timeslot table cell). SelectInput doesn't forward extra props. */}
+            <ReactSelect
+              {...({
+                menuPosition: "fixed",
+              } as object)}
+              options={userOptions as ReactSelectOption[]}
+              value={
+                userOptions.find((o) => o.value === selectedUserId) as
+                  | ReactSelectOption
+                  | undefined
+              }
               onChange={(opt) => {
                 const o = Array.isArray(opt) ? opt[0] : opt;
                 setSelectedUserId(
@@ -215,8 +224,7 @@ export const AddBooking = ({
                     : ""
                 );
               }}
-              options={userOptions}
-              readOnly={isLoading}
+              disabled={isLoading}
             />
           </div>
         </div>
