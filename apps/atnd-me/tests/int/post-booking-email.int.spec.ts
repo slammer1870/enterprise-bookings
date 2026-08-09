@@ -3,39 +3,53 @@ import { getPayload, type Payload } from 'payload'
 import config from '@/payload.config'
 import { POST_BOOKING_EMAIL_DELIVERIES_SLUG } from '@/collections/PostBookingEmailDeliveries'
 import { resolveNextDay9am } from '@/lib/post-booking-email/resolve-send-time'
-import { resolveTimeslotTimeZone } from '@repo/shared-utils'
+import { formatInTimeZone, resolveTimeslotTimeZone } from '@repo/shared-utils'
 
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
 
-const testEmailMessage = {
-  root: {
-    type: 'root',
-    format: '',
-    indent: 0,
-    version: 1,
-    children: [
-      {
-        type: 'paragraph',
-        format: '',
-        indent: 0,
-        version: 1,
-        children: [
-          {
-            type: 'text',
-            detail: 0,
-            format: 0,
-            mode: 'normal',
-            style: '',
-            text: 'Your booking is confirmed.',
-            version: 1,
-          },
-        ],
-        direction: 'ltr',
-      },
-    ],
-    direction: 'ltr',
-  },
+function lexicalParagraph(text: string) {
+  return {
+    root: {
+      type: 'root',
+      format: '',
+      indent: 0,
+      version: 1,
+      children: [
+        {
+          type: 'paragraph',
+          format: '',
+          indent: 0,
+          version: 1,
+          children: [
+            {
+              type: 'text',
+              detail: 0,
+              format: 0,
+              mode: 'normal',
+              style: '',
+              text,
+              version: 1,
+            },
+          ],
+          direction: 'ltr',
+        },
+      ],
+      direction: 'ltr',
+    },
+  }
+}
+
+const testEmailMessage = lexicalParagraph('Your booking is confirmed.')
+
+async function waitForSendEmailCalls(
+  sendEmailSpy: ReturnType<typeof vi.fn>,
+  minCalls: number,
+  attempts = 40,
+): Promise<void> {
+  for (let attempt = 0; attempt < attempts && sendEmailSpy.mock.calls.length < minCalls; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
 }
 
 describe('Post-booking email integration', () => {
@@ -1071,6 +1085,306 @@ describe('Post-booking email integration', () => {
       })
 
       expect(deliveries.totalDocs).toBe(0)
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'emails the timeslot staff member on first booking with templated booking details',
+    async () => {
+      sendEmailSpy.mockClear()
+
+      const customer = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'First Booking Customer',
+          email: `post-booking-staff-customer-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const customerId = customer.id as number
+
+      const staff = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Class Instructor',
+          email: `post-booking-staff-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['staff'],
+          emailVerified: true,
+          tenants: [{ tenant: tenantId, roles: ['staff'] }],
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const staffId = staff.id as number
+      const staffEmail = staff.email as string
+
+      const eventTypeName = `Staff Notify Class ${Date.now()}`
+      const eventType = await payload.create({
+        collection: 'event-types',
+        data: {
+          name: eventTypeName,
+          places: 10,
+          description: 'Staff notification class',
+          tenant: tenantId,
+          postBookingEmails: [
+            {
+              emailTo: '{{booking.timeslot.staffMember.email}}',
+              replyTo: 'Studio <studio@example.com>',
+              subject: 'New first booking: {{booking.user.name}}',
+              message: lexicalParagraph(
+                '{{booking.user.name}} has booked in for {{booking.timeslot.eventType.name}} at {{booking.timeslot.startTime}} and it is their first booking.',
+              ),
+              sendTiming: 'after_first_booking',
+            },
+          ],
+        },
+        overrideAccess: true,
+      })
+
+      const start = new Date()
+      start.setUTCDate(start.getUTCDate() + 4)
+      start.setUTCHours(14, 0, 0, 0)
+      const end = new Date(start)
+      end.setUTCHours(15, 0, 0, 0)
+
+      const timeslot = await payload.create({
+        collection: 'timeslots',
+        data: {
+          tenant: tenantId,
+          eventType: eventType.id,
+          staffMember: staffId,
+          date: start.toISOString().slice(0, 10),
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          lockOutTime: 0,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: timeslot.id,
+          user: customerId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 1, batchIndex: 0 },
+        },
+        overrideAccess: true,
+      })
+
+      await waitForSendEmailCalls(sendEmailSpy, 1)
+      expect(sendEmailSpy).toHaveBeenCalledTimes(1)
+
+      const expectedStartTime = formatInTimeZone(start.toISOString(), 'h:mm a', 'Europe/Dublin')
+      const sent = sendEmailSpy.mock.calls[0]?.[0] as {
+        to?: string
+        subject?: string
+        html?: string
+      }
+
+      expect(sent.to).toBe(staffEmail)
+      expect(sent.subject).toBe('New first booking: First Booking Customer')
+      expect(sent.html).toContain('First Booking Customer has booked in for')
+      expect(sent.html).toContain(eventTypeName)
+      expect(sent.html).toContain(`at ${expectedStartTime}`)
+      expect(sent.html).toContain('and it is their first booking.')
+
+      let deliveries = await payload.find({
+        collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { user: { equals: customerId } },
+            { sendTiming: { equals: 'after_first_booking' } },
+          ],
+        },
+        limit: 10,
+        overrideAccess: true,
+      })
+
+      for (let attempt = 0; attempt < 20 && deliveries.docs[0]?.status !== 'sent'; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 50))
+        deliveries = await payload.find({
+          collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+          where: {
+            and: [
+              { tenant: { equals: tenantId } },
+              { user: { equals: customerId } },
+              { sendTiming: { equals: 'after_first_booking' } },
+            ],
+          },
+          limit: 10,
+          overrideAccess: true,
+        })
+      }
+
+      expect(deliveries.totalDocs).toBe(1)
+      expect(deliveries.docs[0]?.status).toBe('sent')
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'does not email timeslot staff again on a subsequent booking for the same customer',
+    async () => {
+      sendEmailSpy.mockClear()
+
+      const customer = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Returning Booking Customer',
+          email: `post-booking-staff-returning-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['user'],
+          emailVerified: true,
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const customerId = customer.id as number
+
+      const staff = await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Returning Class Instructor',
+          email: `post-booking-staff-returning-instructor-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['staff'],
+          emailVerified: true,
+          tenants: [{ tenant: tenantId, roles: ['staff'] }],
+        },
+        draft: false,
+        overrideAccess: true,
+      } as Parameters<typeof payload.create>[0])
+      const staffId = staff.id as number
+
+      const createStaffFirstBookingEventType = async (name: string) =>
+        payload.create({
+          collection: 'event-types',
+          data: {
+            name,
+            places: 10,
+            description: 'Staff notification class',
+            tenant: tenantId,
+            postBookingEmails: [
+              {
+                emailTo: '{{booking.timeslot.staffMember.email}}',
+                replyTo: 'Studio <studio@example.com>',
+                subject: 'New first booking: {{booking.user.name}}',
+                message: lexicalParagraph(
+                  '{{booking.user.name}} has booked in for {{booking.timeslot.eventType.name}} at {{booking.timeslot.startTime}} and it is their first booking.',
+                ),
+                sendTiming: 'after_first_booking',
+              },
+            ],
+          },
+          overrideAccess: true,
+        })
+
+      const firstEventType = await createStaffFirstBookingEventType(
+        `Staff First Class A ${Date.now()}`,
+      )
+      const secondEventType = await createStaffFirstBookingEventType(
+        `Staff First Class B ${Date.now()}`,
+      )
+
+      const createFutureTimeslot = async (eventTypeId: number, daysAhead: number) => {
+        const start = new Date()
+        start.setUTCDate(start.getUTCDate() + daysAhead)
+        start.setUTCHours(14, 0, 0, 0)
+        const end = new Date(start)
+        end.setUTCHours(15, 0, 0, 0)
+
+        return payload.create({
+          collection: 'timeslots',
+          data: {
+            tenant: tenantId,
+            eventType: eventTypeId,
+            staffMember: staffId,
+            date: start.toISOString().slice(0, 10),
+            startTime: start.toISOString(),
+            endTime: end.toISOString(),
+            lockOutTime: 0,
+            active: true,
+          },
+          overrideAccess: true,
+        })
+      }
+
+      const firstTimeslot = await createFutureTimeslot(firstEventType.id as number, 5)
+      const secondTimeslot = await createFutureTimeslot(secondEventType.id as number, 8)
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: firstTimeslot.id,
+          user: customerId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 1, batchIndex: 0 },
+        },
+        overrideAccess: true,
+      })
+
+      await waitForSendEmailCalls(sendEmailSpy, 1)
+      expect(sendEmailSpy).toHaveBeenCalledTimes(1)
+      expect(sendEmailSpy.mock.calls[0]?.[0]).toMatchObject({
+        to: staff.email,
+        subject: 'New first booking: Returning Booking Customer',
+      })
+
+      sendEmailSpy.mockClear()
+
+      await payload.create({
+        collection: 'bookings',
+        data: {
+          tenant: tenantId,
+          timeslot: secondTimeslot.id,
+          user: customerId,
+          status: 'confirmed',
+        },
+        context: {
+          postBookingEmailBatch: { batchSize: 1, batchIndex: 0 },
+        },
+        overrideAccess: true,
+      })
+
+      await new Promise((resolve) => setTimeout(resolve, 150))
+      expect(sendEmailSpy).not.toHaveBeenCalled()
+
+      const deliveries = await payload.find({
+        collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
+        where: {
+          and: [
+            { tenant: { equals: tenantId } },
+            { user: { equals: customerId } },
+            { sendTiming: { equals: 'after_first_booking' } },
+            { status: { in: ['scheduled', 'sent'] } },
+          ],
+        },
+        limit: 10,
+        overrideAccess: true,
+      })
+
+      expect(deliveries.totalDocs).toBe(1)
+      const deliveryTimeslot = deliveries.docs[0]?.timeslot
+      const deliveryTimeslotId =
+        typeof deliveryTimeslot === 'object' && deliveryTimeslot !== null && 'id' in deliveryTimeslot
+          ? (deliveryTimeslot as { id: number }).id
+          : deliveryTimeslot
+      expect(deliveryTimeslotId).toBe(firstTimeslot.id)
     },
     TEST_TIMEOUT,
   )

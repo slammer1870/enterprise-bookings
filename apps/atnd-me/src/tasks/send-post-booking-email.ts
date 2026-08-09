@@ -1,6 +1,7 @@
 import type { TaskHandler } from 'payload'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { POST_BOOKING_EMAIL_DELIVERIES_SLUG } from '@/collections/PostBookingEmailDeliveries'
+import { loadBookingTemplateContext } from '@/lib/post-booking-email/build-booking-template-context'
 import { userHasPriorConfirmedBookingForTenant } from '@/lib/post-booking-email/delivery-queries'
 import { sendPostBookingEmail } from '@/lib/post-booking-email/send-post-booking-email'
 import type { PostBookingEmailConfig, PostBookingEmailJobInput } from '@/lib/post-booking-email/types'
@@ -87,13 +88,19 @@ export const sendPostBookingEmailTask: TaskHandler<'sendPostBookingEmail'> = asy
     overrideAccess: true,
   })
 
-  const tenantEmailFrom = await loadTenantEmailFromGate(req.payload, jobInput.tenantId)
+  const [tenantEmailFrom, templateContext] = await Promise.all([
+    loadTenantEmailFromGate(req.payload, jobInput.tenantId),
+    bookingId != null
+      ? loadBookingTemplateContext(req.payload, bookingId)
+      : Promise.resolve(null),
+  ])
 
   await sendPostBookingEmail({
     payload: req.payload,
     user,
     config,
     tenantEmailFrom,
+    templateContext,
   })
 
   await req.payload.update({

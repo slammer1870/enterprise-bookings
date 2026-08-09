@@ -7,6 +7,7 @@ export type PostBookingEmailBatchContext = {
 
 export type PostBookingEmailConfig = {
   id?: string | null
+  emailTo?: string | null
   cc?: string | null
   bcc?: string | null
   replyTo?: string | null
