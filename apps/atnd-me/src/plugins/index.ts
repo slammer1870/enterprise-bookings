@@ -1,4 +1,6 @@
 import { formBuilderPlugin } from '@payloadcms/plugin-form-builder'
+import { beforeFormEmail } from '@/lib/resend/beforeFormEmail'
+import { withEmailFromValidationInFields } from '@/fields/withEmailFromValidation'
 import { nestedDocsPlugin } from '@payloadcms/plugin-nested-docs'
 import { redirectsPlugin } from '@payloadcms/plugin-redirects'
 import { seoPlugin } from '@payloadcms/plugin-seo'
@@ -345,6 +347,7 @@ export const plugins: Plugin[] = [
     generateURL,
   }),
   formBuilderPlugin({
+    beforeEmail: beforeFormEmail,
     fields: {
       payment: false,
     },
@@ -356,6 +359,12 @@ export const plugins: Plugin[] = [
             return {
               ...field,
               editor: defaultLexical,
+            }
+          }
+          if ('name' in field && field.name === 'emails' && field.type === 'array') {
+            return {
+              ...field,
+              fields: withEmailFromValidationInFields(field.fields),
             }
           }
           return field

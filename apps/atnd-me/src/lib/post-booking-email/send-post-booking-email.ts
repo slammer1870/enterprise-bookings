@@ -65,7 +65,10 @@ export async function sendPostBookingEmail({
   payload: BasePayload
   user: unknown
   config: SendableEmailConfig
-  /** When set, omit emailFrom if it uses an unverified tenant domain. */
+  /**
+   * Tenant domain verification gate. Custom emailFrom is only kept when the From
+   * host matches this tenant's verified domain; missing gate strips custom From.
+   */
   tenantEmailFrom?: TenantEmailFromGate | null
   /** Nested booking (or other) data for `{{path.to.value}}` placeholders. */
   templateContext?: TemplateContext | null
@@ -102,13 +105,11 @@ export async function sendPostBookingEmail({
   const cc = splitCommaSeparated(applyTemplate(config.cc, templateContext))
   const bcc = splitCommaSeparated(applyTemplate(config.bcc, templateContext))
   const rawFrom = applyTemplate(config.emailFrom, templateContext) || undefined
-  const from = tenantEmailFrom
-    ? sanitizeEmailFromForTenantDomain({
-        emailFrom: rawFrom,
-        tenantDomain: tenantEmailFrom.domain,
-        emailDomainVerified: tenantEmailFrom.verified,
-      })
-    : rawFrom
+  const from = sanitizeEmailFromForTenantDomain({
+    emailFrom: rawFrom,
+    tenantDomain: tenantEmailFrom?.domain,
+    emailDomainVerified: tenantEmailFrom?.verified,
+  })
   const replyTo = applyTemplate(config.replyTo, templateContext) || undefined
 
   await payload.sendEmail({

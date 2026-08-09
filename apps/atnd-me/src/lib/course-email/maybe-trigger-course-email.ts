@@ -8,6 +8,7 @@ import {
   resolveActiveCourseEmailConfigs,
   type ActiveCourseEmailConfig,
 } from '@/lib/course-email/types'
+import { loadTenantEmailFromGate } from '@/lib/resend/loadTenantEmailFromGate'
 import { resolveTimeZone } from '@repo/shared-utils'
 
 function relationId(value: unknown): number | null {
@@ -135,7 +136,8 @@ async function maybeTriggerSingleCourseEmail({
     scheduleOnNextEventLoop(() => {
       void (async () => {
         try {
-          await sendCourseEmail({ payload: req.payload, user, config })
+          const tenantEmailFrom = await loadTenantEmailFromGate(req.payload, tenantId)
+          await sendCourseEmail({ payload: req.payload, user, config, tenantEmailFrom })
           await req.payload.update({
             collection: COURSE_EMAIL_DELIVERIES_SLUG,
             id: delivery.id,

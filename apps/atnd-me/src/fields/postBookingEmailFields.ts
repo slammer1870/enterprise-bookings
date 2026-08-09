@@ -1,5 +1,6 @@
 import type { Field } from 'payload'
 import { buildFormStyleEmailsField } from './formEmailFields'
+import { withEmailFromValidation } from './withEmailFromValidation'
 
 export const POST_BOOKING_EMAIL_SEND_TIMING_OPTIONS = [
   {
@@ -85,7 +86,7 @@ const postBookingEmailSenderRowField: Field = {
         width: '50%',
       },
     },
-    {
+    withEmailFromValidation({
       name: 'emailFrom',
       type: 'text',
       label: 'Email From',
@@ -93,7 +94,7 @@ const postBookingEmailSenderRowField: Field = {
         placeholder: '"Email From" <email-from@email.com>',
         width: '50%',
       },
-    },
+    }),
   ],
 }
 

@@ -45,10 +45,65 @@ export function isEmailDomainVerified(status: unknown): boolean {
   return status === 'verified'
 }
 
+/** True when From still contains unresolved `{{…}}` template placeholders. */
+export function emailFromContainsTemplateVars(emailFrom: string): boolean {
+  return /\{\{[\s\S]*?\}\}/.test(emailFrom)
+}
+
+function extractEmailHost(emailFrom: string): string | null {
+  const match = emailFrom.match(/([^\s<>"']+@[^\s<>"']+\.[^\s<>"']+)/)
+  const address = match?.[1]?.toLowerCase()
+  if (!address || !address.includes('@')) return null
+  return address.split('@')[1] || null
+}
+
+export function isHostTenantEmailDomain(
+  host: string,
+  tenantDomain: string | null | undefined,
+): boolean {
+  const websiteDomain = tenantDomain ? normalizeCustomDomain(tenantDomain) : null
+  const emailDomain = resolveEmailSendingDomain(tenantDomain)
+  if (!emailDomain && !websiteDomain) return false
+  return host === emailDomain || host === websiteDomain || host === `www.${emailDomain}`
+}
+
 /**
- * If `emailFrom` uses the tenant email sending domain (or www variant) but that
- * domain is not verified, return undefined so the Resend adapter default From is used.
- * Unrelated From domains are left as-is (existing 403 fallback still applies).
+ * Save-time / send-time rule for a literal Email From (no `{{…}}` templates).
+ * Returns an error message, or null when the From is allowed.
+ */
+export function getEmailFromTenantDomainValidationError(args: {
+  emailFrom?: string | null
+  tenantDomain?: string | null
+  emailDomainVerified?: boolean | null
+}): string | null {
+  const from = typeof args.emailFrom === 'string' ? args.emailFrom.trim() : ''
+  if (!from) return null
+  if (emailFromContainsTemplateVars(from)) return null
+
+  const emailDomain = resolveEmailSendingDomain(args.tenantDomain)
+  if (!args.emailDomainVerified || !emailDomain) {
+    return 'Verify your studio email domain before setting a custom Email From address.'
+  }
+
+  const host = extractEmailHost(from)
+  if (!host) {
+    return 'Email From must include a valid email address (e.g. hello@your-domain.com).'
+  }
+
+  if (!isHostTenantEmailDomain(host, args.tenantDomain)) {
+    return `Email From must use your verified domain (${emailDomain}).`
+  }
+
+  return null
+}
+
+/**
+ * Allow a custom From only when its host is this tenant's email-sending domain
+ * (or www / website-host variant) and that domain is verified for the tenant.
+ * Otherwise return undefined so the Resend adapter default From is used.
+ *
+ * This blocks cross-tenant spoofing on a shared Resend account: tenant A cannot
+ * send as tenant B's verified domain.
  */
 export function sanitizeEmailFromForTenantDomain(args: {
   emailFrom?: string | null
@@ -57,20 +112,6 @@ export function sanitizeEmailFromForTenantDomain(args: {
 }): string | undefined {
   const from = typeof args.emailFrom === 'string' ? args.emailFrom.trim() : ''
   if (!from) return undefined
-
-  const websiteDomain = args.tenantDomain ? normalizeCustomDomain(args.tenantDomain) : null
-  const emailDomain = resolveEmailSendingDomain(args.tenantDomain)
-  if (!emailDomain && !websiteDomain) return from
-
-  const match = from.match(/([^\s<>"']+@[^\s<>"']+\.[^\s<>"']+)/)
-  const address = match?.[1]?.toLowerCase()
-  if (!address || !address.includes('@')) return from
-
-  const host = address.split('@')[1] || ''
-  const hostIsTenantEmailDomain =
-    host === emailDomain || host === websiteDomain || host === `www.${emailDomain}`
-  if (hostIsTenantEmailDomain && !args.emailDomainVerified) {
-    return undefined
-  }
+  if (getEmailFromTenantDomainValidationError(args)) return undefined
   return from
 }
