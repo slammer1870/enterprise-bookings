@@ -1233,6 +1233,9 @@ export interface EventType {
         cc?: string | null;
         bcc?: string | null;
         replyTo: string;
+        /**
+         * Must use your verified studio email domain (e.g. hello@your-domain.com). Leave blank to use the platform default. Template placeholders like {{field}} are allowed and checked when the email sends.
+         */
         emailFrom?: string | null;
         /**
          * Use double curly braces for booking data, e.g. {{booking.user.name}}, {{booking.timeslot.eventType.name}}, {{booking.timeslot.startTime}}, {{booking.timeslot.staffMember.email}}. Date and time values are formatted in the studio timezone.
@@ -1447,6 +1450,9 @@ export interface Course {
         cc?: string | null;
         bcc?: string | null;
         replyTo: string;
+        /**
+         * Must use your verified studio email domain (e.g. hello@your-domain.com). Leave blank to use the platform default. Template placeholders like {{field}} are allowed and checked when the email sends.
+         */
         emailFrom?: string | null;
         subject: string;
         /**
@@ -2562,6 +2568,9 @@ export interface Form {
         cc?: string | null;
         bcc?: string | null;
         replyTo?: string | null;
+        /**
+         * Must use your verified studio email domain (e.g. hello@your-domain.com). Leave blank to use the platform default. Template placeholders like {{field}} are allowed and checked when the email sends.
+         */
         emailFrom?: string | null;
         subject: string;
         /**

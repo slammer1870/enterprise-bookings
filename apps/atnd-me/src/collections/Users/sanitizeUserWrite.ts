@@ -77,14 +77,19 @@ function isPublicHttpApi(req: PayloadRequest): boolean {
 /**
  * Sanitize user writes:
  * - System Local API: clamp roles to the caller's declared allow-list
- * - Anonymous public HTTP (REST/GraphQL): drop `tenants`, force global role to `['user']`
+ * - Anonymous public HTTP create: drop `tenants`, force global role to `['user']`
+ * - Anonymous public HTTP update: lock `tenants` / `role` to `originalDoc` so
+ *   clients cannot escalate, and forgot-password / token updates cannot wipe
+ *   memberships that field hooks merged into `data`
  * - Trusted Local API (no user / no system flag): leave data alone — callers own auth
  */
 export function sanitizeUserTenantsAndRolesForWrite(args: {
   data: Record<string, unknown>
   req: PayloadRequest
+  operation?: 'create' | 'update' | string
+  originalDoc?: Record<string, unknown> | null
 }): Record<string, unknown> {
-  const { data, req } = args
+  const { data, req, operation, originalDoc } = args
 
   if (isSystemUserWrite(req)) {
     const allowedList = getSystemUserWriteAllowedRoles(req)
@@ -120,7 +125,30 @@ export function sanitizeUserTenantsAndRolesForWrite(args: {
   // Trusted Local API (int tests, seeds, scripts): do not strip memberships.
   if (!isPublicHttpApi(req)) return data
 
-  // Anonymous public HTTP: never accept client-supplied memberships.
+  // Anonymous public HTTP updates (forgot-password token write, etc.):
+  // Field beforeValidate merges originalDoc into `data`, so a naive `delete data.tenants`
+  // would persist an empty membership list. Lock memberships/roles to the original doc
+  // instead — anonymous clients can neither escalate nor strip them.
+  if (operation === 'update') {
+    if (originalDoc) {
+      if ('tenants' in originalDoc) {
+        data.tenants = originalDoc.tenants
+      } else {
+        delete data.tenants
+      }
+      if ('role' in originalDoc) {
+        data.role = originalDoc.role
+      } else {
+        delete data.role
+      }
+    } else {
+      delete data.tenants
+      delete data.role
+    }
+    return data
+  }
+
+  // Anonymous public HTTP create: never accept client-supplied memberships.
   delete data.tenants
 
   if (data.role !== undefined) {
