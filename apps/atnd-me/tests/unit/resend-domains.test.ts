@@ -8,6 +8,8 @@ import {
 import {
   resolveEmailSendingDomain,
   resolveTenantBasedBetterAuthFrom,
+  emailFromContainsTemplateVars,
+  getEmailFromTenantDomainValidationError,
   sanitizeEmailFromForTenantDomain,
 } from '../../src/lib/resend/resolveTenantEmailFrom'
 import { verifyResendWebhook } from '../../src/lib/resend/webhookVerify'
@@ -81,7 +83,7 @@ describe('sanitizeEmailFromForTenantDomain', () => {
     ).toBeUndefined()
   })
 
-  it('keeps From when verified or different host', () => {
+  it('keeps From when host matches verified tenant domain', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
         emailFrom: 'Hello <hello@studio.example.com>',
@@ -89,14 +91,85 @@ describe('sanitizeEmailFromForTenantDomain', () => {
         emailDomainVerified: true,
       }),
     ).toBe('Hello <hello@studio.example.com>')
+  })
 
+  it('strips From for a foreign host even when the tenant domain is verified', () => {
+    expect(
+      sanitizeEmailFromForTenantDomain({
+        emailFrom: 'Hello <hello@other.com>',
+        tenantDomain: 'studio.example.com',
+        emailDomainVerified: true,
+      }),
+    ).toBeUndefined()
+  })
+
+  it('strips From for a foreign host when the tenant domain is unverified', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
         emailFrom: 'Hello <hello@other.com>',
         tenantDomain: 'studio.example.com',
         emailDomainVerified: false,
       }),
-    ).toBe('Hello <hello@other.com>')
+    ).toBeUndefined()
+  })
+
+  it('allows apex From when website domain is www-prefixed and verified', () => {
+    expect(
+      sanitizeEmailFromForTenantDomain({
+        emailFrom: 'Studio <hello@studio.example.com>',
+        tenantDomain: 'www.studio.example.com',
+        emailDomainVerified: true,
+      }),
+    ).toBe('Studio <hello@studio.example.com>')
+  })
+})
+
+describe('getEmailFromTenantDomainValidationError', () => {
+  it('allows empty and template From values', () => {
+    expect(
+      getEmailFromTenantDomainValidationError({
+        emailFrom: '',
+        tenantDomain: 'studio.example.com',
+        emailDomainVerified: false,
+      }),
+    ).toBeNull()
+
+    expect(emailFromContainsTemplateVars('Hello <{{staff.email}}>')).toBe(true)
+    expect(
+      getEmailFromTenantDomainValidationError({
+        emailFrom: 'Hello <{{staff.email}}>',
+        tenantDomain: 'studio.example.com',
+        emailDomainVerified: false,
+      }),
+    ).toBeNull()
+  })
+
+  it('rejects literal From on an unverified or foreign domain', () => {
+    expect(
+      getEmailFromTenantDomainValidationError({
+        emailFrom: 'hello@studio.example.com',
+        tenantDomain: 'studio.example.com',
+        emailDomainVerified: false,
+      }),
+    ).toMatch(/Verify your studio email domain/)
+
+    expect(
+      getEmailFromTenantDomainValidationError({
+        emailFrom: 'hello@other.com',
+        tenantDomain: 'studio.example.com',
+        emailDomainVerified: true,
+      }),
+    ).toMatch(/verified domain/)
+  })
+
+  it('allows literal From on the verified tenant domain', () => {
+    expect(
+      getEmailFromTenantDomainValidationError({
+        emailFrom: 'Studio <hello@studio.example.com>',
+        tenantDomain: 'studio.example.com',
+        emailDomainVerified: true,
+      }),
+    ).toBeNull()
   })
 })
 

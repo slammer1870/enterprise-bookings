@@ -1,5 +1,6 @@
 import type { Field } from 'payload'
 import { buildFormStyleEmailsField } from './formEmailFields'
+import { withEmailFromValidation } from './withEmailFromValidation'
 import { COURSE_EMAIL_SEND_TIMINGS } from '@/lib/course-email/resolve-send-time'
 
 export const COURSE_EMAIL_SEND_TIMING_OPTIONS = [
@@ -54,7 +55,7 @@ const courseEmailSenderRowField: Field = {
         width: '50%',
       },
     },
-    {
+    withEmailFromValidation({
       name: 'emailFrom',
       type: 'text',
       label: 'Email From',
@@ -62,7 +63,7 @@ const courseEmailSenderRowField: Field = {
         placeholder: '"Email From" <email-from@email.com>',
         width: '50%',
       },
-    },
+    }),
   ],
 }
 

@@ -1,4 +1,5 @@
 import type { Field } from 'payload'
+import { withEmailFromValidation } from './withEmailFromValidation'
 
 export const formEmailRecipientRowField: Field = {
   type: 'row',
@@ -47,7 +48,7 @@ export const formEmailSenderRowField: Field = {
         width: '50%',
       },
     },
-    {
+    withEmailFromValidation({
       name: 'emailFrom',
       type: 'text',
       label: 'Email From',
@@ -55,7 +56,7 @@ export const formEmailSenderRowField: Field = {
         placeholder: '"Email From" <email-from@email.com>',
         width: '50%',
       },
-    },
+    }),
   ],
 }
 
