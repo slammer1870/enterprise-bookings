@@ -526,6 +526,9 @@ export async function createAndConfigureTestDropIn(
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
   const eventTypeIdNumber = typeof eventTypeId === 'string' ? Number(eventTypeId) : eventTypeId
 
+  // Payment methods require Stripe Connect active (requireStripeConnectForPayments).
+  await updateTenantStripeConnect(tenantIdNumber)
+
   const dropIn = (await payload.create({
     collection: 'drop-ins',
     data: {

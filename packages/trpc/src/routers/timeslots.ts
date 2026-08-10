@@ -23,6 +23,7 @@ import {
 import { resolveGetByDateBranch } from "../utils/scheduleBranch";
 
 import { EventType, Timeslot, TimeslotScheduleState, ScheduleTimeslot } from "@repo/shared-types";
+import { hasConfirmedBookingForTenant } from "@repo/bookings-plugin";
 import { hasUsedDropInProduct } from "@repo/bookings-payments";
 import {
   checkRole,
@@ -786,48 +787,15 @@ export const timeslotsRouter = {
 
         let viewerHasAnyConfirmedBooking = false;
         if (viewerId && hasTrialableTimeslot && hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
-          try {
-            // Prefer user-only first (matches booking-status adult path). Nested
-            // user.parentUser can throw on some adapters — don't let that wipe a match.
-            const ownConfirmed = await ctx.payload.find({
-              collection: ctx.bookingsSlugs.bookings as CollectionSlug,
-              where: {
-                and: [
-                  { user: { equals: viewerId } },
-                  { status: { equals: "confirmed" } },
-                ],
-              },
-              depth: 0,
-              limit: 1,
-              overrideAccess: true,
-              req: queryOptions.req,
-            });
-            viewerHasAnyConfirmedBooking = (ownConfirmed?.docs?.length ?? 0) > 0;
-
-            if (!viewerHasAnyConfirmedBooking) {
-              try {
-                const childConfirmed = await ctx.payload.find({
-                  collection: ctx.bookingsSlugs.bookings as CollectionSlug,
-                  where: {
-                    and: [
-                      { "user.parentUser": { equals: viewerId } },
-                      { status: { equals: "confirmed" } },
-                    ],
-                  },
-                  depth: 0,
-                  limit: 1,
-                  overrideAccess: true,
-                  req: queryOptions.req,
-                });
-                viewerHasAnyConfirmedBooking = (childConfirmed?.docs?.length ?? 0) > 0;
-              } catch {
-                // Nested parentUser unsupported — keep user-only result.
-              }
-            }
-          } catch {
-            // If this fails for any reason, fall back to non-trialable behavior.
-            viewerHasAnyConfirmedBooking = true;
-          }
+          // Tenant-scoped: a confirmed booking at another studio must not
+          // consume trial eligibility here.
+          viewerHasAnyConfirmedBooking = await hasConfirmedBookingForTenant({
+            payload: ctx.payload,
+            bookingsSlug: ctx.bookingsSlugs.bookings,
+            userId: viewerId,
+            tenantId,
+            req: queryOptions.req,
+          });
         }
 
         return timeslotDocs.map((timeslot: any) => {

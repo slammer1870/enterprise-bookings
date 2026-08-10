@@ -55,7 +55,7 @@ export function CheckoutLegalAcceptance({
 
   return (
     <p
-      className="text-sm text-muted-foreground"
+      className="mt-4 text-sm text-muted-foreground"
       data-testid="checkout-legal-acceptance"
     >
       {agreementPrefix} {formatLinkList(links)}.
