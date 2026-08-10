@@ -36,11 +36,10 @@ export const authRouter = {
         overrideAccess: true,
       });
 
+      // Existing users: treat as success so the register form can send a magic
+      // link and authenticate them (same path as login) instead of erroring.
       if (existingUser.docs.length > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "User already exists",
-        });
+        return existingUser.docs[0];
       }
 
       // Generate a random password for passwordless registration
