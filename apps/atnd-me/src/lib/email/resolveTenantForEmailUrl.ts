@@ -10,6 +10,10 @@ export type TenantEmailFromContext = {
   logoUrl?: string | null
 }
 
+type PayloadLike = {
+  find: (..._args: any[]) => Promise<{ docs: unknown[] }>
+}
+
 function tenantFromDoc(
   tenant:
     | {
@@ -54,11 +58,20 @@ const tenantEmailSelect = {
   emailDomainStatus: true,
 } as const
 
+async function getPayloadClient(payload?: PayloadLike | null): Promise<PayloadLike> {
+  if (payload && typeof payload.find === 'function') return payload
+  const { getPayload } = await import('@/lib/payload')
+  return getPayload()
+}
+
 /**
  * Resolve tenant email branding context from a magic-link / reset URL hostname.
+ * Prefer passing `payload` (e.g. from `req.payload`) so unit tests and request
+ * handlers avoid spinning up a fresh Payload/DB connection.
  */
 export async function resolveTenantForMagicLinkUrl(
   magicLinkUrl: string,
+  payload?: PayloadLike | null,
 ): Promise<TenantEmailFromContext | null> {
   let hostname = ''
   try {
@@ -69,11 +82,22 @@ export async function resolveTenantForMagicLinkUrl(
 
   if (!hostname) return null
 
+  let platformHost = ''
+  try {
+    platformHost = new URL(getServerSideURL()).hostname.toLowerCase()
+  } catch {
+    platformHost = ''
+  }
+
+  // Platform apex is not a tenant host — no DB lookup.
+  if (platformHost && hostname === platformHost) {
+    return null
+  }
+
   async function findTenantBySlug(slug: string): Promise<TenantEmailFromContext | null> {
     if (!slug) return null
-    const { getPayload } = await import('@/lib/payload')
-    const payload = await getPayload()
-    const result = await payload.find({
+    const client = await getPayloadClient(payload)
+    const result = await client.find({
       collection: 'tenants',
       where: { slug: { equals: slug } },
       limit: 1,
@@ -85,9 +109,8 @@ export async function resolveTenantForMagicLinkUrl(
   }
 
   async function findTenantByDomain(domain: string): Promise<TenantEmailFromContext | null> {
-    const { getPayload } = await import('@/lib/payload')
-    const payload = await getPayload()
-    const result = await payload.find({
+    const client = await getPayloadClient(payload)
+    const result = await client.find({
       collection: 'tenants',
       where: { domain: { equals: domain } },
       limit: 1,
@@ -108,16 +131,11 @@ export async function resolveTenantForMagicLinkUrl(
   }
 
   // Platform subdomain: {tenantSlug}.{platformHost}
-  try {
-    const platformHost = new URL(getServerSideURL()).hostname.toLowerCase()
-    if (platformHost && hostname !== platformHost && hostname.endsWith('.' + platformHost)) {
-      const first = hostname.split('.')[0]
-      if (first) {
-        return await findTenantBySlug(first)
-      }
+  if (platformHost && hostname.endsWith('.' + platformHost)) {
+    const first = hostname.split('.')[0]
+    if (first) {
+      return await findTenantBySlug(first)
     }
-  } catch {
-    // Ignore and fall through to custom-domain lookup
   }
 
   // Custom domain: match tenants.domain

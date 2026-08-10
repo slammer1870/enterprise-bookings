@@ -214,7 +214,9 @@ export const Users: CollectionConfig = {
           .replaceAll('<', '&lt;')
           .replaceAll('>', '&gt;')
           .replaceAll('"', '&quot;')
-        const tenant = await resolveTenantForMagicLinkUrl(origin).catch(() => null)
+        const tenant = await resolveTenantForMagicLinkUrl(origin, req?.payload).catch(
+          () => null,
+        )
         const name = tenant?.name || 'ATND ME'
         const bodyHtml = `<p>You are receiving this because you (or someone else) requested a password reset for <strong>${email}</strong>.</p>
 <p><a href="${safeResetURL}">${safeResetURL}</a></p>
