@@ -85,6 +85,7 @@ describe('Admin forgot-password reset URL', () => {
   })
 
   it('uses platform URL for untrusted hosts', async () => {
+    const find = vi.fn(async () => ({ docs: [] }))
     const html = await generateEmailHTML()({
       token: 'abc123',
       user: { email: 'admin@example.com' },
@@ -94,7 +95,7 @@ describe('Admin forgot-password reset URL', () => {
             routes: { admin: '/admin' },
             admin: { routes: { reset: '/reset' } },
           },
-          find: vi.fn(async () => ({ docs: [] })),
+          find,
         },
         headers: new Headers({ host: 'evil.example' }),
       } as any,
@@ -102,9 +103,20 @@ describe('Admin forgot-password reset URL', () => {
 
     expect(html).toContain('https://atnd-me.com/admin/reset/abc123')
     expect(html).not.toContain('evil.example')
+    // Trusted-origin check may query the untrusted host; platform apex branding
+    // must not trigger another tenants.find (avoids getPayload/Postgres in unit tests).
+    expect(find).toHaveBeenCalledTimes(1)
+    expect(find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { domain: { equals: 'evil.example' } },
+      }),
+    )
   })
 
   it('scopes the reset link to a trusted tenant subdomain', async () => {
+    const find = vi.fn(async () => ({
+      docs: [{ name: 'Acme', slug: 'acme', domain: null, logo: null }],
+    }))
     const html = await generateEmailHTML()({
       token: 'tok',
       user: { email: 'admin@example.com' },
@@ -114,7 +126,7 @@ describe('Admin forgot-password reset URL', () => {
             routes: { admin: '/admin' },
             admin: { routes: { reset: '/reset' } },
           },
-          find: vi.fn(async () => ({ docs: [] })),
+          find,
         },
         headers: new Headers({
           host: 'acme.atnd-me.com',
@@ -124,5 +136,12 @@ describe('Admin forgot-password reset URL', () => {
     })
 
     expect(html).toContain('https://acme.atnd-me.com/admin/reset/tok')
+    expect(html).toContain('Acme')
+    expect(find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'tenants',
+        where: { slug: { equals: 'acme' } },
+      }),
+    )
   })
 })

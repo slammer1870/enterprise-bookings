@@ -125,6 +125,15 @@ export type BetterAuthServerConfig = {
     | { fromName?: string | null; fromAddress?: string | null }
     | null;
   /**
+   * Optional per-magic-link email logo URL resolver (tenant branding).
+   * If it returns a non-empty absolute URL, it is shown in the email header above the app name.
+   */
+  resolveMagicLinkLogoUrl?: (_args: {
+    email: string;
+    token: string;
+    url: string;
+  }) => Promise<string | null> | string | null;
+  /**
    * Optional per-reset-password email app name resolver (tenant branding).
    * If it returns a non-empty string, it will be used in the reset password email template.
    */
@@ -138,6 +147,11 @@ export type BetterAuthServerConfig = {
     | Promise<{ fromName?: string | null; fromAddress?: string | null } | null>
     | { fromName?: string | null; fromAddress?: string | null }
     | null;
+  /**
+   * Optional per-reset-password email logo URL resolver (tenant branding).
+   * If it returns a non-empty absolute URL, it is shown in the email header above the app name.
+   */
+  resolveResetPasswordLogoUrl?: (_args: { user: any; url: string }) => Promise<string | null> | string | null;
   sessionCookieCache?: { enabled: boolean; maxAge?: number };
   /** Session expires after this many seconds (Better Auth default ~7 days). */
   sessionExpiresInSeconds?: number;
@@ -400,11 +414,24 @@ async function executeMagicLinkEmailSend(
     }
   }
 
+  let magicLinkLogoUrl: string | null = null;
+  if (typeof config.resolveMagicLinkLogoUrl === "function") {
+    try {
+      const resolved = await config.resolveMagicLinkLogoUrl({ email, token, url });
+      if (typeof resolved === "string" && resolved.trim()) {
+        magicLinkLogoUrl = resolved.trim();
+      }
+    } catch (err) {
+      console.warn("[better-auth-config] resolveMagicLinkLogoUrl failed; omitting logo.", err);
+    }
+  }
+
   const expiryDisplay = expiryDisplayOverride ?? secondsToHumanDisplay(config.magicLinkExpiresIn ?? 300);
 
   const html = buildMagicLinkEmailHtml({
     magicLink: url,
     appName: magicLinkAppName,
+    logoUrl: magicLinkLogoUrl,
     expiryTime: expiryDisplay,
     ...(emailInstructions ? { instructions: emailInstructions } : {}),
     ...(emailCtaText ? { ctaText: emailCtaText } : {}),
@@ -636,8 +663,21 @@ export function createBetterAuthOptions(config: BetterAuthServerConfig) {
           }
         }
 
+        let resetLogoUrl: string | null = null;
+        if (typeof config.resolveResetPasswordLogoUrl === "function") {
+          try {
+            const resolved = await config.resolveResetPasswordLogoUrl({ user, url: scopedUrl });
+            if (typeof resolved === "string" && resolved.trim()) {
+              resetLogoUrl = resolved.trim();
+            }
+          } catch (err) {
+            console.warn("[better-auth-config] resolveResetPasswordLogoUrl failed; omitting logo.", err);
+          }
+        }
+
         const html = buildBasicAuthEmailHtml({
           appName: resetAppName,
+          logoUrl: resetLogoUrl,
           title: `Reset your password`,
           greeting: user?.name ? `Hello, ${user.name}` : "Hello",
           body: `We received a request to reset your ${resetAppName} password.\nThis link may expire soon.`,

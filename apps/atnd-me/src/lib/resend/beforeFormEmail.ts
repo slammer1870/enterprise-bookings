@@ -1,4 +1,8 @@
 import type { BeforeEmail } from '@payloadcms/plugin-form-builder/types'
+import {
+  resolveTenantEmailBranding,
+  wrapCustomerEmailHtml,
+} from '@/lib/email/tenant-email-branding'
 import { loadTenantEmailFromGate } from '@/lib/resend/loadTenantEmailFromGate'
 import { sanitizeEmailFromForTenantDomain } from '@/lib/resend/resolveTenantEmailFrom'
 
@@ -35,7 +39,10 @@ export const beforeFormEmail: BeforeEmail = async (emails, { data, req }) => {
     tenantId = relationId((form as { tenant?: unknown } | null)?.tenant)
   }
 
-  const gate = await loadTenantEmailFromGate(req.payload, tenantId)
+  const [gate, branding] = await Promise.all([
+    loadTenantEmailFromGate(req.payload, tenantId),
+    resolveTenantEmailBranding(req.payload, tenantId),
+  ])
 
   return emails.map((email) => {
     const from =
@@ -44,6 +51,15 @@ export const beforeFormEmail: BeforeEmail = async (emails, { data, req }) => {
         tenantDomain: gate?.domain,
         emailDomainVerified: gate?.verified,
       }) ?? ''
-    return { ...email, from }
+    const rawHtml = typeof email.html === 'string' ? email.html.trim() : ''
+    const html = rawHtml
+      ? wrapCustomerEmailHtml({
+          name: branding.name,
+          logoUrl: branding.logoUrl,
+          bodyHtml: rawHtml,
+          title: typeof email.subject === 'string' ? email.subject : branding.name,
+        })
+      : email.html
+    return { ...email, from, html }
   })
 }

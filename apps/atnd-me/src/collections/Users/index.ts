@@ -36,6 +36,8 @@ import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForD
 import { isSystemUserWrite } from '@/lib/auth/systemUserWriteContext'
 import { getAbsoluteURL } from '@/utilities/getURL'
 import { resolveTrustedPasswordResetOrigin } from '@/utilities/resolveTrustedPasswordResetOrigin'
+import { resolveTenantForMagicLinkUrl } from '@/lib/email/resolveTenantForEmailUrl'
+import { wrapCustomerEmailHtml } from '@/lib/email/tenant-email-branding'
 import {
   assertAnonymousUserCreateRateLimit,
   normalizeTenantRoles,
@@ -200,10 +202,31 @@ export const Users: CollectionConfig = {
           payload: req?.payload,
         })
         const resetURL = getAbsoluteURL(`${adminRoute}${resetRoute}/${token ?? ''}`, origin)
-        const email = typeof user?.email === 'string' ? user.email : 'there'
-        return `You are receiving this because you (or someone else) requested a password reset for ${email}.
-<a href="${resetURL}">${resetURL}</a>
-If you did not request this, you can ignore this email.`
+        const emailRaw = typeof user?.email === 'string' ? user.email : 'there'
+        const email = emailRaw
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;')
+        const safeResetURL = resetURL
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+        const tenant = await resolveTenantForMagicLinkUrl(origin, req?.payload).catch(
+          () => null,
+        )
+        const name = tenant?.name || 'ATND ME'
+        const bodyHtml = `<p>You are receiving this because you (or someone else) requested a password reset for <strong>${email}</strong>.</p>
+<p><a href="${safeResetURL}">${safeResetURL}</a></p>
+<p>If you did not request this, you can ignore this email.</p>`
+        return wrapCustomerEmailHtml({
+          name,
+          logoUrl: tenant?.logoUrl,
+          bodyHtml,
+          title: `Reset your ${name} password`,
+        })
       },
     },
   },
