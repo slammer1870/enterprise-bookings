@@ -152,4 +152,28 @@ describe("hasConfirmedBookingForTenant", () => {
       expect.objectContaining({ collection: "custom-bookings" }),
     );
   });
+
+  it("coerces string Better Auth user/tenant ids", async () => {
+    const payload = {
+      find: vi.fn().mockResolvedValueOnce({ docs: [{ id: 1 }] }),
+    };
+    expect(
+      await hasConfirmedBookingForTenant({
+        payload,
+        userId: "10",
+        tenantId: "7",
+      }),
+    ).toBe(true);
+
+    const ownCall = payload.find.mock.calls[0]?.[0] as {
+      where: { and: Array<Record<string, unknown>> };
+    };
+    expect(ownCall.where.and).toEqual(
+      expect.arrayContaining([
+        { user: { equals: 10 } },
+        { status: { equals: "confirmed" } },
+        { tenant: { equals: 7 } },
+      ]),
+    );
+  });
 });

@@ -94,4 +94,41 @@ describe("createGetBookingStatus — tenant-scoped trialable", () => {
 
     expect(status).toBe("active");
   });
+
+  it("returns active when Better Auth supplies a string user id", async () => {
+    const find = vi
+      .fn()
+      .mockResolvedValueOnce({ docs: [], totalDocs: 0 })
+      .mockResolvedValueOnce({ docs: [] })
+      .mockResolvedValueOnce({ docs: [{ id: 1 }] });
+
+    const findByID = vi.fn().mockResolvedValue(trialEventType);
+    const hook = createGetBookingStatus(DEFAULT_BOOKING_COLLECTION_SLUGS);
+
+    const status = await hook({
+      req: {
+        user: { id: "10" },
+        payload: { find, findByID },
+      },
+      data: {
+        id: 100,
+        eventType: 50,
+        tenant: "2",
+        startTime: futureStartTime(),
+        lockOutTime: 0,
+      },
+      context: {},
+    } as any);
+
+    expect(status).toBe("active");
+    const trialOwnCall = find.mock.calls[2]?.[0] as {
+      where: { and: Array<Record<string, unknown>> };
+    };
+    expect(trialOwnCall.where.and).toEqual(
+      expect.arrayContaining([
+        { user: { equals: 10 } },
+        { tenant: { equals: 2 } },
+      ]),
+    );
+  });
 });

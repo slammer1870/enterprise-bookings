@@ -6,16 +6,29 @@ type PayloadLike = {
 
 export type HasConfirmedBookingForTenantArgs = {
   payload: PayloadLike;
-  userId: number;
+  /** Better Auth may supply string ids; numeric strings are accepted. */
+  userId: number | string;
   /** When null/undefined, tenant is not filtered (legacy / single-tenant). */
-  tenantId?: number | null;
+  tenantId?: number | string | null;
   bookingsSlug?: CollectionSlug | string;
   /** Optional Payload req for transaction continuity / tenant context. */
   req?: unknown;
 };
 
+function toPositiveInt(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const n = Math.trunc(value);
+    return n > 0 ? n : null;
+  }
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
 function tenantClauses(
-  tenantId: number | null | undefined,
+  tenantId: number | null,
 ): Array<Record<string, unknown>> {
   return tenantId != null ? [{ tenant: { equals: tenantId } }] : [];
 }
@@ -29,13 +42,14 @@ export async function hasConfirmedBookingForTenant(
 ): Promise<boolean> {
   const {
     payload,
-    userId,
-    tenantId = null,
     bookingsSlug = "bookings",
     req,
   } = args;
 
-  if (!Number.isFinite(userId) || userId <= 0) return false;
+  const userId = toPositiveInt(args.userId);
+  if (userId == null) return false;
+
+  const tenantId = toPositiveInt(args.tenantId ?? null);
 
   const baseAnd = [
     { status: { equals: "confirmed" as const } },

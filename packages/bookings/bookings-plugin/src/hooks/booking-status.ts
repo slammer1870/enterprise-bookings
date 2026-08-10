@@ -10,13 +10,6 @@ import { hasConfirmedBookingForTenant } from "../utils/has-confirmed-booking-for
 const MILLISECONDS_PER_MINUTE = 60000;
 
 // Helper type guards and utilities
-const getUserId = (user: unknown): number | null => {
-  if (!user) return null;
-  return typeof user === "object" && user !== null && "id" in user
-    ? (user as { id: number }).id
-    : (user as number);
-};
-
 const getRelationId = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && /^\d+$/.test(value)) {
@@ -27,6 +20,14 @@ const getRelationId = (value: unknown): number | null => {
     return getRelationId((value as { id?: unknown }).id);
   }
   return null;
+};
+
+const getUserId = (user: unknown): number | null => {
+  if (!user) return null;
+  if (typeof user === "object" && user !== null && "id" in user) {
+    return getRelationId((user as { id?: unknown }).id);
+  }
+  return getRelationId(user);
 };
 
 const getUserFromBooking = (booking: Booking): User => {
