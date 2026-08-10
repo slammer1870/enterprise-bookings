@@ -1,10 +1,11 @@
 /**
- * E2E: Trial drop-in discount applies only on first booking.
+ * E2E: Trial drop-in discount applies only on first booking for this tenant.
  *
  * Verifies:
  * - A drop-in with a "trial" discount tier posts discounted price to create-payment-intent
- *   when the viewer has no prior confirmed bookings (bookingStatus === "trialable").
- * - After the viewer has any confirmed booking, the same drop-in posts full price on the next booking.
+ *   when the viewer has no prior confirmed bookings for this tenant (bookingStatus === "trialable").
+ * - After the viewer has any confirmed booking for this tenant, the same drop-in posts full price
+ *   on the next booking.
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
@@ -102,7 +103,7 @@ test.describe('Trialable drop-in pricing', () => {
     await expectClassPrice('€5.00')
 
     // Simulate that the first booking completed successfully by creating a confirmed booking for the viewer.
-    // Trial eligibility checks look for *any confirmed booking* for the user.
+    // Trial eligibility checks look for any confirmed booking for the user on this tenant.
     await payload.create({
       collection: 'bookings',
       data: {

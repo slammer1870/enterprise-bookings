@@ -4,6 +4,7 @@ import type { CollectionSlug, FieldHook } from "payload";
 
 import type { BookingCollectionSlugs } from "../resolve-slugs";
 import { DEFAULT_BOOKING_COLLECTION_SLUGS } from "../resolve-slugs";
+import { hasConfirmedBookingForTenant } from "../utils/has-confirmed-booking-for-tenant";
 
 // Constants
 const MILLISECONDS_PER_MINUTE = 60000;
@@ -14,6 +15,18 @@ const getUserId = (user: unknown): number | null => {
   return typeof user === "object" && user !== null && "id" in user
     ? (user as { id: number }).id
     : (user as number);
+};
+
+const getRelationId = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    const n = parseInt(value, 10);
+    return Number.isFinite(n) ? n : null;
+  }
+  if (value && typeof value === "object" && "id" in value) {
+    return getRelationId((value as { id?: unknown }).id);
+  }
+  return null;
 };
 
 const getUserFromBooking = (booking: Booking): User => {
@@ -242,44 +255,22 @@ export function createGetBookingStatus(slugs: BookingCollectionSlugs): FieldHook
       return "waitlist";
     }
 
-    // Handle trialable logic
+    // Handle trialable logic (first confirmed booking per tenant)
     if (trialable) {
       if (!userId) {
         return "trialable";
       }
 
-      // Check if user has any confirmed bookings
-      // For child classes, check parent's bookings; for adult classes, check user's bookings
-      const bookingCheckQuery = await req.payload.find({
-        collection: bookingsSlug,
-        depth: 1,
-        limit: 1,
-        where: {
-          and: [
-            eventType.type === "child"
-              ? {
-                  "user.parentUser": {
-                    equals: userId,
-                  },
-                }
-              : {
-                  user: {
-                    equals: userId,
-                  },
-                },
-            {
-              status: {
-                equals: "confirmed",
-              },
-            },
-          ],
-        },
-        context: {
-          triggerAfterChange: false,
-        },
+      const tenantId = getRelationId((data as { tenant?: unknown }).tenant);
+      const hasConfirmed = await hasConfirmedBookingForTenant({
+        payload: req.payload,
+        bookingsSlug,
+        userId,
+        tenantId,
+        req,
       });
 
-      return bookingCheckQuery.docs.length > 0 ? "active" : "trialable";
+      return hasConfirmed ? "active" : "trialable";
     }
 
     return "active";

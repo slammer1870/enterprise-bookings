@@ -1,11 +1,12 @@
 /**
- * E2E: Trial class is only offered to first-time bookers (no prior confirmed bookings).
+ * E2E: Trial class is only offered to first-time bookers for this tenant
+ * (no prior confirmed bookings on the same tenant).
  *
  * Verifies:
- * - Schedule CTA is "Book Trial Class" when the viewer has no confirmed bookings and the class
- *   uses a drop-in with a trial discount tier.
- * - After any confirmed booking exists for the viewer, the schedule CTA becomes "Book" (not trial)
- *   and the booking page no longer treats the lesson as a first-time trial.
+ * - Schedule CTA is "Book Trial Class" when the viewer has no confirmed bookings for this tenant
+ *   and the class uses a drop-in with a trial discount tier.
+ * - After any confirmed booking exists for the viewer on this tenant, the schedule CTA becomes
+ *   "Book" (not trial) and the booking page no longer treats the lesson as a first-time trial.
  * - On the drop-in payment panel for that lesson, the trial discount copy is not shown.
  */
 import { test, expect } from './helpers/fixtures'
@@ -56,7 +57,11 @@ test.describe('Trial class offer (first-time bookings only)', () => {
     await payload.delete({
       collection: 'bookings',
       where: {
-        and: [{ user: { equals: userId } }, { status: { equals: 'confirmed' } }],
+        and: [
+          { tenant: { equals: tenantId } },
+          { user: { equals: userId } },
+          { status: { equals: 'confirmed' } },
+        ],
       },
       overrideAccess: true,
     })
