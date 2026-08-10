@@ -137,7 +137,13 @@ async function maybeTriggerSingleCourseEmail({
       void (async () => {
         try {
           const tenantEmailFrom = await loadTenantEmailFromGate(req.payload, tenantId)
-          await sendCourseEmail({ payload: req.payload, user, config, tenantEmailFrom })
+          await sendCourseEmail({
+            payload: req.payload,
+            user,
+            config,
+            tenantId,
+            tenantEmailFrom,
+          })
           await req.payload.update({
             collection: COURSE_EMAIL_DELIVERIES_SLUG,
             id: delivery.id,

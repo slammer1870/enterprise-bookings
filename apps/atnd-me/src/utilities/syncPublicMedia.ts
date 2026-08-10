@@ -111,6 +111,23 @@ async function getPublishedPublicMediaIds(req: PayloadRequest): Promise<Set<numb
     collectMediaIds(doc, undefined, ids)
   }
 
+  // Tenant logos appear in customer-facing emails (no cookies). Mark them public.
+  const tenants = await req.payload.find({
+    collection: 'tenants',
+    limit: 1000,
+    pagination: false,
+    depth: 0,
+    overrideAccess: true,
+    req,
+    select: {
+      id: true,
+      logo: true,
+    } as any,
+  })
+  for (const tenant of tenants.docs) {
+    collectMediaIds(tenant, undefined, ids)
+  }
+
   // Only user images for hosts assigned on an active timeslot appear on the public
   // schedule/event pages. Next/Image fetches `/api/media/file/...` without tenant
   // cookies, so those media docs must be marked isPublic — not every user image.

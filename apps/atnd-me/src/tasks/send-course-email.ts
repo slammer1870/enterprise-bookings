@@ -69,6 +69,7 @@ export const sendCourseEmailTask: TaskHandler<'sendCourseEmail'> = async ({ inpu
     payload: req.payload,
     user,
     config,
+    tenantId: jobInput.tenantId,
     tenantEmailFrom,
   })
 

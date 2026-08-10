@@ -2,6 +2,8 @@ export interface MagicLinkEmailTemplateProps {
   magicLink: string
   userName?: string
   appName?: string
+  /** Absolute public URL for the tenant/app logo (optional). */
+  logoUrl?: string | null
   expiryTime?: string
   /** Override the instructional paragraph (defaults to sign-in copy). */
   instructions?: string
@@ -17,12 +19,18 @@ export function buildMagicLinkEmailHtml({
   magicLink,
   userName = '',
   appName = 'Our App',
+  logoUrl,
   expiryTime = '1 hour',
   instructions,
   ctaText,
 }: MagicLinkEmailTemplateProps): string {
   const greeting = userName ? `Hello, ${escapeHtml(userName)}` : 'Hello'
   const safeAppName = escapeHtml(appName)
+  const safeLogoUrl =
+    typeof logoUrl === 'string' && logoUrl.trim() ? escapeHtml(logoUrl.trim()) : null
+  const logoBlock = safeLogoUrl
+    ? `<img src="${safeLogoUrl}" alt="${safeAppName}" width="160" style="display:block;margin:0 auto 12px;max-height:48px;width:auto;height:auto;border:0;outline:none;text-decoration:none;" />`
+    : ''
   const safeLink = escapeHtml(magicLink)
   const safeInstructions = instructions
     ? escapeHtml(instructions)
@@ -40,6 +48,7 @@ export function buildMagicLinkEmailHtml({
     <div style="padding:60px 0;">
       <div style="background-color:#ffffff;border:1px solid #eee;border-radius:5px;box-shadow:0 5px 10px rgba(20,50,70,0.2);margin:0 auto;max-width:600px;">
         <div style="padding:20px 0;border-bottom:1px solid #eaeaea;text-align:center;">
+          ${logoBlock}
           <h1 style="font-size:32px;font-weight:700;color:#000;margin:0;">${safeAppName}</h1>
         </div>
         <div style="padding:40px 30px;">

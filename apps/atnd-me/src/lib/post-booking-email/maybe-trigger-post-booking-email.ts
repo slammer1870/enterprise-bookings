@@ -255,6 +255,7 @@ async function maybeTriggerSinglePostBookingEmail({
           payload: req.payload,
           user,
           config,
+          tenantId,
           tenantEmailFrom,
           templateContext,
         })

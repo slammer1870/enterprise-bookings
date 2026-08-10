@@ -10,12 +10,14 @@ export async function sendCourseEmail({
   payload,
   user,
   config,
+  tenantId,
   tenantEmailFrom,
 }: {
   payload: BasePayload
   user: unknown
   config: CourseEmailConfig
+  tenantId?: number | string | null
   tenantEmailFrom?: TenantEmailFromGate | null
 }): Promise<void> {
-  await sendPostBookingEmail({ payload, user, config, tenantEmailFrom })
+  await sendPostBookingEmail({ payload, user, config, tenantId, tenantEmailFrom })
 }

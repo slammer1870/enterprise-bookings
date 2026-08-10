@@ -99,6 +99,7 @@ export const sendPostBookingEmailTask: TaskHandler<'sendPostBookingEmail'> = asy
     payload: req.payload,
     user,
     config,
+    tenantId: jobInput.tenantId,
     tenantEmailFrom,
     templateContext,
   })

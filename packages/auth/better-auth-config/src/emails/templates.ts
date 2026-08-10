@@ -9,6 +9,7 @@ function escapeHtml(input: string): string {
 
 export function buildBasicAuthEmailHtml({
   appName,
+  logoUrl,
   title,
   greeting,
   body,
@@ -17,6 +18,8 @@ export function buildBasicAuthEmailHtml({
   footer,
 }: {
   appName: string
+  /** Absolute public URL for the tenant/app logo (optional). */
+  logoUrl?: string | null
   title: string
   greeting?: string
   body: string
@@ -25,6 +28,11 @@ export function buildBasicAuthEmailHtml({
   footer?: string
 }): string {
   const safeAppName = escapeHtml(appName)
+  const safeLogoUrl =
+    typeof logoUrl === 'string' && logoUrl.trim() ? escapeHtml(logoUrl.trim()) : null
+  const logoBlock = safeLogoUrl
+    ? `<img src="${safeLogoUrl}" alt="${safeAppName}" width="160" style="display:block;margin:0 auto 12px;max-height:48px;width:auto;height:auto;border:0;outline:none;text-decoration:none;" />`
+    : ''
   const safeTitle = escapeHtml(title)
   const safeGreeting = greeting ? escapeHtml(greeting) : 'Hello'
   const safeBody = escapeHtml(body).replaceAll('\n', '<br />')
@@ -43,6 +51,7 @@ export function buildBasicAuthEmailHtml({
     <div style="padding:40px 0;">
       <div style="background-color:#ffffff;border:1px solid #eee;border-radius:5px;box-shadow:0 5px 10px rgba(20,50,70,0.2);margin:0 auto;max-width:600px;">
         <div style="padding:18px 0;border-bottom:1px solid #eaeaea;text-align:center;">
+          ${logoBlock}
           <h1 style="font-size:28px;font-weight:700;color:#000;margin:0;">${safeAppName}</h1>
         </div>
         <div style="padding:28px 24px;">

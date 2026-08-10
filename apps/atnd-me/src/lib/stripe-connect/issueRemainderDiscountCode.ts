@@ -6,6 +6,10 @@
  */
 import type { Payload, Where } from 'payload'
 
+import {
+  resolveTenantEmailBranding,
+  wrapCustomerEmailHtml,
+} from '@/lib/email/tenant-email-branding'
 import { addYearsIso } from '@/lib/stripe-connect/giftVoucherImport'
 import { normalizeDiscountCode } from '@/lib/stripe-connect/discountCodes'
 
@@ -282,17 +286,25 @@ export async function issueRemainderDiscountCodeIfNeeded(
         month: 'long',
         day: 'numeric',
       })
-      await payload.sendEmail({
-        to: email,
-        subject: `Your remaining gift credit code: ${remainderCode}`,
-        html: `
+      const branding = await resolveTenantEmailBranding(payload, tenantId)
+      const subject = `Your remaining gift credit code: ${remainderCode}`
+      const bodyHtml = `
           <p>Hi,</p>
           <p>You used part of a one-time discount code. Here is a new code for the unused balance:</p>
           <p><strong>Code:</strong> ${remainderCode}<br/>
           <strong>Amount:</strong> €${remainderValue.toFixed(2)}<br/>
           <strong>Expires:</strong> ${expiryLabel}</p>
           <p>Enter this code at checkout on your next drop-in, class pass, or membership purchase.</p>
-        `,
+        `
+      await payload.sendEmail({
+        to: email,
+        subject,
+        html: wrapCustomerEmailHtml({
+          name: branding.name,
+          logoUrl: branding.logoUrl,
+          bodyHtml,
+          title: subject,
+        }),
       })
     } catch (emailErr) {
       payload.logger?.error?.(

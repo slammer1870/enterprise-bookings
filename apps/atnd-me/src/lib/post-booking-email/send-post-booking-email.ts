@@ -1,6 +1,7 @@
 import type { BasePayload } from 'payload'
 import { render } from '@react-email/components'
 import { PostBookingEmailLayout } from '@/emails/post-booking-email'
+import { resolveTenantEmailBranding } from '@/lib/email/tenant-email-branding'
 import { sanitizeEmailFromForTenantDomain } from '@/lib/resend/resolveTenantEmailFrom'
 import { renderPostBookingEmailBodyHtml } from './render-body-html'
 import {
@@ -59,12 +60,15 @@ export async function sendPostBookingEmail({
   payload,
   user,
   config,
+  tenantId,
   tenantEmailFrom,
   templateContext,
 }: {
   payload: BasePayload
   user: unknown
   config: SendableEmailConfig
+  /** Tenant id for logo + name branding in the email chrome. */
+  tenantId?: number | string | null
   /**
    * Tenant domain verification gate. Custom emailFrom is only kept when the From
    * host matches this tenant's verified domain; missing gate strips custom From.
@@ -95,10 +99,13 @@ export async function sendPostBookingEmail({
     return
   }
 
+  const branding = await resolveTenantEmailBranding(payload, tenantId)
   const html = await render(
     PostBookingEmailLayout({
       subject,
       bodyHtml,
+      tenantName: branding.name,
+      logoUrl: branding.logoUrl,
     }),
   )
 

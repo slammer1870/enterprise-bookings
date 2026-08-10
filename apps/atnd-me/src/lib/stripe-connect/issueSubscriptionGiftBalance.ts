@@ -5,6 +5,10 @@
  */
 import type { Payload } from 'payload'
 
+import {
+  resolveTenantEmailBranding,
+  wrapCustomerEmailHtml,
+} from '@/lib/email/tenant-email-branding'
 import { normalizeDiscountCode } from '@/lib/stripe-connect/discountCodes'
 import { computeRemainderAmount } from '@/lib/stripe-connect/issueRemainderDiscountCode'
 import { getPlatformStripe } from '@/lib/stripe/platform'
@@ -220,16 +224,24 @@ export async function issueSubscriptionGiftBalanceIfNeeded(
   const email = typeof userEmail === 'string' ? userEmail.trim() : ''
   if (email) {
     try {
-      await payload.sendEmail({
-        to: email,
-        subject: `€${remainderValue.toFixed(2)} gift credit applied to your membership`,
-        html: `
+      const branding = await resolveTenantEmailBranding(payload, tenantId)
+      const subject = `€${remainderValue.toFixed(2)} gift credit applied to your membership`
+      const bodyHtml = `
           <p>Hi,</p>
           <p>You used a gift code worth more than your first membership payment. The unused balance of
           <strong>€${remainderValue.toFixed(2)}</strong> has been credited to your account and will
           automatically reduce future membership invoices until it runs out.</p>
           <p>No new discount code is needed.</p>
-        `,
+        `
+      await payload.sendEmail({
+        to: email,
+        subject,
+        html: wrapCustomerEmailHtml({
+          name: branding.name,
+          logoUrl: branding.logoUrl,
+          bodyHtml,
+          title: subject,
+        }),
       })
     } catch (emailErr) {
       payload.logger?.error?.(

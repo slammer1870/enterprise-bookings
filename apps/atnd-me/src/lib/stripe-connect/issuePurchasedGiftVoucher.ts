@@ -4,6 +4,10 @@
  */
 import type { Payload } from 'payload'
 
+import {
+  resolveTenantEmailBranding,
+  wrapCustomerEmailHtml,
+} from '@/lib/email/tenant-email-branding'
 import { addYearsIso } from '@/lib/stripe-connect/giftVoucherImport'
 import { GIFT_VOUCHER_PURCHASE_TYPE } from '@/lib/stripe-connect/giftVoucherConstants'
 
@@ -170,17 +174,25 @@ export async function issuePurchasedGiftVoucher(
       month: 'long',
       day: 'numeric',
     })
-    await payload.sendEmail({
-      to: email,
-      subject: `Your gift voucher code: ${issuedCode}`,
-      html: `
+    const branding = await resolveTenantEmailBranding(payload, tenantId)
+    const subject = `Your gift voucher code: ${issuedCode}`
+    const bodyHtml = `
         <p>Hi${purchaserName ? ` ${String(purchaserName).trim()}` : ''},</p>
         <p>Thank you for your purchase. Here is your gift voucher code:</p>
         <p><strong>Code:</strong> ${issuedCode}<br/>
         <strong>Amount:</strong> €${value.toFixed(2)}<br/>
         <strong>Expires:</strong> ${expiryLabel}</p>
           <p>Enter this code at checkout on a drop-in, class pass, or membership purchase.</p>
-      `,
+      `
+    await payload.sendEmail({
+      to: email,
+      subject,
+      html: wrapCustomerEmailHtml({
+        name: branding.name,
+        logoUrl: branding.logoUrl,
+        bodyHtml,
+        title: subject,
+      }),
     })
   } catch (emailErr) {
     payload.logger?.error?.(
