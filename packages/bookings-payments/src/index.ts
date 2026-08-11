@@ -66,6 +66,33 @@ export type { FulfillCheckoutHoldResult } from "./checkout-holds/fulfill";
 export { hasUsedDropInProduct } from "./drop-ins/hasUsedDropInProduct";
 export type { HasUsedDropInProductArgs } from "./drop-ins/hasUsedDropInProduct";
 export { bookingCheckoutHoldsCollection } from "./collections/booking-checkout-holds";
+export {
+  resolveRefundWindowHours,
+  isWithinRefundWindow,
+  shouldRefundOnCancel,
+  getCancelRefundPreview,
+  formatCancelRefundMessage,
+  getMethodOverride,
+} from "./refund-policy";
+export type {
+  TenantRefundPolicy,
+  RefundMethodOverride,
+  RefundPolicyMode,
+  CancelPaymentMethod,
+  CancelRefundKind,
+} from "./refund-policy";
+export {
+  applyCancelRefundPolicy,
+  createApplyRefundPolicyOnCancelHook,
+  previewCancelRefundForBooking,
+  computePartialRefundAmountCents,
+} from "./cancel-refund-policy";
+export type {
+  ApplyCancelRefundPolicyOptions,
+  ApplyCancelRefundPolicyResult,
+  CreateApplyRefundPolicyOnCancelHookOptions,
+  RefundStripePaymentIntentArgs,
+} from "./cancel-refund-policy";
 // Payments endpoints
 export { createCustomersProxy } from "./payments/endpoints/customers";
 export {

@@ -117,6 +117,18 @@ describe('ManageBookingPageClient', () => {
           initialData: initialBookings.length > 0 ? initialBookings : (undefined as Booking[] | undefined),
         }),
       },
+      getCancelRefundPreview: {
+        queryOptions: (opts: { bookingId: number }) => ({
+          queryKey: ['bookings', 'getCancelRefundPreview', opts],
+          queryFn: async () => ({
+            willRefund: false,
+            kind: 'none' as const,
+            windowHours: null,
+            message:
+              'This booking will be cancelled without a refund or class-pass credit restore.',
+          }),
+        }),
+      },
       cancelBooking: {
         mutationOptions: (opts?: { onSuccess?: () => void; onError?: (e: any) => void }) => ({
           mutationFn: mockCancelBooking,

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Timeslot, Booking } from '@repo/shared-types'
 import { useTRPC } from '@repo/trpc/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -18,6 +19,9 @@ import { toast } from 'sonner'
 import { Loader2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
 import { format } from 'date-fns'
+
+const DEFAULT_CANCEL_MESSAGE =
+  'This booking will be cancelled without a refund or class-pass credit restore.'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -200,9 +204,10 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   const router = useRouter()
   const queryClient = useQueryClient()
 
+  const [cancelConfirmMessage, setCancelConfirmMessage] = useState(DEFAULT_CANCEL_MESSAGE)
   const [ConfirmationDialog, confirm] = useConfirm(
     'Are you sure you want to cancel this booking?',
-    'This action cannot be undone.'
+    cancelConfirmMessage
   )
 
   // ── Server bookings query ──────────────────────────────────────────────────
@@ -490,6 +495,18 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // ── Action handlers ───────────────────────────────────────────────────────
 
   const handleCancelSingleBooking = async (bookingId: number) => {
+    let message = DEFAULT_CANCEL_MESSAGE
+    try {
+      const preview = await queryClient.fetchQuery(
+        trpc.bookings.getCancelRefundPreview.queryOptions({ bookingId })
+      )
+      if (typeof preview?.message === 'string' && preview.message.trim()) {
+        message = preview.message
+      }
+    } catch {
+      // Fall back to default copy if preview fails.
+    }
+    flushSync(() => setCancelConfirmMessage(message))
     if (!(await confirm())) return
     setCancellingBookingId(bookingId)
     cancelBooking({ id: bookingId })
@@ -564,7 +581,14 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       const toCancelPending = Math.min(pendingInServer.length, toCancelTotal)
       const toCancelConfirmed = toCancelTotal - toCancelPending
 
-      if (toCancelConfirmed > 0 && !(await confirm())) return
+      if (toCancelConfirmed > 0) {
+        flushSync(() =>
+          setCancelConfirmMessage(
+            'Confirmed bookings you remove may be refunded or have class-pass credit restored if they fall within your studio’s refund policy.'
+          )
+        )
+        if (!(await confirm())) return
+      }
 
       try {
         if (toCancelPending > 0) {

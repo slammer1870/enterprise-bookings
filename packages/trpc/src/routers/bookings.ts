@@ -37,6 +37,7 @@ import {
   extendCheckoutHold as extendCheckoutHoldService,
   getActiveCheckoutHold as getActiveCheckoutHoldService,
   CHECKOUT_HOLD_COLLECTION_SLUG,
+  previewCancelRefundForBooking,
 } from "@repo/bookings-payments";
 
 export const bookingsRouter = {
@@ -1607,6 +1608,37 @@ export const bookingsRouter = {
 
       return updatedBooking as Booking;
     }),
+  /**
+   * Preview whether cancelling a booking will refund Stripe / restore class-pass credit
+   * under the tenant refund policy.
+   */
+  getCancelRefundPreview: protectedProcedure
+    .use(requireCollections("bookings"))
+    .input(z.object({ bookingId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      const booking = await findSafe<Booking>(ctx.payload, "bookings", {
+        where: {
+          id: { equals: input.bookingId },
+          user: { equals: ctx.user.id },
+          ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
+        },
+        depth: 0,
+        limit: 1,
+        overrideAccess: true,
+      });
+      if (booking.docs.length === 0) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `Booking with id ${input.bookingId} not found`,
+        });
+      }
+      return previewCancelRefundForBooking({
+        payload: ctx.payload,
+        bookingId: input.bookingId,
+      });
+    }),
+
   cancelBooking: protectedProcedure
     .use(requireCollections("bookings"))
     .input(z.object({ id: z.number() }))
@@ -1646,6 +1678,8 @@ export const bookingsRouter = {
       const shouldSkipSideEffects =
         previousStatus === "pending" || previousStatus === "waiting";
 
+      // Refund / class-pass restore runs via bookings afterChange hook
+      // (createApplyRefundPolicyOnCancelHook) on confirmed → cancelled.
       const updatedBooking = await updateSafe(ctx.payload, "bookings", id, {
         status: "cancelled",
       }, {

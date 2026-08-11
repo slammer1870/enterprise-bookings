@@ -84,7 +84,9 @@ import {
   createDecrementClassPassHook,
   getClassPassIdFromBookingTransaction,
   createBookingTransactionOnCreate,
+  createApplyRefundPolicyOnCancelHook,
 } from '@repo/bookings-payments'
+import { refundCancelPaymentIntent } from '@/lib/stripe-connect/refundCancelPaymentIntent'
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
@@ -753,6 +755,9 @@ export const plugins: Plugin[] = [
           createBookingTransactionOnCreate(),
           createDecrementClassPassHook({
             getClassPassIdToDecrement: getClassPassIdFromBookingTransaction(),
+          }),
+          createApplyRefundPolicyOnCancelHook({
+            refundStripePaymentIntent: refundCancelPaymentIntent,
           }),
           triggerPostBookingEmailAfterChange,
         ],

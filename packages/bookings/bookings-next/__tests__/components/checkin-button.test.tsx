@@ -16,6 +16,18 @@ vi.mock('@repo/trpc/client', () => ({
     bookings: {
       setMyBookingForTimeslot: { mutationOptions: (opts: any) => opts },
       bookSingleSlotTimeslotOrRedirect: { mutationOptions: (opts: any) => opts },
+      getCancelRefundPreview: {
+        queryOptions: (opts: { bookingId: number }) => ({
+          queryKey: ['bookings', 'getCancelRefundPreview', opts],
+          queryFn: async () => ({
+            willRefund: false,
+            kind: 'none',
+            windowHours: null,
+            message:
+              'This booking will be cancelled without a refund or class-pass credit restore.',
+          }),
+        }),
+      },
     },
     timeslots: {
       getByDate: { queryKey: () => ['timeslots.getByDate'] },
@@ -24,12 +36,18 @@ vi.mock('@repo/trpc/client', () => ({
 }))
 
 const invalidateQueriesMock = vi.fn(async () => {})
+const fetchQueryMock = vi.fn(async (opts: any) =>
+  typeof opts?.queryFn === 'function' ? opts.queryFn() : opts
+)
 let nextRedirectUrl: string | null = null
 vi.mock('@tanstack/react-query', async () => {
   const actual: any = await vi.importActual('@tanstack/react-query')
   return {
     ...actual,
-    useQueryClient: () => ({ invalidateQueries: invalidateQueriesMock }),
+    useQueryClient: () => ({
+      invalidateQueries: invalidateQueriesMock,
+      fetchQuery: fetchQueryMock,
+    }),
     useMutation: (opts: any) => {
       return {
         mutateAsync: async (input: any) => {

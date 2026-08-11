@@ -419,10 +419,12 @@ apps/atnd-me/tests/e2e/
 - Verify only that booking is cancelled
 - Verify other bookings remain active
 
-**Test**: `should prevent cancelling booking past cancellation deadline`
-- Create lesson with cancellation deadline
-- Attempt to cancel booking after deadline
-- Verify cancellation is prevented or error is shown
+**Test**: `should allow cancel outside refund window without refund/credit restore`
+- Tenant has `refundPolicy.defaultWindowHours` (e.g. 24)
+- Create confirmed drop-in / class-pass booking
+- Cancel within window → Stripe refund / class-pass credit restored
+- Cancel outside window → booking status `cancelled`, no Stripe refund / no credit restore
+- Unset `refundPolicy.defaultWindowHours` → cancel never auto-refunds
 
 ### 5.4 Booking Status Management
 
