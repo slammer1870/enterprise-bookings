@@ -462,7 +462,6 @@ export const Tenants: CollectionConfig = {
           admin: {
             description:
               'Optional overrides per payment method. “Use default” inherits the default window. “Never” disables refunds for that method even if a default is set.',
-            initCollapsed: true,
           },
           fields: [
             {
