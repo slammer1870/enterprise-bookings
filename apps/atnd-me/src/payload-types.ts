@@ -430,6 +430,31 @@ export interface Tenant {
         id?: string | null;
       }[]
     | null;
+  /**
+   * When a customer cancels a confirmed booking, whether drop-in money is refunded or class-pass credit is restored.
+   */
+  refundPolicy?: {
+    /**
+     * Applies to all payment methods unless overridden below. Leave empty for no automatic refunds.
+     */
+    defaultWindowHours?: number | null;
+    advanced?: {
+      dropIn?: {
+        mode?: ('inherit' | 'custom' | 'never') | null;
+        /**
+         * Hours before start for drop-in Stripe refunds.
+         */
+        windowHours?: number | null;
+      };
+      classPass?: {
+        mode?: ('inherit' | 'custom' | 'never') | null;
+        /**
+         * Hours before start for class-pass credit restore.
+         */
+        windowHours?: number | null;
+      };
+    };
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -3603,6 +3628,18 @@ export interface Transaction {
    * Subscription id when paymentMethod is subscription (booking created by subscription).
    */
   subscriptionId?: number | null;
+  /**
+   * Set when a Stripe refund was issued for this booking on cancel.
+   */
+  refundedAt?: string | null;
+  /**
+   * Stripe refund id for cancel refunds (idempotency).
+   */
+  stripeRefundId?: string | null;
+  /**
+   * Set when class-pass credit was restored on cancel.
+   */
+  classPassRestoredAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4880,6 +4917,27 @@ export interface TenantsSelect<T extends boolean = true> {
         page?: T;
         id?: T;
       };
+  refundPolicy?:
+    | T
+    | {
+        defaultWindowHours?: T;
+        advanced?:
+          | T
+          | {
+              dropIn?:
+                | T
+                | {
+                    mode?: T;
+                    windowHours?: T;
+                  };
+              classPass?:
+                | T
+                | {
+                    mode?: T;
+                    windowHours?: T;
+                  };
+            };
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5121,6 +5179,9 @@ export interface TransactionsSelect<T extends boolean = true> {
   stripePaymentIntentId?: T;
   dropInId?: T;
   subscriptionId?: T;
+  refundedAt?: T;
+  stripeRefundId?: T;
+  classPassRestoredAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -4,10 +4,15 @@ import { useTRPC } from "@repo/trpc/client";
 import type { ScheduleTimeslot, TimeslotScheduleState } from "@repo/shared-types";
 import { Button } from "@repo/ui/components/ui/button";
 import type { MouseEventHandler } from "react";
+import { useState } from "react";
+import { flushSync } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useConfirm } from "@repo/ui/components/ui/use-confirm";
+
+const DEFAULT_CANCEL_MESSAGE =
+  "This booking will be cancelled without a refund or class-pass credit restore.";
 
 // Optional analytics - only used if available
 let useAnalyticsTracker:
@@ -95,9 +100,10 @@ export const CheckInButton = ({
   const router = useRouter();
   const trackEvent = useAnalyticsTracker?.()?.trackEvent || (() => {});
 
+  const [cancelConfirmMessage, setCancelConfirmMessage] = useState(DEFAULT_CANCEL_MESSAGE);
   const [ConfirmationDialog, confirm] = useConfirm(
     "Are you sure you want to cancel this booking?",
-    ""
+    cancelConfirmMessage
   );
 
   const viewerConfirmedCount = scheduleState?.viewer?.confirmedCount ?? 0;
@@ -200,6 +206,21 @@ export const CheckInButton = ({
     }
 
     if (action === "cancel") {
+      const bookingId = scheduleState?.viewer?.confirmedIds?.[0];
+      let message = DEFAULT_CANCEL_MESSAGE;
+      if (typeof bookingId === "number" && Number.isFinite(bookingId)) {
+        try {
+          const preview = await queryClient.fetchQuery(
+            trpc.bookings.getCancelRefundPreview.queryOptions({ bookingId })
+          );
+          if (typeof preview?.message === "string" && preview.message.trim()) {
+            message = preview.message;
+          }
+        } catch {
+          // Fall back to default copy if preview fails.
+        }
+      }
+      flushSync(() => setCancelConfirmMessage(message));
       const ok = await confirm();
       if (!ok) return;
       try {

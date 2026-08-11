@@ -435,6 +435,94 @@ export const Tenants: CollectionConfig = {
         initCollapsed: false,
       },
     },
+    {
+      name: 'refundPolicy',
+      type: 'group',
+      label: 'Refund policy',
+      admin: {
+        description:
+          'When a customer cancels a confirmed booking, whether drop-in money is refunded or class-pass credit is restored.',
+      },
+      fields: [
+        {
+          name: 'defaultWindowHours',
+          type: 'number',
+          required: false,
+          min: 0,
+          label: 'Default free cancellation window (hours)',
+          admin: {
+            description:
+              'Applies to all payment methods unless overridden below. Leave empty for no automatic refunds.',
+          },
+        },
+        {
+          name: 'advanced',
+          type: 'group',
+          label: 'Advanced — payment method overrides',
+          admin: {
+            description:
+              'Optional overrides per payment method. “Use default” inherits the default window. “Never” disables refunds for that method even if a default is set.',
+            initCollapsed: true,
+          },
+          fields: [
+            {
+              name: 'dropIn',
+              type: 'group',
+              label: 'Drop-in (Stripe)',
+              fields: [
+                {
+                  name: 'mode',
+                  type: 'select',
+                  defaultValue: 'inherit',
+                  options: [
+                    { label: 'Use default', value: 'inherit' },
+                    { label: 'Custom window', value: 'custom' },
+                    { label: 'Never refund', value: 'never' },
+                  ],
+                },
+                {
+                  name: 'windowHours',
+                  type: 'number',
+                  min: 0,
+                  admin: {
+                    condition: (_: unknown, siblingData: { mode?: string }) =>
+                      siblingData?.mode === 'custom',
+                    description: 'Hours before start for drop-in Stripe refunds.',
+                  },
+                },
+              ],
+            },
+            {
+              name: 'classPass',
+              type: 'group',
+              label: 'Class pass',
+              fields: [
+                {
+                  name: 'mode',
+                  type: 'select',
+                  defaultValue: 'inherit',
+                  options: [
+                    { label: 'Use default', value: 'inherit' },
+                    { label: 'Custom window', value: 'custom' },
+                    { label: 'Never restore credit', value: 'never' },
+                  ],
+                },
+                {
+                  name: 'windowHours',
+                  type: 'number',
+                  min: 0,
+                  admin: {
+                    condition: (_: unknown, siblingData: { mode?: string }) =>
+                      siblingData?.mode === 'custom',
+                    description: 'Hours before start for class-pass credit restore.',
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   ],
   hooks: {
     afterChange: [

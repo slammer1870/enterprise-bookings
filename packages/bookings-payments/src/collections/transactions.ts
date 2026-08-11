@@ -80,6 +80,39 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
         siblingData?.paymentMethod === "subscription",
     },
   },
+  {
+    name: "refundedAt",
+    type: "date",
+    required: false,
+    admin: {
+      description: "Set when a Stripe refund was issued for this booking on cancel.",
+      readOnly: true,
+      condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
+        siblingData?.paymentMethod === "stripe",
+    },
+  },
+  {
+    name: "stripeRefundId",
+    type: "text",
+    required: false,
+    admin: {
+      description: "Stripe refund id for cancel refunds (idempotency).",
+      readOnly: true,
+      condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
+        siblingData?.paymentMethod === "stripe",
+    },
+  },
+  {
+    name: "classPassRestoredAt",
+    type: "date",
+    required: false,
+    admin: {
+      description: "Set when class-pass credit was restored on cancel.",
+      readOnly: true,
+      condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
+        siblingData?.paymentMethod === "class_pass",
+    },
+  },
 ];
 
 export function transactionsCollection(

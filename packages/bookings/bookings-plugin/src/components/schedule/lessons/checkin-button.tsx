@@ -35,7 +35,7 @@ export default function CheckInButton({ timeslot }: { timeslot: Timeslot }) {
 
   const [ConfirmationDialog, confirm] = useConfirm(
     "Are you sure you want to cancel your booking?",
-    "Bookings can be cancelled up to 24 hours before the session begins."
+    "This booking will be cancelled without a refund or class-pass credit restore unless your studio’s refund policy applies."
   );
 
   const handleClick = async () => {
