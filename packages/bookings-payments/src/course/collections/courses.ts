@@ -105,6 +105,16 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
       },
     },
     {
+      name: "footer",
+      label: "Footer",
+      type: "richText",
+      required: false,
+      admin: {
+        description:
+          "Optional content below the description (e.g. a map). On mobile it appears under the payment form; on large screens it stays under About with the form on the right.",
+      },
+    },
+    {
       name: "coverImage",
       label: "Cover image",
       type: "upload",

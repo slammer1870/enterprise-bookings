@@ -13,6 +13,7 @@ export type CourseDetailDoc = {
   title?: string | null
   slug?: string | null
   about?: DefaultTypedEditorState | null
+  footer?: DefaultTypedEditorState | null
   coverImage?: (number | null) | Media
   status?: string | null
   startDate?: string | null
@@ -51,6 +52,7 @@ export async function CourseDetailView({
       : null
   const coverUrl = mediaUrl(cover)
   const about = course.about ?? null
+  const footer = course.footer ?? null
 
   return (
     <div className="pt-24 pb-8">
@@ -91,7 +93,15 @@ export async function CourseDetailView({
           ) : null}
         </header>
 
-        <div className="order-3 lg:col-start-2 lg:row-span-3 lg:self-start lg:sticky lg:top-24">
+        {about ? (
+          <div className="order-3 space-y-6 lg:col-start-1">
+            <section>
+              <RichText data={about} enableGutter={false} />
+            </section>
+          </div>
+        ) : null}
+
+        <div className="order-4 lg:col-start-2 lg:row-span-3 lg:self-start lg:sticky lg:top-24">
           <CourseEnrollPanel
             courseId={course.id}
             price={price}
@@ -103,10 +113,10 @@ export async function CourseDetailView({
           />
         </div>
 
-        {about ? (
-          <div className="order-4 space-y-6 lg:col-start-1">
+        {footer ? (
+          <div className="order-5 space-y-6 lg:col-start-1">
             <section>
-              <RichText data={about} enableGutter={false} />
+              <RichText data={footer} enableGutter={false} />
             </section>
           </div>
         ) : null}

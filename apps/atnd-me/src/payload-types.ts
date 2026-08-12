@@ -438,6 +438,9 @@ export interface Tenant {
      * Applies to all payment methods unless overridden below. Leave empty for no automatic refunds.
      */
     defaultWindowHours?: number | null;
+    /**
+     * Optional overrides per payment method. “Use default” inherits the default window. “Never” disables refunds for that method even if a default is set.
+     */
     advanced?: {
       dropIn?: {
         mode?: ('inherit' | 'custom' | 'never') | null;
@@ -1404,6 +1407,24 @@ export interface Course {
    * Course description shown on the public detail page About section.
    */
   about?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Optional content below the description (e.g. a map). On mobile it appears under the payment form; on large screens it stays under About with the form on the right.
+   */
+  footer?: {
     root: {
       type: string;
       children: {
@@ -5046,6 +5067,7 @@ export interface CoursesSelect<T extends boolean = true> {
   title?: T;
   slug?: T;
   about?: T;
+  footer?: T;
   coverImage?: T;
   accessWindowMode?: T;
   startDate?: T;
