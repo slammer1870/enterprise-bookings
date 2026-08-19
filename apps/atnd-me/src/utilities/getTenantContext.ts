@@ -134,7 +134,20 @@ export async function getTenantIdForCreateRequest(
  * Tenant with branding fields for white labeling (logo, description).
  */
 export type TenantWithBranding = TenantContext & {
-  logo?: { url?: string; alt?: string } | number | null
+  logo?: {
+    url?: string
+    alt?: string
+    sizes?: {
+      square?: {
+        url?: string | null
+        width?: number | null
+        height?: number | null
+      } | null
+      og?: {
+        url?: string | null
+      } | null
+    } | null
+  } | number | null
   description?: string | null
 }
 
@@ -143,7 +156,7 @@ type TenantBrandingDoc = {
   slug: string
   name?: string
   domain?: string | null
-  logo?: { url?: string; alt?: string } | number | null
+  logo?: TenantWithBranding['logo']
   description?: string | null
 }
 
