@@ -32,8 +32,16 @@ export async function generateMetadata(): Promise<Metadata> {
     const appName = tenant?.name?.trim() || tenant?.slug?.trim() || fallbackAppName
     const metadataBase = new URL(getTenantSiteURL(tenant, headersList))
     const logoUrl =
-      logo && typeof logo === 'object' && logo !== null && typeof logo.url === 'string'
-        ? new URL(logo.url, metadataBase).toString()
+      logo && typeof logo === 'object' && logo !== null
+        ? (() => {
+            const squareLogoUrl =
+              logo.sizes?.square && typeof logo.sizes.square.url === 'string'
+                ? logo.sizes.square.url
+                : logo.url
+            return typeof squareLogoUrl === 'string'
+              ? new URL(squareLogoUrl, metadataBase).toString()
+              : null
+          })()
         : null
 
     return {
@@ -44,14 +52,14 @@ export async function generateMetadata(): Promise<Metadata> {
       },
       icons: logoUrl
         ? {
-            icon: logoUrl,
+            icon: [{ url: logoUrl, sizes: '500x500' }],
             shortcut: logoUrl,
             apple: logoUrl,
           }
         : {
-            icon: '/favicon.ico',
-            shortcut: '/favicon.ico',
-            apple: '/favicon.ico',
+            icon: '/favicon.svg',
+            shortcut: '/favicon.svg',
+            apple: '/favicon.svg',
           },
     }
   } catch {
@@ -64,9 +72,9 @@ export async function generateMetadata(): Promise<Metadata> {
       template: `%s | ${fallbackAppName}`,
     },
     icons: {
-      icon: '/favicon.ico',
-      shortcut: '/favicon.ico',
-      apple: '/favicon.ico',
+      icon: '/favicon.svg',
+      shortcut: '/favicon.svg',
+      apple: '/favicon.svg',
     },
   }
 }
