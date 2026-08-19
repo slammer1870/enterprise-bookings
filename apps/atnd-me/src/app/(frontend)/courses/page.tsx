@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { queryOpenCourses } from './queryCourses'
 import { formatCourseAccessWindowCopy } from '@/lib/courses/format-course-access-window'
 import { mediaUrl } from '@/components/events/eventPageTypes'
+import { coursePlacesLabel } from '@/components/courses/coursePlacesLabel'
 import type { Media } from '@/payload-types'
 
 export const dynamic = 'force-dynamic'
@@ -23,6 +24,12 @@ export default async function CoursesPage() {
         <ul className="mt-8 max-w-xl space-y-4" data-testid="courses-list">
           {courses.map((course) => {
             const windowCopy = formatCourseAccessWindowCopy(course)
+            const max =
+              typeof course.maxEnrollments === 'number' && course.maxEnrollments >= 1
+                ? course.maxEnrollments
+                : null
+            const remaining = max == null ? null : Math.max(0, max - course.activeEnrollmentCount)
+            const places = coursePlacesLabel(remaining)
             const price =
               typeof course.priceInformation?.price === 'number'
                 ? course.priceInformation.price
@@ -61,6 +68,18 @@ export default async function CoursesPage() {
                     </div>
                     {windowCopy ? (
                       <p className="mt-1 text-sm text-muted-foreground">{windowCopy}</p>
+                    ) : null}
+                    {places ? (
+                      <p
+                        className={`mt-1 text-sm ${
+                          remaining != null && remaining > 0 && remaining <= 6
+                            ? 'font-medium text-amber-700 dark:text-amber-400'
+                            : 'text-muted-foreground'
+                        }`}
+                        data-testid="course-list-places"
+                      >
+                        {places}
+                      </p>
                     ) : null}
                   </div>
                 </Link>

@@ -30,6 +30,7 @@ test.describe('Courses listing', () => {
         allowedEventTypes: [eventType.id],
         status: 'open',
         tenant: tenantId,
+        maxEnrollments: 9,
         priceInformation: { price: 75 },
         about: {
           root: {
@@ -71,9 +72,11 @@ test.describe('Courses listing', () => {
     await expect(page.getByRole('heading', { name: /^courses$/i })).toBeVisible({ timeout: 15000 })
     const list = page.getByTestId('courses-list')
     await expect(list).toBeVisible({ timeout: 15000 })
-    await expect(page.getByTestId('course-list-item').filter({ hasText: title })).toBeVisible()
+    const courseItem = page.getByTestId('course-list-item').filter({ hasText: title })
+    await expect(courseItem).toBeVisible()
+    await expect(courseItem.getByTestId('course-list-places')).toHaveText('9 places left')
 
-    await page.getByTestId('course-list-item').filter({ hasText: title }).click()
+    await courseItem.click()
     await expect(page).toHaveURL(new RegExp(`/courses/${slug}`))
     await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 15000 })
     await expect(page.getByTestId('course-enroll-panel')).toBeVisible()

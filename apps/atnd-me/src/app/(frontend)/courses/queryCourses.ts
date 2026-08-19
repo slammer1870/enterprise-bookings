@@ -4,7 +4,11 @@ import { getPayload } from '@/lib/payload'
 import { getTenantContext } from '@/utilities/getTenantContext'
 import type { CourseDetailDoc } from '@/components/courses/CourseDetailView'
 
-export const queryOpenCourses = cache(async (): Promise<CourseDetailDoc[]> => {
+export type OpenCourseListItem = CourseDetailDoc & {
+  activeEnrollmentCount: number
+}
+
+export const queryOpenCourses = cache(async (): Promise<OpenCourseListItem[]> => {
   const cookieStore = await cookies()
   const headersList = await headers()
   const payload = await getPayload()
@@ -15,10 +19,7 @@ export const queryOpenCourses = cache(async (): Promise<CourseDetailDoc[]> => {
   const result = await payload.find({
     collection: 'courses' as import('payload').CollectionSlug,
     where: {
-      and: [
-        { tenant: { equals: tenantId } },
-        { status: { equals: 'open' } },
-      ],
+      and: [{ tenant: { equals: tenantId } }, { status: { equals: 'open' } }],
     },
     sort: 'title',
     limit: 50,
@@ -26,11 +27,37 @@ export const queryOpenCourses = cache(async (): Promise<CourseDetailDoc[]> => {
     overrideAccess: true,
   })
 
-  return result.docs as CourseDetailDoc[]
+  const courses = result.docs as CourseDetailDoc[]
+  const coursesWithCounts = await Promise.all(
+    courses.map(async (course) => {
+      const enrollments = await payload.find({
+        collection: 'course-enrollments' as import('payload').CollectionSlug,
+        where: {
+          and: [
+            { course: { equals: course.id } },
+            { tenant: { equals: tenantId } },
+            { status: { equals: 'active' } },
+          ],
+        },
+        limit: 0,
+        depth: 0,
+        overrideAccess: true,
+      })
+
+      return {
+        ...course,
+        activeEnrollmentCount: enrollments.totalDocs ?? 0,
+      }
+    }),
+  )
+
+  return coursesWithCounts
 })
 
 export const queryCourseBySlug = cache(
-  async (slug: string): Promise<{ course: CourseDetailDoc; activeEnrollmentCount: number } | null> => {
+  async (
+    slug: string,
+  ): Promise<{ course: CourseDetailDoc; activeEnrollmentCount: number } | null> => {
     const cookieStore = await cookies()
     const headersList = await headers()
     const payload = await getPayload()
