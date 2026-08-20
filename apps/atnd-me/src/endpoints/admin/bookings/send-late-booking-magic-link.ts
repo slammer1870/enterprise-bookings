@@ -101,11 +101,13 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
     // Tenant isolation for org admins/staff/location managers.
     // Some schemas may not expose `tenant` directly on the timeslot doc; booking usually has it,
     // so we fall back to `booking.tenant` for the access check.
-    const tenantIds = await resolveTenantAdminTenantIds({
-      user: actor,
-      payload: req.payload,
-      context: req.context as Record<string, unknown> | undefined,
-    })
+    const tenantIds = isAdmin(actor)
+      ? []
+      : await resolveTenantAdminTenantIds({
+          user: actor,
+          payload: req.payload,
+          context: req.context as Record<string, unknown> | undefined,
+        })
     if (tenantIds.length > 0) {
       const tenantIdToCheck = bookingTenantId ?? timeslotTenantId
       if (tenantIdToCheck != null && !tenantIds.includes(tenantIdToCheck)) {
