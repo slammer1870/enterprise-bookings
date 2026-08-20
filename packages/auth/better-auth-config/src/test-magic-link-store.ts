@@ -6,8 +6,7 @@ export type MagicLinkRecord = {
 }
 
 const isTestMagicLinkEnabled =
-  process.env.NODE_ENV !== 'production' &&
-  (process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_MAGIC_LINKS === 'true')
+  process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_MAGIC_LINKS === 'true'
 
 // Persist across Next.js dev hot-reloads by stashing on globalThis
 const globalStoreKey = '__TEST_MAGIC_LINK_STORE__'

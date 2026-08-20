@@ -289,8 +289,8 @@ export async function POST(request: NextRequest) {
 
   const placeholderAccount = /^acct_[a-z0-9_]+$/.test(tenant.stripeConnectAccountId?.trim() ?? '')
   const isTestMode =
-    (process.env.NODE_ENV !== 'production' &&
-      (process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_WEBHOOKS === 'true')) ||
+    process.env.NODE_ENV === 'test' ||
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' ||
     isStripeTestAccount(tenant.stripeConnectAccountId) ||
     placeholderAccount
 

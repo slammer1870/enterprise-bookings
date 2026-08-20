@@ -51,8 +51,7 @@ export async function createTenantProduct(
   if (!accountId) throw new Error('Tenant Connect account id is missing')
 
   const isE2e =
-    process.env.NODE_ENV !== 'production' &&
-    (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test')
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
   if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
     const suffix = Date.now()
     return { productId: `prod_test_${suffix}`, priceId: `price_test_${suffix}` }
@@ -117,8 +116,7 @@ export async function updateTenantProduct(
   if (!accountId) throw new Error('Tenant Connect account id is missing')
 
   const isE2e =
-    process.env.NODE_ENV !== 'production' &&
-    (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test')
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
   if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
     return
   }
@@ -168,8 +166,7 @@ export async function createTenantPrice(
   if (!accountId) throw new Error('Tenant Connect account id is missing')
 
   const isE2e =
-    process.env.NODE_ENV !== 'production' &&
-    (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test')
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
   if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
     return { priceId: `price_test_${Date.now()}` }
   }

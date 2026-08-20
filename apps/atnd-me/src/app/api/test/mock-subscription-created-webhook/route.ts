@@ -12,8 +12,7 @@ export const dynamic = 'force-dynamic'
 
 function isTestEnvironment() {
   return (
-    process.env.NODE_ENV !== 'production' &&
-    (process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_WEBHOOKS === 'true')
+    process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_WEBHOOKS === 'true'
   )
 }
 

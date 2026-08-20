@@ -179,8 +179,7 @@ export async function createTenantCheckoutSession(
     typeof receiptEmail === 'string' && receiptEmail.trim().length > 0 ? receiptEmail.trim() : null
 
   const isE2eTestMode =
-    process.env.NODE_ENV !== 'production' &&
-    (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test')
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
   if (!disableTestShortCircuit && isE2eTestMode) {
     const mockId = `cs_test_${Date.now()}`
     return { id: mockId, url: '/' }

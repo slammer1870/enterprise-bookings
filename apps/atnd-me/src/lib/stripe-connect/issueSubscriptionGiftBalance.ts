@@ -168,8 +168,7 @@ export async function issueSubscriptionGiftBalanceIfNeeded(
   let balanceTransactionId: string | undefined
 
   const isE2e =
-    process.env.NODE_ENV !== 'production' &&
-    (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test')
+    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
   const isTestAccount = isStripeTestAccount(accountId) || 
     accountId.startsWith('acct_sub_webhook_test_') ||
     accountId.startsWith('acct_mock_sub_test_')
