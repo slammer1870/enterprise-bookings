@@ -11,7 +11,9 @@ import { getPayload } from '@/lib/payload'
 export const dynamic = 'force-dynamic'
 
 function isTestEnvironment() {
-  return process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_WEBHOOKS === 'true'
+  return (
+    process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_WEBHOOKS === 'true'
+  )
 }
 
 function disabledResponse() {

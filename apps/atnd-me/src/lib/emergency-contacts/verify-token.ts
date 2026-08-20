@@ -11,12 +11,14 @@ export type EmergencyContactVerifyPayload = {
 }
 
 function getSecret(): string {
-  return (
-    process.env.PAYLOAD_SECRET ||
-    (process.env.CI || process.env.NODE_ENV === 'test'
-      ? 'test-secret-key-for-ci-builds-only'
-      : 'dev-secret-key')
-  )
+  const configuredSecret = process.env.PAYLOAD_SECRET?.trim()
+  if (configuredSecret) return configuredSecret
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('PAYLOAD_SECRET must be configured in production')
+  }
+  return process.env.CI || process.env.NODE_ENV === 'test'
+    ? 'test-secret-key-for-ci-builds-only'
+    : 'dev-secret-key'
 }
 
 export function buildEmergencyContactVerifyToken(

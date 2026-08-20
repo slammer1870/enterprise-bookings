@@ -46,6 +46,11 @@ import {
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+const configuredPayloadSecret = process.env.PAYLOAD_SECRET?.trim()
+
+if (process.env.NODE_ENV === 'production' && !configuredPayloadSecret) {
+  throw new Error('PAYLOAD_SECRET must be configured in production')
+}
 
 // Schema push mutates the DB from the running app; production must use migrations only.
 // - production / test / CI / E2E: never push
@@ -217,7 +222,11 @@ export default buildConfig({
     sendLateBookingMagicLinkEndpoint,
   ],
   plugins,
-  secret: process.env.PAYLOAD_SECRET || (process.env.CI || process.env.NODE_ENV === 'test' ? 'test-secret-key-for-ci-builds-only' : 'dev-secret-key'),
+  secret:
+    configuredPayloadSecret ||
+    (process.env.CI || process.env.NODE_ENV === 'test'
+      ? 'test-secret-key-for-ci-builds-only'
+      : 'dev-secret-key'),
   sharp: sharp as unknown as SharpDependency,
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),

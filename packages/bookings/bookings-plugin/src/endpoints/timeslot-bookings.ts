@@ -46,10 +46,17 @@ export function createTimeslotBookingsEndpoint(
         bookingsSlug,
         timeslotId,
         req,
-        { depth: 2, overrideAccess: true },
+        { depth: 2, overrideAccess: false },
       );
 
-      return Response.json({ docs, totalDocs });
+      return Response.json(
+        { docs, totalDocs },
+        {
+          headers: {
+            "Cache-Control": "no-store, max-age=0",
+          },
+        },
+      );
     },
   };
 }

@@ -56,6 +56,24 @@ test.describe('Apex domain redirect (E2E)', () => {
       data: { redirectApex: true },
       overrideAccess: true,
     })
+
+    // The afterChange hook stores apexDomain asynchronously. Wait for the
+    // derived value before navigating to avoid racing tenant resolution.
+    await expect
+      .poll(
+        async () => {
+          const result = await payload.find({
+            collection: 'tenants',
+            where: { slug: { equals: slug } },
+            limit: 1,
+            depth: 0,
+            overrideAccess: true,
+          })
+          return result.docs[0]?.apexDomain
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(apexHost)
   })
 
   test('apex domain issues a 301 redirect to the www host', async ({ page }) => {

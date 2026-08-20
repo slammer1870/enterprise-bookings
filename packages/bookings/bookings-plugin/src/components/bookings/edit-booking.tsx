@@ -176,7 +176,7 @@ export function EditBooking({
                       if (!next) setSendingMagicLink(false);
                     }}
                   >
-                    <DialogContent>
+                    <DialogContent className="z-[200]">
                       <DialogHeader>
                         <DialogTitle>Send completion email?</DialogTitle>
                         <DialogDescription>

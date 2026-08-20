@@ -123,15 +123,33 @@ export async function loadBookingTemplateContext(
   payload: BasePayload,
   bookingId: number,
 ): Promise<TemplateContext | null> {
-  const booking = await payload
-    .findByID({
-      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
-      id: bookingId,
-      depth: 2,
-      overrideAccess: true,
-    })
-    .catch(() => null)
+  let lastError: unknown
 
-  if (!booking) return null
-  return shapeBookingTemplateContext(booking)
+  // Immediate post-booking sends run outside the create request's event loop.
+  // Retry briefly so a just-committed booking is visible before rendering
+  // relationship-based placeholders.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const booking = await payload.findByID({
+        collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.bookings,
+        id: bookingId,
+        depth: 2,
+        overrideAccess: true,
+      })
+
+      return shapeBookingTemplateContext(booking)
+    } catch (error) {
+      lastError = error
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 50 * (attempt + 1)))
+      }
+    }
+  }
+
+  payload.logger.warn(
+    `[post-booking-email] Could not load template context for booking ${bookingId}: ${
+      lastError instanceof Error ? lastError.message : String(lastError)
+    }`,
+  )
+  return null
 }

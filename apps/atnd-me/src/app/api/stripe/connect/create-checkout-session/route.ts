@@ -173,7 +173,8 @@ export async function POST(request: NextRequest) {
   let subscriptionApplicationFeePercent: number | undefined
   let bookingFeeAmount: number | undefined
 
-  const isTestShortcut = process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_WEBHOOKS === 'true'
+  const isTestShortcut =
+    process.env.NODE_ENV === 'test' || process.env.ENABLE_TEST_WEBHOOKS === 'true'
   const isTestConnectAccount = isStripeTestAccount(tenant.stripeConnectAccountId)
   if (
     mode === 'subscription' &&

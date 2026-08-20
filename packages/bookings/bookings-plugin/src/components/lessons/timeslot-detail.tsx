@@ -68,6 +68,7 @@ export const TimeslotDetail = ({
       const res = await fetch(`/api/timeslots/${timeslot.id}/bookings`, {
         method: "GET",
         credentials: "include",
+        cache: "no-store",
         signal,
       });
       if (!res.ok) {

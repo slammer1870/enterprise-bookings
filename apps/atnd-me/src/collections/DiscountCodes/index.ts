@@ -5,12 +5,12 @@
 import type { CollectionConfig } from 'payload'
 import {
   adminOnlyFieldAccess,
-  productsRequireStripeConnectRead,
   productsRequireStripeConnectCreate,
   productsRequireStripeConnectUpdate,
   productsRequireStripeConnectDelete,
   productsRequireStripeConnectAdmin,
 } from '@/access/productsRequireStripeConnect'
+import { privateBillingReadAccess } from '@/access/privateBillingReadAccess'
 import { discountCodeBeforeValidateStripeConnect } from '@/hooks/requireTenantStripeConnectForPricedProducts'
 import { createTenantCouponAndPromoCode, deactivateTenantPromotionCode } from '@/lib/stripe-connect/coupons'
 import { getTenantStripeContext, type TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
@@ -78,7 +78,7 @@ export const DiscountCodes: CollectionConfig = {
   },
   access: {
     admin: productsRequireStripeConnectAdmin,
-    read: productsRequireStripeConnectRead,
+    read: privateBillingReadAccess,
     create: productsRequireStripeConnectCreate,
     update: productsRequireStripeConnectUpdate,
     delete: productsRequireStripeConnectDelete,
