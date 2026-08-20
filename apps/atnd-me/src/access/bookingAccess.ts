@@ -158,7 +158,11 @@ export const bookingUpdateAccessWithPaymentValidation: Access = async (args: Acc
     return true
   }
 
-  if (requester && checkRole(['admin', 'staff'], requester)) {
+  if (
+    requester &&
+    (checkRole(['admin', 'staff', 'location-manager'], requester) ||
+      isLocationManager(requester))
+  ) {
     const tenantIds = await resolveTenantAdminTenantIds({
       user: requester,
       payload: req.payload,
