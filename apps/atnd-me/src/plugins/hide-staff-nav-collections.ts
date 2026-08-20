@@ -5,6 +5,7 @@
 import type { CollectionConfig, Config, Plugin } from 'payload'
 
 import { isStaffOnlyUser } from '@/access/userTenantAccess'
+import { isPureLocationManager } from '@/access/locationManagerScope'
 
 /** Collections staff-only users may see in the admin sidebar. */
 export const STAFF_ONLY_NAV_COLLECTION_SLUGS = new Set([
@@ -12,6 +13,9 @@ export const STAFF_ONLY_NAV_COLLECTION_SLUGS = new Set([
   'users',
   'emergency-contacts',
 ])
+
+/** Site-wide content collections that pure location managers do not need. */
+export const LOCATION_MANAGER_HIDDEN_NAV_COLLECTION_SLUGS = new Set(['navbar', 'footer'])
 
 type HiddenArgs = { user: unknown }
 
@@ -22,6 +26,9 @@ function composeHiddenForStaff(
   return (args) => {
     if (isStaffOnlyUser(args.user)) {
       return !STAFF_ONLY_NAV_COLLECTION_SLUGS.has(slug)
+    }
+    if (isPureLocationManager(args.user)) {
+      return LOCATION_MANAGER_HIDDEN_NAV_COLLECTION_SLUGS.has(slug)
     }
     if (typeof previousHidden === 'function') {
       try {

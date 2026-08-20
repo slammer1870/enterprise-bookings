@@ -1,9 +1,8 @@
 import { APIError, type Endpoint } from 'payload'
 
-import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
-import { getUserTenantIds } from '@/access/tenant-scoped'
+import { isAdmin, isLocationManager, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
+import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
-import type { User as SharedUser } from '@repo/shared-types'
 import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
 import { sendBookingCompletionMagicLink } from '@/lib/auth/options'
 
@@ -26,12 +25,10 @@ function getServerUrl(): string | undefined {
 
 function buildTenantScopedCallbackURL(args: {
   callbackPath: string
-  tenant:
-    | {
-        slug?: string | null
-        domain?: string | null
-      }
-    | null
+  tenant: {
+    slug?: string | null
+    domain?: string | null
+  } | null
   headers: Headers
   serverUrlFallback?: string | undefined
 }): string {
@@ -55,15 +52,16 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
   handler: async (req) => {
     if (!req.json) throw new APIError('Invalid request body', 400)
 
-    const body = (await req.json().catch(() => null)) as
-      | { bookingId?: unknown }
-      | null
+    const body = (await req.json().catch(() => null)) as { bookingId?: unknown } | null
 
     const bookingId = coerceNumericId(body?.bookingId)
     if (bookingId == null) throw new APIError('bookingId is required', 400)
 
     const actor = req.user
-    if (!actor || (!isAdmin(actor) && !isTenantAdmin(actor) && !isStaff(actor))) {
+    if (
+      !actor ||
+      (!isAdmin(actor) && !isTenantAdmin(actor) && !isStaff(actor) && !isLocationManager(actor))
+    ) {
       throw new APIError('Forbidden', 403)
     }
 
@@ -78,9 +76,7 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
         id: bookingId as any,
         depth: 0,
       })
-      .catch(() => null)) as
-      | Record<string, unknown>
-      | null
+      .catch(() => null)) as Record<string, unknown> | null
 
     if (!booking) throw new APIError('Booking not found', 404)
     if (booking.status !== 'pending') throw new APIError('Booking is not pending', 400)
@@ -94,9 +90,7 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
         id: timeslotId as any,
         depth: 0,
       })
-      .catch(() => null)) as
-      | Record<string, unknown>
-      | null
+      .catch(() => null)) as Record<string, unknown> | null
 
     if (!timeslot) throw new APIError('Timeslot not found', 404)
 
@@ -104,11 +98,15 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
     const timeslotTenantId = coerceNumericId((timeslot as any)?.tenant)
     const tenantIdForCallback = bookingTenantId ?? timeslotTenantId ?? null
 
-    // Tenant isolation for org admins/staff.
+    // Tenant isolation for org admins/staff/location managers.
     // Some schemas may not expose `tenant` directly on the timeslot doc; booking usually has it,
     // so we fall back to `booking.tenant` for the access check.
-    const tenantIds = getUserTenantIds(actor as unknown as SharedUser | null)
-    if (tenantIds !== null) {
+    const tenantIds = await resolveTenantAdminTenantIds({
+      user: actor,
+      payload: req.payload,
+      context: req.context as Record<string, unknown> | undefined,
+    })
+    if (tenantIds.length > 0) {
       const tenantIdToCheck = bookingTenantId ?? timeslotTenantId
       if (tenantIdToCheck != null && !tenantIds.includes(tenantIdToCheck)) {
         throw new APIError('Forbidden', 403)
@@ -135,9 +133,7 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
           id: userId as any,
           depth: 0,
         })
-        .catch(() => null)) as
-        | Record<string, unknown>
-        | null
+        .catch(() => null)) as Record<string, unknown> | null
 
       userEmail = typeof user?.email === 'string' ? user.email : undefined
     }
@@ -177,4 +173,3 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
     return Response.json({ ok: true })
   },
 }
-
