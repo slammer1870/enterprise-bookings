@@ -11,6 +11,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 import { getTenantFromTimeslot } from '@/utilities/getTenantFromTimeslot'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
 import { resolveTenantAdminTenantIds } from './tenant-scoped'
+import { isLocationManager } from './userTenantAccess'
 
 const { bookingCreateAccess, bookingUpdateAccess } = createBookingAccess(
   ATND_ME_BOOKINGS_COLLECTION_SLUGS,
@@ -25,15 +26,20 @@ type TenantLike = {
 /** True if class option has any payment method attached (drop-in, plans, or class passes). */
 function hasAnyPaymentMethod(eventType: unknown): boolean {
   if (!eventType || typeof eventType !== 'object') return false
-  const pm = (eventType as {
-    paymentMethods?: {
-      allowedDropIn?: unknown
-      allowedPlans?: unknown[] | null
-      allowedClassPasses?: unknown[] | null
+  const pm = (
+    eventType as {
+      paymentMethods?: {
+        allowedDropIn?: unknown
+        allowedPlans?: unknown[] | null
+        allowedClassPasses?: unknown[] | null
+      }
     }
-  }).paymentMethods
+  ).paymentMethods
   if (!pm) return false
-  const hasDropIn = pm.allowedDropIn != null && (typeof pm.allowedDropIn === 'number' || (typeof pm.allowedDropIn === 'object' && pm.allowedDropIn !== null))
+  const hasDropIn =
+    pm.allowedDropIn != null &&
+    (typeof pm.allowedDropIn === 'number' ||
+      (typeof pm.allowedDropIn === 'object' && pm.allowedDropIn !== null))
   const hasPlans = Array.isArray(pm.allowedPlans) && pm.allowedPlans.length > 0
   const hasClassPasses = Array.isArray(pm.allowedClassPasses) && pm.allowedClassPasses.length > 0
   return hasDropIn || hasPlans || hasClassPasses
@@ -41,14 +47,14 @@ function hasAnyPaymentMethod(eventType: unknown): boolean {
 
 function hasAllowedClassPasses(eventType: unknown): boolean {
   if (!eventType || typeof eventType !== 'object') return false
-  const pm = (eventType as { paymentMethods?: { allowedClassPasses?: unknown[] | null } }).paymentMethods
+  const pm = (eventType as { paymentMethods?: { allowedClassPasses?: unknown[] | null } })
+    .paymentMethods
   return Array.isArray(pm?.allowedClassPasses) && pm.allowedClassPasses.length > 0
 }
 
 function isTenantConnectActive(tenant: TenantLike): boolean {
   return (
-    Boolean(tenant?.stripeConnectAccountId) &&
-    tenant.stripeConnectOnboardingStatus === 'active'
+    Boolean(tenant?.stripeConnectAccountId) && tenant.stripeConnectOnboardingStatus === 'active'
   )
 }
 
@@ -62,7 +68,11 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
   const user = req.user as SharedUser | null
 
   // Tenant org admins and staff manage bookings for their venues (admin UI).
-  if (user && checkRole(['admin', 'staff'], user) && data?.timeslot) {
+  if (
+    user &&
+    (checkRole(['admin', 'staff', 'location-manager'], user) || isLocationManager(user)) &&
+    data?.timeslot
+  ) {
     const tenantIds = await resolveTenantAdminTenantIds({
       user,
       payload: req.payload,
@@ -98,7 +108,10 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
     if (!timeslot) return false
 
     const eventType = timeslot.eventType
-    const tenantId = await getTenantFromTimeslot(req.payload, timeslot as { id: number; tenant?: number | { id: number } })
+    const tenantId = await getTenantFromTimeslot(
+      req.payload,
+      timeslot as { id: number; tenant?: number | { id: number } },
+    )
     if (tenantId == null) return false
 
     if (user?.id && hasAllowedClassPasses(eventType)) {

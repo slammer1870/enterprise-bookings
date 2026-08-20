@@ -11,8 +11,8 @@
 import type { Access, AccessArgs } from 'payload'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
-import { getUserTenantIds } from './tenant-scoped'
-import { isAdmin, isTenantAdmin } from './userTenantAccess'
+import { getUserTenantIds, resolveTenantAdminTenantIds } from './tenant-scoped'
+import { isAdmin, isLocationManager, isTenantAdmin } from './userTenantAccess'
 
 type TenantDoc = {
   id: number
@@ -25,8 +25,12 @@ type TenantDoc = {
  * - Admin: returns null (meaning "all tenants" / no filter).
  * - Tenant-admin: returns array of their tenant IDs that have Connect active, or [] if none.
  * - Other users / unauthenticated: returns [] (no product access for this policy).
+ * - When enabled, location managers are also eligible for the returned tenant scope.
  */
-async function getConnectedTenantIds(args: AccessArgs): Promise<number[] | null> {
+export async function getConnectedTenantIds(
+  args: AccessArgs,
+  options: { allowLocationManager?: boolean } = {},
+): Promise<number[] | null> {
   const { req } = args
   const user = req.user
 
@@ -35,15 +39,31 @@ async function getConnectedTenantIds(args: AccessArgs): Promise<number[] | null>
   }
 
   // Staff do not manage Stripe products or billing collections (sidebar + Local API: no tenant IDs here).
-  if (user && checkRole(['staff'], user as unknown as SharedUser) && !checkRole(['admin'], user as unknown as SharedUser)) {
+  if (
+    user &&
+    checkRole(['staff'], user as unknown as SharedUser) &&
+    !checkRole(['admin'], user as unknown as SharedUser)
+  ) {
     return []
   }
 
-  if (!user || !checkRole(['admin'], user as unknown as SharedUser)) {
+  const canManageBilling =
+    Boolean(user && checkRole(['admin'], user as unknown as SharedUser)) ||
+    (options.allowLocationManager && isLocationManager(user))
+  if (!canManageBilling) {
     return []
   }
 
-  const tenantIds = getUserTenantIds(user as unknown as SharedUser)
+  const tenantIds =
+    options.allowLocationManager &&
+    isLocationManager(user) &&
+    !checkRole(['admin'], user as unknown as SharedUser)
+      ? await resolveTenantAdminTenantIds({
+          user,
+          payload: req.payload,
+          context: req.context as Record<string, unknown> | undefined,
+        })
+      : getUserTenantIds(user as unknown as SharedUser)
   if (tenantIds === null || tenantIds.length === 0) return []
 
   const tenants = await req.payload.find({
@@ -56,8 +76,7 @@ async function getConnectedTenantIds(args: AccessArgs): Promise<number[] | null>
 
   const connected = (tenants.docs as TenantDoc[]).filter(
     (t) =>
-      Boolean(t.stripeConnectAccountId?.trim()) &&
-      t.stripeConnectOnboardingStatus === 'active',
+      Boolean(t.stripeConnectAccountId?.trim()) && t.stripeConnectOnboardingStatus === 'active',
   )
   return connected.map((t) => t.id)
 }
@@ -101,9 +120,7 @@ export const productsRequireStripeConnectCreate: Access = async (args) => {
   const contextTenant = req.context?.tenant
   if (contextTenant) {
     const id =
-      typeof contextTenant === 'object' &&
-      contextTenant !== null &&
-      'id' in contextTenant
+      typeof contextTenant === 'object' && contextTenant !== null && 'id' in contextTenant
         ? (contextTenant as { id: number }).id
         : contextTenant
     if (typeof id === 'number' && connected.includes(id)) return true
@@ -160,10 +177,7 @@ export const adminOnlyFieldAccess = {
  * while Stripe internal fields remain admin-only.
  */
 export const adminOrTenantAdminFieldAccess = {
-  read: ({ req }: { req: AccessArgs['req'] }) =>
-    isAdmin(req.user) || isTenantAdmin(req.user),
-  create: ({ req }: { req: AccessArgs['req'] }) =>
-    isAdmin(req.user) || isTenantAdmin(req.user),
-  update: ({ req }: { req: AccessArgs['req'] }) =>
-    isAdmin(req.user) || isTenantAdmin(req.user),
+  read: ({ req }: { req: AccessArgs['req'] }) => isAdmin(req.user) || isTenantAdmin(req.user),
+  create: ({ req }: { req: AccessArgs['req'] }) => isAdmin(req.user) || isTenantAdmin(req.user),
+  update: ({ req }: { req: AccessArgs['req'] }) => isAdmin(req.user) || isTenantAdmin(req.user),
 }

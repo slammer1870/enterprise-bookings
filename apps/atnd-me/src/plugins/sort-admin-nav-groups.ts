@@ -10,8 +10,8 @@ const ADMIN_NAV_GROUP_ORDER = [
   'Bookings',
   'Auth',
   'Configuration',
-  'Products',
   'Billing',
+  'Products',
   'Website',
   'Collection',
 ] as const

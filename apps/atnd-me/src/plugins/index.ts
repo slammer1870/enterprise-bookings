@@ -56,6 +56,13 @@ import {
   adminOnlyFieldAccess,
   adminOrTenantAdminFieldAccess,
 } from '../access/productsRequireStripeConnect'
+import {
+  classPassPurchasesAdminAccess,
+  classPassPurchasesReadAccess,
+  classPassPurchasesCreateAccess,
+  classPassPurchasesUpdateAccess,
+  classPassPurchasesDeleteAccess,
+} from '../access/classPassPurchases'
 import { plansReadWithSoftDelete } from '../access/plansWithSoftDelete'
 import { classPassTypesReadWithSoftDelete } from '../access/classPassTypesWithSoftDelete'
 import {
@@ -121,10 +128,7 @@ const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
   if (!doc || typeof doc !== 'object') return getServerSideURL()
 
   const page = doc as Partial<Page>
-  const tenant =
-    page?.tenant && typeof page.tenant === 'object'
-      ? (page.tenant as Tenant)
-      : null
+  const tenant = page?.tenant && typeof page.tenant === 'object' ? (page.tenant as Tenant) : null
   const baseURL = getTenantSiteURL(tenant)
   const isRootPage = page?.slug === 'root' && !tenant
   const isTenantHomePage = page?.slug === 'home' && Boolean(tenant)
@@ -141,15 +145,13 @@ const generateURL: GenerateURL<Post | Page> = ({ doc }) => {
   return getAbsoluteURL(pathname, baseURL)
 }
 
-async function resolveTenantIdForAssignOnCreate(
-  req: {
-    context?: Record<string, unknown>
-    cookies?: { get: (name: string) => { value?: string } | undefined }
-    headers?: Headers
-    payload: Payload
-    user?: unknown
-  },
-): Promise<number | string | null> {
+async function resolveTenantIdForAssignOnCreate(req: {
+  context?: Record<string, unknown>
+  cookies?: { get: (name: string) => { value?: string } | undefined }
+  headers?: Headers
+  payload: Payload
+  user?: unknown
+}): Promise<number | string | null> {
   const cookies = mergeRequestCookies(req.cookies, req.headers)
   const requestLike: RequestLike = {
     context: req.context,
@@ -174,7 +176,10 @@ async function resolveTenantIdForAssignOnCreate(
 
   let membershipIds = getTenantMembershipIdsFromUserDoc(user)
   if (membershipIds.length === 0) {
-    const idRaw = typeof user === 'object' && user !== null && 'id' in user ? (user as { id: unknown }).id : null
+    const idRaw =
+      typeof user === 'object' && user !== null && 'id' in user
+        ? (user as { id: unknown }).id
+        : null
     const uid =
       typeof idRaw === 'number' ? idRaw : typeof idRaw === 'string' ? parseInt(idRaw, 10) : NaN
     if (Number.isFinite(uid)) {
@@ -301,7 +306,7 @@ function lockStripeManagedSubscriptionFields(field: Field): Field {
     return {
       ...next,
       access: {
-        ...(('access' in next && typeof next.access === 'object' && next.access) ? next.access : {}),
+        ...('access' in next && typeof next.access === 'object' && next.access ? next.access : {}),
         ...stripeManagedSubscriptionFieldAccess,
       },
     } as Field
@@ -418,7 +423,7 @@ export const plugins: Plugin[] = [
   // Payload Sentry plugin: captures Payload API/admin/hooks errors and sends to Sentry.
   // Requires Sentry Next.js setup (sentry.client/server.config) and SENTRY_DSN in production.
   sentryPlugin({
-    Sentry
+    Sentry,
   }),
   payloadAuth(),
   // Must run after `payloadAuth()` so the Better Auth collections exist.
@@ -465,10 +470,7 @@ export const plugins: Plugin[] = [
           defaultLimit: 100,
         },
       },
-      indexes: [
-        { fields: ['startTime', 'tenant'] },
-        { fields: ['tenant', 'branch', 'startTime'] },
-      ],
+      indexes: [{ fields: ['startTime', 'tenant'] }, { fields: ['tenant', 'branch', 'startTime'] }],
       fields: ({ defaultFields }) => [
         ...withTimeslotBranchFields(
           withExplicitTenantSyncFields(defaultFields).map((f): Field => {
@@ -556,7 +558,20 @@ export const plugins: Plugin[] = [
         return {
           ...defaultHooks,
           beforeValidate: [
-            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
+            async ({
+              data,
+              operation,
+              req,
+            }: {
+              data?: Record<string, unknown>
+              operation: 'create' | 'update'
+              req: {
+                context?: Record<string, unknown>
+                cookies?: { get: (name: string) => { value?: string } | undefined }
+                headers?: Headers
+                payload: Payload
+              }
+            }) =>
               await assignTenantOnCreateFromRequest({
                 data: data as Record<string, unknown> | undefined,
                 operation,
@@ -655,7 +670,20 @@ export const plugins: Plugin[] = [
         return {
           ...defaultHooks,
           beforeValidate: [
-            async ({ data, operation, req }: { data?: Record<string, unknown>; operation: 'create' | 'update'; req: { context?: Record<string, unknown>; cookies?: { get: (name: string) => { value?: string } | undefined }; headers?: Headers; payload: Payload } }) =>
+            async ({
+              data,
+              operation,
+              req,
+            }: {
+              data?: Record<string, unknown>
+              operation: 'create' | 'update'
+              req: {
+                context?: Record<string, unknown>
+                cookies?: { get: (name: string) => { value?: string } | undefined }
+                headers?: Headers
+                payload: Payload
+              }
+            }) =>
               await assignTenantOnCreateFromRequest({
                 data: data as Record<string, unknown> | undefined,
                 operation,
@@ -664,17 +692,17 @@ export const plugins: Plugin[] = [
             validateEventTypeNameUniqueWithinTenant,
             ...(Array.isArray(d?.beforeValidate) ? d.beforeValidate : []),
           ],
-          beforeChange: [...(Array.isArray(d?.beforeChange) ? d.beforeChange : []), requireStripeConnectForPayments],
+          beforeChange: [
+            ...(Array.isArray(d?.beforeChange) ? d.beforeChange : []),
+            requireStripeConnectForPayments,
+          ],
           // eslint-disable-next-line @typescript-eslint/no-explicit-any -- plugin HooksConfig omits beforeChange
         } as any
       },
     },
     bookingOverrides: {
       // Admin analytics: confirmed + timeslot IN (...). Tenant-scoped dashboard: tenant + same filters.
-      indexes: [
-        { fields: ['timeslot', 'status'] },
-        { fields: ['tenant', 'timeslot', 'status'] },
-      ],
+      indexes: [{ fields: ['timeslot', 'status'] }, { fields: ['tenant', 'timeslot', 'status'] }],
       fields: ({ defaultFields }) => [
         ...defaultFields,
         {
@@ -688,7 +716,10 @@ export const plugins: Plugin[] = [
             { label: 'Course enrollment', value: 'course_enrollment' },
           ],
           required: false,
-          admin: { description: 'Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.' },
+          admin: {
+            description:
+              'Set by API when creating; used to create a booking-transaction. Hidden from normal create flow.',
+          },
         },
         {
           name: 'classPassIdUsed',
@@ -696,7 +727,8 @@ export const plugins: Plugin[] = [
           label: 'Class pass id (set at create)',
           required: false,
           admin: {
-            description: 'Set when paymentMethodUsed is class_pass; used to decrement the correct pass.',
+            description:
+              'Set when paymentMethodUsed is class_pass; used to decrement the correct pass.',
             condition: (_: unknown, sibling: { paymentMethodUsed?: string }) =>
               sibling?.paymentMethodUsed === 'class_pass',
           },
@@ -707,7 +739,8 @@ export const plugins: Plugin[] = [
           label: 'Subscription id (set at create)',
           required: false,
           admin: {
-            description: 'Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.',
+            description:
+              'Set when paymentMethodUsed is subscription; used to create a booking-transaction referencing the subscription.',
             condition: (_: unknown, sibling: { paymentMethodUsed?: string }) =>
               sibling?.paymentMethodUsed === 'subscription',
           },
@@ -732,16 +765,18 @@ export const plugins: Plugin[] = [
           // Auto-set tenant from timeslot for multi-tenant support
           async ({ req, data, operation }) => {
             if (operation === 'create' && data?.timeslot && !data?.tenant) {
-              const timeslotId = typeof data.timeslot === 'object' ? data.timeslot.id : data.timeslot
+              const timeslotId =
+                typeof data.timeslot === 'object' ? data.timeslot.id : data.timeslot
               const timeslot = await req.payload.findByID({
                 collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
                 id: timeslotId,
                 depth: 0,
               })
               if (timeslot?.tenant) {
-                const tenantId = typeof timeslot.tenant === 'object' && timeslot.tenant !== null
-                  ? timeslot.tenant.id
-                  : timeslot.tenant
+                const tenantId =
+                  typeof timeslot.tenant === 'object' && timeslot.tenant !== null
+                    ? timeslot.tenant.id
+                    : timeslot.tenant
                 if (tenantId) {
                   data.tenant = tenantId
                 }
@@ -792,11 +827,11 @@ export const plugins: Plugin[] = [
       },
       classPassesOverrides: {
         access: {
-          admin: productsRequireStripeConnectAdmin,
-          read: productsRequireStripeConnectRead,
-          create: productsRequireStripeConnectCreate,
-          update: productsRequireStripeConnectUpdate,
-          delete: productsRequireStripeConnectDelete,
+          admin: classPassPurchasesAdminAccess,
+          read: classPassPurchasesReadAccess,
+          create: classPassPurchasesCreateAccess,
+          update: classPassPurchasesUpdateAccess,
+          delete: classPassPurchasesDeleteAccess,
         },
       },
       classPassTypesOverrides: {
@@ -884,10 +919,7 @@ export const plugins: Plugin[] = [
         },
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
-          afterChange: [
-            ...(defaultHooks.afterChange ?? []),
-            triggerCourseEmailAfterChange,
-          ],
+          afterChange: [...(defaultHooks.afterChange ?? []), triggerCourseEmailAfterChange],
         }),
       },
     },
@@ -915,11 +947,7 @@ export const plugins: Plugin[] = [
       // Ensure the admin Stripe subscription picker lists from the tenant's connected account
       subscriptionsProxyScope: 'connect',
       syncStripeSubscriptions: false,
-      getSubscriptionBookingFeeCents: async ({
-        payload,
-        tenantId,
-        classPriceAmountCents,
-      }) => {
+      getSubscriptionBookingFeeCents: async ({ payload, tenantId, classPriceAmountCents }) => {
         return calculateBookingFeeAmount({
           payload,
           tenantId,
@@ -967,10 +995,7 @@ export const plugins: Plugin[] = [
           ] as Field[],
         hooks: ({ defaultHooks }) => ({
           ...defaultHooks,
-          beforeValidate: [
-            ...(defaultHooks.beforeValidate ?? []),
-            planBeforeValidateStripeConnect,
-          ],
+          beforeValidate: [...(defaultHooks.beforeValidate ?? []), planBeforeValidateStripeConnect],
           afterChange: [planAfterChangeSyncToStripe],
           beforeDelete: [planBeforeDeleteArchive],
         }),
@@ -992,7 +1017,8 @@ export const plugins: Plugin[] = [
               admin: {
                 position: 'sidebar',
                 components: {
-                  Field: '@/components/admin/CreateStripeSubscriptionButton#CreateStripeSubscriptionButton',
+                  Field:
+                    '@/components/admin/CreateStripeSubscriptionButton#CreateStripeSubscriptionButton',
                 },
               },
             },
@@ -1087,7 +1113,7 @@ export const plugins: Plugin[] = [
       'class-passes': {}, // Class passes; tenant-scoped
       courses: {}, // Course products; tenant-scoped
       'course-enrollments': {}, // Purchased course enrollments; tenant-scoped
-      'transactions': {}, // Payment records per booking (Stripe, class pass, subscription); tenant-scoped via plugin overrides
+      transactions: {}, // Payment records per booking (Stripe, class pass, subscription); tenant-scoped via plugin overrides
       'booking-checkout-holds': {}, // Ephemeral checkout capacity holds; tenant-scoped
       'drop-ins': {}, // Drop-in payment options; tenant-scoped
       plans: {}, // Membership plans (collection slug: plans); tenant-scoped
@@ -1171,8 +1197,7 @@ export const plugins: Plugin[] = [
     // keeping "no tenant" (base pages) effectively admin-only via the UI.
     // With per-tenant roles, admin/staff users no longer have global access — they are
     // scoped to their assigned tenants via tenants[n].roles. Only super-admin is truly global.
-    userHasAccessToAllTenants: (user) =>
-      checkRole(['super-admin'], user as SharedUser),
+    userHasAccessToAllTenants: (user) => checkRole(['super-admin'], user as SharedUser),
   }),
   // Filter out the scheduler global that bookingsPlugin adds (we use a collection instead)
   filterSchedulerGlobal,
