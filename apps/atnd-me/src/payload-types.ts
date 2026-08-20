@@ -80,16 +80,16 @@ export interface Config {
     verifications: Verification;
     tenants: Tenant;
     locations: Location;
-    'discount-codes': DiscountCode;
-    'drop-ins': DropIn;
-    'class-pass-types': ClassPassType;
-    courses: Course;
-    plans: Plan;
     'class-passes': ClassPass;
     'course-enrollments': CourseEnrollment;
     subscriptions: Subscription;
     transactions: Transaction;
     'booking-checkout-holds': BookingCheckoutHold;
+    'discount-codes': DiscountCode;
+    'drop-ins': DropIn;
+    'class-pass-types': ClassPassType;
+    courses: Course;
+    plans: Plan;
     pages: Page;
     posts: Post;
     navbar: Navbar;
@@ -140,16 +140,16 @@ export interface Config {
     verifications: VerificationsSelect<false> | VerificationsSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     locations: LocationsSelect<false> | LocationsSelect<true>;
-    'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
-    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
-    'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
-    courses: CoursesSelect<false> | CoursesSelect<true>;
-    plans: PlansSelect<false> | PlansSelect<true>;
     'class-passes': ClassPassesSelect<false> | ClassPassesSelect<true>;
     'course-enrollments': CourseEnrollmentsSelect<false> | CourseEnrollmentsSelect<true>;
     subscriptions: SubscriptionsSelect<false> | SubscriptionsSelect<true>;
     transactions: TransactionsSelect<false> | TransactionsSelect<true>;
     'booking-checkout-holds': BookingCheckoutHoldsSelect<false> | BookingCheckoutHoldsSelect<true>;
+    'discount-codes': DiscountCodesSelect<false> | DiscountCodesSelect<true>;
+    'drop-ins': DropInsSelect<false> | DropInsSelect<true>;
+    'class-pass-types': ClassPassTypesSelect<false> | ClassPassTypesSelect<true>;
+    courses: CoursesSelect<false> | CoursesSelect<true>;
+    plans: PlansSelect<false> | PlansSelect<true>;
     pages: PagesSelect<false> | PagesSelect<true>;
     posts: PostsSelect<false> | PostsSelect<true>;
     navbar: NavbarSelect<false> | NavbarSelect<true>;
@@ -3878,6 +3878,77 @@ export interface Verification {
   updatedAt: string;
 }
 /**
+ * Class passes / credits for drop-in classes
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-passes".
+ */
+export interface ClassPass {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  /**
+   * Owner of the class pass
+   */
+  user: number | User;
+  /**
+   * The type of pass (e.g. Fitness Only, Sauna Only)
+   */
+  type: number | ClassPassType;
+  /**
+   * Number of passes/credits remaining (original is on the pass type)
+   */
+  quantity: number;
+  /**
+   * Date when passes expire
+   */
+  expirationDate: string;
+  /**
+   * When the pass was purchased
+   */
+  purchasedAt: string;
+  /**
+   * External transaction id (e.g. Stripe payment intent id).
+   */
+  transactionId?: string | null;
+  status: 'active' | 'expired' | 'used' | 'cancelled';
+  /**
+   * Admin notes
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Temporary capacity reservations during checkout. Bookings are created only after payment succeeds.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-checkout-holds".
+ */
+export interface BookingCheckoutHold {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  user: number | User;
+  timeslot: number | Timeslot;
+  quantity: number;
+  expiresAt: string;
+  /**
+   * When the hold was first created; used for max lifetime cap.
+   */
+  firstUpsertedAt?: string | null;
+  status: 'active' | 'consumed' | 'expired' | 'released';
+  /**
+   * Client checkout attempt id. After release, upserts with the same id are ignored so late in-flight reserves cannot recreate capacity holds.
+   */
+  checkoutSessionId?: string | null;
+  stripePaymentIntentId?: string | null;
+  /**
+   * Set when hold expires without fulfillment (e.g. refund path).
+   */
+  failureReason?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * Promotion codes for customers (e.g. SUMMER20). Synced to Stripe on the tenant Connect account.
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3969,77 +4040,6 @@ export interface DiscountCode {
    */
   skipSync?: boolean | null;
   status: 'active' | 'archived';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Class passes / credits for drop-in classes
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-passes".
- */
-export interface ClassPass {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  /**
-   * Owner of the class pass
-   */
-  user: number | User;
-  /**
-   * The type of pass (e.g. Fitness Only, Sauna Only)
-   */
-  type: number | ClassPassType;
-  /**
-   * Number of passes/credits remaining (original is on the pass type)
-   */
-  quantity: number;
-  /**
-   * Date when passes expire
-   */
-  expirationDate: string;
-  /**
-   * When the pass was purchased
-   */
-  purchasedAt: string;
-  /**
-   * External transaction id (e.g. Stripe payment intent id).
-   */
-  transactionId?: string | null;
-  status: 'active' | 'expired' | 'used' | 'cancelled';
-  /**
-   * Admin notes
-   */
-  notes?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * Temporary capacity reservations during checkout. Bookings are created only after payment succeeds.
- *
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "booking-checkout-holds".
- */
-export interface BookingCheckoutHold {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  user: number | User;
-  timeslot: number | Timeslot;
-  quantity: number;
-  expiresAt: string;
-  /**
-   * When the hold was first created; used for max lifetime cap.
-   */
-  firstUpsertedAt?: string | null;
-  status: 'active' | 'consumed' | 'expired' | 'released';
-  /**
-   * Client checkout attempt id. After release, upserts with the same id are ignored so late in-flight reserves cannot recreate capacity holds.
-   */
-  checkoutSessionId?: string | null;
-  stripePaymentIntentId?: string | null;
-  /**
-   * Set when hold expires without fulfillment (e.g. refund path).
-   */
-  failureReason?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -4518,26 +4518,6 @@ export interface PayloadLockedDocument {
         value: number | Location;
       } | null)
     | ({
-        relationTo: 'discount-codes';
-        value: number | DiscountCode;
-      } | null)
-    | ({
-        relationTo: 'drop-ins';
-        value: number | DropIn;
-      } | null)
-    | ({
-        relationTo: 'class-pass-types';
-        value: number | ClassPassType;
-      } | null)
-    | ({
-        relationTo: 'courses';
-        value: number | Course;
-      } | null)
-    | ({
-        relationTo: 'plans';
-        value: number | Plan;
-      } | null)
-    | ({
         relationTo: 'class-passes';
         value: number | ClassPass;
       } | null)
@@ -4556,6 +4536,26 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'booking-checkout-holds';
         value: number | BookingCheckoutHold;
+      } | null)
+    | ({
+        relationTo: 'discount-codes';
+        value: number | DiscountCode;
+      } | null)
+    | ({
+        relationTo: 'drop-ins';
+        value: number | DropIn;
+      } | null)
+    | ({
+        relationTo: 'class-pass-types';
+        value: number | ClassPassType;
+      } | null)
+    | ({
+        relationTo: 'courses';
+        value: number | Course;
+      } | null)
+    | ({
+        relationTo: 'plans';
+        value: number | Plan;
       } | null)
     | ({
         relationTo: 'pages';
@@ -4978,6 +4978,94 @@ export interface LocationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "class-passes_select".
+ */
+export interface ClassPassesSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  type?: T;
+  quantity?: T;
+  expirationDate?: T;
+  purchasedAt?: T;
+  transactionId?: T;
+  status?: T;
+  notes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "course-enrollments_select".
+ */
+export interface CourseEnrollmentsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  course?: T;
+  status?: T;
+  purchasedAt?: T;
+  accessStartsAt?: T;
+  accessEndsAt?: T;
+  transactionId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "subscriptions_select".
+ */
+export interface SubscriptionsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  plan?: T;
+  status?: T;
+  startDate?: T;
+  endDate?: T;
+  cancelAt?: T;
+  stripeSubscriptionId?: T;
+  skipSync?: T;
+  stripeAccountId?: T;
+  stripeCustomerId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "transactions_select".
+ */
+export interface TransactionsSelect<T extends boolean = true> {
+  tenant?: T;
+  booking?: T;
+  paymentMethod?: T;
+  classPassId?: T;
+  stripePaymentIntentId?: T;
+  dropInId?: T;
+  subscriptionId?: T;
+  refundedAt?: T;
+  stripeRefundId?: T;
+  classPassRestoredAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "booking-checkout-holds_select".
+ */
+export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
+  tenant?: T;
+  user?: T;
+  timeslot?: T;
+  quantity?: T;
+  expiresAt?: T;
+  firstUpsertedAt?: T;
+  status?: T;
+  checkoutSessionId?: T;
+  stripePaymentIntentId?: T;
+  failureReason?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "discount-codes_select".
  */
 export interface DiscountCodesSelect<T extends boolean = true> {
@@ -5134,94 +5222,6 @@ export interface PlansSelect<T extends boolean = true> {
   skipSync?: T;
   deletedAt?: T;
   'event-typesPaymentMethods'?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "class-passes_select".
- */
-export interface ClassPassesSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  type?: T;
-  quantity?: T;
-  expirationDate?: T;
-  purchasedAt?: T;
-  transactionId?: T;
-  status?: T;
-  notes?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "course-enrollments_select".
- */
-export interface CourseEnrollmentsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  course?: T;
-  status?: T;
-  purchasedAt?: T;
-  accessStartsAt?: T;
-  accessEndsAt?: T;
-  transactionId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "subscriptions_select".
- */
-export interface SubscriptionsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  plan?: T;
-  status?: T;
-  startDate?: T;
-  endDate?: T;
-  cancelAt?: T;
-  stripeSubscriptionId?: T;
-  skipSync?: T;
-  stripeAccountId?: T;
-  stripeCustomerId?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "transactions_select".
- */
-export interface TransactionsSelect<T extends boolean = true> {
-  tenant?: T;
-  booking?: T;
-  paymentMethod?: T;
-  classPassId?: T;
-  stripePaymentIntentId?: T;
-  dropInId?: T;
-  subscriptionId?: T;
-  refundedAt?: T;
-  stripeRefundId?: T;
-  classPassRestoredAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "booking-checkout-holds_select".
- */
-export interface BookingCheckoutHoldsSelect<T extends boolean = true> {
-  tenant?: T;
-  user?: T;
-  timeslot?: T;
-  quantity?: T;
-  expiresAt?: T;
-  firstUpsertedAt?: T;
-  status?: T;
-  checkoutSessionId?: T;
-  stripePaymentIntentId?: T;
-  failureReason?: T;
   updatedAt?: T;
   createdAt?: T;
 }

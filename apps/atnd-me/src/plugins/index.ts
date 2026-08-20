@@ -79,6 +79,8 @@ import {
   bookingCreateAccessWithPaymentValidation,
   bookingUpdateAccessWithPaymentValidation,
 } from '../access/bookingAccess'
+import { bookingReadAccess } from '../access/bookingReadAccess'
+import { privateBillingReadAccess } from '../access/privateBillingReadAccess'
 import {
   isStaffOnlyUser,
   userTenantRead,
@@ -799,11 +801,9 @@ export const plugins: Plugin[] = [
       }),
       access: ({ defaultAccess }) => ({
         ...defaultAccess,
-        // Use tenantScopedPublicReadStrict so location-managers (who need booking counts
-        // in the timeslots admin view) get a tenant-scoped Where clause rather than false.
-        // tenantScopedReadFiltered is intentionally denied for pure location-managers, so
-        // bookings must use this stricter-but-inclusive function instead.
-        read: tenantScopedPublicReadStrict,
+        // Bookings are private. The timeslot endpoint enforces this access when
+        // returning booking records after authorizing the timeslot.
+        read: bookingReadAccess,
         create: bookingCreateAccessWithPaymentValidation, // Step 3: payment validation (Connect required when payments enabled)
         update: bookingUpdateAccessWithPaymentValidation,
       }),
@@ -819,7 +819,7 @@ export const plugins: Plugin[] = [
       bookingTransactionsOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,
-          read: productsRequireStripeConnectRead,
+          read: privateBillingReadAccess,
           create: productsRequireStripeConnectCreate,
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
@@ -912,7 +912,7 @@ export const plugins: Plugin[] = [
       courseEnrollmentsOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,
-          read: productsRequireStripeConnectRead,
+          read: privateBillingReadAccess,
           create: productsRequireStripeConnectCreate,
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
@@ -1003,7 +1003,7 @@ export const plugins: Plugin[] = [
       subscriptionOverrides: {
         access: {
           admin: productsRequireStripeConnectAdmin,
-          read: productsRequireStripeConnectRead,
+          read: privateBillingReadAccess,
           create: productsRequireStripeConnectCreate,
           update: productsRequireStripeConnectUpdate,
           delete: productsRequireStripeConnectDelete,
