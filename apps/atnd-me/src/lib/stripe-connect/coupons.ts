@@ -42,7 +42,8 @@ export async function createTenantCouponAndPromoCode(
   if (!accountId) throw new Error('Tenant Connect account id is missing')
 
   const isE2e =
-    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+    process.env.NODE_ENV !== 'production' &&
+    (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test')
   if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
     const suffix = Date.now()
     return { couponId: `coupon_test_${suffix}`, promotionCodeId: `promo_test_${suffix}` }
@@ -93,7 +94,8 @@ export async function deactivateTenantPromotionCode(
   if (!accountId) throw new Error('Tenant Connect account id is missing')
 
   const isE2e =
-    process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test'
+    process.env.NODE_ENV !== 'production' &&
+    (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test')
   if (isStripeTestAccount(accountId) || (isE2e && /^acct_[a-z_]+_\d+$/.test(accountId))) {
     return
   }

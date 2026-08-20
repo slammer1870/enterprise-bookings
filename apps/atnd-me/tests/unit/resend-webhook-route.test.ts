@@ -48,6 +48,24 @@ describe('POST /api/resend/webhook', () => {
     expect(res.status).toBe(400)
   })
 
+  it('never accepts the test signature in production', async () => {
+    process.env.NODE_ENV = 'production'
+    vi.resetModules()
+    const { POST } = await loadRoute({})
+
+    const req = new Request('http://localhost/api/resend/webhook', {
+      method: 'POST',
+      body: JSON.stringify({ type: 'domain.updated', data: { id: 'd1', status: 'verified' } }),
+      headers: {
+        'svix-id': '1',
+        'svix-timestamp': '1',
+        'svix-signature': 'test',
+      },
+    })
+    const res = await POST(req as any)
+    expect(res.status).toBe(400)
+  })
+
   it('promotes on domain.updated verified', async () => {
     const update = vi.fn(async () => ({}))
     const find = vi.fn(async () => ({ docs: [{ id: 7 }] }))

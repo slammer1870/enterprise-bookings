@@ -12,8 +12,11 @@ export interface Env {
 }
 
 function auth(req: Request, env: Env): boolean {
-  if (!env.R2_WORKER_SECRET) return true
-  return req.headers.get('X-R2-Auth') === env.R2_WORKER_SECRET
+  // The proxy is a privileged object-storage boundary. Missing configuration
+  // must fail closed instead of turning the Worker into a public bucket proxy.
+  const secret = env.R2_WORKER_SECRET?.trim()
+  if (!secret) return false
+  return req.headers.get('X-R2-Auth') === secret
 }
 
 function cors(): HeadersInit {
@@ -93,8 +96,9 @@ export default {
         return new Response(object.body, { status: 200, headers: objectHeaders(key, object) })
       }
       return new Response('Method Not Allowed', { status: 405, headers: cors() })
-    } catch (e) {
-      return new Response(String(e), { status: 500, headers: cors() })
+    } catch {
+      // Do not expose storage/provider errors or object details to callers.
+      return new Response('Internal Server Error', { status: 500, headers: cors() })
     }
   },
 }

@@ -35,6 +35,7 @@ export function verifyResendWebhook(
 
   // E2E / unit: allow a fixed test secret without real Svix signatures when enabled.
   if (
+    process.env.NODE_ENV !== 'production' &&
     (process.env.ENABLE_TEST_WEBHOOKS === 'true' || process.env.NODE_ENV === 'test') &&
     secret === 'test_resend_webhook_secret' &&
     signature === 'test'
