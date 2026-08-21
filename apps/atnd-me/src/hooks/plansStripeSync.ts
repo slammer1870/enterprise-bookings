@@ -92,10 +92,19 @@ export const planAfterChangeSyncToStripe: CollectionAfterChangeHook = async ({
       context: { ...req.context, skipStripeSync: true },
       req,
     })
+    if (data.status === 'inactive') {
+      await archiveTenantProduct(tenantLike, productId)
+    }
     return
   }
 
   if (operation === 'update' && stripeProductId) {
+    const previousStatus = (previousDoc as unknown as Record<string, unknown> | undefined)?.status
+    if (data.status === 'inactive' && previousStatus !== 'inactive') {
+      await archiveTenantProduct(tenantLike, stripeProductId)
+    } else if (data.status === 'active' && previousStatus === 'inactive') {
+      await updateTenantProduct({ tenant: tenantLike, productId: stripeProductId, active: true })
+    }
     if (data.name !== (previousDoc as unknown as Record<string, unknown>)?.name) {
       await updateTenantProduct({ tenant: tenantLike, productId: stripeProductId, name: String(data.name) })
     }
