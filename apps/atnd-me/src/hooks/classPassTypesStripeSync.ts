@@ -84,6 +84,9 @@ export const classPassTypeAfterChangeSyncToStripe: CollectionAfterChangeHook = a
       context: { ...req.context, skipStripeSync: true },
       req,
     })
+    if (data.status === 'inactive') {
+      await archiveTenantProduct(tenantLike, productId)
+    }
     return
   }
 
@@ -91,6 +94,12 @@ export const classPassTypeAfterChangeSyncToStripe: CollectionAfterChangeHook = a
     (data.stripeProductId as string | undefined) ??
     (typeof doc.id === 'number' ? await getStoredStripeProductId(req.payload, doc.id) : undefined)
   if (operation === 'update' && stripeProductId) {
+    const previousStatus = (previousDoc as Record<string, unknown> | undefined)?.status
+    if (data.status === 'inactive' && previousStatus !== 'inactive') {
+      await archiveTenantProduct(tenantLike, stripeProductId)
+    } else if (data.status === 'active' && previousStatus === 'inactive') {
+      await updateTenantProduct({ tenant: tenantLike, productId: stripeProductId, active: true })
+    }
     if (data.name !== (previousDoc as Record<string, unknown>)?.name) {
       await updateTenantProduct({ tenant: tenantLike, productId: stripeProductId, name: String(data.name) })
     }

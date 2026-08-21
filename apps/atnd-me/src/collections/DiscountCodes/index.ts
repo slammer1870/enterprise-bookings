@@ -12,7 +12,11 @@ import {
 } from '@/access/productsRequireStripeConnect'
 import { privateBillingReadAccess } from '@/access/privateBillingReadAccess'
 import { discountCodeBeforeValidateStripeConnect } from '@/hooks/requireTenantStripeConnectForPricedProducts'
-import { createTenantCouponAndPromoCode, deactivateTenantPromotionCode } from '@/lib/stripe-connect/coupons'
+import {
+  activateTenantPromotionCode,
+  createTenantCouponAndPromoCode,
+  deactivateTenantPromotionCode,
+} from '@/lib/stripe-connect/coupons'
 import { getTenantStripeContext, type TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
 
 const stripeImmutableFieldAccess = {
@@ -443,6 +447,11 @@ export const DiscountCodes: CollectionConfig = {
           const promoId = doc.stripePromotionCodeId ?? (previousDoc as Record<string, unknown>)?.stripePromotionCodeId
           if (promoId && typeof promoId === 'string') {
             await deactivateTenantPromotionCode(tenant, promoId)
+          }
+        } else if (operation === 'update' && doc.status === 'active' && previousDoc?.status === 'archived') {
+          const promoId = doc.stripePromotionCodeId ?? (previousDoc as Record<string, unknown>)?.stripePromotionCodeId
+          if (promoId && typeof promoId === 'string') {
+            await activateTenantPromotionCode(tenant, promoId)
           }
         }
       },

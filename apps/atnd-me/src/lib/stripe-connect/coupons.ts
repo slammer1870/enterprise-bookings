@@ -81,12 +81,10 @@ export async function createTenantCouponAndPromoCode(
   return { couponId: coupon.id, promotionCodeId: promo.id }
 }
 
-/**
- * Deactivate a Promotion Code on the tenant's Connect account.
- */
-export async function deactivateTenantPromotionCode(
+async function setTenantPromotionCodeActive(
   tenant: TenantStripeLike & { id?: number },
   promotionCodeId: string,
+  active: boolean,
 ): Promise<void> {
   requireTenantConnectAccount(tenant)
   const { accountId } = getTenantStripeContext(tenant)
@@ -101,7 +99,27 @@ export async function deactivateTenantPromotionCode(
   const stripe = getPlatformStripe()
   await stripe.promotionCodes.update(
     promotionCodeId,
-    { active: false },
+    { active },
     { stripeAccount: accountId },
   )
+}
+
+/**
+ * Deactivate a Promotion Code on the tenant's Connect account.
+ */
+export async function deactivateTenantPromotionCode(
+  tenant: TenantStripeLike & { id?: number },
+  promotionCodeId: string,
+): Promise<void> {
+  await setTenantPromotionCodeActive(tenant, promotionCodeId, false)
+}
+
+/**
+ * Reactivate a Promotion Code on the tenant's Connect account.
+ */
+export async function activateTenantPromotionCode(
+  tenant: TenantStripeLike & { id?: number },
+  promotionCodeId: string,
+): Promise<void> {
+  await setTenantPromotionCodeActive(tenant, promotionCodeId, true)
 }

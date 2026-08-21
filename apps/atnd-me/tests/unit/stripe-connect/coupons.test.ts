@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import {
+  activateTenantPromotionCode,
   createTenantCouponAndPromoCode,
   deactivateTenantPromotionCode,
 } from '@/lib/stripe-connect/coupons'
@@ -152,6 +153,18 @@ describe('stripe-connect/coupons', () => {
       expect(mockStripe.promotionCodes.update).toHaveBeenCalledWith(
         'promo_123',
         { active: false },
+        { stripeAccount: MOCK_ACCOUNT_ID },
+      )
+    })
+  })
+
+  describe('activateTenantPromotionCode', () => {
+    it('updates promotion code active to true with stripeAccount', async () => {
+      await activateTenantPromotionCode(tenant, 'promo_123')
+
+      expect(mockStripe.promotionCodes.update).toHaveBeenCalledWith(
+        'promo_123',
+        { active: true },
         { stripeAccount: MOCK_ACCOUNT_ID },
       )
     })
