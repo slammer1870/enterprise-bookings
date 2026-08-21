@@ -1330,6 +1330,25 @@ export const bookingsRouter = {
           : (timeslot.tenant as number | undefined) ?? null;
       if (timeslotTenantId == null) return [];
 
+      const activeAllowedTypeResult = await findSafe(
+        ctx.payload,
+        ctx.bookingsSlugs.classPassTypes,
+        {
+          where: {
+            id: { in: allowedTypeIds },
+            status: { equals: "active" },
+            tenant: { equals: timeslotTenantId },
+          },
+          limit: allowedTypeIds.length,
+          depth: 0,
+          overrideAccess: true,
+        },
+      );
+      const activeAllowedTypeIds = activeAllowedTypeResult.docs
+        .map((type) => type?.id)
+        .filter((id): id is number => typeof id === "number");
+      if (activeAllowedTypeIds.length === 0) return [];
+
       const now = new Date().toISOString();
       // Same `withTenantAccess` / empty session tenants issue as getPurchasableClassPassTypesForTimeslot.
       const result = await findSafe(
@@ -1339,7 +1358,7 @@ export const bookingsRouter = {
           where: {
             user: { equals: ctx.user.id },
             tenant: { equals: timeslotTenantId },
-            type: { in: allowedTypeIds },
+            type: { in: activeAllowedTypeIds },
             status: { equals: "active" },
             quantity: { greater_than: 0 },
             expirationDate: { greater_than: now },
