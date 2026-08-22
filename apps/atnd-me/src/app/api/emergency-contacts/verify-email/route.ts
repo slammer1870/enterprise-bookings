@@ -1,4 +1,3 @@
-import { headers } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { resolveTenantIdFromServerContext } from '@/access/tenant-scoped'
@@ -42,7 +41,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Auth is not configured.' }, { status: 500 })
       }
 
-      const requestHeaders = await headers()
+      const requestHeaders = request.headers
       const tenant = await getTenantContext(payload, { headers: requestHeaders })
       const redirectTo = sanitizeRedirectPath(body?.redirectTo)
       const callbackURL = buildAuthCallbackURL({
