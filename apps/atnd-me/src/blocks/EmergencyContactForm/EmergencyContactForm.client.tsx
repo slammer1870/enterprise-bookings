@@ -1,19 +1,16 @@
 'use client'
 
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { Button } from '@repo/ui/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import ClientRichText from '@/components/RichText/Client'
 import type { EmergencyContactPerson, EmergencyContactPersonType } from '@/lib/emergency-contacts/types'
+import type { EmergencyContactSessionUser } from '@/lib/emergency-contacts/resolve-session-user'
 
 type IntroData = Parameters<typeof ClientRichText>[0]['data']
-
-type VerifiedUser = {
-  id: number
-  email: string
-  name: string | null
-}
 
 function emptyContact() {
   return { name: '', phone: '', relationship: '' }
@@ -32,20 +29,37 @@ function emptyPerson(overrides?: Partial<EmergencyContactPerson>): EmergencyCont
 export type EmergencyContactFormClientProps = {
   heading?: string | null
   intro?: IntroData | null
+  sessionUser?: EmergencyContactSessionUser | null
+  initialPeople?: EmergencyContactPerson[] | null
 }
 
-export function EmergencyContactFormClient({ heading, intro }: EmergencyContactFormClientProps) {
-  const [email, setEmail] = useState('')
+export function EmergencyContactFormClient({
+  heading,
+  intro,
+  sessionUser = null,
+  initialPeople = null,
+}: EmergencyContactFormClientProps) {
+  const pathname = usePathname()
+  const isAuthenticated = Boolean(sessionUser)
+
+  const [email, setEmail] = useState(sessionUser?.email ?? '')
   const [verifyError, setVerifyError] = useState<string | null>(null)
+  const [requiresAuth, setRequiresAuth] = useState(false)
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [token, setToken] = useState<string | null>(null)
-  const [verifiedUser, setVerifiedUser] = useState<VerifiedUser | null>(null)
-  const [people, setPeople] = useState<EmergencyContactPerson[]>([emptyPerson()])
+  const [verifiedUser, setVerifiedUser] = useState<EmergencyContactSessionUser | null>(
+    sessionUser,
+  )
+  const [people, setPeople] = useState<EmergencyContactPerson[]>(
+    initialPeople?.length ? initialPeople : [emptyPerson()],
+  )
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [saveLoading, setSaveLoading] = useState(false)
 
-  const unlocked = Boolean(token && verifiedUser)
+  const unlocked = isAuthenticated || Boolean(token && verifiedUser)
+
+  const signInHref = `/auth/sign-in?redirectTo=${encodeURIComponent(pathname || '/')}`
 
   const title = useMemo(
     () => (typeof heading === 'string' && heading.trim() ? heading.trim() : 'Emergency contacts'),
@@ -55,6 +69,7 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
     setVerifyError(null)
+    setRequiresAuth(false)
     setSaveSuccess(false)
     setVerifyLoading(true)
     try {
@@ -67,6 +82,7 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
         setVerifyError(typeof data.error === 'string' ? data.error : 'Unable to verify email.')
+        setRequiresAuth(data.requiresAuth === true)
         setToken(null)
         setVerifiedUser(null)
         return
@@ -74,18 +90,12 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
 
       setToken(typeof data.token === 'string' ? data.token : null)
       setVerifiedUser(data.user ?? null)
-
-      const existingPeople = data.existing?.people
-      if (Array.isArray(existingPeople) && existingPeople.length > 0) {
-        setPeople(existingPeople as EmergencyContactPerson[])
-      } else {
-        setPeople([
-          emptyPerson({
-            fullName: typeof data.user?.name === 'string' ? data.user.name : '',
-            personType: 'self',
-          }),
-        ])
-      }
+      setPeople([
+        emptyPerson({
+          fullName: typeof data.user?.name === 'string' ? data.user.name : '',
+          personType: 'self',
+        }),
+      ])
     } catch {
       setVerifyError('Unable to verify email.')
       setToken(null)
@@ -117,7 +127,7 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!token) return
+    if (!isAuthenticated && !token) return
     setSaveError(null)
     setSaveSuccess(false)
     setSaveLoading(true)
@@ -126,7 +136,10 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ token, people }),
+        body: JSON.stringify({
+          ...(token ? { token } : {}),
+          people,
+        }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) {
@@ -148,35 +161,53 @@ export function EmergencyContactFormClient({ heading, intro }: EmergencyContactF
         {intro ? <ClientRichText data={intro} enableGutter={false} /> : null}
       </div>
 
-      <form onSubmit={handleVerify} className="space-y-4 rounded-lg border p-4">
-        <div className="space-y-2">
-          <Label htmlFor="emergency-contact-email">Your account email</Label>
-          <Input
-            id="emergency-contact-email"
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            disabled={verifyLoading}
-          />
+      {isAuthenticated ? (
+        <div className="space-y-2 rounded-lg border p-4">
+          <p className="text-sm font-medium">Signed in as {sessionUser?.email}</p>
+          {sessionUser?.name ? (
+            <p className="text-sm text-muted-foreground">{sessionUser.name}</p>
+          ) : null}
           <p className="text-sm text-muted-foreground">
-            Enter the email on your booking account. Contact details unlock after we confirm it
-            exists.
+            Your saved emergency contacts are shown below. Update them and save when you are done.
           </p>
         </div>
-        {verifyError ? <p className="text-sm text-destructive">{verifyError}</p> : null}
-        {verifiedUser ? (
-          <p className="text-sm text-muted-foreground">
-            Verified: {verifiedUser.email}
-            {verifiedUser.name ? ` (${verifiedUser.name})` : ''}
-          </p>
-        ) : null}
-        <Button type="submit" disabled={verifyLoading}>
-          {verifyLoading ? 'Checking…' : unlocked ? 'Re-check email' : 'Continue'}
-        </Button>
-      </form>
+      ) : (
+        <form onSubmit={handleVerify} className="space-y-4 rounded-lg border p-4">
+          <div className="space-y-2">
+            <Label htmlFor="emergency-contact-email">Your account email</Label>
+            <Input
+              id="emergency-contact-email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@example.com"
+              disabled={verifyLoading}
+            />
+            <p className="text-sm text-muted-foreground">
+              Enter the email on your booking account. If you have not submitted emergency contacts
+              yet, you can continue after we confirm your email. If you already have contacts on
+              file, you will need to sign in.
+            </p>
+          </div>
+          {verifyError ? <p className="text-sm text-destructive">{verifyError}</p> : null}
+          {requiresAuth ? (
+            <Button asChild>
+              <Link href={signInHref}>Sign in to view your emergency contacts</Link>
+            </Button>
+          ) : null}
+          {verifiedUser ? (
+            <p className="text-sm text-muted-foreground">
+              Verified: {verifiedUser.email}
+              {verifiedUser.name ? ` (${verifiedUser.name})` : ''}
+            </p>
+          ) : null}
+          <Button type="submit" disabled={verifyLoading}>
+            {verifyLoading ? 'Checking…' : unlocked ? 'Re-check email' : 'Continue'}
+          </Button>
+        </form>
+      )}
 
       {unlocked ? (
         <form onSubmit={handleSave} className="space-y-6">

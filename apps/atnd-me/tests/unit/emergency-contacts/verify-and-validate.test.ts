@@ -4,6 +4,11 @@ import {
   verifyEmergencyContactToken,
 } from '@/lib/emergency-contacts/verify-token'
 import { normalizePeopleInput } from '@/lib/emergency-contacts/validate-people'
+import { hasEmergencyContactOnFile } from '@/lib/emergency-contacts/lookup'
+import {
+  initialPeopleForSession,
+  parseEmergencyContactSessionUser,
+} from '@/lib/emergency-contacts/resolve-session-user'
 
 describe('emergency contact verify token', () => {
   it('round-trips a valid token', () => {
@@ -45,5 +50,70 @@ describe('normalizePeopleInput', () => {
     expect(
       normalizePeopleInput([{ fullName: 'Emma', personType: 'child', contacts: [] }]).error,
     ).toMatch(/at least one emergency contact/i)
+  })
+})
+
+describe('hasEmergencyContactOnFile', () => {
+  it('returns true when a record exists', () => {
+    expect(
+      hasEmergencyContactOnFile({
+        id: 1,
+        userId: 2,
+        status: 'complete',
+        people: [],
+      }),
+    ).toBe(true)
+  })
+
+  it('returns false when no record exists', () => {
+    expect(hasEmergencyContactOnFile(null)).toBe(false)
+  })
+})
+
+describe('parseEmergencyContactSessionUser', () => {
+  it('parses a valid session user', () => {
+    expect(
+      parseEmergencyContactSessionUser({
+        id: 12,
+        email: 'Parent@Example.com',
+        name: 'Parent',
+      }),
+    ).toEqual({
+      id: 12,
+      email: 'parent@example.com',
+      name: 'Parent',
+    })
+  })
+
+  it('rejects invalid users', () => {
+    expect(parseEmergencyContactSessionUser(null)).toBeNull()
+    expect(parseEmergencyContactSessionUser({ id: 1 })).toBeNull()
+  })
+})
+
+describe('initialPeopleForSession', () => {
+  it('returns existing people when present', () => {
+    const people = initialPeopleForSession(
+      {
+        id: 1,
+        userId: 2,
+        status: 'complete',
+        people: [
+          {
+            fullName: 'Emma',
+            personType: 'child',
+            contacts: [{ name: 'Dad', phone: '123', relationship: 'father' }],
+          },
+        ],
+      },
+      'Parent',
+    )
+    expect(people[0]?.fullName).toBe('Emma')
+  })
+
+  it('returns a blank self person when no record exists', () => {
+    const people = initialPeopleForSession(null, 'Parent')
+    expect(people[0]?.fullName).toBe('Parent')
+    expect(people[0]?.personType).toBe('self')
   })
 })
