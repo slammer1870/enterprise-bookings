@@ -6,6 +6,10 @@ import {
 import { normalizePeopleInput } from '@/lib/emergency-contacts/validate-people'
 import { hasEmergencyContactOnFile } from '@/lib/emergency-contacts/lookup'
 import {
+  buildAuthCallbackURL,
+  sanitizeRedirectPath,
+} from '@/lib/emergency-contacts/auth-redirect'
+import {
   initialPeopleForSession,
   parseEmergencyContactSessionUser,
 } from '@/lib/emergency-contacts/resolve-session-user'
@@ -50,6 +54,36 @@ describe('normalizePeopleInput', () => {
     expect(
       normalizePeopleInput([{ fullName: 'Emma', personType: 'child', contacts: [] }]).error,
     ).toMatch(/at least one emergency contact/i)
+  })
+})
+
+describe('sanitizeRedirectPath', () => {
+  it('accepts safe relative paths', () => {
+    expect(sanitizeRedirectPath('/emergency-contacts')).toBe('/emergency-contacts')
+  })
+
+  it('rejects open redirects', () => {
+    expect(sanitizeRedirectPath('https://evil.example')).toBe('/')
+    expect(sanitizeRedirectPath('//evil.example')).toBe('/')
+  })
+})
+
+describe('buildAuthCallbackURL', () => {
+  it('builds a tenant-scoped callback URL from request origin when no tenant slug', () => {
+    const url = buildAuthCallbackURL({
+      redirectTo: '/emergency-contacts',
+      headers: new Headers({ host: 'acme.atnd-me.com', 'x-forwarded-proto': 'https' }),
+    })
+    expect(url).toBe('https://acme.atnd-me.com/emergency-contacts')
+  })
+
+  it('builds a tenant subdomain callback URL when slug is provided', () => {
+    const url = buildAuthCallbackURL({
+      redirectTo: '/emergency-contacts',
+      tenant: { slug: 'acme', domain: 'studio.example.com' },
+      headers: new Headers({ host: 'ignored.example.com', 'x-forwarded-proto': 'https' }),
+    })
+    expect(url).toBe('https://studio.example.com/emergency-contacts')
   })
 })
 

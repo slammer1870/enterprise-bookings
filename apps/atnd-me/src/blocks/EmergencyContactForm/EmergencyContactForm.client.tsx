@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 import { Button } from '@repo/ui/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,11 +39,11 @@ export function EmergencyContactFormClient({
   initialPeople = null,
 }: EmergencyContactFormClientProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const isAuthenticated = Boolean(sessionUser)
 
   const [email, setEmail] = useState(sessionUser?.email ?? '')
   const [verifyError, setVerifyError] = useState<string | null>(null)
-  const [requiresAuth, setRequiresAuth] = useState(false)
   const [verifyLoading, setVerifyLoading] = useState(false)
   const [token, setToken] = useState<string | null>(null)
   const [verifiedUser, setVerifiedUser] = useState<EmergencyContactSessionUser | null>(
@@ -59,8 +58,6 @@ export function EmergencyContactFormClient({
 
   const unlocked = isAuthenticated || Boolean(token && verifiedUser)
 
-  const signInHref = `/auth/sign-in?redirectTo=${encodeURIComponent(pathname || '/')}`
-
   const title = useMemo(
     () => (typeof heading === 'string' && heading.trim() ? heading.trim() : 'Emergency contacts'),
     [heading],
@@ -69,7 +66,6 @@ export function EmergencyContactFormClient({
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault()
     setVerifyError(null)
-    setRequiresAuth(false)
     setSaveSuccess(false)
     setVerifyLoading(true)
     try {
@@ -77,12 +73,15 @@ export function EmergencyContactFormClient({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, redirectTo: pathname || '/' }),
       })
       const data = await res.json().catch(() => ({}))
+      if (data.magicLinkSent === true) {
+        router.push('/magic-link-sent')
+        return
+      }
       if (!res.ok) {
         setVerifyError(typeof data.error === 'string' ? data.error : 'Unable to verify email.')
-        setRequiresAuth(data.requiresAuth === true)
         setToken(null)
         setVerifiedUser(null)
         return
@@ -188,15 +187,10 @@ export function EmergencyContactFormClient({
             <p className="text-sm text-muted-foreground">
               Enter the email on your booking account. If you have not submitted emergency contacts
               yet, you can continue after we confirm your email. If you already have contacts on
-              file, you will need to sign in.
+              file, we will email you a magic link to sign in.
             </p>
           </div>
           {verifyError ? <p className="text-sm text-destructive">{verifyError}</p> : null}
-          {requiresAuth ? (
-            <Button asChild>
-              <Link href={signInHref}>Sign in to view your emergency contacts</Link>
-            </Button>
-          ) : null}
           {verifiedUser ? (
             <p className="text-sm text-muted-foreground">
               Verified: {verifiedUser.email}
