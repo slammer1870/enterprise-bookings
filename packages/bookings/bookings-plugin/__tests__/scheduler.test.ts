@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TZDate } from "@date-fns/tz";
 
 import { generateTimeslotsFromSchedule } from "../src/tasks/generate-timeslots";
+import { resolveTimeslotLockOutTime } from "../src/tasks/create-generate-timeslots-handler";
 
 describe("Scheduler tests", () => {
   // Production runs in UTC (or a non-Dublin server timezone). Force UTC here so
@@ -12,6 +13,11 @@ describe("Scheduler tests", () => {
   });
   afterAll(() => {
     process.env.TZ = ORIGINAL_TZ;
+  });
+
+  it("keeps an explicit zero lockout override instead of falling back to the scheduler default", () => {
+    expect(resolveTimeslotLockOutTime(0, 60)).toBe(0);
+    expect(resolveTimeslotLockOutTime(undefined, 60)).toBe(60);
   });
 
   it("does not shift Monday-only schedules to Sunday across Dublin DST start (startDate=Mar 29)", async () => {

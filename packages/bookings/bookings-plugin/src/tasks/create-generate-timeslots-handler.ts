@@ -40,6 +40,17 @@ function resolveBookingTimeslotId(booking: Record<string, unknown>): number | nu
   );
 }
 
+export function resolveTimeslotLockOutTime(
+  slotOverride: unknown,
+  schedulerDefault: unknown,
+): number {
+  const override =
+    slotOverride !== null && slotOverride !== undefined && slotOverride !== ""
+      ? Number(slotOverride)
+      : Number(schedulerDefault);
+  return Number.isFinite(override) ? override : 0;
+}
+
 /**
  * Stable dedupe key for timeslots in a tenant timezone.
  * Uses wall-clock start/end + location + event type + staff member so migrated ISO
@@ -261,6 +272,71 @@ async function createTimeslotsInBatches(args: {
     if (onBatchComplete) {
       await onBatchComplete(created, records.length);
     }
+  }
+}
+
+async function updateExistingTimeslotLockOuts(args: {
+  payload: Payload;
+  req: PayloadRequest;
+  timeslotsSlug: CollectionSlug;
+  plannedTimeslots: Array<{
+    dedupeKey: string;
+    data: Record<string, unknown>;
+  }>;
+  existingTimeslotsByKey: Map<
+    string,
+    {
+      id: number;
+      lockOutTime?: unknown;
+      originalLockOutTime?: unknown;
+    }
+  >;
+}): Promise<void> {
+  const {
+    payload,
+    req,
+    timeslotsSlug,
+    plannedTimeslots,
+    existingTimeslotsByKey,
+  } = args;
+
+  for (const planned of plannedTimeslots) {
+    const existing = existingTimeslotsByKey.get(planned.dedupeKey);
+    if (!existing) continue;
+
+    const desiredLockOutTime = planned.data.lockOutTime;
+    const currentLockOutTime = Number(existing.lockOutTime);
+    const originalLockOutTime = Number(existing.originalLockOutTime);
+    const data: Record<string, unknown> = {
+      originalLockOutTime: desiredLockOutTime,
+    };
+
+    // A confirmed booking temporarily sets lockOutTime to zero. Preserve that
+    // state while updating originalLockOutTime so cancellation restores the new
+    // scheduler value.
+    if (
+      !Number.isFinite(currentLockOutTime) ||
+      !Number.isFinite(originalLockOutTime) ||
+      currentLockOutTime === originalLockOutTime
+    ) {
+      data.lockOutTime = desiredLockOutTime;
+    }
+
+    if (
+      data.lockOutTime === existing.lockOutTime &&
+      data.originalLockOutTime === existing.originalLockOutTime
+    ) {
+      continue;
+    }
+
+    await payload.update({
+      collection: timeslotsSlug,
+      id: existing.id,
+      data: data as any,
+      context: { triggerAfterChange: false },
+      overrideAccess: true,
+      req,
+    });
   }
 }
 
@@ -513,6 +589,14 @@ export function createGenerateTimeslotsFromScheduleHandler(
 
     const plannedTimeslotKeys = new Set<string>();
     const plannedTimeslots: PlannedTimeslot[] = [];
+    const existingTimeslotsByKey = new Map<
+      string,
+      {
+        id: number;
+        lockOutTime?: unknown;
+        originalLockOutTime?: unknown;
+      }
+    >();
 
     // IMPORTANT: Keep `currentDate` as a timezone-aware date.
     // Converting to a plain `Date` and then reading Y/M/D via getters will use the
@@ -637,7 +721,10 @@ export function createGenerateTimeslotsFromScheduleHandler(
           timeZone
         );
 
-        const lockOut = Number(timeSlot.lockOutTime) || Number(lockOutTime);
+        const lockOut = resolveTimeslotLockOutTime(
+          timeSlot.lockOutTime,
+          lockOutTime,
+        );
         const timeslotData: Record<string, unknown> = {
           date: timeslotDate.toISOString(),
           startTime: startIso,
@@ -705,6 +792,8 @@ export function createGenerateTimeslotsFromScheduleHandler(
           location?: unknown;
           eventType?: unknown;
           staffMember?: unknown;
+          lockOutTime?: unknown;
+          originalLockOutTime?: unknown;
         }>({
           payload,
           req,
@@ -717,6 +806,8 @@ export function createGenerateTimeslotsFromScheduleHandler(
             location: true,
             eventType: true,
             staffMember: true,
+            lockOutTime: true,
+            originalLockOutTime: true,
           },
         });
 
@@ -738,6 +829,11 @@ export function createGenerateTimeslotsFromScheduleHandler(
 
           if (plannedTimeslotKeys.has(key)) {
             existingPlannedTimeslotKeys.add(key);
+            existingTimeslotsByKey.set(key, {
+              id: existingId,
+              lockOutTime: doc.lockOutTime,
+              originalLockOutTime: doc.originalLockOutTime,
+            });
           } else {
             candidateDeleteIds.push(existingId);
           }
@@ -839,7 +935,67 @@ export function createGenerateTimeslotsFromScheduleHandler(
       existingPlannedTimeslotKeys = new Set(
         [...existingTimeslotKeys].filter((k) => plannedTimeslotKeys.has(k)),
       );
+
+      const existingTimeslotDocs = await paginateTimeslotsInRange<{
+        id?: unknown;
+        startTime?: string;
+        endTime?: string;
+        location?: unknown;
+        eventType?: unknown;
+        staffMember?: unknown;
+        lockOutTime?: unknown;
+        originalLockOutTime?: unknown;
+      }>({
+        payload,
+        req,
+        timeslotsSlug,
+        whereConditions: buildTimeslotRangeWhereConditions({
+          rangeStart: start,
+          rangeEnd: end,
+          tenantId: hasTenantContext ? numericTenantId : null,
+          branchId: resolvedBranchId,
+          includeLegacyNullBranch,
+        }),
+        select: {
+          id: true,
+          startTime: true,
+          endTime: true,
+          location: true,
+          eventType: true,
+          staffMember: true,
+          lockOutTime: true,
+          originalLockOutTime: true,
+        },
+      });
+
+      for (const doc of existingTimeslotDocs) {
+        const existingId = toId(doc.id);
+        if (existingId == null || !doc.startTime || !doc.endTime) continue;
+        const key = existingTimeslotKey(
+          doc.startTime,
+          doc.endTime,
+          doc.location,
+          toId(doc.eventType),
+          toId(doc.staffMember),
+          timeZone,
+        );
+        if (plannedTimeslotKeys.has(key)) {
+          existingTimeslotsByKey.set(key, {
+            id: existingId,
+            lockOutTime: doc.lockOutTime,
+            originalLockOutTime: doc.originalLockOutTime,
+          });
+        }
+      }
     }
+
+    await updateExistingTimeslotLockOuts({
+      payload,
+      req,
+      timeslotsSlug,
+      plannedTimeslots,
+      existingTimeslotsByKey,
+    });
 
     const recordsToCreate = plannedTimeslots
       .filter((planned) => {
