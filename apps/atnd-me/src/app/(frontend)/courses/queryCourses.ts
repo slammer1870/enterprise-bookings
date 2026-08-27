@@ -2,7 +2,9 @@ import { cache } from 'react'
 import { cookies, headers } from 'next/headers'
 import { getPayload } from '@/lib/payload'
 import { getTenantContext } from '@/utilities/getTenantContext'
+import { getCheckoutLegalForTenant } from '@/lib/checkout/getCheckoutLegalForTenant'
 import type { CourseDetailDoc } from '@/components/courses/CourseDetailView'
+import type { CheckoutLegalConfig } from '@repo/payments-next'
 
 export type OpenCourseListItem = CourseDetailDoc & {
   activeEnrollmentCount: number
@@ -57,7 +59,11 @@ export const queryOpenCourses = cache(async (): Promise<OpenCourseListItem[]> =>
 export const queryCourseBySlug = cache(
   async (
     slug: string,
-  ): Promise<{ course: CourseDetailDoc; activeEnrollmentCount: number } | null> => {
+  ): Promise<{
+    course: CourseDetailDoc
+    activeEnrollmentCount: number
+    checkoutLegal: CheckoutLegalConfig | null
+  } | null> => {
     const cookieStore = await cookies()
     const headersList = await headers()
     const payload = await getPayload()
@@ -96,6 +102,12 @@ export const queryCourseBySlug = cache(
       overrideAccess: true,
     })
 
-    return { course, activeEnrollmentCount: enrollments.totalDocs ?? 0 }
+    const checkoutLegal = await getCheckoutLegalForTenant(tenantId)
+
+    return {
+      course,
+      activeEnrollmentCount: enrollments.totalDocs ?? 0,
+      checkoutLegal,
+    }
   },
 )

@@ -18,6 +18,7 @@ export default async function CourseDetailPage({ params }: PageProps) {
       <CourseDetailView
         course={result.course}
         activeEnrollmentCount={result.activeEnrollmentCount}
+        checkoutLegal={result.checkoutLegal}
       />
     </div>
   )
