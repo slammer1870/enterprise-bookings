@@ -7,6 +7,7 @@ import { coursePlacesLabel } from '@/components/courses/coursePlacesLabel'
 import { formatCourseAccessWindowCopy } from '@/lib/courses/format-course-access-window'
 import { mediaUrl } from '@/components/events/eventPageTypes'
 import type { Media } from '@/payload-types'
+import type { CheckoutLegalConfig } from '@repo/payments-next'
 
 export type CourseDetailDoc = {
   id: number
@@ -27,11 +28,13 @@ export type CourseDetailDoc = {
 type CourseDetailViewProps = {
   course: CourseDetailDoc
   activeEnrollmentCount?: number
+  checkoutLegal?: CheckoutLegalConfig | null
 }
 
 export async function CourseDetailView({
   course,
   activeEnrollmentCount = 0,
+  checkoutLegal,
 }: CourseDetailViewProps) {
   const user = await currentUser()
   const isAuthenticated = Boolean(user?.id)
@@ -109,6 +112,7 @@ export async function CourseDetailView({
             isAuthenticated={isAuthenticated}
             isOpen={isOpen}
             accessWindowLabel={accessWindowLabel}
+            checkoutLegal={checkoutLegal}
             successUrl="/success"
           />
         </div>

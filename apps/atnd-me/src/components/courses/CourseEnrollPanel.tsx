@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { CheckoutForm } from '@repo/payments-next'
+import { CheckoutForm, CheckoutLegalAcceptance, type CheckoutLegalConfig } from '@repo/payments-next'
 import { BookingFeeBreakdown } from '@/components/booking/BookingFeeBreakdown'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +16,7 @@ type CourseEnrollPanelProps = {
   isAuthenticated: boolean
   isOpen: boolean
   accessWindowLabel: string | null
+  checkoutLegal?: CheckoutLegalConfig | null
   successUrl?: string
 }
 
@@ -26,6 +27,7 @@ export function CourseEnrollPanel({
   isAuthenticated,
   isOpen,
   accessWindowLabel,
+  checkoutLegal,
   successUrl = '/success',
 }: CourseEnrollPanelProps) {
   const [guestName, setGuestName] = useState('')
@@ -181,6 +183,12 @@ export function CourseEnrollPanel({
             returnUrl={successUrl}
             metadata={{ courseId: String(courseId) }}
           />
+          {checkoutLegal ? (
+            <CheckoutLegalAcceptance
+              config={checkoutLegal}
+              agreementPrefix="By enrolling in this course, you agree to our"
+            />
+          ) : null}
         </div>
       ) : (
         <div className="mt-4 space-y-4">
@@ -225,17 +233,25 @@ export function CourseEnrollPanel({
           </form>
 
           {settledGuest ? (
-            <CheckoutForm
-              price={price}
-              priceComponent={priceComponent}
-              createPaymentIntentUrl="/api/courses/guest-checkout"
-              returnUrl={successUrl}
-              metadata={{
-                courseId: String(courseId),
-                guestName: settledGuest.name,
-                guestEmail: settledGuest.email,
-              }}
-            />
+            <>
+              <CheckoutForm
+                price={price}
+                priceComponent={priceComponent}
+                createPaymentIntentUrl="/api/courses/guest-checkout"
+                returnUrl={successUrl}
+                metadata={{
+                  courseId: String(courseId),
+                  guestName: settledGuest.name,
+                  guestEmail: settledGuest.email,
+                }}
+              />
+              {checkoutLegal ? (
+                <CheckoutLegalAcceptance
+                  config={checkoutLegal}
+                  agreementPrefix="By enrolling in this course, you agree to our"
+                />
+              ) : null}
+            </>
           ) : (
             <p className="text-sm text-muted-foreground">
               Enter your details, then continue when your email is complete.
