@@ -173,6 +173,7 @@ import * as migration_20260808_000001_staff_members_to_users from './20260808_00
 import * as migration_20260808_000002_pages_rels_tenant_scoped_schedule_tenants from './20260808_000002_pages_rels_tenant_scoped_schedule_tenants';
 import * as migration_20260811_000001_tenants_refund_policy from './20260811_000001_tenants_refund_policy';
 import * as migration_20260812_000001_courses_footer_richtext from './20260812_000001_courses_footer_richtext';
+import * as migration_20260901_000001_bookings_course_enrollment_payment_method from './20260901_000001_bookings_course_enrollment_payment_method';
 import * as migration_20260721_000001_marketing_hero_show_username_claim from './20260721_000001_marketing_hero_show_username_claim';
 import * as migration_20260721_000002_hero_sched_display_heading from './20260721_000002_hero_sched_display_heading';
 import * as migration_20260721_000003_tenants_onboarding_site_viewed from './20260721_000003_tenants_onboarding_site_viewed';
@@ -1097,5 +1098,10 @@ export const migrations = [
     up: migration_20260812_000001_courses_footer_richtext.up,
     down: migration_20260812_000001_courses_footer_richtext.down,
     name: '20260812_000001_courses_footer_richtext',
+  },
+  {
+    up: migration_20260901_000001_bookings_course_enrollment_payment_method.up,
+    down: migration_20260901_000001_bookings_course_enrollment_payment_method.down,
+    name: '20260901_000001_bookings_course_enrollment_payment_method',
   },
 ];
