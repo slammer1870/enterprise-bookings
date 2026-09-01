@@ -149,6 +149,7 @@ async function maybeTriggerSingleCourseEmail({
             id: delivery.id,
             data: { status: 'sent', sentAt: new Date().toISOString() },
             overrideAccess: true,
+            req,
           })
         } catch (err) {
           req.payload.logger?.error?.(
@@ -161,6 +162,7 @@ async function maybeTriggerSingleCourseEmail({
               collection: COURSE_EMAIL_DELIVERIES_SLUG,
               id: delivery.id,
               overrideAccess: true,
+              req,
             })
             .catch(() => {})
         }
@@ -238,8 +240,7 @@ export const triggerCourseEmailAfterChange: CollectionAfterChangeHook = async ({
   const userId = relationId(doc.user)
   const courseId = relationId(doc.course)
   const tenantId = relationId(doc.tenant)
-  const accessStartsAt =
-    typeof doc.accessStartsAt === 'string' ? doc.accessStartsAt : null
+  const accessStartsAt = typeof doc.accessStartsAt === 'string' ? doc.accessStartsAt : null
   const accessEndsAt = typeof doc.accessEndsAt === 'string' ? doc.accessEndsAt : null
 
   if (
@@ -259,11 +260,14 @@ export const triggerCourseEmailAfterChange: CollectionAfterChangeHook = async ({
       id: courseId,
       depth: 0,
       overrideAccess: true,
+      req,
     })
     .catch(() => null)
 
   const configs = resolveActiveCourseEmailConfigs(
-    course as { courseEmails?: Parameters<typeof resolveActiveCourseEmailConfigs>[0]['courseEmails'] },
+    course as {
+      courseEmails?: Parameters<typeof resolveActiveCourseEmailConfigs>[0]['courseEmails']
+    },
   )
   if (configs.length === 0) return doc
 
@@ -273,6 +277,7 @@ export const triggerCourseEmailAfterChange: CollectionAfterChangeHook = async ({
       id: tenantId,
       depth: 0,
       overrideAccess: true,
+      req,
     })
     .catch(() => null)
   const timeZone = resolveTimeZone(
@@ -287,6 +292,7 @@ export const triggerCourseEmailAfterChange: CollectionAfterChangeHook = async ({
       id: userId,
       depth: 0,
       overrideAccess: true,
+      req,
     })
     .catch(() => null)
 

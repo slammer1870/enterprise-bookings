@@ -677,6 +677,13 @@ export const timeslotsRouter = {
                         p && typeof p === "object" ? sanitizePlan(p) : relationId(p)
                       )
                     : [],
+                  allowedCourses: Array.isArray(pm.allowedCourses)
+                    ? pm.allowedCourses.map((course: any) =>
+                        course && typeof course === "object"
+                          ? { id: relationId(course.id), title: course.title ?? null }
+                          : relationId(course)
+                      )
+                    : [],
                 }
               : undefined,
           };
@@ -916,8 +923,8 @@ export const timeslotsRouter = {
             Array.isArray(eventType?.paymentMethods?.allowedCourses) &&
             eventType.paymentMethods.allowedCourses.length > 0
           ) {
-            // Course enrollments have no per-timeslot credit cap in v1.
-            caps.push(Infinity)
+            // An enrollment covers one booking per person per timeslot.
+            caps.push(1)
           }
 
           // If there are no payment methods, the flow is "no payment" and multi-booking is allowed

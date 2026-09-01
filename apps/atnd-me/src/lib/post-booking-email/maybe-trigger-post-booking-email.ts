@@ -169,7 +169,9 @@ async function maybeTriggerSinglePostBookingEmail({
       depth: 1,
       overrideAccess: true,
     })
-    const timeZone = resolveTimeslotTimeZone(timeslot as Parameters<typeof resolveTimeslotTimeZone>[0])
+    const timeZone = resolveTimeslotTimeZone(
+      timeslot as Parameters<typeof resolveTimeslotTimeZone>[0],
+    )
     const timeslotStartTime =
       timeslot && typeof timeslot === 'object' && 'startTime' in timeslot
         ? (timeslot as { startTime?: unknown }).startTime
@@ -182,9 +184,7 @@ async function maybeTriggerSinglePostBookingEmail({
     }
     // 9am local on the calendar day after the booked class, not after checkout.
     // Normalize via Date so we persist UTC ISO (TZDate.toISOString may keep +01:00).
-    const scheduledFor = new Date(
-      resolveNextDay9am(timeslotStartTime, timeZone),
-    ).toISOString()
+    const scheduledFor = new Date(resolveNextDay9am(timeslotStartTime, timeZone)).toISOString()
 
     const delivery = await createDeliveryRecord(req, {
       tenantId,
@@ -210,6 +210,7 @@ async function maybeTriggerSinglePostBookingEmail({
         bookingId: booking.id,
       },
       waitUntil: new Date(scheduledFor),
+      req,
     })
 
     const payloadJobId =
@@ -270,6 +271,7 @@ async function maybeTriggerSinglePostBookingEmail({
             collection: POST_BOOKING_EMAIL_DELIVERIES_SLUG,
             id: delivery.id,
             overrideAccess: true,
+            req,
           })
           .catch(() => undefined)
         return
@@ -286,6 +288,7 @@ async function maybeTriggerSinglePostBookingEmail({
               sentAt: new Date().toISOString(),
             },
             overrideAccess: true,
+            req,
           })
           markedSent = true
         } catch (error) {
@@ -340,6 +343,7 @@ export async function maybeTriggerPostBookingEmail({
           id: userId,
           depth: 0,
           overrideAccess: true,
+          req,
         })
 
   for (const config of resolved.configs) {
