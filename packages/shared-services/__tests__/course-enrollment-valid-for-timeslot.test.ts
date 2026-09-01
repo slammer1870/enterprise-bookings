@@ -30,9 +30,9 @@ const baseEnrollment = {
 
 describe("filterValidEnrollmentsForTimeslot", () => {
   it("keeps an active enrollment in window for an allowed course/type", () => {
-    expect(filterValidEnrollmentsForTimeslot(baseLesson, [baseEnrollment])).toEqual([
-      baseEnrollment,
-    ]);
+    expect(
+      filterValidEnrollmentsForTimeslot(baseLesson, [baseEnrollment]),
+    ).toEqual([baseEnrollment]);
   });
 
   it("rejects cancelled enrollments", () => {
@@ -93,6 +93,17 @@ describe("filterValidEnrollmentsForTimeslot", () => {
         {
           ...baseEnrollment,
           course: { ...baseEnrollment.course, status: "archived" },
+        },
+      ]),
+    ).toEqual([]);
+  });
+
+  it.each(["draft", "closed"])("rejects %s courses", (status) => {
+    expect(
+      filterValidEnrollmentsForTimeslot(baseLesson, [
+        {
+          ...baseEnrollment,
+          course: { ...baseEnrollment.course, status },
         },
       ]),
     ).toEqual([]);

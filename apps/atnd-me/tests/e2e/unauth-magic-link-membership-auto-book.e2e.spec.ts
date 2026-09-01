@@ -35,399 +35,532 @@ test.describe('Unauth magic link booking with active membership', () => {
     await ensureTenant1ActiveBranchesOnly(testData)
   })
 
-  test(
-    'unauthenticated user is prompted to log in, receives magic link, and is auto-booked via active membership without touching /bookings/[id] UI',
-    async ({ page, request, testData }) => {
-      const tenant = testData.tenants[0]!
-      const user = testData.users.user1
-      const w = testData.workerIndex
+  test('unauthenticated user is prompted to log in, receives magic link, and is auto-booked via active membership without touching /bookings/[id] UI', async ({
+    page,
+    request,
+    testData,
+  }) => {
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user1
+    const w = testData.workerIndex
 
-      if (!tenant?.id || !tenant.slug || !user?.email) {
-        throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email) {
+      throw new Error('Expected tenant and user fixtures')
+    }
+
+    // Tenant needs Stripe Connect active so drop-in payment method is valid
+    await updateTenantStripeConnect(tenant.id, {
+      stripeConnectOnboardingStatus: 'active',
+      stripeConnectAccountId: `acct_e2e_ml_mem_${w}_${Date.now()}`,
+    })
+
+    // ── Data setup ────────────────────────────────────────────────────────────
+
+    const plan = await createTestPlan({
+      tenantId: tenant.id,
+      name: `E2E ML Membership Plan w${w} ${Date.now()}`,
+      sessions: 8,
+      allowMultipleBookingsPerTimeslot: false,
+      stripeProductId: `prod_e2e_ml_mem_${w}_${Date.now()}`,
+      priceId: `price_e2e_ml_mem_${w}_${Date.now()}`,
+    })
+
+    const className = uniqueClassName(`E2E ML Membership Book ${tenant.id}`)
+    const eventType = await createTestEventType(
+      tenant.id,
+      className,
+      10,
+      'Magic link membership booking',
+      w,
+    )
+    const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
+
+    // Attach both drop-in AND membership payment methods to the event type in one update
+    // so both tabs are visible on the booking page.
+    const payload = await getPayloadInstance()
+    const dropIn = (await payload.create({
+      collection: 'drop-ins',
+      data: {
+        name: `E2E ML Drop-in ${tenant.id}-w${w}-${Date.now()}`,
+        isActive: true,
+        price: 12,
+        adjustable: false,
+        maxBookingsPerTimeslot: 1,
+        tenant: tenant.id,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
+    await payload.update({
+      collection: 'event-types',
+      id: eventType.id,
+      data: {
+        paymentMethods: {
+          allowedDropIn: dropIn.id,
+          allowedPlans: [plan.id],
+        },
+      },
+      overrideAccess: true,
+    })
+
+    // Active subscription for the booking user
+    await createTestSubscription({
+      userId: user.id,
+      tenantId: tenant.id,
+      planId: plan.id,
+      status: 'active',
+      stripeSubscriptionId: null,
+      stripeCustomerId: null,
+      stripeAccountId: null,
+    })
+
+    const startTime = new Date()
+    startTime.setDate(startTime.getDate() + 5 + w)
+    startTime.setHours(14, 0, 0, 0)
+    const endTime = new Date(startTime)
+    endTime.setHours(15, 0, 0, 0)
+
+    const timeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
+
+    // ── Step 1: Visit the schedule as an unauthenticated user ─────────────────
+
+    await page.context().clearCookies()
+    await page.evaluate(() => {
+      try {
+        localStorage.clear()
+        sessionStorage.clear()
+      } catch {
+        // ignore
       }
+    })
+    await page.goto('about:blank')
 
-      // Tenant needs Stripe Connect active so drop-in payment method is valid
-      await updateTenantStripeConnect(tenant.id, {
-        stripeConnectOnboardingStatus: 'active',
-        stripeConnectAccountId: `acct_e2e_ml_mem_${w}_${Date.now()}`,
-      })
+    await navigateToTenant(page, tenant.slug, '/')
+    await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({
+      timeout: 20_000,
+    })
 
-      // ── Data setup ────────────────────────────────────────────────────────────
+    await advanceScheduleToDate(page, startTime)
 
-      const plan = await createTestPlan({
-        tenantId: tenant.id,
-        name: `E2E ML Membership Plan w${w} ${Date.now()}`,
-        sessions: 8,
-        allowMultipleBookingsPerTimeslot: false,
-        stripeProductId: `prod_e2e_ml_mem_${w}_${Date.now()}`,
-        priceId: `price_e2e_ml_mem_${w}_${Date.now()}`,
-      })
+    // ── Step 2: Click "Book" — unauth triggers loginToBook → /complete-booking ─
 
-      const className = uniqueClassName(`E2E ML Membership Book ${tenant.id}`)
-      const eventType = await createTestEventType(
-        tenant.id,
-        className,
-        10,
-        'Magic link membership booking',
-        w,
+    const lessonTitle = page.getByText(scheduleTitle, { exact: true }).first()
+    await expect(lessonTitle).toBeVisible({ timeout: 20_000 })
+
+    const lessonRow = lessonTitle
+      .locator('xpath=ancestor::div[contains(@class,"border-b")]')
+      .first()
+    const bookBtn = lessonRow.getByRole('button', { name: /^book$/i })
+    await expect(bookBtn).toBeVisible({ timeout: 10_000 })
+    await expect(bookBtn).toBeEnabled()
+
+    await bookBtn.click()
+    await expect(page).toHaveURL(/\/complete-booking/, { timeout: 30_000 })
+
+    // ── Step 3: Enter email address and request magic link ────────────────────
+
+    await expect(page.getByText('Log in to your account', { exact: true })).toBeVisible({
+      timeout: 20_000,
+    })
+
+    const emailInput = page
+      .getByRole('textbox', { name: /email/i })
+      .or(page.getByPlaceholder(/your email/i))
+      .first()
+
+    await clearTestMagicLinks(request, user.email)
+    await emailInput.fill(user.email)
+    await page.getByRole('button', { name: /^submit$/i }).click()
+
+    await expect(page.getByRole('heading', { name: /^magic link sent$/i })).toBeVisible({
+      timeout: 30_000,
+    })
+
+    // ── Step 4: Retrieve magic link from test endpoint and navigate to it ─────
+
+    const magicLink = await pollForTestMagicLink(request, user.email)
+    await page.goto(magicLink.url, { waitUntil: 'domcontentloaded' })
+
+    // ── Step 5: Magic link callback → /bookings/[id] → auto-booked → /success ──
+    //
+    // The server detects the active subscription while rendering /bookings/[id] and
+    // redirects immediately to /success without the user interacting with the page at all.
+
+    await page.waitForURL((url) => url.pathname === '/success', { timeout: 60_000 })
+
+    // ── Step 9: Confirm booking persisted in DB ───────────────────────────────
+
+    await expect
+      .poll(
+        async () => {
+          const bookings = await payload.find({
+            collection: 'bookings',
+            where: {
+              and: [
+                { timeslot: { equals: timeslot.id } },
+                { user: { equals: user.id } },
+                { status: { equals: 'confirmed' } },
+              ],
+            },
+            depth: 0,
+            overrideAccess: true,
+          })
+          return bookings.docs.length
+        },
+        { timeout: 15_000 },
       )
-      const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
+      .toBeGreaterThan(0)
+  })
 
-      // Attach both drop-in AND membership payment methods to the event type in one update
-      // so both tabs are visible on the booking page.
-      const payload = await getPayloadInstance()
-      const dropIn = (await payload.create({
-        collection: 'drop-ins',
-        data: {
-          name: `E2E ML Drop-in ${tenant.id}-w${w}-${Date.now()}`,
-          isActive: true,
-          price: 12,
-          adjustable: false,
-          maxBookingsPerTimeslot: 1,
-          tenant: tenant.id,
-        },
-        overrideAccess: true,
-      })) as { id: number }
+  test('unauthenticated user is prompted to log in, receives magic link, and is auto-booked via active course enrollment', async ({
+    page,
+    request,
+    testData,
+  }) => {
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user2
+    const w = testData.workerIndex
 
-      await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: {
-          paymentMethods: {
-            allowedDropIn: dropIn.id,
-            allowedPlans: [plan.id],
-          },
-        },
-        overrideAccess: true,
-      })
+    if (!tenant?.id || !tenant.slug || !user?.email) {
+      throw new Error('Expected tenant and user fixtures')
+    }
 
-      // Active subscription for the booking user
-      await createTestSubscription({
-        userId: user.id,
-        tenantId: tenant.id,
-        planId: plan.id,
+    const payload = await getPayloadInstance()
+    const className = uniqueClassName(`E2E ML Course Book ${tenant.id}`)
+    const eventType = await createTestEventType(
+      tenant.id,
+      className,
+      10,
+      'Magic link course booking',
+      w,
+    )
+    const course = (await payload.create({
+      collection: 'courses',
+      data: {
+        title: `E2E ML Course ${tenant.id}-${w}-${Date.now()}`,
+        slug: `e2e-ml-course-${tenant.id}-${w}-${Date.now()}`,
+        durationLength: 8,
+        durationUnit: 'weeks',
+        allowedEventTypes: [eventType.id],
+        status: 'open',
+        tenant: tenant.id,
+        priceInformation: { price: 99 },
+      },
+      overrideAccess: true,
+      context: { skipStripeSync: true },
+    })) as { id: number }
+
+    await payload.update({
+      collection: 'event-types',
+      id: eventType.id,
+      data: { paymentMethods: { allowedCourses: [course.id] } },
+      overrideAccess: true,
+    })
+
+    const enrollment = (await payload.create({
+      collection: 'course-enrollments',
+      data: {
+        user: user.id,
+        tenant: tenant.id,
+        course: course.id,
         status: 'active',
-        stripeSubscriptionId: null,
-        stripeCustomerId: null,
-        stripeAccountId: null,
-      })
+        accessStartsAt: new Date(Date.now() - 86400000).toISOString(),
+        accessEndsAt: new Date(Date.now() + 86400000 * 60).toISOString(),
+        purchasedAt: new Date().toISOString(),
+        transactionId: `e2e_ml_course_${tenant.id}_${w}_${Date.now()}`,
+      },
+      overrideAccess: true,
+    })) as { id: number }
 
-      const startTime = new Date()
-      startTime.setDate(startTime.getDate() + 5 + w)
-      startTime.setHours(14, 0, 0, 0)
-      const endTime = new Date(startTime)
-      endTime.setHours(15, 0, 0, 0)
+    const startTime = new Date()
+    startTime.setDate(startTime.getDate() + 5 + w)
+    startTime.setHours(15, 0, 0, 0)
+    const endTime = new Date(startTime)
+    endTime.setHours(16, 0, 0, 0)
+    const timeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
+    const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
 
-      const timeslot = await createTestTimeslot(
-        tenant.id,
-        eventType.id,
-        startTime,
-        endTime,
-        undefined,
-        true,
+    await page.context().clearCookies()
+    await page.evaluate(() => {
+      localStorage.clear()
+      sessionStorage.clear()
+    })
+    await page.goto('about:blank')
+    await navigateToTenant(page, tenant.slug, '/')
+    await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({
+      timeout: 20_000,
+    })
+    await advanceScheduleToDate(page, startTime)
+
+    const lessonRow = page
+      .getByText(scheduleTitle, { exact: true })
+      .first()
+      .locator('xpath=ancestor::div[contains(@class,"border-b")]')
+      .first()
+    await lessonRow.getByRole('button', { name: /^book$/i }).click()
+    await expect(page).toHaveURL(/\/complete-booking/, { timeout: 30_000 })
+
+    await expect(page.getByText('Log in to your account', { exact: true })).toBeVisible({
+      timeout: 20_000,
+    })
+    const emailInput = page
+      .getByRole('textbox', { name: /email/i })
+      .or(page.getByPlaceholder(/your email/i))
+      .first()
+    await clearTestMagicLinks(request, user.email)
+    await emailInput.fill(user.email)
+    await page.getByRole('button', { name: /^submit$/i }).click()
+    await expect(page.getByRole('heading', { name: /^magic link sent$/i })).toBeVisible({
+      timeout: 30_000,
+    })
+
+    const magicLink = await pollForTestMagicLink(request, user.email)
+    await page.goto(magicLink.url, { waitUntil: 'domcontentloaded' })
+    await page.waitForURL((url) => url.pathname === '/success', { timeout: 60_000 })
+
+    await expect
+      .poll(
+        async () => {
+          const bookings = await payload.find({
+            collection: 'bookings',
+            where: {
+              and: [
+                { timeslot: { equals: timeslot.id } },
+                { user: { equals: user.id } },
+                { status: { equals: 'confirmed' } },
+                { paymentMethodUsed: { equals: 'course_enrollment' } },
+                { courseEnrollmentIdUsed: { equals: enrollment.id } },
+              ],
+            },
+            depth: 0,
+            overrideAccess: true,
+          })
+          return bookings.totalDocs
+        },
+        { timeout: 15_000 },
       )
+      .toBe(1)
+  })
 
-      // ── Step 1: Visit the schedule as an unauthenticated user ─────────────────
+  test('when membership allows multiple bookings per timeslot, user lands on /bookings/[id] to select quantity and confirms via Membership tab', async ({
+    page,
+    request,
+    testData,
+  }) => {
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user1
+    const w = testData.workerIndex
 
-      await page.context().clearCookies()
-      await page.evaluate(() => {
-        try {
-          localStorage.clear()
-          sessionStorage.clear()
-        } catch {
-          // ignore
-        }
-      })
-      await page.goto('about:blank')
+    if (!tenant?.id || !tenant.slug || !user?.email) {
+      throw new Error('Expected tenant and user fixtures')
+    }
 
-      await navigateToTenant(page, tenant.slug, '/')
-      await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({
-        timeout: 20_000,
-      })
+    await updateTenantStripeConnect(tenant.id, {
+      stripeConnectOnboardingStatus: 'active',
+      stripeConnectAccountId: `acct_e2e_ml_multi_${w}_${Date.now()}`,
+    })
 
-      await advanceScheduleToDate(page, startTime)
+    // ── Data setup ────────────────────────────────────────────────────────────
+    //
+    // allowMultipleBookingsPerTimeslot: true maps to maxBookingsPerTimeslot: null.
+    // validateAndAttemptCheckIn sees planMaxPerTimeslot !== 1 and returns
+    // bookedImmediately: false so the booking page renders for quantity selection.
 
-      // ── Step 2: Click "Book" — unauth triggers loginToBook → /complete-booking ─
+    const payload = await getPayloadInstance()
 
-      const lessonTitle = page.getByText(scheduleTitle, { exact: true }).first()
-      await expect(lessonTitle).toBeVisible({ timeout: 20_000 })
+    const plan = await createTestPlan({
+      tenantId: tenant.id,
+      name: `E2E ML Multi-Booking Plan w${w} ${Date.now()}`,
+      sessions: 8,
+      allowMultipleBookingsPerTimeslot: true,
+      stripeProductId: `prod_e2e_ml_multi_${w}_${Date.now()}`,
+      priceId: `price_e2e_ml_multi_${w}_${Date.now()}`,
+    })
 
-      const lessonRow = lessonTitle
-        .locator('xpath=ancestor::div[contains(@class,"border-b")]')
-        .first()
-      const bookBtn = lessonRow.getByRole('button', { name: /^book$/i })
-      await expect(bookBtn).toBeVisible({ timeout: 10_000 })
-      await expect(bookBtn).toBeEnabled()
+    const className = uniqueClassName(`E2E ML Multi Book ${tenant.id}`)
+    const eventType = await createTestEventType(
+      tenant.id,
+      className,
+      10,
+      'Magic link multi-booking membership',
+      w,
+    )
+    const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
 
-      await bookBtn.click()
-      await expect(page).toHaveURL(/\/complete-booking/, { timeout: 30_000 })
+    const dropIn = (await payload.create({
+      collection: 'drop-ins',
+      data: {
+        name: `E2E ML Multi Drop-in ${tenant.id}-w${w}-${Date.now()}`,
+        isActive: true,
+        price: 12,
+        adjustable: false,
+        maxBookingsPerTimeslot: 1,
+        tenant: tenant.id,
+      },
+      overrideAccess: true,
+    })) as { id: number }
 
-      // ── Step 3: Enter email address and request magic link ────────────────────
+    await payload.update({
+      collection: 'event-types',
+      id: eventType.id,
+      data: {
+        paymentMethods: {
+          allowedDropIn: dropIn.id,
+          allowedPlans: [plan.id],
+        },
+      },
+      overrideAccess: true,
+    })
 
-      await expect(
-        page.getByText('Log in to your account', { exact: true }),
-      ).toBeVisible({ timeout: 20_000 })
+    await createTestSubscription({
+      userId: user.id,
+      tenantId: tenant.id,
+      planId: plan.id,
+      status: 'active',
+      stripeSubscriptionId: null,
+      stripeCustomerId: null,
+      stripeAccountId: null,
+    })
 
-      const emailInput = page
-        .getByRole('textbox', { name: /email/i })
-        .or(page.getByPlaceholder(/your email/i))
-        .first()
+    const startTime = new Date()
+    startTime.setDate(startTime.getDate() + 6 + w)
+    startTime.setHours(10, 0, 0, 0)
+    const endTime = new Date(startTime)
+    endTime.setHours(11, 0, 0, 0)
 
-      await clearTestMagicLinks(request, user.email)
-      await emailInput.fill(user.email)
-      await page.getByRole('button', { name: /^submit$/i }).click()
+    const timeslot = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
 
-      await expect(
-        page.getByRole('heading', { name: /^magic link sent$/i }),
-      ).toBeVisible({ timeout: 30_000 })
+    // ── Step 1: Visit the schedule as an unauthenticated user ─────────────────
 
-      // ── Step 4: Retrieve magic link from test endpoint and navigate to it ─────
-
-      const magicLink = await pollForTestMagicLink(request, user.email)
-      await page.goto(magicLink.url, { waitUntil: 'domcontentloaded' })
-
-      // ── Step 5: Magic link callback → /bookings/[id] → auto-booked → /success ──
-      //
-      // The server detects the active subscription while rendering /bookings/[id] and
-      // redirects immediately to /success without the user interacting with the page at all.
-
-      await page.waitForURL(
-        (url) => url.pathname === '/success',
-        { timeout: 60_000 },
-      )
-
-      // ── Step 9: Confirm booking persisted in DB ───────────────────────────────
-
-      await expect
-        .poll(
-          async () => {
-            const bookings = await payload.find({
-              collection: 'bookings',
-              where: {
-                and: [
-                  { timeslot: { equals: timeslot.id } },
-                  { user: { equals: user.id } },
-                  { status: { equals: 'confirmed' } },
-                ],
-              },
-              depth: 0,
-              overrideAccess: true,
-            })
-            return bookings.docs.length
-          },
-          { timeout: 15_000 },
-        )
-        .toBeGreaterThan(0)
-    },
-  )
-
-  test(
-    'when membership allows multiple bookings per timeslot, user lands on /bookings/[id] to select quantity and confirms via Membership tab',
-    async ({ page, request, testData }) => {
-      const tenant = testData.tenants[0]!
-      const user = testData.users.user1
-      const w = testData.workerIndex
-
-      if (!tenant?.id || !tenant.slug || !user?.email) {
-        throw new Error('Expected tenant and user fixtures')
+    await page.context().clearCookies()
+    await page.evaluate(() => {
+      try {
+        localStorage.clear()
+        sessionStorage.clear()
+      } catch {
+        // ignore
       }
+    })
+    await page.goto('about:blank')
 
-      await updateTenantStripeConnect(tenant.id, {
-        stripeConnectOnboardingStatus: 'active',
-        stripeConnectAccountId: `acct_e2e_ml_multi_${w}_${Date.now()}`,
-      })
+    await navigateToTenant(page, tenant.slug, '/')
+    await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({
+      timeout: 20_000,
+    })
 
-      // ── Data setup ────────────────────────────────────────────────────────────
-      //
-      // allowMultipleBookingsPerTimeslot: true maps to maxBookingsPerTimeslot: null.
-      // validateAndAttemptCheckIn sees planMaxPerTimeslot !== 1 and returns
-      // bookedImmediately: false so the booking page renders for quantity selection.
+    await advanceScheduleToDate(page, startTime)
 
-      const payload = await getPayloadInstance()
+    // ── Step 2: Click "Book" — unauth triggers loginToBook → /complete-booking ─
 
-      const plan = await createTestPlan({
-        tenantId: tenant.id,
-        name: `E2E ML Multi-Booking Plan w${w} ${Date.now()}`,
-        sessions: 8,
-        allowMultipleBookingsPerTimeslot: true,
-        stripeProductId: `prod_e2e_ml_multi_${w}_${Date.now()}`,
-        priceId: `price_e2e_ml_multi_${w}_${Date.now()}`,
-      })
+    const lessonTitle = page.getByText(scheduleTitle, { exact: true }).first()
+    await expect(lessonTitle).toBeVisible({ timeout: 20_000 })
 
-      const className = uniqueClassName(`E2E ML Multi Book ${tenant.id}`)
-      const eventType = await createTestEventType(
-        tenant.id,
-        className,
-        10,
-        'Magic link multi-booking membership',
-        w,
-      )
-      const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
+    const lessonRow = lessonTitle
+      .locator('xpath=ancestor::div[contains(@class,"border-b")]')
+      .first()
+    const bookBtn = lessonRow.getByRole('button', { name: /^book$/i })
+    await expect(bookBtn).toBeVisible({ timeout: 10_000 })
+    await expect(bookBtn).toBeEnabled()
 
-      const dropIn = (await payload.create({
-        collection: 'drop-ins',
-        data: {
-          name: `E2E ML Multi Drop-in ${tenant.id}-w${w}-${Date.now()}`,
-          isActive: true,
-          price: 12,
-          adjustable: false,
-          maxBookingsPerTimeslot: 1,
-          tenant: tenant.id,
+    await bookBtn.click()
+    await expect(page).toHaveURL(/\/complete-booking/, { timeout: 30_000 })
+
+    // ── Step 3: Enter email address and request magic link ────────────────────
+
+    await expect(page.getByText('Log in to your account', { exact: true })).toBeVisible({
+      timeout: 20_000,
+    })
+
+    const emailInput = page
+      .getByRole('textbox', { name: /email/i })
+      .or(page.getByPlaceholder(/your email/i))
+      .first()
+
+    await clearTestMagicLinks(request, user.email)
+    await emailInput.fill(user.email)
+    await page.getByRole('button', { name: /^submit$/i }).click()
+
+    await expect(page.getByRole('heading', { name: /^magic link sent$/i })).toBeVisible({
+      timeout: 30_000,
+    })
+
+    // ── Step 4: Retrieve magic link and navigate to it ────────────────────────
+
+    const magicLink = await pollForTestMagicLink(request, user.email)
+    await page.goto(magicLink.url, { waitUntil: 'domcontentloaded' })
+
+    // ── Step 5: Magic link callback → /bookings/[id] renders (no auto-redirect) ─
+    //
+    // The plan has maxBookingsPerTimeslot: null (unlimited), so validateAndAttemptCheckIn
+    // returns bookedImmediately: false and the booking page renders for quantity selection.
+
+    await page.waitForURL((url) => url.pathname === `/bookings/${timeslot.id}`, { timeout: 60_000 })
+
+    // ── Step 6: Select Membership tab and confirm ─────────────────────────────
+
+    const membershipTab = page.getByRole('tab', { name: /membership/i })
+    await expect(membershipTab).toBeVisible({ timeout: 20_000 })
+    await membershipTab.click()
+
+    const useMembershipBtn = page.getByRole('button', { name: /use my membership/i })
+    await expect(useMembershipBtn).toBeVisible({ timeout: 15_000 })
+    await expect(useMembershipBtn).toBeEnabled()
+
+    const createBookingsResponse = page.waitForResponse(
+      (r) =>
+        r.url().includes('bookings.createBookings') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 30_000 },
+    )
+    await Promise.all([createBookingsResponse, useMembershipBtn.click()])
+
+    // ── Step 7: Verify redirect to /success ───────────────────────────────────
+
+    await page.waitForURL((url) => url.pathname === '/success', { timeout: 30_000 })
+
+    // ── Step 8: Confirm booking persisted in DB ───────────────────────────────
+
+    await expect
+      .poll(
+        async () => {
+          const bookings = await payload.find({
+            collection: 'bookings',
+            where: {
+              and: [
+                { timeslot: { equals: timeslot.id } },
+                { user: { equals: user.id } },
+                { status: { equals: 'confirmed' } },
+              ],
+            },
+            depth: 0,
+            overrideAccess: true,
+          })
+          return bookings.docs.length
         },
-        overrideAccess: true,
-      })) as { id: number }
-
-      await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: {
-          paymentMethods: {
-            allowedDropIn: dropIn.id,
-            allowedPlans: [plan.id],
-          },
-        },
-        overrideAccess: true,
-      })
-
-      await createTestSubscription({
-        userId: user.id,
-        tenantId: tenant.id,
-        planId: plan.id,
-        status: 'active',
-        stripeSubscriptionId: null,
-        stripeCustomerId: null,
-        stripeAccountId: null,
-      })
-
-      const startTime = new Date()
-      startTime.setDate(startTime.getDate() + 6 + w)
-      startTime.setHours(10, 0, 0, 0)
-      const endTime = new Date(startTime)
-      endTime.setHours(11, 0, 0, 0)
-
-      const timeslot = await createTestTimeslot(
-        tenant.id,
-        eventType.id,
-        startTime,
-        endTime,
-        undefined,
-        true,
+        { timeout: 15_000 },
       )
-
-      // ── Step 1: Visit the schedule as an unauthenticated user ─────────────────
-
-      await page.context().clearCookies()
-      await page.evaluate(() => {
-        try {
-          localStorage.clear()
-          sessionStorage.clear()
-        } catch {
-          // ignore
-        }
-      })
-      await page.goto('about:blank')
-
-      await navigateToTenant(page, tenant.slug, '/')
-      await expect(page.getByRole('heading', { name: /^schedule$/i })).toBeVisible({
-        timeout: 20_000,
-      })
-
-      await advanceScheduleToDate(page, startTime)
-
-      // ── Step 2: Click "Book" — unauth triggers loginToBook → /complete-booking ─
-
-      const lessonTitle = page.getByText(scheduleTitle, { exact: true }).first()
-      await expect(lessonTitle).toBeVisible({ timeout: 20_000 })
-
-      const lessonRow = lessonTitle
-        .locator('xpath=ancestor::div[contains(@class,"border-b")]')
-        .first()
-      const bookBtn = lessonRow.getByRole('button', { name: /^book$/i })
-      await expect(bookBtn).toBeVisible({ timeout: 10_000 })
-      await expect(bookBtn).toBeEnabled()
-
-      await bookBtn.click()
-      await expect(page).toHaveURL(/\/complete-booking/, { timeout: 30_000 })
-
-      // ── Step 3: Enter email address and request magic link ────────────────────
-
-      await expect(
-        page.getByText('Log in to your account', { exact: true }),
-      ).toBeVisible({ timeout: 20_000 })
-
-      const emailInput = page
-        .getByRole('textbox', { name: /email/i })
-        .or(page.getByPlaceholder(/your email/i))
-        .first()
-
-      await clearTestMagicLinks(request, user.email)
-      await emailInput.fill(user.email)
-      await page.getByRole('button', { name: /^submit$/i }).click()
-
-      await expect(
-        page.getByRole('heading', { name: /^magic link sent$/i }),
-      ).toBeVisible({ timeout: 30_000 })
-
-      // ── Step 4: Retrieve magic link and navigate to it ────────────────────────
-
-      const magicLink = await pollForTestMagicLink(request, user.email)
-      await page.goto(magicLink.url, { waitUntil: 'domcontentloaded' })
-
-      // ── Step 5: Magic link callback → /bookings/[id] renders (no auto-redirect) ─
-      //
-      // The plan has maxBookingsPerTimeslot: null (unlimited), so validateAndAttemptCheckIn
-      // returns bookedImmediately: false and the booking page renders for quantity selection.
-
-      await page.waitForURL(
-        (url) => url.pathname === `/bookings/${timeslot.id}`,
-        { timeout: 60_000 },
-      )
-
-      // ── Step 6: Select Membership tab and confirm ─────────────────────────────
-
-      const membershipTab = page.getByRole('tab', { name: /membership/i })
-      await expect(membershipTab).toBeVisible({ timeout: 20_000 })
-      await membershipTab.click()
-
-      const useMembershipBtn = page.getByRole('button', { name: /use my membership/i })
-      await expect(useMembershipBtn).toBeVisible({ timeout: 15_000 })
-      await expect(useMembershipBtn).toBeEnabled()
-
-      const createBookingsResponse = page.waitForResponse(
-        (r) =>
-          r.url().includes('bookings.createBookings') &&
-          r.request().method() === 'POST' &&
-          r.status() === 200,
-        { timeout: 30_000 },
-      )
-      await Promise.all([createBookingsResponse, useMembershipBtn.click()])
-
-      // ── Step 7: Verify redirect to /success ───────────────────────────────────
-
-      await page.waitForURL((url) => url.pathname === '/success', { timeout: 30_000 })
-
-      // ── Step 8: Confirm booking persisted in DB ───────────────────────────────
-
-      await expect
-        .poll(
-          async () => {
-            const bookings = await payload.find({
-              collection: 'bookings',
-              where: {
-                and: [
-                  { timeslot: { equals: timeslot.id } },
-                  { user: { equals: user.id } },
-                  { status: { equals: 'confirmed' } },
-                ],
-              },
-              depth: 0,
-              overrideAccess: true,
-            })
-            return bookings.docs.length
-          },
-          { timeout: 15_000 },
-        )
-        .toBeGreaterThan(0)
-    },
-  )
+      .toBeGreaterThan(0)
+  })
 })

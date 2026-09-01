@@ -1,20 +1,29 @@
 /**
  * Transactions: record how each booking was paid.
  * Decrement hook only decrements class pass when a transaction exists with paymentMethod 'class_pass'.
- * Subscription bookings create a transaction with paymentMethod 'subscription' and subscriptionId.
+ * Subscription and course bookings create transactions with their corresponding IDs.
  */
 import type { CollectionConfig, CollectionSlug } from "payload";
 import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types";
 import type { CollectionOverrides } from "../types";
 
-const PAYMENT_METHODS = ["stripe", "class_pass", "subscription"] as const;
+const PAYMENT_METHODS = [
+  "stripe",
+  "class_pass",
+  "subscription",
+  "course_enrollment",
+] as const;
 
 const defaultAccess: NonNullable<CollectionConfig["access"]> = {
-  read: ({ req: { user } }) => checkRole(["admin"], user as unknown as User | null),
-  create: ({ req: { user } }) => checkRole(["admin"], user as unknown as User | null),
-  update: ({ req: { user } }) => checkRole(["admin"], user as unknown as User | null),
-  delete: ({ req: { user } }) => checkRole(["admin"], user as unknown as User | null),
+  read: ({ req: { user } }) =>
+    checkRole(["admin"], user as unknown as User | null),
+  create: ({ req: { user } }) =>
+    checkRole(["admin"], user as unknown as User | null),
+  update: ({ req: { user } }) =>
+    checkRole(["admin"], user as unknown as User | null),
+  delete: ({ req: { user } }) =>
+    checkRole(["admin"], user as unknown as User | null),
 };
 
 const defaultFields: NonNullable<CollectionConfig["fields"]> = [
@@ -26,9 +35,13 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     admin: { description: "The booking this transaction applies to." },
     // When createBookingTransactionOnCreate sets skipBookingValidationForId, accept that id so deferred create succeeds
     validate: (value: number | unknown, args: { req?: unknown }) => {
-      const ctx = (args?.req as { context?: { skipBookingValidationForId?: number } })
-        ?.context;
-      if (ctx?.skipBookingValidationForId != null && ctx.skipBookingValidationForId === value)
+      const ctx = (
+        args?.req as { context?: { skipBookingValidationForId?: number } }
+      )?.context;
+      if (
+        ctx?.skipBookingValidationForId != null &&
+        ctx.skipBookingValidationForId === value
+      )
         return true;
       return undefined as unknown as true;
     },
@@ -65,7 +78,8 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     type: "number",
     required: false,
     admin: {
-      description: "Drop-in product id when paymentMethod is stripe (drop-in checkout).",
+      description:
+        "Drop-in product id when paymentMethod is stripe (drop-in checkout).",
       condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
         siblingData?.paymentMethod === "stripe",
     },
@@ -75,9 +89,21 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     type: "number",
     required: false,
     admin: {
-      description: "Subscription id when paymentMethod is subscription (booking created by subscription).",
+      description:
+        "Subscription id when paymentMethod is subscription (booking created by subscription).",
       condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
         siblingData?.paymentMethod === "subscription",
+    },
+  },
+  {
+    name: "courseEnrollmentId",
+    type: "number",
+    required: false,
+    admin: {
+      description:
+        "Course enrollment id when paymentMethod is course_enrollment.",
+      condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
+        siblingData?.paymentMethod === "course_enrollment",
     },
   },
   {
@@ -85,7 +111,8 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     type: "date",
     required: false,
     admin: {
-      description: "Set when a Stripe refund was issued for this booking on cancel.",
+      description:
+        "Set when a Stripe refund was issued for this booking on cancel.",
       readOnly: true,
       condition: (_: unknown, siblingData: { paymentMethod?: string }) =>
         siblingData?.paymentMethod === "stripe",
@@ -116,7 +143,7 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
 ];
 
 export function transactionsCollection(
-  opts?: CollectionOverrides
+  opts?: CollectionOverrides,
 ): CollectionConfig {
   const access = opts?.access
     ? { ...defaultAccess, ...opts.access }
@@ -130,9 +157,16 @@ export function transactionsCollection(
     admin: {
       useAsTitle: "id",
       group: "Billing",
-      defaultColumns: ["booking", "paymentMethod", "classPassId", "subscriptionId", "createdAt"],
+      defaultColumns: [
+        "booking",
+        "paymentMethod",
+        "classPassId",
+        "subscriptionId",
+        "courseEnrollmentId",
+        "createdAt",
+      ],
       description:
-        "Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.",
+        "Records how each booking was paid (Stripe, class pass, subscription, or course enrollment). Used to decrement class pass when paymentMethod is class_pass.",
     },
     access,
     fields,

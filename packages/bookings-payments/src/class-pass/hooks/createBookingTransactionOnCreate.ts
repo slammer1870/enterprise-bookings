@@ -5,6 +5,7 @@ type BookingDoc = {
   paymentMethodUsed?: string;
   classPassIdUsed?: number;
   subscriptionIdUsed?: number;
+  courseEnrollmentIdUsed?: number;
   tenant?: number | { id: number };
 };
 
@@ -12,7 +13,8 @@ type BookingDoc = {
  * Returns an afterChange hook for the bookings collection that creates a
  * booking-transaction when a booking is created with:
  * - paymentMethodUsed 'class_pass' and classPassIdUsed, or
- * - paymentMethodUsed 'subscription' and subscriptionIdUsed.
+ * - paymentMethodUsed 'subscription' and subscriptionIdUsed, or
+ * - paymentMethodUsed 'course_enrollment' and courseEnrollmentIdUsed.
  * Apps must add those fields to the booking (e.g. via overrides).
  */
 export function createBookingTransactionOnCreate(): CollectionAfterChangeHook {
@@ -24,10 +26,15 @@ export function createBookingTransactionOnCreate(): CollectionAfterChangeHook {
     const tenantId =
       typeof d.tenant === "object" && d.tenant != null ? d.tenant.id : d.tenant;
 
-    const isClassPass = d.paymentMethodUsed === "class_pass" && d.classPassIdUsed != null;
-    const isSubscription = d.paymentMethodUsed === "subscription" && d.subscriptionIdUsed != null;
+    const isClassPass =
+      d.paymentMethodUsed === "class_pass" && d.classPassIdUsed != null;
+    const isSubscription =
+      d.paymentMethodUsed === "subscription" && d.subscriptionIdUsed != null;
+    const isCourseEnrollment =
+      d.paymentMethodUsed === "course_enrollment" &&
+      d.courseEnrollmentIdUsed != null;
 
-    if (!isClassPass && !isSubscription) return;
+    if (!isClassPass && !isSubscription && !isCourseEnrollment) return;
 
     const bookingId = d.id;
     const payload = req.payload;
@@ -40,9 +47,12 @@ export function createBookingTransactionOnCreate(): CollectionAfterChangeHook {
     if (isClassPass) {
       txData.paymentMethod = "class_pass";
       txData.classPassId = d.classPassIdUsed;
-    } else {
+    } else if (isSubscription) {
       txData.paymentMethod = "subscription";
       txData.subscriptionId = d.subscriptionIdUsed;
+    } else {
+      txData.paymentMethod = "course_enrollment";
+      txData.courseEnrollmentId = d.courseEnrollmentIdUsed;
     }
 
     try {

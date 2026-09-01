@@ -1,4 +1,8 @@
-import type { CollectionAfterChangeHook, Payload } from "payload";
+import type {
+  CollectionAfterChangeHook,
+  Payload,
+  PayloadRequest,
+} from "payload";
 import {
   formatCancelRefundMessage,
   getCancelRefundPreview,
@@ -41,6 +45,7 @@ export type RefundStripePaymentIntentArgs = {
 
 export type ApplyCancelRefundPolicyOptions = {
   payload: Payload;
+  req?: PayloadRequest;
   booking: BookingLike;
   /**
    * Optional Stripe refund callback. When omitted, Stripe refunds are skipped
@@ -71,6 +76,7 @@ function relationId(value: unknown): number | null {
 async function loadTimeslotStart(
   payload: Payload,
   booking: BookingLike,
+  req?: PayloadRequest,
 ): Promise<Date | string | null> {
   const nested =
     typeof booking.timeslot === "object" && booking.timeslot != null
@@ -86,6 +92,7 @@ async function loadTimeslotStart(
     id: timeslotId,
     depth: 0,
     overrideAccess: true,
+    req,
   })) as { startTime?: string | Date } | null;
 
   return timeslot?.startTime ?? null;
@@ -94,6 +101,7 @@ async function loadTimeslotStart(
 async function loadTenantPolicy(
   payload: Payload,
   booking: BookingLike,
+  req?: PayloadRequest,
 ): Promise<{ policy: TenantRefundPolicy; stripeAccountId: string | null }> {
   let tenantId = relationId(booking.tenant);
   if (tenantId == null) {
@@ -104,6 +112,7 @@ async function loadTenantPolicy(
         id: timeslotId,
         depth: 0,
         overrideAccess: true,
+        req,
       })) as { tenant?: unknown } | null;
       tenantId = relationId(timeslot?.tenant);
     }
@@ -118,6 +127,7 @@ async function loadTenantPolicy(
     id: tenantId,
     depth: 0,
     overrideAccess: true,
+    req,
   })) as {
     refundPolicy?: TenantRefundPolicy;
     stripeConnectAccountId?: string | null;
@@ -138,6 +148,7 @@ async function loadTenantPolicy(
 async function loadBookingTransaction(
   payload: Payload,
   bookingId: number,
+  req?: PayloadRequest,
 ): Promise<TransactionLike | null> {
   const result = await payload.find({
     collection: "transactions" as any,
@@ -145,6 +156,7 @@ async function loadBookingTransaction(
     limit: 1,
     depth: 0,
     overrideAccess: true,
+    req,
   });
   return (result.docs[0] as TransactionLike | undefined) ?? null;
 }
@@ -172,6 +184,7 @@ export function computePartialRefundAmountCents(opts: {
 async function restoreClassPassCredit(
   payload: Payload,
   tx: TransactionLike,
+  req?: PayloadRequest,
 ): Promise<void> {
   if (tx.classPassRestoredAt) return;
   const passId = tx.classPassId;
@@ -182,6 +195,7 @@ async function restoreClassPassCredit(
     id: passId,
     depth: 0,
     overrideAccess: true,
+    req,
   })) as { quantity?: number; status?: string } | null;
   if (!pass || typeof pass.quantity !== "number") return;
 
@@ -192,13 +206,18 @@ async function restoreClassPassCredit(
     id: passId,
     data: { quantity: nextQty, status } as Record<string, unknown>,
     overrideAccess: true,
+    req,
   });
 
   await payload.update({
     collection: "transactions" as any,
     id: tx.id,
-    data: { classPassRestoredAt: new Date().toISOString() } as Record<string, unknown>,
+    data: { classPassRestoredAt: new Date().toISOString() } as Record<
+      string,
+      unknown
+    >,
     overrideAccess: true,
+    req,
   });
 }
 
@@ -206,13 +225,16 @@ async function refundStripeForTransaction(
   payload: Payload,
   tx: TransactionLike,
   stripeAccountId: string | null,
+  req: PayloadRequest | undefined,
   refundStripePaymentIntent: NonNullable<
     ApplyCancelRefundPolicyOptions["refundStripePaymentIntent"]
   >,
 ): Promise<void> {
   if (tx.refundedAt || tx.stripeRefundId) return;
   const paymentIntentId =
-    typeof tx.stripePaymentIntentId === "string" ? tx.stripePaymentIntentId.trim() : "";
+    typeof tx.stripePaymentIntentId === "string"
+      ? tx.stripePaymentIntentId.trim()
+      : "";
   if (!paymentIntentId) return;
 
   const siblings = await payload.find({
@@ -226,6 +248,7 @@ async function refundStripeForTransaction(
     limit: 100,
     depth: 0,
     overrideAccess: true,
+    req,
   });
 
   const siblingDocs = siblings.docs as TransactionLike[];
@@ -256,6 +279,7 @@ async function refundStripeForTransaction(
       ...(refundId ? { stripeRefundId: refundId } : {}),
     } as Record<string, unknown>,
     overrideAccess: true,
+    req,
   });
 }
 
@@ -272,18 +296,22 @@ export async function applyCancelRefundPolicy(
     return { applied: false, kind: "none", reason: "not_cancelled" };
   }
 
-  const timeslotStart = await loadTimeslotStart(payload, booking);
+  const timeslotStart = await loadTimeslotStart(payload, booking, opts.req);
   if (timeslotStart == null) {
     return { applied: false, kind: "none", reason: "missing_timeslot_start" };
   }
 
-  const tx = await loadBookingTransaction(payload, booking.id);
+  const tx = await loadBookingTransaction(payload, booking.id, opts.req);
   if (!tx) {
     return { applied: false, kind: "none", reason: "missing_transaction" };
   }
 
   const paymentMethod = (tx.paymentMethod ?? null) as CancelPaymentMethod;
-  const { policy, stripeAccountId } = await loadTenantPolicy(payload, booking);
+  const { policy, stripeAccountId } = await loadTenantPolicy(
+    payload,
+    booking,
+    opts.req,
+  );
 
   if (
     !shouldRefundOnCancel({
@@ -297,18 +325,23 @@ export async function applyCancelRefundPolicy(
   }
 
   if (paymentMethod === "class_pass") {
-    await restoreClassPassCredit(payload, tx);
+    await restoreClassPassCredit(payload, tx, opts.req);
     return { applied: true, kind: "class_pass" };
   }
 
   if (paymentMethod === "stripe") {
     if (!refundStripePaymentIntent) {
-      return { applied: false, kind: "none", reason: "missing_stripe_refund_callback" };
+      return {
+        applied: false,
+        kind: "none",
+        reason: "missing_stripe_refund_callback",
+      };
     }
     await refundStripeForTransaction(
       payload,
       tx,
       stripeAccountId,
+      opts.req,
       refundStripePaymentIntent,
     );
     return { applied: true, kind: "stripe" };
@@ -338,6 +371,7 @@ export function createApplyRefundPolicyOnCancelHook(
     try {
       await applyCancelRefundPolicy({
         payload: req.payload,
+        req,
         booking: doc as BookingLike,
         refundStripePaymentIntent,
       });

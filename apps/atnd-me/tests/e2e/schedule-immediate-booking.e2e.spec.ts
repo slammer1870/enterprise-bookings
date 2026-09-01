@@ -49,7 +49,7 @@ async function navigateToSchedule(
   // Using `any` keeps this test file focused on behavior assertions.
   page: any,
   tenantSlug: string,
-  targetDate: Date
+  targetDate: Date,
 ) {
   await navigateToTenant(page, tenantSlug, '/')
   await page
@@ -57,11 +57,15 @@ async function navigateToSchedule(
       timeout: 15000,
     })
     .catch(() => null)
-  await expect(page.getByText(/loading schedule/i)).not.toBeVisible({ timeout: 15000 }).catch(() => null)
+  await expect(page.getByText(/loading schedule/i))
+    .not.toBeVisible({ timeout: 15000 })
+    .catch(() => null)
   await advanceScheduleToDate(page, targetDate)
-  await expect(page.getByText('No timeslots scheduled for today')).not.toBeVisible({
-    timeout: 5000,
-  }).catch(() => null)
+  await expect(page.getByText('No timeslots scheduled for today'))
+    .not.toBeVisible({
+      timeout: 5000,
+    })
+    .catch(() => null)
 }
 
 /**
@@ -70,14 +74,17 @@ async function navigateToSchedule(
 async function getLessonBookButton(
   page: any,
   scheduleTitle: string,
-  buttonName: RegExp | string = /^book$/i
+  buttonName: RegExp | string = /^book$/i,
 ) {
   const lessonTitles = page.getByText(scheduleTitle, { exact: true })
   await expect(lessonTitles.first()).toBeVisible({ timeout: 20000 })
 
   const count = await lessonTitles.count()
   for (let i = 0; i < count; i++) {
-    const lessonRow = lessonTitles.nth(i).locator('xpath=ancestor::div[contains(@class,"border-b")]').first()
+    const lessonRow = lessonTitles
+      .nth(i)
+      .locator('xpath=ancestor::div[contains(@class,"border-b")]')
+      .first()
     const btn = lessonRow.getByRole('button', { name: buttonName })
     if ((await btn.count()) > 0) {
       return btn
@@ -85,7 +92,10 @@ async function getLessonBookButton(
   }
 
   // Fall back so Playwright surfaces a clear "button not found" error on the first row.
-  const lessonRow = lessonTitles.first().locator('xpath=ancestor::div[contains(@class,"border-b")]').first()
+  const lessonRow = lessonTitles
+    .first()
+    .locator('xpath=ancestor::div[contains(@class,"border-b")]')
+    .first()
   return lessonRow.getByRole('button', { name: buttonName })
 }
 
@@ -105,15 +115,29 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user1
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     const className = uniqueClassName(`E2E Immediate No Payment ${tenant.id}`)
-    const eventType = await createTestEventType(tenant.id, className, 10, 'No payment methods class', w)
+    const eventType = await createTestEventType(
+      tenant.id,
+      className,
+      10,
+      'No payment methods class',
+      w,
+    )
     // No paymentMethods set — lesson is free
 
     const startTime = futureDate(6 + w)
     const endTime = futureDate(6 + w, 11)
-    const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
     await navigateToSchedule(page, tenant.slug, startTime)
@@ -127,7 +151,7 @@ test.describe('Schedule immediate booking', () => {
         r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
         r.request().method() === 'POST' &&
         r.status() === 200,
-      { timeout: 20000 }
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
@@ -165,7 +189,8 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user1
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
@@ -211,7 +236,7 @@ test.describe('Schedule immediate booking', () => {
         r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
         r.request().method() === 'POST' &&
         r.status() === 200,
-      { timeout: 20000 }
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
@@ -226,6 +251,148 @@ test.describe('Schedule immediate booking', () => {
     expect(page.url()).not.toMatch(/\/bookings\/\d+$/)
   })
 
+  // ── Story 2b: Active course enrollment → immediate booking ──────────────────
+
+  test('active course enrollment: Book creates confirmed booking immediately and button becomes Cancel Booking', async ({
+    page,
+    testData,
+  }) => {
+    const payload = await getPayloadInstance()
+    const tenant = testData.tenants[0]!
+    const user = testData.users.user2
+    const w = testData.workerIndex
+
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
+
+    const className = uniqueClassName(`E2E Immediate Course ${tenant.id}`)
+    const eventType = await createTestEventType(tenant.id, className, 10, 'Course class', w)
+    const course = (await payload.create({
+      collection: 'courses',
+      data: {
+        title: `E2E Immediate Course ${tenant.id}-${w}-${Date.now()}`,
+        slug: `e2e-immediate-course-${tenant.id}-${w}-${Date.now()}`,
+        durationLength: 8,
+        durationUnit: 'weeks',
+        allowedEventTypes: [eventType.id],
+        status: 'open',
+        tenant: tenant.id,
+        priceInformation: { price: 99 },
+      },
+      overrideAccess: true,
+      context: { skipStripeSync: true },
+    })) as { id: number }
+
+    await payload.update({
+      collection: 'event-types',
+      id: eventType.id,
+      data: { paymentMethods: { allowedCourses: [course.id] } },
+      overrideAccess: true,
+    })
+
+    const enrollment = (await payload.create({
+      collection: 'course-enrollments',
+      data: {
+        user: user.id,
+        tenant: tenant.id,
+        course: course.id,
+        status: 'active',
+        accessStartsAt: new Date(Date.now() - 86400000).toISOString(),
+        accessEndsAt: new Date(Date.now() + 86400000 * 60).toISOString(),
+        purchasedAt: new Date().toISOString(),
+        transactionId: `e2e_immediate_course_${tenant.id}_${w}_${Date.now()}`,
+      },
+      overrideAccess: true,
+    })) as { id: number }
+
+    const startTime = futureDate(7 + w, 15)
+    const endTime = futureDate(7 + w, 16)
+    const lesson = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
+
+    await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
+    await navigateToSchedule(page, tenant.slug, startTime)
+
+    const scheduleTitle = `${className} ${tenant.id}${w > 0 ? ` w${w}` : ''}`
+    const bookBtn = await getLessonBookButton(page, scheduleTitle)
+    await expect(bookBtn).toBeVisible({ timeout: 10000 })
+
+    const trpcCall = page.waitForResponse(
+      (r) =>
+        r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 20000 },
+    )
+    await Promise.all([trpcCall, bookBtn.click()])
+
+    const cancelBtn = await getLessonBookButton(page, scheduleTitle, /cancel booking/i)
+    await expect(cancelBtn).toBeVisible({ timeout: 15000 })
+    await expect(getLessonBookButton(page, scheduleTitle, /modify booking/i)).not.toBeVisible({
+      timeout: 5000,
+    })
+    expect(page.url()).not.toMatch(/\/bookings\/\d+$/)
+
+    await expect
+      .poll(
+        async () => {
+          const bookings = await payload.find({
+            collection: 'bookings',
+            where: {
+              and: [
+                { timeslot: { equals: lesson.id } },
+                { user: { equals: user.id } },
+                { status: { equals: 'confirmed' } },
+                { paymentMethodUsed: { equals: 'course_enrollment' } },
+                { courseEnrollmentIdUsed: { equals: enrollment.id } },
+              ],
+            },
+            depth: 0,
+            overrideAccess: true,
+          })
+          return bookings.totalDocs
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(1)
+
+    const booking = (
+      await payload.find({
+        collection: 'bookings',
+        where: {
+          and: [
+            { timeslot: { equals: lesson.id } },
+            { user: { equals: user.id } },
+            { status: { equals: 'confirmed' } },
+          ],
+        },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true,
+      })
+    ).docs[0] as { id: number }
+    const transactions = await payload.find({
+      collection: 'transactions',
+      where: {
+        and: [
+          { booking: { equals: booking.id } },
+          { paymentMethod: { equals: 'course_enrollment' } },
+          { courseEnrollmentId: { equals: enrollment.id } },
+        ],
+      },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+    })
+    expect(transactions.totalDocs).toBe(1)
+  })
+
   // ── Story 3: Valid class pass → immediate booking ─────────────────────────────
 
   test('valid class pass: Book creates confirmed booking, decrements 1 credit, button becomes Cancel Booking', async ({
@@ -237,7 +404,8 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user1
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await payload.update({
       collection: 'tenants',
@@ -249,7 +417,7 @@ test.describe('Schedule immediate booking', () => {
     const className = uniqueClassName(`E2E Immediate Class Pass ${tenant.id}`)
     const eventType = await createTestEventType(tenant.id, className, 10, 'Class pass class', w)
 
-    const cpt = await payload.create({
+    const cpt = (await payload.create({
       collection: 'class-pass-types',
       data: {
         name: `E2E Imm Pass 5-Pack w${w} ${Date.now()}`,
@@ -262,7 +430,7 @@ test.describe('Schedule immediate booking', () => {
         stripeProductId: `prod_imm_pass_${tenant.id}_${w}_${Date.now()}`,
       } as any,
       overrideAccess: true,
-    }) as { id: number }
+    })) as { id: number }
 
     await payload.update({
       collection: 'event-types',
@@ -272,7 +440,7 @@ test.describe('Schedule immediate booking', () => {
     })
 
     const future = new Date(Date.now() + 86400000 * 60)
-    const pass = await payload.create({
+    const pass = (await payload.create({
       collection: 'class-passes',
       data: {
         user: user.id,
@@ -284,7 +452,7 @@ test.describe('Schedule immediate booking', () => {
         status: 'active',
       },
       overrideAccess: true,
-    }) as { id: number }
+    })) as { id: number }
 
     const startTime = futureDate(8 + w)
     const endTime = futureDate(8 + w, 11)
@@ -302,7 +470,7 @@ test.describe('Schedule immediate booking', () => {
         r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
         r.request().method() === 'POST' &&
         r.status() === 200,
-      { timeout: 20000 }
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
@@ -328,7 +496,7 @@ test.describe('Schedule immediate booking', () => {
           })) as { quantity: number }
           return passAfter.quantity
         },
-        { timeout: 10000 }
+        { timeout: 10000 },
       )
       .toBe(4)
   })
@@ -344,7 +512,8 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user2
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
@@ -382,7 +551,14 @@ test.describe('Schedule immediate booking', () => {
 
     const startTime = futureDate(9 + w)
     const endTime = futureDate(9 + w, 11)
-    const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
     await navigateToSchedule(page, tenant.slug, startTime)
@@ -396,29 +572,27 @@ test.describe('Schedule immediate booking', () => {
         r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
         r.request().method() === 'POST' &&
         r.status() === 200,
-      { timeout: 20000 }
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
     // Should redirect to /bookings/[id]
     await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}`, { timeout: 20000 })
     await expect(
-      page.getByText(/select quantity|payment methods|choose how to pay/i).first()
+      page.getByText(/select quantity|payment methods|choose how to pay/i).first(),
     ).toBeVisible({ timeout: 15000 })
   })
 
   // ── Story 5: Subscription limit reached → redirect ───────────────────────────
 
-  test('subscription limit reached: Book redirects to booking page', async ({
-    page,
-    testData,
-  }) => {
+  test('subscription limit reached: Book redirects to booking page', async ({ page, testData }) => {
     const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     const user = testData.users.user3
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
@@ -467,9 +641,22 @@ test.describe('Schedule immediate booking', () => {
     const usedTimeslotEnd = new Date(mostRecentSunday)
     usedTimeslotEnd.setDate(usedTimeslotEnd.getDate() + lessonDayOfWeek)
     usedTimeslotEnd.setHours(9, 0, 0, 0)
-    const usedEventType = await createTestEventType(tenant.id, className + ' Used', 10, undefined, w)
+    const usedEventType = await createTestEventType(
+      tenant.id,
+      className + ' Used',
+      10,
+      undefined,
+      w,
+    )
     await setEventTypeAllowedPlans(usedEventType.id, [plan.id])
-    const usedTimeslot = await createTestTimeslot(tenant.id, usedEventType.id, usedTimeslotStart, usedTimeslotEnd, undefined, true)
+    const usedTimeslot = await createTestTimeslot(
+      tenant.id,
+      usedEventType.id,
+      usedTimeslotStart,
+      usedTimeslotEnd,
+      undefined,
+      true,
+    )
 
     await payload.create({
       collection: 'bookings',
@@ -493,7 +680,14 @@ test.describe('Schedule immediate booking', () => {
     endTime.setDate(endTime.getDate() + lessonDayOfWeek)
     endTime.setHours(15, 0, 0, 0)
 
-    const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
     await navigateToSchedule(page, tenant.slug, startTime)
@@ -507,29 +701,27 @@ test.describe('Schedule immediate booking', () => {
         r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
         r.request().method() === 'POST' &&
         r.status() === 200,
-      { timeout: 20000 }
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
     // Should redirect to /bookings/[id] since subscription is exhausted
     await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}`, { timeout: 20000 })
     await expect(
-      page.getByText(/select quantity|payment methods|choose how to pay/i).first()
+      page.getByText(/select quantity|payment methods|choose how to pay/i).first(),
     ).toBeVisible({ timeout: 15000 })
   })
 
   // ── Story 5b: Weekly window resets across Sunday..Sunday ──────────────────
 
-  test('weekly session limit resets across Sunday..Sunday windows', async ({
-    page,
-    testData,
-  }) => {
+  test('weekly session limit resets across Sunday..Sunday windows', async ({ page, testData }) => {
     const payload = await getPayloadInstance()
     const tenant = testData.tenants[0]!
     const user = testData.users.user3
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
@@ -588,7 +780,14 @@ test.describe('Schedule immediate booking', () => {
     const seedBooking = async (lessonDate: Date, hour: number) => {
       const startTime = getDayISO(lessonDate, hour)
       const endTime = getDayISO(lessonDate, hour + 1)
-      const ts = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+      const ts = await createTestTimeslot(
+        tenant.id,
+        eventType.id,
+        startTime,
+        endTime,
+        undefined,
+        true,
+      )
       await payload.create({
         collection: 'bookings',
         data: {
@@ -638,7 +837,7 @@ test.describe('Schedule immediate booking', () => {
       attemptStart,
       attemptEnd,
       undefined,
-      true
+      true,
     )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
@@ -652,13 +851,17 @@ test.describe('Schedule immediate booking', () => {
         r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
         r.request().method() === 'POST' &&
         r.status() === 200,
-      { timeout: 20000 }
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
     // Should redirect because the weekly window is exhausted (already 2 used in this window).
-    await page.waitForURL((url) => url.pathname === `/bookings/${attemptTimeslot.id}`, { timeout: 20000 })
-    await expect(page.getByText(/select quantity|payment methods|choose how to pay/i).first()).toBeVisible({
+    await page.waitForURL((url) => url.pathname === `/bookings/${attemptTimeslot.id}`, {
+      timeout: 20000,
+    })
+    await expect(
+      page.getByText(/select quantity|payment methods|choose how to pay/i).first(),
+    ).toBeVisible({
       timeout: 15000,
     })
   })
@@ -681,7 +884,8 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user3
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
@@ -778,19 +982,17 @@ test.describe('Schedule immediate booking', () => {
     await expect(membershipTab).toHaveAttribute('aria-selected', 'true', { timeout: 10000 })
 
     // The Membership tab content must show the upgrade plans callout
-    await expect(
-      page.getByText(/upgrade to get more sessions this period/i).first()
-    ).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/upgrade to get more sessions this period/i).first()).toBeVisible({
+      timeout: 15000,
+    })
 
     // An upgrade card for the 3x/week plan should be present
-    await expect(
-      page.getByText(upgradePlan.name as string).first()
-    ).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(upgradePlan.name as string).first()).toBeVisible({ timeout: 10000 })
 
     // The upgrade card should display "more session(s) this period"
-    await expect(
-      page.getByText(/more session[s]? this period/i).first()
-    ).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(/more session[s]? this period/i).first()).toBeVisible({
+      timeout: 10000,
+    })
   })
 
   // ── Story 6a: Quantity increase, no payment methods ───────────────────────────
@@ -804,15 +1006,29 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user1
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     const className = uniqueClassName(`E2E Imm No Pay Multi ${tenant.id}`)
-    const eventType = await createTestEventType(tenant.id, className, 20, 'No payment multi class', w)
+    const eventType = await createTestEventType(
+      tenant.id,
+      className,
+      20,
+      'No payment multi class',
+      w,
+    )
     // No paymentMethods — free, multi-booking allowed
 
     const startTime = futureDate(11 + w)
     const endTime = futureDate(11 + w, 11)
-    const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
     await navigateToSchedule(page, tenant.slug, startTime)
@@ -823,8 +1039,11 @@ test.describe('Schedule immediate booking', () => {
     const bookBtn = await getLessonBookButton(page, scheduleTitle)
     await expect(bookBtn).toBeVisible({ timeout: 10000 })
     const trpcCall = page.waitForResponse(
-      (r) => r.url().includes('bookSingleSlotTimeslotOrRedirect') && r.request().method() === 'POST' && r.status() === 200,
-      { timeout: 20000 }
+      (r) =>
+        r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
@@ -834,7 +1053,9 @@ test.describe('Schedule immediate booking', () => {
 
     // 3. Navigate to manage page
     await modifyBtn.click()
-    await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, { timeout: 15000 })
+    await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
+      timeout: 15000,
+    })
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
     await expect(page.getByText(/update booking quantity/i)).toBeVisible({ timeout: 15000 })
@@ -849,32 +1070,40 @@ test.describe('Schedule immediate booking', () => {
     const updateBtn = page.getByRole('button', { name: /update bookings/i })
     await expect(updateBtn).toBeVisible({ timeout: 5000 })
     const createBookingsResponse = page.waitForResponse(
-      (r) => r.url().includes('bookings.createBookings') && r.request().method() === 'POST' && r.status() === 200,
-      { timeout: 30000 }
+      (r) =>
+        r.url().includes('bookings.createBookings') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 30000 },
     )
     await Promise.all([createBookingsResponse, updateBtn.click()])
 
     // Expect the quantity to now be 2 (no checkout/payment flow)
     await expect(page.getByTestId('booking-quantity')).toHaveText('2', { timeout: 15000 })
-    await expect(page.getByText(/complete payment/i)).not.toBeVisible({ timeout: 3000 }).catch(() => null)
+    await expect(page.getByText(/complete payment/i))
+      .not.toBeVisible({ timeout: 3000 })
+      .catch(() => null)
 
     // Confirm 2 bookings in DB (poll because booking side-effects run asynchronously)
     await expect
-      .poll(async () => {
-        const bookings = await payload.find({
-          collection: 'bookings',
-          where: {
-            and: [
-              { timeslot: { equals: lesson.id } },
-              { user: { equals: user.id } },
-              { status: { equals: 'confirmed' } },
-            ],
-          },
-          depth: 0,
-          overrideAccess: true,
-        })
-        return bookings.docs.length
-      }, { timeout: 30000 })
+      .poll(
+        async () => {
+          const bookings = await payload.find({
+            collection: 'bookings',
+            where: {
+              and: [
+                { timeslot: { equals: lesson.id } },
+                { user: { equals: user.id } },
+                { status: { equals: 'confirmed' } },
+              ],
+            },
+            depth: 0,
+            overrideAccess: true,
+          })
+          return bookings.docs.length
+        },
+        { timeout: 30000 },
+      )
       .toBe(2)
   })
 
@@ -889,7 +1118,8 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user1
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await payload.update({
       collection: 'tenants',
@@ -899,9 +1129,15 @@ test.describe('Schedule immediate booking', () => {
     })
 
     const className = uniqueClassName(`E2E Imm Pass Multi ${tenant.id}`)
-    const eventType = await createTestEventType(tenant.id, className, 20, 'Class pass multi class', w)
+    const eventType = await createTestEventType(
+      tenant.id,
+      className,
+      20,
+      'Class pass multi class',
+      w,
+    )
 
-    const cpt = await payload.create({
+    const cpt = (await payload.create({
       collection: 'class-pass-types',
       data: {
         name: `E2E Multi Pass w${w} ${Date.now()}`,
@@ -914,7 +1150,7 @@ test.describe('Schedule immediate booking', () => {
         stripeProductId: `prod_multi_pass_${tenant.id}_${w}_${Date.now()}`,
       } as any,
       overrideAccess: true,
-    }) as { id: number }
+    })) as { id: number }
 
     await payload.update({
       collection: 'event-types',
@@ -924,7 +1160,7 @@ test.describe('Schedule immediate booking', () => {
     })
 
     const future = new Date(Date.now() + 86400000 * 90)
-    const pass = await payload.create({
+    const pass = (await payload.create({
       collection: 'class-passes',
       data: {
         user: user.id,
@@ -936,11 +1172,18 @@ test.describe('Schedule immediate booking', () => {
         status: 'active',
       },
       overrideAccess: true,
-    }) as { id: number }
+    })) as { id: number }
 
     const startTime = futureDate(12 + w)
     const endTime = futureDate(12 + w, 11)
-    const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
     await navigateToSchedule(page, tenant.slug, startTime)
@@ -951,8 +1194,11 @@ test.describe('Schedule immediate booking', () => {
     const bookBtn = await getLessonBookButton(page, scheduleTitle)
     await expect(bookBtn).toBeVisible({ timeout: 10000 })
     const trpcCall = page.waitForResponse(
-      (r) => r.url().includes('bookSingleSlotTimeslotOrRedirect') && r.request().method() === 'POST' && r.status() === 200,
-      { timeout: 20000 }
+      (r) =>
+        r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
@@ -961,15 +1207,25 @@ test.describe('Schedule immediate booking', () => {
 
     // Verify 1 credit deducted (10 → 9)
     await expect
-      .poll(async () => {
-        const p = (await payload.findByID({ collection: 'class-passes', id: pass.id, depth: 0, overrideAccess: true })) as { quantity: number }
-        return p.quantity
-      }, { timeout: 10000 })
+      .poll(
+        async () => {
+          const p = (await payload.findByID({
+            collection: 'class-passes',
+            id: pass.id,
+            depth: 0,
+            overrideAccess: true,
+          })) as { quantity: number }
+          return p.quantity
+        },
+        { timeout: 10000 },
+      )
       .toBe(9)
 
     // 2. Navigate to manage page
     await modifyBtn.click()
-    await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, { timeout: 15000 })
+    await page.waitForURL((url) => url.pathname === `/bookings/${lesson.id}/manage`, {
+      timeout: 15000,
+    })
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
 
     await expect(page.getByText(/update booking quantity/i)).toBeVisible({ timeout: 15000 })
@@ -1000,16 +1256,26 @@ test.describe('Schedule immediate booking', () => {
     await expect(classPassTab).toBeVisible({ timeout: 15000 })
     await classPassTab.click()
 
-    const confirmBtn = page.getByRole('button', { name: /confirm with class pass|use this pass/i }).first()
+    const confirmBtn = page
+      .getByRole('button', { name: /confirm with class pass|use this pass/i })
+      .first()
     await expect(confirmBtn).toBeVisible({ timeout: 10000 })
     await confirmBtn.click()
 
     // 6. Total 3 credits deducted (1 initial + 2 upgrade = 10 → 7)
     await expect
-      .poll(async () => {
-        const p = (await payload.findByID({ collection: 'class-passes', id: pass.id, depth: 0, overrideAccess: true })) as { quantity: number }
-        return p.quantity
-      }, { timeout: 15000 })
+      .poll(
+        async () => {
+          const p = (await payload.findByID({
+            collection: 'class-passes',
+            id: pass.id,
+            depth: 0,
+            overrideAccess: true,
+          })) as { quantity: number }
+          return p.quantity
+        },
+        { timeout: 15000 },
+      )
       .toBe(7)
   })
 
@@ -1024,7 +1290,8 @@ test.describe('Schedule immediate booking', () => {
     const user = testData.users.user1
     const w = testData.workerIndex
 
-    if (!tenant?.id || !tenant.slug || !user?.email) throw new Error('Expected tenant and user fixtures')
+    if (!tenant?.id || !tenant.slug || !user?.email)
+      throw new Error('Expected tenant and user fixtures')
 
     await updateTenantStripeConnect(tenant.id, {
       stripeConnectOnboardingStatus: 'active',
@@ -1057,7 +1324,14 @@ test.describe('Schedule immediate booking', () => {
 
     const startTime = futureDate(3 + w)
     const endTime = futureDate(3 + w, 11)
-    const lesson = await createTestTimeslot(tenant.id, eventType.id, startTime, endTime, undefined, true)
+    const lesson = await createTestTimeslot(
+      tenant.id,
+      eventType.id,
+      startTime,
+      endTime,
+      undefined,
+      true,
+    )
 
     await loginAsRegularUserViaApi(page, user.email, 'password', { tenantSlug: tenant.slug })
     await navigateToSchedule(page, tenant.slug, startTime)
@@ -1068,8 +1342,11 @@ test.describe('Schedule immediate booking', () => {
     const bookBtn = await getLessonBookButton(page, scheduleTitle)
     await expect(bookBtn).toBeVisible({ timeout: 20000 })
     const trpcCall = page.waitForResponse(
-      (r) => r.url().includes('bookSingleSlotTimeslotOrRedirect') && r.request().method() === 'POST' && r.status() === 200,
-      { timeout: 20000 }
+      (r) =>
+        r.url().includes('bookSingleSlotTimeslotOrRedirect') &&
+        r.request().method() === 'POST' &&
+        r.status() === 200,
+      { timeout: 20000 },
     )
     await Promise.all([trpcCall, bookBtn.click()])
 
