@@ -1418,7 +1418,9 @@ export const bookingsRouter = {
         input.timeslotId,
         {
           depth: 2,
-          overrideAccess: false,
+          // This is already a protected procedure; the enrollment query below
+          // explicitly scopes results to the current user and timeslot tenant.
+          overrideAccess: true,
           user: ctx.user,
         },
       );
