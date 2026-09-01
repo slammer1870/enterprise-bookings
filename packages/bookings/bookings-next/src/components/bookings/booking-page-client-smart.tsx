@@ -318,9 +318,9 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
         return maxFromMaybeCap(rawMax)
       }) ?? []
 
-    // Courses have no per-timeslot credit cap in v1 — treat as unlimited for quantity UI.
-    const courseCap =
-      (paymentMethods?.allowedCourses?.length ?? 0) > 0 ? Infinity : 1
+    // A course enrollment covers one booking per person per timeslot.
+    // Other payment methods can still raise the combined maximum.
+    const courseCap = 1
 
     const caps = [dropInMax, ...planCapsWithLegacy, ...classPassCaps, courseCap]
     return caps.some((c) => c === Infinity) ? Infinity : Math.max(1, ...caps)

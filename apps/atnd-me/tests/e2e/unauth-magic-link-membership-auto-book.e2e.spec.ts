@@ -296,8 +296,12 @@ test.describe('Unauth magic link booking with active membership', () => {
 
     await page.context().clearCookies()
     await page.evaluate(() => {
-      localStorage.clear()
-      sessionStorage.clear()
+      try {
+        localStorage.clear()
+        sessionStorage.clear()
+      } catch {
+        // about:blank can have an opaque origin without storage access.
+      }
     })
     await page.goto('about:blank')
     await navigateToTenant(page, tenant.slug, '/')

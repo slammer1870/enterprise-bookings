@@ -3617,7 +3617,7 @@ export interface Booking {
   createdAt: string;
 }
 /**
- * Records how each booking was paid (Stripe, class pass, or subscription). Used to decrement class pass when paymentMethod is class_pass.
+ * Records how each booking was paid (Stripe, class pass, subscription, or course enrollment). Used to decrement class pass when paymentMethod is class_pass.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "transactions".
@@ -3632,7 +3632,7 @@ export interface Transaction {
   /**
    * How the booking was paid.
    */
-  paymentMethod: 'stripe' | 'class_pass' | 'subscription';
+  paymentMethod: 'stripe' | 'class_pass' | 'subscription' | 'course_enrollment';
   /**
    * The class pass id used when paymentMethod is class_pass.
    */
@@ -3649,6 +3649,10 @@ export interface Transaction {
    * Subscription id when paymentMethod is subscription (booking created by subscription).
    */
   subscriptionId?: number | null;
+  /**
+   * Course enrollment id when paymentMethod is course_enrollment.
+   */
+  courseEnrollmentId?: number | null;
   /**
    * Set when a Stripe refund was issued for this booking on cancel.
    */
@@ -5040,6 +5044,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   stripePaymentIntentId?: T;
   dropInId?: T;
   subscriptionId?: T;
+  courseEnrollmentId?: T;
   refundedAt?: T;
   stripeRefundId?: T;
   classPassRestoredAt?: T;

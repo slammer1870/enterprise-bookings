@@ -184,7 +184,14 @@ export const bookingsRouter = {
           where: {
             and: [
               { timeslot: { equals: timeslotId } },
-              { user: { equals: ctx.user.id } },
+              {
+                user: {
+                  equals:
+                    typeof ctx.user.id === "string"
+                      ? parseInt(ctx.user.id, 10)
+                      : ctx.user.id,
+                },
+              },
               { status: { equals: "confirmed" } },
             ],
           },

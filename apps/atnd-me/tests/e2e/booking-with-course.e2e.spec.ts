@@ -1,5 +1,5 @@
 /**
- * Enrolled user books an allowed timeslot via the Course payment tab.
+ * Enrolled user is automatically booked when opening an allowed timeslot.
  */
 import { test, expect } from './helpers/fixtures'
 import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
@@ -37,7 +37,7 @@ async function openBookingPage(args: {
 test.describe('Booking with course enrollment', () => {
   test.describe.configure({ timeout: 120_000, mode: 'serial' })
 
-  test('user with active enrollment sees Course tab and can confirm booking', async ({
+  test('user with active enrollment is automatically booked', async ({
     page,
     testData,
   }) => {
@@ -110,21 +110,6 @@ test.describe('Booking with course enrollment', () => {
 
     await loginAsRegularUserViaApi(page, testData.users.user1.email, 'password', { tenantSlug })
     await openBookingPage({ page, tenantSlug, lessonId: lesson.id })
-
-    await page.waitForTimeout(2000)
-    const courseTab = page.getByRole('tab', { name: /^course$/i })
-    await expect(courseTab).toBeVisible({ timeout: 15000 })
-    await courseTab.click()
-
-    await expect(
-      page.getByText(/use this course|confirm with course|use a course enrollment/i).first(),
-    ).toBeVisible({ timeout: 15000 })
-
-    const confirmBtn = page
-      .getByRole('button', { name: /confirm with course|use this course/i })
-      .first()
-    await expect(confirmBtn).toBeVisible()
-    await confirmBtn.click()
 
     await expect(page.getByRole('heading', { name: /thank you/i })).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(/your booking has been confirmed/i)).toBeVisible()

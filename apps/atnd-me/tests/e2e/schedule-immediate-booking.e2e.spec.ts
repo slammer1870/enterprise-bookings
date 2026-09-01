@@ -334,7 +334,8 @@ test.describe('Schedule immediate booking', () => {
 
     const cancelBtn = await getLessonBookButton(page, scheduleTitle, /cancel booking/i)
     await expect(cancelBtn).toBeVisible({ timeout: 15000 })
-    await expect(getLessonBookButton(page, scheduleTitle, /modify booking/i)).not.toBeVisible({
+    const modifyBtn = await getLessonBookButton(page, scheduleTitle, /modify booking/i)
+    await expect(modifyBtn).not.toBeVisible({
       timeout: 5000,
     })
     expect(page.url()).not.toMatch(/\/bookings\/\d+$/)
