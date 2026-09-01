@@ -233,12 +233,16 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   // ── Payment method caps ────────────────────────────────────────────────────
 
   const paymentMethods = asPaymentMethodsLike(timeslot.eventType?.paymentMethods)
-  const hasCourseEnrollmentPayment = (paymentMethods?.allowedCourses?.length ?? 0) > 0
   const hasPaymentMethodsConfigured = Boolean(
     paymentMethods?.allowedDropIn ||
       (paymentMethods?.allowedPlans?.length ?? 0) > 0 ||
       (paymentMethods?.allowedClassPasses?.length ?? 0) > 0 ||
-      hasCourseEnrollmentPayment
+      (paymentMethods?.allowedCourses?.length ?? 0) > 0
+  )
+  const hasCourseEnrollmentBooking = confirmedBookings.some(
+    (booking: any) =>
+      booking.paymentMethodUsed === 'course_enrollment' ||
+      booking.courseEnrollmentIdUsed != null
   )
 
   const viewerMaxPerTimeslot = useMemo(() => computeViewerMax(paymentMethods), [paymentMethods])
@@ -246,7 +250,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   //  - no payment methods configured (free lesson, unlimited additional slots), OR
   //  - payment methods exist and at least one allows maxBookingsPerTimeslot > 1
   const canIncreaseQuantity =
-    !hasCourseEnrollmentPayment &&
+    !hasCourseEnrollmentBooking &&
     (!hasPaymentMethodsConfigured || (hasPaymentMethodsConfigured && viewerMaxPerTimeslot > 1))
 
   // ── Checkout state ────────────────────────────────────────────────────────
@@ -908,7 +912,8 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
             <div>
               <p className="font-medium">Number of bookings</p>
               <p className="text-sm text-muted-foreground">
-                {hasCourseEnrollmentPayment || (hasPaymentMethodsConfigured && viewerMaxPerTimeslot === 1)
+                {hasCourseEnrollmentBooking ||
+                (hasPaymentMethodsConfigured && viewerMaxPerTimeslot === 1)
                   ? 'Only 1 slot per timeslot per user.'
                   : `Up to ${remainingCapacityForLabel} more booking${remainingCapacityForLabel !== 1 ? 's' : ''} available for this timeslot.`}
               </p>
