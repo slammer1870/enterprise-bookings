@@ -30,6 +30,7 @@ type Summary = {
   totalBookings: number
   uniqueCustomers: number
   grossVolumeCents: number
+  revenueEstimateCents: number
   accountToBookingConversionPercent: number | null
   returningCustomerPercent: number | null
 }
@@ -260,6 +261,7 @@ export const AnalyticsDashboardClient: React.FC<{
             totalBookings: 0,
             uniqueCustomers: 0,
             grossVolumeCents: 0,
+            revenueEstimateCents: 0,
             accountToBookingConversionPercent: null,
             returningCustomerPercent: null,
           },
@@ -319,7 +321,7 @@ export const AnalyticsDashboardClient: React.FC<{
     return () => {
       cancelled = true
     }
-  }, [dateFromStr, dateToStr, comparePrevious, selectedTenantId])
+  }, [dateFromStr, dateToStr, comparePrevious, selectedTenantId, selectedBranchId])
 
   useEffect(() => {
     if (activeCustomerId == null) return
@@ -524,15 +526,18 @@ export const AnalyticsDashboardClient: React.FC<{
               }}
             >
               <div style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
-                Returning customer rate
+                Estimated revenue
               </div>
               <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>
-                {data.summary.returningCustomerPercent !== null
-                  ? `${data.summary.returningCustomerPercent}%`
-                  : '—'}
+                €{(data.summary.revenueEstimateCents / 100).toFixed(2)}
+                {data.summaryPrevious != null && (
+                  <span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--theme-elevation-600, #666)', marginLeft: '0.5rem' }}>
+                    (prev: €{(data.summaryPrevious.revenueEstimateCents / 100).toFixed(2)})
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: '0.75rem', color: 'var(--theme-elevation-500, #888)', marginTop: '0.25rem' }}>
-                Customers who booked on 2+ separate days
+                Attributed from confirmed bookings; unlimited memberships use an 8-session floor
               </div>
             </div>
           </div>

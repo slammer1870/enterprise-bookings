@@ -49,17 +49,19 @@ test.describe('Admin analytics dashboard', () => {
     const resp = await analyticsResponse
     expect(resp.status()).toBe(200)
     const body = (await resp.json()) as {
-      summary: { totalBookings: number; uniqueCustomers: number }
+      summary: { totalBookings: number; uniqueCustomers: number; revenueEstimateCents: number }
       bookingsOverTime: unknown[]
       topCustomers: unknown[]
     }
     expect(body.summary.totalBookings).toBeGreaterThanOrEqual(1)
     expect(body.summary.uniqueCustomers).toBeGreaterThanOrEqual(1)
+    expect(typeof body.summary.revenueEstimateCents).toBe('number')
     expect(Array.isArray(body.bookingsOverTime)).toBe(true)
     expect(Array.isArray(body.topCustomers)).toBe(true)
 
     await expect(page.getByRole('heading', { name: /^analytics$/i })).toBeVisible({ timeout: 20_000 })
     await expect(page.getByText('Total bookings')).toBeVisible()
+    await expect(page.getByText('Estimated revenue')).toBeVisible()
     await expect(page.getByText(/failed to load analytics|analytics failed/i)).toHaveCount(0)
   })
 
