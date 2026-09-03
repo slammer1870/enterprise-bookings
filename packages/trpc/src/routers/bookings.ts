@@ -336,14 +336,8 @@ export const bookingsRouter = {
       }
 
       // 6. Valid course enrollment for this timeslot → book immediately (no credits to decrement).
-      const allowedCourseIds: number[] = (
-        (paymentMethods as any)?.allowedCourses ?? []
-      )
-        .map((c: any) => (typeof c === "object" && c != null ? c.id : c))
-        .filter((id: unknown): id is number => typeof id === "number");
-
+      // The course owns entitlement; event-type allowedCourses is only offer/payment config.
       if (
-        allowedCourseIds.length > 0 &&
         timeslotTenantId != null &&
         hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)
       ) {
@@ -361,7 +355,6 @@ export const bookingsRouter = {
               and: [
                 { user: { equals: ctx.user.id } },
                 { tenant: { equals: timeslotTenantId } },
-                { course: { in: allowedCourseIds } },
                 { status: { equals: "active" } },
                 { accessStartsAt: { less_than_equal: slotStartIso } },
                 { accessEndsAt: { greater_than_equal: slotStartIso } },
@@ -1037,7 +1030,7 @@ export const bookingsRouter = {
           });
         }
 
-        // Ensure event type is populated for allowedCourses / allowedEventTypes checks.
+        // Ensure event type is populated for the course entitlement check.
         if (
           (typeof timeslot.eventType !== "object" ||
             timeslot.eventType == null) &&
@@ -1440,23 +1433,6 @@ export const bookingsRouter = {
         ctx.bookingsSlugs.classPassTypes,
       );
 
-      const eventType =
-        typeof timeslot.eventType === "object" ? timeslot.eventType : null;
-      const allowedCourses = (
-        eventType as { paymentMethods?: { allowedCourses?: unknown[] } } | null
-      )?.paymentMethods?.allowedCourses;
-      if (!Array.isArray(allowedCourses) || allowedCourses.length === 0)
-        return [];
-
-      const allowedCourseIds = allowedCourses
-        .map((c) =>
-          typeof c === "object" && c != null && "id" in c
-            ? (c as { id: number }).id
-            : c,
-        )
-        .filter((id): id is number => typeof id === "number");
-      if (allowedCourseIds.length === 0) return [];
-
       const timeslotTenantId =
         typeof timeslot.tenant === "object" && timeslot.tenant != null
           ? (timeslot.tenant as { id: number }).id
@@ -1478,7 +1454,6 @@ export const bookingsRouter = {
             and: [
               { user: { equals: ctx.user.id } },
               { tenant: { equals: timeslotTenantId } },
-              { course: { in: allowedCourseIds } },
               { status: { equals: "active" } },
               { accessStartsAt: { less_than_equal: slotStartIso } },
               { accessEndsAt: { greater_than_equal: slotStartIso } },
@@ -3180,14 +3155,8 @@ export const bookingsRouter = {
       }
 
       // Valid course enrollment → book immediately.
-      const allowedCourseIds: number[] = (paymentMethods?.allowedCourses ?? [])
-        .map((course: any) =>
-          typeof course === "object" && course != null ? course.id : course,
-        )
-        .filter((id: unknown): id is number => typeof id === "number");
-
+      // The course owns entitlement; event-type allowedCourses is only offer/payment config.
       if (
-        allowedCourseIds.length > 0 &&
         timeslotTenantId != null &&
         hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)
       ) {
@@ -3205,7 +3174,6 @@ export const bookingsRouter = {
               and: [
                 { user: { equals: ctx.user.id } },
                 { tenant: { equals: timeslotTenantId } },
-                { course: { in: allowedCourseIds } },
                 { status: { equals: "active" } },
                 { accessStartsAt: { less_than_equal: slotStartIso } },
                 { accessEndsAt: { greater_than_equal: slotStartIso } },
