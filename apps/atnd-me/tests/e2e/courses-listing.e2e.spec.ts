@@ -22,8 +22,8 @@ test.describe('Courses listing', () => {
     const today = new Date()
     const tomorrow = new Date(today)
     tomorrow.setDate(tomorrow.getDate() + 1)
-    const dayAfterTomorrow = new Date(tomorrow)
-    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
 
     await payload.create({
       collection: 'courses',
@@ -75,14 +75,14 @@ test.describe('Courses listing', () => {
     await payload.create({
       collection: 'courses',
       data: {
-        title: `E2E Future Course w${w} ${Date.now()}`,
-        slug: `e2e-course-future-${w}-${Date.now()}`,
+        title: `E2E Past Course w${w} ${Date.now()}`,
+        slug: `e2e-course-past-${w}-${Date.now()}`,
         durationLength: 6,
         durationUnit: 'weeks',
         allowedEventTypes: [eventType.id],
         status: 'open',
         tenant: tenantId,
-        startDate: dayAfterTomorrow.toISOString().slice(0, 10),
+        startDate: yesterday.toISOString().slice(0, 10),
         priceInformation: { price: 75 },
       },
       overrideAccess: true,
@@ -99,7 +99,7 @@ test.describe('Courses listing', () => {
     await expect(courseItem).toBeVisible()
     await expect(courseItem.getByTestId('course-list-places')).toHaveText('9 places left')
     await expect(
-      page.getByTestId('course-list-item').filter({ hasText: 'E2E Future Course' }),
+      page.getByTestId('course-list-item').filter({ hasText: 'E2E Past Course' }),
     ).not.toBeVisible()
 
     await courseItem.click()
