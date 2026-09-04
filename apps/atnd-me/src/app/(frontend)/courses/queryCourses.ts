@@ -10,6 +10,12 @@ export type OpenCourseListItem = CourseDetailDoc & {
   activeEnrollmentCount: number
 }
 
+function startOfTodayUTC(): Date {
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  return today
+}
+
 export const queryOpenCourses = cache(async (): Promise<OpenCourseListItem[]> => {
   const cookieStore = await cookies()
   const headersList = await headers()
@@ -17,7 +23,7 @@ export const queryOpenCourses = cache(async (): Promise<OpenCourseListItem[]> =>
   const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
   const tenantId = tenant?.id
   if (tenantId == null) return []
-  const today = new Date().toISOString().slice(0, 10)
+  const today = startOfTodayUTC()
 
   const result = await payload.find({
     collection: 'courses' as import('payload').CollectionSlug,
@@ -77,7 +83,7 @@ export const queryCourseBySlug = cache(
     const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
     const tenantId = tenant?.id
     if (tenantId == null) return null
-    const today = new Date().toISOString().slice(0, 10)
+    const today = startOfTodayUTC()
 
     const result = await payload.find({
       collection: 'courses' as import('payload').CollectionSlug,
