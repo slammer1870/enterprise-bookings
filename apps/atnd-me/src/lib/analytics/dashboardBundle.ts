@@ -32,6 +32,8 @@ const DEFAULT_TOP_LIMIT = 10
 const DEFAULT_LIKELY_CHURN_LIMIT = 10
 const CHURN_INACTIVITY_DAYS = 7
 const CHURN_TREND_WINDOW_DAYS = 30
+const UNLIMITED_MEMBERSHIP_MIN_SESSIONS = 8
+const YMD_ONLY_FOR_REVENUE = /^\d{4}-\d{2}-\d{2}$/
 
 export type AnalyticsDashboardBundleOptions = {
   /** When false, skips summary computation (total bookings + unique customers). */
@@ -148,6 +150,313 @@ async function resolveTopCustomerRows(
   }))
 }
 
+type RevenueBookingCandidate = {
+  bookingId: number
+  userId: number | null
+}
+
+function relationId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'object' && value !== null && 'id' in value) {
+    const id = (value as { id?: unknown }).id
+    return typeof id === 'number' && Number.isFinite(id) ? id : null
+  }
+  return null
+}
+
+function priceToCents(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.round(value * 100)
+    : 0
+}
+
+function billingPeriodDays(interval: unknown): number {
+  if (interval === 'day') return 1
+  if (interval === 'week') return 7
+  if (interval === 'year') return 364
+  return 28
+}
+
+/**
+ * Estimates the attributable value of confirmed bookings from the product used
+ * to create each booking. Product prices are stored in euros while analytics
+ * exposes integer cents.
+ *
+ * Unlimited memberships intentionally use the selected analytics range as the
+ * usage window when subscription billing-period history is unavailable. The
+ * eight-session floor prevents low-usage members from inflating the estimate.
+ */
+async function calculateRevenueEstimate(
+  payload: Payload,
+  candidates: RevenueBookingCandidate[],
+  params: AnalyticsQueryParams,
+): Promise<number> {
+  if (candidates.length === 0) return 0
+
+  const transactionByBookingId = new Map<number, {
+    paymentMethod?: string
+    dropInId?: unknown
+    classPassId?: unknown
+    subscriptionId?: unknown
+  }>()
+  for (const ids of chunkIds(candidates.map((c) => c.bookingId), TIMESLOT_ID_IN_CHUNK_SIZE)) {
+    const result = await payload.find({
+      collection: 'transactions',
+      where: { booking: { in: ids } },
+      limit: ids.length,
+      depth: 0,
+      select: { booking: true, paymentMethod: true, dropInId: true, classPassId: true, subscriptionId: true },
+      overrideAccess: true,
+    })
+    for (const row of result.docs) {
+      const doc = row as {
+        booking?: unknown
+        paymentMethod?: string
+        dropInId?: unknown
+        classPassId?: unknown
+        subscriptionId?: unknown
+      }
+      const bookingId = relationId(doc.booking)
+      if (bookingId != null) transactionByBookingId.set(bookingId, doc)
+    }
+  }
+
+  const dropInIds = new Set<number>()
+  const classPassIds = new Set<number>()
+  const subscriptionIds = new Set<number>()
+  for (const tx of transactionByBookingId.values()) {
+    const dropInId = relationId(tx.dropInId)
+    const classPassId = relationId(tx.classPassId)
+    const subscriptionId = relationId(tx.subscriptionId)
+    if (dropInId != null) dropInIds.add(dropInId)
+    if (classPassId != null) classPassIds.add(classPassId)
+    if (subscriptionId != null) subscriptionIds.add(subscriptionId)
+  }
+
+  const [dropIns, classPasses, subscriptions] = await Promise.all([
+    dropInIds.size > 0
+      ? payload.find({
+          collection: 'drop-ins',
+          where: { id: { in: [...dropInIds] } },
+          limit: dropInIds.size,
+          depth: 0,
+          select: { id: true, price: true },
+          overrideAccess: true,
+        })
+      : Promise.resolve({ docs: [] as unknown[] }),
+    classPassIds.size > 0
+      ? payload.find({
+          collection: 'class-passes',
+          where: { id: { in: [...classPassIds] } },
+          limit: classPassIds.size,
+          depth: 0,
+          select: { id: true, type: true },
+          overrideAccess: true,
+        })
+      : Promise.resolve({ docs: [] as unknown[] }),
+    subscriptionIds.size > 0
+      ? payload.find({
+          collection: 'subscriptions',
+          where: { id: { in: [...subscriptionIds] } },
+          limit: subscriptionIds.size,
+          depth: 0,
+          select: { id: true, user: true, plan: true, startDate: true, endDate: true },
+          overrideAccess: true,
+        })
+      : Promise.resolve({ docs: [] as unknown[] }),
+  ])
+
+  const dropInPriceById = new Map<number, number>()
+  for (const row of dropIns.docs) {
+    const doc = row as { id?: number; price?: unknown }
+    if (typeof doc.id === 'number') dropInPriceById.set(doc.id, priceToCents(doc.price))
+  }
+
+  const classPassTypeIds = new Set<number>()
+  const classPassTypeByPassId = new Map<number, number>()
+  for (const row of classPasses.docs) {
+    const doc = row as { id?: number; type?: unknown }
+    const typeId = relationId(doc.type)
+    if (typeof doc.id === 'number' && typeId != null) {
+      classPassTypeIds.add(typeId)
+      classPassTypeByPassId.set(doc.id, typeId)
+    }
+  }
+  const classPassTypes = classPassTypeIds.size > 0
+    ? await payload.find({
+        collection: 'class-pass-types',
+        where: { id: { in: [...classPassTypeIds] } },
+        limit: classPassTypeIds.size,
+        depth: 0,
+        select: { id: true, quantity: true, priceInformation: true },
+        overrideAccess: true,
+      })
+    : { docs: [] as unknown[] }
+  const classPassValueByTypeId = new Map<number, number>()
+  for (const row of classPassTypes.docs) {
+    const doc = row as {
+      id?: number
+      quantity?: unknown
+      priceInformation?: { price?: unknown }
+    }
+    if (typeof doc.id !== 'number' || typeof doc.quantity !== 'number' || doc.quantity <= 0) continue
+    classPassValueByTypeId.set(doc.id, Math.round(priceToCents(doc.priceInformation?.price) / doc.quantity))
+  }
+
+  const planIds = new Set<number>()
+  const subscriptionById = new Map<number, {
+    userId: number | null
+    planId: number | null
+    startDate: string | null
+    endDate: string | null
+  }>()
+  for (const row of subscriptions.docs) {
+    const doc = row as {
+      id?: number
+      user?: unknown
+      plan?: unknown
+      startDate?: unknown
+      endDate?: unknown
+    }
+    if (typeof doc.id === 'number') {
+      const planId = relationId(doc.plan)
+      subscriptionById.set(doc.id, {
+        userId: relationId(doc.user),
+        planId,
+        startDate: typeof doc.startDate === 'string' ? doc.startDate.slice(0, 10) : null,
+        endDate: typeof doc.endDate === 'string' ? doc.endDate.slice(0, 10) : null,
+      })
+      if (planId != null) planIds.add(planId)
+    }
+  }
+  const plans = planIds.size > 0
+    ? await payload.find({
+        collection: 'plans',
+        where: { id: { in: [...planIds] } },
+        limit: planIds.size,
+        depth: 0,
+        select: { id: true, priceInformation: true, sessionsInformation: true },
+        overrideAccess: true,
+      })
+    : { docs: [] as unknown[] }
+  const planById = new Map<number, {
+    priceCents: number
+    sessions: number | null
+  }>()
+  for (const row of plans.docs) {
+    const doc = row as {
+      id?: number
+      priceInformation?: { price?: unknown; interval?: unknown; intervalCount?: unknown }
+      sessionsInformation?: { sessions?: unknown; interval?: unknown; intervalCount?: unknown }
+    }
+    if (typeof doc.id !== 'number') continue
+    const sessions = doc.sessionsInformation?.sessions
+    const sessionIntervalCount =
+      typeof doc.sessionsInformation?.intervalCount === 'number' &&
+      doc.sessionsInformation.intervalCount > 0
+        ? doc.sessionsInformation.intervalCount
+        : 1
+    const priceIntervalCount =
+      typeof doc.priceInformation?.intervalCount === 'number' &&
+      doc.priceInformation.intervalCount > 0
+        ? doc.priceInformation.intervalCount
+        : 1
+    const sessionsPerBillingPeriod =
+      typeof sessions === 'number' && sessions > 0
+        ? (sessions / sessionIntervalCount) *
+          (billingPeriodDays(doc.priceInformation?.interval) /
+            billingPeriodDays(doc.sessionsInformation?.interval)) *
+          priceIntervalCount
+        : null
+    planById.set(doc.id, {
+      priceCents: priceToCents(doc.priceInformation?.price),
+      sessions:
+        sessionsPerBillingPeriod != null && sessionsPerBillingPeriod > 0
+          ? sessionsPerBillingPeriod
+          : null,
+    })
+  }
+
+  const bookingsByUser = new Map<number, number>()
+  for (const candidate of candidates) {
+    if (candidate.userId != null) {
+      bookingsByUser.set(candidate.userId, (bookingsByUser.get(candidate.userId) ?? 0) + 1)
+    }
+  }
+
+  // Unlimited plans need usage-based allocation. When a subscription has a
+  // current billing window, count all of the member's bookings in that window
+  // (across locations); older/test records without dates fall back to the
+  // selected analytics range.
+  const unlimitedBookingsBySubscriptionId = new Map<number, number>()
+  for (const [subscriptionId, subscription] of subscriptionById.entries()) {
+    const plan = subscription.planId != null ? planById.get(subscription.planId) : undefined
+    if (!plan || plan.sessions != null || subscription.userId == null) continue
+
+    let usage = bookingsByUser.get(subscription.userId) ?? 0
+    if (
+      subscription.startDate &&
+      subscription.endDate &&
+      YMD_ONLY_FOR_REVENUE.test(subscription.startDate) &&
+      YMD_ONLY_FOR_REVENUE.test(subscription.endDate)
+    ) {
+      const billingTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, {
+        dateFrom: subscription.startDate,
+        dateTo: subscription.endDate,
+        tenantId: params.tenantId,
+      })
+      usage = 0
+      for (const ids of chunkIds(billingTimeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+        const result = await payload.count({
+          collection: 'bookings',
+          where: {
+            and: [
+              { status: { equals: 'confirmed' } },
+              { user: { equals: subscription.userId } },
+              { timeslot: { in: ids } },
+              ...(params.tenantId != null ? [{ tenant: { equals: params.tenantId } }] : []),
+            ],
+          },
+          overrideAccess: true,
+        })
+        usage += result.totalDocs ?? 0
+      }
+    }
+    unlimitedBookingsBySubscriptionId.set(subscriptionId, usage)
+  }
+
+  let totalCents = 0
+  for (const candidate of candidates) {
+    const tx = transactionByBookingId.get(candidate.bookingId)
+    if (!tx) continue
+    const method = tx.paymentMethod
+    if (method === 'stripe') {
+      const dropInId = relationId(tx.dropInId)
+      if (dropInId != null) totalCents += dropInPriceById.get(dropInId) ?? 0
+      continue
+    }
+    if (method === 'class_pass') {
+      const passId = relationId(tx.classPassId)
+      const typeId = passId != null ? classPassTypeByPassId.get(passId) : undefined
+      if (typeId != null) totalCents += classPassValueByTypeId.get(typeId) ?? 0
+      continue
+    }
+    if (method === 'subscription') {
+      const subscriptionId = relationId(tx.subscriptionId)
+      const subscription = subscriptionId != null ? subscriptionById.get(subscriptionId) : undefined
+      const plan = subscription?.planId != null ? planById.get(subscription.planId) : undefined
+      if (!plan) continue
+      const denominator = plan.sessions ?? Math.max(
+        UNLIMITED_MEMBERSHIP_MIN_SESSIONS,
+        unlimitedBookingsBySubscriptionId.get(subscriptionId!) ??
+          (candidate.userId != null ? bookingsByUser.get(candidate.userId) ?? 0 : 0),
+      )
+      totalCents += Math.round(plan.priceCents / denominator)
+    }
+  }
+  return totalCents
+}
+
 export async function getAnalyticsDashboardBundle(
   payload: Payload,
   params: AnalyticsQueryParams,
@@ -177,6 +486,7 @@ export async function getAnalyticsDashboardBundle(
         totalBookings: 0,
         uniqueCustomers: 0,
         grossVolumeCents: 0,
+        revenueEstimateCents: 0,
         accountToBookingConversionPercent: null,
         returningCustomerPercent: null,
       },
@@ -228,6 +538,7 @@ export async function getAnalyticsDashboardBundle(
   const byUser = includeTopCustomers ? new Map<number, number>() : new Map<number, number>()
   const churnAggByUser = includeLikelyChurnCustomers ? new Map<number, ChurnAgg>() : new Map<number, ChurnAgg>()
   const churnAggTenantIdsByUser = includeLikelyChurnCustomers ? new Map<number, Set<number>>() : new Map<number, Set<number>>()
+  const revenueCandidates: RevenueBookingCandidate[] = []
   // Track distinct booking dates per user for the returning-customer metric.
   // Only populated when we already need timeslot dates (includeBookingsOverTime).
   const trackReturningCustomers = includeSummary && includeBookingsOverTime
@@ -271,7 +582,7 @@ export async function getAnalyticsDashboardBundle(
       where,
       limit: MAX_BOOKINGS_PER_CHUNK,
       depth: 0,
-      select: { user: true, timeslot: true },
+      select: { id: true, user: true, timeslot: true },
       overrideAccess: true,
     })
 
@@ -287,6 +598,9 @@ export async function getAnalyticsDashboardBundle(
       const d = doc as { user?: number | { id: number }; timeslot?: number | { id?: number } }
 
       const uid = bookingUserId(d)
+      if (typeof (d as { id?: unknown }).id === 'number') {
+        revenueCandidates.push({ bookingId: (d as { id: number }).id, userId: uid })
+      }
       if (uid !== null) {
         if (includeSummary) uniqueUserIds.add(uid)
         if (includeTopCustomers) byUser.set(uid, (byUser.get(uid) ?? 0) + 1)
@@ -525,6 +839,9 @@ export async function getAnalyticsDashboardBundle(
     : []
 
   const topCustomers = includeTopCustomers ? await resolveTopCustomerRows(payload, byUser, topLimit) : []
+  const revenueEstimateCents = includeSummary
+    ? await calculateRevenueEstimate(payload, revenueCandidates, params)
+    : 0
 
   // Subscription-filter + score calculation (implemented after we fetch subscriptions
   // to avoid per-user queries).
@@ -758,6 +1075,7 @@ export async function getAnalyticsDashboardBundle(
       totalBookings: includeSummary ? totalBookings : 0,
       uniqueCustomers: includeSummary ? uniqueUserIds.size : 0,
       grossVolumeCents: 0,
+      revenueEstimateCents,
       accountToBookingConversionPercent: includeSummary ? accountToBookingConversionPercent : null,
       returningCustomerPercent: includeSummary ? returningCustomerPercent : null,
     },

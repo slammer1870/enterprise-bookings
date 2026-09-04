@@ -713,6 +713,100 @@ describe('Analytics API (Phase 4)', () => {
     )
 
     it(
+      'estimates attributable drop-in revenue for confirmed bookings',
+      async () => {
+        const from = '2045-04-15'
+        await payload.update({
+          collection: 'tenants',
+          id: testTenantId,
+          data: { stripeConnectOnboardingStatus: 'active' },
+          overrideAccess: true,
+        })
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: `Analytics Revenue ${Date.now()}`,
+            places: 10,
+            description: 'revenue attribution test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+        const dropIn = await payload.create({
+          collection: 'drop-ins',
+          data: {
+            name: `Analytics Drop In ${Date.now()}`,
+            isActive: true,
+            price: 25.99,
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+        const configuredEventType = await payload.update({
+          collection: 'event-types',
+          id: eventType.id,
+          data: { paymentMethods: { allowedDropIn: dropIn.id } },
+          overrideAccess: true,
+        })
+        const startTime = new Date(`${from}T12:00:00.000Z`)
+        const endTime = new Date(`${from}T13:00:00.000Z`)
+        const timeslot = await payload.create({
+          collection: 'timeslots',
+          data: {
+            date: startTime.toISOString(),
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            eventType: configuredEventType.id,
+            tenant: testTenantId,
+            active: true,
+            lockOutTime: 0,
+          },
+          draft: false,
+          overrideAccess: true,
+        })
+        const booking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: timeslot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+        const transaction = await payload.create({
+          collection: 'transactions',
+          data: {
+            tenant: testTenantId,
+            booking: booking.id,
+            paymentMethod: 'stripe',
+            dropInId: dropIn.id,
+          } as Record<string, unknown>,
+          overrideAccess: true,
+        })
+
+        try {
+          const res = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `http://localhost/api/analytics?dateFrom=${from}&dateTo=${from}&tenantId=${testTenantId}`,
+            }),
+          )
+          expect(res.status).toBe(200)
+          const data = await res.json()
+          expect(data.summary.revenueEstimateCents).toBe(2599)
+        } finally {
+          await payload.delete({ collection: 'transactions', where: { id: { equals: transaction.id } }, overrideAccess: true }).catch(() => {})
+          await payload.delete({ collection: 'bookings', where: { id: { equals: booking.id } }, overrideAccess: true }).catch(() => {})
+          await payload.delete({ collection: 'timeslots', where: { id: { equals: timeslot.id } }, overrideAccess: true }).catch(() => {})
+          await payload.delete({ collection: 'drop-ins', where: { id: { equals: dropIn.id } }, overrideAccess: true }).catch(() => {})
+          await payload.delete({ collection: 'event-types', where: { id: { equals: eventType.id } }, overrideAccess: true }).catch(() => {})
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'when comparePrevious=true returns summaryPrevious and bookingsOverTimePrevious with same shape',
       async () => {
         const res = await GET(

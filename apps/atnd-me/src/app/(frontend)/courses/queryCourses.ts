@@ -10,6 +10,12 @@ export type OpenCourseListItem = CourseDetailDoc & {
   activeEnrollmentCount: number
 }
 
+function startOfTodayUTC(): Date {
+  const today = new Date()
+  today.setUTCHours(0, 0, 0, 0)
+  return today
+}
+
 export const queryOpenCourses = cache(async (): Promise<OpenCourseListItem[]> => {
   const cookieStore = await cookies()
   const headersList = await headers()
@@ -17,11 +23,18 @@ export const queryOpenCourses = cache(async (): Promise<OpenCourseListItem[]> =>
   const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
   const tenantId = tenant?.id
   if (tenantId == null) return []
+  const today = startOfTodayUTC()
 
   const result = await payload.find({
     collection: 'courses' as import('payload').CollectionSlug,
     where: {
-      and: [{ tenant: { equals: tenantId } }, { status: { equals: 'open' } }],
+      and: [
+        { tenant: { equals: tenantId } },
+        { status: { equals: 'open' } },
+        {
+          or: [{ startDate: { exists: false } }, { startDate: { greater_than_equal: today } }],
+        },
+      ],
     },
     sort: 'title',
     limit: 50,
@@ -70,6 +83,7 @@ export const queryCourseBySlug = cache(
     const tenant = await getTenantContext(payload, { cookies: cookieStore, headers: headersList })
     const tenantId = tenant?.id
     if (tenantId == null) return null
+    const today = startOfTodayUTC()
 
     const result = await payload.find({
       collection: 'courses' as import('payload').CollectionSlug,
@@ -78,6 +92,9 @@ export const queryCourseBySlug = cache(
           { tenant: { equals: tenantId } },
           { slug: { equals: slug } },
           { status: { not_equals: 'archived' } },
+          {
+            or: [{ startDate: { exists: false } }, { startDate: { greater_than_equal: today } }],
+          },
         ],
       },
       limit: 1,
