@@ -8,6 +8,10 @@ import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { Banner, Gutter } from '@payloadcms/ui'
+import { Calendar } from '@repo/ui/components/ui/calendar'
+import { Button } from '@repo/ui/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@repo/ui/components/ui/popover'
+import { CalendarIcon } from 'lucide-react'
 import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
 import { OnboardingChecklist } from '@/components/BeforeDashboard/OnboardingChecklist'
 
@@ -57,7 +61,7 @@ type AnalyticsData = {
 }
 
 const PRESETS = [
-  { label: 'Last 7 days', days: 7 },
+  { label: 'Previous 7 days', days: 7 },
   { label: 'Last 30 days', days: 30 },
   { label: 'Last 91 days', days: 91 },
 ] as const
@@ -79,6 +83,19 @@ function formatDdMmYyyy(ymd: string | null | undefined): string {
   const [y, m, d] = ymd.split('-')
   if (!y || !m || !d) return ymd
   return `${d}-${m}-${y}`
+}
+
+type AnalyticsDateRange = { from: Date; to?: Date }
+
+function getDateRangeForDays(days: number): AnalyticsDateRange {
+  const to = new Date()
+  const from = new Date(to)
+  from.setDate(from.getDate() - days)
+  return { from, to }
+}
+
+function formatDateRange(from: Date, to: Date): string {
+  return `${formatDdMmYyyy(formatLocalYmd(from))} – ${formatDdMmYyyy(formatLocalYmd(to))}`
 }
 
 function AnalyticsLoadingSkeleton() {
@@ -196,7 +213,8 @@ export const AnalyticsDashboardClient: React.FC<{
   const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null)
   const [iframeLoaded, setIframeLoaded] = useState(false)
   /** Default:7 days — lighter first load than 30/91 day windows. */
-  const [presetIndex, setPresetIndex] = useState(0)
+  const [presetIndex, setPresetIndex] = useState<number>(0)
+  const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() => getDateRangeForDays(PRESETS[0].days))
   const [comparePrevious, setComparePrevious] = useState(false)
   const [stripeNotice] = useState(() =>
     typeof window !== 'undefined' ? getStripeConnectNoticeFromSearch(window.location.search) : null,
@@ -206,13 +224,8 @@ export const AnalyticsDashboardClient: React.FC<{
     router.prefetch('/admin/collections/timeslots')
   }, [router])
 
-  const preset = PRESETS[Math.min(presetIndex, PRESETS.length - 1)] ?? PRESETS[0]
-  const days = preset.days
-  const dateTo = new Date()
-  const dateFrom = new Date()
-  dateFrom.setDate(dateFrom.getDate() - days)
-  const dateFromStr = formatLocalYmd(dateFrom)
-  const dateToStr = formatLocalYmd(dateTo)
+  const dateFromStr = dateRange.from ? formatLocalYmd(dateRange.from) : null
+  const dateToStr = dateRange.to ? formatLocalYmd(dateRange.to) : null
 
   useEffect(() => {
     if (!stripeNotice || typeof window === 'undefined') return
@@ -224,6 +237,8 @@ export const AnalyticsDashboardClient: React.FC<{
   }, [stripeNotice])
 
   useEffect(() => {
+    if (!dateFromStr || !dateToStr) return
+
     let cancelled = false
     setLoading(true)
     setLoadingTopCustomers(true)
@@ -419,7 +434,10 @@ export const AnalyticsDashboardClient: React.FC<{
           <button
             key={p.label}
             type="button"
-            onClick={() => setPresetIndex(i)}
+            onClick={() => {
+              setPresetIndex(i)
+              setDateRange(getDateRangeForDays(p.days))
+            }}
             style={{
               padding: '0.35rem 0.75rem',
               border: `1px solid var(--theme-elevation-300, #ddd)`,
@@ -431,6 +449,38 @@ export const AnalyticsDashboardClient: React.FC<{
             {p.label}
           </button>
         ))}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="justify-start bg-background text-left font-normal"
+              aria-label="Select analytics date range"
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange.from && dateRange.to
+                ? formatDateRange(dateRange.from, dateRange.to)
+                : 'Select date range'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={(nextRange) => {
+                setPresetIndex(-1)
+                setDateRange(
+                  nextRange?.from
+                    ? { from: nextRange.from, to: nextRange.to }
+                    : { from: new Date() },
+                )
+              }}
+              defaultMonth={dateRange.from}
+              numberOfMonths={2}
+              initialFocus
+            />
+          </PopoverContent>
+        </Popover>
         <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.5rem' }}>
           <input
             type="checkbox"
