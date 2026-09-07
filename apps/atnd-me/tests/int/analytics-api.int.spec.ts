@@ -12,10 +12,12 @@ import { GET } from '@/app/api/analytics/route'
 const HOOK_TIMEOUT = 300000
 const TEST_TIMEOUT = 60000
 
-function request(opts: {
-  headers?: Record<string, string>
-  url?: string
-} = {}): NextRequest {
+function request(
+  opts: {
+    headers?: Record<string, string>
+    url?: string
+  } = {},
+): NextRequest {
   const url = opts.url ?? 'http://localhost/api/analytics?dateFrom=2025-01-01&dateTo=2025-01-31'
   return new NextRequest(url, { headers: new Headers(opts.headers ?? {}) })
 }
@@ -506,9 +508,7 @@ describe('Analytics API (Phase 4)', () => {
             bookingsOverTime: { date: string; count: number }[]
           }
           expect(data.bookingsOverTime).toHaveLength(3)
-          const byDate = new Map(
-            data.bookingsOverTime.map((r) => [r.date.slice(0, 10), r.count]),
-          )
+          const byDate = new Map(data.bookingsOverTime.map((r) => [r.date.slice(0, 10), r.count]))
           expect(byDate.get(sat)).toBe(1)
           expect(byDate.get(sun)).toBe(0)
           expect(byDate.get(mon)).toBe(1)
@@ -523,7 +523,9 @@ describe('Analytics API (Phase 4)', () => {
           await payload
             .delete({
               collection: 'timeslots',
-              where: { id: { in: [slotSat.id as number, slotSun.id as number, slotMon.id as number] } },
+              where: {
+                id: { in: [slotSat.id as number, slotSun.id as number, slotMon.id as number] },
+              },
               overrideAccess: true,
             })
             .catch(() => {})
@@ -796,12 +798,80 @@ describe('Analytics API (Phase 4)', () => {
           const data = await res.json()
           expect(data.summary.revenueEstimateCents).toBe(2599)
         } finally {
-          await payload.delete({ collection: 'transactions', where: { id: { equals: transaction.id } }, overrideAccess: true }).catch(() => {})
-          await payload.delete({ collection: 'bookings', where: { id: { equals: booking.id } }, overrideAccess: true }).catch(() => {})
-          await payload.delete({ collection: 'timeslots', where: { id: { equals: timeslot.id } }, overrideAccess: true }).catch(() => {})
-          await payload.delete({ collection: 'drop-ins', where: { id: { equals: dropIn.id } }, overrideAccess: true }).catch(() => {})
-          await payload.delete({ collection: 'event-types', where: { id: { equals: eventType.id } }, overrideAccess: true }).catch(() => {})
+          await payload
+            .delete({
+              collection: 'transactions',
+              where: { id: { equals: transaction.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { equals: booking.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { equals: timeslot.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'drop-ins',
+              where: { id: { equals: dropIn.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
         }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
+      'supports deferred analytics metric requests without recomputing the initial dashboard',
+      async () => {
+        const base = `dateFrom=2049-01-01&dateTo=2049-01-07&tenantId=${testTenantId}`
+        const initial = await GET(
+          request({
+            headers: { 'x-test-user-id': String(adminUser.id) },
+            url: `http://localhost/api/analytics?${base}&deferTopCustomers=1&deferRevenue=1&deferLikelyChurn=1`,
+          }),
+        )
+        expect(initial.status).toBe(200)
+        const initialData = await initial.json()
+        expect(initialData.topCustomers).toEqual([])
+        expect(initialData.summary.revenueEstimateCents).toBe(0)
+        expect(initialData.likelyChurnCustomers).toEqual([])
+
+        const [topCustomers, revenue] = await Promise.all([
+          GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `http://localhost/api/analytics?${base}&onlyTopCustomers=1`,
+            }),
+          ),
+          GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `http://localhost/api/analytics?${base}&onlyRevenue=1`,
+            }),
+          ),
+        ])
+        expect(topCustomers.status).toBe(200)
+        expect((await topCustomers.json()).topCustomers).toEqual([])
+        expect(revenue.status).toBe(200)
+        expect((await revenue.json()).revenueEstimateCents).toBe(0)
       },
       TEST_TIMEOUT,
     )
@@ -812,8 +882,7 @@ describe('Analytics API (Phase 4)', () => {
         const res = await GET(
           request({
             headers: { 'x-test-user-id': String(adminUser.id) },
-            url:
-              'http://localhost/api/analytics?dateFrom=2025-02-01&dateTo=2025-02-28&comparePrevious=true',
+            url: 'http://localhost/api/analytics?dateFrom=2025-02-01&dateTo=2025-02-28&comparePrevious=true',
           }),
         )
         expect(res.status).toBe(200)
@@ -825,13 +894,11 @@ describe('Analytics API (Phase 4)', () => {
         })
         expect(data).toHaveProperty('bookingsOverTimePrevious')
         expect(Array.isArray(data.bookingsOverTimePrevious)).toBe(true)
-        data.bookingsOverTimePrevious.forEach(
-          (row: { date: string; count: number }) => {
-            expect(row).toHaveProperty('date')
-            expect(row).toHaveProperty('count')
-            expect(typeof row.count).toBe('number')
-          },
-        )
+        data.bookingsOverTimePrevious.forEach((row: { date: string; count: number }) => {
+          expect(row).toHaveProperty('date')
+          expect(row).toHaveProperty('count')
+          expect(typeof row.count).toBe('number')
+        })
       },
       TEST_TIMEOUT,
     )
@@ -842,8 +909,7 @@ describe('Analytics API (Phase 4)', () => {
         const res = await GET(
           request({
             headers: { 'x-test-user-id': String(adminUser.id) },
-            url:
-              'http://localhost/api/analytics?dateFrom=2025-02-01&dateTo=2025-02-28&previousPeriodOnly=true',
+            url: 'http://localhost/api/analytics?dateFrom=2025-02-01&dateTo=2025-02-28&previousPeriodOnly=true',
           }),
         )
         expect(res.status).toBe(200)

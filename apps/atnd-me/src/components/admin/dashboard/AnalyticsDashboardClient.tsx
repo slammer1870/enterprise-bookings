@@ -3,7 +3,7 @@
 /**
  * Phase 4 – Analytics dashboard (client): fetches /api/analytics and renders summary + trend chart.
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -15,17 +15,12 @@ import { CalendarIcon } from 'lucide-react'
 import { getStripeConnectNoticeFromSearch } from '@/components/admin/stripeConnectNotice'
 import { OnboardingChecklist } from '@/components/BeforeDashboard/OnboardingChecklist'
 
-
 const BookingsTrendChart = dynamic(
   () => import('./BookingsTrendChart').then((mod) => mod.BookingsTrendChart),
   {
     ssr: false,
     loading: () => (
-      <div
-        style={{ height: 280, minHeight: 280 }}
-        aria-busy="true"
-        aria-label="Loading chart"
-      />
+      <div style={{ height: 280, minHeight: 280 }} aria-busy="true" aria-label="Loading chart" />
     ),
   },
 )
@@ -94,7 +89,10 @@ function parseStoredDateRange(value: string | null): AnalyticsDateRange | null {
   try {
     const parsed = JSON.parse(value) as { from?: unknown; to?: unknown }
     if (typeof parsed.from !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.from)) return null
-    if (parsed.to !== undefined && (typeof parsed.to !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.to))) {
+    if (
+      parsed.to !== undefined &&
+      (typeof parsed.to !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.to))
+    ) {
       return null
     }
 
@@ -239,9 +237,13 @@ export const AnalyticsDashboardClient: React.FC<{
   const [iframeLoaded, setIframeLoaded] = useState(false)
   /** Default:7 days — lighter first load than 30/91 day windows. */
   const [presetIndex, setPresetIndex] = useState<number>(0)
-  const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() => getDateRangeForDays(PRESETS[0].days))
+  const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() =>
+    getDateRangeForDays(PRESETS[0].days),
+  )
   const [dateRangeRestored, setDateRangeRestored] = useState(false)
   const [comparePrevious, setComparePrevious] = useState(false)
+  const chartSectionRef = useRef<HTMLElement | null>(null)
+  const [chartNearViewport, setChartNearViewport] = useState(false)
   const [stripeNotice] = useState(() =>
     typeof window !== 'undefined' ? getStripeConnectNoticeFromSearch(window.location.search) : null,
   )
@@ -264,7 +266,8 @@ export const AnalyticsDashboardClient: React.FC<{
   }, [])
 
   useEffect(() => {
-    if (!dateRangeRestored || typeof window === 'undefined' || !dateRange.from || !dateRange.to) return
+    if (!dateRangeRestored || typeof window === 'undefined' || !dateRange.from || !dateRange.to)
+      return
 
     window.sessionStorage.setItem(
       ANALYTICS_DATE_RANGE_STORAGE_KEY,
@@ -302,13 +305,21 @@ export const AnalyticsDashboardClient: React.FC<{
       dateTo: dateToStr,
     })
     if (selectedTenantId != null) common.set('tenantId', String(selectedTenantId))
-    if (selectedTenantId != null && selectedBranchId != null) common.set('branchId', String(selectedBranchId))
+    if (selectedTenantId != null && selectedBranchId != null)
+      common.set('branchId', String(selectedBranchId))
+    common.set('deferLikelyChurn', '1')
+    common.set('deferTopCustomers', '1')
+    common.set('deferRevenue', '1')
 
     const loadJson = async (url: string): Promise<unknown> => {
       const res = await fetch(url, { credentials: 'include' })
       if (!res.ok) {
         let message =
-          res.status === 401 ? 'Unauthorized' : res.status === 403 ? 'Forbidden' : 'Failed to load analytics'
+          res.status === 401
+            ? 'Unauthorized'
+            : res.status === 403
+              ? 'Forbidden'
+              : 'Failed to load analytics'
         try {
           const body = (await res.json()) as { error?: string }
           if (typeof body?.error === 'string' && body.error) message = body.error
@@ -353,7 +364,7 @@ export const AnalyticsDashboardClient: React.FC<{
             ...prev,
             summary: mainBody.summary,
             bookingsOverTime: mainBody.bookingsOverTime,
-            topCustomers: mainBody.topCustomers ?? [],
+            topCustomers: [],
             likelyChurnCustomers: mainBody.likelyChurnCustomers ?? [],
             likelyChurnCustomersTotal: mainBody.likelyChurnCustomersTotal ?? 0,
             summaryPrevious: undefined,
@@ -362,8 +373,77 @@ export const AnalyticsDashboardClient: React.FC<{
         })
 
         setLoading(false)
-        setLoadingTopCustomers(false)
-        setLoadingLikelyChurn(false)
+        setLoadingTopCustomers(true)
+        setLoadingLikelyChurn(true)
+
+        // Below-the-fold metrics load after the main dashboard is interactive.
+        const topCustomersParams = new URLSearchParams(common)
+        topCustomersParams.set('onlyTopCustomers', '1')
+        void loadJson(`${origin}/api/analytics?${topCustomersParams}`)
+          .then((topRaw) => {
+            if (cancelled) return
+            const topBody = topRaw as Pick<AnalyticsData, 'topCustomers'>
+            setData((prev) => (prev ? { ...prev, topCustomers: topBody.topCustomers ?? [] } : prev))
+          })
+          .catch((e: unknown) => {
+            if (!cancelled)
+              setError(e instanceof Error ? e.message : 'Failed to load top customers')
+          })
+          .finally(() => {
+            if (!cancelled) setLoadingTopCustomers(false)
+          })
+
+        const revenueParams = new URLSearchParams(common)
+        revenueParams.set('onlyRevenue', '1')
+        void loadJson(`${origin}/api/analytics?${revenueParams}`)
+          .then((revenueRaw) => {
+            if (cancelled) return
+            const revenueBody = revenueRaw as { revenueEstimateCents?: number }
+            setData((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    summary: {
+                      ...prev.summary,
+                      revenueEstimateCents: revenueBody.revenueEstimateCents ?? 0,
+                    },
+                  }
+                : prev,
+            )
+          })
+          .catch((e: unknown) => {
+            if (!cancelled)
+              setError(e instanceof Error ? e.message : 'Failed to load revenue estimate')
+          })
+
+        // Churn is below the initial viewport and substantially more expensive than
+        // the summary/chart queries. Load it after the main dashboard is interactive.
+        const churnParams = new URLSearchParams(common)
+        churnParams.set('onlyLikelyChurn', '1')
+        const churnUrl = `${origin}/api/analytics?${churnParams}`
+        void loadJson(churnUrl)
+          .then((churnRaw) => {
+            if (cancelled) return
+            const churnBody = churnRaw as Pick<
+              AnalyticsData,
+              'likelyChurnCustomers' | 'likelyChurnCustomersTotal'
+            >
+            setData((prev) => {
+              if (!prev) return prev
+              return {
+                ...prev,
+                likelyChurnCustomers: churnBody.likelyChurnCustomers ?? [],
+                likelyChurnCustomersTotal: churnBody.likelyChurnCustomersTotal ?? 0,
+              }
+            })
+          })
+          .catch((e: unknown) => {
+            if (!cancelled)
+              setError(e instanceof Error ? e.message : 'Failed to load churn results')
+          })
+          .finally(() => {
+            if (!cancelled) setLoadingLikelyChurn(false)
+          })
 
         if (comparePrevious) {
           const prevParams = new URLSearchParams(common)
@@ -372,7 +452,10 @@ export const AnalyticsDashboardClient: React.FC<{
           const prevRaw = await loadJson(prevUrl)
           if (cancelled) return
 
-          const prevBody = prevRaw as Pick<AnalyticsData, 'summaryPrevious' | 'bookingsOverTimePrevious'>
+          const prevBody = prevRaw as Pick<
+            AnalyticsData,
+            'summaryPrevious' | 'bookingsOverTimePrevious'
+          >
           setData((prev) => {
             if (!prev) return prev
             return {
@@ -383,12 +466,14 @@ export const AnalyticsDashboardClient: React.FC<{
           })
         }
       } catch (e: unknown) {
-        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load analytics')
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load analytics')
+          setLoadingLikelyChurn(false)
+        }
       } finally {
         if (!cancelled) setLoading(false)
         if (!cancelled) {
           setLoadingTopCustomers(false)
-          setLoadingLikelyChurn(false)
         }
       }
     }
@@ -401,6 +486,27 @@ export const AnalyticsDashboardClient: React.FC<{
   }, [dateFromStr, dateToStr, comparePrevious, selectedTenantId, selectedBranchId])
 
   useEffect(() => {
+    const element = chartSectionRef.current
+    if (!element) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setChartNearViewport(true)
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          setChartNearViewport(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '300px' },
+    )
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [loading, data])
+
+  useEffect(() => {
     if (activeCustomerId == null) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setActiveCustomerId(null)
@@ -411,7 +517,8 @@ export const AnalyticsDashboardClient: React.FC<{
     }
   }, [activeCustomerId])
 
-  const customerEditUrl = activeCustomerId != null ? `/admin/collections/users/${activeCustomerId}` : null
+  const customerEditUrl =
+    activeCustomerId != null ? `/admin/collections/users/${activeCustomerId}` : null
 
   const loadMoreLikelyChurn = async () => {
     if (!data) return
@@ -441,13 +548,18 @@ export const AnalyticsDashboardClient: React.FC<{
       })
 
       if (selectedTenantId != null) common.set('tenantId', String(selectedTenantId))
-      if (selectedTenantId != null && selectedBranchId != null) common.set('branchId', String(selectedBranchId))
+      if (selectedTenantId != null && selectedBranchId != null)
+        common.set('branchId', String(selectedBranchId))
 
       const url = `${origin}/api/analytics?${common}`
       const res = await fetch(url, { credentials: 'include' })
       if (!res.ok) {
         let message =
-          res.status === 401 ? 'Unauthorized' : res.status === 403 ? 'Forbidden' : 'Failed to load analytics'
+          res.status === 401
+            ? 'Unauthorized'
+            : res.status === 403
+              ? 'Forbidden'
+              : 'Failed to load analytics'
         try {
           const body = (await res.json()) as { error?: string }
           if (typeof body?.error === 'string' && body.error) message = body.error
@@ -466,8 +578,12 @@ export const AnalyticsDashboardClient: React.FC<{
         if (!prev) return prev
         return {
           ...prev,
-          likelyChurnCustomers: [...(prev.likelyChurnCustomers ?? []), ...(body.likelyChurnCustomers ?? [])],
-          likelyChurnCustomersTotal: body.likelyChurnCustomersTotal ?? prev.likelyChurnCustomersTotal ?? 0,
+          likelyChurnCustomers: [
+            ...(prev.likelyChurnCustomers ?? []),
+            ...(body.likelyChurnCustomers ?? []),
+          ],
+          likelyChurnCustomersTotal:
+            body.likelyChurnCustomersTotal ?? prev.likelyChurnCustomersTotal ?? 0,
         }
       })
     } catch (e: unknown) {
@@ -491,7 +607,15 @@ export const AnalyticsDashboardClient: React.FC<{
         </div>
       ) : null}
 
-      <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      <div
+        style={{
+          marginBottom: '1rem',
+          display: 'flex',
+          gap: '0.5rem',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
         {PRESETS.map((p, i) => (
           <button
             key={p.label}
@@ -543,7 +667,9 @@ export const AnalyticsDashboardClient: React.FC<{
             />
           </PopoverContent>
         </Popover>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.5rem' }}>
+        <label
+          style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginLeft: '0.5rem' }}
+        >
           <input
             type="checkbox"
             checked={comparePrevious}
@@ -583,7 +709,14 @@ export const AnalyticsDashboardClient: React.FC<{
               <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>
                 {data.summary.totalBookings}
                 {data.summaryPrevious != null && (
-                  <span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--theme-elevation-600, #666)', marginLeft: '0.5rem' }}>
+                  <span
+                    style={{
+                      fontSize: '0.875rem',
+                      fontWeight: 400,
+                      color: 'var(--theme-elevation-600, #666)',
+                      marginLeft: '0.5rem',
+                    }}
+                  >
                     (prev: {data.summaryPrevious.totalBookings})
                   </span>
                 )}
@@ -603,7 +736,14 @@ export const AnalyticsDashboardClient: React.FC<{
               <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>
                 {data.summary.uniqueCustomers}
                 {data.summaryPrevious != null && (
-                  <span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--theme-elevation-600, #666)', marginLeft: '0.5rem' }}>
+                  <span
+                    style={{
+                      fontSize: '0.875rem',
+                      fontWeight: 400,
+                      color: 'var(--theme-elevation-600, #666)',
+                      marginLeft: '0.5rem',
+                    }}
+                  >
                     (prev: {data.summaryPrevious.uniqueCustomers})
                   </span>
                 )}
@@ -625,7 +765,13 @@ export const AnalyticsDashboardClient: React.FC<{
                   ? `${data.summary.accountToBookingConversionPercent}%`
                   : '—'}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--theme-elevation-500, #888)', marginTop: '0.25rem' }}>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--theme-elevation-500, #888)',
+                  marginTop: '0.25rem',
+                }}
+              >
                 New sign-ups in period who booked
               </div>
             </div>
@@ -643,7 +789,14 @@ export const AnalyticsDashboardClient: React.FC<{
               <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>
                 €{(data.summary.revenueEstimateCents / 100).toFixed(2)}
                 {data.summaryPrevious != null && (
-                  <span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--theme-elevation-600, #666)', marginLeft: '0.5rem' }}>
+                  <span
+                    style={{
+                      fontSize: '0.875rem',
+                      fontWeight: 400,
+                      color: 'var(--theme-elevation-600, #666)',
+                      marginLeft: '0.5rem',
+                    }}
+                  >
                     (prev: €{(data.summaryPrevious.revenueEstimateCents / 100).toFixed(2)})
                   </span>
                 )}
@@ -651,7 +804,7 @@ export const AnalyticsDashboardClient: React.FC<{
             </div>
           </div>
 
-          <section style={{ marginBottom: '1.5rem' }}>
+          <section ref={chartSectionRef} style={{ marginBottom: '1.5rem' }}>
             <div
               style={{
                 border: '1px solid var(--theme-elevation-200, #eee)',
@@ -660,14 +813,19 @@ export const AnalyticsDashboardClient: React.FC<{
                 backgroundColor: 'var(--theme-elevation-0)',
               }}
             >
-              <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', marginTop: 0 }}>Bookings over time</h2>
-              {data.bookingsOverTime.length === 0 && (!data.bookingsOverTimePrevious || data.bookingsOverTimePrevious.length === 0) ? (
+              <h2 style={{ fontSize: '1.125rem', marginBottom: '1rem', marginTop: 0 }}>
+                Bookings over time
+              </h2>
+              {data.bookingsOverTime.length === 0 &&
+              (!data.bookingsOverTimePrevious || data.bookingsOverTimePrevious.length === 0) ? (
                 <p style={{ color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
-              ) : (
+              ) : chartNearViewport ? (
                 <BookingsTrendChart
                   data={data.bookingsOverTime}
                   previousData={data.bookingsOverTimePrevious}
                 />
+              ) : (
+                <div style={{ height: 280, minHeight: 280 }} aria-label="Chart deferred" />
               )}
             </div>
           </section>
@@ -676,15 +834,119 @@ export const AnalyticsDashboardClient: React.FC<{
             loadingLikelyChurn ||
             data.topCustomers.length > 0 ||
             (data.likelyChurnCustomers?.length ?? 0) > 0) && (
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-                  gap: '1rem',
-                  marginBottom: '1rem',
-                }}
-              >
-                <section>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+                gap: '1rem',
+                marginBottom: '1rem',
+              }}
+            >
+              <section>
+                <div
+                  style={{
+                    border: '1px solid var(--theme-elevation-200, #eee)',
+                    borderRadius: '6px',
+                    overflow: 'hidden',
+                    backgroundColor: 'var(--theme-elevation-0)',
+                    padding: '1rem',
+                  }}
+                >
+                  <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>
+                    Top customers
+                  </h2>
+                  {loadingTopCustomers ? (
+                    <div aria-busy="true" aria-label="Loading top customers">
+                      <div
+                        style={{
+                          height: 12,
+                          background: 'var(--theme-elevation-100, #f5f5f5)',
+                          borderRadius: 4,
+                          marginBottom: 10,
+                        }}
+                      />
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                          <div
+                            style={{
+                              width: '60%',
+                              height: 12,
+                              background: 'var(--theme-elevation-100, #f5f5f5)',
+                              borderRadius: 4,
+                            }}
+                          />
+                          <div
+                            style={{
+                              width: '20%',
+                              height: 12,
+                              marginLeft: 'auto',
+                              background: 'var(--theme-elevation-100, #f5f5f5)',
+                              borderRadius: 4,
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : data.topCustomers.length === 0 ? (
+                    <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>
+                      No data in this range.
+                    </p>
+                  ) : (
+                    <table
+                      style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}
+                    >
+                      <thead>
+                        <tr
+                          style={{
+                            borderBottom: '1px solid var(--theme-elevation-200, #eee)',
+                            backgroundColor: 'var(--theme-elevation-100, #f5f5f5)',
+                          }}
+                        >
+                          <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
+                          <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>
+                            Bookings
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.topCustomers.map((row) => (
+                          <tr
+                            key={row.userId}
+                            style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
+                          >
+                            <td style={{ padding: '0.5rem 0.75rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIframeLoaded(false)
+                                  setActiveCustomerId(row.userId)
+                                }}
+                                style={{
+                                  padding: 0,
+                                  border: 'none',
+                                  background: 'transparent',
+                                  textAlign: 'left',
+                                  cursor: 'pointer',
+                                  color: 'var(--theme-text, #111)',
+                                  textDecoration: 'underline',
+                                }}
+                              >
+                                {row.userName ?? `User #${row.userId}`}
+                              </button>
+                            </td>
+                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>
+                              {row.count}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </section>
+
+              <section>
+                {(loadingLikelyChurn || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
                   <div
                     style={{
                       border: '1px solid var(--theme-elevation-200, #eee)',
@@ -694,10 +956,19 @@ export const AnalyticsDashboardClient: React.FC<{
                       padding: '1rem',
                     }}
                   >
-                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Top customers</h2>
-                    {loadingTopCustomers ? (
-                      <div aria-busy="true" aria-label="Loading top customers">
-                        <div style={{ height: 12, background: 'var(--theme-elevation-100, #f5f5f5)', borderRadius: 4, marginBottom: 10 }} />
+                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>
+                      Likely to churn
+                    </h2>
+                    {loadingLikelyChurn ? (
+                      <div aria-busy="true" aria-label="Loading likely to churn customers">
+                        <div
+                          style={{
+                            height: 12,
+                            background: 'var(--theme-elevation-100, #f5f5f5)',
+                            borderRadius: 4,
+                            marginBottom: 10,
+                          }}
+                        />
                         {Array.from({ length: 4 }).map((_, i) => (
                           <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
                             <div
@@ -710,7 +981,7 @@ export const AnalyticsDashboardClient: React.FC<{
                             />
                             <div
                               style={{
-                                width: '20%',
+                                width: '25%',
                                 height: 12,
                                 marginLeft: 'auto',
                                 background: 'var(--theme-elevation-100, #f5f5f5)',
@@ -720,23 +991,38 @@ export const AnalyticsDashboardClient: React.FC<{
                           </div>
                         ))}
                       </div>
-                    ) : data.topCustomers.length === 0 ? (
-                      <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
-                    ) : (
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                    ) : data.likelyChurnCustomers?.length ? (
+                      <table
+                        style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}
+                      >
                         <thead>
-                          <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
-                            <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
+                          <tr
+                            style={{
+                              borderBottom: '1px solid var(--theme-elevation-200, #eee)',
+                              backgroundColor: 'var(--theme-elevation-100, #f5f5f5)',
+                            }}
+                          >
+                            <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>
+                              Customer
+                            </th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>
+                              Last check-in
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
-                          {data.topCustomers.map((row) => (
-                            <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
+                          {(data.likelyChurnCustomers ?? []).map((row) => (
+                            <tr
+                              key={row.userId}
+                              style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
+                            >
                               <td style={{ padding: '0.5rem 0.75rem' }}>
                                 <button
                                   type="button"
-                                  onClick={() => { setIframeLoaded(false); setActiveCustomerId(row.userId) }}
+                                  onClick={() => {
+                                    setIframeLoaded(false)
+                                    setActiveCustomerId(row.userId)
+                                  }}
                                   style={{
                                     padding: 0,
                                     border: 'none',
@@ -750,226 +1036,172 @@ export const AnalyticsDashboardClient: React.FC<{
                                   {row.userName ?? `User #${row.userId}`}
                                 </button>
                               </td>
-                              <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
+                              <td
+                                style={{
+                                  padding: '0.5rem 0.75rem',
+                                  textAlign: 'right',
+                                  color: 'var(--theme-elevation-600, #666)',
+                                }}
+                              >
+                                {formatDdMmYyyy(row.lastCheckInDate)}
+                              </td>
                             </tr>
                           ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                </section>
 
-                <section>
-                  {(loadingLikelyChurn || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
-                    <div
-                      style={{
-                        border: '1px solid var(--theme-elevation-200, #eee)',
-                        borderRadius: '6px',
-                        overflow: 'hidden',
-                        backgroundColor: 'var(--theme-elevation-0)',
-                        padding: '1rem',
-                      }}
-                    >
-                      <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Likely to churn</h2>
-                      {loadingLikelyChurn ? (
-                        <div aria-busy="true" aria-label="Loading likely to churn customers">
-                          <div style={{ height: 12, background: 'var(--theme-elevation-100, #f5f5f5)', borderRadius: 4, marginBottom: 10 }} />
-                          {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-                              <div
+                          {(() => {
+                            const total = data.likelyChurnCustomersTotal ?? 0
+                            const loaded = data.likelyChurnCustomers?.length ?? 0
+                            const hasMore = loaded < total
+                            if (!hasMore) return null
+
+                            return (
+                              <tr
                                 style={{
-                                  width: '60%',
-                                  height: 12,
-                                  background: 'var(--theme-elevation-100, #f5f5f5)',
-                                  borderRadius: 4,
+                                  borderBottom: '1px solid var(--theme-elevation-150, #eee)',
                                 }}
-                              />
-                              <div
-                                style={{
-                                  width: '25%',
-                                  height: 12,
-                                  marginLeft: 'auto',
-                                  background: 'var(--theme-elevation-100, #f5f5f5)',
-                                  borderRadius: 4,
-                                }}
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      ) : data.likelyChurnCustomers?.length ? (
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                          <thead>
-                            <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
-                              <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                              <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Last check-in</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {(data.likelyChurnCustomers ?? []).map((row) => (
-                              <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                                <td style={{ padding: '0.5rem 0.75rem' }}>
+                              >
+                                <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
                                   <button
                                     type="button"
-                                    onClick={() => { setIframeLoaded(false); setActiveCustomerId(row.userId) }}
+                                    onClick={() => void loadMoreLikelyChurn()}
+                                    disabled={loadingMoreChurn}
                                     style={{
-                                      padding: 0,
-                                      border: 'none',
+                                      width: '100%',
+                                      padding: '0.4rem 0.75rem',
+                                      borderRadius: 6,
+                                      border: '1px solid var(--theme-elevation-300, #ddd)',
                                       background: 'transparent',
-                                      textAlign: 'left',
-                                      cursor: 'pointer',
-                                      color: 'var(--theme-text, #111)',
-                                      textDecoration: 'underline',
+                                      cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
+                                      opacity: loadingMoreChurn ? 0.6 : 1,
                                     }}
                                   >
-                                    {row.userName ?? `User #${row.userId}`}
+                                    {loadingMoreChurn ? 'Loading…' : 'Load more'}
                                   </button>
                                 </td>
-                                <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
-                                  {formatDdMmYyyy(row.lastCheckInDate)}
-                                </td>
                               </tr>
-                            ))}
-
-                            {(() => {
-                              const total = data.likelyChurnCustomersTotal ?? 0
-                              const loaded = data.likelyChurnCustomers?.length ?? 0
-                              const hasMore = loaded < total
-                              if (!hasMore) return null
-
-                              return (
-                                <tr style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                                  <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => void loadMoreLikelyChurn()}
-                                      disabled={loadingMoreChurn}
-                                      style={{
-                                        width: '100%',
-                                        padding: '0.4rem 0.75rem',
-                                        borderRadius: 6,
-                                        border: '1px solid var(--theme-elevation-300, #ddd)',
-                                        background: 'transparent',
-                                        cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
-                                        opacity: loadingMoreChurn ? 0.6 : 1,
-                                      }}
-                                    >
-                                      {loadingMoreChurn ? 'Loading…' : 'Load more'}
-                                    </button>
-                                  </td>
-                                </tr>
-                              )
-                            })()}
-                          </tbody>
-                        </table>
-                      ) : (
-                        <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
-                      )}
-                    </div>
-                  )}
-                </section>
-              </div>
-            )}
+                            )
+                          })()}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>
+                        No data in this range.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
         </>
       )}
 
       {activeCustomerId != null && customerEditUrl != null
         ? createPortal(
-          <div
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 9999,
-              padding: '1rem',
-            }}
-            role="dialog"
-            aria-modal="true"
-            aria-label="Customer details"
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) setActiveCustomerId(null)
-            }}
-          >
             <div
               style={{
-                width: 'min(1100px, 100%)',
-                height: 'min(85vh, 900px)',
-                background: 'var(--theme-elevation-0)',
-                border: '1px solid var(--theme-elevation-200, #eee)',
-                borderRadius: 6,
-                overflow: 'hidden',
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.4)',
                 display: 'flex',
-                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 9999,
+                padding: '1rem',
               }}
-              onMouseDown={(e) => e.stopPropagation()}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Customer details"
+              onMouseDown={(e) => {
+                if (e.target === e.currentTarget) setActiveCustomerId(null)
+              }}
             >
               <div
                 style={{
+                  width: 'min(1100px, 100%)',
+                  height: 'min(85vh, 900px)',
+                  background: 'var(--theme-elevation-0)',
+                  border: '1px solid var(--theme-elevation-200, #eee)',
+                  borderRadius: 6,
+                  overflow: 'hidden',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0.75rem 1rem',
-                  borderBottom: '1px solid var(--theme-elevation-200, #eee)',
+                  flexDirection: 'column',
                 }}
+                onMouseDown={(e) => e.stopPropagation()}
               >
-                <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Customer</div>
-                <button
-                  type="button"
-                  onClick={() => setActiveCustomerId(null)}
+                <div
                   style={{
-                    border: '1px solid var(--theme-elevation-300, #ddd)',
-                    background: 'transparent',
-                    borderRadius: 6,
-                    padding: '0.25rem 0.5rem',
-                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0.75rem 1rem',
+                    borderBottom: '1px solid var(--theme-elevation-200, #eee)',
                   }}
                 >
-                  Close
-                </button>
-              </div>
-              <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-                {!iframeLoaded && (
-                  <div
+                  <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Customer</div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveCustomerId(null)}
                     style={{
-                      position: 'absolute',
-                      inset: 0,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.75rem',
-                      background: 'var(--theme-elevation-0, #fff)',
-                      zIndex: 1,
+                      border: '1px solid var(--theme-elevation-300, #ddd)',
+                      background: 'transparent',
+                      borderRadius: 6,
+                      padding: '0.25rem 0.5rem',
+                      cursor: 'pointer',
                     }}
                   >
+                    Close
+                  </button>
+                </div>
+                <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+                  {!iframeLoaded && (
                     <div
                       style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        border: '3px solid var(--theme-elevation-200, #e0e0e0)',
-                        borderTopColor: 'var(--theme-text, #333)',
-                        animation: 'spin 0.75s linear infinite',
+                        position: 'absolute',
+                        inset: 0,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.75rem',
+                        background: 'var(--theme-elevation-0, #fff)',
+                        zIndex: 1,
                       }}
-                    />
-                    <span style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
-                      Loading customer…
-                    </span>
-                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                  </div>
-                )}
-                <iframe
-                  src={customerEditUrl}
-                  onLoad={() => setIframeLoaded(true)}
-                  style={{ width: '100%', height: '100%', border: 'none', background: 'white', display: 'block' }}
-                />
+                    >
+                      <div
+                        style={{
+                          width: 32,
+                          height: 32,
+                          borderRadius: '50%',
+                          border: '3px solid var(--theme-elevation-200, #e0e0e0)',
+                          borderTopColor: 'var(--theme-text, #333)',
+                          animation: 'spin 0.75s linear infinite',
+                        }}
+                      />
+                      <span
+                        style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}
+                      >
+                        Loading customer…
+                      </span>
+                      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                    </div>
+                  )}
+                  <iframe
+                    src={customerEditUrl}
+                    onLoad={() => setIframeLoaded(true)}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      border: 'none',
+                      background: 'white',
+                      display: 'block',
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-          </div>,
-          document.body,
-        )
+            </div>,
+            document.body,
+          )
         : null}
     </Gutter>
   )
