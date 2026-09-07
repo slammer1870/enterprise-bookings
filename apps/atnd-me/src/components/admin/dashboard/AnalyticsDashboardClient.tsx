@@ -69,6 +69,7 @@ const PRESETS = [
 // Keep the "Likely to churn" ranking stable across the dashboard preset tabs.
 // The backend churn scoring needs at least the last ~30 days to compute the trend decline.
 const LIKELY_CHURN_TREND_DAYS = 30
+const ANALYTICS_DATE_RANGE_STORAGE_KEY = 'atnd-me:analytics-date-range'
 
 /** Local calendar YYYY-MM-DD (not UTC) so “today” and “last N days” match the admin’s timezone. */
 function formatLocalYmd(d: Date): string {
@@ -86,6 +87,30 @@ function formatDdMmYyyy(ymd: string | null | undefined): string {
 }
 
 type AnalyticsDateRange = { from: Date; to?: Date }
+
+function parseStoredDateRange(value: string | null): AnalyticsDateRange | null {
+  if (!value) return null
+
+  try {
+    const parsed = JSON.parse(value) as { from?: unknown; to?: unknown }
+    if (typeof parsed.from !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.from)) return null
+    if (parsed.to !== undefined && (typeof parsed.to !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(parsed.to))) {
+      return null
+    }
+
+    const [fromYear, fromMonth, fromDay] = parsed.from.split('-').map(Number)
+    const from = new Date(fromYear ?? NaN, (fromMonth ?? NaN) - 1, fromDay ?? NaN)
+    if (Number.isNaN(from.getTime())) return null
+
+    if (parsed.to === undefined) return { from }
+    const [toYear, toMonth, toDay] = (parsed.to as string).split('-').map(Number)
+    const to = new Date(toYear ?? NaN, (toMonth ?? NaN) - 1, toDay ?? NaN)
+    if (Number.isNaN(to.getTime())) return null
+    return { from, to }
+  } catch {
+    return null
+  }
+}
 
 function getDateRangeForDays(days: number): AnalyticsDateRange {
   const to = new Date()
@@ -215,6 +240,7 @@ export const AnalyticsDashboardClient: React.FC<{
   /** Default:7 days — lighter first load than 30/91 day windows. */
   const [presetIndex, setPresetIndex] = useState<number>(0)
   const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() => getDateRangeForDays(PRESETS[0].days))
+  const [dateRangeRestored, setDateRangeRestored] = useState(false)
   const [comparePrevious, setComparePrevious] = useState(false)
   const [stripeNotice] = useState(() =>
     typeof window !== 'undefined' ? getStripeConnectNoticeFromSearch(window.location.search) : null,
@@ -223,6 +249,31 @@ export const AnalyticsDashboardClient: React.FC<{
   useEffect(() => {
     router.prefetch('/admin/collections/timeslots')
   }, [router])
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const storedRange = parseStoredDateRange(
+        window.sessionStorage.getItem(ANALYTICS_DATE_RANGE_STORAGE_KEY),
+      )
+      if (storedRange) {
+        setDateRange(storedRange)
+        setPresetIndex(-1)
+      }
+    }
+    setDateRangeRestored(true)
+  }, [])
+
+  useEffect(() => {
+    if (!dateRangeRestored || typeof window === 'undefined' || !dateRange.from || !dateRange.to) return
+
+    window.sessionStorage.setItem(
+      ANALYTICS_DATE_RANGE_STORAGE_KEY,
+      JSON.stringify({
+        from: formatLocalYmd(dateRange.from),
+        to: formatLocalYmd(dateRange.to),
+      }),
+    )
+  }, [dateRange, dateRangeRestored])
 
   const dateFromStr = dateRange.from ? formatLocalYmd(dateRange.from) : null
   const dateToStr = dateRange.to ? formatLocalYmd(dateRange.to) : null
@@ -237,7 +288,7 @@ export const AnalyticsDashboardClient: React.FC<{
   }, [stripeNotice])
 
   useEffect(() => {
-    if (!dateFromStr || !dateToStr) return
+    if (!dateRangeRestored || !dateFromStr || !dateToStr) return
 
     let cancelled = false
     setLoading(true)
@@ -586,9 +637,6 @@ export const AnalyticsDashboardClient: React.FC<{
                   </span>
                 )}
               </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--theme-elevation-500, #888)', marginTop: '0.25rem' }}>
-                Attributed from confirmed bookings; unlimited memberships use an 8-session floor
-              </div>
             </div>
           </div>
 
@@ -617,91 +665,15 @@ export const AnalyticsDashboardClient: React.FC<{
             loadingLikelyChurn ||
             data.topCustomers.length > 0 ||
             (data.likelyChurnCustomers?.length ?? 0) > 0) && (
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
-                gap: '1rem',
-                marginBottom: '1rem',
-              }}
-            >
-              <section>
-                <div
-                  style={{
-                    border: '1px solid var(--theme-elevation-200, #eee)',
-                    borderRadius: '6px',
-                    overflow: 'hidden',
-                    backgroundColor: 'var(--theme-elevation-0)',
-                    padding: '1rem',
-                  }}
-                >
-                  <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Top customers</h2>
-                  {loadingTopCustomers ? (
-                    <div aria-busy="true" aria-label="Loading top customers">
-                      <div style={{ height: 12, background: 'var(--theme-elevation-100, #f5f5f5)', borderRadius: 4, marginBottom: 10 }} />
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-                          <div
-                            style={{
-                              width: '60%',
-                              height: 12,
-                              background: 'var(--theme-elevation-100, #f5f5f5)',
-                              borderRadius: 4,
-                            }}
-                          />
-                          <div
-                            style={{
-                              width: '20%',
-                              height: 12,
-                              marginLeft: 'auto',
-                              background: 'var(--theme-elevation-100, #f5f5f5)',
-                              borderRadius: 4,
-                            }}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : data.topCustomers.length === 0 ? (
-                    <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
-                  ) : (
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-                      <thead>
-                        <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
-                          <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                          <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {data.topCustomers.map((row) => (
-                          <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                            <td style={{ padding: '0.5rem 0.75rem' }}>
-                              <button
-                                type="button"
-                                onClick={() => { setIframeLoaded(false); setActiveCustomerId(row.userId) }}
-                                style={{
-                                  padding: 0,
-                                  border: 'none',
-                                  background: 'transparent',
-                                  textAlign: 'left',
-                                  cursor: 'pointer',
-                                  color: 'var(--theme-text, #111)',
-                                  textDecoration: 'underline',
-                                }}
-                              >
-                                {row.userName ?? `User #${row.userId}`}
-                              </button>
-                            </td>
-                            <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </section>
-
-              <section>
-                {(loadingLikelyChurn || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))',
+                  gap: '1rem',
+                  marginBottom: '1rem',
+                }}
+              >
+                <section>
                   <div
                     style={{
                       border: '1px solid var(--theme-elevation-200, #eee)',
@@ -711,9 +683,9 @@ export const AnalyticsDashboardClient: React.FC<{
                       padding: '1rem',
                     }}
                   >
-                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Likely to churn</h2>
-                    {loadingLikelyChurn ? (
-                      <div aria-busy="true" aria-label="Loading likely to churn customers">
+                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Top customers</h2>
+                    {loadingTopCustomers ? (
+                      <div aria-busy="true" aria-label="Loading top customers">
                         <div style={{ height: 12, background: 'var(--theme-elevation-100, #f5f5f5)', borderRadius: 4, marginBottom: 10 }} />
                         {Array.from({ length: 4 }).map((_, i) => (
                           <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
@@ -727,7 +699,7 @@ export const AnalyticsDashboardClient: React.FC<{
                             />
                             <div
                               style={{
-                                width: '25%',
+                                width: '20%',
                                 height: 12,
                                 marginLeft: 'auto',
                                 background: 'var(--theme-elevation-100, #f5f5f5)',
@@ -737,16 +709,18 @@ export const AnalyticsDashboardClient: React.FC<{
                           </div>
                         ))}
                       </div>
-                    ) : data.likelyChurnCustomers?.length ? (
+                    ) : data.topCustomers.length === 0 ? (
+                      <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
+                    ) : (
                       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
                         <thead>
                           <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
                             <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Last check-in</th>
+                            <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Bookings</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {(data.likelyChurnCustomers ?? []).map((row) => (
+                          {data.topCustomers.map((row) => (
                             <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
                               <td style={{ padding: '0.5rem 0.75rem' }}>
                                 <button
@@ -765,152 +739,226 @@ export const AnalyticsDashboardClient: React.FC<{
                                   {row.userName ?? `User #${row.userId}`}
                                 </button>
                               </td>
-                              <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
-                                {formatDdMmYyyy(row.lastCheckInDate)}
-                              </td>
+                              <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right' }}>{row.count}</td>
                             </tr>
                           ))}
-
-                          {(() => {
-                            const total = data.likelyChurnCustomersTotal ?? 0
-                            const loaded = data.likelyChurnCustomers?.length ?? 0
-                            const hasMore = loaded < total
-                            if (!hasMore) return null
-
-                            return (
-                              <tr style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
-                                <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => void loadMoreLikelyChurn()}
-                                    disabled={loadingMoreChurn}
-                                    style={{
-                                      width: '100%',
-                                      padding: '0.4rem 0.75rem',
-                                      borderRadius: 6,
-                                      border: '1px solid var(--theme-elevation-300, #ddd)',
-                                      background: 'transparent',
-                                      cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
-                                      opacity: loadingMoreChurn ? 0.6 : 1,
-                                    }}
-                                  >
-                                    {loadingMoreChurn ? 'Loading…' : 'Load more'}
-                                  </button>
-                                </td>
-                              </tr>
-                            )
-                          })()}
                         </tbody>
                       </table>
-                    ) : (
-                      <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
                     )}
                   </div>
-                )}
-              </section>
-            </div>
-          )}
+                </section>
+
+                <section>
+                  {(loadingLikelyChurn || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
+                    <div
+                      style={{
+                        border: '1px solid var(--theme-elevation-200, #eee)',
+                        borderRadius: '6px',
+                        overflow: 'hidden',
+                        backgroundColor: 'var(--theme-elevation-0)',
+                        padding: '1rem',
+                      }}
+                    >
+                      <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>Likely to churn</h2>
+                      {loadingLikelyChurn ? (
+                        <div aria-busy="true" aria-label="Loading likely to churn customers">
+                          <div style={{ height: 12, background: 'var(--theme-elevation-100, #f5f5f5)', borderRadius: 4, marginBottom: 10 }} />
+                          {Array.from({ length: 4 }).map((_, i) => (
+                            <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                              <div
+                                style={{
+                                  width: '60%',
+                                  height: 12,
+                                  background: 'var(--theme-elevation-100, #f5f5f5)',
+                                  borderRadius: 4,
+                                }}
+                              />
+                              <div
+                                style={{
+                                  width: '25%',
+                                  height: 12,
+                                  marginLeft: 'auto',
+                                  background: 'var(--theme-elevation-100, #f5f5f5)',
+                                  borderRadius: 4,
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      ) : data.likelyChurnCustomers?.length ? (
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--theme-elevation-200, #eee)', backgroundColor: 'var(--theme-elevation-100, #f5f5f5)' }}>
+                              <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
+                              <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>Last check-in</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(data.likelyChurnCustomers ?? []).map((row) => (
+                              <tr key={row.userId} style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
+                                <td style={{ padding: '0.5rem 0.75rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => { setIframeLoaded(false); setActiveCustomerId(row.userId) }}
+                                    style={{
+                                      padding: 0,
+                                      border: 'none',
+                                      background: 'transparent',
+                                      textAlign: 'left',
+                                      cursor: 'pointer',
+                                      color: 'var(--theme-text, #111)',
+                                      textDecoration: 'underline',
+                                    }}
+                                  >
+                                    {row.userName ?? `User #${row.userId}`}
+                                  </button>
+                                </td>
+                                <td style={{ padding: '0.5rem 0.75rem', textAlign: 'right', color: 'var(--theme-elevation-600, #666)' }}>
+                                  {formatDdMmYyyy(row.lastCheckInDate)}
+                                </td>
+                              </tr>
+                            ))}
+
+                            {(() => {
+                              const total = data.likelyChurnCustomersTotal ?? 0
+                              const loaded = data.likelyChurnCustomers?.length ?? 0
+                              const hasMore = loaded < total
+                              if (!hasMore) return null
+
+                              return (
+                                <tr style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}>
+                                  <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => void loadMoreLikelyChurn()}
+                                      disabled={loadingMoreChurn}
+                                      style={{
+                                        width: '100%',
+                                        padding: '0.4rem 0.75rem',
+                                        borderRadius: 6,
+                                        border: '1px solid var(--theme-elevation-300, #ddd)',
+                                        background: 'transparent',
+                                        cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
+                                        opacity: loadingMoreChurn ? 0.6 : 1,
+                                      }}
+                                    >
+                                      {loadingMoreChurn ? 'Loading…' : 'Load more'}
+                                    </button>
+                                  </td>
+                                </tr>
+                              )
+                            })()}
+                          </tbody>
+                        </table>
+                      ) : (
+                        <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>No data in this range.</p>
+                      )}
+                    </div>
+                  )}
+                </section>
+              </div>
+            )}
         </>
       )}
 
       {activeCustomerId != null && customerEditUrl != null
         ? createPortal(
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+              padding: '1rem',
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Customer details"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setActiveCustomerId(null)
+            }}
+          >
             <div
               style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(0,0,0,0.4)',
+                width: 'min(1100px, 100%)',
+                height: 'min(85vh, 900px)',
+                background: 'var(--theme-elevation-0)',
+                border: '1px solid var(--theme-elevation-200, #eee)',
+                borderRadius: 6,
+                overflow: 'hidden',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 9999,
-                padding: '1rem',
+                flexDirection: 'column',
               }}
-              role="dialog"
-              aria-modal="true"
-              aria-label="Customer details"
-              onMouseDown={(e) => {
-                if (e.target === e.currentTarget) setActiveCustomerId(null)
-              }}
+              onMouseDown={(e) => e.stopPropagation()}
             >
               <div
                 style={{
-                  width: 'min(1100px, 100%)',
-                  height: 'min(85vh, 900px)',
-                  background: 'var(--theme-elevation-0)',
-                  border: '1px solid var(--theme-elevation-200, #eee)',
-                  borderRadius: 6,
-                  overflow: 'hidden',
                   display: 'flex',
-                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.75rem 1rem',
+                  borderBottom: '1px solid var(--theme-elevation-200, #eee)',
                 }}
-                onMouseDown={(e) => e.stopPropagation()}
               >
-                <div
+                <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Customer</div>
+                <button
+                  type="button"
+                  onClick={() => setActiveCustomerId(null)}
                   style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '0.75rem 1rem',
-                    borderBottom: '1px solid var(--theme-elevation-200, #eee)',
+                    border: '1px solid var(--theme-elevation-300, #ddd)',
+                    background: 'transparent',
+                    borderRadius: 6,
+                    padding: '0.25rem 0.5rem',
+                    cursor: 'pointer',
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>Customer</div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveCustomerId(null)}
+                  Close
+                </button>
+              </div>
+              <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
+                {!iframeLoaded && (
+                  <div
                     style={{
-                      border: '1px solid var(--theme-elevation-300, #ddd)',
-                      background: 'transparent',
-                      borderRadius: 6,
-                      padding: '0.25rem 0.5rem',
-                      cursor: 'pointer',
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.75rem',
+                      background: 'var(--theme-elevation-0, #fff)',
+                      zIndex: 1,
                     }}
                   >
-                    Close
-                  </button>
-                </div>
-                <div style={{ position: 'relative', flex: 1, minHeight: 0 }}>
-                  {!iframeLoaded && (
                     <div
                       style={{
-                        position: 'absolute',
-                        inset: 0,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.75rem',
-                        background: 'var(--theme-elevation-0, #fff)',
-                        zIndex: 1,
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        border: '3px solid var(--theme-elevation-200, #e0e0e0)',
+                        borderTopColor: 'var(--theme-text, #333)',
+                        animation: 'spin 0.75s linear infinite',
                       }}
-                    >
-                      <div
-                        style={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: '50%',
-                          border: '3px solid var(--theme-elevation-200, #e0e0e0)',
-                          borderTopColor: 'var(--theme-text, #333)',
-                          animation: 'spin 0.75s linear infinite',
-                        }}
-                      />
-                      <span style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
-                        Loading customer…
-                      </span>
-                      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-                    </div>
-                  )}
-                  <iframe
-                    src={customerEditUrl}
-                    onLoad={() => setIframeLoaded(true)}
-                    style={{ width: '100%', height: '100%', border: 'none', background: 'white', display: 'block' }}
-                  />
-                </div>
+                    />
+                    <span style={{ fontSize: '0.875rem', color: 'var(--theme-elevation-600, #666)' }}>
+                      Loading customer…
+                    </span>
+                    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  </div>
+                )}
+                <iframe
+                  src={customerEditUrl}
+                  onLoad={() => setIframeLoaded(true)}
+                  style={{ width: '100%', height: '100%', border: 'none', background: 'white', display: 'block' }}
+                />
               </div>
-            </div>,
-            document.body,
-          )
+            </div>
+          </div>,
+          document.body,
+        )
         : null}
     </Gutter>
   )
