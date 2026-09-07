@@ -340,25 +340,15 @@ export const AnalyticsDashboardClient: React.FC<{
         }
         setData(empty)
 
-        // 1) Full analytics response first so the E2E test can reliably
-        // assert `summary` + `topCustomers` from the first /api/analytics GET.
+        // Load the current period first so the dashboard can render without waiting
+        // for the optional comparison period.
         const mainUrl = `${origin}/api/analytics?${common}`
-
-        let prevRaw: unknown = null
-        if (comparePrevious) {
-          const prevParams = new URLSearchParams(common)
-          prevParams.set('previousPeriodOnly', 'true')
-          const prevUrl = `${origin}/api/analytics?${prevParams}`
-          prevRaw = await loadJson(prevUrl)
-        }
-
         const mainRaw = await loadJson(mainUrl)
         if (cancelled) return
 
         const mainBody = mainRaw as AnalyticsData
         setData((prev) => {
           if (!prev) return prev
-          const prevBody = (prevRaw as Pick<AnalyticsData, 'summaryPrevious' | 'bookingsOverTimePrevious'>) ?? null
           return {
             ...prev,
             summary: mainBody.summary,
@@ -366,15 +356,36 @@ export const AnalyticsDashboardClient: React.FC<{
             topCustomers: mainBody.topCustomers ?? [],
             likelyChurnCustomers: mainBody.likelyChurnCustomers ?? [],
             likelyChurnCustomersTotal: mainBody.likelyChurnCustomersTotal ?? 0,
-            summaryPrevious: comparePrevious ? prevBody?.summaryPrevious : undefined,
-            bookingsOverTimePrevious: comparePrevious ? prevBody?.bookingsOverTimePrevious : undefined,
+            summaryPrevious: undefined,
+            bookingsOverTimePrevious: undefined,
           }
         })
+
+        setLoading(false)
+        setLoadingTopCustomers(false)
+        setLoadingLikelyChurn(false)
+
+        if (comparePrevious) {
+          const prevParams = new URLSearchParams(common)
+          prevParams.set('previousPeriodOnly', 'true')
+          const prevUrl = `${origin}/api/analytics?${prevParams}`
+          const prevRaw = await loadJson(prevUrl)
+          if (cancelled) return
+
+          const prevBody = prevRaw as Pick<AnalyticsData, 'summaryPrevious' | 'bookingsOverTimePrevious'>
+          setData((prev) => {
+            if (!prev) return prev
+            return {
+              ...prev,
+              summaryPrevious: prevBody.summaryPrevious,
+              bookingsOverTimePrevious: prevBody.bookingsOverTimePrevious,
+            }
+          })
+        }
       } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load analytics')
       } finally {
         if (!cancelled) setLoading(false)
-        // Section-specific loading is toggled after the sequential fetches above.
         if (!cancelled) {
           setLoadingTopCustomers(false)
           setLoadingLikelyChurn(false)
