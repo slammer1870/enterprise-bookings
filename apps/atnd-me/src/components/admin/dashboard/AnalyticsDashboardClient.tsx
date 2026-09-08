@@ -237,11 +237,25 @@ export const AnalyticsDashboardClient: React.FC<{
   const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null)
   const [iframeLoaded, setIframeLoaded] = useState(false)
   /** Default:7 days — lighter first load than 30/91 day windows. */
-  const [presetIndex, setPresetIndex] = useState<number>(0)
-  const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() =>
-    getDateRangeForDays(PRESETS[0].days),
-  )
-  const [dateRangeRestored, setDateRangeRestored] = useState(false)
+  const [presetIndex, setPresetIndex] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const storedRange = parseStoredDateRange(
+        window.sessionStorage.getItem(ANALYTICS_DATE_RANGE_STORAGE_KEY),
+      )
+      if (storedRange) return -1
+    }
+    return 0
+  })
+  const [dateRange, setDateRange] = useState<AnalyticsDateRange>(() => {
+    const defaultRange = getDateRangeForDays(PRESETS[0].days)
+    if (typeof window !== 'undefined') {
+      const storedRange = parseStoredDateRange(
+        window.sessionStorage.getItem(ANALYTICS_DATE_RANGE_STORAGE_KEY),
+      )
+      if (storedRange) return storedRange
+    }
+    return defaultRange
+  })
   const [comparePrevious, setComparePrevious] = useState(false)
   const chartSectionRef = useRef<HTMLElement | null>(null)
   const [chartNearViewport, setChartNearViewport] = useState(false)
@@ -254,20 +268,7 @@ export const AnalyticsDashboardClient: React.FC<{
   }, [router])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedRange = parseStoredDateRange(
-        window.sessionStorage.getItem(ANALYTICS_DATE_RANGE_STORAGE_KEY),
-      )
-      if (storedRange) {
-        setDateRange(storedRange)
-        setPresetIndex(-1)
-      }
-    }
-    setDateRangeRestored(true)
-  }, [])
-
-  useEffect(() => {
-    if (!dateRangeRestored || typeof window === 'undefined' || !dateRange.from || !dateRange.to)
+    if (typeof window === 'undefined' || !dateRange.from || !dateRange.to)
       return
 
     window.sessionStorage.setItem(
@@ -277,7 +278,7 @@ export const AnalyticsDashboardClient: React.FC<{
         to: formatLocalYmd(dateRange.to),
       }),
     )
-  }, [dateRange, dateRangeRestored])
+  }, [dateRange])
 
   const dateFromStr = dateRange.from ? formatLocalYmd(dateRange.from) : null
   const dateToStr = dateRange.to ? formatLocalYmd(dateRange.to) : null
@@ -292,7 +293,7 @@ export const AnalyticsDashboardClient: React.FC<{
   }, [stripeNotice])
 
   useEffect(() => {
-    if (!dateRangeRestored || !dateFromStr || !dateToStr) return
+    if (!dateFromStr || !dateToStr) return
 
     let cancelled = false
     setLoading(true)
@@ -600,6 +601,12 @@ export const AnalyticsDashboardClient: React.FC<{
 
   return (
     <Gutter>
+      <style>{`
+        @keyframes analytics-skeleton-pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.45; }
+        }
+      `}</style>
       <OnboardingChecklist tenantId={selectedTenantId} />
 
       <h1 style={{ marginBottom: '1rem', fontSize: '1.5rem' }}>Analytics</h1>
