@@ -110,7 +110,7 @@ export function injectAllowedCoursesIntoCollection(
     hasMany: true,
     admin: {
       description:
-        "Courses that grant free booking of this event type during the enrollee's access window.",
+        "Courses that can be offered or purchased for this event type. Existing course entitlements are determined by the course's allowed event types.",
     },
   });
 }

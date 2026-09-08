@@ -58,6 +58,19 @@ describe('resolveCourseForPurchase', () => {
     ).toMatchObject({ ok: false, status: 400, error: expect.stringMatching(/not open/i) })
   })
 
+  it('rejects a course whose start date has passed', () => {
+    const yesterday = new Date()
+    yesterday.setDate(yesterday.getDate() - 1)
+
+    expect(
+      resolveCourseForPurchase({
+        course: { ...openCourse, startDate: yesterday.toISOString().slice(0, 10) },
+        expectedTenantId: 1,
+        activeEnrollmentCount: 0,
+      }),
+    ).toMatchObject({ ok: false, status: 400, error: expect.stringMatching(/closed/i) })
+  })
+
   it('rejects missing price', () => {
     expect(
       resolveCourseForPurchase({

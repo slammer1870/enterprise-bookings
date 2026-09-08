@@ -1,5 +1,5 @@
 /**
- * Pure filter: enrollments valid for a timeslot (access window + allowed courses/types).
+ * Pure filter: enrollments valid for a timeslot (access window + course entitlement).
  */
 
 export type CourseEnrollmentTimeslotLike = {
@@ -56,8 +56,11 @@ function toIdArray(val: unknown): number[] {
 
 /**
  * Returns enrollments valid for the timeslot:
- * same tenant, active, open course ∈ allowedCourses,
- * event type ∈ course.allowedEventTypes, timeslot start within access window.
+ * same tenant, active, open course, event type ∈ course.allowedEventTypes,
+ * and timeslot start within access window.
+ *
+ * The course owns the entitlement. The event type's allowedCourses relation is
+ * an offer/payment configuration and must not revoke an existing enrollment.
  */
 export function filterValidEnrollmentsForTimeslot(
   lesson: CourseEnrollmentTimeslotLike,
@@ -75,13 +78,6 @@ export function filterValidEnrollmentsForTimeslot(
         ? lesson.classOption
         : null,
   );
-  const allowedCourses =
-    lesson.eventType?.paymentMethods?.allowedCourses ??
-    lesson.classOption?.paymentMethods?.allowedCourses ??
-    [];
-  const allowedCourseIds = toIdArray(allowedCourses);
-  if (allowedCourseIds.length === 0) return [];
-
   const slotStart = lesson.startTime ? Date.parse(lesson.startTime) : NaN;
   if (!Number.isFinite(slotStart)) return [];
 
@@ -107,7 +103,7 @@ export function filterValidEnrollmentsForTimeslot(
     const course = enrollment.course;
     if (course == null || typeof course === "number") return false;
     const courseId = toId(course);
-    if (courseId == null || !allowedCourseIds.includes(courseId)) return false;
+    if (courseId == null) return false;
     if (course.status !== "open") return false;
 
     const allowedEventTypeIds = toIdArray(course.allowedEventTypes);

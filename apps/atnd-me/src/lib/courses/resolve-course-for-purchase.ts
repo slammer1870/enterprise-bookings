@@ -48,6 +48,11 @@ export function resolveCourseForPurchase(opts: {
     return { ok: false, status: 400, error: 'Course is not open for enrollment' }
   }
 
+  const today = new Date().toISOString().slice(0, 10)
+  if (course.startDate && course.startDate < today) {
+    return { ok: false, status: 400, error: 'Course enrollment has closed' }
+  }
+
   const priceEur = course.priceInformation?.price
   if (typeof priceEur !== 'number' || !(priceEur > 0)) {
     return { ok: false, status: 400, error: 'Course has no price configured' }

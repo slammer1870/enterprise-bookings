@@ -9,9 +9,6 @@ const baseLesson = {
   startTime: "2026-09-15T10:00:00.000Z",
   eventType: {
     id: 10,
-    paymentMethods: {
-      allowedCourses: [100, 200],
-    },
   },
 };
 
@@ -29,9 +26,21 @@ const baseEnrollment = {
 };
 
 describe("filterValidEnrollmentsForTimeslot", () => {
-  it("keeps an active enrollment in window for an allowed course/type", () => {
+  it("keeps an active enrollment when the course allows the event type", () => {
     expect(
       filterValidEnrollmentsForTimeslot(baseLesson, [baseEnrollment]),
+    ).toEqual([baseEnrollment]);
+  });
+
+  it("does not require the event type to list the course", () => {
+    expect(
+      filterValidEnrollmentsForTimeslot(
+        {
+          ...baseLesson,
+          eventType: { id: 10, paymentMethods: { allowedCourses: [] } },
+        },
+        [baseEnrollment],
+      ),
     ).toEqual([baseEnrollment]);
   });
 
@@ -58,17 +67,6 @@ describe("filterValidEnrollmentsForTimeslot", () => {
         { ...baseLesson, startTime: "2026-10-27T00:00:00.000Z" },
         [baseEnrollment],
       ),
-    ).toEqual([]);
-  });
-
-  it("rejects when course is not in event type allowedCourses", () => {
-    expect(
-      filterValidEnrollmentsForTimeslot(baseLesson, [
-        {
-          ...baseEnrollment,
-          course: { ...baseEnrollment.course, id: 999 },
-        },
-      ]),
     ).toEqual([]);
   });
 
@@ -117,15 +115,4 @@ describe("filterValidEnrollmentsForTimeslot", () => {
     ).toEqual([]);
   });
 
-  it("returns empty when event type has no allowedCourses", () => {
-    expect(
-      filterValidEnrollmentsForTimeslot(
-        {
-          ...baseLesson,
-          eventType: { id: 10, paymentMethods: { allowedCourses: [] } },
-        },
-        [baseEnrollment],
-      ),
-    ).toEqual([]);
-  });
 });

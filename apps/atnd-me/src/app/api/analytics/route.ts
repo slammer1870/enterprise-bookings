@@ -76,10 +76,12 @@ export async function GET(request: NextRequest) {
     const branchIdParam = searchParams.get('branchId')
     const viewAll = searchParams.get('viewAll') === '1'
     const comparePrevious = searchParams.get('comparePrevious') === 'true'
+    const deferLikelyChurn = searchParams.get('deferLikelyChurn') === '1'
+    const deferTopCustomers = searchParams.get('deferTopCustomers') === '1'
+    const deferRevenue = searchParams.get('deferRevenue') === '1'
     /** Second request: previous window only (avoids recomputing the current period on the server). */
     const previousPeriodOnly = searchParams.get('previousPeriodOnly') === 'true'
-    const granularity: 'day' | 'week' =
-      searchParams.get('granularity') === 'week' ? 'week' : 'day'
+    const granularity: 'day' | 'week' = searchParams.get('granularity') === 'week' ? 'week' : 'day'
     const limitTopCustomers = searchParams.get('limitTopCustomers')
       ? parseInt(searchParams.get('limitTopCustomers')!, 10)
       : undefined
@@ -139,7 +141,8 @@ export async function GET(request: NextRequest) {
 
     // Tenant-admin without tenantId: scope to their first tenant so they only see their data
     let effectiveTenantId: number | null =
-      tenantId ?? (allowedTenantIds != null && allowedTenantIds.length > 0 ? allowedTenantIds[0]! : null)
+      tenantId ??
+      (allowedTenantIds != null && allowedTenantIds.length > 0 ? allowedTenantIds[0]! : null)
 
     // Admin: viewAll=1 means "show all tenants" (same as the X in sidebar on other collections)
     const skipCookieForAll = viewAll && allowedTenantIds === null
@@ -212,7 +215,10 @@ export async function GET(request: NextRequest) {
       })
       const previousWithBranch = { ...previousParams, branchId }
       const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousWithBranch)
-      const previousWithTimeslots = { ...previousWithBranch, preResolvedTimeslotIds: previousTimeslotIds }
+      const previousWithTimeslots = {
+        ...previousWithBranch,
+        preResolvedTimeslotIds: previousTimeslotIds,
+      }
       const { summary: summaryPrevious, bookingsOverTime: bookingsOverTimePrevious } =
         await getAnalyticsDashboardBundle(payload, previousWithTimeslots, {
           includeTopCustomers: false,
@@ -247,12 +253,16 @@ export async function GET(request: NextRequest) {
       const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
       const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
 
-      const { summary, bookingsOverTime } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
-        includeSummary: true,
-        includeBookingsOverTime: true,
-        includeTopCustomers: false,
-        includeLikelyChurnCustomers: false,
-      })
+      const { summary, bookingsOverTime } = await getAnalyticsDashboardBundle(
+        payload,
+        paramsWithTimeslots,
+        {
+          includeSummary: true,
+          includeBookingsOverTime: true,
+          includeTopCustomers: false,
+          includeLikelyChurnCustomers: false,
+        },
+      )
 
       // Keep response shape consistent for E2E tests: always include `topCustomers` as an array.
       return new NextResponse(jsonStringifySafe({ summary, bookingsOverTime, topCustomers: [] }), {
@@ -276,17 +286,46 @@ export async function GET(request: NextRequest) {
       const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
       const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
 
-      const { summary, topCustomers } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
-        includeSummary: true,
-        includeBookingsOverTime: false,
-        includeTopCustomers: true,
-        includeLikelyChurnCustomers: false,
-      })
+      const { summary, topCustomers } = await getAnalyticsDashboardBundle(
+        payload,
+        paramsWithTimeslots,
+        {
+          includeSummary: false,
+          includeBookingsOverTime: false,
+          includeTopCustomers: true,
+          includeLikelyChurnCustomers: false,
+          includeRevenueEstimate: false,
+        },
+      )
 
       return new NextResponse(jsonStringifySafe({ summary, topCustomers, bookingsOverTime: [] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
+    }
+
+    if (searchParams.get('onlyRevenue') === '1') {
+      const params = {
+        dateFrom,
+        dateTo,
+        tenantId: effectiveTenantId ?? undefined,
+        branchId: branchId ?? undefined,
+        granularity,
+      }
+      const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
+      const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
+      const { summary } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
+        includeSummary: false,
+        includeBookingsOverTime: false,
+        includeTopCustomers: false,
+        includeLikelyChurnCustomers: false,
+        includeRevenueEstimate: true,
+      })
+
+      return new NextResponse(
+        jsonStringifySafe({ revenueEstimateCents: summary.revenueEstimateCents }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
     }
 
     if (onlyLikelyChurn) {
@@ -304,16 +343,14 @@ export async function GET(request: NextRequest) {
       const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
       const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
 
-      const { summary, likelyChurnCustomers, likelyChurnCustomersTotal } = await getAnalyticsDashboardBundle(
-        payload,
-        paramsWithTimeslots,
-        {
-          includeSummary: true,
+      const { summary, likelyChurnCustomers, likelyChurnCustomersTotal } =
+        await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
+          includeSummary: false,
           includeBookingsOverTime: false,
           includeTopCustomers: false,
           includeLikelyChurnCustomers: true,
-        },
-      )
+          includeRevenueEstimate: false,
+        })
 
       return new NextResponse(
         jsonStringifySafe({
@@ -344,11 +381,17 @@ export async function GET(request: NextRequest) {
     const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
     const paramsWithTimeslots = { ...params, preResolvedTimeslotIds }
 
-    const { summary, bookingsOverTime, topCustomers, likelyChurnCustomers, likelyChurnCustomersTotal } =
-      await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
-        includeTopCustomers: true,
-        includeLikelyChurnCustomers: true,
-      })
+    const {
+      summary,
+      bookingsOverTime,
+      topCustomers,
+      likelyChurnCustomers,
+      likelyChurnCustomersTotal,
+    } = await getAnalyticsDashboardBundle(payload, paramsWithTimeslots, {
+      includeTopCustomers: !deferTopCustomers,
+      includeLikelyChurnCustomers: !deferLikelyChurn,
+      includeRevenueEstimate: !deferRevenue,
+    })
 
     const previousParams = comparePrevious
       ? buildPreviousPeriodParams({
@@ -371,7 +414,10 @@ export async function GET(request: NextRequest) {
     if (comparePrevious && previousParams) {
       const previousWithBranch = { ...previousParams, branchId }
       const previousTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, previousWithBranch)
-      const previousWithTimeslots = { ...previousWithBranch, preResolvedTimeslotIds: previousTimeslotIds }
+      const previousWithTimeslots = {
+        ...previousWithBranch,
+        preResolvedTimeslotIds: previousTimeslotIds,
+      }
       const { summary: summaryPrevious, bookingsOverTime: bookingsOverTimePrevious } =
         await getAnalyticsDashboardBundle(payload, previousWithTimeslots, {
           includeTopCustomers: false,

@@ -19,6 +19,11 @@ test.describe('Courses listing', () => {
     const eventType = await createTestEventType(tenantId, 'Course Listing Class', 8, undefined, w)
     const slug = `e2e-course-list-${w}-${Date.now()}`
     const title = `E2E Open Course w${w} ${Date.now()}`
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    const yesterday = new Date(today)
+    yesterday.setDate(yesterday.getDate() - 1)
 
     await payload.create({
       collection: 'courses',
@@ -30,6 +35,9 @@ test.describe('Courses listing', () => {
         allowedEventTypes: [eventType.id],
         status: 'open',
         tenant: tenantId,
+        accessWindowMode: 'fixed',
+        startDate: tomorrow.toISOString().slice(0, 10),
+        endDate: tomorrow.toISOString().slice(0, 10),
         maxEnrollments: 9,
         priceInformation: { price: 75 },
         about: {
@@ -66,6 +74,25 @@ test.describe('Courses listing', () => {
       context: { skipStripeSync: true },
     })
 
+    await payload.create({
+      collection: 'courses',
+      data: {
+        title: `E2E Past Course w${w} ${Date.now()}`,
+        slug: `e2e-course-past-${w}-${Date.now()}`,
+        durationLength: 6,
+        durationUnit: 'weeks',
+        allowedEventTypes: [eventType.id],
+        status: 'open',
+        tenant: tenantId,
+        accessWindowMode: 'fixed',
+        startDate: yesterday.toISOString().slice(0, 10),
+        endDate: yesterday.toISOString().slice(0, 10),
+        priceInformation: { price: 75 },
+      },
+      overrideAccess: true,
+      context: { skipStripeSync: true },
+    })
+
     await navigateToTenant(page, tenantSlug, '/courses')
     await page.waitForLoadState('domcontentloaded').catch(() => null)
 
@@ -75,6 +102,9 @@ test.describe('Courses listing', () => {
     const courseItem = page.getByTestId('course-list-item').filter({ hasText: title })
     await expect(courseItem).toBeVisible()
     await expect(courseItem.getByTestId('course-list-places')).toHaveText('9 places left')
+    await expect(
+      page.getByTestId('course-list-item').filter({ hasText: 'E2E Past Course' }),
+    ).not.toBeVisible()
 
     await courseItem.click()
     await expect(page).toHaveURL(new RegExp(`/courses/${slug}`))

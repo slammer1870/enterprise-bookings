@@ -32,6 +32,25 @@ const DEFAULT_TOP_LIMIT = 10
 const DEFAULT_LIKELY_CHURN_LIMIT = 10
 const CHURN_INACTIVITY_DAYS = 7
 const CHURN_TREND_WINDOW_DAYS = 30
+const UNLIMITED_MEMBERSHIP_MIN_SESSIONS = 8
+const YMD_ONLY_FOR_REVENUE = /^\d{4}-\d{2}-\d{2}$/
+const ANALYTICS_CACHE_TTL_MS = 60_000
+const ANALYTICS_CACHE_MAX_ENTRIES = 100
+
+type AnalyticsDashboardBundleResult = {
+  summary: SummaryMetrics
+  bookingsOverTime: BookingsOverTimeRow[]
+  topCustomers: TopCustomerRow[]
+  likelyChurnCustomers: LikelyChurnCustomerRow[]
+  likelyChurnCustomersTotal: number
+}
+
+type AnalyticsCacheEntry = {
+  expiresAtMs: number
+  value: AnalyticsDashboardBundleResult
+}
+
+const analyticsCache = new Map<string, AnalyticsCacheEntry>()
 
 export type AnalyticsDashboardBundleOptions = {
   /** When false, skips summary computation (total bookings + unique customers). */
@@ -42,6 +61,8 @@ export type AnalyticsDashboardBundleOptions = {
   includeTopCustomers?: boolean
   /** When false, skips churn scoring + ranking. */
   includeLikelyChurnCustomers?: boolean
+  /** When false, skips revenue attribution and its product/subscription lookups. */
+  includeRevenueEstimate?: boolean
 }
 
 function bookingUserId(doc: { user?: number | { id: number } }): number | null {
@@ -148,35 +169,389 @@ async function resolveTopCustomerRows(
   }))
 }
 
+type RevenueBookingCandidate = {
+  bookingId: number
+  userId: number | null
+}
+
+function relationId(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'object' && value !== null && 'id' in value) {
+    const id = (value as { id?: unknown }).id
+    return typeof id === 'number' && Number.isFinite(id) ? id : null
+  }
+  return null
+}
+
+function priceToCents(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
+    ? Math.round(value * 100)
+    : 0
+}
+
+function billingPeriodDays(interval: unknown): number {
+  if (interval === 'day') return 1
+  if (interval === 'week') return 7
+  if (interval === 'year') return 364
+  return 28
+}
+
+/**
+ * Estimates the attributable value of confirmed bookings from the product used
+ * to create each booking. Product prices are stored in euros while analytics
+ * exposes integer cents.
+ *
+ * Unlimited memberships intentionally use the selected analytics range as the
+ * usage window when subscription billing-period history is unavailable. The
+ * eight-session floor prevents low-usage members from inflating the estimate.
+ */
+async function calculateRevenueEstimate(
+  payload: Payload,
+  candidates: RevenueBookingCandidate[],
+  params: AnalyticsQueryParams,
+): Promise<number> {
+  if (candidates.length === 0) return 0
+
+  const transactionByBookingId = new Map<
+    number,
+    {
+      paymentMethod?: string
+      dropInId?: unknown
+      classPassId?: unknown
+      subscriptionId?: unknown
+    }
+  >()
+  for (const ids of chunkIds(
+    candidates.map((c) => c.bookingId),
+    TIMESLOT_ID_IN_CHUNK_SIZE,
+  )) {
+    const result = await payload.find({
+      collection: 'transactions',
+      where: { booking: { in: ids } },
+      limit: ids.length,
+      depth: 0,
+      select: {
+        booking: true,
+        paymentMethod: true,
+        dropInId: true,
+        classPassId: true,
+        subscriptionId: true,
+      },
+      overrideAccess: true,
+    })
+    for (const row of result.docs) {
+      const doc = row as {
+        booking?: unknown
+        paymentMethod?: string
+        dropInId?: unknown
+        classPassId?: unknown
+        subscriptionId?: unknown
+      }
+      const bookingId = relationId(doc.booking)
+      if (bookingId != null) transactionByBookingId.set(bookingId, doc)
+    }
+  }
+
+  const dropInIds = new Set<number>()
+  const classPassIds = new Set<number>()
+  const subscriptionIds = new Set<number>()
+  for (const tx of transactionByBookingId.values()) {
+    const dropInId = relationId(tx.dropInId)
+    const classPassId = relationId(tx.classPassId)
+    const subscriptionId = relationId(tx.subscriptionId)
+    if (dropInId != null) dropInIds.add(dropInId)
+    if (classPassId != null) classPassIds.add(classPassId)
+    if (subscriptionId != null) subscriptionIds.add(subscriptionId)
+  }
+
+  const [dropIns, classPasses, subscriptions] = await Promise.all([
+    dropInIds.size > 0
+      ? payload.find({
+          collection: 'drop-ins',
+          where: { id: { in: [...dropInIds] } },
+          limit: dropInIds.size,
+          depth: 0,
+          select: { id: true, price: true },
+          overrideAccess: true,
+        })
+      : Promise.resolve({ docs: [] as unknown[] }),
+    classPassIds.size > 0
+      ? payload.find({
+          collection: 'class-passes',
+          where: { id: { in: [...classPassIds] } },
+          limit: classPassIds.size,
+          depth: 0,
+          select: { id: true, type: true },
+          overrideAccess: true,
+        })
+      : Promise.resolve({ docs: [] as unknown[] }),
+    subscriptionIds.size > 0
+      ? payload.find({
+          collection: 'subscriptions',
+          where: { id: { in: [...subscriptionIds] } },
+          limit: subscriptionIds.size,
+          depth: 0,
+          select: { id: true, user: true, plan: true, startDate: true, endDate: true },
+          overrideAccess: true,
+        })
+      : Promise.resolve({ docs: [] as unknown[] }),
+  ])
+
+  const dropInPriceById = new Map<number, number>()
+  for (const row of dropIns.docs) {
+    const doc = row as { id?: number; price?: unknown }
+    if (typeof doc.id === 'number') dropInPriceById.set(doc.id, priceToCents(doc.price))
+  }
+
+  const classPassTypeIds = new Set<number>()
+  const classPassTypeByPassId = new Map<number, number>()
+  for (const row of classPasses.docs) {
+    const doc = row as { id?: number; type?: unknown }
+    const typeId = relationId(doc.type)
+    if (typeof doc.id === 'number' && typeId != null) {
+      classPassTypeIds.add(typeId)
+      classPassTypeByPassId.set(doc.id, typeId)
+    }
+  }
+  const classPassTypes =
+    classPassTypeIds.size > 0
+      ? await payload.find({
+          collection: 'class-pass-types',
+          where: { id: { in: [...classPassTypeIds] } },
+          limit: classPassTypeIds.size,
+          depth: 0,
+          select: { id: true, quantity: true, priceInformation: true },
+          overrideAccess: true,
+        })
+      : { docs: [] as unknown[] }
+  const classPassValueByTypeId = new Map<number, number>()
+  for (const row of classPassTypes.docs) {
+    const doc = row as {
+      id?: number
+      quantity?: unknown
+      priceInformation?: { price?: unknown }
+    }
+    if (typeof doc.id !== 'number' || typeof doc.quantity !== 'number' || doc.quantity <= 0)
+      continue
+    classPassValueByTypeId.set(
+      doc.id,
+      Math.round(priceToCents(doc.priceInformation?.price) / doc.quantity),
+    )
+  }
+
+  const planIds = new Set<number>()
+  const subscriptionById = new Map<
+    number,
+    {
+      userId: number | null
+      planId: number | null
+      startDate: string | null
+      endDate: string | null
+    }
+  >()
+  for (const row of subscriptions.docs) {
+    const doc = row as {
+      id?: number
+      user?: unknown
+      plan?: unknown
+      startDate?: unknown
+      endDate?: unknown
+    }
+    if (typeof doc.id === 'number') {
+      const planId = relationId(doc.plan)
+      subscriptionById.set(doc.id, {
+        userId: relationId(doc.user),
+        planId,
+        startDate: typeof doc.startDate === 'string' ? doc.startDate.slice(0, 10) : null,
+        endDate: typeof doc.endDate === 'string' ? doc.endDate.slice(0, 10) : null,
+      })
+      if (planId != null) planIds.add(planId)
+    }
+  }
+  const plans =
+    planIds.size > 0
+      ? await payload.find({
+          collection: 'plans',
+          where: { id: { in: [...planIds] } },
+          limit: planIds.size,
+          depth: 0,
+          select: { id: true, priceInformation: true, sessionsInformation: true },
+          overrideAccess: true,
+        })
+      : { docs: [] as unknown[] }
+  const planById = new Map<
+    number,
+    {
+      priceCents: number
+      sessions: number | null
+    }
+  >()
+  for (const row of plans.docs) {
+    const doc = row as {
+      id?: number
+      priceInformation?: { price?: unknown; interval?: unknown; intervalCount?: unknown }
+      sessionsInformation?: { sessions?: unknown; interval?: unknown; intervalCount?: unknown }
+    }
+    if (typeof doc.id !== 'number') continue
+    const sessions = doc.sessionsInformation?.sessions
+    const sessionIntervalCount =
+      typeof doc.sessionsInformation?.intervalCount === 'number' &&
+      doc.sessionsInformation.intervalCount > 0
+        ? doc.sessionsInformation.intervalCount
+        : 1
+    const priceIntervalCount =
+      typeof doc.priceInformation?.intervalCount === 'number' &&
+      doc.priceInformation.intervalCount > 0
+        ? doc.priceInformation.intervalCount
+        : 1
+    const sessionsPerBillingPeriod =
+      typeof sessions === 'number' && sessions > 0
+        ? (sessions / sessionIntervalCount) *
+          (billingPeriodDays(doc.priceInformation?.interval) /
+            billingPeriodDays(doc.sessionsInformation?.interval)) *
+          priceIntervalCount
+        : null
+    planById.set(doc.id, {
+      priceCents: priceToCents(doc.priceInformation?.price),
+      sessions:
+        sessionsPerBillingPeriod != null && sessionsPerBillingPeriod > 0
+          ? sessionsPerBillingPeriod
+          : null,
+    })
+  }
+
+  const bookingsByUser = new Map<number, number>()
+  for (const candidate of candidates) {
+    if (candidate.userId != null) {
+      bookingsByUser.set(candidate.userId, (bookingsByUser.get(candidate.userId) ?? 0) + 1)
+    }
+  }
+
+  // Unlimited plans need usage-based allocation. When a subscription has a
+  // current billing window, count all of the member's bookings in that window
+  // (across locations); older/test records without dates fall back to the
+  // selected analytics range.
+  const unlimitedBookingsBySubscriptionId = new Map<number, number>()
+  for (const [subscriptionId, subscription] of subscriptionById.entries()) {
+    const plan = subscription.planId != null ? planById.get(subscription.planId) : undefined
+    if (!plan || plan.sessions != null || subscription.userId == null) continue
+
+    let usage = bookingsByUser.get(subscription.userId) ?? 0
+    if (
+      subscription.startDate &&
+      subscription.endDate &&
+      YMD_ONLY_FOR_REVENUE.test(subscription.startDate) &&
+      YMD_ONLY_FOR_REVENUE.test(subscription.endDate)
+    ) {
+      const billingTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, {
+        dateFrom: subscription.startDate,
+        dateTo: subscription.endDate,
+        tenantId: params.tenantId,
+      })
+      usage = 0
+      for (const ids of chunkIds(billingTimeslotIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+        const result = await payload.count({
+          collection: 'bookings',
+          where: {
+            and: [
+              { status: { equals: 'confirmed' } },
+              { user: { equals: subscription.userId } },
+              { timeslot: { in: ids } },
+              ...(params.tenantId != null ? [{ tenant: { equals: params.tenantId } }] : []),
+            ],
+          },
+          overrideAccess: true,
+        })
+        usage += result.totalDocs ?? 0
+      }
+    }
+    unlimitedBookingsBySubscriptionId.set(subscriptionId, usage)
+  }
+
+  let totalCents = 0
+  for (const candidate of candidates) {
+    const tx = transactionByBookingId.get(candidate.bookingId)
+    if (!tx) continue
+    const method = tx.paymentMethod
+    if (method === 'stripe') {
+      const dropInId = relationId(tx.dropInId)
+      if (dropInId != null) totalCents += dropInPriceById.get(dropInId) ?? 0
+      continue
+    }
+    if (method === 'class_pass') {
+      const passId = relationId(tx.classPassId)
+      const typeId = passId != null ? classPassTypeByPassId.get(passId) : undefined
+      if (typeId != null) totalCents += classPassValueByTypeId.get(typeId) ?? 0
+      continue
+    }
+    if (method === 'subscription') {
+      const subscriptionId = relationId(tx.subscriptionId)
+      const subscription = subscriptionId != null ? subscriptionById.get(subscriptionId) : undefined
+      const plan = subscription?.planId != null ? planById.get(subscription.planId) : undefined
+      if (!plan) continue
+      const denominator =
+        plan.sessions ??
+        Math.max(
+          UNLIMITED_MEMBERSHIP_MIN_SESSIONS,
+          unlimitedBookingsBySubscriptionId.get(subscriptionId!) ??
+            (candidate.userId != null ? (bookingsByUser.get(candidate.userId) ?? 0) : 0),
+        )
+      totalCents += Math.round(plan.priceCents / denominator)
+    }
+  }
+  return totalCents
+}
+
 export async function getAnalyticsDashboardBundle(
   payload: Payload,
   params: AnalyticsQueryParams,
   options?: AnalyticsDashboardBundleOptions,
-): Promise<{
-  summary: SummaryMetrics
-  bookingsOverTime: BookingsOverTimeRow[]
-  topCustomers: TopCustomerRow[]
-  likelyChurnCustomers: LikelyChurnCustomerRow[]
-  likelyChurnCustomersTotal: number
-}> {
+): Promise<AnalyticsDashboardBundleResult> {
   const includeSummary = options?.includeSummary !== false
   const includeBookingsOverTime = options?.includeBookingsOverTime !== false
   const includeTopCustomers = options?.includeTopCustomers !== false
   const includeLikelyChurnCustomers = options?.includeLikelyChurnCustomers !== false
+  const includeRevenueEstimate = options?.includeRevenueEstimate ?? includeSummary
 
   const granularity = params.granularity ?? 'day'
   const topLimit = params.limitTopCustomers ?? DEFAULT_TOP_LIMIT
   const likelyLimit = params.limitLikelyChurnCustomers ?? DEFAULT_LIKELY_CHURN_LIMIT
   const likelyOffset = params.offsetLikelyChurnCustomers ?? 0
 
+  const cacheEnabled =
+    process.env.NODE_ENV === 'production' && process.env.PW_E2E_PROFILE !== 'true'
+  const cacheKey = cacheEnabled
+    ? JSON.stringify({
+        dateFrom: params.dateFrom,
+        dateTo: params.dateTo,
+        tenantId: params.tenantId ?? null,
+        branchId: params.branchId ?? null,
+        granularity,
+        topLimit,
+        likelyLimit,
+        likelyOffset,
+        includeSummary,
+        includeBookingsOverTime,
+        includeTopCustomers,
+        includeLikelyChurnCustomers,
+        includeRevenueEstimate,
+      })
+    : null
+  if (cacheKey) {
+    const cached = analyticsCache.get(cacheKey)
+    if (cached && cached.expiresAtMs > Date.now()) return cached.value
+    if (cached) analyticsCache.delete(cacheKey)
+  }
+
   const timeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
 
   if (timeslotIds.length === 0) {
-    return {
+    const emptyResult: AnalyticsDashboardBundleResult = {
       summary: {
         totalBookings: 0,
         uniqueCustomers: 0,
         grossVolumeCents: 0,
+        revenueEstimateCents: 0,
         accountToBookingConversionPercent: null,
         returningCustomerPercent: null,
       },
@@ -191,6 +566,13 @@ export async function getAnalyticsDashboardBundle(
       likelyChurnCustomers: [],
       likelyChurnCustomersTotal: 0,
     }
+    if (cacheKey) {
+      analyticsCache.set(cacheKey, {
+        expiresAtMs: Date.now() + ANALYTICS_CACHE_TTL_MS,
+        value: emptyResult,
+      })
+    }
+    return emptyResult
   }
 
   const defaultTz = getDefaultTimeZoneForAnalytics(payload)
@@ -226,8 +608,13 @@ export async function getAnalyticsDashboardBundle(
   const uniqueUserIds = includeSummary ? new Set<number>() : new Set<number>()
   const timeBucket = includeBookingsOverTime ? new Map<string, number>() : new Map<string, number>()
   const byUser = includeTopCustomers ? new Map<number, number>() : new Map<number, number>()
-  const churnAggByUser = includeLikelyChurnCustomers ? new Map<number, ChurnAgg>() : new Map<number, ChurnAgg>()
-  const churnAggTenantIdsByUser = includeLikelyChurnCustomers ? new Map<number, Set<number>>() : new Map<number, Set<number>>()
+  const churnAggByUser = includeLikelyChurnCustomers
+    ? new Map<number, ChurnAgg>()
+    : new Map<number, ChurnAgg>()
+  const churnAggTenantIdsByUser = includeLikelyChurnCustomers
+    ? new Map<number, Set<number>>()
+    : new Map<number, Set<number>>()
+  const revenueCandidates: RevenueBookingCandidate[] = []
   // Track distinct booking dates per user for the returning-customer metric.
   // Only populated when we already need timeslot dates (includeBookingsOverTime).
   const trackReturningCustomers = includeSummary && includeBookingsOverTime
@@ -246,8 +633,11 @@ export async function getAnalyticsDashboardBundle(
   // is the date 4 days before the current week's Wednesday.
   // (e.g. Fri May 15 => current week Wed May 13 => cutoff May 9)
   const todayIsWedOrLater = dayOfWeek >= 3 // Wed=3
-  const thisWeekWednesdayYmd = todayIsWedOrLater ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3)) : null
-  const lastCheckInCutoffYmd = thisWeekWednesdayYmd != null ? shiftYmdUtc(thisWeekWednesdayYmd, -4) : inactivityFromYmd7
+  const thisWeekWednesdayYmd = todayIsWedOrLater
+    ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3))
+    : null
+  const lastCheckInCutoffYmd =
+    thisWeekWednesdayYmd != null ? shiftYmdUtc(thisWeekWednesdayYmd, -4) : inactivityFromYmd7
   const churnFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_TREND_WINDOW_DAYS - 1))
 
   const needTimeslotYmd = includeBookingsOverTime || includeLikelyChurnCustomers
@@ -256,37 +646,44 @@ export async function getAnalyticsDashboardBundle(
     const where = buildConfirmedBookingsWhereForTimeslots(idChunk, params.tenantId)
     const timeslotYmdPromise = needTimeslotYmd
       ? loadTimeslotCalendarInfoById(payload, idChunk, ymdIanaMode)
-      : Promise.resolve({ ymdById: new Map<number, string | null>(), tenantById: new Map<number, number | null>() })
-
-    const countPromise = includeSummary
-      ? payload.count({
-          collection: 'bookings',
-          where,
-          overrideAccess: true,
+      : Promise.resolve({
+          ymdById: new Map<number, string | null>(),
+          tenantById: new Map<number, number | null>(),
         })
-      : Promise.resolve({ totalDocs: 0 })
 
     const docsPromise = payload.find({
       collection: 'bookings',
       where,
-      limit: MAX_BOOKINGS_PER_CHUNK,
+      // Avoid a second count query for normal-sized chunks.
+      limit: MAX_BOOKINGS_PER_CHUNK + 1,
       depth: 0,
-      select: { user: true, timeslot: true },
+      select: { id: true, user: true, timeslot: true },
       overrideAccess: true,
     })
 
-    const [timeslotInfo, countResult, docsResult] = await Promise.all([
-      timeslotYmdPromise,
-      countPromise,
-      docsPromise,
-    ])
+    const [timeslotInfo, docsResult] = await Promise.all([timeslotYmdPromise, docsPromise])
 
-    if (includeSummary) totalBookings += countResult.totalDocs ?? 0
+    const bookingDocs = docsResult.docs.slice(0, MAX_BOOKINGS_PER_CHUNK)
+    if (includeSummary) {
+      totalBookings +=
+        docsResult.docs.length <= MAX_BOOKINGS_PER_CHUNK
+          ? bookingDocs.length
+          : ((
+              await payload.count({
+                collection: 'bookings',
+                where,
+                overrideAccess: true,
+              })
+            ).totalDocs ?? 0)
+    }
 
-    for (const doc of docsResult.docs) {
+    for (const doc of bookingDocs) {
       const d = doc as { user?: number | { id: number }; timeslot?: number | { id?: number } }
 
       const uid = bookingUserId(d)
+      if (includeRevenueEstimate && typeof (d as { id?: unknown }).id === 'number') {
+        revenueCandidates.push({ bookingId: (d as { id: number }).id, userId: uid })
+      }
       if (uid !== null) {
         if (includeSummary) uniqueUserIds.add(uid)
         if (includeTopCustomers) byUser.set(uid, (byUser.get(uid) ?? 0) + 1)
@@ -295,8 +692,9 @@ export async function getAnalyticsDashboardBundle(
       if (!needTimeslotYmd) continue
 
       const ts = d.timeslot
-      const tsId = typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : ts
-      const ymd = typeof tsId === 'number' ? timeslotInfo.ymdById.get(tsId) ?? null : null
+      const tsId =
+        typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : ts
+      const ymd = typeof tsId === 'number' ? (timeslotInfo.ymdById.get(tsId) ?? null) : null
       if (!ymd) continue
 
       if (includeBookingsOverTime) {
@@ -350,7 +748,8 @@ export async function getAnalyticsDashboardBundle(
           }
         }
 
-        const tenantIdForTimeslot = typeof tsId === 'number' ? timeslotInfo.tenantById.get(tsId) : null
+        const tenantIdForTimeslot =
+          typeof tsId === 'number' ? timeslotInfo.tenantById.get(tsId) : null
         if (tenantIdForTimeslot != null) {
           let tenantSet = churnAggTenantIdsByUser.get(uid)
           if (!tenantSet) {
@@ -405,7 +804,7 @@ export async function getAnalyticsDashboardBundle(
         const ts = d.timeslot
         const tsId =
           typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : ts
-        const ymd = typeof tsId === 'number' ? timeslotInfo.ymdById.get(tsId) ?? null : null
+        const ymd = typeof tsId === 'number' ? (timeslotInfo.ymdById.get(tsId) ?? null) : null
         if (!ymd || ymd < churnFromYmd || ymd >= params.dateFrom) continue
 
         let agg = churnAggByUser.get(uid)
@@ -512,7 +911,9 @@ export async function getAnalyticsDashboardBundle(
           if (uid !== null) usersWithBookings.add(uid)
         }
       }
-      accountToBookingConversionPercent = Math.round((usersWithBookings.size / allNewUserIds.length) * 100)
+      accountToBookingConversionPercent = Math.round(
+        (usersWithBookings.size / allNewUserIds.length) * 100,
+      )
     }
   }
 
@@ -524,7 +925,12 @@ export async function getAnalyticsDashboardBundle(
       })
     : []
 
-  const topCustomers = includeTopCustomers ? await resolveTopCustomerRows(payload, byUser, topLimit) : []
+  const topCustomers = includeTopCustomers
+    ? await resolveTopCustomerRows(payload, byUser, topLimit)
+    : []
+  const revenueEstimateCents = includeRevenueEstimate
+    ? await calculateRevenueEstimate(payload, revenueCandidates, params)
+    : 0
 
   // Subscription-filter + score calculation (implemented after we fetch subscriptions
   // to avoid per-user queries).
@@ -564,9 +970,18 @@ export async function getAnalyticsDashboardBundle(
         })
 
         for (const doc of res.docs) {
-          const d = doc as unknown as { user?: number | { id: number }; plan?: unknown; status?: string }
+          const d = doc as unknown as {
+            user?: number | { id: number }
+            plan?: unknown
+            status?: string
+          }
           const u = d.user
-          const uid = typeof u === 'object' && u !== null && 'id' in u ? (u as { id: number }).id : (typeof u === 'number' ? u : null)
+          const uid =
+            typeof u === 'object' && u !== null && 'id' in u
+              ? (u as { id: number }).id
+              : typeof u === 'number'
+                ? u
+                : null
           if (uid == null) continue
 
           const belongs =
@@ -608,7 +1023,8 @@ export async function getAnalyticsDashboardBundle(
 
           const prefix: number[] = [0]
           for (const c of agg.dayCounts) prefix.push(prefix[prefix.length - 1]! + c)
-          const rollingSumForEnd = (endIndex: number): number => prefix[endIndex + 1]! - prefix[endIndex + 1 - 7]!
+          const rollingSumForEnd = (endIndex: number): number =>
+            prefix[endIndex + 1]! - prefix[endIndex + 1 - 7]!
 
           const earlyEndMin = 6
           const earlyEndMax = recentEndIndex - 7 // inclusive
@@ -664,11 +1080,13 @@ export async function getAnalyticsDashboardBundle(
 
       scoredRowsWithUserNames.sort((a, b) => {
         // Primary: show more recent timeslot activity higher.
-        if (b.lastActivityDayOffset !== a.lastActivityDayOffset) return b.lastActivityDayOffset - a.lastActivityDayOffset
+        if (b.lastActivityDayOffset !== a.lastActivityDayOffset)
+          return b.lastActivityDayOffset - a.lastActivityDayOffset
         // Tie-break: more likely churn first.
         if (b.rawScore !== a.rawScore) return b.rawScore - a.rawScore
         // Secondary tie-break: stronger decline signal.
-        if (b.declineRatioClamped !== a.declineRatioClamped) return b.declineRatioClamped - a.declineRatioClamped
+        if (b.declineRatioClamped !== a.declineRatioClamped)
+          return b.declineRatioClamped - a.declineRatioClamped
         // Then: less recent activity within the last 7 days (lower recentRolling implies more churn).
         if (a.recentRolling !== b.recentRolling) return a.recentRolling - b.recentRolling
         // Then: more history (prior bookings) to break remaining ties deterministically.
@@ -687,16 +1105,16 @@ export async function getAnalyticsDashboardBundle(
   if (includeLikelyChurnCustomers && likelyChurnSlice.length > 0) {
     const userIds = likelyChurnSlice.map((r) => r.userId)
 
-        // "Last check-in date" = most recent confirmed booking timeslot date that is
-        // <= the eligibility cutoff (to avoid returning future lessons and to ensure
-        // the check-in is consistent with the "no booking this week/last 7 days" rule).
+    // "Last check-in date" = most recent confirmed booking timeslot date that is
+    // <= the eligibility cutoff (to avoid returning future lessons and to ensure
+    // the check-in is consistent with the "no booking this week/last 7 days" rule).
     const lastCheckInDateByUserId = new Map<number, string | null>()
 
     const maxAttempts = 10
     for (const userId of userIds) {
       let found: string | null = null
 
-        for (let page = 1; page <= maxAttempts; page += 1) {
+      for (let page = 1; page <= maxAttempts; page += 1) {
         const res = await payload.find({
           collection: 'bookings',
           where: { and: [{ user: { equals: userId } }, { status: { equals: 'confirmed' } }] },
@@ -711,14 +1129,16 @@ export async function getAnalyticsDashboardBundle(
         const doc = res.docs[0] as unknown as { timeslot?: number | { id: number } } | undefined
         const ts = doc?.timeslot
         const tsId =
-          typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : (ts as number | undefined)
+          typeof ts === 'object' && ts !== null && 'id' in ts
+            ? (ts as { id: number }).id
+            : (ts as number | undefined)
         if (typeof tsId !== 'number' || !Number.isFinite(tsId)) continue
 
         const info = await loadTimeslotCalendarInfoById(payload, [tsId], ymdIanaMode)
         const ymd = info.ymdById.get(tsId) ?? null
-          // Ensure the check-in date shown on the churn table falls within the intended
-          // cutoff logic (timeslot date only).
-          if (ymd != null && ymd <= lastCheckInCutoffYmd) {
+        // Ensure the check-in date shown on the churn table falls within the intended
+        // cutoff logic (timeslot date only).
+        if (ymd != null && ymd <= lastCheckInCutoffYmd) {
           found = ymd
           break
         }
@@ -753,11 +1173,12 @@ export async function getAnalyticsDashboardBundle(
     }))
   }
 
-  return {
+  const result: AnalyticsDashboardBundleResult = {
     summary: {
       totalBookings: includeSummary ? totalBookings : 0,
       uniqueCustomers: includeSummary ? uniqueUserIds.size : 0,
       grossVolumeCents: 0,
+      revenueEstimateCents,
       accountToBookingConversionPercent: includeSummary ? accountToBookingConversionPercent : null,
       returningCustomerPercent: includeSummary ? returningCustomerPercent : null,
     },
@@ -766,4 +1187,15 @@ export async function getAnalyticsDashboardBundle(
     likelyChurnCustomers,
     likelyChurnCustomersTotal,
   }
+  if (cacheKey) {
+    if (analyticsCache.size >= ANALYTICS_CACHE_MAX_ENTRIES) {
+      const oldestKey = analyticsCache.keys().next().value
+      if (typeof oldestKey === 'string') analyticsCache.delete(oldestKey)
+    }
+    analyticsCache.set(cacheKey, {
+      expiresAtMs: Date.now() + ANALYTICS_CACHE_TTL_MS,
+      value: result,
+    })
+  }
+  return result
 }

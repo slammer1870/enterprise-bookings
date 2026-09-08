@@ -704,7 +704,12 @@ export const plugins: Plugin[] = [
     },
     bookingOverrides: {
       // Admin analytics: confirmed + timeslot IN (...). Tenant-scoped dashboard: tenant + same filters.
-      indexes: [{ fields: ['timeslot', 'status'] }, { fields: ['tenant', 'timeslot', 'status'] }],
+      indexes: [
+        { fields: ['timeslot', 'status'] },
+        { fields: ['tenant', 'timeslot', 'status'] },
+        { fields: ['status', 'tenant', 'timeslot'] },
+        { fields: ['status', 'user', 'timeslot'] },
+      ],
       fields: ({ defaultFields }) => [
         ...defaultFields,
         {
