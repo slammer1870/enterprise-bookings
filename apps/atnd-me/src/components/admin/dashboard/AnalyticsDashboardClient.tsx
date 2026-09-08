@@ -475,12 +475,11 @@ export const AnalyticsDashboardClient: React.FC<{
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Failed to load analytics')
           setLoadingLikelyChurn(false)
+          setLoadingTopCustomers(false)
+          setLoadingRevenue(false)
         }
       } finally {
         if (!cancelled) setLoading(false)
-        if (!cancelled) {
-          setLoadingTopCustomers(false)
-        }
       }
     }
 
@@ -892,6 +891,7 @@ export const AnalyticsDashboardClient: React.FC<{
                           background: 'var(--theme-elevation-100, #f5f5f5)',
                           borderRadius: 4,
                           marginBottom: 10,
+                          animation: 'analytics-skeleton-pulse 1.4s ease-in-out infinite',
                         }}
                       />
                       {Array.from({ length: 4 }).map((_, i) => (
@@ -902,6 +902,7 @@ export const AnalyticsDashboardClient: React.FC<{
                               height: 12,
                               background: 'var(--theme-elevation-100, #f5f5f5)',
                               borderRadius: 4,
+                              animation: 'analytics-skeleton-pulse 1.4s ease-in-out infinite',
                             }}
                           />
                           <div
@@ -911,6 +912,7 @@ export const AnalyticsDashboardClient: React.FC<{
                               marginLeft: 'auto',
                               background: 'var(--theme-elevation-100, #f5f5f5)',
                               borderRadius: 4,
+                              animation: 'analytics-skeleton-pulse 1.4s ease-in-out infinite',
                             }}
                           />
                         </div>
