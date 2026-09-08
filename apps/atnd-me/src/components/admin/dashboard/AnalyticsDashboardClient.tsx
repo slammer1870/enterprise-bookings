@@ -231,6 +231,7 @@ export const AnalyticsDashboardClient: React.FC<{
   const [loading, setLoading] = useState(true)
   const [loadingTopCustomers, setLoadingTopCustomers] = useState(true)
   const [loadingLikelyChurn, setLoadingLikelyChurn] = useState(true)
+  const [loadingRevenue, setLoadingRevenue] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingMoreChurn, setLoadingMoreChurn] = useState(false)
   const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null)
@@ -297,6 +298,7 @@ export const AnalyticsDashboardClient: React.FC<{
     setLoading(true)
     setLoadingTopCustomers(true)
     setLoadingLikelyChurn(true)
+    setLoadingRevenue(true)
     setError(null)
 
     const origin = typeof window !== 'undefined' ? window.location.origin : ''
@@ -414,6 +416,9 @@ export const AnalyticsDashboardClient: React.FC<{
           .catch((e: unknown) => {
             if (!cancelled)
               setError(e instanceof Error ? e.message : 'Failed to load revenue estimate')
+          })
+          .finally(() => {
+            if (!cancelled) setLoadingRevenue(false)
           })
 
         // Churn is below the initial viewport and substantially more expensive than
@@ -787,8 +792,25 @@ export const AnalyticsDashboardClient: React.FC<{
                 Estimated revenue
               </div>
               <div style={{ fontSize: '1.5rem', fontWeight: 600 }}>
-                €{(data.summary.revenueEstimateCents / 100).toFixed(2)}
-                {data.summaryPrevious != null && (
+                {loadingRevenue ? (
+                  <span
+                    aria-label="Loading estimated revenue"
+                    style={{
+                      display: 'inline-block',
+                      width: '5.5rem',
+                      height: '1.5rem',
+                      borderRadius: 4,
+                      background: 'var(--theme-elevation-150, #ececec)',
+                      animation: 'analytics-skeleton-pulse 1.4s ease-in-out infinite',
+                      verticalAlign: 'middle',
+                    }}
+                  />
+                ) : (
+                  <>
+                    €{(data.summary.revenueEstimateCents / 100).toFixed(2)}
+                  </>
+                )}
+                {!loadingRevenue && data.summaryPrevious != null && (
                   <span
                     style={{
                       fontSize: '0.875rem',
