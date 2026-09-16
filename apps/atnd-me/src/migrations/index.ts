@@ -183,6 +183,7 @@ import * as migration_20260726_125348 from './20260726_125348'
 import * as migration_20260726_140000_case_studies_richtext_descriptions from './20260726_140000_case_studies_richtext_descriptions'
 import * as migration_20260901_000001_bookings_course_enrollment_payment_method from './20260901_000001_bookings_course_enrollment_payment_method'
 import * as migration_20260901_000002_course_enrollment_booking_transactions from './20260901_000002_course_enrollment_booking_transactions'
+import * as migration_20260916_000001_booking_transactions_amount_cents from './20260916_000001_booking_transactions_amount_cents'
 
 export const migrations = [
   {
@@ -1109,5 +1110,10 @@ export const migrations = [
     up: migration_20260901_000002_course_enrollment_booking_transactions.up,
     down: migration_20260901_000002_course_enrollment_booking_transactions.down,
     name: '20260901_000002_course_enrollment_booking_transactions',
+  },
+  {
+    up: migration_20260916_000001_booking_transactions_amount_cents.up,
+    down: migration_20260916_000001_booking_transactions_amount_cents.down,
+    name: '20260916_000001_booking_transactions_amount_cents',
   },
 ]

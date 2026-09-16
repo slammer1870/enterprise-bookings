@@ -27,7 +27,7 @@ export type SummaryMetrics = {
   totalBookings: number
   uniqueCustomers: number
   grossVolumeCents: number
-  /** Estimated revenue for confirmed bookings, in the tenant currency's cents. */
+  /** Estimated revenue for confirmed bookings after trial, quantity, and promo discounts, in cents. */
   revenueEstimateCents: number
   /**
    * Percentage (0–100) of users who registered in the period and have at least one

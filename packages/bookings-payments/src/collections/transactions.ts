@@ -85,6 +85,16 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     },
   },
   {
+    name: "amountCents",
+    type: "number",
+    required: false,
+    min: 0,
+    admin: {
+      description:
+        "Class price charged for this booking in cents after trial, quantity, and promo discounts (excludes platform booking fee).",
+    },
+  },
+  {
     name: "subscriptionId",
     type: "number",
     required: false,

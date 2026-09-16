@@ -3646,6 +3646,10 @@ export interface Transaction {
    */
   dropInId?: number | null;
   /**
+   * Class price charged for this booking in cents after discounts (excludes booking fee).
+   */
+  amountCents?: number | null;
+  /**
    * Subscription id when paymentMethod is subscription (booking created by subscription).
    */
   subscriptionId?: number | null;
@@ -5043,6 +5047,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   classPassId?: T;
   stripePaymentIntentId?: T;
   dropInId?: T;
+  amountCents?: T;
   subscriptionId?: T;
   courseEnrollmentId?: T;
   refundedAt?: T;

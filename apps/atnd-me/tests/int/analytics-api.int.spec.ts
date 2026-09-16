@@ -839,6 +839,200 @@ describe('Analytics API (Phase 4)', () => {
     )
 
     it(
+      'applies a 100% trial drop-in discount and prefers stored amountCents',
+      async () => {
+        const from = '2045-04-16'
+        await payload.update({
+          collection: 'tenants',
+          id: testTenantId,
+          data: { stripeConnectOnboardingStatus: 'active' },
+          overrideAccess: true,
+        })
+        const trialUser = (await payload.create({
+          collection: 'users',
+          data: {
+            name: 'Trial Revenue User',
+            email: `analytics-trial-${Date.now()}@test.com`,
+            password: 'test',
+            role: ['user'],
+            emailVerified: true,
+            tenants: [{ tenant: testTenantId, roles: ['user'] }],
+          },
+          draft: false,
+          overrideAccess: true,
+        })) as User
+        const eventType = await payload.create({
+          collection: 'event-types',
+          data: {
+            name: `Analytics Trial Revenue ${Date.now()}`,
+            places: 10,
+            description: 'trial revenue attribution test',
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+        const dropIn = await payload.create({
+          collection: 'drop-ins',
+          data: {
+            name: `Analytics Trial Drop In ${Date.now()}`,
+            isActive: true,
+            price: 18,
+            discountTiers: [{ minQuantity: 1, discountPercent: 100, type: 'trial' }],
+            tenant: testTenantId,
+          },
+          overrideAccess: true,
+        })
+        const configuredEventType = await payload.update({
+          collection: 'event-types',
+          id: eventType.id,
+          data: { paymentMethods: { allowedDropIn: dropIn.id } },
+          overrideAccess: true,
+        })
+        const startTime = new Date(`${from}T12:00:00.000Z`)
+        const endTime = new Date(`${from}T13:00:00.000Z`)
+        const timeslot = await payload.create({
+          collection: 'timeslots',
+          data: {
+            date: startTime.toISOString(),
+            startTime: startTime.toISOString(),
+            endTime: endTime.toISOString(),
+            eventType: configuredEventType.id,
+            tenant: testTenantId,
+            active: true,
+            lockOutTime: 0,
+          },
+          draft: false,
+          overrideAccess: true,
+        })
+        const booking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: trialUser.id,
+            timeslot: timeslot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+        const transaction = await payload.create({
+          collection: 'transactions',
+          data: {
+            tenant: testTenantId,
+            booking: booking.id,
+            paymentMethod: 'stripe',
+            dropInId: dropIn.id,
+          } as Record<string, unknown>,
+          overrideAccess: true,
+        })
+
+        const storedFrom = '2045-04-17'
+        const storedStart = new Date(`${storedFrom}T12:00:00.000Z`)
+        const storedEnd = new Date(`${storedFrom}T13:00:00.000Z`)
+        const storedTimeslot = await payload.create({
+          collection: 'timeslots',
+          data: {
+            date: storedStart.toISOString(),
+            startTime: storedStart.toISOString(),
+            endTime: storedEnd.toISOString(),
+            eventType: configuredEventType.id,
+            tenant: testTenantId,
+            active: true,
+            lockOutTime: 0,
+          },
+          draft: false,
+          overrideAccess: true,
+        })
+        const storedBooking = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: storedTimeslot.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+        const storedTransaction = await payload.create({
+          collection: 'transactions',
+          data: {
+            tenant: testTenantId,
+            booking: storedBooking.id,
+            paymentMethod: 'stripe',
+            dropInId: dropIn.id,
+            amountCents: 0,
+          } as Record<string, unknown>,
+          overrideAccess: true,
+        })
+
+        try {
+          const trialRes = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `http://localhost/api/analytics?dateFrom=${from}&dateTo=${from}&tenantId=${testTenantId}`,
+            }),
+          )
+          expect(trialRes.status).toBe(200)
+          const trialData = await trialRes.json()
+          expect(trialData.summary.revenueEstimateCents).toBe(0)
+
+          const storedRes = await GET(
+            request({
+              headers: { 'x-test-user-id': String(adminUser.id) },
+              url: `http://localhost/api/analytics?dateFrom=${storedFrom}&dateTo=${storedFrom}&tenantId=${testTenantId}`,
+            }),
+          )
+          expect(storedRes.status).toBe(200)
+          const storedData = await storedRes.json()
+          expect(storedData.summary.revenueEstimateCents).toBe(0)
+        } finally {
+          await payload
+            .delete({
+              collection: 'transactions',
+              where: { id: { in: [transaction.id, storedTransaction.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'bookings',
+              where: { id: { in: [booking.id, storedBooking.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'timeslots',
+              where: { id: { in: [timeslot.id, storedTimeslot.id] } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'drop-ins',
+              where: { id: { equals: dropIn.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'event-types',
+              where: { id: { equals: eventType.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+          await payload
+            .delete({
+              collection: 'users',
+              where: { id: { equals: trialUser.id } },
+              overrideAccess: true,
+            })
+            .catch(() => {})
+        }
+      },
+      TEST_TIMEOUT,
+    )
+
+    it(
       'supports deferred analytics metric requests without recomputing the initial dashboard',
       async () => {
         const base = `dateFrom=2049-01-01&dateTo=2049-01-07&tenantId=${testTenantId}`

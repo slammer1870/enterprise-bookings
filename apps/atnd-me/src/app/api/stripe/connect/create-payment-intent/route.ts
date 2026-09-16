@@ -405,6 +405,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       tenantId,
       dropInId: trackableDropInId,
+      classPriceAmountCents,
       tenantContext: { tenant: tenantId },
       timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
@@ -505,6 +506,7 @@ export async function POST(request: NextRequest) {
         userId: String(user.id),
         quantity: String(quantity),
         holdId: String(holdId),
+        classPriceAmountCents: String(classPriceAmountCents),
         ...(trackableDropInId != null ? { dropInId: String(trackableDropInId) } : {}),
         ...(discountCodeMeta ? { discountCode: discountCodeMeta } : {}),
         ...(typeof metadata?.classPriceBeforeDiscount === 'string' &&
