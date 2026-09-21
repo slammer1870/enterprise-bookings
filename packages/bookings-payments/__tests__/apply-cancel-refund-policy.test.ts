@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyCancelRefundPolicy } from "../src/cancel-refund-policy";
+import {
+  applyCancelRefundPolicy,
+  createApplyRefundPolicyOnCancelHook,
+} from "../src/cancel-refund-policy";
 
 function createPayloadMock(opts: {
   booking: Record<string, unknown>;
@@ -224,6 +227,197 @@ describe("applyCancelRefundPolicy", () => {
     });
 
     expect(result.applied).toBe(false);
+    expect(refundStripePaymentIntent).not.toHaveBeenCalled();
+  });
+});
+
+function createSharedPaymentIntentPayload(opts: {
+  timeslot: Record<string, unknown>;
+  tenant: Record<string, unknown>;
+  transactions: Array<
+    Record<string, unknown> & { id: number; booking: number }
+  >;
+}) {
+  const payload = {
+    findByID: vi.fn(async ({ collection, id }: { collection: string; id: number }) => {
+      if (collection === "timeslots") return { ...opts.timeslot, id };
+      if (collection === "tenants") return { ...opts.tenant, id };
+      return null;
+    }),
+    find: vi.fn(async ({ collection, where }: { collection: string; where: any }) => {
+      if (collection !== "transactions") return { docs: [], totalDocs: 0 };
+      if (where?.booking?.equals != null) {
+        const docs = opts.transactions.filter((tx) => tx.booking === where.booking.equals);
+        return { docs, totalDocs: docs.length };
+      }
+      return { docs: opts.transactions, totalDocs: opts.transactions.length };
+    }),
+    update: vi.fn(
+      async ({
+        collection,
+        id,
+        data,
+      }: {
+        collection: string;
+        id: number;
+        data: Record<string, unknown>;
+      }) => {
+        if (collection === "transactions") {
+          const tx = opts.transactions.find((item) => item.id === id);
+          if (tx) Object.assign(tx, data);
+        }
+        return { id, ...data };
+      },
+    ),
+    logger: { error: vi.fn(), info: vi.fn() },
+  };
+  return { payload: payload as any };
+}
+
+describe("shared PaymentIntent cancel refunds", () => {
+  const start = "2026-12-20T12:00:00.000Z";
+  const inside = new Date("2026-09-13T10:23:00.000Z");
+  const timeslot = { id: 2, startTime: start, tenant: 5 };
+  const tenant = {
+    id: 5,
+    refundPolicy: { defaultWindowHours: 24 },
+    stripeConnectAccountId: "acct_123",
+    stripeConnectOnboardingStatus: "active",
+  };
+
+  function twoSiblingTransactions() {
+    return [
+      {
+        id: 11,
+        booking: 1,
+        paymentMethod: "stripe",
+        stripePaymentIntentId: "pi_3UEdSTDZNl8i8iqE1a1rXQf4",
+        refundedAt: null,
+        stripeRefundId: null,
+      },
+      {
+        id: 12,
+        booking: 2,
+        paymentMethod: "stripe",
+        stripePaymentIntentId: "pi_3UEdSTDZNl8i8iqE1a1rXQf4",
+        refundedAt: null,
+        stripeRefundId: null,
+      },
+    ];
+  }
+
+  it("refunds each sibling share when two bookings on one payment are cancelled", async () => {
+    const transactions = twoSiblingTransactions();
+    const { payload } = createSharedPaymentIntentPayload({
+      timeslot,
+      tenant,
+      transactions,
+    });
+    const refundStripePaymentIntent = vi.fn(async () => ({
+      refundId: `re_${refundStripePaymentIntent.mock.calls.length + 1}`,
+    }));
+
+    await applyCancelRefundPolicy({
+      payload,
+      booking: {
+        id: 1,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      refundStripePaymentIntent,
+      now: inside,
+    });
+    await applyCancelRefundPolicy({
+      payload,
+      booking: {
+        id: 2,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      refundStripePaymentIntent,
+      now: inside,
+    });
+
+    expect(refundStripePaymentIntent).toHaveBeenCalledTimes(2);
+    expect(refundStripePaymentIntent.mock.calls[0]?.[0]).toMatchObject({
+      siblingCount: 2,
+      alreadyRefundedCount: 0,
+    });
+    expect(refundStripePaymentIntent.mock.calls[1]?.[0]).toMatchObject({
+      siblingCount: 2,
+      alreadyRefundedCount: 1,
+    });
+    expect(transactions[0]?.stripeRefundId).toBeTruthy();
+    expect(transactions[1]?.stripeRefundId).toBeTruthy();
+  });
+
+  it("still refunds both bookings when quantity decrease skips side effects on all but the last", async () => {
+    const transactions = twoSiblingTransactions();
+    const { payload } = createSharedPaymentIntentPayload({
+      timeslot,
+      tenant,
+      transactions,
+    });
+    const refundStripePaymentIntent = vi.fn(async () => ({
+      refundId: `re_${refundStripePaymentIntent.mock.calls.length + 1}`,
+    }));
+    const hook = createApplyRefundPolicyOnCancelHook({
+      refundStripePaymentIntent,
+    });
+    const req = { payload } as any;
+    const bookingShape = (id: number) => ({
+      id,
+      status: "cancelled",
+      timeslot: { id: 2, startTime: start },
+      tenant: 5,
+    });
+
+    // Mirrors setMyBookingQuantityForTimeslot: skipBookingSideEffects on every
+    // cancellation except the last in the bulk quantity decrease.
+    await hook({
+      doc: bookingShape(1),
+      previousDoc: { status: "confirmed" },
+      req,
+      context: { skipBookingSideEffects: true },
+    } as never);
+    await hook({
+      doc: bookingShape(2),
+      previousDoc: { status: "confirmed" },
+      req,
+      context: {},
+    } as never);
+
+    expect(refundStripePaymentIntent).toHaveBeenCalledTimes(2);
+    expect(transactions[0]?.refundedAt).toBeTruthy();
+    expect(transactions[1]?.refundedAt).toBeTruthy();
+  });
+
+  it("does not refund when skipRefundPolicy is set", async () => {
+    const transactions = twoSiblingTransactions();
+    const { payload } = createSharedPaymentIntentPayload({
+      timeslot,
+      tenant,
+      transactions,
+    });
+    const refundStripePaymentIntent = vi.fn();
+    const hook = createApplyRefundPolicyOnCancelHook({
+      refundStripePaymentIntent,
+    });
+
+    await hook({
+      doc: {
+        id: 1,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      previousDoc: { status: "confirmed" },
+      req: { payload },
+      context: { skipRefundPolicy: true },
+    } as never);
+
     expect(refundStripePaymentIntent).not.toHaveBeenCalled();
   });
 });

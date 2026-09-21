@@ -364,7 +364,8 @@ export function createApplyRefundPolicyOnCancelHook(
   return async ({ doc, previousDoc, req, context }) => {
     if (context?.triggerAfterChange === false) return;
     if (context?.skipRefundPolicy === true) return;
-    if (context?.skipBookingSideEffects === true) return;
+    // skipBookingSideEffects is used by bulk quantity decreases to skip waitlist/lockout
+    // work on intermediate cancels. Refunds must still run for every sibling booking.
     if (previousDoc?.status !== "confirmed") return;
     if (doc?.status !== "cancelled") return;
 

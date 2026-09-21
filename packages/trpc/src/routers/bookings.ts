@@ -3443,6 +3443,8 @@ export const bookingsRouter = {
               user: ctx.user,
               // Avoid sending waitlist emails for intermediate cancellations inside a bulk
               // quantity update, which otherwise runs the hook multiple times and can block.
+              // skipBookingSideEffects skips waitlist/lockout work only — refund policy still
+              // runs for each confirmed → cancelled booking (shared PaymentIntent siblings).
               context: {
                 skipWaitlistEmails: i < lastCancellationIndex,
                 skipBookingSideEffects: i < lastCancellationIndex,
