@@ -275,7 +275,7 @@ async function createTimeslotsInBatches(args: {
   }
 }
 
-async function updateExistingTimeslotLockOuts(args: {
+async function updateExistingTimeslots(args: {
   payload: Payload;
   req: PayloadRequest;
   timeslotsSlug: CollectionSlug;
@@ -289,6 +289,7 @@ async function updateExistingTimeslotLockOuts(args: {
       id: number;
       lockOutTime?: unknown;
       originalLockOutTime?: unknown;
+      active?: unknown;
     }
   >;
 }): Promise<void> {
@@ -305,10 +306,12 @@ async function updateExistingTimeslotLockOuts(args: {
     if (!existing) continue;
 
     const desiredLockOutTime = planned.data.lockOutTime;
+    const desiredActive = planned.data.active;
     const currentLockOutTime = Number(existing.lockOutTime);
     const originalLockOutTime = Number(existing.originalLockOutTime);
     const data: Record<string, unknown> = {
       originalLockOutTime: desiredLockOutTime,
+      active: desiredActive,
     };
 
     // A confirmed booking temporarily sets lockOutTime to zero. Preserve that
@@ -324,7 +327,8 @@ async function updateExistingTimeslotLockOuts(args: {
 
     if (
       data.lockOutTime === existing.lockOutTime &&
-      data.originalLockOutTime === existing.originalLockOutTime
+      data.originalLockOutTime === existing.originalLockOutTime &&
+      data.active === existing.active
     ) {
       continue;
     }
@@ -595,6 +599,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
         id: number;
         lockOutTime?: unknown;
         originalLockOutTime?: unknown;
+        active?: unknown;
       }
     >();
 
@@ -794,6 +799,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
           staffMember?: unknown;
           lockOutTime?: unknown;
           originalLockOutTime?: unknown;
+          active?: unknown;
         }>({
           payload,
           req,
@@ -808,6 +814,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
             staffMember: true,
             lockOutTime: true,
             originalLockOutTime: true,
+            active: true,
           },
         });
 
@@ -833,6 +840,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
               id: existingId,
               lockOutTime: doc.lockOutTime,
               originalLockOutTime: doc.originalLockOutTime,
+              active: doc.active,
             });
           } else {
             candidateDeleteIds.push(existingId);
@@ -945,6 +953,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
         staffMember?: unknown;
         lockOutTime?: unknown;
         originalLockOutTime?: unknown;
+        active?: unknown;
       }>({
         payload,
         req,
@@ -965,6 +974,7 @@ export function createGenerateTimeslotsFromScheduleHandler(
           staffMember: true,
           lockOutTime: true,
           originalLockOutTime: true,
+          active: true,
         },
       });
 
@@ -984,12 +994,13 @@ export function createGenerateTimeslotsFromScheduleHandler(
             id: existingId,
             lockOutTime: doc.lockOutTime,
             originalLockOutTime: doc.originalLockOutTime,
+            active: doc.active,
           });
         }
       }
     }
 
-    await updateExistingTimeslotLockOuts({
+    await updateExistingTimeslots({
       payload,
       req,
       timeslotsSlug,

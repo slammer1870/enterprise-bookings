@@ -20,6 +20,97 @@ describe("Scheduler tests", () => {
     expect(resolveTimeslotLockOutTime(undefined, 60)).toBe(60);
   });
 
+  it("updates the active state of existing future timeslots", async () => {
+    const startTime = new Date("2026-09-28T10:00:00.000Z");
+    const endTime = new Date("2026-09-28T11:00:00.000Z");
+    const updates: Array<{ data: Record<string, unknown> }> = [];
+
+    const payload = {
+      config: {
+        admin: {
+          timezones: {
+            defaultTimezone: "UTC",
+          },
+        },
+      },
+      collections: {},
+      logger: {
+        info: () => undefined,
+        warn: () => undefined,
+      },
+      find: async (args: any) => {
+        if (args?.collection === "timeslots") {
+          return {
+            docs: [
+              {
+                id: 1,
+                startTime: startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                eventType: 1,
+                location: "Test Location",
+                staffMember: null,
+                lockOutTime: 60,
+                originalLockOutTime: 60,
+                active: true,
+              },
+            ],
+            hasNextPage: false,
+          };
+        }
+        return { docs: [] };
+      },
+      update: async (args: any) => {
+        updates.push({ data: args.data });
+        return { id: args.id, ...args.data };
+      },
+    };
+
+    await (generateTimeslotsFromSchedule as any)({
+      input: {
+        startDate: new Date("2026-09-28T00:00:00.000Z").toISOString(),
+        endDate: new Date("2026-09-28T23:59:59.999Z").toISOString(),
+        clearExisting: false,
+        defaultEventType: 1,
+        lockOutTime: 60,
+        week: {
+          days: [
+            {
+              timeSlot: [
+                {
+                  startTime: startTime.toISOString(),
+                  endTime: endTime.toISOString(),
+                  eventType: 1,
+                  location: "Test Location",
+                  active: false,
+                },
+              ],
+            },
+            { timeSlot: [] },
+            { timeSlot: [] },
+            { timeSlot: [] },
+            { timeSlot: [] },
+            { timeSlot: [] },
+            { timeSlot: [] },
+          ],
+        },
+      },
+      req: {
+        payload,
+        context: {},
+      } as any,
+    });
+
+    expect(updates).toEqual([
+      {
+        data: {
+          active: false,
+          lockOutTime: 60,
+          originalLockOutTime: 60,
+        },
+      },
+    ]);
+  });
+
   it("does not shift Monday-only schedules to Sunday across Dublin DST start (startDate=Mar 29)", async () => {
     const timeZone = "Europe/Dublin";
 
