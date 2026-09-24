@@ -356,7 +356,7 @@ export type CreateApplyRefundPolicyOnCancelHookOptions = {
    * Return false for cancellations that should not trigger an automatic refund,
    * such as cancellations made by an administrator.
    */
-  shouldApplyRefundPolicy?: (args: {
+  shouldApplyRefundPolicy?: (_args: {
     req: PayloadRequest;
     booking: BookingLike;
     previousDoc?: { status?: string } | null;
