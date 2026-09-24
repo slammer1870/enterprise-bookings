@@ -74,6 +74,12 @@ function createGenerateTimeslotsTaskInputSchema(slugs: {
                   type: "number" as const,
                   required: false,
                 },
+                {
+                  name: "active",
+                  type: "checkbox" as const,
+                  required: false,
+                  defaultValue: true,
+                },
               ],
             },
           ],
