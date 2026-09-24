@@ -352,6 +352,15 @@ export async function applyCancelRefundPolicy(
 
 export type CreateApplyRefundPolicyOnCancelHookOptions = {
   refundStripePaymentIntent?: ApplyCancelRefundPolicyOptions["refundStripePaymentIntent"];
+  /**
+   * Return false for cancellations that should not trigger an automatic refund,
+   * such as cancellations made by an administrator.
+   */
+  shouldApplyRefundPolicy?: (_args: {
+    req: PayloadRequest;
+    booking: BookingLike;
+    previousDoc?: { status?: string } | null;
+  }) => boolean | Promise<boolean>;
 };
 
 /**
@@ -360,13 +369,24 @@ export type CreateApplyRefundPolicyOnCancelHookOptions = {
 export function createApplyRefundPolicyOnCancelHook(
   options: CreateApplyRefundPolicyOnCancelHookOptions = {},
 ): CollectionAfterChangeHook {
-  const { refundStripePaymentIntent } = options;
+  const { refundStripePaymentIntent, shouldApplyRefundPolicy } = options;
   return async ({ doc, previousDoc, req, context }) => {
     if (context?.triggerAfterChange === false) return;
     if (context?.skipRefundPolicy === true) return;
-    if (context?.skipBookingSideEffects === true) return;
+    // skipBookingSideEffects is used by bulk quantity decreases to skip waitlist/lockout
+    // work on intermediate cancels. Refunds must still run for every sibling booking.
     if (previousDoc?.status !== "confirmed") return;
     if (doc?.status !== "cancelled") return;
+    if (
+      shouldApplyRefundPolicy &&
+      !(await shouldApplyRefundPolicy({
+        req,
+        booking: doc as BookingLike,
+        previousDoc,
+      }))
+    ) {
+      return;
+    }
 
     try {
       await applyCancelRefundPolicy({

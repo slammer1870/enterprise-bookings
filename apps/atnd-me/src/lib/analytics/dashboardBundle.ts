@@ -22,6 +22,11 @@ import {
 } from './analyticsBookingsWhere'
 import { densifyBookingsOverTime, toDateKey } from './bookingsOverTimeDense'
 import { subscriptionBelongsToTenantContext } from '@/blocks/DhLiveMembership/subscription-tenant-context'
+import {
+  attributedDropInRevenueCents,
+  type PromoDiscount,
+} from './dropInRevenue'
+import type { DiscountTier } from '@repo/shared-types'
 
 type TimeslotYmdIanaMode =
   | { kind: 'scoped'; iana: string }
@@ -172,6 +177,7 @@ async function resolveTopCustomerRows(
 type RevenueBookingCandidate = {
   bookingId: number
   userId: number | null
+  timeslotId: number | null
 }
 
 function relationId(value: unknown): number | null {
@@ -184,9 +190,25 @@ function relationId(value: unknown): number | null {
 }
 
 function priceToCents(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0
-    ? Math.round(value * 100)
-    : 0
+  return Math.round(coerceEuros(value) * 100)
+}
+
+function coerceEuros(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    if (Number.isFinite(n) && n >= 0) return n
+  }
+  return 0
+}
+
+function coerceNonNegInt(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.round(value))
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    if (Number.isFinite(n)) return Math.max(0, Math.round(n))
+  }
+  return null
 }
 
 function billingPeriodDays(interval: unknown): number {
@@ -196,14 +218,119 @@ function billingPeriodDays(interval: unknown): number {
   return 28
 }
 
+async function loadFirstConfirmedBookingIdByUser(
+  payload: Payload,
+  opts: { userIds: number[]; tenantId?: number | null },
+): Promise<Map<number, number>> {
+  const firstByUser = new Map<number, number>()
+  if (opts.userIds.length === 0) return firstByUser
+
+  const result = await payload.find({
+    collection: 'bookings',
+    where: {
+      and: [
+        { user: { in: opts.userIds } },
+        { status: { equals: 'confirmed' } },
+        ...(opts.tenantId != null ? [{ tenant: { equals: opts.tenantId } }] : []),
+      ],
+    },
+    sort: 'createdAt',
+    limit: 10_000,
+    depth: 0,
+    select: { id: true, user: true },
+    overrideAccess: true,
+  })
+
+  for (const row of result.docs) {
+    const doc = row as { id?: number; user?: unknown }
+    if (typeof doc.id !== 'number') continue
+    const uid = relationId(doc.user)
+    if (uid == null || firstByUser.has(uid)) continue
+    firstByUser.set(uid, doc.id)
+  }
+  return firstByUser
+}
+
+async function loadPromoByUserTimeslot(
+  payload: Payload,
+  opts: { userIds: number[]; timeslotIds: number[]; tenantId?: number | null },
+): Promise<Map<string, PromoDiscount>> {
+  const promoByUserTimeslot = new Map<string, PromoDiscount>()
+  if (opts.userIds.length === 0 || opts.timeslotIds.length === 0) return promoByUserTimeslot
+
+  const holds = await payload.find({
+    collection: 'booking-checkout-holds',
+    where: {
+      and: [
+        { user: { in: opts.userIds } },
+        { timeslot: { in: opts.timeslotIds } },
+        { status: { equals: 'consumed' } },
+      ],
+    },
+    limit: 1000,
+    depth: 0,
+    select: { id: true, user: true, timeslot: true },
+    overrideAccess: true,
+  })
+
+  const holdById = new Map<number, { userId: number | null; timeslotId: number | null }>()
+  const holdIds: number[] = []
+  for (const row of holds.docs) {
+    const doc = row as { id?: number; user?: unknown; timeslot?: unknown }
+    if (typeof doc.id !== 'number') continue
+    holdIds.push(doc.id)
+    holdById.set(doc.id, { userId: relationId(doc.user), timeslotId: relationId(doc.timeslot) })
+  }
+  if (holdIds.length === 0) return promoByUserTimeslot
+
+  const codes = await payload.find({
+    collection: 'discount-codes',
+    where: {
+      and: [
+        { lastConsumedHoldId: { in: holdIds } },
+        ...(opts.tenantId != null ? [{ tenant: { equals: opts.tenantId } }] : []),
+      ],
+    },
+    limit: holdIds.length,
+    depth: 0,
+    select: { type: true, value: true, currency: true, lastConsumedHoldId: true },
+    overrideAccess: true,
+  })
+
+  for (const row of codes.docs) {
+    const doc = row as {
+      type?: string
+      value?: unknown
+      currency?: string | null
+      lastConsumedHoldId?: unknown
+    }
+    if (doc.type !== 'percentage_off' && doc.type !== 'amount_off') continue
+    const value = typeof doc.value === 'number' ? doc.value : Number(doc.value)
+    if (!Number.isFinite(value)) continue
+    const holdId = coerceNonNegInt(doc.lastConsumedHoldId)
+    if (holdId == null) continue
+    const hold = holdById.get(holdId)
+    if (!hold || hold.userId == null || hold.timeslotId == null) continue
+    promoByUserTimeslot.set(`${hold.userId}:${hold.timeslotId}`, {
+      type: doc.type,
+      value,
+      currency: doc.currency ?? null,
+    })
+  }
+  return promoByUserTimeslot
+}
+
 /**
  * Estimates the attributable value of confirmed bookings from the product used
  * to create each booking. Product prices are stored in euros while analytics
  * exposes integer cents.
  *
- * Unlimited memberships intentionally use the selected analytics range as the
- * usage window when subscription billing-period history is unavailable. The
- * eight-session floor prevents low-usage members from inflating the estimate.
+ * Drop-in (stripe) bookings use the charged class amount when stored on the
+ * transaction. Otherwise trial, quantity, and promo discounts are applied to
+ * the list price. Unlimited memberships intentionally use the selected
+ * analytics range as the usage window when subscription billing-period history
+ * is unavailable. The eight-session floor prevents low-usage members from
+ * inflating the estimate.
  */
 async function calculateRevenueEstimate(
   payload: Payload,
@@ -219,6 +346,8 @@ async function calculateRevenueEstimate(
       dropInId?: unknown
       classPassId?: unknown
       subscriptionId?: unknown
+      amountCents?: unknown
+      stripePaymentIntentId?: unknown
     }
   >()
   for (const ids of chunkIds(
@@ -236,6 +365,8 @@ async function calculateRevenueEstimate(
         dropInId: true,
         classPassId: true,
         subscriptionId: true,
+        amountCents: true,
+        stripePaymentIntentId: true,
       },
       overrideAccess: true,
     })
@@ -246,6 +377,8 @@ async function calculateRevenueEstimate(
         dropInId?: unknown
         classPassId?: unknown
         subscriptionId?: unknown
+        amountCents?: unknown
+        stripePaymentIntentId?: unknown
       }
       const bookingId = relationId(doc.booking)
       if (bookingId != null) transactionByBookingId.set(bookingId, doc)
@@ -271,7 +404,7 @@ async function calculateRevenueEstimate(
           where: { id: { in: [...dropInIds] } },
           limit: dropInIds.size,
           depth: 0,
-          select: { id: true, price: true },
+          select: { id: true, price: true, discountTiers: true },
           overrideAccess: true,
         })
       : Promise.resolve({ docs: [] as unknown[] }),
@@ -297,10 +430,18 @@ async function calculateRevenueEstimate(
       : Promise.resolve({ docs: [] as unknown[] }),
   ])
 
-  const dropInPriceById = new Map<number, number>()
+  const dropInById = new Map<
+    number,
+    { priceEuros: number; discountTiers: DiscountTier[] }
+  >()
   for (const row of dropIns.docs) {
-    const doc = row as { id?: number; price?: unknown }
-    if (typeof doc.id === 'number') dropInPriceById.set(doc.id, priceToCents(doc.price))
+    const doc = row as { id?: number; price?: unknown; discountTiers?: DiscountTier[] | null }
+    if (typeof doc.id === 'number') {
+      dropInById.set(doc.id, {
+        priceEuros: coerceEuros(doc.price),
+        discountTiers: Array.isArray(doc.discountTiers) ? doc.discountTiers : [],
+      })
+    }
   }
 
   const classPassTypeIds = new Set<number>()
@@ -468,6 +609,33 @@ async function calculateRevenueEstimate(
     unlimitedBookingsBySubscriptionId.set(subscriptionId, usage)
   }
 
+  const reconstructUserIds = new Set<number>()
+  const reconstructTimeslotIds = new Set<number>()
+  for (const candidate of candidates) {
+    const tx = transactionByBookingId.get(candidate.bookingId)
+    if (tx?.paymentMethod !== 'stripe') continue
+    if (coerceNonNegInt(tx.amountCents) != null) continue
+    if (candidate.userId != null) reconstructUserIds.add(candidate.userId)
+    if (candidate.timeslotId != null) reconstructTimeslotIds.add(candidate.timeslotId)
+  }
+
+  const firstConfirmedByUser =
+    reconstructUserIds.size > 0
+      ? await loadFirstConfirmedBookingIdByUser(payload, {
+          userIds: [...reconstructUserIds],
+          tenantId: params.tenantId,
+        })
+      : new Map<number, number>()
+
+  const promoByUserTimeslot =
+    reconstructUserIds.size > 0 && reconstructTimeslotIds.size > 0
+      ? await loadPromoByUserTimeslot(payload, {
+          userIds: [...reconstructUserIds],
+          timeslotIds: [...reconstructTimeslotIds],
+          tenantId: params.tenantId,
+        })
+      : new Map<string, PromoDiscount>()
+
   let totalCents = 0
   for (const candidate of candidates) {
     const tx = transactionByBookingId.get(candidate.bookingId)
@@ -475,7 +643,20 @@ async function calculateRevenueEstimate(
     const method = tx.paymentMethod
     if (method === 'stripe') {
       const dropInId = relationId(tx.dropInId)
-      if (dropInId != null) totalCents += dropInPriceById.get(dropInId) ?? 0
+      const dropIn = dropInId != null ? dropInById.get(dropInId) : undefined
+      const trialable =
+        candidate.userId != null && firstConfirmedByUser.get(candidate.userId) === candidate.bookingId
+      const promoKey =
+        candidate.userId != null && candidate.timeslotId != null
+          ? `${candidate.userId}:${candidate.timeslotId}`
+          : null
+      totalCents += attributedDropInRevenueCents({
+        listPriceEuros: dropIn?.priceEuros ?? 0,
+        discountTiers: dropIn?.discountTiers,
+        trialable,
+        promo: promoKey ? (promoByUserTimeslot.get(promoKey) ?? null) : null,
+        storedAmountCents: coerceNonNegInt(tx.amountCents),
+      })
       continue
     }
     if (method === 'class_pass') {
@@ -682,7 +863,14 @@ export async function getAnalyticsDashboardBundle(
 
       const uid = bookingUserId(d)
       if (includeRevenueEstimate && typeof (d as { id?: unknown }).id === 'number') {
-        revenueCandidates.push({ bookingId: (d as { id: number }).id, userId: uid })
+        const ts = d.timeslot
+        const tsId =
+          typeof ts === 'object' && ts !== null && 'id' in ts ? (ts as { id: number }).id : ts
+        revenueCandidates.push({
+          bookingId: (d as { id: number }).id,
+          userId: uid,
+          timeslotId: typeof tsId === 'number' ? tsId : null,
+        })
       }
       if (uid !== null) {
         if (includeSummary) uniqueUserIds.add(uid)

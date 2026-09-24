@@ -121,6 +121,41 @@ describe('fulfillCheckoutHold', () => {
       tenant: TENANT_ID,
     })
     expect(txnCreates[0]?.[0].data.stripePaymentIntentId).toBeUndefined()
+    expect(txnCreates[0]?.[0].data.amountCents).toBeUndefined()
+  })
+
+  it('splits classPriceAmountCents across the hold quantity on each transaction', async () => {
+    const payload = makePayload()
+
+    await fulfillCheckoutHold(payload as never, {
+      holdId: HOLD_ID,
+      userId: USER_ID,
+      tenantId: TENANT_ID,
+      dropInId: 77,
+      classPriceAmountCents: 0,
+    })
+
+    const zeroCreates = (payload.create as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([args]) => args.collection === 'transactions',
+    )
+    expect(zeroCreates[0]?.[0].data.amountCents).toBe(0)
+    expect(zeroCreates[1]?.[0].data.amountCents).toBe(0)
+
+    vi.clearAllMocks()
+    createdBookings = []
+    hold.status = 'active'
+    const payloadPaid = makePayload()
+    await fulfillCheckoutHold(payloadPaid as never, {
+      holdId: HOLD_ID,
+      userId: USER_ID,
+      paymentIntentId: PI_ID,
+      tenantId: TENANT_ID,
+      classPriceAmountCents: 1999,
+    })
+    const paidCreates = (payloadPaid.create as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([args]) => args.collection === 'transactions',
+    )
+    expect(paidCreates.map(([args]) => args.data.amountCents)).toEqual([1000, 999])
   })
 
   it('is idempotent when hold already consumed (no prior transactions)', async () => {

@@ -49,12 +49,15 @@ export const beforeProductChange: CollectionBeforeChangeHook = async ({
     return newDoc;
   }
 
-  // Preserve manual admin edits for already-linked products. We only hydrate from Stripe
-  // when linking a different product or when the local document omitted pricing data.
-  if (isSameStripeProduct && data.priceInformation !== undefined) {
+  // Preserve explicit admin status changes for already-linked products. Stripe may
+  // still report the old status while the afterChange hook is about to sync this edit.
+  if (
+    isSameStripeProduct &&
+    (data.status !== undefined || data.priceInformation !== undefined)
+  ) {
     if (logs) {
       payload.logger?.info?.(
-        "Preserving manual price information for existing Stripe product"
+        "Preserving explicit membership fields for existing Stripe product"
       );
     }
     newDoc.stripeProductId = stripeProductId;

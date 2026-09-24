@@ -91,6 +91,8 @@ export async function POST(request: NextRequest) {
   if (event.type === 'payment_intent.succeeded') {
     const obj = event.data?.object as {
       id?: string
+      amount?: number
+      application_fee_amount?: number | null
       metadata?: Record<string, string>
     } | undefined
     const meta = obj?.metadata ?? {}
@@ -194,11 +196,27 @@ export async function POST(request: NextRequest) {
           typeof meta.dropInId === 'string' && /^\d+$/.test(meta.dropInId)
             ? parseInt(meta.dropInId, 10)
             : null
+        const classPriceAmountCentsFromMeta =
+          typeof meta.classPriceAmountCents === 'string' && /^\d+$/.test(meta.classPriceAmountCents)
+            ? parseInt(meta.classPriceAmountCents, 10)
+            : null
+        const classPriceAmountCents =
+          classPriceAmountCentsFromMeta ??
+          (typeof obj?.amount === 'number' && Number.isFinite(obj.amount)
+            ? Math.max(
+                0,
+                Math.round(
+                  obj.amount -
+                    (typeof obj.application_fee_amount === 'number' ? obj.application_fee_amount : 0),
+                ),
+              )
+            : undefined)
         const fulfillResult = await fulfillCheckoutHold(payload, {
           holdId,
           userId,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
           dropInId: dropInIdFromMeta,
+          classPriceAmountCents,
           tenantId: tenant.id,
           tenantContext: paymentIntentTenantContext,
           refundPaymentIntent:

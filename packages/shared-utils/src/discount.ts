@@ -65,3 +65,48 @@ export const calculateQuantityDiscount = (
     ...(discountApplied ? { appliedDiscountPercent } : {}),
   };
 };
+
+export type PromoDiscount = {
+  type: "percentage_off" | "amount_off";
+  value: number;
+  currency?: string | null;
+};
+
+/**
+ * Applies a checkout promo code on top of an already-tiered amount (euros).
+ * Percentage off uses `value` 1–100. Amount off uses `value` in euros (EUR only).
+ */
+export function applyPromoDiscount(params: {
+  amount: number;
+  discount?: PromoDiscount | null;
+}): {
+  amount: number;
+  promoDiscountAmount: number;
+  discountApplied: boolean;
+} {
+  const { amount, discount } = params;
+  if (!discount || amount <= 0) {
+    return { amount, promoDiscountAmount: 0, discountApplied: false };
+  }
+
+  let promoDiscountAmount = 0;
+  if (discount.type === "percentage_off") {
+    promoDiscountAmount = Number(((amount * discount.value) / 100).toFixed(2));
+  } else if (
+    discount.type === "amount_off" &&
+    (!discount.currency || discount.currency.toLowerCase() === "eur")
+  ) {
+    promoDiscountAmount = discount.value;
+  }
+
+  promoDiscountAmount = Math.max(
+    0,
+    Math.min(amount, Number(promoDiscountAmount.toFixed(2))),
+  );
+
+  return {
+    amount: Number((amount - promoDiscountAmount).toFixed(2)),
+    promoDiscountAmount,
+    discountApplied: promoDiscountAmount > 0,
+  };
+}

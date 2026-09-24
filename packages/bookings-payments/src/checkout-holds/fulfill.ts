@@ -23,6 +23,16 @@ function relationId(value: number | { id: number } | null | undefined): number |
   return typeof value === 'object' ? value.id : value
 }
 
+/** Split a total cent amount across `n` bookings without losing remainder cents. */
+export function splitCents(totalCents: number, n: number): number[] {
+  const count = Math.max(0, Math.trunc(n))
+  if (count === 0) return []
+  const total = Number.isFinite(totalCents) ? Math.max(0, Math.round(totalCents)) : 0
+  const base = Math.floor(total / count)
+  const remainder = total - base * count
+  return Array.from({ length: count }, (_, i) => base + (i < remainder ? 1 : 0))
+}
+
 async function markHoldExpired(
   payload: PayloadLike,
   holdId: number,
@@ -45,6 +55,11 @@ export async function fulfillCheckoutHold(
     paymentIntentId?: string
     /** Drop-in product id for once-per-user tracking (stripe/drop-in checkouts). */
     dropInId?: number | null
+    /**
+     * Total class price charged for this hold in cents, after trial/quantity/promo
+     * discounts and excluding platform booking fee. Split across the hold quantity.
+     */
+    classPriceAmountCents?: number
     tenantId: number
     holdCollection?: CollectionSlug
     bookingsSlug?: CollectionSlug
@@ -157,6 +172,11 @@ export async function fulfillCheckoutHold(
       ? opts.dropInId
       : null
 
+  const amountCentsPerBooking =
+    opts.classPriceAmountCents != null && Number.isFinite(opts.classPriceAmountCents)
+      ? splitCents(opts.classPriceAmountCents, hold.quantity)
+      : null
+
   for (let i = 0; i < hold.quantity; i++) {
     const created = (await payload.create({
       collection: bookingsSlug,
@@ -186,6 +206,7 @@ export async function fulfillCheckoutHold(
         paymentMethod: 'stripe',
         ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
         ...(dropInId != null ? { dropInId } : {}),
+        ...(amountCentsPerBooking != null ? { amountCents: amountCentsPerBooking[i] } : {}),
         tenant: opts.tenantId,
       },
       ...(tenantContext ? { context: tenantContext } : {}),

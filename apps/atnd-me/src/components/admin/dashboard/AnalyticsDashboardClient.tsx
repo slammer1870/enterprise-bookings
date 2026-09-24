@@ -829,6 +829,15 @@ export const AnalyticsDashboardClient: React.FC<{
                   </span>
                 )}
               </div>
+              <div
+                style={{
+                  fontSize: '0.75rem',
+                  color: 'var(--theme-elevation-500, #888)',
+                  marginTop: '0.25rem',
+                }}
+              >
+                After trial, quantity, and promo discounts
+              </div>
             </div>
           </div>
 
