@@ -83,6 +83,7 @@ import { bookingReadAccess } from '../access/bookingReadAccess'
 import { privateBillingReadAccess } from '../access/privateBillingReadAccess'
 import {
   isStaffOnlyUser,
+  isTenantPortalUser,
   userTenantRead,
   userTenantUpdate,
   tenantOrgPayloadAdminAccess,
@@ -800,6 +801,17 @@ export const plugins: Plugin[] = [
           }),
           createApplyRefundPolicyOnCancelHook({
             refundStripePaymentIntent: refundCancelPaymentIntent,
+            shouldApplyRefundPolicy: ({ req }) => {
+              const user = req.user
+              if (!user) return false
+              return !(
+                isTenantPortalUser(user) ||
+                checkRole(
+                  ['super-admin', 'admin', 'staff', 'location-manager'],
+                  user as SharedUser,
+                )
+              )
+            },
           }),
           triggerPostBookingEmailAfterChange,
         ],

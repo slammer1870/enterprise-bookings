@@ -420,4 +420,33 @@ describe("shared PaymentIntent cancel refunds", () => {
 
     expect(refundStripePaymentIntent).not.toHaveBeenCalled();
   });
+
+  it("does not refund when the cancellation actor opts out", async () => {
+    const transactions = twoSiblingTransactions();
+    const { payload } = createSharedPaymentIntentPayload({
+      timeslot,
+      tenant,
+      transactions,
+    });
+    const refundStripePaymentIntent = vi.fn();
+    const hook = createApplyRefundPolicyOnCancelHook({
+      refundStripePaymentIntent,
+      shouldApplyRefundPolicy: () => false,
+    });
+
+    await hook({
+      doc: {
+        id: 1,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      previousDoc: { status: "confirmed" },
+      req: { payload, user: { role: "admin" } },
+      context: {},
+    } as never);
+
+    expect(refundStripePaymentIntent).not.toHaveBeenCalled();
+    expect(transactions[0]?.refundedAt).toBeFalsy();
+  });
 });
