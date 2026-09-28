@@ -4,7 +4,15 @@ import { MigrateDownArgs, MigrateUpArgs, sql } from '@payloadcms/db-postgres'
 export async function up({ db }: MigrateUpArgs): Promise<void> {
   await db.execute(sql`
     INSERT INTO "tenants_allowed_blocks" ("order", "parent_id", "value")
-    SELECT COALESCE(MAX("order"), -1) + 1, "id", 'kyuzoHero'
+    SELECT
+      COALESCE(
+        (SELECT MAX(existing_order."order")
+         FROM "tenants_allowed_blocks" existing_order
+         WHERE existing_order."parent_id" = "tenants"."id"),
+        -1
+      ) + 1,
+      "id",
+      'kyuzoHero'
     FROM "tenants"
     WHERE "slug" = 'darkhorse-strength'
       AND NOT EXISTS (
