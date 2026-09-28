@@ -17,6 +17,7 @@ import { MissionElements } from './MissionElements/config'
 import { SimpleAbout } from './SimpleAbout/config'
 import {
   Hero,
+  KyuzoHero,
   About,
   Location,
   Faqs,
@@ -59,6 +60,7 @@ import { Event } from './Event/config'
 const allBlocks: Block[] = [
   HeroWithLocation,
   Hero,
+  KyuzoHero,
   MarketingHero,
   About,
   SimpleAbout,

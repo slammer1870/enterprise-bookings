@@ -16,6 +16,7 @@ import {
 } from '@/utilities/resolveTenantIdForDocumentWrite'
 import {
   Hero,
+  KyuzoHero,
   About,
   Location,
   Faqs,
@@ -83,6 +84,7 @@ import {
 const availableBlocks = [
   HeroWithLocation,
   Hero,
+  KyuzoHero,
   MarketingHero,
   About,
   SimpleAbout,

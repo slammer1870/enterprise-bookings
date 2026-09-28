@@ -1,0 +1,1 @@
+export { KyuzoHeroBlock } from './Component'

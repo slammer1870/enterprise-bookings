@@ -362,6 +362,7 @@ export interface Tenant {
   allowedBlocks?:
     | (
         | 'heroWithLocation'
+        | 'kyuzoHero'
         | 'marketingHero'
         | 'location'
         | 'healthBenefits'
@@ -577,6 +578,7 @@ export interface Page {
     | ThreeColumnLayoutBlock
     | TwoColumnLayoutBlock
     | EventBlock
+    | KyuzoHeroBlock
     | AboutBlock
     | SimpleAboutBlock
     | LocationBlock
@@ -1775,6 +1777,7 @@ export interface ThreeColumnLayoutBlock {
     | (
         | HeroWithLocationBlock
         | HeroBlock
+        | KyuzoHeroBlock
         | MarketingHeroBlock
         | AboutBlock
         | SimpleAboutBlock
@@ -1880,6 +1883,223 @@ export interface ThreeColumnLayoutBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'threeColumnLayout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "KyuzoHeroBlock".
+ */
+export interface KyuzoHeroBlock {
+  heading: string;
+  subheading: string;
+  backgroundImage: number | Media;
+  /**
+   * Defaults to the existing Kyuzo red when omitted.
+   */
+  panelBackgroundColor?: string | null;
+  /**
+   * Leave blank to keep the existing gradient overlay.
+   */
+  overlayColor?: string | null;
+  /**
+   * Overlay opacity from 0 (transparent) to 1 (opaque).
+   */
+  overlayOpacity?: number | null;
+  cta1_text?: string | null;
+  cta1_link?: string | null;
+  cta1_style?: ('filled' | 'outline') | null;
+  cta1_backgroundColor?: string | null;
+  cta1_textColor?: string | null;
+  cta1_borderColor?: string | null;
+  cta2_text?: string | null;
+  cta2_link?: string | null;
+  cta2_style?: ('filled' | 'outline') | null;
+  cta2_backgroundColor?: string | null;
+  cta2_textColor?: string | null;
+  cta2_borderColor?: string | null;
+  formTitle: string;
+  formDescription: string;
+  form: number | Form;
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'kyuzoHero';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "forms".
+ */
+export interface Form {
+  id: number;
+  tenant?: (number | null) | Tenant;
+  title: string;
+  fields?:
+    | (
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            required?: boolean | null;
+            defaultValue?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'checkbox';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'country';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'email';
+          }
+        | {
+            message?: {
+              root: {
+                type: string;
+                children: {
+                  type: any;
+                  version: number;
+                  [k: string]: unknown;
+                }[];
+                direction: ('ltr' | 'rtl') | null;
+                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+                indent: number;
+                version: number;
+              };
+              [k: string]: unknown;
+            } | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'message';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            defaultValue?: number | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'number';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            defaultValue?: string | null;
+            placeholder?: string | null;
+            options?:
+              | {
+                  label: string;
+                  value: string;
+                  id?: string | null;
+                }[]
+              | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'select';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'state';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            defaultValue?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'text';
+          }
+        | {
+            name: string;
+            label?: string | null;
+            width?: number | null;
+            defaultValue?: string | null;
+            required?: boolean | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'textarea';
+          }
+      )[]
+    | null;
+  submitButtonLabel?: string | null;
+  /**
+   * Choose whether to display an on-page message or redirect to a different page after they submit the form.
+   */
+  confirmationType?: ('message' | 'redirect') | null;
+  confirmationMessage?: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  redirect?: {
+    url: string;
+  };
+  /**
+   * Send custom emails when the form submits. Use comma separated lists to send the same email to multiple recipients. To reference a value from this form, wrap that field's name with double curly brackets, i.e. {{firstName}}. You can use a wildcard {{*}} to output all data and {{*:table}} to format it as an HTML table in the email.
+   */
+  emails?:
+    | {
+        emailTo?: string | null;
+        cc?: string | null;
+        bcc?: string | null;
+        replyTo?: string | null;
+        /**
+         * Must use your verified studio email domain (e.g. hello@your-domain.com). Leave blank to use the platform default. Template placeholders like {{field}} are allowed and checked when the email sends.
+         */
+        emailFrom?: string | null;
+        subject: string;
+        /**
+         * Enter the message that should be sent in this email.
+         */
+        message?: {
+          root: {
+            type: string;
+            children: {
+              type: any;
+              version: number;
+              [k: string]: unknown;
+            }[];
+            direction: ('ltr' | 'rtl') | null;
+            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+            indent: number;
+            version: number;
+          };
+          [k: string]: unknown;
+        } | null;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -2464,184 +2684,6 @@ export interface FormBlock {
   id?: string | null;
   blockName?: string | null;
   blockType: 'formBlock';
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "forms".
- */
-export interface Form {
-  id: number;
-  tenant?: (number | null) | Tenant;
-  title: string;
-  fields?:
-    | (
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            required?: boolean | null;
-            defaultValue?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'checkbox';
-          }
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            required?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'country';
-          }
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            required?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'email';
-          }
-        | {
-            message?: {
-              root: {
-                type: string;
-                children: {
-                  type: any;
-                  version: number;
-                  [k: string]: unknown;
-                }[];
-                direction: ('ltr' | 'rtl') | null;
-                format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-                indent: number;
-                version: number;
-              };
-              [k: string]: unknown;
-            } | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'message';
-          }
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            defaultValue?: number | null;
-            required?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'number';
-          }
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            defaultValue?: string | null;
-            placeholder?: string | null;
-            options?:
-              | {
-                  label: string;
-                  value: string;
-                  id?: string | null;
-                }[]
-              | null;
-            required?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'select';
-          }
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            required?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'state';
-          }
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            defaultValue?: string | null;
-            required?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'text';
-          }
-        | {
-            name: string;
-            label?: string | null;
-            width?: number | null;
-            defaultValue?: string | null;
-            required?: boolean | null;
-            id?: string | null;
-            blockName?: string | null;
-            blockType: 'textarea';
-          }
-      )[]
-    | null;
-  submitButtonLabel?: string | null;
-  /**
-   * Choose whether to display an on-page message or redirect to a different page after they submit the form.
-   */
-  confirmationType?: ('message' | 'redirect') | null;
-  confirmationMessage?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  redirect?: {
-    url: string;
-  };
-  /**
-   * Send custom emails when the form submits. Use comma separated lists to send the same email to multiple recipients. To reference a value from this form, wrap that field's name with double curly brackets, i.e. {{firstName}}. You can use a wildcard {{*}} to output all data and {{*:table}} to format it as an HTML table in the email.
-   */
-  emails?:
-    | {
-        emailTo?: string | null;
-        cc?: string | null;
-        bcc?: string | null;
-        replyTo?: string | null;
-        /**
-         * Must use your verified studio email domain (e.g. hello@your-domain.com). Leave blank to use the platform default. Template placeholders like {{field}} are allowed and checked when the email sends.
-         */
-        emailFrom?: string | null;
-        subject: string;
-        /**
-         * Enter the message that should be sent in this email.
-         */
-        message?: {
-          root: {
-            type: string;
-            children: {
-              type: any;
-              version: number;
-              [k: string]: unknown;
-            }[];
-            direction: ('ltr' | 'rtl') | null;
-            format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-            indent: number;
-            version: number;
-          };
-          [k: string]: unknown;
-        } | null;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -3326,6 +3368,7 @@ export interface TwoColumnLayoutBlock {
     | (
         | HeroWithLocationBlock
         | HeroBlock
+        | KyuzoHeroBlock
         | MarketingHeroBlock
         | AboutBlock
         | SimpleAboutBlock
@@ -3431,6 +3474,7 @@ export interface TwoColumnLayoutBlock {
     | (
         | HeroWithLocationBlock
         | HeroBlock
+        | KyuzoHeroBlock
         | MarketingHeroBlock
         | AboutBlock
         | SimpleAboutBlock
@@ -3646,7 +3690,7 @@ export interface Transaction {
    */
   dropInId?: number | null;
   /**
-   * Class price charged for this booking in cents after discounts (excludes booking fee).
+   * Class price charged for this booking in cents after trial, quantity, and promo discounts (excludes platform booking fee).
    */
   amountCents?: number | null;
   /**
@@ -5252,6 +5296,7 @@ export interface PagesSelect<T extends boolean = true> {
         threeColumnLayout?: T | ThreeColumnLayoutBlockSelect<T>;
         twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
         event?: T | EventBlockSelect<T>;
+        kyuzoHero?: T | KyuzoHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         simpleAbout?: T | SimpleAboutBlockSelect<T>;
         location?: T | LocationBlockSelect<T>;
@@ -5605,6 +5650,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
     | {
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
+        kyuzoHero?: T | KyuzoHeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         simpleAbout?: T | SimpleAboutBlockSelect<T>;
@@ -5719,6 +5765,35 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
         hwHeroServices?: T | HwHeroServicesBlockSelect<T>;
         twoColumnLayout?: T | TwoColumnLayoutBlockSelect<T>;
       };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "KyuzoHeroBlock_select".
+ */
+export interface KyuzoHeroBlockSelect<T extends boolean = true> {
+  heading?: T;
+  subheading?: T;
+  backgroundImage?: T;
+  panelBackgroundColor?: T;
+  overlayColor?: T;
+  overlayOpacity?: T;
+  cta1_text?: T;
+  cta1_link?: T;
+  cta1_style?: T;
+  cta1_backgroundColor?: T;
+  cta1_textColor?: T;
+  cta1_borderColor?: T;
+  cta2_text?: T;
+  cta2_link?: T;
+  cta2_style?: T;
+  cta2_backgroundColor?: T;
+  cta2_textColor?: T;
+  cta2_borderColor?: T;
+  formTitle?: T;
+  formDescription?: T;
+  form?: T;
   id?: T;
   blockName?: T;
 }
@@ -6537,6 +6612,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
     | {
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
+        kyuzoHero?: T | KyuzoHeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         simpleAbout?: T | SimpleAboutBlockSelect<T>;
@@ -6655,6 +6731,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
     | {
         heroWithLocation?: T | HeroWithLocationBlockSelect<T>;
         hero?: T | HeroBlockSelect<T>;
+        kyuzoHero?: T | KyuzoHeroBlockSelect<T>;
         marketingHero?: T | MarketingHeroBlockSelect<T>;
         about?: T | AboutBlockSelect<T>;
         simpleAbout?: T | SimpleAboutBlockSelect<T>;
@@ -7480,6 +7557,7 @@ export interface TaskGenerateTimeslotsFromSchedule {
           location?: string | null;
           staffMember?: (number | null) | User;
           lockOutTime?: number | null;
+          active?: boolean | null;
         }[];
       }[];
     };

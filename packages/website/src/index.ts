@@ -14,6 +14,7 @@ export * from "./access/admin-or-published";
 export { FormBlock } from "./blocks/form/config";
 export { Faqs } from "./blocks/faqs/config";
 export { Hero } from "./blocks/hero/config";
+export { KyuzoHero } from "./blocks/kyuzo-hero/config";
 export { About } from "./blocks/about/config";
 export { Location } from "./blocks/location/config";
 export { linkGroup } from "./blocks/linkGroup";
