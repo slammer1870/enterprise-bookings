@@ -7,7 +7,10 @@
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 
-const mockPaymentIntentsCreate = vi.fn()
+const { mockPaymentIntentsCreate } = vi.hoisted(() => ({
+  mockPaymentIntentsCreate: vi.fn(),
+}))
+
 vi.mock('@/lib/stripe/platform', () => ({
   getPlatformStripe: vi.fn(() => ({
     paymentIntents: { create: mockPaymentIntentsCreate },

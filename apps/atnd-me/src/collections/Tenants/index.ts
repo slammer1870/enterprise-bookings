@@ -59,6 +59,7 @@ const EXTRA_BLOCK_LABELS: Record<string, string> = {
   bruContact: 'Contact (Brú)',
   bruHeroWaitlist: 'Hero Waitlist (Brú)',
   dhHero: 'Hero (Dark Horse)',
+  kyuzoHero: 'Hero (Kyuzo)',
   dhTeam: 'Team (Dark Horse)',
   dhTimetable: 'Timetable (Dark Horse)',
   dhTestimonials: 'Testimonials (Dark Horse)',

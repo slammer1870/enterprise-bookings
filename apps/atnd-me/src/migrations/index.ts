@@ -184,6 +184,11 @@ import * as migration_20260726_140000_case_studies_richtext_descriptions from '.
 import * as migration_20260901_000001_bookings_course_enrollment_payment_method from './20260901_000001_bookings_course_enrollment_payment_method'
 import * as migration_20260901_000002_course_enrollment_booking_transactions from './20260901_000002_course_enrollment_booking_transactions'
 import * as migration_20260916_000001_booking_transactions_amount_cents from './20260916_000001_booking_transactions_amount_cents'
+import * as migration_20260928_000001_kyuzo_hero_block from './20260928_000001_kyuzo_hero_block'
+import * as migration_20260928_000002_enable_kyuzo_hero_for_darkhorse from './20260928_000002_enable_kyuzo_hero_for_darkhorse'
+import * as migration_20260928_000003_kyuzo_hero_customization from './20260928_000003_kyuzo_hero_customization'
+import * as migration_20260928_000004_fix_kyuzo_hero_color_columns from './20260928_000004_fix_kyuzo_hero_color_columns'
+import * as migration_20260928_000005_kyuzo_hero_ctas_array from './20260928_000005_kyuzo_hero_ctas_array'
 
 export const migrations = [
   {
@@ -1115,5 +1120,30 @@ export const migrations = [
     up: migration_20260916_000001_booking_transactions_amount_cents.up,
     down: migration_20260916_000001_booking_transactions_amount_cents.down,
     name: '20260916_000001_booking_transactions_amount_cents',
+  },
+  {
+    up: migration_20260928_000001_kyuzo_hero_block.up,
+    down: migration_20260928_000001_kyuzo_hero_block.down,
+    name: '20260928_000001_kyuzo_hero_block',
+  },
+  {
+    up: migration_20260928_000002_enable_kyuzo_hero_for_darkhorse.up,
+    down: migration_20260928_000002_enable_kyuzo_hero_for_darkhorse.down,
+    name: '20260928_000002_enable_kyuzo_hero_for_darkhorse',
+  },
+  {
+    up: migration_20260928_000003_kyuzo_hero_customization.up,
+    down: migration_20260928_000003_kyuzo_hero_customization.down,
+    name: '20260928_000003_kyuzo_hero_customization',
+  },
+  {
+    up: migration_20260928_000004_fix_kyuzo_hero_color_columns.up,
+    down: migration_20260928_000004_fix_kyuzo_hero_color_columns.down,
+    name: '20260928_000004_fix_kyuzo_hero_color_columns',
+  },
+  {
+    up: migration_20260928_000005_kyuzo_hero_ctas_array.up,
+    down: migration_20260928_000005_kyuzo_hero_ctas_array.down,
+    name: '20260928_000005_kyuzo_hero_ctas_array',
   },
 ]

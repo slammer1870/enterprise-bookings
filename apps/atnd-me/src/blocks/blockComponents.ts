@@ -34,6 +34,8 @@ export const blockLoaders: Record<string, BlockLoader> = {
   marketingCta: eager(MarketingCtaBlock),
   faqs: eager(FaqsBlock),
   hero: eager(HeroBlock),
+  kyuzoHero: () =>
+    import('@repo/website/src/blocks/kyuzo-hero').then((m) => m.KyuzoHeroBlock),
   content: eager(ContentBlock),
   cta: eager(CallToActionBlock),
   mediaBlock: eager(MediaBlock),

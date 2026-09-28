@@ -2,6 +2,7 @@ const LAYOUT_BLOCK_TYPES = new Set(['twoColumnLayout', 'threeColumnLayout'])
 
 const FULL_BLEED_BLOCK_TYPES = new Set([
   'hero',
+  'kyuzoHero',
   'hero-waitlist',
   'heroScheduleSanctuary',
   'heroWithLocation',
