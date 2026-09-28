@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 import { FormBlock } from '../form'
 import { Button } from '@repo/ui/components/ui/button'
+import { resolveColorToken } from '../../admin/colorTokens'
 
 type MediaLike = { url?: string | null } | number | string | null | undefined
 
@@ -67,10 +68,15 @@ export const KyuzoHeroBlock: React.FC<KyuzoHeroProps> = ({
   subheadingColor,
 }) => {
   const imageUrl = getImageUrl(backgroundImage)
-  const useCustomOverlay = overlayColor || overlayOpacity !== undefined
+  const resolvedOverlayColor = resolveColorToken(overlayColor)
+  const resolvedCircleColor = resolveColorToken(circleColor)
+  const resolvedHeadingColor = resolveColorToken(headingColor)
+  const resolvedSubheadingColor = resolveColorToken(subheadingColor)
+  const resolvedPanelBackgroundColor = resolveColorToken(panelBackgroundColor)
+  const useCustomOverlay = resolvedOverlayColor || overlayOpacity !== undefined
   const overlayStyle = useCustomOverlay
     ? {
-        backgroundColor: overlayColor || '#FFFFFF',
+        backgroundColor: resolvedOverlayColor || '#FFFFFF',
         opacity: overlayOpacity ?? 1,
       }
     : undefined
@@ -88,16 +94,19 @@ export const KyuzoHeroBlock: React.FC<KyuzoHeroProps> = ({
 
     const buttonStyle = style ?? 'filled'
     const isOutline = buttonStyle === 'outline'
+    const resolvedBackgroundColor = resolveColorToken(backgroundColor)
+    const resolvedTextColor = resolveColorToken(textColor)
+    const resolvedBorderColor = resolveColorToken(borderColor)
 
     return (
       <Button
         asChild
         size="lg"
-        className={`${isOnlyCTA ? 'lg:col-span-2' : 'col-span-1'} xl:py-3 ${isOutline ? 'border bg-transparent hover:bg-gray-100' : 'hover:opacity-80'}`}
+        className={`${isOnlyCTA ? 'col-span-2' : 'col-span-1'} xl:py-3 ${isOutline ? 'border bg-transparent hover:bg-gray-100' : 'hover:opacity-80'}`}
         style={{
-          backgroundColor: backgroundColor ?? (isOutline ? undefined : '#E73F43'),
-          color: textColor ?? (isOutline ? '#000000' : '#FFFFFF'),
-          borderColor: borderColor ?? '#E73F43',
+          backgroundColor: resolvedBackgroundColor ?? (isOutline ? undefined : '#E73F43'),
+          color: resolvedTextColor ?? (isOutline ? '#000000' : '#FFFFFF'),
+          borderColor: resolvedBorderColor ?? '#E73F43',
         }}
       >
         <Link href={link}>{text}</Link>
@@ -119,22 +128,22 @@ export const KyuzoHeroBlock: React.FC<KyuzoHeroProps> = ({
         style={overlayStyle}
       />
       <div className="z-30 mx-auto flex grow items-center justify-center p-6 pt-32 md:p-8 lg:h-screen lg:w-2/3 lg:pt-0">
-        {circleColor ? (
+        {resolvedCircleColor ? (
           <div
             className="absolute z-10 h-[200px] w-[200px] rounded-full opacity-60 md:h-[300px] md:w-[300px] lg:h-[400px] lg:w-[400px]"
-            style={{ backgroundColor: circleColor }}
+            style={{ backgroundColor: resolvedCircleColor }}
           />
         ) : null}
         <div className="z-50 max-w-md lg:max-w-2xl lg:p-6">
           <h1
             className="mb-2 text-[2.15rem] font-medium leading-tight md:text-5xl lg:text-4xl"
-            style={headingColor ? { color: headingColor } : undefined}
+            style={resolvedHeadingColor ? { color: resolvedHeadingColor } : undefined}
           >
             {heading}
           </h1>
           <p
             className="mb-4 text-xl text-gray-700 md:text-3xl lg:mb-6 lg:text-2xl"
-            style={subheadingColor ? { color: subheadingColor } : undefined}
+            style={resolvedSubheadingColor ? { color: resolvedSubheadingColor } : undefined}
           >
             {subheading}
           </p>
@@ -151,7 +160,7 @@ export const KyuzoHeroBlock: React.FC<KyuzoHeroProps> = ({
       </div>
       <div
         className="z-30 flex items-center justify-center bg-white p-6 pb-12 text-gray-900 md:p-8 md:pb-24 lg:h-screen lg:w-full lg:max-w-xl lg:bg-[#E73F43] lg:pt-32 lg:text-white"
-        style={panelBackgroundColor ? { backgroundColor: panelBackgroundColor } : undefined}
+        style={resolvedPanelBackgroundColor ? { backgroundColor: resolvedPanelBackgroundColor } : undefined}
       >
         <div className="w-full max-w-md lg:max-w-lg">
           <h3 className="text-xl md:text-2xl lg:text-3xl">{formTitle}</h3>
