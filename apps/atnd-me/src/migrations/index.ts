@@ -187,6 +187,7 @@ import * as migration_20260916_000001_booking_transactions_amount_cents from './
 import * as migration_20260928_000001_kyuzo_hero_block from './20260928_000001_kyuzo_hero_block'
 import * as migration_20260928_000002_enable_kyuzo_hero_for_darkhorse from './20260928_000002_enable_kyuzo_hero_for_darkhorse'
 import * as migration_20260928_000003_kyuzo_hero_customization from './20260928_000003_kyuzo_hero_customization'
+import * as migration_20260928_000004_fix_kyuzo_hero_color_columns from './20260928_000004_fix_kyuzo_hero_color_columns'
 
 export const migrations = [
   {
@@ -1133,5 +1134,10 @@ export const migrations = [
     up: migration_20260928_000003_kyuzo_hero_customization.up,
     down: migration_20260928_000003_kyuzo_hero_customization.down,
     name: '20260928_000003_kyuzo_hero_customization',
+  },
+  {
+    up: migration_20260928_000004_fix_kyuzo_hero_color_columns.up,
+    down: migration_20260928_000004_fix_kyuzo_hero_color_columns.down,
+    name: '20260928_000004_fix_kyuzo_hero_color_columns',
   },
 ]
