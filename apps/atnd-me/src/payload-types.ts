@@ -1901,21 +1901,26 @@ export interface KyuzoHeroBlock {
    */
   overlayColor?: string | null;
   /**
+   * Leave blank to hide the decorative circle.
+   */
+  circleColor?: string | null;
+  headingColor?: string | null;
+  subheadingColor?: string | null;
+  /**
    * Overlay opacity from 0 (transparent) to 1 (opaque).
    */
   overlayOpacity?: number | null;
-  cta1_text?: string | null;
-  cta1_link?: string | null;
-  cta1_style?: ('filled' | 'outline') | null;
-  cta1_backgroundColor?: string | null;
-  cta1_textColor?: string | null;
-  cta1_borderColor?: string | null;
-  cta2_text?: string | null;
-  cta2_link?: string | null;
-  cta2_style?: ('filled' | 'outline') | null;
-  cta2_backgroundColor?: string | null;
-  cta2_textColor?: string | null;
-  cta2_borderColor?: string | null;
+  ctas?:
+    | {
+        text: string;
+        link: string;
+        style?: ('filled' | 'outline') | null;
+        backgroundColor?: string | null;
+        textColor?: string | null;
+        borderColor?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   formTitle: string;
   formDescription: string;
   form: number | Form;
@@ -5778,19 +5783,21 @@ export interface KyuzoHeroBlockSelect<T extends boolean = true> {
   backgroundImage?: T;
   panelBackgroundColor?: T;
   overlayColor?: T;
+  circleColor?: T;
+  headingColor?: T;
+  subheadingColor?: T;
   overlayOpacity?: T;
-  cta1_text?: T;
-  cta1_link?: T;
-  cta1_style?: T;
-  cta1_backgroundColor?: T;
-  cta1_textColor?: T;
-  cta1_borderColor?: T;
-  cta2_text?: T;
-  cta2_link?: T;
-  cta2_style?: T;
-  cta2_backgroundColor?: T;
-  cta2_textColor?: T;
-  cta2_borderColor?: T;
+  ctas?:
+    | T
+    | {
+        text?: T;
+        link?: T;
+        style?: T;
+        backgroundColor?: T;
+        textColor?: T;
+        borderColor?: T;
+        id?: T;
+      };
   formTitle?: T;
   formDescription?: T;
   form?: T;

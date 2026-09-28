@@ -40,6 +40,19 @@ export const KyuzoHero: Block = {
       label: 'Overlay color',
       description: 'Leave blank to keep the existing gradient overlay.',
     }),
+    hexColorField({
+      name: 'circleColor',
+      label: 'Decorative circle color',
+      description: 'Leave blank to hide the decorative circle.',
+    }),
+    hexColorField({
+      name: 'headingColor',
+      label: 'Heading text color',
+    }),
+    hexColorField({
+      name: 'subheadingColor',
+      label: 'Subheading text color',
+    }),
     {
       name: 'overlayOpacity',
       type: 'number',
@@ -51,61 +64,36 @@ export const KyuzoHero: Block = {
       },
     },
     {
-      type: 'row',
+      name: 'ctas',
+      type: 'array',
+      label: 'Call to action buttons',
+      maxRows: 2,
       fields: [
         {
-          name: 'cta1_text',
+          name: 'text',
           type: 'text',
-          label: 'CTA 1 Text',
-          defaultValue: 'Kids',
+          required: true,
+          label: 'Text',
         },
         {
-          name: 'cta1_link',
+          name: 'link',
           type: 'text',
-          label: 'CTA 1 Link',
-          defaultValue: '#kids',
+          required: true,
+          label: 'Link',
         },
         {
-          name: 'cta1_style',
+          name: 'style',
           type: 'select',
           options: [
             { label: 'Filled', value: 'filled' },
             { label: 'Outline', value: 'outline' },
           ],
-          label: 'CTA 1 Style',
+          defaultValue: 'filled',
+          label: 'Style',
         },
-        hexColorField({ name: 'cta1_backgroundColor', label: 'CTA 1 background color' }),
-        hexColorField({ name: 'cta1_textColor', label: 'CTA 1 text color' }),
-        hexColorField({ name: 'cta1_borderColor', label: 'CTA 1 border color' }),
-      ],
-    },
-    {
-      type: 'row',
-      fields: [
-        {
-          name: 'cta2_text',
-          type: 'text',
-          label: 'CTA 2 Text',
-          defaultValue: 'Adults',
-        },
-        {
-          name: 'cta2_link',
-          type: 'text',
-          label: 'CTA 2 Link',
-          defaultValue: '#adults',
-        },
-        {
-          name: 'cta2_style',
-          type: 'select',
-          options: [
-            { label: 'Filled', value: 'filled' },
-            { label: 'Outline', value: 'outline' },
-          ],
-          label: 'CTA 2 Style',
-        },
-        hexColorField({ name: 'cta2_backgroundColor', label: 'CTA 2 background color' }),
-        hexColorField({ name: 'cta2_textColor', label: 'CTA 2 text color' }),
-        hexColorField({ name: 'cta2_borderColor', label: 'CTA 2 border color' }),
+        hexColorField({ name: 'backgroundColor', label: 'Background color' }),
+        hexColorField({ name: 'textColor', label: 'Text color' }),
+        hexColorField({ name: 'borderColor', label: 'Border color' }),
       ],
     },
     {
