@@ -1,11 +1,17 @@
 import type { MetadataRoute } from 'next'
+import { headers } from 'next/headers'
+
+import { getRequestOrigin } from '@/utilities/getURL'
 
 /**
- * Static robots.txt — avoid force-dynamic + headers() so crawlers always get a
- * stable 200 (Lighthouse was failing to download robots on preview).
+ * robots.txt must be generated from the public request host. Using
+ * NEXT_PUBLIC_SERVER_URL here points custom tenant domains at the platform
+ * sitemap instead of their own sitemap.
  */
-export default function robots(): MetadataRoute.Robots {
-  const siteUrl = process.env.NEXT_PUBLIC_SERVER_URL?.replace(/\/$/, '') || 'https://www.atnd-preview.org'
+export const dynamic = 'force-dynamic'
+
+export default async function robots(): Promise<MetadataRoute.Robots> {
+  const siteUrl = getRequestOrigin(await headers())
 
   return {
     rules: {
