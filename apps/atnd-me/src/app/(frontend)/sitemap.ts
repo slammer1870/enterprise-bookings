@@ -105,5 +105,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     })
   }
 
-  return routes
+  return Array.from(new Map(routes.map((entry) => [entry.url, entry])).values())
 }

@@ -28,8 +28,35 @@ export default async function RootLayout({
   unauthenticated: React.ReactNode
 }) {
 
+  const cookieStore = await cookies()
+  const headersList = await headers()
+  const payload = await getPayload()
+  const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
+  const siteUrl = getTenantSiteURL(tenant, headersList)
+  const logoUrl =
+    tenant?.logo && typeof tenant.logo === 'object' && typeof tenant.logo.url === 'string'
+      ? getAbsoluteURL(tenant.logo.url, siteUrl)
+      : undefined
+  const structuredData = tenant
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: tenant.name || tenant.slug,
+        url: siteUrl,
+        ...(tenant.description ? { description: tenant.description } : {}),
+        ...(logoUrl ? { logo: logoUrl } : {}),
+      }
+    : null
+
   return (
     <>
+      {structuredData && (
+        <script
+          id="tenant-structured-data"
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+      )}
       {/* Must not render <html>/<head>/<body> here; root layout owns those tags. */}
       <InitTheme />
       <Providers>
