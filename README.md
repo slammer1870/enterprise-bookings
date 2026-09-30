@@ -73,6 +73,36 @@ pnpm test:e2e
 pnpm test:e2e:ci
 ```
 
+#### PR and deployment preflight
+
+Run the non-interactive local CI gate before opening a pull request:
+
+```bash
+corepack pnpm preflight:pr
+```
+
+Before deployment, run the explicit analytics preflight:
+
+```bash
+corepack pnpm preflight:deploy
+```
+
+The deployment preflight runs the same complete local CI suite with staging analytics
+enabled, then pauses for confirmation that genuine `localhost` or `*.localhost` events
+are visible in the staging dashboard. Set up its dedicated, ignored configuration once:
+
+```bash
+cp apps/atnd-me/.env.analytics-local.example apps/atnd-me/.env.analytics-local
+```
+
+The browser suite uses its existing `http://localhost:3000` endpoint. Ensure port 3000
+is free before starting the preflight; it exits early with the occupying process when it is not.
+
+Only the explicit deployment/analytics preflight reads that file, and it exports only the
+analytics variables. Regular E2E, local CI, and GitHub CI do not receive these settings or
+send browser traffic to the staging analytics instance. The deployment preflight requires
+an interactive terminal for its final dashboard confirmation.
+
 #### Testing Features
 - **Turbo Integration**: All tests leverage Turbo's dependency management and caching
 - **Playwright E2E**: End-to-end testing with Playwright for comprehensive coverage
