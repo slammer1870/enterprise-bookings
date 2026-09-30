@@ -27,5 +27,5 @@ const ScheduleDynamic = dynamic(
  * Event landing pages are published via CMS Pages + Event block (custom slug), not /events/[id].
  */
 export function ScheduleLazy(props: ScheduleLazyProps) {
-  return <ScheduleDynamic {...props} />
+  return <ScheduleDynamic {...props} analyticsEnabled />
 }
