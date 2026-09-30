@@ -8,7 +8,7 @@ import { BookingSummary } from './booking-summary'
 import { QuantitySelector } from './quantity-selector'
 import { BookingForm } from './booking-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
-import type { CheckoutLegalConfig } from '@repo/payments-next'
+import type { CheckoutAnalyticsAttribution, CheckoutLegalConfig } from '@repo/payments-next'
 
 type PaymentMethodsLike = {
   allowedDropIn?: {
@@ -59,6 +59,7 @@ function asPaymentMethodsLike(value: unknown): PaymentMethodsLike {
 interface BookingPageClientSmartProps {
   timeslot: Timeslot
   onSuccessRedirect?: string
+  analytics?: CheckoutAnalyticsAttribution
   /**
    * Component to render when payment methods are detected.
    * Receives timeslot, and optionally quantity, pendingBookings, onPaymentSuccess for multi-booking/manage flow.
@@ -76,6 +77,7 @@ interface BookingPageClientSmartProps {
     ) => Promise<Record<string, string> | void>
     /** Legal links shown below the drop-in payment form. */
     checkoutLegal?: CheckoutLegalConfig
+    analytics?: CheckoutAnalyticsAttribution
   }>
 
   /**
@@ -102,6 +104,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   useCheckoutHolds = false,
   releaseHoldApiUrl = '/api/bookings/release-hold',
   checkoutLegal,
+  analytics,
 }) => {
   const trpc = useTRPC()
   const [quantity, setQuantity] = useState<number>(1)
@@ -376,6 +379,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
             onReserveCheckoutHold={useCheckoutHolds ? onReserveCheckoutHold : undefined}
             successUrl={onSuccessRedirect}
             checkoutLegal={checkoutLegal}
+            analytics={analytics}
           />
         </div>
       )
@@ -423,6 +427,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
               timeslot={timeslot}
               quantity={quantity}
               onSuccessRedirect={onSuccessRedirect}
+              analytics={analytics}
             />
           )}
         </CardContent>

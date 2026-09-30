@@ -13,6 +13,10 @@ export { PriceView } from "./components/drop-ins/price";
 
 // Payment components
 export { default as CheckoutForm } from "./components/checkout-form";
+export type {
+  CheckoutAnalyticsAttribution,
+  CheckoutAnalyticsFlow,
+} from "./checkout-analytics";
 export { default as CardSkeleton } from "./components/card-skeleton";
 export { PaymentTabs } from "./components/payment-tabs";
 export { CashPayment } from "./components/cash-payment";

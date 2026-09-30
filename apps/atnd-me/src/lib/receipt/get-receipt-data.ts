@@ -73,7 +73,7 @@ async function fetchStripeAmount(
   }
 }
 
-async function retrieveSucceededPaymentIntent(
+export async function retrieveSucceededPaymentIntent(
   paymentIntentId: string,
   stripeAccountId?: string | null,
 ) {
