@@ -16,6 +16,7 @@ export function Schedule({
   tenantId,
   branchId,
   loginToBookUrl,
+  analyticsEnabled,
 }: {
   /**
    * Optional function or string to generate the manage booking URL.
@@ -37,6 +38,7 @@ export function Schedule({
    * (`loginToBook` action). Defaults to `/complete-booking` with a booking callback.
    */
   loginToBookUrl?: LoginToBookUrlResolver;
+  analyticsEnabled?: boolean;
 }) {
   const trpc = useTRPC();
 
@@ -73,6 +75,7 @@ export function Schedule({
           timeslots={Array.isArray(timeslots) ? timeslots : []}
           manageHref={manageHref}
           loginToBookUrl={loginToBookUrl}
+          analyticsEnabled={analyticsEnabled}
         />
       )}
     </div>
