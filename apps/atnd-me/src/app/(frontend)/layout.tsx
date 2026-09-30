@@ -35,7 +35,9 @@ export default async function RootLayout({
   const siteUrl = getTenantSiteURL(tenant, headersList)
   const logoUrl =
     tenant?.logo && typeof tenant.logo === 'object' && typeof tenant.logo.url === 'string'
-      ? getAbsoluteURL(tenant.logo.url, siteUrl)
+      ? /^https?:\/\//i.test(tenant.logo.url)
+        ? tenant.logo.url
+        : getAbsoluteURL(tenant.logo.url, siteUrl)
       : undefined
   const structuredData = tenant
     ? {
