@@ -11,6 +11,8 @@ docker build -f apps/atnd-me/Dockerfile -t atnd-me \
   --build-arg NEXT_PUBLIC_SERVER_URL="$NEXT_PUBLIC_SERVER_URL" \
   --build-arg R2_PUBLIC_URL="$R2_PUBLIC_URL" \
   --build-arg NEXT_PUBLIC_R2_PUBLIC_URL="$NEXT_PUBLIC_R2_PUBLIC_URL" \
+  --build-arg NEXT_PUBLIC_APP_RELEASE="$(git rev-parse --short=12 HEAD)" \
+  --build-arg NEXT_PUBLIC_APP_ENVIRONMENT="production" \
   .
 ```
 
@@ -29,6 +31,18 @@ docker compose -f apps/atnd-me/docker-compose.yml build
 | `DATABASE_URI` | Postgres connection string (e.g. from Coolify Postgres or external). |
 | `PAYLOAD_SECRET` | Secret for Payload sessions/JWT. |
 | `NEXT_PUBLIC_SERVER_URL` | Root URL of the app with no subdomain (e.g. `https://atnd-me.com`). Required for subdomain multi-tenancy (cookie domain and auth). |
+
+### Analytics release metadata
+
+Every custom analytics event includes non-personal deployment metadata for debugging:
+
+| Variable | Description |
+|---------|-------------|
+| `NEXT_PUBLIC_APP_RELEASE` | Immutable short Git SHA or image tag. Pass this as a Docker build argument in production. |
+| `NEXT_PUBLIC_APP_BUILT_AT` | ISO UTC build time. Optional; the Next.js build start time is used when omitted. |
+| `NEXT_PUBLIC_APP_ENVIRONMENT` | Deployment label such as `production`, `staging`, or `local-test`. |
+
+These values are intentionally public and must not contain branch names, usernames, local paths, or customer information.
 
 ### Media (R2)
 
@@ -134,7 +148,7 @@ Coolify can inject **every** env var marked for buildtime as a Dockerfile `ARG` 
 
 | Availability | Variables |
 |--------------|-----------|
-| **Build + runtime** | `DATABASE_URI` (migrations), `NEXT_PUBLIC_SERVER_URL` (`next/image` remotePatterns). If using public CDN: also `R2_PUBLIC_URL` / `NEXT_PUBLIC_R2_PUBLIC_URL`. |
+| **Build + runtime** | `DATABASE_URI` (migrations), `NEXT_PUBLIC_SERVER_URL` (`next/image` remotePatterns), and the non-secret `NEXT_PUBLIC_APP_*` analytics metadata. If using public CDN: also `R2_PUBLIC_URL` / `NEXT_PUBLIC_R2_PUBLIC_URL`. |
 | **Runtime only** | Everything else: `PAYLOAD_SECRET`, `R2_WORKER_*`, `R2_*` keys, Stripe, Better Auth, `CRON_SECRET`, Cloudflare tokens, Sentry auth, etc. |
 
 In the Coolify **Environment Variables** UI for the app:
