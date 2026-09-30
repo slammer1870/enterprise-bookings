@@ -8,20 +8,25 @@ import { useMutation } from '@tanstack/react-query'
 import { Button } from '@repo/ui/components/ui/button'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+import { useAnalyticsTracker } from '@repo/analytics'
+import type { CheckoutAnalyticsAttribution } from '@repo/payments-next'
 
 interface BookingFormProps {
   timeslot: Timeslot
   quantity: number
   onSuccessRedirect?: string
+  analytics?: CheckoutAnalyticsAttribution
 }
 
 export const BookingForm: React.FC<BookingFormProps> = ({
   timeslot,
   quantity,
   onSuccessRedirect = '/',
+  analytics,
 }) => {
   const trpc = useTRPC()
   const router = useRouter()
+  const { trackEvent } = useAnalyticsTracker()
 
   const { mutateAsync: createBookingsMutation, isPending: isLoading } = useMutation(
     trpc.bookings.createBookings.mutationOptions({
@@ -29,6 +34,13 @@ export const BookingForm: React.FC<BookingFormProps> = ({
         toast.success(
           `Successfully booked ${data.length} slot${data.length !== 1 ? 's' : ''}!`
         )
+        if (analytics)
+          trackEvent('Booking Completed', {
+            booking_flow: analytics.bookingFlow,
+            quantity: data.length,
+            is_trial: timeslot.bookingStatus === 'trialable',
+            payment_method: 'pay_at_door',
+          })
         router.push(onSuccessRedirect)
       },
       onError: (error: { message?: string }) => {

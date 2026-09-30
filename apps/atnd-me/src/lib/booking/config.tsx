@@ -35,6 +35,7 @@ async function BookingPageWithLegal({
       releaseHoldApiUrl="/api/bookings/release-hold"
       cancelPendingApiUrl="/api/bookings/cancel-pending"
       checkoutLegal={checkoutLegal ?? undefined}
+      analytics={{ bookingFlow: 'new' }}
     />
   )
 }
