@@ -52,7 +52,16 @@ use_package_test_db() {
   unset DATABASE_URI FORCE_EXISTING_DB
 }
 
+require_e2e_port_free() {
+  if command -v lsof >/dev/null 2>&1 && lsof -nP -iTCP:3000 -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "Playwright requires port 3000, but it is already in use:"
+    lsof -nP -iTCP:3000 -sTCP:LISTEN
+    exit 1
+  fi
+}
+
 stage "0/9  Prerequisites — Postgres + Docker + Playwright browsers"
+require_e2e_port_free
 wait_for_postgres
 docker info >/dev/null 2>&1 || {
   echo "Docker is not running. Package tests need TestContainers."
