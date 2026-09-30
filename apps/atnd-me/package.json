@@ -59,6 +59,7 @@
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@react-email/components": "^1.0.1",
+    "@repo/analytics": "workspace:*",
     "@repo/auth-next": "workspace:*",
     "@repo/better-auth-config": "workspace:*",
     "@repo/bookings-next": "workspace:*",

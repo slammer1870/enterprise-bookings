@@ -308,6 +308,9 @@ importers:
       '@react-email/components':
         specifier: ^1.0.1
         version: 1.0.4(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      '@repo/analytics':
+        specifier: workspace:*
+        version: link:../../packages/analytics
       '@repo/auth-next':
         specifier: workspace:*
         version: link:../../packages/auth/auth-next

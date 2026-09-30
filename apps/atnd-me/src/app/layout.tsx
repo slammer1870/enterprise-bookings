@@ -1,11 +1,14 @@
 import React from 'react'
 import type { Metadata } from 'next'
 import { cookies, headers } from 'next/headers'
+import Script from 'next/script'
 
 import { cn } from '@/utilities/ui'
 import { GeistMono } from 'geist/font/mono'
 import { GeistSans } from 'geist/font/sans'
 import { getPayload } from '@/lib/payload'
+import { resolveUmamiAnalyticsConfig } from '@/lib/analytics/config'
+import { UMAMI_BEFORE_SEND_SCRIPT } from '@/lib/analytics/umami-before-send'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 import { getTenantSiteURL } from '@/utilities/getURL'
 import {
@@ -103,10 +106,29 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     return <>{children}</>
   }
 
+  const hostname = getRequestHostname(headersList)
+  const umami = resolveUmamiAnalyticsConfig(hostname)
+
   return (
     <html className={cn(GeistSans.variable, GeistMono.variable)} lang="en" suppressHydrationWarning>
       <body>
         {children}
+        {umami.enabled && (
+          <>
+            <Script id="umami-before-send" strategy="beforeInteractive">
+              {UMAMI_BEFORE_SEND_SCRIPT}
+            </Script>
+            <Script
+              id="umami-tracker"
+              strategy="afterInteractive"
+              src={umami.scriptUrl}
+              data-analytics-provider="umami"
+              data-before-send="umamiBeforeSend"
+              data-domains={umami.domainsAttribute}
+              data-website-id={umami.websiteId}
+            />
+          </>
+        )}
       </body>
     </html>
   )
