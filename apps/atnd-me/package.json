@@ -25,6 +25,7 @@
     "test:e2e": "cross-env PW_E2E_MAX_FAILURES=5 NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" pnpm exec playwright test --config=playwright.config.ts",
     "test:e2e:fast": "cross-env PW_E2E_FAST=1 PW_E2E_BAIL=1 NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" pnpm exec playwright test --config=playwright.config.ts",
     "test:e2e:ci": "cross-env CI=1 PW_E2E_MAX_FAILURES=0 PW_TEST_HTML_REPORT_OPEN=never PW_E2E_SKIP_DEFAULT_TENANT_DATA=true NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" pnpm exec playwright test --config=playwright.config.ts",
+    "test:analytics:live": "vitest run --config=vitest.umami-live.config.mts",
     "test:int": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=6144\" vitest run --config ./vitest.config.mts",
     "test:int:shard": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=6144\" vitest run --config ./vitest.config.mts --shard=${VITEST_SHARD:-1/1}",
     "test:unit": "cross-env NODE_OPTIONS=\"--no-deprecation --import ./scripts/register-payload-auth-loader.mjs\" vitest run --config ./vitest.unit.config.mts",
