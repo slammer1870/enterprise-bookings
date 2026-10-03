@@ -86,7 +86,8 @@ function PaymentForm({
     setIsLoading(true);
     setMessage(null);
     trackEvent("Payment Button Clicked", {
-      revenue: { amount: Number(price.toFixed(2)), currency: "EUR" },
+      checkout_value: Number(price.toFixed(2)),
+      currency: "EUR",
     });
 
     const origin =
