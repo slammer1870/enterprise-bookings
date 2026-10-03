@@ -2,8 +2,9 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 
-// Load .env from this package so test workers and webServer use the same DB (DATABASE_URI)
-// when run from monorepo root (e.g. turbo) or from apps/atnd-me.
+// Load the package's established test/development environment. Analytics preflight values
+// are explicitly exported by scripts/analytics-preflight.sh; never load generic .env.local
+// here because Playwright may run `payload migrate:fresh` against DATABASE_URI.
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '.env') })
 
