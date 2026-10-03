@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 
 import { withSentryConfig } from '@sentry/nextjs'
@@ -7,6 +8,28 @@ import { getPayloadUIAliases } from '../../scripts/payload-ui-aliases.mjs'
 import redirects from './redirects.js'
 
 const require = createRequire(import.meta.url)
+
+function resolveGitRelease() {
+  try {
+    return execFileSync('git', ['describe', '--always', '--dirty', '--abbrev=12', '--exclude=*'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return ''
+  }
+}
+
+const NEXT_PUBLIC_APP_RELEASE =
+  process.env.NEXT_PUBLIC_APP_RELEASE?.trim() ||
+  process.env.SOURCE_COMMIT?.trim() ||
+  resolveGitRelease() ||
+  'unknown'
+const NEXT_PUBLIC_APP_BUILT_AT =
+  process.env.NEXT_PUBLIC_APP_BUILT_AT?.trim() || new Date().toISOString()
+const NEXT_PUBLIC_APP_ENVIRONMENT =
+  process.env.NEXT_PUBLIC_APP_ENVIRONMENT?.trim() ||
+  (process.env.NODE_ENV === 'production' ? 'production' : 'development')
 
 const NEXT_PUBLIC_SERVER_URL =
   process.env.NEXT_PUBLIC_SERVER_URL ||
@@ -51,6 +74,11 @@ const useStandaloneOutput = process.env.E2E_DISABLE_STANDALONE !== 'true'
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_RELEASE,
+    NEXT_PUBLIC_APP_BUILT_AT,
+    NEXT_PUBLIC_APP_ENVIRONMENT,
+  },
   ...(useStandaloneOutput
     ? {
         output: 'standalone',
