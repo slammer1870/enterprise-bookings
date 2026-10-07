@@ -10,7 +10,10 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddBooking } from "../bookings/add-booking";
-import { formatInTimeZone, resolveTimeslotTimeZone } from "@repo/shared-utils/timezone";
+import {
+  formatInTimeZone,
+  resolveTimeslotTimeZone,
+} from "@repo/shared-utils/timezone";
 
 export const TimeslotDetail = ({
   timeslot,
@@ -23,14 +26,22 @@ export const TimeslotDetail = ({
 }) => {
   const eventType = timeslot.eventType as EventType;
   const router = useRouter();
-  const [expandedTimeslots, setExpandedTimeslots] = useState<Set<number>>(new Set());
-  const [expandedBookings, setExpandedBookings] = useState<Booking[] | null>(null);
-  const [isLoadingExpandedBookings, setIsLoadingExpandedBookings] = useState(false);
-  const [localBookingTotal, setLocalBookingTotal] = useState<number | null>(null);
+  const [expandedTimeslots, setExpandedTimeslots] = useState<Set<number>>(
+    new Set(),
+  );
+  const [expandedBookings, setExpandedBookings] = useState<Booking[] | null>(
+    null,
+  );
+  const [isLoadingExpandedBookings, setIsLoadingExpandedBookings] =
+    useState(false);
+  const [localBookingTotal, setLocalBookingTotal] = useState<number | null>(
+    null,
+  );
   const timeZone = resolveTimeslotTimeZone(timeslot);
   const expandAbortRef = useRef<AbortController | null>(null);
 
-  const isActive = (timeslot as Timeslot & { active?: boolean }).active !== false;
+  const isActive =
+    (timeslot as Timeslot & { active?: boolean }).active !== false;
 
   const toggleBookings = (timeslotId: number) => {
     setExpandedTimeslots((prev) => {
@@ -103,12 +114,6 @@ export const TimeslotDetail = ({
 
     if (expandedBookings != null) return;
 
-    const existingDocs = bookingsContainer?.docs;
-    if (Array.isArray(existingDocs) && existingDocs.length > 0) {
-      setExpandedBookings(existingDocs);
-      return;
-    }
-
     let isCancelled = false;
     expandAbortRef.current?.abort();
     const controller = new AbortController();
@@ -138,7 +143,13 @@ export const TimeslotDetail = ({
       controller.abort();
       if (expandAbortRef.current === controller) expandAbortRef.current = null;
     };
-  }, [isExpanded, timeslot.id, expandedBookings, fetchTimeslotBookings, router]);
+  }, [
+    isExpanded,
+    timeslot.id,
+    expandedBookings,
+    fetchTimeslotBookings,
+    router,
+  ]);
 
   return (
     <>
@@ -146,7 +157,7 @@ export const TimeslotDetail = ({
         key={timeslot.id}
         className={cn(
           "[&_td]:py-1.5",
-          !isActive && "opacity-50 hover:opacity-70"
+          !isActive && "opacity-50 hover:opacity-70",
         )}
       >
         <TableCell className="w-10">
@@ -168,8 +179,12 @@ export const TimeslotDetail = ({
             />
           )}
         </TableCell>
-        <TableCell>{formatInTimeZone(timeslot.startTime, "HH:mm", timeZone)}</TableCell>
-        <TableCell>{formatInTimeZone(timeslot.endTime, "HH:mm", timeZone)}</TableCell>
+        <TableCell>
+          {formatInTimeZone(timeslot.startTime, "HH:mm", timeZone)}
+        </TableCell>
+        <TableCell>
+          {formatInTimeZone(timeslot.endTime, "HH:mm", timeZone)}
+        </TableCell>
         <TableCell>{eventType.name}</TableCell>
         <TableCell>
           <Button
@@ -191,9 +206,9 @@ export const TimeslotDetail = ({
               timeslotId={timeslot.id}
               tenantSlug={
                 timeslot.tenant &&
-                  typeof timeslot.tenant === "object" &&
-                  "slug" in timeslot.tenant
-                  ? (timeslot.tenant as { slug?: string }).slug ?? null
+                typeof timeslot.tenant === "object" &&
+                "slug" in timeslot.tenant
+                  ? ((timeslot.tenant as { slug?: string }).slug ?? null)
                   : undefined
               }
             />
@@ -205,10 +220,16 @@ export const TimeslotDetail = ({
           <TableCell colSpan={6}>
             <div className="rounded-md p-2">
               {isLoadingExpandedBookings ? (
-                <div className="text-sm text-muted-foreground">Loading bookings...</div>
+                <div className="text-sm text-muted-foreground">
+                  Loading bookings...
+                </div>
               ) : (
                 <BookingList
-                  bookings={(expandedBookings ?? bookingsContainer?.docs ?? []) as Booking[]}
+                  bookings={
+                    (expandedBookings ??
+                      bookingsContainer?.docs ??
+                      []) as Booking[]
+                  }
                   onBookingUpdated={refetchExpandedBookings}
                 />
               )}

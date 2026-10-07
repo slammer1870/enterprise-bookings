@@ -1,4 +1,10 @@
-import type { BasePayload, CollectionSlug, Field, PayloadRequest, Where } from "payload";
+import type {
+  BasePayload,
+  CollectionSlug,
+  Field,
+  PayloadRequest,
+  Where,
+} from "payload";
 import { checkRole } from "@repo/shared-utils";
 import type { Booking, User as SharedUser } from "@repo/shared-types";
 
@@ -46,19 +52,110 @@ export function timeslotBookingsStatusFilter(user: unknown): Where[] {
 
 export function parseNumericId(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "string" && /^\d+$/.test(value)) return parseInt(value, 10);
+  if (typeof value === "string" && /^\d+$/.test(value))
+    return parseInt(value, 10);
   return null;
 }
 
 export function bookingTimeslotId(booking: unknown): number | null {
   if (!booking || typeof booking !== "object") return null;
   const timeslot = (booking as Booking).timeslot;
-  if (typeof timeslot === "number" && Number.isFinite(timeslot)) return timeslot;
-  if (typeof timeslot === "string" && /^\d+$/.test(timeslot)) return parseInt(timeslot, 10);
+  if (typeof timeslot === "number" && Number.isFinite(timeslot))
+    return timeslot;
+  if (typeof timeslot === "string" && /^\d+$/.test(timeslot))
+    return parseInt(timeslot, 10);
   if (timeslot && typeof timeslot === "object" && "id" in timeslot) {
     return parseNumericId((timeslot as { id: unknown }).id);
   }
   return null;
+}
+
+function bookingUserId(booking: unknown): number | null {
+  if (!booking || typeof booking !== "object") return null;
+  const user = (booking as { user?: unknown }).user;
+  const rawId =
+    user && typeof user === "object" && "id" in user
+      ? (user as { id?: unknown }).id
+      : user;
+  return parseNumericId(rawId);
+}
+
+function bookingTenantKey(booking: unknown): string {
+  if (!booking || typeof booking !== "object") return "none";
+  const tenant = (booking as { tenant?: unknown }).tenant;
+  const rawId =
+    tenant && typeof tenant === "object" && "id" in tenant
+      ? (tenant as { id?: unknown }).id
+      : tenant;
+  return rawId == null ? "none" : String(rawId);
+}
+
+/**
+ * Marks the first confirmed booking for each user/tenant pair.
+ *
+ * This is kept server-side so the admin client does not need access to a user's
+ * booking history just to display the label.
+ */
+export async function markFirstConfirmedBookings(
+  payload: BasePayload,
+  bookingsSlug: string,
+  docs: Booking[],
+  req: PayloadRequest,
+): Promise<Booking[]> {
+  const userIds = [
+    ...new Set(
+      docs.map(bookingUserId).filter((id): id is number => id != null),
+    ),
+  ];
+  if (userIds.length === 0) return docs;
+
+  try {
+    const result = await payload.find({
+      collection: bookingsSlug as CollectionSlug,
+      where: {
+        and: [{ user: { in: userIds } }, { status: { equals: "confirmed" } }],
+      },
+      depth: 0,
+      pagination: false,
+      limit: 10_000,
+      req,
+      overrideAccess: false,
+      context: { triggerAfterChange: false },
+    } as Parameters<BasePayload["find"]>[0]);
+    const confirmed = (result.docs ?? []) as Booking[];
+
+    const firstByUserAndTenant = new Map<string, Booking>();
+    for (const booking of confirmed) {
+      const userId = bookingUserId(booking);
+      if (userId == null) continue;
+      const key = `${userId}:${bookingTenantKey(booking)}`;
+      const current = firstByUserAndTenant.get(key);
+      if (
+        !current ||
+        new Date(booking.createdAt).getTime() <
+          new Date(current.createdAt).getTime() ||
+        (booking.createdAt === current.createdAt && booking.id < current.id)
+      ) {
+        firstByUserAndTenant.set(key, booking);
+      }
+    }
+
+    return docs.map((booking) => {
+      const userId = bookingUserId(booking);
+      const first =
+        userId == null
+          ? undefined
+          : firstByUserAndTenant.get(`${userId}:${bookingTenantKey(booking)}`);
+      return {
+        ...booking,
+        isFirstConfirmedBooking: first?.id === booking.id,
+      };
+    });
+  } catch {
+    // The label is optional UI metadata; never fail the booking list if the
+    // historical lookup is unavailable.
+    return docs;
+  }
 }
 
 type FindBookingsOptions = {
