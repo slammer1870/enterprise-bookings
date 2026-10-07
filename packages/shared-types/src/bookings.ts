@@ -96,7 +96,10 @@ export type Timeslot = {
     | "multipleBooked";
   originalLockOutTime?: number;
   /** Present in multi-tenant apps; ID or populated tenant info. */
-  tenant?: number | { id: number; slug?: string; timeZone?: string | null } | null;
+  tenant?:
+    | number
+    | { id: number; slug?: string; timeZone?: string | null }
+    | null;
   /** Resolved timezone for formatting/query consumers. */
   timeZone?: string;
   /**
@@ -160,6 +163,8 @@ export interface Booking {
   user: User;
   timeslot: Timeslot;
   status: "pending" | "confirmed" | "cancelled" | "waiting";
+  /** True when this is the user's first confirmed booking in the tenant. */
+  isFirstConfirmedBooking?: boolean;
   updatedAt: string;
   createdAt: string;
   transaction?: Transaction;

@@ -63,6 +63,11 @@ export const BookingDetail = ({ booking }: { booking: Booking }) => {
         ) : (
           label
         )}
+        {booking.status === "confirmed" && booking.isFirstConfirmedBooking && (
+          <span className="ml-2 text-sm text-muted-foreground">
+            First booking
+          </span>
+        )}
         <span className="ml-2 text-red-500 dark:text-red-400">
           {booking.status == "pending" && "(Requires Payment)"}
           {booking.status == "waiting" && "(Waiting List)"}
@@ -111,7 +116,9 @@ export const BookingDetail = ({ booking }: { booking: Booking }) => {
                     borderBottom: "1px solid var(--theme-elevation-200, #eee)",
                   }}
                 >
-                  <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>Customer</div>
+                  <div style={{ fontWeight: 600, fontSize: "0.95rem" }}>
+                    Customer
+                  </div>
                   <button
                     type="button"
                     onClick={() => setActiveUserId(null)}
@@ -146,7 +153,8 @@ export const BookingDetail = ({ booking }: { booking: Booking }) => {
                           width: 32,
                           height: 32,
                           borderRadius: "50%",
-                          border: "3px solid var(--theme-elevation-200, #e0e0e0)",
+                          border:
+                            "3px solid var(--theme-elevation-200, #e0e0e0)",
                           borderTopColor: "var(--theme-text, #333)",
                           animation: "spin 0.75s linear infinite",
                         }}

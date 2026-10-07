@@ -3,6 +3,7 @@ import { APIError, type CollectionSlug, type Endpoint } from "payload";
 import type { BookingCollectionSlugs } from "../resolve-slugs";
 import {
   findBookingsForTimeslot,
+  markFirstConfirmedBookings,
   parseNumericId,
   resolveBookingsCollectionSlug,
 } from "../utils/timeslot-booking-queries";
@@ -39,7 +40,10 @@ export function createTimeslotBookingsEndpoint(
         throw new APIError("Timeslot not found", 404);
       }
 
-      const bookingsSlug = resolveBookingsCollectionSlug(req.payload, timeslotsSlug);
+      const bookingsSlug = resolveBookingsCollectionSlug(
+        req.payload,
+        timeslotsSlug,
+      );
 
       const { docs, totalDocs } = await findBookingsForTimeslot(
         req.payload,
@@ -48,9 +52,15 @@ export function createTimeslotBookingsEndpoint(
         req,
         { depth: 2, overrideAccess: false },
       );
+      const enrichedDocs = await markFirstConfirmedBookings(
+        req.payload,
+        bookingsSlug,
+        docs,
+        req,
+      );
 
       return Response.json(
-        { docs, totalDocs },
+        { docs: enrichedDocs, totalDocs },
         {
           headers: {
             "Cache-Control": "no-store, max-age=0",
