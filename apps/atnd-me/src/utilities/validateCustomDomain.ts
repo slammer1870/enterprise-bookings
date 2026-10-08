@@ -4,6 +4,7 @@
  * can resolve tenant from Host and set trusted origins for auth.
  */
 
+import { isIP } from 'node:net'
 import dns from 'node:dns/promises'
 
 /** Max length for a full hostname (RFC 2535). */
@@ -79,6 +80,14 @@ export function validateCustomDomainFormat(
 
   if (s.includes('://') || s.includes('/')) {
     return 'Enter only the hostname (e.g. studio.example.com), without protocol or path.'
+  }
+
+  if (/:[0-9]{1,5}$/.test(s)) {
+    return 'Hostname must not include a port.'
+  }
+
+  if (isIP(s)) {
+    return 'Cannot use an IP address as a public host.'
   }
 
   if (s.startsWith('.') || s.endsWith('.')) {

@@ -18,6 +18,10 @@ import {
   validateCustomDomainNotPlatform,
   validateAliasHosts,
 } from '@/utilities/validateCustomDomain'
+import {
+  validateHostnameInputBeforeNormalize,
+  validateTenantPublicHostDeclarationOnSave,
+} from '@/utilities/tenantPublicHostDeclaration'
 import { registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
@@ -690,44 +694,43 @@ export const Tenants: CollectionConfig = {
       async ({ data, operation, req, originalDoc }) => {
         if (!data) return data
 
-        // Only touch domain when it was included in this write. Partial updates
-        // (e.g. Stripe Connect callback) must not clear an existing custom domain.
-        if (!Object.prototype.hasOwnProperty.call(data, 'domain')) {
-          return data
+        if (Object.prototype.hasOwnProperty.call(data, 'domain')) {
+          if (data.domain == null || data.domain === '') {
+            data.domain = null
+          } else if (typeof data.domain === 'string') {
+            const rawCheck = validateHostnameInputBeforeNormalize(data.domain)
+            if (rawCheck !== true) throw new Error(rawCheck)
+            const normalized = normalizeCustomDomain(data.domain)
+            data.domain = normalized === '' ? null : normalized
+          }
         }
 
-        // Normalize "removed custom domain" to `null` so Payload actually persists
-        // the cleared value. (Using `undefined` typically means "don't update this field".)
-        if (data.domain == null || data.domain === '') {
-          data.domain = null
-          return data
+        if (
+          Object.prototype.hasOwnProperty.call(data, 'aliasHosts') &&
+          Array.isArray(data.aliasHosts)
+        ) {
+          for (const host of data.aliasHosts) {
+            if (host == null) continue
+            const rawCheck = validateHostnameInputBeforeNormalize(String(host))
+            if (rawCheck !== true) throw new Error(rawCheck)
+          }
         }
-
-        if (typeof data.domain !== 'string') return data
-
-        const normalized = normalizeCustomDomain(data.domain)
-        data.domain = normalized === '' ? null : normalized
-        if (!data.domain) return data
 
         const currentId = operation === 'update' && originalDoc?.id ? originalDoc.id : null
-        const existing = await req.payload.find({
-          collection: 'tenants',
-          where: {
-            domain: { equals: data.domain },
-            ...(currentId != null ? { id: { not_equals: currentId } } : {}),
-          },
-          limit: 1,
-          depth: 0,
-          overrideAccess: true,
+        await validateTenantPublicHostDeclarationOnSave({
+          payload: req.payload,
+          operation,
+          tenantId: currentId,
+          data,
+          originalDoc,
         })
 
-        if (existing.docs.length > 0) {
-          throw new Error(
-            `Another tenant already uses the custom domain "${data.domain}". Custom domains must be unique.`
-          )
-        }
-
-        if (isCustomDomainDnsValidationEnabled()) {
+        if (
+          Object.prototype.hasOwnProperty.call(data, 'domain') &&
+          typeof data.domain === 'string' &&
+          data.domain &&
+          isCustomDomainDnsValidationEnabled()
+        ) {
           const dnsResult = await validateCustomDomainDns(data.domain)
           if (dnsResult !== true) {
             throw new Error(dnsResult)
