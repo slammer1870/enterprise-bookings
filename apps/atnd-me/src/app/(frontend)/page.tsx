@@ -148,6 +148,7 @@ export async function generateMetadata(): Promise<Metadata> {
         doc: homePage,
         tenantBranding,
         pathname: '/',
+        headers: headersList,
       })
     }
 
@@ -155,6 +156,7 @@ export async function generateMetadata(): Promise<Metadata> {
       doc: null,
       tenantBranding,
       pathname: '/',
+      headers: headersList,
     })
   }
 
@@ -181,5 +183,6 @@ export async function generateMetadata(): Promise<Metadata> {
     doc: rootPage,
     tenantBranding: null,
     pathname: '/',
+    headers: headersList,
   })
 }

@@ -111,6 +111,7 @@ const nextConfig = {
     return webpackConfig
   },
   reactStrictMode: true,
+  poweredByHeader: false,
   redirects,
 }
 

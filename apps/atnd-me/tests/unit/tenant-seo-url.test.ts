@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getTenantContext, getTenantWithBranding } from '../../src/utilities/getTenantContext'
-import { getTenantSiteURL } from '../../src/utilities/getURL'
+import { getAbsoluteURL, getTenantSiteURL } from '../../src/utilities/getURL'
 
 describe('tenant SEO URL resolution', () => {
   afterEach(() => {
@@ -107,5 +107,34 @@ describe('tenant SEO URL resolution', () => {
       name: 'Bru Grappling',
       description: 'Irish grappling classes',
     })
+  })
+})
+
+describe('getAbsoluteURL', () => {
+  it('joins relative paths onto the tenant site', () => {
+    expect(getAbsoluteURL('/kids', 'https://www.brugrappling.ie')).toBe(
+      'https://www.brugrappling.ie/kids',
+    )
+  })
+
+  it('keeps already-absolute media URLs intact', () => {
+    expect(
+      getAbsoluteURL(
+        'https://atnd.me/api/media/file/DoubleLeg-1-1200x630.webp',
+        'https://www.brugrappling.ie',
+      ),
+    ).toBe('https://atnd.me/api/media/file/DoubleLeg-1-1200x630.webp')
+  })
+
+  it('does not produce tenant-prefixed https URLs', () => {
+    expect(
+      getAbsoluteURL('https://atnd.me/api/media/file/logo.png', 'https://www.brugrappling.ie'),
+    ).not.toContain('www.brugrappling.ie/https://')
+  })
+
+  it('normalizes protocol-relative URLs', () => {
+    expect(getAbsoluteURL('//cdn.example.com/og.png', 'https://www.brugrappling.ie')).toBe(
+      'https://cdn.example.com/og.png',
+    )
   })
 })

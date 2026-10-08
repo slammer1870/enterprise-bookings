@@ -74,15 +74,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: getAbsoluteURL('/', siteUrl),
       lastModified: dateFallback,
     },
-    {
-      url: getAbsoluteURL('/search', siteUrl),
-      lastModified: dateFallback,
-    },
-    {
+  ]
+
+  // Only list the posts index when the tenant actually publishes articles.
+  // Search is a query UI and should not be advertised to crawlers.
+  if (posts.length > 0) {
+    routes.push({
       url: getAbsoluteURL('/posts', siteUrl),
       lastModified: dateFallback,
-    },
-  ]
+    })
+  }
 
   for (const page of pages) {
     if (!page?.slug) continue

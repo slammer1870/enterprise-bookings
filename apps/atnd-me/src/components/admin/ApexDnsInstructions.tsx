@@ -134,6 +134,13 @@ export const ApexDnsInstructions: UIFieldServerComponent = async ({ data }) => {
         </p>
       )}
 
+      <p style={{ marginBottom: 12, fontSize: 12, color: 'var(--theme-elevation-500)', lineHeight: 1.5 }}>
+        Let this app handle the apex → www redirect so paths are preserved
+        (<code>/{'{page}'}</code> stays <code>/{'{page}'}</code>). A Cloudflare Bulk Redirect or
+        Page Rule that sends every apex URL to the www homepage will collapse indexed pages,
+        <code>/robots.txt</code>, and <code>/sitemap.xml</code> onto <code>/</code>.
+      </p>
+
       <table style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
         <thead>
           <tr>
