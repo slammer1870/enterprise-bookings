@@ -2,6 +2,7 @@ import type { MetadataRoute } from 'next'
 import { cookies, headers } from 'next/headers'
 
 import { getPayload } from '@/lib/payload'
+import type { Payload } from 'payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 import {
   getAbsoluteURL,
@@ -14,6 +15,38 @@ import {
 export const dynamic = 'force-dynamic'
 
 type SitemapDoc = { slug?: string | null; updatedAt?: string | null }
+
+const SITEMAP_PAGE_SIZE = 100
+
+async function publishedDocs(
+  payload: Payload,
+  collection: 'pages' | 'posts',
+  tenantId: number,
+): Promise<SitemapDoc[]> {
+  const docs: SitemapDoc[] = []
+  let page = 1
+
+  for (;;) {
+    const result = await payload.find({
+      collection,
+      overrideAccess: false,
+      draft: false,
+      depth: 0,
+      limit: SITEMAP_PAGE_SIZE,
+      page,
+      pagination: true,
+      context: { tenant: tenantId },
+      where: {
+        _status: { equals: 'published' },
+        tenant: { equals: tenantId },
+      },
+      select: { slug: true, updatedAt: true },
+    })
+    docs.push(...(result.docs as SitemapDoc[]))
+    if (!result.hasNextPage) return docs
+    page += 1
+  }
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cookieStore = await cookies()
@@ -41,38 +74,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         siteUrl = getTenantSiteURL(tenant, headersList)
       }
 
-      const [pageResult, postResult] = await Promise.all([
-        payload.find({
-          collection: 'pages',
-          overrideAccess: false,
-          draft: false,
-          depth: 0,
-          limit: 1000,
-          pagination: false,
-          context: { tenant: tenant.id },
-          where: {
-            _status: { equals: 'published' },
-            tenant: { equals: tenant.id },
-          },
-          select: { slug: true, updatedAt: true },
-        }),
-        payload.find({
-          collection: 'posts',
-          overrideAccess: false,
-          draft: false,
-          depth: 0,
-          limit: 1000,
-          pagination: false,
-          context: { tenant: tenant.id },
-          where: {
-            _status: { equals: 'published' },
-            tenant: { equals: tenant.id },
-          },
-          select: { slug: true, updatedAt: true },
-        }),
+      const [publishedPages, publishedPosts] = await Promise.all([
+        publishedDocs(payload, 'pages', tenant.id),
+        publishedDocs(payload, 'posts', tenant.id),
       ])
-      pages = pageResult.docs as SitemapDoc[]
-      posts = postResult.docs as SitemapDoc[]
+      pages = publishedPages
+      posts = publishedPosts
     }
   } catch (error) {
     // A crawler must still receive a valid sitemap if the CMS is temporarily
