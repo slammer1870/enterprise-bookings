@@ -23,8 +23,9 @@ test.describe('Tenant public host declaration (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
-    const canonicalHost = `e2e-decl-${w}-${stamp}.127.0.0.1.nip.io`
-    const undeclaredHost = `undeclared.e2e-decl-${w}-${stamp}.127.0.0.1.nip.io`
+    const base = `e2e-decl-${w}-${stamp}.127.0.0.1.nip.io`
+    const canonicalHost = `shop.blog.${base}`
+    const undeclaredHost = `other.blog.${base}`
     const slug = `decl-${w}-${stamp}`
 
     await createTestTenant(`E2E Decl ${w} ${stamp}`, slug, canonicalHost)
@@ -82,6 +83,35 @@ test.describe('Tenant public host declaration (E2E)', () => {
     })
     expect(redirect.status()).toBe(301)
     expect(redirect.headers()['location']).toBe(`https://${newCanonical}/kids?ref=1`)
+  })
+
+  test('an alias on another apex redirects to the canonical host', async ({ testData, page }) => {
+    const nipIoAvailable = await isNipIoDnsAvailable()
+    test.skip(!nipIoAvailable, 'nip.io DNS is not available')
+
+    const w = testData.workerIndex
+    const stamp = Date.now()
+    const canonicalHost = `e2e-decl-xa-${w}-${stamp}.127.0.0.1.nip.io`
+    const otherApexHost = `e2e-decl-xa-other-${w}-${stamp}.127.0.0.1.nip.io`
+    const slug = `decl-xa-${w}-${stamp}`
+
+    const tenant = await createTestTenant(`E2E Decl Cross Apex ${w}`, slug, canonicalHost)
+    await createTestPage(tenant.id, 'kids', 'Kids')
+
+    const payload = await getPayloadInstance()
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: { aliasHosts: [otherApexHost] },
+      overrideAccess: true,
+    })
+
+    const redirect = await page.request.get(`http://${otherApexHost}:${port}/kids?ref=1`, {
+      maxRedirects: 0,
+      timeout: 60_000,
+    })
+    expect(redirect.status()).toBe(301)
+    expect(redirect.headers()['location']).toBe(`https://${canonicalHost}/kids?ref=1`)
   })
 
   test('refuses saving a hostname another tenant already uses', async ({ testData }) => {

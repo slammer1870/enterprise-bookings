@@ -155,6 +155,18 @@ describe('Tenant public host declaration', () => {
     ).rejects.toThrow(/apex/i)
   }, TEST_TIMEOUT)
 
+  it('applies the same refusal rules to a super admin with access enforced', async () => {
+    await expect(
+      payload.update({
+        collection: 'tenants',
+        id: tenantB.id,
+        data: { domain: domainA },
+        user: superAdmin,
+        overrideAccess: false,
+      }),
+    ).rejects.toThrow(/already uses/i)
+  }, TEST_TIMEOUT)
+
   it('applies the same refusal rules to an org admin', async () => {
     await expect(
       payload.update({
@@ -165,6 +177,35 @@ describe('Tenant public host declaration', () => {
         overrideAccess: false,
       }),
     ).rejects.toThrow(/already uses/i)
+  }, TEST_TIMEOUT)
+
+  it('refuses a scheme in the hostname on save', async () => {
+    await expect(
+      payload.update({
+        collection: 'tenants',
+        id: tenantB.id,
+        data: { domain: `https://www.${registrableB}` },
+        overrideAccess: true,
+      }),
+    ).rejects.toThrow(/protocol|hostname/i)
+  }, TEST_TIMEOUT)
+
+  it('refuses clearing the canonical host while alias hosts remain', async () => {
+    await payload.update({
+      collection: 'tenants',
+      id: tenantB.id,
+      data: { domain: domainB, aliasHosts: [`alt.${registrableB}`] },
+      overrideAccess: true,
+    })
+
+    await expect(
+      payload.update({
+        collection: 'tenants',
+        id: tenantB.id,
+        data: { domain: null },
+        overrideAccess: true,
+      }),
+    ).rejects.toThrow(/alias hosts before removing/i)
   }, TEST_TIMEOUT)
 
   it('lets an org admin save a valid canonical host', async () => {

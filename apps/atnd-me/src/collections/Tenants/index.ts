@@ -11,15 +11,13 @@ import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
 import { normalizeAndValidateTenantSlugFormat } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
 import {
-  isCustomDomainDnsValidationEnabled,
   normalizeCustomDomain,
-  validateCustomDomainDns,
   validateCustomDomainFormat,
   validateCustomDomainNotPlatform,
   validateAliasHosts,
 } from '@/utilities/validateCustomDomain'
 import {
-  validateHostnameInputBeforeNormalize,
+  validateRawPublicHostInputs,
   validateTenantPublicHostDeclarationOnSave,
 } from '@/utilities/tenantPublicHostDeclaration'
 import { registerApplePayDomain } from './registerApplePayDomain'
@@ -223,7 +221,7 @@ export const Tenants: CollectionConfig = {
       index: true,
       admin: {
         description:
-          'Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. When VALIDATE_TENANT_CUSTOM_DOMAIN_DNS=true, the domain must have DNS records (A, AAAA, or CNAME) before saving.',
+          'Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. Declaration does not wait on DNS or certificate status.',
       },
       validate: (value: unknown) => {
         const str = value == null ? '' : String(value).trim()
@@ -694,48 +692,25 @@ export const Tenants: CollectionConfig = {
       async ({ data, operation, req, originalDoc }) => {
         if (!data) return data
 
+        validateRawPublicHostInputs(data)
+
         if (Object.prototype.hasOwnProperty.call(data, 'domain')) {
           if (data.domain == null || data.domain === '') {
             data.domain = null
           } else if (typeof data.domain === 'string') {
-            const rawCheck = validateHostnameInputBeforeNormalize(data.domain)
-            if (rawCheck !== true) throw new Error(rawCheck)
             const normalized = normalizeCustomDomain(data.domain)
             data.domain = normalized === '' ? null : normalized
           }
         }
 
-        if (
-          Object.prototype.hasOwnProperty.call(data, 'aliasHosts') &&
-          Array.isArray(data.aliasHosts)
-        ) {
-          for (const host of data.aliasHosts) {
-            if (host == null) continue
-            const rawCheck = validateHostnameInputBeforeNormalize(String(host))
-            if (rawCheck !== true) throw new Error(rawCheck)
-          }
-        }
-
         const currentId = operation === 'update' && originalDoc?.id ? originalDoc.id : null
         await validateTenantPublicHostDeclarationOnSave({
-          payload: req.payload,
+          req,
           operation,
           tenantId: currentId,
           data,
           originalDoc,
         })
-
-        if (
-          Object.prototype.hasOwnProperty.call(data, 'domain') &&
-          typeof data.domain === 'string' &&
-          data.domain &&
-          isCustomDomainDnsValidationEnabled()
-        ) {
-          const dnsResult = await validateCustomDomainDns(data.domain)
-          if (dnsResult !== true) {
-            throw new Error(dnsResult)
-          }
-        }
 
         return data
       },

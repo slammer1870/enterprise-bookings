@@ -1,6 +1,5 @@
-import { isIP } from 'node:net'
 import { parse as parseHostname } from 'tldts'
-import type { Payload, Where } from 'payload'
+import type { PayloadRequest, Where } from 'payload'
 import {
   getPlatformRootHostname,
   normalizeCustomDomain,
@@ -8,6 +7,8 @@ import {
   validateCustomDomainFormat,
   validateCustomDomainNotPlatform,
 } from '@/utilities/validateCustomDomain'
+
+const OTHER_DECLARATIONS_CACHE_KEY = 'tenantPublicHostOtherDeclarations'
 
 export type TenantPublicHostDeclaration = {
   canonicalHost: string | null
@@ -164,90 +165,95 @@ export function validateDeclaredHostnamesFormat(
   return true
 }
 
+/** Validates hostname shape before normalization strips ports. */
 export function validateHostnameInputBeforeNormalize(value: string): true | string {
   const trimmed = value.trim()
   if (trimmed === '') return true
-  if (trimmed.includes('://') || trimmed.includes('/')) {
-    return 'Enter only the hostname (e.g. studio.example.com), without protocol or path.'
-  }
-  if (trimmed.startsWith('.') || trimmed.endsWith('.')) {
-    return 'Hostname must not start or end with a dot.'
-  }
-  if (/:[0-9]{1,5}$/.test(trimmed)) {
-    return 'Hostname must not include a port.'
-  }
-  if (isIP(trimmed)) {
-    return 'Cannot use an IP address as a public host.'
-  }
-  return true
+  return validateCustomDomainFormat(trimmed)
 }
 
-async function findTenantConflictingWithHostname(
-  payload: Payload,
+/** Refuses scheme, port, and other invalid shapes on fields included in this write. */
+export function validateRawPublicHostInputs(data: TenantPublicHostDocSlice): void {
+  if (Object.prototype.hasOwnProperty.call(data, 'domain') && typeof data.domain === 'string') {
+    const rawDomain = data.domain
+    if (rawDomain.trim() !== '') {
+      const rawCheck = validateHostnameInputBeforeNormalize(rawDomain)
+      if (rawCheck !== true) throw new Error(rawCheck)
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(data, 'aliasHosts') && Array.isArray(data.aliasHosts)) {
+    for (const host of data.aliasHosts) {
+      if (host == null) continue
+      const rawCheck = validateHostnameInputBeforeNormalize(String(host))
+      if (rawCheck !== true) throw new Error(rawCheck)
+    }
+  }
+}
+
+function conflictErrorForHostname(hostname: string): string {
+  const platformSlug = slugFromPlatformSubdomain(hostname)
+  if (platformSlug) {
+    return `Cannot use "${hostname}" — it is reserved for the tenant subdomain "${platformSlug}".`
+  }
+  return `Another tenant already uses the public host "${hostname}".`
+}
+
+function findOccupiedHostnameOwner(
   hostname: string,
-  excludeTenantId: number | string | null,
-): Promise<{ id: number | string; slug: string } | null> {
-  const slugGuess = slugFromPlatformSubdomain(hostname)
-  const or: Where[] = [
-    { domain: { equals: hostname } },
-    { aliasHosts: { equals: hostname } },
-  ]
-  if (slugGuess) {
-    or.push({ slug: { equals: slugGuess } })
+  others: TenantPublicHostDeclaration[],
+): TenantPublicHostDeclaration | null {
+  for (const other of others) {
+    for (const occupied of listOccupiedPublicHostnames(other)) {
+      if (occupied === hostname) return other
+    }
   }
-
-  const and: Where[] = [{ or }]
-  if (excludeTenantId != null) {
-    and.unshift({ id: { not_equals: excludeTenantId } })
-  }
-
-  const result = await payload.find({
-    collection: 'tenants',
-    where: { and },
-    limit: 1,
-    depth: 0,
-    overrideAccess: true,
-    select: { id: true, slug: true } as Record<string, boolean>,
-  })
-
-  const doc = result.docs[0] as { id?: unknown; slug?: unknown } | undefined
-  if (!doc?.id || !doc.slug) return null
-  return { id: doc.id as number | string, slug: String(doc.slug) }
+  return null
 }
 
 async function loadOtherTenantDeclarations(
-  payload: Payload,
+  req: PayloadRequest,
   excludeTenantId: number | string | null,
 ): Promise<TenantPublicHostDeclaration[]> {
+  const cacheScope = excludeTenantId ?? 'create'
+  const context = req.context as Record<string, unknown>
+  const cached = context[`${OTHER_DECLARATIONS_CACHE_KEY}:${cacheScope}`]
+  if (Array.isArray(cached)) {
+    return cached as TenantPublicHostDeclaration[]
+  }
+
   const declarations: TenantPublicHostDeclaration[] = []
   let page = 1
   const limit = 100
+  const where: Where =
+    excludeTenantId != null ? { id: { not_equals: excludeTenantId } } : {}
 
   while (true) {
-    const result = await payload.find({
+    const result = await req.payload.find({
       collection: 'tenants',
-      where: excludeTenantId != null ? { id: { not_equals: excludeTenantId } } : {},
+      where,
       page,
       limit,
       depth: 0,
       overrideAccess: true,
-      select: { id: true, slug: true, domain: true, aliasHosts: true } as Record<string, boolean>,
+      req,
+      select: { slug: true, domain: true, aliasHosts: true },
     })
 
     for (const doc of result.docs) {
-      const slice = doc as TenantPublicHostDocSlice
-      declarations.push(mergeTenantPublicHostDeclaration({}, slice))
+      declarations.push(mergeTenantPublicHostDeclaration({}, doc as TenantPublicHostDocSlice))
     }
 
     if (!result.hasNextPage) break
     page += 1
   }
 
+  context[`${OTHER_DECLARATIONS_CACHE_KEY}:${cacheScope}`] = declarations
   return declarations
 }
 
 export async function assertTenantPublicHostDeclaration(
-  payload: Payload,
+  req: PayloadRequest,
   declaration: TenantPublicHostDeclaration,
   excludeTenantId: number | string | null,
 ): Promise<void> {
@@ -263,21 +269,15 @@ export async function assertTenantPublicHostDeclaration(
 
   const myHosts = listOccupiedPublicHostnames(declaration)
   const myApexes = new Set(listDeclaredCustomHostnames(declaration).map(getClaimedApex))
+  const others = await loadOtherTenantDeclarations(req, excludeTenantId)
 
   for (const host of myHosts) {
-    const owner = await findTenantConflictingWithHostname(payload, host, excludeTenantId)
+    const owner = findOccupiedHostnameOwner(host, others)
     if (owner) {
-      const platformSlug = slugFromPlatformSubdomain(host)
-      if (platformSlug) {
-        throw new Error(
-          `Cannot use "${host}" — it is reserved for the tenant subdomain "${platformSlug}".`,
-        )
-      }
-      throw new Error(`Another tenant already uses the public host "${host}".`)
+      throw new Error(conflictErrorForHostname(host))
     }
   }
 
-  const others = await loadOtherTenantDeclarations(payload, excludeTenantId)
   for (const other of others) {
     for (const otherHost of listDeclaredCustomHostnames(other)) {
       const apex = getClaimedApex(otherHost)
@@ -291,7 +291,7 @@ export async function assertTenantPublicHostDeclaration(
 }
 
 export async function validateTenantPublicHostDeclarationOnSave(args: {
-  payload: Payload
+  req: PayloadRequest
   operation: 'create' | 'update'
   tenantId: number | string | null
   data: TenantPublicHostDocSlice
@@ -303,22 +303,6 @@ export async function validateTenantPublicHostDeclarationOnSave(args: {
     Object.prototype.hasOwnProperty.call(args.data, 'slug')
 
   if (!touchesHosts && args.operation !== 'create') return
-
-  if (Object.prototype.hasOwnProperty.call(args.data, 'domain') && typeof args.data.domain === 'string') {
-    const rawDomain = args.data.domain
-    if (rawDomain.trim() !== '') {
-      const rawCheck = validateHostnameInputBeforeNormalize(rawDomain)
-      if (rawCheck !== true) throw new Error(rawCheck)
-    }
-  }
-
-  if (Object.prototype.hasOwnProperty.call(args.data, 'aliasHosts') && Array.isArray(args.data.aliasHosts)) {
-    for (const host of args.data.aliasHosts) {
-      if (host == null) continue
-      const rawCheck = validateHostnameInputBeforeNormalize(String(host))
-      if (rawCheck !== true) throw new Error(rawCheck)
-    }
-  }
 
   const merged = mergeTenantPublicHostDeclaration(args.data, args.originalDoc)
   const previousCanonical =
@@ -336,5 +320,5 @@ export async function validateTenantPublicHostDeclarationOnSave(args: {
     throw new Error(structure)
   }
 
-  await assertTenantPublicHostDeclaration(args.payload, merged, args.tenantId)
+  await assertTenantPublicHostDeclaration(args.req, merged, args.tenantId)
 }
