@@ -125,21 +125,14 @@ describe('Apex domain — findTenantByHost', () => {
     expect(result?.slug).toBe(makeSlug('one'))
   }, TEST_TIMEOUT)
 
-  it('resolves apex domain as type=apex with correct wwwDomain', async () => {
+  it('does not resolve a derived apex that is not an alias host', async () => {
     const result = await findTenantByHost(payload, apexDomain)
-    expect(result).not.toBeNull()
-    expect(result?.type).toBe('apex')
-    if (result?.type === 'apex') {
-      expect(result.wwwDomain).toBe(wwwDomain)
-      expect(result.slug).toBe(makeSlug('one'))
-    }
+    expect(result).toBeNull()
   }, TEST_TIMEOUT)
 
-  it('resolves the correct tenant when two tenants have redirectApex enabled', async () => {
+  it('does not resolve another tenant derived apex that is not an alias host', async () => {
     const result = await findTenantByHost(payload, otherApex)
-    expect(result).not.toBeNull()
-    expect(result?.type).toBe('apex')
-    expect(result?.slug).toBe(makeSlug('two'))
+    expect(result).toBeNull()
   }, TEST_TIMEOUT)
 
   it('does not resolve apex when redirectApex is false', async () => {

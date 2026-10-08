@@ -4,6 +4,8 @@ import { getPayload } from '@/lib/payload'
 import { findTenantByHost } from '@/lib/tenantDbResolve'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
+import { E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER } from '@/utilities/publicHostOutcome'
+
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
 /** Carries the exact public hostname from middleware so URL normalization (e.g. 127.0.0.1→localhost) cannot corrupt it. */
 const HOST_HEADER = 'x-resolve-host'
@@ -44,6 +46,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid host' }, { status: 400 })
   }
 
+  if (
+    process.env.PW_E2E_PROFILE &&
+    request.headers.get(E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER) === '1'
+  ) {
+    return NextResponse.json({ error: 'Forced host lookup failure' }, { status: 500 })
+  }
+
   try {
     const payload = await getPayload()
     const result = await findTenantByHost(payload, normalized)
@@ -56,14 +65,6 @@ export async function GET(request: NextRequest) {
         slug: result.slug,
         id: result.id,
         canonicalHost: result.canonicalHost,
-      })
-    }
-
-    if (result.type === 'apex') {
-      return NextResponse.json({
-        slug: result.slug,
-        id: result.id,
-        redirectTo: `https://${result.wwwDomain}`,
       })
     }
 

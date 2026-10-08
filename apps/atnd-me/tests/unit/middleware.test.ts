@@ -11,7 +11,19 @@ describe('Middleware', () => {
   const originalFetch = globalThis.fetch
 
   beforeEach(() => {
-    globalThis.fetch = async () => new Response(null, { status: 404 })
+    globalThis.fetch = async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const href = String(url)
+      const slugMatch = href.match(/[?&]slug=([^&]+)/)
+      if (href.includes('/api/tenant-by-slug') && slugMatch?.[1]) {
+        const slug = decodeURIComponent(slugMatch[1])
+        return new Response(JSON.stringify({ slug, id: 1 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(null, { status: 404 })
+    }
   })
 
   afterEach(() => {
@@ -129,6 +141,20 @@ describe('Middleware', () => {
       globalThis.fetch = originalFetch
     })
 
+    function stubTenantByHost(body: object, host?: string) {
+      globalThis.fetch = async (input: RequestInfo | URL) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+        const href = String(url)
+        if (href.includes('/api/tenant-by-host') && (host == null || href.includes(`host=${host}`))) {
+          return new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }) as Response
+        }
+        return new Response(null, { status: 404 })
+      }
+    }
+
     it('sets tenant-slug from API when host is custom domain and API returns slug', async () => {
       globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
         const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
@@ -149,17 +175,18 @@ describe('Middleware', () => {
       expect(setCookie).not.toContain('Domain=.atnd-me.com')
     })
 
-    it('does not set tenant cookie when host is custom domain but API returns 404', async () => {
+    it('returns 404 when host is custom domain but API returns 404', async () => {
       globalThis.fetch = async () => new Response(null, { status: 404 })
       const res = await middleware(createMockRequest('unknown.example.com', '/'))
+      expect(res.status).toBe(404)
       const setCookie = res.headers.get('set-cookie')
-      // No tenant slug value: may send delete (tenant-slug=;) but must not set a slug value
       expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
     })
 
-    it('does not set tenant cookie when host is custom domain but API errors', async () => {
+    it('returns 503 when host is custom domain but API errors', async () => {
       globalThis.fetch = async () => new Response(null, { status: 500 })
       const res = await middleware(createMockRequest('studio.example.com', '/'))
+      expect(res.status).toBe(503)
       const setCookie = res.headers.get('set-cookie')
       expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
     })
@@ -186,7 +213,7 @@ describe('Middleware', () => {
       })
 
       const res = await middleware(req)
-      expect(tenantByHostCalls).toBe(1)
+      expect(tenantByHostCalls).toBe(2)
       expect(res.headers.get('x-middleware-rewrite')).toBe('http://studio.example.com/home')
     })
 
@@ -215,73 +242,44 @@ describe('Middleware', () => {
       expect(setCookie).toContain('payload-tenant=42')
     })
 
-    it('issues a 301 redirect when API returns redirectTo for an apex host', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        if (String(url).includes('/api/tenant-by-host') && String(url).includes('host=croilan.com')) {
-          return new Response(
-            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          ) as Response
-        }
-        return new Response(null, { status: 404 })
-      }
+    const croilanAlias = { slug: 'croilan', id: 1, canonicalHost: 'www.croilan.com' }
+
+    it('issues a 301 to https://<canonical host><path><query> with no port', async () => {
+      stubTenantByHost(croilanAlias, 'croilan.com')
       const res = await middleware(createMockRequest('croilan.com', '/'))
       expect(res.status).toBe(301)
-      // Middleware preserves the request protocol; mock requests use http://.
-      // In production all requests arrive over https:// so the redirect is https://.
-      expect(res.headers.get('location')).toBe('http://www.croilan.com/')
+      expect(res.headers.get('location')).toBe('https://www.croilan.com/')
     })
 
-    it('preserves pathname in the apex redirect', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        if (String(url).includes('/api/tenant-by-host')) {
-          return new Response(
-            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          ) as Response
-        }
-        return new Response(null, { status: 404 })
-      }
+    it('preserves pathname on an alias redirect', async () => {
+      stubTenantByHost(croilanAlias)
       const res = await middleware(createMockRequest('croilan.com', '/schedule'))
       expect(res.status).toBe(301)
-      expect(res.headers.get('location')).toBe('http://www.croilan.com/schedule')
+      expect(res.headers.get('location')).toBe('https://www.croilan.com/schedule')
     })
 
-    it('preserves query string in the apex redirect', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        if (String(url).includes('/api/tenant-by-host')) {
-          return new Response(
-            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          ) as Response
-        }
-        return new Response(null, { status: 404 })
-      }
+    it('preserves query string on an alias redirect', async () => {
+      stubTenantByHost(croilanAlias)
       const req = new NextRequest('http://croilan.com/?ref=google', {
         headers: { host: 'croilan.com' },
       })
       const res = await middleware(req)
       expect(res.status).toBe(301)
-      expect(res.headers.get('location')).toBe('http://www.croilan.com/?ref=google')
+      expect(res.headers.get('location')).toBe('https://www.croilan.com/?ref=google')
     })
 
-    it('does not set tenant cookies on an apex redirect response', async () => {
-      globalThis.fetch = async (input: RequestInfo | URL, _init?: RequestInit) => {
-        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-        if (String(url).includes('/api/tenant-by-host')) {
-          return new Response(
-            JSON.stringify({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' }),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-          ) as Response
-        }
-        return new Response(null, { status: 404 })
-      }
+    it('does not set tenant cookies on an alias redirect response', async () => {
+      stubTenantByHost(croilanAlias)
       const res = await middleware(createMockRequest('croilan.com', '/'))
       const setCookie = res.headers.get('set-cookie') ?? ''
       expect(setCookie).not.toMatch(/tenant-slug=[a-zA-Z0-9-]+/)
+    })
+
+    it('does not redirect when the lookup only names redirectTo', async () => {
+      stubTenantByHost({ slug: 'croilan', id: 1, redirectTo: 'https://www.croilan.com' })
+      const res = await middleware(createMockRequest('croilan.com', '/kids?ref=1'))
+      expect(res.status).not.toBe(301)
+      expect(res.headers.get('location')).toBeNull()
     })
 
     it('uses x-forwarded-host for custom domain tenant-by-host when Host is internal', async () => {

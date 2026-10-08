@@ -90,7 +90,7 @@ test.describe('Serve the named canonical host (E2E)', () => {
     await expectServedIndexedUrl(page, response, platformHost, '/kids')
   })
 
-  test('an existing custom domain with apex redirect still serves www and redirects the apex', async ({
+  test('an existing custom domain still serves www, and the derived apex does not redirect to it', async ({
     page,
     testData,
   }) => {
@@ -121,8 +121,8 @@ test.describe('Serve the named canonical host (E2E)', () => {
       maxRedirects: 0,
       timeout: 60_000,
     })
-    expect(redirect.status()).toBe(301)
-    expect(redirect.headers()['location']).toBe(`http://${wwwHost}:${port}/kids?ref=1`)
+    expect(redirect.status()).not.toBe(301)
+    expect(redirect.headers()['location'] ?? '').not.toContain(wwwHost)
 
     const response = await page.goto(`http://${wwwHost}:${port}/kids?ref=1`, {
       waitUntil: 'domcontentloaded',

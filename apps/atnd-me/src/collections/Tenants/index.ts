@@ -13,7 +13,6 @@ import { extraBlockSlugs } from '../../blocks/registry'
 import {
   isCustomDomainDnsValidationEnabled,
   normalizeCustomDomain,
-  validateAliasHosts,
   validateCustomDomainDns,
   validateCustomDomainFormat,
   validateCustomDomainNotPlatform,
@@ -240,7 +239,6 @@ export const Tenants: CollectionConfig = {
         description:
           'Hostnames that redirect to the canonical host (the custom domain). Enter only the hostname—no protocol or path.',
       },
-      validate: (value: unknown) => validateAliasHosts(value),
       hooks: {
         beforeValidate: [
           ({ value }) => {

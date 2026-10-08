@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
+import { E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER } from '@/utilities/publicHostOutcome'
 
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
 
@@ -34,6 +35,13 @@ export async function GET(request: NextRequest) {
   const normalized = slug.trim().toLowerCase()
   if (!/^[a-z0-9-]+$/.test(normalized)) {
     return NextResponse.json({ error: 'Invalid slug' }, { status: 400 })
+  }
+
+  if (
+    process.env.PW_E2E_PROFILE &&
+    request.headers.get(E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER) === '1'
+  ) {
+    return NextResponse.json({ error: 'Forced host lookup failure' }, { status: 500 })
   }
 
   try {

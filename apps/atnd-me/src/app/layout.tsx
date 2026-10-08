@@ -8,6 +8,12 @@ import { GeistSans } from 'geist/font/sans'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 import { getTenantSiteURL } from '@/utilities/getURL'
+import {
+  isPlatformPublicHostname,
+  publicHostErrorMetadata,
+  readPublicHostOutcome,
+} from '@/utilities/publicHostOutcome'
+import { getRequestHostname } from '@/utilities/tenantRequest'
 
 /** Set by middleware for /admin so Payload's RootLayout is the only document (avoids nested <html>/<body>). */
 const ADMIN_HEADER = 'x-next-payload-admin'
@@ -26,8 +32,17 @@ export async function generateMetadata(): Promise<Metadata> {
   try {
     const cookieStore = await cookies()
     const headersList = await headers()
+    const hostOutcome = readPublicHostOutcome(headersList)
+    if (hostOutcome) {
+      return publicHostErrorMetadata(hostOutcome)
+    }
+
     const payload = await getPayload()
     const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
+    const requestHostname = getRequestHostname(headersList)
+    const usePlatformMark = Boolean(
+      requestHostname && isPlatformPublicHostname(requestHostname) && !tenant,
+    )
     const logo = tenant?.logo
     const appName = tenant?.name?.trim() || tenant?.slug?.trim() || fallbackAppName
     const metadataBase = new URL(getTenantSiteURL(tenant, headersList))
@@ -50,17 +65,23 @@ export async function generateMetadata(): Promise<Metadata> {
         default: appName,
         template: `%s | ${appName}`,
       },
-      icons: logoUrl
+      ...(logoUrl
         ? {
-            icon: [{ url: logoUrl, sizes: '500x500' }],
-            shortcut: logoUrl,
-            apple: logoUrl,
+            icons: {
+              icon: [{ url: logoUrl, sizes: '500x500' }],
+              shortcut: logoUrl,
+              apple: logoUrl,
+            },
           }
-        : {
-            icon: '/favicon.svg',
-            shortcut: '/favicon.svg',
-            apple: '/favicon.svg',
-          },
+        : usePlatformMark
+          ? {
+              icons: {
+                icon: '/favicon.svg',
+                shortcut: '/favicon.svg',
+                apple: '/favicon.svg',
+              },
+            }
+          : {}),
     }
   } catch {
     // Fall through to default favicon

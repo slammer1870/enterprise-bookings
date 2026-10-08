@@ -11,6 +11,8 @@ import { Header } from '@/Header/Component'
 import { Providers } from '@/providers'
 import { InitTheme } from '@/providers/Theme/InitTheme'
 import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
+import { isPlatformPublicHostname, readPublicHostOutcome } from '@/utilities/publicHostOutcome'
+import { getRequestHostname } from '@/utilities/tenantRequest'
 
 import '@repo/ui/globals.css'
 
@@ -76,8 +78,20 @@ export default async function RootLayout({
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies()
   const headersList = await headers()
+  const hostOutcome = readPublicHostOutcome(headersList)
+  if (hostOutcome) {
+    return {
+      title: hostOutcome === 'unknown' ? 'Not found' : 'Unavailable',
+      robots: { index: false, follow: false },
+    }
+  }
+
   const payload = await getPayload()
   const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
+  const requestHostname = getRequestHostname(headersList)
+  const usePlatformDefaults = Boolean(
+    requestHostname && isPlatformPublicHostname(requestHostname) && !tenant,
+  )
   const siteUrl = getTenantSiteURL(tenant, headersList)
   const requestPath = headersList.get('x-request-pathname')
   const canonicalHostname = getCanonicalHostname(tenant)
@@ -94,12 +108,15 @@ export async function generateMetadata(): Promise<Metadata> {
     ...(canonicalHostname && requestPath
       ? { alternates: { canonical: indexedUrl } }
       : {}),
-    openGraph: mergeOpenGraph({
-      images: logoUrl ? [{ url: logoUrl }] : undefined,
-      siteName: tenant?.name || 'ATND ME',
-      title: tenant?.name || 'ATND ME',
-      url: indexedUrl,
-    }),
+    openGraph: mergeOpenGraph(
+      {
+        images: logoUrl ? [{ url: logoUrl }] : undefined,
+        siteName: tenant?.name || 'ATND ME',
+        title: tenant?.name || 'ATND ME',
+        url: indexedUrl,
+      },
+      { usePlatformDefaults },
+    ),
     twitter: {
       card: 'summary_large_image',
       creator: 'ATND',

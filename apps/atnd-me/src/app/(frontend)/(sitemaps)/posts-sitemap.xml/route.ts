@@ -1,4 +1,5 @@
-/** Legacy multi-tenant sitemap. The canonical host does not publish this route. */
-export async function GET() {
-  return new Response(null, { status: 404 })
+import { legacySitemapNotFound } from '../legacySitemapNotFound'
+
+export function GET() {
+  return legacySitemapNotFound()
 }

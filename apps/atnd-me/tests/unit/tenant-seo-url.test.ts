@@ -2,10 +2,26 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getTenantContext, getTenantWithBranding } from '../../src/utilities/getTenantContext'
 import { getTenantSiteURL } from '../../src/utilities/getURL'
+import { indexedSitemapURL, publicMetadataURL } from '../../src/utilities/resolvePublicTenant'
 
 describe('tenant SEO URL resolution', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
+  })
+
+  it('builds indexed sitemap URLs without port or query', () => {
+    const headers = new Headers({ host: 'tenant.example:3000' })
+    expect(indexedSitemapURL('tenant.example', headers)).toBe('https://tenant.example/sitemap.xml')
+    expect(indexedSitemapURL(null, headers)).toBe('https://tenant.example/sitemap.xml')
+  })
+
+  it('builds public metadata URLs from the canonical host when known', () => {
+    expect(
+      publicMetadataURL('/kids', {
+        indexedHost: 'bru.ie',
+        siteUrl: 'http://bru.ie:3000',
+      }),
+    ).toBe('https://bru.ie/kids')
   })
 
   it('prefers a tenant custom domain over the platform subdomain', () => {

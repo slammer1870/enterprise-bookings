@@ -4,7 +4,6 @@ export type TenantIdSlug = { id: number | string; slug: string }
 
 export type HostResolution =
   | { type: 'domain'; id: number | string; slug: string }
-  | { type: 'apex'; id: number | string; slug: string; wwwDomain: string }
   | { type: 'alias'; id: number | string; slug: string; canonicalHost: string }
 
 /**
@@ -31,14 +30,9 @@ export async function findTenantByDomainNormalized(
 }
 
 /**
- * Resolves a request hostname to a tenant in a single OR query:
- *   WHERE domain = :host OR apex_domain = :host
- *
- * Returns a discriminated union so the caller knows whether to serve
- * normally (type='domain'), redirect a named alias (type='alias'), or issue
- * the legacy apex → www redirect (type='apex').
- * Keeps findTenantByDomainNormalized for existing callers that don't need
- * the discriminant (trusted-origins, CORS).
+ * Resolves a request hostname to a tenant.
+ * The stored canonical host (domain) serves. A listed alias host redirects.
+ * A derived apex hostname is not a public host unless it is one of those two.
  */
 export async function findTenantByHost(
   payload: Payload,
@@ -49,24 +43,19 @@ export async function findTenantByHost(
     where: {
       or: [
         { domain: { equals: normalizedHost } },
-        { apexDomain: { equals: normalizedHost } },
         { aliasHosts: { equals: normalizedHost } },
       ],
     },
     limit: 1,
     depth: 0,
     overrideAccess: true,
-    select: { id: true, slug: true, domain: true, apexDomain: true, aliasHosts: true } as Record<
-      string,
-      boolean
-    >,
+    select: { id: true, slug: true, domain: true, aliasHosts: true } as Record<string, boolean>,
   })
 
   const tenant = result.docs[0] as {
     id?: unknown
     slug?: unknown
     domain?: unknown
-    apexDomain?: unknown
     aliasHosts?: unknown
   } | undefined
 
@@ -75,7 +64,6 @@ export async function findTenantByHost(
   const id = tenant.id as number | string
   const slug = String(tenant.slug)
   const domain = typeof tenant.domain === 'string' ? tenant.domain : null
-  const apexDomain = typeof tenant.apexDomain === 'string' ? tenant.apexDomain : null
   const aliasHosts = Array.isArray(tenant.aliasHosts)
     ? tenant.aliasHosts.filter((host): host is string => typeof host === 'string')
     : []
@@ -84,18 +72,12 @@ export async function findTenantByHost(
     return { type: 'domain', id, slug }
   }
 
-  // Named alias: the caller redirects to https://<canonical host><path><query>.
   if (aliasHosts.includes(normalizedHost)) {
     if (!domain) return null
     return { type: 'alias', id, slug, canonicalHost: domain }
   }
 
-  // Legacy apex hit: the host matched the stored apex_domain column
-  if (apexDomain && apexDomain === normalizedHost && domain) {
-    return { type: 'apex', id, slug, wwwDomain: domain }
-  }
-
-  return { type: 'domain', id, slug }
+  return null
 }
 
 export async function findTenantBySlugNormalized(

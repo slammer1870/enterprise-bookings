@@ -1,16 +1,16 @@
 import type { MetadataRoute } from 'next'
+import { notFound } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
 
-import { getPayload } from '@/lib/payload'
 import type { Payload } from 'payload'
-import { getTenantWithBranding } from '@/utilities/getTenantContext'
+
+import { getRequestOrigin } from '@/utilities/getURL'
 import {
-  getAbsoluteURL,
-  getCanonicalHostname,
-  getIndexedURL,
-  getRequestOrigin,
-  getTenantSiteURL,
-} from '@/utilities/getURL'
+  publicMetadataURL,
+  resolvePublicTenant,
+} from '@/utilities/resolvePublicTenant'
+import { resolvePublicHostLookup } from '@/utilities/resolvePublicHostLookup'
+import { getRequestHostname } from '@/utilities/tenantRequest'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,45 +51,46 @@ async function publishedDocs(
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cookieStore = await cookies()
   const headersList = await headers()
-  const requestOrigin = getRequestOrigin(headersList)
+  const requestHostname = getRequestHostname(headersList)
+  if (requestHostname) {
+    const hostLookup = await resolvePublicHostLookup(requestHostname, headersList)
+    if (hostLookup.kind === 'unknown' || hostLookup.kind === 'failed') {
+      notFound()
+    }
+  }
+
   const dateFallback = new Date().toISOString()
 
-  let siteUrl = requestOrigin
-  let indexedHost: string | null = null
-  let pages: SitemapDoc[] = []
-  let posts: SitemapDoc[] = []
+  let resolved = {
+    indexedHost: null as string | null,
+    siteUrl: getRequestOrigin(headersList),
+  }
+  let pageDocs: SitemapDoc[] = []
+  let postDocs: SitemapDoc[] = []
   let isTenantSite = false
 
   try {
-    const payload = await getPayload()
-    const tenant = await getTenantWithBranding(payload, {
+    const tenantContext = await resolvePublicTenant({
       cookies: cookieStore,
       headers: headersList,
     })
+    resolved = tenantContext
 
-    if (tenant) {
+    if (tenantContext.tenant) {
       isTenantSite = true
-      indexedHost = getCanonicalHostname(tenant)
-      if (!indexedHost) {
-        siteUrl = getTenantSiteURL(tenant, headersList)
-      }
-
       const [publishedPages, publishedPosts] = await Promise.all([
-        publishedDocs(payload, 'pages', tenant.id),
-        publishedDocs(payload, 'posts', tenant.id),
+        publishedDocs(tenantContext.payload, 'pages', tenantContext.tenant.id),
+        publishedDocs(tenantContext.payload, 'posts', tenantContext.tenant.id),
       ])
-      pages = publishedPages
-      posts = publishedPosts
+      pageDocs = publishedPages
+      postDocs = publishedPosts
     }
   } catch (error) {
-    // A crawler must still receive a valid sitemap if the CMS is temporarily
-    // unavailable. The homepage is better than a 500 and can lead Google back
-    // to the rest of the site.
     console.error('Unable to build tenant sitemap from Payload:', error)
+    notFound()
   }
 
-  const urlFor = (path: string) =>
-    indexedHost ? getIndexedURL(indexedHost, path) : getAbsoluteURL(path, siteUrl)
+  const urlFor = (path: string) => publicMetadataURL(path, resolved)
 
   const routes: MetadataRoute.Sitemap = [
     {
@@ -106,24 +107,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ]
 
-  for (const page of pages) {
-    if (!page?.slug) continue
+  for (const pageDoc of pageDocs) {
+    if (!pageDoc?.slug) continue
 
     const pathname =
-      page.slug === 'home' || (!isTenantSite && page.slug === 'root') ? '/' : `/${page.slug}`
+      pageDoc.slug === 'home' || (!isTenantSite && pageDoc.slug === 'root')
+        ? '/'
+        : `/${pageDoc.slug}`
+
+    if (pathname === '/') continue
 
     routes.push({
       url: urlFor(pathname),
-      lastModified: page.updatedAt || dateFallback,
+      lastModified: pageDoc.updatedAt || dateFallback,
     })
   }
 
-  for (const post of posts) {
-    if (!post?.slug) continue
+  for (const postDoc of postDocs) {
+    if (!postDoc?.slug) continue
 
     routes.push({
-      url: urlFor(`/posts/${post.slug}`),
-      lastModified: post.updatedAt || dateFallback,
+      url: urlFor(`/posts/${postDoc.slug}`),
+      lastModified: postDoc.updatedAt || dateFallback,
     })
   }
 

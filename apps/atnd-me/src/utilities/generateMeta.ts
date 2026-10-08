@@ -5,6 +5,8 @@ import type { Media, Page, Post, Config } from '../payload-types'
 import { mergeOpenGraph } from './mergeOpenGraph'
 import { getAbsoluteURL, getCanonicalHostname, getIndexedURL, getTenantSiteURL } from './getURL'
 import type { TenantWithBranding } from './getTenantContext'
+import { isPlatformPublicHostname } from './publicHostOutcome'
+import { getRequestHostname } from './tenantRequest'
 
 const getImageURL = (args: {
   baseURL: string
@@ -17,8 +19,6 @@ const getImageURL = (args: {
 }) => {
   const { baseURL, image, fallbackImage } = args
 
-  let url = getAbsoluteURL('/website-template-OG.webp', baseURL)
-
   const resolvedImage = [image, fallbackImage].find(
     (candidate): candidate is Media => Boolean(candidate && typeof candidate === 'object' && 'url' in candidate),
   )
@@ -28,11 +28,11 @@ const getImageURL = (args: {
     const imagePath = ogUrl || resolvedImage.url
 
     if (imagePath) {
-      url = getAbsoluteURL(imagePath, baseURL)
+      return getAbsoluteURL(imagePath, baseURL)
     }
   }
 
-  return url
+  return undefined
 }
 
 const DEFAULT_SITE_NAME = 'ATND ME'
@@ -46,11 +46,14 @@ export const generateMeta = async (args: {
 }): Promise<Metadata> => {
   const { doc, tenantBranding, pathname, currentPath, headers } = args
   const siteUrl = getTenantSiteURL(tenantBranding, headers)
+  const requestHostname = getRequestHostname(headers)
+  const usePlatformDefaults = Boolean(
+    requestHostname && isPlatformPublicHostname(requestHostname) && !tenantBranding,
+  )
 
   const ogImage = getImageURL({
     baseURL: siteUrl,
     image: doc?.meta?.image,
-    fallbackImage: tenantBranding?.logo,
   })
 
   const siteName = tenantBranding?.name || DEFAULT_SITE_NAME
@@ -75,19 +78,22 @@ export const generateMeta = async (args: {
       canonical: canonicalUrl,
     },
     description,
-    openGraph: mergeOpenGraph({
-      description: description || '',
-      images: ogImage
-        ? [
-            {
-              url: ogImage,
-            },
-          ]
-        : undefined,
-      siteName,
-      title: fullTitle,
-      url: canonicalUrl,
-    }),
+    openGraph: mergeOpenGraph(
+      {
+        description: description || '',
+        images: ogImage
+          ? [
+              {
+                url: ogImage,
+              },
+            ]
+          : undefined,
+        siteName,
+        title: fullTitle,
+        url: canonicalUrl,
+      },
+      { usePlatformDefaults },
+    ),
     twitter: {
       card: 'summary_large_image',
       description,
