@@ -95,6 +95,34 @@ export const getTenantSiteURL = (
   return getPlatformURL()
 }
 
+/**
+ * Host search engines should index. A named custom domain is the canonical host.
+ * With none named, the canonical host is the platform subdomain.
+ */
+export const getCanonicalHostname = (tenant?: TenantURLSource | null): string | null => {
+  const customDomain = tenant?.domain?.trim().toLowerCase()
+  if (customDomain) {
+    const hostname = customDomain.split(':')[0]?.trim()
+    return hostname || null
+  }
+
+  const slug = tenant?.slug?.trim()
+  const platformHostname = getPlatformHostname()
+  if (!slug || !platformHostname) return null
+
+  return `${slug}.${platformHostname}`
+}
+
+/**
+ * Indexed URL: `https://<canonical host><path>`, with no query and no port.
+ * `path` is the request path.
+ */
+export const getIndexedURL = (canonicalHostname: string, path: string): string => {
+  const withoutQuery = path.split('?')[0] ?? '/'
+  const requestPath = withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`
+  return `https://${canonicalHostname}${requestPath}`
+}
+
 export const getAbsoluteURL = (pathname: string, baseURL: string) => {
   const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`
   return new URL(normalizedPath, baseURL).toString()

@@ -15,6 +15,7 @@
  */
 import { test, expect } from './helpers/fixtures'
 import { createTestTenant, getPayloadInstance } from './helpers/data-helpers'
+import { enableApexRedirect } from './helpers/apex-redirect'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 import type { Tenant } from '@repo/shared-types'
@@ -39,8 +40,6 @@ test.describe('Apex domain redirect (E2E)', () => {
     wwwOrigin = `http://${wwwHost}:3000`
     apexOrigin = `http://${apexHost}:3000`
 
-    const payload = await getPayloadInstance()
-
     // Create tenant with the www.* domain and redirectApex enabled.
     // The afterChange hook will write apexDomain = apexHost so the middleware
     // can resolve it. We bypass the Cloudflare/Stripe hooks via overrideAccess
@@ -48,32 +47,7 @@ test.describe('Apex domain redirect (E2E)', () => {
     // will simply log warnings if CLOUDFLARE_API_TOKEN is not set in the e2e env.
     const slug = `apex-cd-${w}-${stamp}`
     await createTestTenant(`E2E apex redirect ${w}`, slug, wwwHost)
-
-    // Enable redirectApex via direct Payload update (createTestTenant doesn't support it)
-    await payload.update({
-      collection: 'tenants',
-      where: { slug: { equals: slug } },
-      data: { redirectApex: true },
-      overrideAccess: true,
-    })
-
-    // The afterChange hook stores apexDomain asynchronously. Wait for the
-    // derived value before navigating to avoid racing tenant resolution.
-    await expect
-      .poll(
-        async () => {
-          const result = await payload.find({
-            collection: 'tenants',
-            where: { slug: { equals: slug } },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-          })
-          return result.docs[0]?.apexDomain
-        },
-        { timeout: 15_000 },
-      )
-      .toBe(apexHost)
+    await enableApexRedirect(slug, apexHost)
   })
 
   test('apex domain issues a 301 redirect to the www host', async ({ page }) => {

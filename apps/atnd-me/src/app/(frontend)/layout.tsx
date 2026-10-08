@@ -18,7 +18,7 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
-import { getAbsoluteURL, getTenantSiteURL } from '@/utilities/getURL'
+import { getAbsoluteURL, getCanonicalHostname, getIndexedURL, getTenantSiteURL } from '@/utilities/getURL'
 
 export default async function RootLayout({
   children,
@@ -79,17 +79,26 @@ export async function generateMetadata(): Promise<Metadata> {
   const payload = await getPayload()
   const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
   const siteUrl = getTenantSiteURL(tenant, headersList)
+  const requestPath = headersList.get('x-request-pathname')
+  const canonicalHostname = getCanonicalHostname(tenant)
+  const indexedUrl =
+    canonicalHostname && requestPath
+      ? getIndexedURL(canonicalHostname, requestPath)
+      : siteUrl
   const logoUrl =
     tenant?.logo && typeof tenant.logo === 'object' && typeof tenant.logo.url === 'string'
       ? getAbsoluteURL(tenant.logo.url, siteUrl)
       : undefined
 
   return {
+    ...(canonicalHostname && requestPath
+      ? { alternates: { canonical: indexedUrl } }
+      : {}),
     openGraph: mergeOpenGraph({
       images: logoUrl ? [{ url: logoUrl }] : undefined,
       siteName: tenant?.name || 'ATND ME',
       title: tenant?.name || 'ATND ME',
-      url: siteUrl,
+      url: indexedUrl,
     }),
     twitter: {
       card: 'summary_large_image',

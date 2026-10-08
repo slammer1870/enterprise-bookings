@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import type { Media, Page, Post, Config } from '../payload-types'
 
 import { mergeOpenGraph } from './mergeOpenGraph'
-import { getAbsoluteURL, getTenantSiteURL } from './getURL'
+import { getAbsoluteURL, getCanonicalHostname, getIndexedURL, getTenantSiteURL } from './getURL'
 import type { TenantWithBranding } from './getTenantContext'
 
 const getImageURL = (args: {
@@ -55,14 +55,19 @@ export const generateMeta = async (args: {
 
   const siteName = tenantBranding?.name || DEFAULT_SITE_NAME
   const docTitle = typeof doc?.meta?.title === 'string' ? doc.meta.title.trim() : ''
-  const title = docTitle || undefined
+  // A string title is run through the root layout template (`%s | ${appName}`).
+  // With no separate page meta title, the document title is the tenant name itself.
+  const title = docTitle ? docTitle : { absolute: siteName }
 
   const description = doc?.meta?.description || tenantBranding?.description || undefined
   const resolvedPath =
     pathname ||
     currentPath ||
     (typeof doc?.slug === 'string' && doc.slug ? `/${doc.slug}` : '/')
-  const canonicalUrl = getAbsoluteURL(resolvedPath, siteUrl)
+  const canonicalHostname = getCanonicalHostname(tenantBranding)
+  const canonicalUrl = canonicalHostname
+    ? getIndexedURL(canonicalHostname, resolvedPath)
+    : getAbsoluteURL(resolvedPath, siteUrl)
   const fullTitle = docTitle ? `${docTitle} | ${siteName}` : siteName
 
   return {

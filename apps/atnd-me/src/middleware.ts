@@ -58,6 +58,20 @@ function internalFetchSignal(): AbortSignal | undefined {
   return process.env.NODE_ENV !== 'production' ? AbortSignal.timeout(2000) : undefined
 }
 
+/** Request path for indexed URLs. The visitor's path, not a rewrite target. */
+const REQUEST_PATHNAME_HEADER = 'x-request-pathname'
+
+function requestHeadersWithPath(request: NextRequest, extra?: Record<string, string>): Headers {
+  const headers = new Headers(request.headers)
+  headers.set(REQUEST_PATHNAME_HEADER, request.nextUrl.pathname)
+  if (extra) {
+    for (const [name, value] of Object.entries(extra)) {
+      headers.set(name, value)
+    }
+  }
+  return headers
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPayloadAdmin = pathname.startsWith('/admin')
@@ -290,17 +304,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!subdomain) {
-    const response = isPayloadAdmin
-      ? NextResponse.next({
-        request: {
-          headers: (() => {
-            const h = new Headers(request.headers)
-            h.set(ADMIN_HEADER, '1')
-            return h
-          })(),
-        },
-      })
-      : NextResponse.next()
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeadersWithPath(
+          request,
+          isPayloadAdmin ? { [ADMIN_HEADER]: '1' } : undefined,
+        ),
+      },
+    })
     // Do not delete tenant cookies on /admin: every admin request was getting Set-Cookie delete
     // which caused the admin dashboard to constantly reload. Only clear on frontend routes.
     if (!pathname.startsWith('/admin')) {
@@ -318,19 +329,18 @@ export async function middleware(request: NextRequest) {
         })()
       : null
 
-  const response = isPayloadAdmin
-    ? NextResponse.next({
-      request: {
-        headers: (() => {
-          const h = new Headers(request.headers)
-          h.set(ADMIN_HEADER, '1')
-          return h
-        })(),
-      },
-    })
-    : tenantRootRewriteUrl
-      ? NextResponse.rewrite(tenantRootRewriteUrl)
-      : NextResponse.next()
+  const forwardedHeaders = requestHeadersWithPath(
+    request,
+    isPayloadAdmin ? { [ADMIN_HEADER]: '1' } : undefined,
+  )
+  const response =
+    !isPayloadAdmin && tenantRootRewriteUrl
+      ? NextResponse.rewrite(tenantRootRewriteUrl, {
+          request: { headers: forwardedHeaders },
+        })
+      : NextResponse.next({
+          request: { headers: forwardedHeaders },
+        })
   const cookieOptions: { httpOnly: boolean; sameSite: 'lax'; path: string; domain?: string } = {
     httpOnly: false,
     sameSite: 'lax',
