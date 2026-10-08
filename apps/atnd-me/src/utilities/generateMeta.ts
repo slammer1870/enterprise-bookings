@@ -89,6 +89,10 @@ export const generateMeta = async (args: {
       images: ogImage ? [ogImage] : undefined,
       title: fullTitle,
     },
+    robots: {
+      index: true,
+      follow: true,
+    },
     title,
   }
 }

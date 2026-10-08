@@ -6,6 +6,9 @@ import { Pagination } from '@/components/Pagination'
 import React from 'react'
 import PageClient from './page.client'
 import { queryPostsArchive } from './queryPostsArchive'
+import { getPayload } from '@/lib/payload'
+import { generateMeta } from '@/utilities/generateMeta'
+import { getTenantWithBranding } from '@/utilities/getTenantContext'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -49,8 +52,26 @@ export default async function Page() {
   )
 }
 
-export function generateMetadata(): Metadata {
-  return {
-    title: 'Posts',
-  }
+export async function generateMetadata(): Promise<Metadata> {
+  const { cookies, headers } = await import('next/headers')
+  const cookieStore = await cookies()
+  const headersList = await headers()
+  const payload = await getPayload()
+  const tenantBranding = await getTenantWithBranding(payload, {
+    cookies: cookieStore,
+    headers: headersList,
+  })
+
+  return generateMeta({
+    doc: {
+      slug: 'posts',
+      meta: {
+        title: 'Posts',
+        description: 'Articles, updates and stories from our team.',
+      },
+    },
+    tenantBranding,
+    pathname: '/posts',
+    headers: headersList,
+  })
 }

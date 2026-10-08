@@ -96,7 +96,16 @@ export const getTenantSiteURL = (
 }
 
 export const getAbsoluteURL = (pathname: string, baseURL: string) => {
-  const normalizedPath = pathname.startsWith('/') ? pathname : `/${pathname}`
+  const trimmed = pathname.trim()
+  // Media and OG URLs from R2/S3 are often already absolute. Prefixing "/"
+  // would produce invalid URLs like https://tenant.example/https://cdn/...
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed
+  }
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`
+  }
+  const normalizedPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
   return new URL(normalizedPath, baseURL).toString()
 }
 
