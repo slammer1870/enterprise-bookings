@@ -10,8 +10,14 @@ import { middleware } from '../../src/middleware'
  */
 describe('Middleware', () => {
   const originalServerUrl = process.env.NEXT_PUBLIC_SERVER_URL
+  const originalFetch = globalThis.fetch
+
+  beforeEach(() => {
+    globalThis.fetch = async () => new Response(null, { status: 404 })
+  })
 
   afterEach(() => {
+    globalThis.fetch = originalFetch
     if (originalServerUrl !== undefined) {
       process.env.NEXT_PUBLIC_SERVER_URL = originalServerUrl
     } else {

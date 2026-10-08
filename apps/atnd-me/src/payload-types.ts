@@ -338,6 +338,10 @@ export interface Tenant {
    */
   domain?: string | null;
   /**
+   * Hostnames that redirect to the canonical host (the custom domain). Enter only the hostname—no protocol or path.
+   */
+  aliasHosts?: string[] | null;
+  /**
    * Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
    */
   redirectApex?: boolean | null;
@@ -4975,6 +4979,7 @@ export interface TenantsSelect<T extends boolean = true> {
   slug?: T;
   timeZone?: T;
   domain?: T;
+  aliasHosts?: T;
   redirectApex?: T;
   apexDomain?: T;
   apexDomainVerificationToken?: T;

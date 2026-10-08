@@ -41,6 +41,8 @@ test.describe('Serve the named canonical host (E2E)', () => {
     page,
     testData,
   }) => {
+    // PW_E2E_FAST caps navigation at 20s. The first /[slug] compile can take longer.
+    test.setTimeout(90_000)
     const nipIoAvailable = await isNipIoDnsAvailable()
     test.skip(!nipIoAvailable, 'nip.io DNS is not available')
 
@@ -55,12 +57,14 @@ test.describe('Serve the named canonical host (E2E)', () => {
 
     const response = await page.goto(`http://${canonicalHost}:${port}/kids?ref=1`, {
       waitUntil: 'domcontentloaded',
+      timeout: 60_000,
     })
     await expectServedIndexedUrl(page, response, canonicalHost, '/kids')
     await expect(page).toHaveTitle(tenantName)
 
     const search = await page.goto(`http://${canonicalHost}:${port}/search?ref=1`, {
       waitUntil: 'domcontentloaded',
+      timeout: 60_000,
     })
     await expectServedIndexedUrl(page, search, canonicalHost, '/search')
   })
@@ -69,6 +73,7 @@ test.describe('Serve the named canonical host (E2E)', () => {
     page,
     testData,
   }) => {
+    test.setTimeout(90_000)
     const w = testData.workerIndex
     const stamp = Date.now()
     const slug = `plat-${w}-${stamp}`
@@ -80,6 +85,7 @@ test.describe('Serve the named canonical host (E2E)', () => {
 
     const response = await page.goto(`http://${platformHost}:${port}/kids?ref=1`, {
       waitUntil: 'domcontentloaded',
+      timeout: 60_000,
     })
     await expectServedIndexedUrl(page, response, platformHost, '/kids')
   })

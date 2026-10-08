@@ -43,7 +43,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null, { status: 404 })
     }
 
-    return NextResponse.json({ id: tenant.id, slug: normalized })
+    return NextResponse.json({
+      id: tenant.id,
+      slug: normalized,
+      ...(tenant.domain ? { canonicalHost: tenant.domain } : {}),
+    })
   } catch (err) {
     console.error('[api/tenant-by-slug]', err)
     return NextResponse.json({ error: 'Failed to resolve tenant' }, { status: 500 })

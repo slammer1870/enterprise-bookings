@@ -8,6 +8,16 @@ import { POST_LOGIN_REDIRECT_COOKIE } from '../../src/collections/Users/hooks/co
  * behavior with and without NEXT_PUBLIC_SERVER_URL (Coolify / multi-tenancy).
  */
 describe('Middleware', () => {
+  const originalFetch = globalThis.fetch
+
+  beforeEach(() => {
+    globalThis.fetch = async () => new Response(null, { status: 404 })
+  })
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch
+  })
+
   const createMockRequest = (host: string, pathname = '/'): NextRequest =>
     new NextRequest(`http://${host}${pathname}`, {
       headers: { host },

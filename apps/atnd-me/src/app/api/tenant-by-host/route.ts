@@ -51,6 +51,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null, { status: 404 })
     }
 
+    if (result.type === 'alias') {
+      return NextResponse.json({
+        slug: result.slug,
+        id: result.id,
+        canonicalHost: result.canonicalHost,
+      })
+    }
+
     if (result.type === 'apex') {
       return NextResponse.json({
         slug: result.slug,

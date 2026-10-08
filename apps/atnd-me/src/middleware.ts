@@ -72,6 +72,72 @@ function requestHeadersWithPath(request: NextRequest, extra?: Record<string, str
   return headers
 }
 
+function redirectToCanonicalHost(canonicalHost: string, pathname: string, search: string): NextResponse {
+  return NextResponse.redirect(`https://${canonicalHost}${pathname}${search}`, 301)
+}
+
+function platformSubdomainSlug(hostname: string): string | null {
+  const isLocalhost = hostname.includes('localhost')
+  const rootHostname = getRootHostname()?.toLowerCase() ?? null
+  const parts = hostname.split('.')
+
+  if (isLocalhost) {
+    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') return parts[0]
+    return null
+  }
+
+  if (rootHostname) {
+    if (hostname === rootHostname || !hostname.endsWith('.' + rootHostname)) return null
+    const prefix = hostname.slice(0, -(rootHostname.length + 1))
+    return prefix.split('.')[0] || null
+  }
+
+  if (parts.length >= 3 && parts[0]) return parts[0]
+  return null
+}
+
+function isCustomPublicHost(hostname: string): boolean {
+  const rootHostname = getRootHostname()?.toLowerCase() ?? null
+  if (!rootHostname || hostname.includes('localhost')) return false
+  if (hostname === rootHostname || hostname.endsWith('.' + rootHostname)) return false
+  return true
+}
+
+/**
+ * Canonical host when this request host is an alias. Null when the host serves,
+ * or when the lookup does not name one.
+ */
+async function canonicalHostIfAlias(hostname: string): Promise<string | null> {
+  const origin = getPlatformOrigin()
+  if (!origin) return null
+
+  const token = process.env.INTERNAL_TENANT_RESOLVE_TOKEN
+  const authHeaders = token ? { [INTERNAL_TENANT_RESOLVE_HEADER]: token } : undefined
+  const signal = internalFetchSignal()
+  const slug = platformSubdomainSlug(hostname)
+
+  try {
+    const url = slug
+      ? `${origin}/api/tenant-by-slug?slug=${encodeURIComponent(slug)}`
+      : isCustomPublicHost(hostname)
+        ? `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
+        : null
+    if (!url) return null
+
+    const res = await fetch(url, {
+      cache: 'no-store',
+      headers: slug ? authHeaders : { ...authHeaders, 'x-resolve-host': hostname },
+      ...(signal && { signal }),
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { canonicalHost?: string }
+    if (typeof data?.canonicalHost !== 'string' || data.canonicalHost === hostname) return null
+    return data.canonicalHost
+  } catch {
+    return null
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   const isPayloadAdmin = pathname.startsWith('/admin')
@@ -117,13 +183,20 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/sitemap') ||
-    pathname.startsWith('/robots.txt')
+    pathname.startsWith('/favicon')
   ) {
     // Never mutate tenant cookies for API/static requests. Follow-up admin requests can lack a
     // reliable Referer header, and clearing here wipes the sidebar tenant selection after route
     // changes. Stale cookie cleanup is handled on real frontend page requests below.
+    return NextResponse.next()
+  }
+
+  // These paths used to skip the redirect layer. An alias host still 301s them.
+  if (pathname.startsWith('/sitemap') || pathname.startsWith('/robots.txt')) {
+    const canonicalHost = await canonicalHostIfAlias(hostname)
+    if (canonicalHost) {
+      return redirectToCanonicalHost(canonicalHost, pathname, request.nextUrl.search)
+    }
     return NextResponse.next()
   }
 
@@ -245,7 +318,16 @@ export async function middleware(request: NextRequest) {
         ...(signal && { signal }),
       })
       if (res.ok) {
-        const data = (await res.json()) as { slug?: string; id?: string | number; redirectTo?: string }
+        const data = (await res.json()) as {
+          slug?: string
+          id?: string | number
+          redirectTo?: string
+          canonicalHost?: string
+        }
+        // Named alias: 301 to https://<canonical host><path><query>, with no port.
+        if (data?.canonicalHost && typeof data.canonicalHost === 'string') {
+          return redirectToCanonicalHost(data.canonicalHost, pathname, request.nextUrl.search)
+        }
         // Apex domain: redirect to the www custom domain before any cookie logic
         if (data?.redirectTo && typeof data.redirectTo === 'string') {
           // console.log(`[middleware] apex redirect ${hostname} → ${data.redirectTo}`)
@@ -285,6 +367,15 @@ export async function middleware(request: NextRequest) {
       isCustomDomain = true
       resolvedTenantId =
         idFromCookie !== null && Number.isFinite(idFromCookie) ? idFromCookie : null
+    }
+  }
+
+  // Platform subdomain is an alias once a custom canonical host is named.
+  // Admin stays on this host. Public paths, including the legacy sitemap routes, redirect.
+  if (subdomain && !isCustomDomain && !isPayloadAdmin) {
+    const canonicalHost = await canonicalHostIfAlias(hostname)
+    if (canonicalHost) {
+      return redirectToCanonicalHost(canonicalHost, pathname, request.nextUrl.search)
     }
   }
 
