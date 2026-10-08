@@ -3,7 +3,13 @@ import { cookies, headers } from 'next/headers'
 
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
-import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
+import {
+  getAbsoluteURL,
+  getCanonicalHostname,
+  getIndexedURL,
+  getRequestOrigin,
+  getTenantSiteURL,
+} from '@/utilities/getURL'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +22,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const dateFallback = new Date().toISOString()
 
   let siteUrl = requestOrigin
+  let indexedHost: string | null = null
   let pages: SitemapDoc[] = []
   let posts: SitemapDoc[] = []
   let isTenantSite = false
@@ -29,7 +36,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     if (tenant) {
       isTenantSite = true
-      siteUrl = getTenantSiteURL(tenant, headersList)
+      indexedHost = getCanonicalHostname(tenant)
+      if (!indexedHost) {
+        siteUrl = getTenantSiteURL(tenant, headersList)
+      }
 
       const [pageResult, postResult] = await Promise.all([
         payload.find({
@@ -39,6 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           depth: 0,
           limit: 1000,
           pagination: false,
+          context: { tenant: tenant.id },
           where: {
             _status: { equals: 'published' },
             tenant: { equals: tenant.id },
@@ -52,6 +63,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           depth: 0,
           limit: 1000,
           pagination: false,
+          context: { tenant: tenant.id },
           where: {
             _status: { equals: 'published' },
             tenant: { equals: tenant.id },
@@ -69,17 +81,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     console.error('Unable to build tenant sitemap from Payload:', error)
   }
 
+  const urlFor = (path: string) =>
+    indexedHost ? getIndexedURL(indexedHost, path) : getAbsoluteURL(path, siteUrl)
+
   const routes: MetadataRoute.Sitemap = [
     {
-      url: getAbsoluteURL('/', siteUrl),
+      url: urlFor('/'),
       lastModified: dateFallback,
     },
     {
-      url: getAbsoluteURL('/search', siteUrl),
+      url: urlFor('/search'),
       lastModified: dateFallback,
     },
     {
-      url: getAbsoluteURL('/posts', siteUrl),
+      url: urlFor('/posts'),
       lastModified: dateFallback,
     },
   ]
@@ -91,7 +106,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       page.slug === 'home' || (!isTenantSite && page.slug === 'root') ? '/' : `/${page.slug}`
 
     routes.push({
-      url: getAbsoluteURL(pathname, siteUrl),
+      url: urlFor(pathname),
       lastModified: page.updatedAt || dateFallback,
     })
   }
@@ -100,7 +115,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (!post?.slug) continue
 
     routes.push({
-      url: getAbsoluteURL(`/posts/${post.slug}`, siteUrl),
+      url: urlFor(`/posts/${post.slug}`),
       lastModified: post.updatedAt || dateFallback,
     })
   }

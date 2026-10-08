@@ -1,17 +1,34 @@
 import type { MetadataRoute } from 'next'
-import { headers } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
-import { getRequestOrigin } from '@/utilities/getURL'
+import { getPayload } from '@/lib/payload'
+import { getTenantWithBranding } from '@/utilities/getTenantContext'
+import { getCanonicalHostname, getIndexedURL, getRequestOrigin } from '@/utilities/getURL'
 
 /**
- * robots.txt must be generated from the public request host. Using
- * NEXT_PUBLIC_SERVER_URL here points custom tenant domains at the platform
- * sitemap instead of their own sitemap.
+ * robots.txt names the canonical host's sitemap. The request host can include
+ * a port, and the request scheme is not the indexed URL.
  */
 export const dynamic = 'force-dynamic'
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
-  const siteUrl = getRequestOrigin(await headers())
+  const headersList = await headers()
+  const cookieStore = await cookies()
+  let sitemap = `${getRequestOrigin(headersList)}/sitemap.xml`
+
+  try {
+    const payload = await getPayload()
+    const tenant = await getTenantWithBranding(payload, {
+      cookies: cookieStore,
+      headers: headersList,
+    })
+    const canonicalHostname = getCanonicalHostname(tenant)
+    if (canonicalHostname) {
+      sitemap = getIndexedURL(canonicalHostname, '/sitemap.xml')
+    }
+  } catch (error) {
+    console.error('Unable to resolve canonical host for robots.txt:', error)
+  }
 
   return {
     rules: {
@@ -19,6 +36,6 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
       allow: '/',
       disallow: ['/admin/', '/api/'],
     },
-    sitemap: `${siteUrl}/sitemap.xml`,
+    sitemap,
   }
 }
