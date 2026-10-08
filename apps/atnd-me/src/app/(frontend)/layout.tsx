@@ -11,7 +11,11 @@ import { Header } from '@/Header/Component'
 import { Providers } from '@/providers'
 import { InitTheme } from '@/providers/Theme/InitTheme'
 import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
-import { isPlatformPublicHostname, readPublicHostOutcome } from '@/utilities/publicHostOutcome'
+import {
+  isPlatformPublicHostname,
+  publicHostErrorMetadata,
+  readPublicHostOutcome,
+} from '@/utilities/publicHostOutcome'
 import { getRequestHostname } from '@/utilities/tenantRequest'
 
 import '@repo/ui/globals.css'
@@ -80,10 +84,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const headersList = await headers()
   const hostOutcome = readPublicHostOutcome(headersList)
   if (hostOutcome) {
-    return {
-      title: hostOutcome === 'unknown' ? 'Not found' : 'Unavailable',
-      robots: { index: false, follow: false },
-    }
+    return publicHostErrorMetadata(hostOutcome)
   }
 
   const payload = await getPayload()

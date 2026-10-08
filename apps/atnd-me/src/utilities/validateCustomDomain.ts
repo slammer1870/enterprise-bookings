@@ -110,6 +110,22 @@ export function validateCustomDomainFormat(
 }
 
 /**
+ * Validates a list of alias hostnames. Each entry is a bare hostname, same format as a custom domain.
+ */
+export function validateAliasHosts(value: unknown): true | string {
+  const hosts = Array.isArray(value) ? value : value == null || value === '' ? [] : [value]
+  for (const host of hosts) {
+    const str = host == null ? '' : String(host).trim()
+    if (str === '') continue
+    const formatResult = validateCustomDomainFormat(str)
+    if (formatResult !== true) return formatResult
+    const notPlatformResult = validateCustomDomainNotPlatform(normalizeCustomDomain(str))
+    if (notPlatformResult !== true) return notPlatformResult
+  }
+  return true
+}
+
+/**
  * Validates that the custom domain is not the platform's root hostname or a subdomain of it.
  * Call this in hooks when you have the normalized value.
  *

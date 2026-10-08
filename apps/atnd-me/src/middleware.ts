@@ -3,6 +3,8 @@ import type { NextRequest } from 'next/server'
 
 import { parseBranchSlugFromPathname } from '@/utilities/getLocationContext'
 import {
+  isCustomPublicHostname,
+  platformSubdomainSlug,
   PUBLIC_HOST_OUTCOME_HEADER,
   publicHostErrorHtml,
 } from '@/utilities/publicHostOutcome'
@@ -93,33 +95,6 @@ function redirectToCanonicalHost(canonicalHost: string, pathname: string, search
   return NextResponse.redirect(`https://${canonicalHost}${pathname}${search}`, 301)
 }
 
-function platformSubdomainSlug(hostname: string): string | null {
-  const isLocalhost = hostname.includes('localhost')
-  const rootHostname = getRootHostname()?.toLowerCase() ?? null
-  const parts = hostname.split('.')
-
-  if (isLocalhost) {
-    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') return parts[0]
-    return null
-  }
-
-  if (rootHostname) {
-    if (hostname === rootHostname || !hostname.endsWith('.' + rootHostname)) return null
-    const prefix = hostname.slice(0, -(rootHostname.length + 1))
-    return prefix.split('.')[0] || null
-  }
-
-  if (parts.length >= 3 && parts[0]) return parts[0]
-  return null
-}
-
-function isCustomPublicHost(hostname: string): boolean {
-  const rootHostname = getRootHostname()?.toLowerCase() ?? null
-  if (!rootHostname || hostname.includes('localhost')) return false
-  if (hostname === rootHostname || hostname.endsWith('.' + rootHostname)) return false
-  return true
-}
-
 type TenantHostPayload = {
   slug?: string
   id?: string | number
@@ -156,7 +131,7 @@ async function canonicalHostIfAlias(
   const slug = platformSubdomainSlug(hostname)
 
   if (!slug) {
-    if (!isCustomPublicHost(hostname)) return null
+    if (!isCustomPublicHostname(hostname)) return null
     return aliasCanonicalHost(await fetchTenantByHost(origin, hostname, requestHeaders), hostname)
   }
 
@@ -356,7 +331,7 @@ export async function middleware(request: NextRequest) {
         typeof resolvedFromHost.id === 'string' || typeof resolvedFromHost.id === 'number'
           ? resolvedFromHost.id
           : null
-    } else if (!isCustomPublicHost(hostname) && slugLooksValid && slugFromCookie) {
+    } else if (!isCustomPublicHostname(hostname) && slugLooksValid && slugFromCookie) {
       subdomain = slugFromCookie
       isCustomDomain = true
       resolvedTenantId =

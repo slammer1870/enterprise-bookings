@@ -1,5 +1,4 @@
 import type { MetadataRoute } from 'next'
-import { notFound } from 'next/navigation'
 import { cookies, headers } from 'next/headers'
 
 import type { Payload } from 'payload'
@@ -9,8 +8,8 @@ import {
   publicMetadataURL,
   resolvePublicTenant,
 } from '@/utilities/resolvePublicTenant'
-import { resolvePublicHostLookup } from '@/utilities/resolvePublicHostLookup'
-import { getRequestHostname } from '@/utilities/tenantRequest'
+import { guardPublicHostAppRoute } from '@/utilities/guardPublicHostAppRoute'
+import { publicHostErrorResponse } from '@/utilities/publicHostOutcome'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,13 +50,7 @@ async function publishedDocs(
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cookieStore = await cookies()
   const headersList = await headers()
-  const requestHostname = getRequestHostname(headersList)
-  if (requestHostname) {
-    const hostLookup = await resolvePublicHostLookup(requestHostname, headersList)
-    if (hostLookup.kind === 'unknown' || hostLookup.kind === 'failed') {
-      notFound()
-    }
-  }
+  await guardPublicHostAppRoute(headersList)
 
   const dateFallback = new Date().toISOString()
 
@@ -86,8 +79,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       postDocs = publishedPosts
     }
   } catch (error) {
+    if (error instanceof Response) throw error
     console.error('Unable to build tenant sitemap from Payload:', error)
-    notFound()
+    throw publicHostErrorResponse('failed')
   }
 
   const urlFor = (path: string) => publicMetadataURL(path, resolved)
@@ -114,8 +108,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       pageDoc.slug === 'home' || (!isTenantSite && pageDoc.slug === 'root')
         ? '/'
         : `/${pageDoc.slug}`
-
-    if (pathname === '/') continue
 
     routes.push({
       url: urlFor(pathname),

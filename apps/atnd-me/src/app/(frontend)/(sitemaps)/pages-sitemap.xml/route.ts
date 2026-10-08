@@ -1,5 +1,5 @@
 import { legacySitemapNotFound } from '../legacySitemapNotFound'
 
-export function GET() {
+export async function GET() {
   return legacySitemapNotFound()
 }

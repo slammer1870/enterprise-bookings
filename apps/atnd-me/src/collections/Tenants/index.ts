@@ -16,6 +16,7 @@ import {
   validateCustomDomainDns,
   validateCustomDomainFormat,
   validateCustomDomainNotPlatform,
+  validateAliasHosts,
 } from '@/utilities/validateCustomDomain'
 import { registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
@@ -239,6 +240,7 @@ export const Tenants: CollectionConfig = {
         description:
           'Hostnames that redirect to the canonical host (the custom domain). Enter only the hostname—no protocol or path.',
       },
+      validate: (value: unknown) => validateAliasHosts(value),
       hooks: {
         beforeValidate: [
           ({ value }) => {

@@ -84,18 +84,13 @@ export async function generateMetadata(): Promise<Metadata> {
           : {}),
     }
   } catch {
-    // Fall through to default favicon
+    // Do not fall back to the platform mark when tenant metadata resolution fails.
   }
   return {
     metadataBase: new URL(getTenantSiteURL()),
     title: {
       default: fallbackAppName,
       template: `%s | ${fallbackAppName}`,
-    },
-    icons: {
-      icon: '/favicon.svg',
-      shortcut: '/favicon.svg',
-      apple: '/favicon.svg',
     },
   }
 }

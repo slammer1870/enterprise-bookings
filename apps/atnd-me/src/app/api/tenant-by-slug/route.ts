@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     process.env.PW_E2E_PROFILE &&
     request.headers.get(E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER) === '1'
   ) {
-    return NextResponse.json({ error: 'Forced host lookup failure' }, { status: 500 })
+    throw new Error('Forced host lookup failure (e2e)')
   }
 
   try {

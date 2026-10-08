@@ -1,7 +1,4 @@
-import {
-  getPlatformHostname,
-  getServerSideURL,
-} from '@/utilities/getURL'
+import { getServerSideURL } from '@/utilities/getURL'
 import {
   isBaseHostRequest,
   isPlatformMarketingHostname,
@@ -67,17 +64,17 @@ export function isCustomPublicHostname(hostname: string): boolean {
 export function platformSubdomainSlug(hostname: string): string | null {
   const normalized = hostname.toLowerCase().split(':')[0] ?? hostname.toLowerCase()
   const isLocalhost = normalized.includes('localhost')
-  const platformHostname = getPlatformHostname()?.toLowerCase() ?? null
   const parts = normalized.split('.')
+  const rootHostname = configuredRootHostname()
 
   if (isLocalhost) {
     if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') return parts[0]
     return null
   }
 
-  if (platformHostname) {
-    if (normalized === platformHostname || !normalized.endsWith('.' + platformHostname)) return null
-    const prefix = normalized.slice(0, -(platformHostname.length + 1))
+  if (rootHostname) {
+    if (normalized === rootHostname || !normalized.endsWith('.' + rootHostname)) return null
+    const prefix = normalized.slice(0, -(rootHostname.length + 1))
     return prefix.split('.')[0] || null
   }
 
