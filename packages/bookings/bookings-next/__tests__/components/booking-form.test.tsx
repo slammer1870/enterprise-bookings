@@ -9,6 +9,10 @@ import { useTRPC } from '@repo/trpc/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
+const { trackEventMock } = vi.hoisted(() => ({
+  trackEventMock: vi.fn(),
+}))
+
 // Mock dependencies
 vi.mock('@repo/trpc/client', () => ({
   useTRPC: vi.fn(),
@@ -23,6 +27,10 @@ vi.mock('sonner', () => ({
     success: vi.fn(),
     error: vi.fn(),
   },
+}))
+
+vi.mock('@repo/analytics', () => ({
+  useAnalyticsTracker: () => ({ trackEvent: trackEventMock }),
 }))
 
 const createMockTimeslot = (remainingCapacity: number): Timeslot =>
@@ -49,6 +57,7 @@ describe('BookingForm', () => {
   let mockRouter: { push: ReturnType<typeof vi.fn> }
 
   beforeEach(() => {
+    trackEventMock.mockClear()
     queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
@@ -140,6 +149,29 @@ describe('BookingForm', () => {
     await waitFor(() => {
       expect(toast.success).toHaveBeenCalledWith('Successfully booked 2 slots!')
       expect(mockRouter.push).toHaveBeenCalledWith('/dashboard')
+    })
+  })
+
+  it('uses the supplied analytics flow for pay-at-door completion', async () => {
+    const user = userEvent.setup()
+    const lesson = createMockTimeslot(5)
+    mockMutateAsync.mockResolvedValue([{ id: 1 }])
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BookingForm timeslot={lesson} quantity={1} analytics={{ bookingFlow: 'new' }} />
+      </QueryClientProvider>,
+    )
+
+    await user.click(screen.getByRole('button', { name: /Book 1 Slot/i }))
+
+    await waitFor(() => {
+      expect(trackEventMock).toHaveBeenCalledWith('Booking Completed', {
+        booking_flow: 'new',
+        quantity: 1,
+        is_trial: false,
+        payment_method: 'pay_at_door',
+      })
     })
   })
 

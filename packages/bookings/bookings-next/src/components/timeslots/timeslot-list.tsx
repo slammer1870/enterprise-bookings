@@ -7,6 +7,7 @@ export function TimeslotList({
   timeslots,
   manageHref,
   loginToBookUrl,
+  analyticsEnabled,
 }: { 
   timeslots: ScheduleTimeslot[];
   /**
@@ -16,6 +17,7 @@ export function TimeslotList({
    */
   manageHref?: string | ((timeslotId: number) => string);
   loginToBookUrl?: LoginToBookUrlResolver;
+  analyticsEnabled?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-4 md:gap-8 w-full">
@@ -26,6 +28,7 @@ export function TimeslotList({
             timeslot={timeslot}
             manageHref={manageHref}
             loginToBookUrl={loginToBookUrl}
+            analyticsEnabled={analyticsEnabled}
           />
         ))
       ) : (

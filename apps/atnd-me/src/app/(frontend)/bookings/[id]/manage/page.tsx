@@ -98,6 +98,7 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
           useCheckoutHolds={true}
           initialCheckoutHold={initialCheckoutHold}
           successUrl="/success"
+          analytics={{ bookingFlow: 'manage' }}
         />
       </div>
     )

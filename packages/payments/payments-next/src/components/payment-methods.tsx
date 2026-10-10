@@ -22,6 +22,8 @@ import { CheckoutLegalAcceptance } from "./checkout-legal-acceptance";
 import type { CheckoutLegalConfig } from "../types/checkout-legal";
 import { toast } from "sonner";
 import { getMembershipPlansForView } from "./membership-plan-filter";
+import { useAnalyticsTracker } from "@repo/analytics";
+import type { CheckoutAnalyticsAttribution } from "../checkout-analytics";
 
 type PaymentMethodsProps = {
   timeslot: Timeslot;
@@ -72,6 +74,7 @@ type PaymentMethodsProps = {
    * Example: `['dropin']` for card/drop-in only (e.g. public event checkout).
    */
   enabledMethods?: Array<"dropin" | "classpass" | "membership" | "course">;
+  analytics?: CheckoutAnalyticsAttribution;
 };
 
 type CheckoutSessionInput = {
@@ -463,10 +466,12 @@ export function PaymentMethods({
   onReserveCheckoutHold,
   checkoutLegal,
   enabledMethods,
+  analytics,
 }: PaymentMethodsProps) {
   const trpc = useTRPC();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { trackEvent } = useAnalyticsTracker();
   const methodEnabled = useCallback(
     (method: "dropin" | "classpass" | "membership" | "course") =>
       !enabledMethods || enabledMethods.includes(method),
@@ -491,6 +496,18 @@ export function PaymentMethods({
   const pendingBookingIds = getPendingBookingIds(pendingBookings);
   const hasPendingBookings = pendingBookingIds.length > 0;
   const quantity = hasPendingBookings ? pendingBookingIds.length : quantityProp ?? 1;
+  const trackBookingConversion = (paymentMethod: "membership" | "class_pass" | "course") => {
+    if (!analytics) return;
+    trackEvent(
+      analytics.bookingFlow === "course" ? "Course Purchased" : "Booking Completed",
+      {
+        booking_flow: analytics.bookingFlow,
+        quantity,
+        is_trial: timeslot.bookingStatus === "trialable",
+        payment_method: paymentMethod,
+      },
+    );
+  };
 
   const tenantId =
     timeslot.tenant != null
@@ -784,6 +801,7 @@ export function PaymentMethods({
   const { mutateAsync: createBookingsWithSubscription } = useMutation(
     trpc.bookings.createBookings.mutationOptions({
       onSuccess: () => {
+        trackBookingConversion("membership");
         onPaymentRedirectStart?.();
         const url = successUrlProp ?? "/dashboard";
         router.push(url.startsWith("http") ? url : `${typeof window !== "undefined" ? window.location.origin : ""}${url.startsWith("/") ? url : `/${url}`}`);
@@ -797,6 +815,7 @@ export function PaymentMethods({
   const { mutateAsync: createBookingsWithClassPass } = useMutation(
     trpc.bookings.createBookings.mutationOptions({
       onSuccess: () => {
+        trackBookingConversion("class_pass");
         _onPaymentSuccess?.();
         onPaymentRedirectStart?.();
         const url = successUrlProp ?? "/dashboard";
@@ -811,6 +830,7 @@ export function PaymentMethods({
   const { mutateAsync: createBookingsWithCourse } = useMutation(
     trpc.bookings.createBookings.mutationOptions({
       onSuccess: () => {
+        trackBookingConversion("course");
         _onPaymentSuccess?.();
         onPaymentRedirectStart?.();
         const url = successUrlProp ?? "/dashboard";
