@@ -11,6 +11,9 @@ services:
       dockerfile: apps/atnd-me/Dockerfile
       args:
         DATABASE_URI: ${DATABASE_URI}
+        NEXT_PUBLIC_APP_RELEASE: ${NEXT_PUBLIC_APP_RELEASE:-unknown}
+        NEXT_PUBLIC_APP_BUILT_AT: ${NEXT_PUBLIC_APP_BUILT_AT:-}
+        NEXT_PUBLIC_APP_ENVIRONMENT: ${NEXT_PUBLIC_APP_ENVIRONMENT:-production}
     ports:
       - '3000:3000'
     env_file:
