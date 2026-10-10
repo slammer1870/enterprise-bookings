@@ -63,6 +63,8 @@ export interface CustomHostnameStatusResult {
   rawHostnameStatus: string
   /** Raw Cloudflare SSL status string */
   rawSslStatus: string
+  /** The ownership TXT name (_cf-custom-hostname) if available */
+  ownershipTxtName: string | null
   /** The ownership TXT value (_cf-custom-hostname) if available */
   ownershipTxtValue: string | null
   /** ACME DCV TXT records (_acme-challenge) required for apex TXT validation */
@@ -255,6 +257,7 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
       sslStatus: toHostnameStatus(record.ssl?.status ?? ''),
       rawHostnameStatus: record.status,
       rawSslStatus: record.ssl?.status ?? '',
+      ownershipTxtName: record.ownership_verification?.name ?? null,
       ownershipTxtValue: record.ownership_verification?.value ?? null,
       sslValidationRecords,
       verificationErrors: record.verification_errors ?? [],

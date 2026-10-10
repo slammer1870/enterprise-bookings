@@ -219,6 +219,7 @@ describe('getCustomHostnameStatus', () => {
       sslStatus: 'pending',
       rawHostnameStatus: 'pending',
       rawSslStatus: 'pending_validation',
+      ownershipTxtName: '_cf-custom-hostname.croilan.com',
       ownershipTxtValue: 'txt-token-abc',
       sslValidationRecords: [
         { status: 'pending', txtName: '_acme-challenge.croilan.com', txtValue: 'acme-token-1' },
