@@ -2,6 +2,8 @@
 
 import Stripe from 'stripe'
 
+import { isStripeTestAccount } from '@/lib/stripe-connect/test-accounts'
+
 /** Default when `STRIPE_API_VERSION` is unset (Clover). */
 const DEFAULT_PLATFORM_STRIPE_API_VERSION = '2026-02-25.clover'
 
@@ -17,13 +19,6 @@ function resolvePlatformStripeApiVersion(): string {
  */
 export const PLATFORM_STRIPE_API_VERSION =
   resolvePlatformStripeApiVersion() as Stripe.LatestApiVersion
-
-/** E2E/test Connect account ID prefixes; match test-accounts.ts. */
-const E2E_ACCOUNT_REGEX =
-  /^acct_(fee_disclosure_|smoke_|cp_only_|dropin_discount_|e2e_connected_|e2e_gated_|leave_)/
-function isStripeTestAccount(id: string | null | undefined): boolean {
-  return Boolean(id?.trim() && E2E_ACCOUNT_REGEX.test(id.trim()))
-}
 
 /** Required env vars for Stripe Connect; throws if any are missing. */
 export function assertStripeConnectEnv(): void {
