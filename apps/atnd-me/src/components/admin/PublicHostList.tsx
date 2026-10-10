@@ -48,6 +48,7 @@ const CERTIFICATE_PENDING = new Set([
   'pending_validation',
   'pending_issuance',
   'pending_deployment',
+  'staging_deployment',
   'staging_active',
   'backup_issued',
 ])
@@ -86,6 +87,26 @@ function allocatedAddresses(envName: 'CLOUDFLARE_APEX_PROXYING_A' | 'CLOUDFLARE_
   return addresses
 }
 
+/** A routing or TXT row with no role and no status pair. */
+function supplementaryRow(
+  key: string,
+  type: 'A' | 'AAAA' | 'TXT',
+  dnsHost: string,
+  value: string,
+): PublicHostRow {
+  return {
+    key,
+    hostname: '',
+    role: '',
+    type,
+    dnsHost,
+    value,
+    dnsStatus: null,
+    certificateStatus: null,
+    verificationErrors: [],
+  }
+}
+
 const APEX_PROXYING_RECORDS = [
   { type: 'A', envName: 'CLOUDFLARE_APEX_PROXYING_A', family: 4 },
   { type: 'AAAA', envName: 'CLOUDFLARE_APEX_PROXYING_AAAA', family: 6 },
@@ -96,17 +117,7 @@ function apexProxyingRows(hostname: string): PublicHostRow[] {
   const rows: PublicHostRow[] = []
   for (const record of APEX_PROXYING_RECORDS) {
     for (const value of allocatedAddresses(record.envName, record.family)) {
-      rows.push({
-        key: `${hostname}:${record.type}:${value}`,
-        hostname: '',
-        role: '',
-        type: record.type,
-        dnsHost: '@',
-        value,
-        dnsStatus: null,
-        certificateStatus: null,
-        verificationErrors: [],
-      })
+      rows.push(supplementaryRow(`${hostname}:${record.type}:${value}`, record.type, '@', value))
     }
   }
   return rows
@@ -114,7 +125,9 @@ function apexProxyingRows(hostname: string): PublicHostRow[] {
 
 /** A zone already on Cloudflare cannot use ownership or `_acme-challenge` TXT. */
 function zoneAlreadyOnCloudflare(status: CustomHostnameStatusResult): boolean {
-  return status.verificationErrors.some((error) => /using cloudflare/i.test(error))
+  return status.verificationErrors.some((error) =>
+    /hostname is using cloudflare and cannot be activated/i.test(error),
+  )
 }
 
 /** Ownership TXT while DNS status is not Active and Cloudflare has issued a name and value. */
@@ -123,19 +136,7 @@ function ownershipTxtRows(hostname: string, status: CustomHostnameStatusResult |
   const name = status.ownershipTxtName?.trim() ?? ''
   const value = status.ownershipTxtValue?.trim() ?? ''
   if (!name || !value) return []
-  return [
-    {
-      key: `TXT:${hostname}:${name}`,
-      hostname: '',
-      role: '',
-      type: 'TXT',
-      dnsHost: name,
-      value,
-      dnsStatus: null,
-      certificateStatus: null,
-      verificationErrors: [],
-    },
-  ]
+  return [supplementaryRow(`TXT:${hostname}:${name}`, 'TXT', name, value)]
 }
 
 /** Each `_acme-challenge` TXT while certificate status is not Active. Delegated DCV stays off the list. */
@@ -148,17 +149,7 @@ function acmeTxtRows(hostname: string, status: CustomHostnameStatusResult | null
     if (!name.includes('_acme-challenge') || value.includes('dcv.cloudflare.com') || name === '' || value === '') {
       continue
     }
-    rows.push({
-      key: `TXT:${hostname}:${name}:${value}`,
-      hostname: '',
-      role: '',
-      type: 'TXT',
-      dnsHost: name,
-      value,
-      dnsStatus: null,
-      certificateStatus: null,
-      verificationErrors: [],
-    })
+    rows.push(supplementaryRow(`TXT:${hostname}:${name}:${value}`, 'TXT', name, value))
   }
   return rows
 }

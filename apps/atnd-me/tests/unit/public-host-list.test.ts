@@ -291,6 +291,7 @@ describe('public host list', () => {
       ['validation.example.com', 'pending_validation'],
       ['issuance.example.com', 'pending_issuance'],
       ['deployment.example.com', 'pending_deployment'],
+      ['staging-deployment.example.com', 'staging_deployment'],
       ['pending-ssl.example.com', 'pending'],
     ] as const
     installCloudflare(
@@ -315,6 +316,7 @@ describe('public host list', () => {
       'validation.example.com alias CNAME validation cname.atnd.me Active Pending',
       'issuance.example.com alias CNAME issuance cname.atnd.me Active Pending',
       'deployment.example.com alias CNAME deployment cname.atnd.me Active Pending',
+      'staging-deployment.example.com alias CNAME staging-deployment cname.atnd.me Active Pending',
       'pending-ssl.example.com alias CNAME pending-ssl cname.atnd.me Active Pending',
       'studio.atnd.me alias',
     ])
@@ -350,18 +352,20 @@ describe('public host list', () => {
     installCloudflare({
       'unmapped.example.com': { id: 'csh-unmapped', status: 'pending_blocked', ssl: { status: 'expired' } },
       'inactive.example.com': { id: 'csh-inactive', status: 'active', ssl: { status: 'inactive' } },
+      'held.example.com': { id: 'csh-held', status: 'active', ssl: { status: 'holding_deployment' } },
     })
 
     const rows = await renderedRows({
       slug: 'studio',
       domain: 'missing.example.com',
-      aliasHosts: ['unmapped.example.com', 'inactive.example.com'],
+      aliasHosts: ['unmapped.example.com', 'inactive.example.com', 'held.example.com'],
     })
 
     expect(rows).toEqual([
       'missing.example.com canonical CNAME missing cname.atnd.me Unknown Unknown',
       'unmapped.example.com alias CNAME unmapped cname.atnd.me Unknown Unknown',
       'inactive.example.com alias CNAME inactive cname.atnd.me Active Unknown',
+      'held.example.com alias CNAME held cname.atnd.me Active Unknown',
       'studio.atnd.me alias',
     ])
   })
@@ -521,6 +525,34 @@ describe('public host list', () => {
     ])
     expect(html).not.toContain('ownership-token')
     expect(html).not.toContain('acme-token')
+  })
+
+  it('still shows the ownership TXT when a verification error does not say the hostname is using Cloudflare', async () => {
+    installCloudflare({
+      'www.example.com': {
+        id: 'csh-www',
+        status: 'pending',
+        verification_errors: ['caa record forbids issuance'],
+        ownership_verification: {
+          type: 'txt',
+          name: '_cf-custom-hostname.www.example.com',
+          value: 'ownership-token',
+        },
+        ssl: { status: 'active' },
+      },
+    })
+
+    const rows = await renderedRows({
+      slug: 'studio',
+      domain: 'www.example.com',
+      aliasHosts: [],
+    })
+
+    expect(rows).toEqual([
+      'www.example.com canonical CNAME www cname.atnd.me Pending caa record forbids issuance Active',
+      'TXT _cf-custom-hostname.www.example.com ownership-token',
+      'studio.atnd.me alias',
+    ])
   })
 })
 
