@@ -255,11 +255,11 @@ export const Tenants: CollectionConfig = {
       },
     },
     {
-      name: 'domainDnsInstructions',
+      name: 'publicHosts',
       type: 'ui',
+      label: 'Public hosts',
       admin: {
-        condition: (data) => Boolean(data?.domain),
-        components: { Field: '@/components/admin/DomainDnsInstructions' },
+        components: { Field: '@/components/admin/PublicHostList' },
       },
     },
     {
@@ -289,14 +289,6 @@ export const Tenants: CollectionConfig = {
       required: false,
       admin: { hidden: true },
       access: { update: adminOnlyUpdate },
-    },
-    {
-      name: 'apexDnsInstructions',
-      type: 'ui',
-      admin: {
-        condition: (data) => Boolean(data?.redirectApex),
-        components: { Field: '@/components/admin/ApexDnsInstructions' },
-      },
     },
     {
       name: 'emailDomainDnsInstructions',
