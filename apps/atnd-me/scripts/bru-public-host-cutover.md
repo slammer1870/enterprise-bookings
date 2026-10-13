@@ -28,5 +28,5 @@ Rolling back the data migration does not undo this write. To reverse it, set the
 
 - `https://brugrappling.ie/kids` returns 200, and the indexed URL is on the apex.
 - `https://www.brugrappling.ie/kids?ref=1` returns 301 to `https://brugrappling.ie/kids?ref=1`.
-- `https://brugrappling.atnd.me/kids?ref=1` returns 301 to the same URL.
+- `https://bru-grappling.atnd.me/kids?ref=1` returns 301 to the same URL.
 - `www` does not return 200 for a tenant page.
