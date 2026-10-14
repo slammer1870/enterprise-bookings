@@ -45,7 +45,7 @@ async function main() {
   const rows = await readLegacyTenantPublicHostRows(db)
   const bru = rows.filter((row) => isBruGrapplingTenant(row))
   if (bru.length === 0) {
-    console.error('No tenant with slug bru-grappling.')
+    console.error('No tenant with slug brugrappling.')
     process.exit(1)
   }
 
@@ -55,7 +55,7 @@ async function main() {
   })
   for (const write of writes) {
     console.log(
-      `bru-grappling canonical host ${write.canonicalHost}; alias hosts ${write.aliasHosts.join(', ')}; platform subdomain ${write.platformSubdomain} is an ${write.platformSubdomainRole}.`,
+      `brugrappling canonical host ${write.canonicalHost}; alias hosts ${write.aliasHosts.join(', ')}; platform subdomain ${write.platformSubdomain} is an ${write.platformSubdomainRole}.`,
     )
   }
 }

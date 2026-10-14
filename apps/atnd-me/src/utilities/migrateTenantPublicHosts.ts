@@ -15,7 +15,7 @@ export type MigratedTenantPublicHosts = {
   platformSubdomainRole: 'canonical' | 'alias'
 }
 
-export const BRU_GRAPPLING_SLUG = 'bru-grappling'
+export const BRU_GRAPPLING_SLUG = 'brugrappling'
 const BRU_GRAPPLING_CANONICAL_HOST = 'brugrappling.ie'
 const BRU_GRAPPLING_WWW_HOST = 'www.brugrappling.ie'
 

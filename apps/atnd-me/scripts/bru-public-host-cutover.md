@@ -20,7 +20,7 @@ From `apps/atnd-me`, with `DATABASE_URI` set:
 pnpm exec tsx scripts/cutover-bru-public-host.ts --apex-cname-live --homepage-rule-removed
 ```
 
-This sets the canonical host to `brugrappling.ie` and the alias host to `www.brugrappling.ie`. The platform subdomain `bru-grappling.atnd.me` becomes an alias because a custom canonical host exists. It does not provision email, Apple Pay, or a new Cloudflare custom hostname.
+This sets the canonical host to `brugrappling.ie` and the alias host to `www.brugrappling.ie`. The platform subdomain `brugrappling.atnd.me` becomes an alias because a custom canonical host exists. It does not provision email, Apple Pay, or a new Cloudflare custom hostname.
 
 Rolling back the data migration does not undo this write. To reverse it, set the canonical host back to `www.brugrappling.ie` and the alias host to `brugrappling.ie`.
 
@@ -28,5 +28,5 @@ Rolling back the data migration does not undo this write. To reverse it, set the
 
 - `https://brugrappling.ie/kids` returns 200, and the indexed URL is on the apex.
 - `https://www.brugrappling.ie/kids?ref=1` returns 301 to `https://brugrappling.ie/kids?ref=1`.
-- `https://bru-grappling.atnd.me/kids?ref=1` returns 301 to the same URL.
+- `https://brugrappling.atnd.me/kids?ref=1` returns 301 to the same URL.
 - `www` does not return 200 for a tenant page.

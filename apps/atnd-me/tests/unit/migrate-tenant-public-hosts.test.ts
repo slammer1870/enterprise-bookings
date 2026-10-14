@@ -62,10 +62,10 @@ describe('migrateLegacyTenantPublicHosts', () => {
     })
   })
 
-  it('maps the bru-grappling slug to the apex regardless of the stored serving hostname', () => {
+  it('maps the brugrappling slug to the apex regardless of the stored serving hostname', () => {
     const migrated = migrateLegacyTenantPublicHosts({
       id: 9,
-      slug: 'Bru-Grappling',
+      slug: 'Brugrappling',
       domain: 'www.brugrappling.ie',
       redirectApex: true,
     })
@@ -73,7 +73,7 @@ describe('migrateLegacyTenantPublicHosts', () => {
     expect(migrated).toEqual({
       canonicalHost: 'brugrappling.ie',
       aliasHosts: ['www.brugrappling.ie'],
-      platformSubdomain: 'bru-grappling.atnd.me',
+      platformSubdomain: 'brugrappling.atnd.me',
       platformSubdomainRole: 'alias',
     })
   })
@@ -81,15 +81,31 @@ describe('migrateLegacyTenantPublicHosts', () => {
   it('keeps the Bru override when the stored hostname is not www', () => {
     const migrated = migrateLegacyTenantPublicHosts({
       id: 9,
-      slug: 'bru-grappling',
+      slug: 'brugrappling',
       domain: null,
       redirectApex: false,
     })
 
     expect(migrated.canonicalHost).toBe('brugrappling.ie')
     expect(migrated.aliasHosts).toEqual(['www.brugrappling.ie'])
-    expect(migrated.platformSubdomain).toBe('bru-grappling.atnd.me')
+    expect(migrated.platformSubdomain).toBe('brugrappling.atnd.me')
     expect(migrated.platformSubdomainRole).toBe('alias')
+  })
+
+  it('leaves a bru-grappling slug on the default mapping', () => {
+    const migrated = migrateLegacyTenantPublicHosts({
+      id: 10,
+      slug: 'bru-grappling',
+      domain: 'www.brugrappling.ie',
+      redirectApex: true,
+    })
+
+    expect(migrated).toEqual({
+      canonicalHost: 'www.brugrappling.ie',
+      aliasHosts: ['brugrappling.ie'],
+      platformSubdomain: 'bru-grappling.atnd.me',
+      platformSubdomainRole: 'alias',
+    })
   })
 
   it('does not list the canonical host as its own alias when the stored hostname is already the apex', () => {
@@ -107,7 +123,7 @@ describe('migrateLegacyTenantPublicHosts', () => {
   it('writes every other row immediately and holds Bru until cutover is confirmed', () => {
     const rows = [
       { id: 1, slug: 'studio', domain: 'www.studio.example.com', redirectApex: true },
-      { id: 9, slug: 'bru-grappling', domain: 'www.brugrappling.ie', redirectApex: true },
+      { id: 9, slug: 'brugrappling', domain: 'www.brugrappling.ie', redirectApex: true },
     ]
 
     const pending = publicHostRowsToWrite(rows, { bruCutover: false })
@@ -123,7 +139,7 @@ describe('migrateLegacyTenantPublicHosts', () => {
     expect(cutover[1]).toMatchObject({
       canonicalHost: 'brugrappling.ie',
       aliasHosts: ['www.brugrappling.ie'],
-      platformSubdomain: 'bru-grappling.atnd.me',
+      platformSubdomain: 'brugrappling.atnd.me',
       platformSubdomainRole: 'alias',
     })
   })
