@@ -334,7 +334,7 @@ export interface Tenant {
       )
     | null;
   /**
-   * Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. When VALIDATE_TENANT_CUSTOM_DOMAIN_DNS=true, the domain must have DNS records (A, AAAA, or CNAME) before saving.
+   * Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. Declaration does not wait on DNS or certificate status.
    */
   domain?: string | null;
   /**

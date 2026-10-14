@@ -54,6 +54,12 @@ export interface SslValidationRecord {
   txtValue: string
 }
 
+/** A TXT name and value Cloudflare issued. Present only when both are set. */
+export interface TxtRecord {
+  name: string
+  value: string
+}
+
 export interface CustomHostnameStatusResult {
   /** Overall hostname routing status — 'active' means traffic is flowing */
   hostnameStatus: HostnameVerificationStatus
@@ -63,10 +69,8 @@ export interface CustomHostnameStatusResult {
   rawHostnameStatus: string
   /** Raw Cloudflare SSL status string */
   rawSslStatus: string
-  /** The ownership TXT name (_cf-custom-hostname) if available */
-  ownershipTxtName: string | null
-  /** The ownership TXT value (_cf-custom-hostname) if available */
-  ownershipTxtValue: string | null
+  /** Ownership TXT (_cf-custom-hostname) when Cloudflare has issued both name and value */
+  ownershipTxt: TxtRecord | null
   /** ACME DCV TXT records (_acme-challenge) required for apex TXT validation */
   sslValidationRecords: SslValidationRecord[]
   /** Cloudflare hostname activation errors, if any */
@@ -114,6 +118,13 @@ function toHostnameStatus(s: string): HostnameVerificationStatus {
   }
   if (['blocked', 'moved', 'deleted'].includes(s)) return 'error'
   return 'unknown'
+}
+
+function extractOwnershipTxt(record: CfCustomHostname): TxtRecord | null {
+  const name = record.ownership_verification?.name?.trim() ?? ''
+  const value = record.ownership_verification?.value?.trim() ?? ''
+  if (name === '' || value === '') return null
+  return { name, value }
 }
 
 function extractSslValidationRecords(record: CfCustomHostname): SslValidationRecord[] {
@@ -257,8 +268,7 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
       sslStatus: toHostnameStatus(record.ssl?.status ?? ''),
       rawHostnameStatus: record.status,
       rawSslStatus: record.ssl?.status ?? '',
-      ownershipTxtName: record.ownership_verification?.name ?? null,
-      ownershipTxtValue: record.ownership_verification?.value ?? null,
+      ownershipTxt: extractOwnershipTxt(record),
       sslValidationRecords,
       verificationErrors: record.verification_errors ?? [],
     }

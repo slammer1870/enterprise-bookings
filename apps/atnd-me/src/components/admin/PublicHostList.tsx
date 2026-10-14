@@ -1,15 +1,20 @@
-import { isIP } from 'node:net'
 import type { UIFieldServerComponent } from 'payload'
 import React from 'react'
-import { getCustomHostnameStatus, type CustomHostnameStatusResult } from '@/lib/cloudflare/customHostnames'
+import type { Tenant } from '@/payload-types'
+import { getCustomHostnameStatus } from '@/lib/cloudflare/customHostnames'
 import { getPlatformRootHostname } from '@/utilities/validateCustomDomain'
 import {
   getClaimedApex,
   getTenantPlatformSubdomain,
   mergeTenantPublicHostDeclaration,
+  type TenantPublicHostDocSlice,
 } from '@/utilities/tenantPublicHostDeclaration'
+import { apexProxyingRecords } from './apexProxying'
+import { acmeTxtsToShow, ownershipTxtToShow } from './publicHostTxt'
+import { certificateStatusLabel, dnsStatusLabel, type StatusLabel } from './publicHostStatus'
 
 const cellStyle = { padding: '4px 8px', fontFamily: 'monospace' } as const
+const textCellStyle = { ...cellStyle, fontFamily: 'inherit' } as const
 const headerStyle = {
   textAlign: 'left' as const,
   padding: '4px 8px',
@@ -30,132 +35,49 @@ function dnsHost(hostname: string): string {
   return hostname
 }
 
-type StatusLabel = 'Active' | 'Pending' | 'Error' | 'Unknown'
+type HostRole = 'canonical' | 'alias'
 
-const DNS_ERROR = new Set(['blocked', 'moved', 'deleted'])
-
-/** DNS Active is `active` or `active_redeploying`. Pending is `pending`. Error is `blocked`, `moved`, or `deleted`. */
-function dnsStatusLabel(raw: string | null | undefined): StatusLabel {
-  if (raw === 'active' || raw === 'active_redeploying') return 'Active'
-  if (raw === 'pending') return 'Pending'
-  if (raw != null && DNS_ERROR.has(raw)) return 'Error'
-  return 'Unknown'
-}
-
-const CERTIFICATE_PENDING = new Set([
-  'pending',
-  'initializing',
-  'pending_validation',
-  'pending_issuance',
-  'pending_deployment',
-  'staging_deployment',
-  'staging_active',
-  'backup_issued',
-])
-
-/** Certificate Active is Cloudflare SSL `active` only. Issuance, including `staging_active` and `backup_issued`, stays Pending. */
-function certificateStatusLabel(raw: string | null | undefined): StatusLabel {
-  if (raw === 'active') return 'Active'
-  if (raw != null && CERTIFICATE_PENDING.has(raw)) return 'Pending'
-  return 'Unknown'
-}
-
-type PublicHostRow = {
+type RoutingRow = {
+  kind: 'routing'
   key: string
   hostname: string
-  role: 'canonical' | 'alias' | ''
-  type: 'CNAME' | 'A' | 'AAAA' | 'TXT' | ''
+  role: HostRole
   dnsHost: string
   value: string
-  dnsStatus: StatusLabel | null
-  certificateStatus: StatusLabel | null
+  dnsStatus: StatusLabel
+  certificateStatus: StatusLabel
   verificationErrors: string[]
 }
 
-/** Allocated Apex Proxying addresses. Unknown, or not an address of this family, is omitted. */
-function allocatedAddresses(envName: 'CLOUDFLARE_APEX_PROXYING_A' | 'CLOUDFLARE_APEX_PROXYING_AAAA', family: 4 | 6): string[] {
-  const raw = process.env[envName]
-  if (!raw) return []
-  const seen = new Set<string>()
-  const addresses: string[] = []
-  for (const part of raw.split(/[\s,]+/)) {
-    const value = part.trim()
-    if (isIP(value) !== family || seen.has(value)) continue
-    seen.add(value)
-    addresses.push(value)
-  }
-  return addresses
+type RecordRow = {
+  kind: 'record'
+  key: string
+  type: 'A' | 'AAAA' | 'TXT'
+  dnsHost: string
+  value: string
 }
 
-/** A routing or TXT row with no role and no status pair. */
-function supplementaryRow(
-  key: string,
-  type: 'A' | 'AAAA' | 'TXT',
-  dnsHost: string,
-  value: string,
-): PublicHostRow {
-  return {
-    key,
-    hostname: '',
-    role: '',
-    type,
-    dnsHost,
-    value,
-    dnsStatus: null,
-    certificateStatus: null,
-    verificationErrors: [],
-  }
+type PlatformRow = {
+  kind: 'platform'
+  key: string
+  hostname: string
+  role: HostRole
 }
 
-const APEX_PROXYING_RECORDS = [
-  { type: 'A', envName: 'CLOUDFLARE_APEX_PROXYING_A', family: 4 },
-  { type: 'AAAA', envName: 'CLOUDFLARE_APEX_PROXYING_AAAA', family: 6 },
-] as const
+type PublicHostRow = RoutingRow | RecordRow | PlatformRow
 
-function apexProxyingRows(hostname: string): PublicHostRow[] {
-  if (dnsHost(hostname) !== '@') return []
-  const rows: PublicHostRow[] = []
-  for (const record of APEX_PROXYING_RECORDS) {
-    for (const value of allocatedAddresses(record.envName, record.family)) {
-      rows.push(supplementaryRow(`${hostname}:${record.type}:${value}`, record.type, '@', value))
-    }
-  }
-  return rows
+function recordRow(key: string, type: RecordRow['type'], host: string, value: string): RecordRow {
+  return { kind: 'record', key, type, dnsHost: host, value }
 }
 
-/** A zone already on Cloudflare cannot use ownership or `_acme-challenge` TXT. */
-function zoneAlreadyOnCloudflare(status: CustomHostnameStatusResult): boolean {
-  return status.verificationErrors.some((error) =>
-    /hostname is using cloudflare and cannot be activated/i.test(error),
-  )
+function hostDeclaration(data: unknown): TenantPublicHostDocSlice {
+  if (data == null || typeof data !== 'object') return {}
+  const doc = data as Pick<Tenant, 'domain' | 'aliasHosts' | 'slug'>
+  return { domain: doc.domain, aliasHosts: doc.aliasHosts, slug: doc.slug }
 }
 
-/** Ownership TXT while DNS status is not Active and Cloudflare has issued a name and value. */
-function ownershipTxtRows(hostname: string, status: CustomHostnameStatusResult | null): PublicHostRow[] {
-  if (!status || dnsStatusLabel(status.rawHostnameStatus) === 'Active' || zoneAlreadyOnCloudflare(status)) return []
-  const name = status.ownershipTxtName?.trim() ?? ''
-  const value = status.ownershipTxtValue?.trim() ?? ''
-  if (!name || !value) return []
-  return [supplementaryRow(`TXT:${hostname}:${name}`, 'TXT', name, value)]
-}
-
-/** Each `_acme-challenge` TXT while certificate status is not Active. Delegated DCV stays off the list. */
-function acmeTxtRows(hostname: string, status: CustomHostnameStatusResult | null): PublicHostRow[] {
-  if (!status || certificateStatusLabel(status.rawSslStatus) === 'Active' || zoneAlreadyOnCloudflare(status)) return []
-  const rows: PublicHostRow[] = []
-  for (const record of status.sslValidationRecords) {
-    const name = record.txtName.trim()
-    const value = record.txtValue.trim()
-    if (!name.includes('_acme-challenge') || value.includes('dcv.cloudflare.com') || name === '' || value === '') {
-      continue
-    }
-    rows.push(supplementaryRow(`TXT:${hostname}:${name}:${value}`, 'TXT', name, value))
-  }
-  return rows
-}
-
-async function publicHostRows(data: Record<string, unknown> | undefined): Promise<PublicHostRow[]> {
-  const declaration = mergeTenantPublicHostDeclaration(data ?? {})
+async function publicHostRows(data: unknown): Promise<PublicHostRow[]> {
+  const declaration = mergeTenantPublicHostDeclaration(hostDeclaration(data))
   const target = saasTarget()
   const rows: PublicHostRow[] = []
 
@@ -163,40 +85,81 @@ async function publicHostRows(data: Record<string, unknown> | undefined): Promis
     const customHosts = [declaration.canonicalHost, ...declaration.aliasHosts]
     const statuses = await Promise.all(customHosts.map((hostname) => getCustomHostnameStatus(hostname)))
     for (const [index, hostname] of customHosts.entries()) {
-      const status = statuses[index]
+      const status = statuses[index] ?? null
       rows.push({
+        kind: 'routing',
         key: hostname,
         hostname,
         role: index === 0 ? 'canonical' : 'alias',
-        type: 'CNAME',
         dnsHost: dnsHost(hostname),
         value: target ?? '',
         dnsStatus: dnsStatusLabel(status?.rawHostnameStatus),
         certificateStatus: certificateStatusLabel(status?.rawSslStatus),
         verificationErrors: status?.verificationErrors ?? [],
       })
-      rows.push(...ownershipTxtRows(hostname, status ?? null))
-      rows.push(...acmeTxtRows(hostname, status ?? null))
-      rows.push(...apexProxyingRows(hostname))
+      const ownership = ownershipTxtToShow(status)
+      if (ownership) {
+        rows.push(recordRow(`TXT:${hostname}:${ownership.name}`, 'TXT', ownership.name, ownership.value))
+      }
+      for (const txt of acmeTxtsToShow(status)) {
+        rows.push(recordRow(`TXT:${hostname}:${txt.name}:${txt.value}`, 'TXT', txt.name, txt.value))
+      }
+      if (dnsHost(hostname) === '@') {
+        for (const record of apexProxyingRecords()) {
+          rows.push(recordRow(`${hostname}:${record.type}:${record.value}`, record.type, '@', record.value))
+        }
+      }
     }
   }
 
   const platformHost = getTenantPlatformSubdomain(declaration.slug)
   if (platformHost) {
     rows.push({
+      kind: 'platform',
       key: platformHost,
       hostname: platformHost,
       role: declaration.canonicalHost ? 'alias' : 'canonical',
-      type: '',
-      dnsHost: '',
-      value: '',
-      dnsStatus: null,
-      certificateStatus: null,
-      verificationErrors: [],
     })
   }
 
   return rows
+}
+
+const MONOSPACE_COLUMNS = new Set([0, 3, 4])
+
+function rowCells(row: PublicHostRow): React.ReactNode[] {
+  if (row.kind === 'routing') {
+    return [
+      row.hostname,
+      row.role,
+      'CNAME',
+      row.dnsHost,
+      row.value,
+      <>
+        {row.dnsStatus}
+        {row.verificationErrors.map((error) => (
+          <div key={error}>{error}</div>
+        ))}
+      </>,
+      row.certificateStatus,
+    ]
+  }
+  if (row.kind === 'record') {
+    return ['', '', row.type, row.dnsHost, row.value, '', '']
+  }
+  return [row.hostname, row.role, '', '', '', '', '']
+}
+
+function HostRow({ row }: { row: PublicHostRow }) {
+  return (
+    <tr>
+      {rowCells(row).map((cell, index) => (
+        <td key={index} style={MONOSPACE_COLUMNS.has(index) ? cellStyle : textCellStyle}>
+          {cell}
+        </td>
+      ))}
+    </tr>
+  )
 }
 
 /**
@@ -206,7 +169,7 @@ async function publicHostRows(data: Record<string, unknown> | undefined): Promis
  * second status pair. The platform subdomain shows its role only.
  */
 export const PublicHostList: UIFieldServerComponent = async ({ data }) => {
-  const rows = await publicHostRows(data as Record<string, unknown> | undefined)
+  const rows = await publicHostRows(data)
   if (rows.length === 0) return null
 
   return (
@@ -223,20 +186,7 @@ export const PublicHostList: UIFieldServerComponent = async ({ data }) => {
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.key}>
-              <td style={cellStyle}>{row.hostname}</td>
-              <td style={{ ...cellStyle, fontFamily: 'inherit' }}>{row.role}</td>
-              <td style={{ ...cellStyle, fontFamily: 'inherit' }}>{row.type}</td>
-              <td style={cellStyle}>{row.dnsHost}</td>
-              <td style={cellStyle}>{row.value}</td>
-              <td style={{ ...cellStyle, fontFamily: 'inherit' }}>
-                {row.dnsStatus ?? ''}
-                {row.verificationErrors.map((error) => (
-                  <div key={error}>{error}</div>
-                ))}
-              </td>
-              <td style={{ ...cellStyle, fontFamily: 'inherit' }}>{row.certificateStatus ?? ''}</td>
-            </tr>
+            <HostRow key={row.key} row={row} />
           ))}
         </tbody>
       </table>

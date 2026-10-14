@@ -13,7 +13,19 @@ describe('Middleware', () => {
   const originalFetch = globalThis.fetch
 
   beforeEach(() => {
-    globalThis.fetch = async () => new Response(null, { status: 404 })
+    globalThis.fetch = async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const href = String(url)
+      const slugMatch = href.match(/[?&]slug=([^&]+)/)
+      if (href.includes('/api/tenant-by-slug') && slugMatch?.[1]) {
+        const slug = decodeURIComponent(slugMatch[1])
+        return new Response(JSON.stringify({ slug, id: 1 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(null, { status: 404 })
+    }
   })
 
   afterEach(() => {

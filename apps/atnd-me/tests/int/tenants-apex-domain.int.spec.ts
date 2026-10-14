@@ -55,13 +55,13 @@ describe('Apex domain — findTenantByHost', () => {
   let apexTenant: Tenant   // separate tenant with redirectApex on a different domain
   let noApexTenant: Tenant // redirectApex: false
 
-  const wwwDomain = `www.apex-int-${stamp}.example.com`
-  const apexDomain = `apex-int-${stamp}.example.com`       // derived from wwwDomain
+  const wwwDomain = `www.apex-int-${stamp}.com`
+  const apexDomain = `apex-int-${stamp}.com`
 
-  const otherWww = `www.other-apex-int-${stamp}.example.com`
-  const otherApex = `other-apex-int-${stamp}.example.com`
+  const otherWww = `www.other-apex-int-${stamp}.com`
+  const otherApex = `other-apex-int-${stamp}.com`
 
-  const noApexWww = `www.noapex-int-${stamp}.example.com`
+  const noApexWww = `www.noapex-int-${stamp}.com`
 
   beforeAll(async () => {
     const payloadConfig = await config

@@ -98,6 +98,9 @@ const sharedWebServerEnv = {
   ENABLE_TEST_WEBHOOKS: 'true',
   PW_E2E_PROFILE: 'true',
   PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true',
+  // Apex public-host rows in admin. TEST-NET addresses, not the SaaS anycast.
+  CLOUDFLARE_APEX_PROXYING_A: '192.0.2.10',
+  CLOUDFLARE_APEX_PROXYING_AAAA: '2001:db8::10',
   ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
   ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
 }

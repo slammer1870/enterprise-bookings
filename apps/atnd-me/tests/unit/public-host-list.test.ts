@@ -370,6 +370,25 @@ describe('public host list', () => {
     ])
   })
 
+  it('leaves a dropped hostname off the list even when Cloudflare still knows it', async () => {
+    installCloudflare({
+      'www.example.com': { id: 'csh-www', status: 'active', ssl: { status: 'active' } },
+      'old.example.com': { id: 'csh-old', status: 'active', ssl: { status: 'active' } },
+    })
+
+    const html = await renderedHtml({
+      slug: 'studio',
+      domain: 'www.example.com',
+      aliasHosts: [],
+    })
+
+    expect(rowsFromHtml(html)).toEqual([
+      'www.example.com canonical CNAME www cname.atnd.me Active Active',
+      'studio.atnd.me alias',
+    ])
+    expect(html).not.toContain('old.example.com')
+  })
+
   it('shows Unknown, and still shows the routing record, when the Cloudflare API cannot be read', async () => {
     process.env.CLOUDFLARE_API_TOKEN = 'cf-token-xyz'
     process.env.CLOUDFLARE_ZONE_ID = 'zone-abc123'
