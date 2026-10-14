@@ -3,13 +3,36 @@ import type { Metadata } from 'next'
 import type { Media, Page, Post, Config } from '../payload-types'
 
 import { mergeOpenGraph } from './mergeOpenGraph'
-import { getAbsoluteURL, getCanonicalHostname, getIndexedURL, getTenantSiteURL } from './getURL'
+import {
+  getAbsoluteURL,
+  getCanonicalHostname,
+  getIndexedURL,
+  getTenantSiteURL,
+} from './getURL'
 import type { TenantWithBranding } from './getTenantContext'
 import { isPlatformPublicHostname } from './publicHostOutcome'
 import { getRequestHostname } from './tenantRequest'
 
+const mediaUrlHasScheme = (value: string) => /^[a-z][a-z\d+.-]*:/i.test(value)
+
+/**
+ * A media URL with a scheme is already absolute, host included.
+ * A media URL with no scheme is a path.
+ */
+const mediaPath = (mediaUrl: string): string | null => {
+  if (mediaUrlHasScheme(mediaUrl)) return null
+  return mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`
+}
+
+const shareImageFromMediaUrl = (mediaUrl: string, canonicalHost: string): string => {
+  const path = mediaPath(mediaUrl)
+  if (path == null) return mediaUrl
+  return `https://${canonicalHost}${path}`
+}
+
 const getImageURL = (args: {
   baseURL: string
+  canonicalHost?: string | null
   image?: Media | Config['db']['defaultIDType'] | null
   fallbackImage?:
     | Media
@@ -17,7 +40,7 @@ const getImageURL = (args: {
     | Config['db']['defaultIDType']
     | null
 }) => {
-  const { baseURL, image, fallbackImage } = args
+  const { baseURL, canonicalHost, image, fallbackImage } = args
 
   const resolvedImage = [image, fallbackImage].find(
     (candidate): candidate is Media => Boolean(candidate && typeof candidate === 'object' && 'url' in candidate),
@@ -28,6 +51,8 @@ const getImageURL = (args: {
     const imagePath = ogUrl || resolvedImage.url
 
     if (imagePath) {
+      if (canonicalHost) return shareImageFromMediaUrl(imagePath, canonicalHost)
+      if (mediaUrlHasScheme(imagePath)) return imagePath
       return getAbsoluteURL(imagePath, baseURL)
     }
   }
@@ -51,8 +76,10 @@ export const generateMeta = async (args: {
     requestHostname && isPlatformPublicHostname(requestHostname) && !tenantBranding,
   )
 
+  const canonicalHostname = getCanonicalHostname(tenantBranding)
   const ogImage = getImageURL({
     baseURL: siteUrl,
+    canonicalHost: canonicalHostname,
     image: doc?.meta?.image,
   })
 
@@ -67,7 +94,6 @@ export const generateMeta = async (args: {
     pathname ||
     currentPath ||
     (typeof doc?.slug === 'string' && doc.slug ? `/${doc.slug}` : '/')
-  const canonicalHostname = getCanonicalHostname(tenantBranding)
   const canonicalUrl = canonicalHostname
     ? getIndexedURL(canonicalHostname, resolvedPath)
     : getAbsoluteURL(resolvedPath, siteUrl)
