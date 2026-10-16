@@ -1,5 +1,11 @@
-import { parse as parseHostname } from 'tldts'
-import type { PayloadRequest, Where } from 'payload'
+import { APIError, type PayloadRequest, type Where } from 'payload'
+import {
+  DEFAULT_DIRECTION,
+  directionRefusal,
+  getClaimedApex,
+  parseDirection,
+  type Direction,
+} from '@/utilities/hostnameDirection'
 import {
   getPlatformRootHostname,
   normalizeCustomDomain,
@@ -8,17 +14,22 @@ import {
   validateCustomDomainNotPlatform,
 } from '@/utilities/validateCustomDomain'
 
+export {
+  DEFAULT_DIRECTION,
+  DIRECTION_CHOICES,
+  directionRefusal,
+  getClaimedApex,
+  HOSTNAME_DIRECTIONS,
+  parseDirection,
+  type Direction,
+} from '@/utilities/hostnameDirection'
+
 const OTHER_DECLARATIONS_CACHE_KEY = 'tenantPublicHostOtherDeclarations'
 
-export const HOSTNAME_DIRECTIONS = [
-  'allow-www-and-non-www',
-  'redirect-to-www',
-  'redirect-to-non-www',
-] as const
-
-export type Direction = (typeof HOSTNAME_DIRECTIONS)[number]
-
-export const DEFAULT_DIRECTION: Direction = 'allow-www-and-non-www'
+/** A refused declaration is a client error so the admin can read why the save did not stick. */
+function refuseDeclaration(message: string): never {
+  throw new APIError(message, 400)
+}
 
 export type AliasHost = {
   host: string
@@ -55,15 +66,6 @@ export type TenantPublicHostDocSlice = {
   slug?: unknown
 }
 
-export function getClaimedApex(hostname: string): string {
-  const normalized = hostname.trim().toLowerCase()
-  const parsed = parseHostname(normalized, { allowPrivateDomains: true })
-  if (parsed.domain) return parsed.domain
-  const labels = normalized.split('.').filter(Boolean)
-  if (labels.length >= 2) return labels.slice(-2).join('.')
-  return normalized
-}
-
 export function getTenantPlatformSubdomain(slug: string): string | null {
   const root = getPlatformRootHostname()
   const normalizedSlug = slug.trim().toLowerCase()
@@ -95,17 +97,6 @@ function normalizeAliasHostsList(value: unknown): string[] {
 
 export function normalizeHostnameList(value: unknown): string[] {
   return normalizeAliasHostsList(value)
-}
-
-export function parseDirection(value: unknown): Direction {
-  if (
-    value === 'allow-www-and-non-www' ||
-    value === 'redirect-to-www' ||
-    value === 'redirect-to-non-www'
-  ) {
-    return value
-  }
-  return DEFAULT_DIRECTION
 }
 
 /**
@@ -198,28 +189,6 @@ export function readHostnameDeclaration(doc: TenantPublicHostDocSlice): Hostname
   }
 }
 
-/** Why this Direction cannot be saved for this list. Null when the list can take it. */
-export function directionRefusal(hostnames: string[], direction: Direction): string | null {
-  if (direction === 'allow-www-and-non-www') return null
-  const first = hostnames[0]
-  if (!first) {
-    if (direction === 'redirect-to-www') {
-      return 'Redirect to www needs www of the first hostname in the list.'
-    }
-    return 'Redirect to non-www needs the apex of the first hostname in the list.'
-  }
-  const apex = getClaimedApex(first)
-  const www = wwwHostOf(apex)
-  const named = new Set(hostnames)
-  if (direction === 'redirect-to-www' && !named.has(www)) {
-    return `Redirect to www needs ${www} in the hostname list.`
-  }
-  if (direction === 'redirect-to-non-www' && !named.has(apex)) {
-    return `Redirect to non-www needs ${apex} in the hostname list.`
-  }
-  return null
-}
-
 function validateHostnameNotPlatform(hostname: string): true | string {
   const notPlatform = validateCustomDomainNotPlatform(hostname)
   if (notPlatform !== true) return notPlatform
@@ -237,16 +206,16 @@ export function assertHostnameList(hostnames: string[], direction: Direction): v
   const seen = new Set<string>()
   for (const hostname of hostnames) {
     if (seen.has(hostname)) {
-      throw new Error('Each public host can only be listed once.')
+      refuseDeclaration('Each public host can only be listed once.')
     }
     seen.add(hostname)
     const format = validateDeclaredHostname(hostname)
-    if (format !== true) throw new Error(format)
+    if (format !== true) refuseDeclaration(format)
     const platform = validateHostnameNotPlatform(hostname)
-    if (platform !== true) throw new Error(platform)
+    if (platform !== true) refuseDeclaration(platform)
   }
   const refusal = directionRefusal(hostnames, direction)
-  if (refusal) throw new Error(refusal)
+  if (refusal) refuseDeclaration(refusal)
 }
 
 export function mergeTenantPublicHostDeclaration(
@@ -385,7 +354,7 @@ export function validateRawPublicHostInputs(data: TenantPublicHostDocSlice): voi
     const rawDomain = data.domain
     if (rawDomain.trim() !== '') {
       const rawCheck = validateHostnameInputBeforeNormalize(rawDomain)
-      if (rawCheck !== true) throw new Error(rawCheck)
+      if (rawCheck !== true) refuseDeclaration(rawCheck)
     }
   }
 
@@ -393,7 +362,7 @@ export function validateRawPublicHostInputs(data: TenantPublicHostDocSlice): voi
     for (const host of data.aliasHosts) {
       if (host == null) continue
       const rawCheck = validateHostnameInputBeforeNormalize(String(host))
-      if (rawCheck !== true) throw new Error(rawCheck)
+      if (rawCheck !== true) refuseDeclaration(rawCheck)
     }
   }
 
@@ -401,7 +370,7 @@ export function validateRawPublicHostInputs(data: TenantPublicHostDocSlice): voi
     for (const host of data.hostnames) {
       if (host == null) continue
       const rawCheck = validateHostnameInputBeforeNormalize(String(host))
-      if (rawCheck !== true) throw new Error(rawCheck)
+      if (rawCheck !== true) refuseDeclaration(rawCheck)
     }
   }
 }
@@ -474,12 +443,12 @@ export async function assertTenantPublicHostDeclaration(
 ): Promise<void> {
   const structure = validateTenantPublicHostDeclarationStructure(declaration)
   if (structure !== true) {
-    throw new Error(structure)
+    refuseDeclaration(structure)
   }
 
   const format = validateDeclaredHostnamesFormat(declaration.canonicalHost, declaration.aliasHosts)
   if (format !== true) {
-    throw new Error(format)
+    refuseDeclaration(format)
   }
 
   const myHosts = listOccupiedPublicHostnames(declaration)
@@ -489,7 +458,7 @@ export async function assertTenantPublicHostDeclaration(
   for (const host of myHosts) {
     const owner = findOccupiedHostnameOwner(host, others)
     if (owner) {
-      throw new Error(conflictErrorForHostname(host))
+      refuseDeclaration(conflictErrorForHostname(host))
     }
   }
 
@@ -497,7 +466,7 @@ export async function assertTenantPublicHostDeclaration(
     for (const otherHost of listDeclaredCustomHostnames(other)) {
       const apex = getClaimedApex(otherHost)
       if (myApexes.has(apex)) {
-        throw new Error(
+        refuseDeclaration(
           `Another tenant already names a hostname on "${apex}". Remove their hostname there before naming one on this apex.`,
         )
       }
@@ -534,7 +503,7 @@ export async function validateTenantPublicHostDeclarationOnSave(args: {
       : undefined,
   })
   if (structure !== true) {
-    throw new Error(structure)
+    refuseDeclaration(structure)
   }
 
   const writesHostnameList = Object.prototype.hasOwnProperty.call(args.data, 'hostnames')
@@ -546,7 +515,7 @@ export async function validateTenantPublicHostDeclarationOnSave(args: {
     merged.direction !== DEFAULT_DIRECTION
   ) {
     const refusal = directionRefusal([], merged.direction)
-    if (refusal) throw new Error(refusal)
+    if (refusal) refuseDeclaration(refusal)
   }
 
   await assertTenantPublicHostDeclaration(args.req, merged, args.tenantId)

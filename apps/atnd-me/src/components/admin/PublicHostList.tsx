@@ -7,6 +7,8 @@ import {
   getClaimedApex,
   getTenantPlatformSubdomain,
   mergeTenantPublicHostDeclaration,
+  readHostnameDeclaration,
+  type DerivedPublicHostRoles,
   type TenantPublicHostDocSlice,
 } from '@/utilities/tenantPublicHostDeclaration'
 import { apexProxyingRecords } from './apexProxying'
@@ -35,7 +37,7 @@ function dnsHost(hostname: string): string {
   return hostname
 }
 
-type HostRole = 'canonical' | 'alias'
+type HostRole = string
 
 type RoutingRow = {
   kind: 'routing'
@@ -72,54 +74,96 @@ function recordRow(key: string, type: RecordRow['type'], host: string, value: st
 
 function hostDeclaration(data: unknown): TenantPublicHostDocSlice {
   if (data == null || typeof data !== 'object') return {}
-  const doc = data as Pick<Tenant, 'domain' | 'aliasHosts' | 'slug'>
-  return { domain: doc.domain, aliasHosts: doc.aliasHosts, slug: doc.slug }
+  const doc = data as Pick<Tenant, 'domain' | 'aliasHosts' | 'hostnames' | 'direction' | 'slug'>
+  return {
+    domain: doc.domain,
+    aliasHosts: doc.aliasHosts,
+    hostnames: doc.hostnames,
+    direction: doc.direction,
+    slug: doc.slug,
+  }
+}
+
+/** Canonical wins over serving. An alias names the host it redirects to. */
+function hostnameRole(hostname: string, roles: DerivedPublicHostRoles): string {
+  if (hostname === roles.canonicalHost) return 'canonical'
+  const alias = roles.aliases.find((entry) => entry.host === hostname)
+  if (alias) return `alias to ${alias.target}`
+  return 'serving'
+}
+
+async function customHostRows(hosts: Array<{ hostname: string; role: string }>): Promise<PublicHostRow[]> {
+  const target = saasTarget()
+  const statuses = await Promise.all(hosts.map((host) => getCustomHostnameStatus(host.hostname)))
+  const rows: PublicHostRow[] = []
+  for (const [index, host] of hosts.entries()) {
+    const status = statuses[index] ?? null
+    rows.push({
+      kind: 'routing',
+      key: host.hostname,
+      hostname: host.hostname,
+      role: host.role,
+      dnsHost: dnsHost(host.hostname),
+      value: target ?? '',
+      dnsStatus: dnsStatusLabel(status?.rawHostnameStatus),
+      certificateStatus: certificateStatusLabel(status?.rawSslStatus),
+      verificationErrors: status?.verificationErrors ?? [],
+    })
+    const ownership = ownershipTxtToShow(status)
+    if (ownership) {
+      rows.push(recordRow(`TXT:${host.hostname}:${ownership.name}`, 'TXT', ownership.name, ownership.value))
+    }
+    for (const txt of acmeTxtsToShow(status)) {
+      rows.push(recordRow(`TXT:${host.hostname}:${txt.name}:${txt.value}`, 'TXT', txt.name, txt.value))
+    }
+    if (dnsHost(host.hostname) === '@') {
+      for (const record of apexProxyingRecords()) {
+        rows.push(recordRow(`${host.hostname}:${record.type}:${record.value}`, record.type, '@', record.value))
+      }
+    }
+  }
+  return rows
+}
+
+function platformRow(hostname: string, role: string): PlatformRow {
+  return { kind: 'platform', key: hostname, hostname, role }
 }
 
 async function publicHostRows(data: unknown): Promise<PublicHostRow[]> {
-  const declaration = mergeTenantPublicHostDeclaration(hostDeclaration(data))
-  const target = saasTarget()
+  const doc = hostDeclaration(data)
+  const stored = readHostnameDeclaration(doc)
   const rows: PublicHostRow[] = []
 
+  if (stored.hostnames !== null && stored.roles) {
+    const roles = stored.roles
+    const hostnames = stored.hostnames
+    rows.push(
+      ...(await customHostRows(hostnames.map((hostname) => ({ hostname, role: hostnameRole(hostname, roles) })))),
+    )
+    const platformHost = getTenantPlatformSubdomain(typeof doc.slug === 'string' ? doc.slug : '')
+    if (platformHost) {
+      const role = hostnames.length === 0 ? 'canonical' : `alias to ${roles.canonicalHost}`
+      rows.push(platformRow(platformHost, role))
+    }
+    return rows
+  }
+
+  const declaration = mergeTenantPublicHostDeclaration(doc)
   if (declaration.canonicalHost) {
     const customHosts = [declaration.canonicalHost, ...declaration.aliasHosts]
-    const statuses = await Promise.all(customHosts.map((hostname) => getCustomHostnameStatus(hostname)))
-    for (const [index, hostname] of customHosts.entries()) {
-      const status = statuses[index] ?? null
-      rows.push({
-        kind: 'routing',
-        key: hostname,
-        hostname,
-        role: index === 0 ? 'canonical' : 'alias',
-        dnsHost: dnsHost(hostname),
-        value: target ?? '',
-        dnsStatus: dnsStatusLabel(status?.rawHostnameStatus),
-        certificateStatus: certificateStatusLabel(status?.rawSslStatus),
-        verificationErrors: status?.verificationErrors ?? [],
-      })
-      const ownership = ownershipTxtToShow(status)
-      if (ownership) {
-        rows.push(recordRow(`TXT:${hostname}:${ownership.name}`, 'TXT', ownership.name, ownership.value))
-      }
-      for (const txt of acmeTxtsToShow(status)) {
-        rows.push(recordRow(`TXT:${hostname}:${txt.name}:${txt.value}`, 'TXT', txt.name, txt.value))
-      }
-      if (dnsHost(hostname) === '@') {
-        for (const record of apexProxyingRecords()) {
-          rows.push(recordRow(`${hostname}:${record.type}:${record.value}`, record.type, '@', record.value))
-        }
-      }
-    }
+    rows.push(
+      ...(await customHostRows(
+        customHosts.map((hostname, index) => ({
+          hostname,
+          role: index === 0 ? 'canonical' : 'alias',
+        })),
+      )),
+    )
   }
 
   const platformHost = getTenantPlatformSubdomain(declaration.slug)
   if (platformHost) {
-    rows.push({
-      kind: 'platform',
-      key: platformHost,
-      hostname: platformHost,
-      role: declaration.canonicalHost ? 'alias' : 'canonical',
-    })
+    rows.push(platformRow(platformHost, declaration.canonicalHost ? 'alias' : 'canonical'))
   }
 
   return rows
@@ -187,10 +231,11 @@ function HostRow({ row }: { row: PublicHostRow }) {
 }
 
 /**
- * One list of the tenant's public hosts. Custom domains show a CNAME to the
- * SaaS target, with DNS and certificate status on that row. An apex also shows
- * Apex Proxying A and AAAA rows when those addresses are known, without a
- * second status pair. The platform subdomain shows its role only.
+ * One list of the tenant's public hosts. A stored hostname list is shown in
+ * typed order, then the platform subdomain. Each typed hostname shows its role,
+ * a CNAME to the SaaS target, and DNS and certificate status. An apex also shows
+ * Apex Proxying A and AAAA rows when those addresses are known. The platform
+ * subdomain shows its role only.
  */
 export const PublicHostList: UIFieldServerComponent = async ({ data }) => {
   const rows = await publicHostRows(data)

@@ -66,6 +66,135 @@ async function renderedRows(data: Record<string, unknown>): Promise<string[]> {
 }
 
 describe('public host list', () => {
+  it('lists saved hostnames in typed order, with Allow www and non-www roles, then the platform subdomain', async () => {
+    const rows = await renderedRows({
+      slug: 'studio',
+      hostnames: ['www.example.com', 'example.com'],
+      direction: 'allow-www-and-non-www',
+    })
+
+    expect(rows).toEqual([
+      'www.example.com serving CNAME www cname.atnd.me Unknown Unknown',
+      'example.com canonical CNAME @ cname.atnd.me Unknown Unknown',
+      'studio.atnd.me alias to example.com',
+    ])
+  })
+
+  it('marks www canonical and the apex an alias to www when Direction is Redirect to www', async () => {
+    const rows = await renderedRows({
+      slug: 'studio',
+      hostnames: ['www.example.com', 'example.com'],
+      direction: 'redirect-to-www',
+    })
+
+    expect(rows).toEqual([
+      'www.example.com canonical CNAME www cname.atnd.me Unknown Unknown',
+      'example.com alias to www.example.com CNAME @ cname.atnd.me Unknown Unknown',
+      'studio.atnd.me alias to www.example.com',
+    ])
+  })
+
+  it('marks www an alias to the apex and the apex canonical when Direction is Redirect to non-www', async () => {
+    const rows = await renderedRows({
+      slug: 'studio',
+      hostnames: ['www.example.com', 'example.com'],
+      direction: 'redirect-to-non-www',
+    })
+
+    expect(rows).toEqual([
+      'www.example.com alias to example.com CNAME www cname.atnd.me Unknown Unknown',
+      'example.com canonical CNAME @ cname.atnd.me Unknown Unknown',
+      'studio.atnd.me alias to example.com',
+    ])
+  })
+
+  it('marks a lone apex, a lone www host, and a hostname with no pair partner as canonical', async () => {
+    const apex = await renderedRows({
+      slug: 'studio',
+      hostnames: ['example.com'],
+      direction: 'allow-www-and-non-www',
+    })
+    const www = await renderedRows({
+      slug: 'studio',
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
+    })
+    const multiLabel = await renderedRows({
+      slug: 'studio',
+      hostnames: ['blog.example.co.uk'],
+      direction: 'allow-www-and-non-www',
+    })
+    const nested = await renderedRows({
+      slug: 'studio',
+      hostnames: ['mysite.example.com'],
+      direction: 'allow-www-and-non-www',
+    })
+
+    expect(apex[0]).toBe('example.com canonical CNAME @ cname.atnd.me Unknown Unknown')
+    expect(www[0]).toBe('www.example.com canonical CNAME www cname.atnd.me Unknown Unknown')
+    expect(multiLabel[0]).toBe('blog.example.co.uk canonical CNAME blog cname.atnd.me Unknown Unknown')
+    expect(nested[0]).toBe('mysite.example.com canonical CNAME mysite cname.atnd.me Unknown Unknown')
+    expect(apex.at(-1)).toBe('studio.atnd.me alias to example.com')
+    expect(www.at(-1)).toBe('studio.atnd.me alias to www.example.com')
+    expect(multiLabel.at(-1)).toBe('studio.atnd.me alias to blog.example.co.uk')
+    expect(nested.at(-1)).toBe('studio.atnd.me alias to mysite.example.com')
+  })
+
+  it('shows www.other.com without other.com as serving', async () => {
+    const rows = await renderedRows({
+      slug: 'studio',
+      hostnames: ['www.example.com', 'example.com', 'www.other.com'],
+      direction: 'allow-www-and-non-www',
+    })
+
+    expect(rows).toEqual([
+      'www.example.com serving CNAME www cname.atnd.me Unknown Unknown',
+      'example.com canonical CNAME @ cname.atnd.me Unknown Unknown',
+      'www.other.com serving CNAME www cname.atnd.me Unknown Unknown',
+      'studio.atnd.me alias to example.com',
+    ])
+  })
+
+  it('marks the platform subdomain canonical when the hostname list is empty', async () => {
+    const rows = await renderedRows({
+      slug: 'studio',
+      hostnames: [],
+      direction: 'allow-www-and-non-www',
+    })
+
+    expect(rows).toEqual(['studio.atnd.me canonical'])
+  })
+
+  it('keeps Apex Proxying and conditional TXT rows on a hostname-list apex', async () => {
+    process.env.CLOUDFLARE_APEX_PROXYING_A = '192.0.2.10'
+    installCloudflare({
+      'example.com': {
+        id: 'csh-apex',
+        status: 'pending',
+        ownership_verification: {
+          type: 'txt',
+          name: '_cf-custom-hostname.example.com',
+          value: 'ownership-token',
+        },
+        ssl: { status: 'pending_validation' },
+      },
+    })
+
+    const rows = await renderedRows({
+      slug: 'studio',
+      hostnames: ['www.example.com', 'example.com'],
+      direction: 'redirect-to-non-www',
+    })
+
+    expect(rows).toEqual([
+      'www.example.com alias to example.com CNAME www cname.atnd.me Unknown Unknown',
+      'example.com canonical CNAME @ cname.atnd.me Pending Pending',
+      'TXT _cf-custom-hostname.example.com ownership-token',
+      'A @ 192.0.2.10',
+      'studio.atnd.me alias to example.com',
+    ])
+  })
+
   it('lists the canonical host, aliases in named order, then the platform subdomain', async () => {
     const rows = await renderedRows({
       slug: 'bru-grappling',
@@ -594,6 +723,10 @@ function collectFields(fields: Field[] | undefined): Field[] {
   return out
 }
 
+function namedFields(fields: Field[] | undefined): Array<Field & { name: string }> {
+  return (fields ?? []).filter((field): field is Field & { name: string } => 'name' in field && typeof field.name === 'string')
+}
+
 describe('tenant admin public host panels', () => {
   it('shows one public host list and keeps the email panel separate', () => {
     const uiFields = collectFields(Tenants.fields).filter((field) => field.type === 'ui')
@@ -613,5 +746,32 @@ describe('tenant admin public host panels', () => {
       return components && 'Field' in components && components.Field === '@/components/admin/PublicHostList'
     })
     expect(publicHostField?.admin?.condition).toBeUndefined()
+  })
+
+  it('replaces the custom domain, the alias list, and Redirect apex with a hostname field and Direction above the public-host list', () => {
+    const fields = namedFields(Tenants.fields)
+    const visible = fields.filter((field) => field.admin?.hidden !== true).map((field) => field.name)
+    const hostnamesAt = visible.indexOf('hostnames')
+    const directionAt = visible.indexOf('direction')
+    const publicHostsAt = visible.indexOf('publicHosts')
+    const emailAt = visible.indexOf('emailDomainDnsInstructions')
+
+    expect(fields.find((field) => field.name === 'domain')?.admin?.hidden).toBe(true)
+    expect(fields.find((field) => field.name === 'aliasHosts')?.admin?.hidden).toBe(true)
+    expect(fields.find((field) => field.name === 'redirectApex')?.admin?.hidden).toBe(true)
+    expect(hostnamesAt).toBeGreaterThanOrEqual(0)
+    expect(directionAt).toBeGreaterThan(hostnamesAt)
+    expect(publicHostsAt).toBeGreaterThan(directionAt)
+    expect(emailAt).toBeGreaterThan(publicHostsAt)
+
+    const direction = fields.find((field) => field.name === 'direction')
+    expect(direction?.type).toBe('select')
+    if (direction?.type !== 'select') return
+    expect(direction.defaultValue).toBe('allow-www-and-non-www')
+    expect(direction.options).toEqual([
+      { label: 'Allow www and non-www', value: 'allow-www-and-non-www' },
+      { label: 'Redirect to www', value: 'redirect-to-www' },
+      { label: 'Redirect to non-www', value: 'redirect-to-non-www' },
+    ])
   })
 })

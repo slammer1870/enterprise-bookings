@@ -223,6 +223,7 @@ export const Tenants: CollectionConfig = {
       required: false,
       index: true,
       admin: {
+        hidden: true,
         description:
           'Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. Declaration does not wait on DNS or certificate status.',
       },
@@ -242,6 +243,7 @@ export const Tenants: CollectionConfig = {
       hasMany: true,
       index: true,
       admin: {
+        hidden: true,
         description:
           'Hostnames that redirect to the canonical host (the custom domain). Enter only the hostname—no protocol or path.',
       },
@@ -260,16 +262,18 @@ export const Tenants: CollectionConfig = {
     {
       name: 'hostnames',
       type: 'json',
+      label: 'Hostnames',
       required: false,
       admin: {
-        hidden: true,
         description:
-          'Ordered custom hostnames. The platform subdomain is not an entry. Empty means no custom hostname is named.',
+          'Comma-separated hostnames. The platform subdomain is assigned from the slug and is not typed here.',
+        components: { Field: '@/components/admin/HostnameListField#HostnameListField' },
       },
     },
     {
       name: 'direction',
       type: 'select',
+      label: 'Direction',
       defaultValue: DEFAULT_DIRECTION,
       options: [
         { label: 'Allow www and non-www', value: HOSTNAME_DIRECTIONS[0] },
@@ -277,9 +281,9 @@ export const Tenants: CollectionConfig = {
         { label: 'Redirect to non-www', value: HOSTNAME_DIRECTIONS[2] },
       ],
       admin: {
-        hidden: true,
         description:
           'One rule for every www/apex pair in the hostname list. The default is Allow www and non-www.',
+        components: { Field: '@/components/admin/DirectionField#DirectionField' },
       },
     },
     {
@@ -295,12 +299,9 @@ export const Tenants: CollectionConfig = {
       type: 'checkbox',
       defaultValue: false,
       admin: {
+        hidden: true,
         description:
           'Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.',
-        condition: (data) => {
-          const d = typeof data?.domain === 'string' ? data.domain : ''
-          return d.includes('.') && d.split('.').length >= 3
-        },
       },
     },
     {

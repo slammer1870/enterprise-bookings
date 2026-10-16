@@ -47,6 +47,8 @@ import { AdminInviteButton as AdminInviteButton_5a568d0e24198ca3140489e0d330f424
 import { AdminButtons as AdminButtons_5a568d0e24198ca3140489e0d330f424 } from 'payload-auth/better-auth/plugin/client'
 import { GenerateUuidButton as GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
 import { FieldCopyButton as FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e } from 'payload-auth/shared/payload/fields'
+import { HostnameListField as HostnameListField_82b695be24fa861da7cdd9c90b560cb4 } from '@/components/admin/HostnameListField'
+import { DirectionField as DirectionField_d26671527878aefedb6de504fa8f3811 } from '@/components/admin/DirectionField'
 import { default as default_b6fe181b3f662255f37f818b36c5a4d4 } from '@/components/admin/PublicHostList'
 import { default as default_abb3478227777dca3f79955efb5fd481 } from '@/components/admin/EmailDomainDnsInstructions'
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
@@ -146,6 +148,8 @@ export const importMap = {
   "payload-auth/better-auth/plugin/client#AdminButtons": AdminButtons_5a568d0e24198ca3140489e0d330f424,
   "payload-auth/shared/payload/fields#GenerateUuidButton": GenerateUuidButton_ce3a59fe00f4e2209a6e5804babc005e,
   "payload-auth/shared/payload/fields#FieldCopyButton": FieldCopyButton_ce3a59fe00f4e2209a6e5804babc005e,
+  "@/components/admin/HostnameListField#HostnameListField": HostnameListField_82b695be24fa861da7cdd9c90b560cb4,
+  "@/components/admin/DirectionField#DirectionField": DirectionField_d26671527878aefedb6de504fa8f3811,
   "@/components/admin/PublicHostList#default": default_b6fe181b3f662255f37f818b36c5a4d4,
   "@/components/admin/EmailDomainDnsInstructions#default": default_abb3478227777dca3f79955efb5fd481,
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,

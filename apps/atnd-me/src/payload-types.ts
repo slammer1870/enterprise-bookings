@@ -342,7 +342,7 @@ export interface Tenant {
    */
   aliasHosts?: string[] | null;
   /**
-   * Ordered custom hostnames. The platform subdomain is not an entry. Empty means no custom hostname is named.
+   * Comma-separated hostnames. The platform subdomain is assigned from the slug and is not typed here.
    */
   hostnames?:
     | {
