@@ -15,20 +15,36 @@ A hostname assigned to a tenant's site, whether that host serves pages or redire
 _Avoid_: domain, URL
 
 **Custom domain**:
-A canonical host or alias host the tenant names. The platform subdomain is not a custom domain.
+A hostname the tenant names. It is either a serving host or an alias host. The platform subdomain is not a custom domain.
 _Avoid_: vanity domain
 
+**Hostname list**:
+The ordered custom domains a tenant names.
+_Avoid_: domain, alias list
+
+**Serving host**:
+A public host that serves a tenant's pages. The canonical host is one, and a tenant may have others.
+_Avoid_: live domain
+
 **Canonical host**:
-The one public host that serves a tenant's pages, and the origin search engines should index. The tenant names it. When the tenant has named none, it is the platform subdomain.
+The one serving host that the indexed URL names. When the tenant has named no custom hostname, it is the platform subdomain.
 _Avoid_: primary domain, main URL
 
 **Indexed URL**:
-The URL a served page tells search engines to index: `https://<canonical host><path>`, with no query and no port.
-_Avoid_: canonical URL, permalink
+The URL the canonical link and the Open Graph URL name on every serving host: `https://<canonical host><path>`, with no query and no port.
+_Avoid_: canonical URL, permalink, og:url
 
 **Alias host**:
-A public host that redirects to the canonical host and preserves the path and query. The tenant names one only together with a canonical host, on any apex. When the tenant has named a canonical host, the platform subdomain is an alias host.
+A public host that redirects to the other hostname in its www/apex pair. The platform subdomain is one once the tenant has named a custom hostname, and it redirects to the canonical host.
 _Avoid_: secondary domain, redirect domain
+
+**Direction**:
+The tenant's rule for every www/apex pair they have named: both hostnames serve, the apex redirects to www, or www redirects to the apex.
+_Avoid_: redirect apex, www redirect
+
+**Declaration**:
+A tenant's hostname list and Direction. It is the source of which public host serves and which redirects.
+_Avoid_: domain settings, DNS setup
 
 **Platform subdomain**:
 The hostname the platform assigns a tenant from its slug (`{slug}.{platform}`).
