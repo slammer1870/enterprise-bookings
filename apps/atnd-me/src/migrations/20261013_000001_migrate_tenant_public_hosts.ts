@@ -51,17 +51,5 @@ export async function up({ db }: MigrateUpArgs): Promise<void> {
   await writePublicHostDeclarations(db, publicHostRowsToWrite(rows, { bruCutover: false }))
 }
 
-export async function down({ db }: MigrateDownArgs): Promise<void> {
-  const rows = await readLegacyTenantPublicHostRows(db)
-  const writes = publicHostRowsToWrite(rows, { bruCutover: false })
-  for (const write of writes) {
-    for (const host of write.aliasHosts) {
-      await db.execute(sql`
-        DELETE FROM "tenants_texts"
-        WHERE "parent_id" = ${write.id}
-          AND "path" = 'aliasHosts'
-          AND "text" = ${host}
-      `)
-    }
-  }
-}
+/** One-way. Legacy serving hostnames are not restored. */
+export async function down(_args: MigrateDownArgs): Promise<void> {}

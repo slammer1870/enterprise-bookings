@@ -2,7 +2,15 @@
 
 The one-shot migration writes every other tenant's canonical host and alias hosts. It leaves Bru Grappling on its stored serving hostname. `www` starts 301ing to the apex only after this cutover.
 
-Do these in order. The script will not write unless both flags are present.
+## Check the other tenants
+
+After that migration, before this cutover:
+
+- Each tenant's canonical host and alias list match the default mapping. Bru still has its stored serving hostname.
+- A tenant with a custom canonical host has the platform subdomain as an alias.
+- A tenant with no custom domain has no custom hosts. The platform subdomain is the canonical host.
+
+Do the cutover in order. The script will not write unless both flags are present.
 
 ## 1. Publish the apex CNAME
 
@@ -21,8 +29,6 @@ pnpm exec tsx scripts/cutover-bru-public-host.ts --apex-cname-live --homepage-ru
 ```
 
 This sets the canonical host to `brugrappling.ie` and the alias host to `www.brugrappling.ie`. The platform subdomain `brugrappling.atnd.me` becomes an alias because a custom canonical host exists. It does not provision email, Apple Pay, or a new Cloudflare custom hostname.
-
-Rolling back the data migration does not undo this write. To reverse it, set the canonical host back to `www.brugrappling.ie` and the alias host to `brugrappling.ie`.
 
 ## 4. Spot-check
 
