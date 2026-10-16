@@ -1,4 +1,4 @@
-import { getClaimedApex, getTenantPlatformSubdomain } from '@/utilities/tenantPublicHostDeclaration'
+import { DEFAULT_DIRECTION, getClaimedApex, type Direction } from '@/utilities/hostnameDirection'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 export type LegacyTenantPublicHostRow = {
@@ -6,72 +6,83 @@ export type LegacyTenantPublicHostRow = {
   slug: string
   domain?: string | null
   redirectApex?: boolean | null
+  apexDomain?: string | null
+  aliasHosts?: string[] | null
 }
 
-export type MigratedTenantPublicHosts = {
-  canonicalHost: string | null
-  aliasHosts: string[]
-  platformSubdomain: string | null
-  platformSubdomainRole: 'canonical' | 'alias'
+export type MigratedHostnameList = {
+  hostnames: string[]
+  direction: Direction
 }
 
-export const BRU_GRAPPLING_SLUG = 'brugrappling'
-const BRU_GRAPPLING_CANONICAL_HOST = 'brugrappling.ie'
-const BRU_GRAPPLING_WWW_HOST = 'www.brugrappling.ie'
+const BRU_GRAPPLING_SLUG = 'brugrappling'
+const BRU_GRAPPLING_APEX = 'brugrappling.ie'
+const BRU_GRAPPLING_WWW = 'www.brugrappling.ie'
 
-export function isBruGrapplingTenant(row: { slug?: string | null }): boolean {
+function isBruGrapplingTenant(row: { slug?: string | null }): boolean {
   return (row.slug ?? '').trim().toLowerCase() === BRU_GRAPPLING_SLUG
 }
 
-function migratedDeclaration(
-  slug: string,
-  canonicalHost: string | null,
-  aliasHosts: string[],
-): MigratedTenantPublicHosts {
-  return {
-    canonicalHost,
-    aliasHosts,
-    platformSubdomain: getTenantPlatformSubdomain(slug),
-    platformSubdomainRole: canonicalHost ? 'alias' : 'canonical',
-  }
+function pushOnce(hostnames: string[], host: string): void {
+  const normalized = normalizeCustomDomain(host)
+  if (!normalized || hostnames.includes(normalized)) return
+  hostnames.push(normalized)
 }
 
+/**
+ * Maps one stored row onto an ordered hostname list and one Direction.
+ * Does not read DNS or certificate status. Does not drop the legacy fields.
+ */
 export function migrateLegacyTenantPublicHosts(
   row: LegacyTenantPublicHostRow,
-): MigratedTenantPublicHosts {
+): MigratedHostnameList {
+  const aliases = Array.isArray(row.aliasHosts) ? row.aliasHosts : []
+
   if (isBruGrapplingTenant(row)) {
-    return migratedDeclaration(BRU_GRAPPLING_SLUG, BRU_GRAPPLING_CANONICAL_HOST, [
-      BRU_GRAPPLING_WWW_HOST,
-    ])
+    const hostnames = [BRU_GRAPPLING_APEX, BRU_GRAPPLING_WWW]
+    for (const alias of aliases) pushOnce(hostnames, alias)
+    return { hostnames, direction: 'redirect-to-non-www' }
   }
 
   const domain = typeof row.domain === 'string' ? normalizeCustomDomain(row.domain) : ''
-  const canonicalHost = domain === '' ? null : domain
-  const aliasHosts: string[] = []
-  if (canonicalHost && row.redirectApex) {
-    const apex = getClaimedApex(canonicalHost)
-    if (apex && apex !== canonicalHost) aliasHosts.push(apex)
+  if (!domain) return { hostnames: [], direction: DEFAULT_DIRECTION }
+
+  const parent = typeof row.apexDomain === 'string' ? normalizeCustomDomain(row.apexDomain) : ''
+  const hostnames: string[] = []
+  pushOnce(hostnames, domain)
+
+  const domainIsWwwOfParent = Boolean(row.redirectApex) && parent !== '' && domain === `www.${parent}`
+  const wwwOfDomain = `www.${domain}`
+  const wwwAlreadyAlias =
+    getClaimedApex(domain) === domain &&
+    aliases.some((alias) => normalizeCustomDomain(alias) === wwwOfDomain)
+
+  let direction: Direction = DEFAULT_DIRECTION
+  if (domainIsWwwOfParent) {
+    pushOnce(hostnames, parent)
+    direction = 'redirect-to-www'
+  } else if (wwwAlreadyAlias) {
+    pushOnce(hostnames, wwwOfDomain)
+    direction = 'redirect-to-non-www'
   }
 
-  return migratedDeclaration(row.slug, canonicalHost, aliasHosts)
+  for (const alias of aliases) pushOnce(hostnames, alias)
+  return { hostnames, direction }
 }
 
-export type PublicHostWrite = { id: number | string } & MigratedTenantPublicHosts
+export type HostnameListWrite = { id: number | string } & MigratedHostnameList
 
-/** Non-Bru rows are written immediately. Bru's direction flip waits on cutover. */
-export function publicHostRowsToWrite(
-  rows: LegacyTenantPublicHostRow[],
-  options: { bruCutover: boolean },
-): PublicHostWrite[] {
-  const writes: PublicHostWrite[] = []
-  for (const row of rows) {
-    if (isBruGrapplingTenant(row) && !options.bruCutover) continue
-    writes.push({ id: row.id, ...migrateLegacyTenantPublicHosts(row) })
-  }
-  return writes
+/** Every row is written, including Bru Grappling. The apex cutover is not a write gate. */
+export function publicHostRowsToWrite(rows: LegacyTenantPublicHostRow[]): HostnameListWrite[] {
+  return rows.map((row) => ({ id: row.id, ...migrateLegacyTenantPublicHosts(row) }))
 }
 
-/** Turns a `tenants` select (`redirect_apex` aliased as `redirectApex`) into mapping input. */
+function aliasHostsOf(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((host): host is string => typeof host === 'string')
+}
+
+/** Turns a `tenants` select into mapping input. */
 export function legacyTenantPublicHostRows(rows: unknown): LegacyTenantPublicHostRow[] {
   if (!Array.isArray(rows)) return []
   const legacy: LegacyTenantPublicHostRow[] = []
@@ -86,6 +97,8 @@ export function legacyTenantPublicHostRows(rows: unknown): LegacyTenantPublicHos
       slug,
       domain: typeof record.domain === 'string' ? record.domain : null,
       redirectApex: record.redirectApex === true,
+      apexDomain: typeof record.apexDomain === 'string' ? record.apexDomain : null,
+      aliasHosts: aliasHostsOf(record.aliasHosts),
     })
   }
   return legacy

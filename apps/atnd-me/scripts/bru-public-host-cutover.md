@@ -1,16 +1,6 @@
 # Bru Grappling public-host cutover
 
-The one-shot migration writes every other tenant's canonical host and alias hosts. It leaves Bru Grappling on its stored serving hostname. `www` starts 301ing to the apex only after this cutover.
-
-## Check the other tenants
-
-After that migration, before this cutover:
-
-- Each tenant's canonical host and alias list match the default mapping. Bru still has its stored serving hostname.
-- A tenant with a custom canonical host has the platform subdomain as an alias.
-- A tenant with no custom domain has no custom hosts. The platform subdomain is the canonical host.
-
-Do the cutover in order. The script will not write unless both flags are present.
+Do this before the hostname-list migration runs. That migration writes `brugrappling.ie, www.brugrappling.ie` with Redirect to non-www for every row, including Bru Grappling, and it does not wait on DNS. Once that row is written, `www` redirects to the apex. The checklist is not part of the public-host request checks, and this command does not write the row.
 
 ## 1. Publish the apex CNAME
 
@@ -20,17 +10,19 @@ In the zone for `brugrappling.ie`, point the apex at the SaaS target (`cname.<pl
 
 In Cloudflare, delete the rule that sends `https://brugrappling.ie/<path>` to the `www` homepage. The origin must see the path.
 
-## 3. Write the declaration
+## 3. Confirm the checklist
 
-From `apps/atnd-me`, with `DATABASE_URI` set:
+From `apps/atnd-me`, after both steps:
 
 ```bash
 pnpm exec tsx scripts/cutover-bru-public-host.ts --apex-cname-live --homepage-rule-removed
 ```
 
-This sets the canonical host to `brugrappling.ie` and the alias host to `www.brugrappling.ie`. The platform subdomain `brugrappling.atnd.me` becomes an alias because a custom canonical host exists. It does not provision email, Apple Pay, or a new Cloudflare custom hostname.
+The command does not write the tenant. Apply the hostname-list migration only after this succeeds.
 
 ## 4. Spot-check
+
+After the migration:
 
 - `https://brugrappling.ie/kids` returns 200, and the indexed URL is on the apex.
 - `https://www.brugrappling.ie/kids?ref=1` returns 301 to `https://brugrappling.ie/kids?ref=1`.
