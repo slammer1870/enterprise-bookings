@@ -28,14 +28,7 @@ export function ownershipTxtToShow(status: CustomHostnameStatusResult | null): T
 /** Each `_acme-challenge` TXT while certificate status is not Active. Delegated DCV stays off the list. */
 export function acmeTxtsToShow(status: CustomHostnameStatusResult | null): TxtRecord[] {
   if (!issuedTxtVisible(status, certificateStatusLabel(status?.rawSslStatus))) return []
-  const rows: TxtRecord[] = []
-  for (const record of status.sslValidationRecords) {
-    const name = record.txtName.trim()
-    const value = record.txtValue.trim()
-    if (!name.includes('_acme-challenge') || value.includes('dcv.cloudflare.com') || name === '' || value === '') {
-      continue
-    }
-    rows.push({ name, value })
-  }
-  return rows
+  return status.sslValidationRecords.filter(
+    (record) => record.name.includes('_acme-challenge') && !record.value.includes('dcv.cloudflare.com'),
+  )
 }

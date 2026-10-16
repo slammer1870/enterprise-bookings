@@ -48,16 +48,14 @@ interface CfCustomHostname {
 
 export type HostnameVerificationStatus = 'active' | 'pending' | 'error' | 'unknown'
 
-export interface SslValidationRecord {
-  status: HostnameVerificationStatus
-  txtName: string
-  txtValue: string
-}
-
 /** A TXT name and value Cloudflare issued. Present only when both are set. */
 export interface TxtRecord {
   name: string
   value: string
+}
+
+export interface SslValidationRecord extends TxtRecord {
+  status: HostnameVerificationStatus
 }
 
 export interface CustomHostnameStatusResult {
@@ -120,11 +118,16 @@ function toHostnameStatus(s: string): HostnameVerificationStatus {
   return 'unknown'
 }
 
+/** Trimmed name and value, or null when either side is blank. */
+function issuedTxt(name: string | undefined, value: string | undefined): TxtRecord | null {
+  const trimmedName = name?.trim() ?? ''
+  const trimmedValue = value?.trim() ?? ''
+  if (trimmedName === '' || trimmedValue === '') return null
+  return { name: trimmedName, value: trimmedValue }
+}
+
 function extractOwnershipTxt(record: CfCustomHostname): TxtRecord | null {
-  const name = record.ownership_verification?.name?.trim() ?? ''
-  const value = record.ownership_verification?.value?.trim() ?? ''
-  if (name === '' || value === '') return null
-  return { name, value }
+  return issuedTxt(record.ownership_verification?.name, record.ownership_verification?.value)
 }
 
 function extractSslValidationRecords(record: CfCustomHostname): SslValidationRecord[] {
@@ -132,14 +135,13 @@ function extractSslValidationRecords(record: CfCustomHostname): SslValidationRec
     ...(record.ssl?.validation_records ?? []),
     ...(record.ssl?.dcv_delegation_records ?? []),
   ]
-
-  return sources
-    .filter((r) => r.txt_name && r.txt_value)
-    .map((r) => ({
-      status: toHostnameStatus(r.status),
-      txtName: r.txt_name,
-      txtValue: r.txt_value,
-    }))
+  const rows: SslValidationRecord[] = []
+  for (const source of sources) {
+    const txt = issuedTxt(source.txt_name, source.txt_value)
+    if (!txt) continue
+    rows.push({ status: toHostnameStatus(source.status), ...txt })
+  }
+  return rows
 }
 
 async function fetchCustomHostnameById(
