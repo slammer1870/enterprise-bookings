@@ -28,6 +28,8 @@ function buildTenantScopedCallbackURL(args: {
   tenant: {
     slug?: string | null
     domain?: string | null
+    hostnames?: unknown
+    direction?: unknown
   } | null
   headers: Headers
   serverUrlFallback?: string | undefined
@@ -152,8 +154,13 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
             collection: 'tenants',
             id: tenantIdForCallback as any,
             depth: 0,
-            select: { slug: true, domain: true } as any,
-          })) as unknown as { slug?: string | null; domain?: string | null } | null)
+            select: { slug: true, domain: true, hostnames: true, direction: true } as any,
+          })) as unknown as {
+            slug?: string | null
+            domain?: string | null
+            hostnames?: unknown
+            direction?: unknown
+          } | null)
         : null
 
     const callbackURL = buildTenantScopedCallbackURL({

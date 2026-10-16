@@ -60,7 +60,13 @@ export async function POST(request: NextRequest) {
     id: tenantId,
     depth: 0,
     overrideAccess: true,
-    select: { slug: true, domain: true, onboardingSiteViewedAt: true } as any,
+    select: {
+      slug: true,
+      domain: true,
+      hostnames: true,
+      direction: true,
+      onboardingSiteViewedAt: true,
+    } as any,
   })
 
   if (!tenant) {
@@ -89,6 +95,8 @@ export async function POST(request: NextRequest) {
       {
         slug: tenantSlug,
         domain: typeof tenant.domain === 'string' ? tenant.domain : null,
+        hostnames: tenant.hostnames,
+        direction: tenant.direction,
       },
       request,
     ),

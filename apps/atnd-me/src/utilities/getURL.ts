@@ -1,4 +1,8 @@
 import canUseDOM from './canUseDOM'
+import {
+  getTenantPlatformSubdomain,
+  readHostnameDeclaration,
+} from './tenantPublicHostDeclaration'
 
 export const getServerSideURL = () => {
   return (
@@ -14,6 +18,17 @@ type HeadersLike = Pick<Headers, 'get'>
 type TenantURLSource = {
   slug?: string | null
   domain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+}
+
+/** Canonical host from a saved hostname list, or null when the list has not been saved. */
+const canonicalHostFromDeclaration = (tenant?: TenantURLSource | null): string | null => {
+  if (!tenant) return null
+  const declaration = readHostnameDeclaration(tenant)
+  if (declaration.hostnames === null) return null
+  const canonical = declaration.roles?.canonicalHost?.trim()
+  return canonical || null
 }
 
 const getPlatformURL = () => getServerSideURL()
@@ -81,6 +96,19 @@ export const getTenantSiteURL = (
   tenant?: TenantURLSource | null,
   headers?: HeadersLike | null,
 ) => {
+  const canonicalHost = canonicalHostFromDeclaration(tenant)
+  if (canonicalHost) {
+    const slug = tenant?.slug?.trim()
+    if (slug) {
+      const platformHost = getTenantPlatformSubdomain(slug)
+      if (platformHost && canonicalHost === platformHost) {
+        return getTenantSubdomainURL(slug, headers)
+      }
+    }
+    const protocol = canonicalHost.includes('localhost') ? 'http' : getProtocolFromHeaders(headers)
+    return `${protocol}://${canonicalHost}`
+  }
+
   const customDomain = tenant?.domain?.trim()
   if (customDomain) {
     const protocol = customDomain.includes('localhost') ? 'http' : getProtocolFromHeaders(headers)
@@ -96,10 +124,13 @@ export const getTenantSiteURL = (
 }
 
 /**
- * Host search engines should index. A named custom domain is the canonical host.
- * With none named, the canonical host is the platform subdomain.
+ * Host search engines should index. A saved hostname list supplies the canonical host.
+ * Otherwise a named custom domain does, or the platform subdomain when none is named.
  */
 export const getCanonicalHostname = (tenant?: TenantURLSource | null): string | null => {
+  const canonicalHost = canonicalHostFromDeclaration(tenant)
+  if (canonicalHost) return canonicalHost
+
   const customDomain = tenant?.domain?.trim().toLowerCase()
   if (customDomain) {
     const hostname = customDomain.split(':')[0]?.trim()

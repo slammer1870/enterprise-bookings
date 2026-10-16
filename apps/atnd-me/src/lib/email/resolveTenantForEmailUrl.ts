@@ -1,17 +1,25 @@
+import type { Payload } from 'payload'
+
 import { brandingFromTenantDoc } from '@/lib/email/tenant-email-branding'
 import { isEmailDomainVerified } from '@/lib/resend/resolveTenantEmailFrom'
+import { findTenantByHost } from '@/lib/tenantDbResolve'
 import { getServerSideURL } from '@/utilities/getURL'
+import { storedHostnameList } from '@/utilities/tenantPublicHostDeclaration'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 export type TenantEmailFromContext = {
   name: string
   domain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+  slug?: string | null
   emailDomainVerified?: boolean
   logoUrl?: string | null
 }
 
 type PayloadLike = {
   find: (..._args: any[]) => Promise<{ docs: unknown[] }>
+  db?: unknown
 }
 
 function tenantFromDoc(
@@ -20,6 +28,8 @@ function tenantFromDoc(
         name?: unknown
         slug?: unknown
         domain?: unknown
+        hostnames?: unknown
+        direction?: unknown
         logo?: unknown
         emailDomainStatus?: unknown
       }
@@ -38,6 +48,8 @@ function tenantFromDoc(
           name,
           slug: tenant.slug,
           domain,
+          hostnames: tenant.hostnames,
+          direction: tenant.direction,
           logo: tenant.logo,
         }
       : null,
@@ -45,6 +57,9 @@ function tenantFromDoc(
   return {
     name: branding.name,
     domain,
+    hostnames: tenant?.hostnames,
+    direction: tenant?.direction,
+    slug: typeof tenant?.slug === 'string' ? tenant.slug : null,
     emailDomainVerified: isEmailDomainVerified(tenant?.emailDomainStatus),
     logoUrl: branding.logoUrl,
   }
@@ -54,6 +69,8 @@ const tenantEmailSelect = {
   name: true,
   slug: true,
   domain: true,
+  hostnames: true,
+  direction: true,
   logo: true,
   emailDomainStatus: true,
 } as const
@@ -118,7 +135,20 @@ export async function resolveTenantForMagicLinkUrl(
       overrideAccess: true,
       select: tenantEmailSelect as any,
     })
-    return tenantFromDoc(result.docs[0] as any, domain)
+    const fromDomain = tenantFromDoc(result.docs[0] as any, domain)
+    if (fromDomain) return fromDomain
+
+    const drizzle = (client as { db?: { drizzle?: { execute?: unknown } } }).db?.drizzle
+    if (!drizzle || typeof drizzle.execute !== 'function') return null
+
+    const resolved = await findTenantByHost(client as Payload, domain)
+    if (!resolved) return null
+
+    const fromList = await findTenantBySlug(resolved.slug)
+    if (!fromList) return null
+    const named = storedHostnameList(fromList.hostnames)
+    if (!named?.includes(domain)) return null
+    return fromList
   }
 
   // Local dev: support tenant.localhost

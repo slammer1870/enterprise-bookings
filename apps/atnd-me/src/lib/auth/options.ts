@@ -1,6 +1,7 @@
 import { createBetterAuthPluginOptions, createCustomExpiryMagicLinkSender } from '@repo/better-auth-config/server'
 import { customSession } from 'better-auth/plugins'
 import { buildSanitizedBetterAuthCustomSession, sanitizeTenantMemberships } from '@repo/shared-utils'
+import { namedHostnameIsAllowed, originHostnamesForTenant } from '@/lib/tenantDbResolve'
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
@@ -96,15 +97,7 @@ async function isTenantCustomDomain(hostname: string): Promise<boolean> {
   try {
     const { getPayload } = await import('@/lib/payload')
     const payload = await getPayload()
-    const result = await payload.find({
-      collection: 'tenants',
-      where: { domain: { equals: hostname } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: { id: true } as any,
-    })
-    const ok = Boolean(result.docs[0])
+    const ok = await namedHostnameIsAllowed(payload, hostname)
     tenantDomainCache.set(hostname, { ok, atMs: now })
     return ok
   } catch {
@@ -127,17 +120,15 @@ async function getAllTenantCustomDomains(): Promise<string[]> {
     const payload = await getPayload()
     const result = await payload.find({
       collection: 'tenants',
-      where: { domain: { exists: true } },
       limit: 1000,
       depth: 0,
       overrideAccess: true,
-      select: { domain: true } as any,
+      select: { domain: true, hostnames: true } as any,
     })
 
-    const domains = (result.docs as Array<{ domain?: unknown }>)
-      .map((d) => (d?.domain != null ? String(d.domain) : ''))
-      .map((d) => normalizeCustomDomain(d) || '')
-      .filter(Boolean)
+    const domains = (result.docs as Array<{ domain?: unknown; hostnames?: unknown }>).flatMap(
+      (doc) => originHostnamesForTenant(doc),
+    )
 
     tenantDomainsAllCache = { domains, atMs: now }
     return domains

@@ -30,6 +30,32 @@ describe('tenant SEO URL resolution', () => {
     expect(getTenantSiteURL({ slug: 'bru', domain: 'bru.ie' })).toBe('https://bru.ie')
   })
 
+  it('uses the canonical host derived from the hostname list and Direction', () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+
+    expect(
+      getTenantSiteURL({
+        slug: 'bru',
+        domain: 'www.example.com',
+        hostnames: ['www.example.com', 'example.com'],
+        direction: 'redirect-to-non-www',
+      }),
+    ).toBe('https://example.com')
+  })
+
+  it('uses the platform subdomain when the hostname list names no custom hostname', () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+
+    expect(
+      getTenantSiteURL({
+        slug: 'bru',
+        domain: 'bru.ie',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('https://bru.atnd.test')
+  })
+
   it('falls back to the platform subdomain when no custom domain exists', () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
 

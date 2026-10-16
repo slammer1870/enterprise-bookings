@@ -6,6 +6,7 @@ import {
   storedHostnameList,
   type TenantPublicHostDocSlice,
 } from '@/utilities/tenantPublicHostDeclaration'
+import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 export type TenantIdSlug = { id: number | string; slug: string }
 
@@ -89,6 +90,45 @@ async function findSavedHostnameDeclaration(
     hostnames: parsedJson(row.hostnames),
     direction: row.direction,
   }
+}
+
+/**
+ * Hostnames an origin allowlist may trust for this row.
+ * A saved list contributes every named hostname. A row that has not saved a list
+ * contributes its custom domain. Alias hosts on that row stay out.
+ */
+export function originHostnamesForTenant(doc: {
+  domain?: unknown
+  hostnames?: unknown
+}): string[] {
+  const hostnames = storedHostnameList(doc.hostnames)
+  if (hostnames !== null) return [...hostnames]
+  const domain = typeof doc.domain === 'string' ? normalizeCustomDomain(doc.domain) : ''
+  return domain ? [domain] : []
+}
+
+/**
+ * A named hostname is allowed: every hostname in a saved list, serving or alias.
+ * A row that has not saved a list still allows only its custom domain.
+ */
+export async function namedHostnameIsAllowed(
+  payload: Payload,
+  normalizedHost: string,
+): Promise<boolean> {
+  const declared = await findSavedHostnameDeclaration(payload, normalizedHost)
+  if (declared) return true
+
+  const result = await payload.find({
+    collection: 'tenants',
+    where: { domain: { equals: normalizedHost } },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+    select: { id: true, hostnames: true } as Record<string, boolean>,
+  })
+  const tenant = result.docs[0] as { hostnames?: unknown } | undefined
+  if (!tenant) return false
+  return storedHostnameList(tenant.hostnames) === null
 }
 
 /**

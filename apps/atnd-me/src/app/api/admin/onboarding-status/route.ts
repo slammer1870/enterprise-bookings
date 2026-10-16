@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
     select: {
       slug: true,
       domain: true,
+      hostnames: true,
+      direction: true,
       stripeConnectOnboardingStatus: true,
       onboardingSiteViewedAt: true,
     } as any,
@@ -74,6 +76,8 @@ export async function GET(request: NextRequest) {
     {
       slug: tenantSlug,
       domain: typeof tenant.domain === 'string' ? tenant.domain : null,
+      hostnames: tenant.hostnames,
+      direction: tenant.direction,
     },
     request,
   )

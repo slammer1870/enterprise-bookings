@@ -12,6 +12,8 @@ export type TenantForConnect = {
   id: number
   slug?: string | null
   domain?: string | null
+  hostnames?: unknown
+  direction?: unknown
   stripeConnectAccountId?: string | null
   stripeConnectOnboardingStatus?: TenantStripeStatus | null
 }
@@ -66,6 +68,8 @@ export async function resolveTenantForConnect(
         id: true,
         slug: true,
         domain: true,
+        hostnames: true,
+        direction: true,
         stripeConnectAccountId: true,
         stripeConnectOnboardingStatus: true,
       } as any,
@@ -82,6 +86,8 @@ export async function resolveTenantForConnect(
       id: true,
       slug: true,
       domain: true,
+      hostnames: true,
+      direction: true,
       stripeConnectAccountId: true,
       stripeConnectOnboardingStatus: true,
     } as any,

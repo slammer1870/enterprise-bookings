@@ -93,6 +93,8 @@ export type TenantContext = {
   slug: string
   name: string
   domain?: string | null
+  hostnames?: unknown
+  direction?: unknown
 }
 
 export type TenantRequestSource = TenantSlugSource & {
@@ -206,6 +208,24 @@ function legacyOrDeclaredDomainServes(doc: TenantBrandingDoc, hostname: string):
   return doc.domain === hostname
 }
 
+function toTenantContext(t: {
+  id: number
+  slug: string
+  name?: string
+  domain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+}): TenantContext {
+  return {
+    id: t.id,
+    slug: t.slug,
+    name: t.name ?? '',
+    domain: t.domain ?? null,
+    ...(t.hostnames !== undefined ? { hostnames: t.hostnames } : {}),
+    ...(t.direction !== undefined ? { direction: t.direction } : {}),
+  }
+}
+
 async function fetchTenantContextBySlug(
   payload: Payload,
   slug: string,
@@ -221,18 +241,15 @@ async function fetchTenantContextBySlug(
       slug: true,
       name: true,
       domain: true,
+      hostnames: true,
+      direction: true,
     } as any,
   })
 
   const tenant = result.docs[0]
   if (!tenant) return null
 
-  return {
-    id: tenant.id as number,
-    slug: tenant.slug as string,
-    name: (tenant as { name?: string }).name ?? '',
-    domain: (tenant as { domain?: string | null }).domain ?? null,
-  }
+  return toTenantContext(tenant as TenantContext)
 }
 
 async function fetchTenantBrandingBySlug(
@@ -293,12 +310,7 @@ export async function getTenantContext(
 
   const tenantFromHost = await findTenantByHost(payload, enriched?.headers)
   if (tenantFromHost) {
-    return {
-      id: tenantFromHost.id as number,
-      slug: tenantFromHost.slug as string,
-      name: (tenantFromHost as { name?: string }).name ?? '',
-      domain: (tenantFromHost as { domain?: string | null }).domain ?? null,
-    }
+    return toTenantContext(tenantFromHost)
   }
 
   // Admin selector cookie — use even when Host is the platform apex; custom-domain admin
@@ -313,13 +325,7 @@ export async function getTenantContext(
       overrideAccess: true,
     })
     if (!tenant) return null
-    const t = tenant as { id: number; slug: string; name?: string; domain?: string | null }
-    return {
-      id: t.id,
-      slug: t.slug,
-      name: t.name ?? '',
-      domain: t.domain ?? null,
-    }
+    return toTenantContext(tenant as TenantContext)
   } catch {
     return null
   }

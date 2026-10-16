@@ -62,6 +62,34 @@ describe('resolveTrustedPasswordResetOrigin', () => {
     )
   })
 
+  it('trusts an alias hostname named in the hostname list', async () => {
+    const find = vi.fn(async () => ({ docs: [] }))
+    const origin = await resolveTrustedPasswordResetOrigin({
+      headers: new Headers({
+        host: 'example.com',
+        'x-forwarded-proto': 'https',
+      }),
+      payload: {
+        find,
+        db: {
+          drizzle: {
+            execute: async () => ({
+              rows: [
+                {
+                  id: 1,
+                  slug: 'bru',
+                  hostnames: ['www.example.com', 'example.com'],
+                  direction: 'redirect-to-www',
+                },
+              ],
+            }),
+          },
+        },
+      },
+    })
+    expect(origin).toBe('https://example.com')
+  })
+
   it('rejects unknown custom domains', async () => {
     const origin = await resolveTrustedPasswordResetOrigin({
       headers: new Headers({

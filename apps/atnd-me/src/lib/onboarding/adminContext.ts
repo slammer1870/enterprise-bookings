@@ -141,7 +141,12 @@ export async function resolveOnboardingTenantId(
 }
 
 export function buildTenantPublicSiteURL(
-  tenant: { slug?: string | null; domain?: string | null },
+  tenant: {
+    slug?: string | null
+    domain?: string | null
+    hostnames?: unknown
+    direction?: unknown
+  },
   request: NextRequest,
 ): string {
   return getTenantSiteURL(tenant, request.headers)
