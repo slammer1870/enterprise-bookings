@@ -125,37 +125,61 @@ async function publicHostRows(data: unknown): Promise<PublicHostRow[]> {
   return rows
 }
 
-const MONOSPACE_COLUMNS = new Set([0, 3, 4])
+const COLUMNS = [
+  { key: 'host', heading: 'Public host', monospace: true },
+  { key: 'role', heading: 'Role', monospace: false },
+  { key: 'type', heading: 'Type', monospace: false },
+  { key: 'dnsHost', heading: 'DNS host', monospace: true },
+  { key: 'value', heading: 'Value', monospace: true },
+  { key: 'dnsStatus', heading: 'DNS status', monospace: false },
+  { key: 'certificateStatus', heading: 'Certificate status', monospace: false },
+] as const
 
-function rowCells(row: PublicHostRow): React.ReactNode[] {
+type ColumnKey = (typeof COLUMNS)[number]['key']
+
+const EMPTY_CELLS: Record<ColumnKey, React.ReactNode> = {
+  host: '',
+  role: '',
+  type: '',
+  dnsHost: '',
+  value: '',
+  dnsStatus: '',
+  certificateStatus: '',
+}
+
+function rowCells(row: PublicHostRow): Record<ColumnKey, React.ReactNode> {
   if (row.kind === 'routing') {
-    return [
-      row.hostname,
-      row.role,
-      'CNAME',
-      row.dnsHost,
-      row.value,
-      <>
-        {row.dnsStatus}
-        {row.verificationErrors.map((error) => (
-          <div key={error}>{error}</div>
-        ))}
-      </>,
-      row.certificateStatus,
-    ]
+    return {
+      ...EMPTY_CELLS,
+      host: row.hostname,
+      role: row.role,
+      type: 'CNAME',
+      dnsHost: row.dnsHost,
+      value: row.value,
+      dnsStatus: (
+        <>
+          {row.dnsStatus}
+          {row.verificationErrors.map((error) => (
+            <div key={error}>{error}</div>
+          ))}
+        </>
+      ),
+      certificateStatus: row.certificateStatus,
+    }
   }
   if (row.kind === 'record') {
-    return ['', '', row.type, row.dnsHost, row.value, '', '']
+    return { ...EMPTY_CELLS, type: row.type, dnsHost: row.dnsHost, value: row.value }
   }
-  return [row.hostname, row.role, '', '', '', '', '']
+  return { ...EMPTY_CELLS, host: row.hostname, role: row.role }
 }
 
 function HostRow({ row }: { row: PublicHostRow }) {
+  const cells = rowCells(row)
   return (
     <tr>
-      {rowCells(row).map((cell, index) => (
-        <td key={index} style={MONOSPACE_COLUMNS.has(index) ? cellStyle : textCellStyle}>
-          {cell}
+      {COLUMNS.map((column) => (
+        <td key={column.key} style={column.monospace ? cellStyle : textCellStyle}>
+          {cells[column.key]}
         </td>
       ))}
     </tr>
@@ -177,9 +201,9 @@ export const PublicHostList: UIFieldServerComponent = async ({ data }) => {
       <table aria-label="Public hosts" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
         <thead>
           <tr>
-            {['Public host', 'Role', 'Type', 'DNS host', 'Value', 'DNS status', 'Certificate status'].map((heading) => (
-              <th key={heading} style={headerStyle}>
-                {heading}
+            {COLUMNS.map((column) => (
+              <th key={column.key} style={headerStyle}>
+                {column.heading}
               </th>
             ))}
           </tr>

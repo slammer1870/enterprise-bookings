@@ -4,25 +4,60 @@ import { createTestTenant, createTestUser, getPayloadInstance } from './helpers/
 import { e2eExpectTimeout, e2eSlowTestTimeout } from './helpers/timeouts'
 import { test, expect } from './helpers/fixtures'
 
-async function publicHostCells(page: Page): Promise<string[][]> {
+const PUBLIC_HOST_COLUMNS = {
+  'Public host': 'host',
+  Role: 'role',
+  Type: 'type',
+  'DNS host': 'dnsHost',
+  Value: 'value',
+  'DNS status': 'dnsStatus',
+  'Certificate status': 'certificateStatus',
+} as const
+
+type PublicHostColumn = (typeof PUBLIC_HOST_COLUMNS)[keyof typeof PUBLIC_HOST_COLUMNS]
+
+type PublicHostCells = Record<PublicHostColumn, string>
+
+function emptyPublicHostCells(): PublicHostCells {
+  return { host: '', role: '', type: '', dnsHost: '', value: '', dnsStatus: '', certificateStatus: '' }
+}
+
+async function publicHostCells(page: Page): Promise<PublicHostCells[]> {
   const table = page.getByRole('table', { name: 'Public hosts' })
   await expect(table).toBeVisible({ timeout: e2eExpectTimeout(45_000) })
+  const headings = (await table.locator('thead th').allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim())
   const rows = table.locator('tbody tr')
   const count = await rows.count()
-  const cells: string[][] = []
+  const cells: PublicHostCells[] = []
   for (let i = 0; i < count; i++) {
     const rowCells = rows.nth(i).locator('td')
     const width = await rowCells.count()
-    const texts: string[] = []
+    const record = emptyPublicHostCells()
     for (let j = 0; j < width; j++) {
-      texts.push((await rowCells.nth(j).innerText()).replace(/\s+/g, ' ').trim())
+      const heading = headings[j]
+      const column = heading ? PUBLIC_HOST_COLUMNS[heading as keyof typeof PUBLIC_HOST_COLUMNS] : undefined
+      if (!column) throw new Error(`Unexpected public host column: ${heading ?? String(j)}`)
+      record[column] = (await rowCells.nth(j).innerText()).replace(/\s+/g, ' ').trim()
     }
-    cells.push(texts)
+    cells.push(record)
   }
   return cells
 }
 
-async function openTenantHosts(page: Page, tenantId: number): Promise<string[][]> {
+async function assignOrgAdmin(email: string, tenantId: number): Promise<void> {
+  const payload = await getPayloadInstance()
+  await payload.update({
+    collection: 'users',
+    where: { email: { equals: email } },
+    data: {
+      tenants: [{ tenant: tenantId, roles: ['admin'] }],
+      registrationTenant: tenantId,
+    },
+    overrideAccess: true,
+  })
+}
+
+async function openTenantHosts(page: Page, tenantId: number): Promise<PublicHostCells[]> {
   const origin = new URL(page.url()).origin
   await page.goto(`${origin}/admin/collections/tenants/${tenantId}`, { waitUntil: 'domcontentloaded' })
   return publicHostCells(page)
@@ -34,7 +69,7 @@ async function rowsSeenByBothRoles(
   superEmail: string,
   tenantId: number,
   tenantSlug: string,
-): Promise<string[][]> {
+): Promise<PublicHostCells[]> {
   const orgContext = await browser.newContext()
   const orgPage = await orgContext.newPage()
   await loginAsTenantAdmin(orgPage, 1, orgEmail, { request: orgPage.request, tenantSlug })
@@ -79,15 +114,7 @@ test.describe('public host list in admin', () => {
       ['admin'],
       tenant.id,
     )
-    await payload.update({
-      collection: 'users',
-      where: { email: { equals: orgAdmin.email } },
-      data: {
-        tenants: [{ tenant: tenant.id, roles: ['admin'] }],
-        registrationTenant: tenant.id,
-      } as Parameters<typeof payload.update>[0]['data'],
-      overrideAccess: true,
-    })
+    await assignOrgAdmin(orgAdmin.email, tenant.id)
 
     const rows = await rowsSeenByBothRoles(
       browser,
@@ -98,13 +125,37 @@ test.describe('public host list in admin', () => {
     )
 
     expect(rows).toEqual([
-      [canonical, 'canonical', 'CNAME', 'blog.shop', 'cname.localhost', 'Unknown', 'Unknown'],
-      [alias, 'alias', 'CNAME', 'www', 'cname.localhost', 'Unknown', 'Unknown'],
-      [`${slug}.localhost`, 'alias', '', '', '', '', ''],
+      {
+        host: canonical,
+        role: 'canonical',
+        type: 'CNAME',
+        dnsHost: 'blog.shop',
+        value: 'cname.localhost',
+        dnsStatus: 'Unknown',
+        certificateStatus: 'Unknown',
+      },
+      {
+        host: alias,
+        role: 'alias',
+        type: 'CNAME',
+        dnsHost: 'www',
+        value: 'cname.localhost',
+        dnsStatus: 'Unknown',
+        certificateStatus: 'Unknown',
+      },
+      {
+        host: `${slug}.localhost`,
+        role: 'alias',
+        type: '',
+        dnsHost: '',
+        value: '',
+        dnsStatus: '',
+        certificateStatus: '',
+      },
     ])
-    expect(rows.map((row) => row[2])).not.toContain('TXT')
-    expect(rows.map((row) => row[2])).not.toContain('A')
-    expect(rows.map((row) => row[2])).not.toContain('AAAA')
+    expect(rows.map((row) => row.type)).not.toContain('TXT')
+    expect(rows.map((row) => row.type)).not.toContain('A')
+    expect(rows.map((row) => row.type)).not.toContain('AAAA')
   })
 
   test('an apex shows Apex Proxying rows and no TXT to both roles', async ({ browser, testData }) => {
@@ -119,16 +170,7 @@ test.describe('public host list in admin', () => {
       ['admin'],
       tenant.id,
     )
-    const payload = await getPayloadInstance()
-    await payload.update({
-      collection: 'users',
-      where: { email: { equals: orgAdmin.email } },
-      data: {
-        tenants: [{ tenant: tenant.id, roles: ['admin'] }],
-        registrationTenant: tenant.id,
-      } as Parameters<typeof payload.update>[0]['data'],
-      overrideAccess: true,
-    })
+    await assignOrgAdmin(orgAdmin.email, tenant.id)
 
     const rows = await rowsSeenByBothRoles(
       browser,
@@ -139,11 +181,43 @@ test.describe('public host list in admin', () => {
     )
 
     expect(rows).toEqual([
-      [canonical, 'canonical', 'CNAME', '@', 'cname.localhost', 'Unknown', 'Unknown'],
-      ['', '', 'A', '@', '192.0.2.10', '', ''],
-      ['', '', 'AAAA', '@', '2001:db8::10', '', ''],
-      [`${slug}.localhost`, 'alias', '', '', '', '', ''],
+      {
+        host: canonical,
+        role: 'canonical',
+        type: 'CNAME',
+        dnsHost: '@',
+        value: 'cname.localhost',
+        dnsStatus: 'Unknown',
+        certificateStatus: 'Unknown',
+      },
+      {
+        host: '',
+        role: '',
+        type: 'A',
+        dnsHost: '@',
+        value: '192.0.2.10',
+        dnsStatus: '',
+        certificateStatus: '',
+      },
+      {
+        host: '',
+        role: '',
+        type: 'AAAA',
+        dnsHost: '@',
+        value: '2001:db8::10',
+        dnsStatus: '',
+        certificateStatus: '',
+      },
+      {
+        host: `${slug}.localhost`,
+        role: 'alias',
+        type: '',
+        dnsHost: '',
+        value: '',
+        dnsStatus: '',
+        certificateStatus: '',
+      },
     ])
-    expect(rows.map((row) => row[2])).not.toContain('TXT')
+    expect(rows.map((row) => row.type)).not.toContain('TXT')
   })
 })
