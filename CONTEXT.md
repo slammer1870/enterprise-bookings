@@ -75,5 +75,5 @@ The domain of a tenant's From address when they have named a custom canonical ho
 _Avoid_: From-domain, email domain
 
 **Apple Pay domain**:
-The apex of a tenant's custom canonical host, when one is named. It is not a public host.
+A serving host. Each serving host is one. An alias host is not one.
 _Avoid_: merchant domain, payment domain
