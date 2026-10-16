@@ -71,7 +71,7 @@ Whether a custom domain's certificate is issued: Active, Pending, Error, or Unkn
 _Avoid_: SSL status
 
 **Email sending domain**:
-The domain of a tenant's From address when they have named a custom canonical host: that hostname with a leading `www` removed. When they have named none, the From address uses the platform's own domain. It is not a public host, and it is not the apex.
+The apex of the canonical host. An apex named only by another hostname is not one.
 _Avoid_: From-domain, email domain
 
 **Apple Pay domain**:
