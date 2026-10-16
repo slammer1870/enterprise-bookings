@@ -8,9 +8,12 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { assertTenantEmailDomainAccess } from '@/lib/resend/assertTenantEmailDomainAccess'
 import { createOrGetDomain, deleteDomain, getDomain, mapResendStatusToEmailDomainStatus } from '@/lib/resend/domains'
-import { resolveEmailSendingDomain } from '@/lib/resend/resolveTenantEmailFrom'
+import {
+  canonicalHostForEmail,
+  isPlatformEmailApex,
+  resolveEmailSendingDomain,
+} from '@/lib/resend/emailSendingDomain'
 import { syncTenantEmailDomainFromResend } from '@/lib/resend/syncTenantEmailDomain'
-import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 export async function GET(request: NextRequest) {
   const payload = await getPayload()
@@ -31,6 +34,9 @@ export async function GET(request: NextRequest) {
     overrideAccess: true,
     select: {
       domain: true,
+      hostnames: true,
+      direction: true,
+      slug: true,
       resendDomainId: true,
       emailDomainStatus: true,
       emailDomainVerifiedAt: true,
@@ -42,12 +48,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const domainRaw = typeof (tenant as any).domain === 'string' ? (tenant as any).domain : ''
-  const websiteDomain = normalizeCustomDomain(domainRaw)
-  const emailDomain = resolveEmailSendingDomain(websiteDomain)
-  if (!emailDomain) {
+  const websiteDomain = canonicalHostForEmail(tenant)
+  const emailDomain = resolveEmailSendingDomain(tenant)
+  if (!emailDomain || isPlatformEmailApex(emailDomain)) {
     return NextResponse.json({
-      domain: null,
+      domain: emailDomain,
       websiteDomain: websiteDomain || null,
       status: 'not_configured',
       resendDomainId: null,

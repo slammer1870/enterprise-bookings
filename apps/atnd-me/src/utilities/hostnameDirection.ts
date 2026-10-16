@@ -40,6 +40,22 @@ function wwwHostOf(apex: string): string {
   return `www.${apex}`
 }
 
+/**
+ * Canonical host for a saved hostname list.
+ * `www` of the first hostname's registrable domain when Direction is Redirect to www and that
+ * `www` host is named; otherwise that apex when it is named; otherwise the first hostname.
+ */
+export function canonicalHostFromList(hostnames: string[], direction: Direction): string {
+  const first = hostnames[0]
+  if (!first) return ''
+  const apex = getClaimedApex(first)
+  const www = wwwHostOf(apex)
+  const named = new Set(hostnames)
+  if (direction === 'redirect-to-www' && named.has(www)) return www
+  if (named.has(apex)) return apex
+  return first
+}
+
 /** Why this Direction cannot be saved for this list. Null when the list can take it. */
 export function directionRefusal(hostnames: string[], direction: Direction): string | null {
   if (direction === 'allow-www-and-non-www') return null

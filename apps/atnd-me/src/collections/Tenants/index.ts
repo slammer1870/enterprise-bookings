@@ -26,6 +26,7 @@ import {
 import { applePayDomainsForDeclaration, registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
+import { isPlatformEmailApex, resolveEmailSendingDomain } from '@/lib/resend/emailSendingDomain'
 import { provisionTenantEmailDomain } from '@/lib/resend/provisionTenantEmailDomain'
 
 const DEFAULT_TENANT_TIME_ZONE = 'Europe/Dublin'
@@ -323,7 +324,6 @@ export const Tenants: CollectionConfig = {
       name: 'emailDomainDnsInstructions',
       type: 'ui',
       admin: {
-        condition: (data) => Boolean(data?.domain),
         components: { Field: '@/components/admin/EmailDomainDnsInstructions' },
       },
     },
@@ -713,10 +713,16 @@ export const Tenants: CollectionConfig = {
           })
         }
 
-        // Resend email sending domain: provision on create when a custom domain is set,
-        // or whenever domain changes (including clear → teardown).
-        const domainChanged = newDomain !== prevDomain
-        if ((operation === 'create' && newDomain) || (operation !== 'create' && domainChanged)) {
+        // Resend email sending domain follows the apex of the canonical host.
+        const newSendingDomain = resolveEmailSendingDomain(doc)
+        const prevSendingDomain = previousDoc ? resolveEmailSendingDomain(previousDoc) : null
+        const sendingDomainChanged = newSendingDomain !== prevSendingDomain
+        const provisionCustomSendingDomain =
+          Boolean(newSendingDomain) && !isPlatformEmailApex(newSendingDomain!)
+        if (
+          (operation === 'create' && provisionCustomSendingDomain) ||
+          (operation !== 'create' && sendingDomainChanged)
+        ) {
           const previousResendDomainId =
             typeof previousDoc?.resendDomainId === 'string' && previousDoc.resendDomainId.trim()
               ? previousDoc.resendDomainId.trim()
@@ -724,7 +730,7 @@ export const Tenants: CollectionConfig = {
           await provisionTenantEmailDomain({
             payload: req.payload,
             tenantId: doc.id,
-            newDomain,
+            newDomain: newSendingDomain,
             previousResendDomainId,
             req,
           })

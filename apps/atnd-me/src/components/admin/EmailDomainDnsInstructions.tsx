@@ -5,6 +5,10 @@
  */
 import React, { useCallback, useEffect, useState } from 'react'
 import { useDocumentInfo, useFormFields } from '@payloadcms/ui'
+import {
+  canonicalHostForEmail,
+  resolveEmailSendingDomain,
+} from '@/lib/resend/emailSendingDomain'
 
 type DnsRecord = {
   record?: string
@@ -52,11 +56,18 @@ function RecordStatusBadge({ status }: { status?: string }) {
 
 export const EmailDomainDnsInstructions: React.FC = () => {
   const { id } = useDocumentInfo()
-  const domainField = useFormFields(([fields]) => fields.domain)
-  const domainValue =
-    typeof domainField?.value === 'string' && domainField.value.trim()
-      ? domainField.value.trim()
-      : null
+  const hostnames = useFormFields(([fields]) => fields.hostnames)
+  const direction = useFormFields(([fields]) => fields.direction)
+  const slug = useFormFields(([fields]) => fields.slug)
+  const domain = useFormFields(([fields]) => fields.domain)
+  const declaration = {
+    hostnames: hostnames?.value,
+    direction: direction?.value,
+    slug: typeof slug?.value === 'string' ? slug.value : null,
+    domain: typeof domain?.value === 'string' ? domain.value : null,
+  }
+  const emailSendingDomain = resolveEmailSendingDomain(declaration)
+  const canonicalHost = canonicalHostForEmail(declaration)
 
   const [data, setData] = useState<StatusPayload | null>(null)
   const [loading, setLoading] = useState(false)
@@ -66,7 +77,7 @@ export const EmailDomainDnsInstructions: React.FC = () => {
   const tenantId = id != null ? String(id) : null
 
   const loadStatus = useCallback(async () => {
-    if (!tenantId || !domainValue) {
+    if (!tenantId || !emailSendingDomain) {
       setData(null)
       return
     }
@@ -90,7 +101,7 @@ export const EmailDomainDnsInstructions: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [tenantId, domainValue])
+  }, [tenantId, emailSendingDomain])
 
   useEffect(() => {
     void loadStatus()
@@ -120,13 +131,13 @@ export const EmailDomainDnsInstructions: React.FC = () => {
     }
   }
 
-  if (!domainValue) return null
+  if (!emailSendingDomain) return null
 
   const records = data?.records || []
   const status = data?.status || 'not_configured'
   const isVerified = status === 'verified'
-  const emailDomain = data?.domain || domainValue.replace(/^www\./i, '')
-  const websiteDomain = data?.websiteDomain || domainValue
+  const emailDomain = emailSendingDomain
+  const websiteDomain = canonicalHost || data?.websiteDomain || emailSendingDomain
   const strippedWww = Boolean(
     websiteDomain &&
       emailDomain &&

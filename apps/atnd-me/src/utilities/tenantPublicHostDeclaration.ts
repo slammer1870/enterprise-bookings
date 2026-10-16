@@ -1,5 +1,6 @@
 import { APIError, type PayloadRequest, type Where } from 'payload'
 import {
+  canonicalHostFromList,
   DEFAULT_DIRECTION,
   directionRefusal,
   getClaimedApex,
@@ -121,17 +122,6 @@ function pairSide(hostname: string, named: Set<string>): 'www' | 'apex' | null {
   if (hostname === www) return 'www'
   if (hostname === apex) return 'apex'
   return null
-}
-
-function canonicalHostFromList(hostnames: string[], direction: Direction): string {
-  const first = hostnames[0]
-  if (!first) return ''
-  const apex = getClaimedApex(first)
-  const www = wwwHostOf(apex)
-  const named = new Set(hostnames)
-  if (direction === 'redirect-to-www' && named.has(www)) return www
-  if (named.has(apex)) return apex
-  return first
 }
 
 function derivePublicHostRoles(

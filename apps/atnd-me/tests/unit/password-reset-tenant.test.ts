@@ -71,7 +71,7 @@ describe('Password reset email tenant From header', () => {
       const payload = JSON.parse(init.body)
       expect(payload.to).toEqual(['person@example.com'])
       expect(payload.subject).toBe('Reset your Studio Yoga password')
-      expect(payload.from).toBe('Studio Yoga <auth@studio.example.com>')
+      expect(payload.from).toBe('Studio Yoga <auth@example.com>')
     },
     15_000,
   )

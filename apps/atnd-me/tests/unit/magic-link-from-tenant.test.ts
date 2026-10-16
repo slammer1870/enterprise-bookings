@@ -72,7 +72,7 @@ describe('Magic-link email tenant From header', () => {
     const payload = JSON.parse(init.body)
     expect(payload.to).toEqual(['person@example.com'])
     expect(payload.subject).toMatch(/^Sign in to Studio Yoga\b/)
-    expect(payload.from).toBe('Studio Yoga <auth@studio.example.com>')
+    expect(payload.from).toBe('Studio Yoga <auth@example.com>')
     },
     15_000,
   )
@@ -129,7 +129,7 @@ describe('Magic-link email tenant From header', () => {
     const [_url, init] = fetchMock.mock.calls[0] as any[]
     const payload = JSON.parse(init.body)
     expect(payload.subject).toMatch(/^Sign in to Brú Grappling\b/)
-    expect(payload.from).toBe('Bru Grappling <auth@bru.example.com>')
+    expect(payload.from).toBe('Bru Grappling <auth@example.com>')
   })
 
   it('falls back when tenant domain contains env-style injection (=)', async () => {

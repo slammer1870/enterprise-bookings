@@ -22,6 +22,9 @@ export type SendableEmailConfig = {
 
 export type TenantEmailFromGate = {
   domain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+  slug?: string | null
   verified?: boolean | null
 }
 
@@ -115,6 +118,9 @@ export async function sendPostBookingEmail({
   const from = sanitizeEmailFromForTenantDomain({
     emailFrom: rawFrom,
     tenantDomain: tenantEmailFrom?.domain,
+    hostnames: tenantEmailFrom?.hostnames,
+    direction: tenantEmailFrom?.direction,
+    slug: tenantEmailFrom?.slug,
     emailDomainVerified: tenantEmailFrom?.verified,
   })
   const replyTo = applyTemplate(config.replyTo, templateContext) || undefined

@@ -240,6 +240,9 @@ const betterAuthConfig = {
     return resolveTenantBasedBetterAuthFrom({
       tenantName: tenant?.name,
       tenantDomain: tenant?.domain,
+      hostnames: tenant?.hostnames,
+      direction: tenant?.direction,
+      slug: tenant?.slug,
       emailDomainVerified: tenant?.emailDomainVerified,
     })
   },
@@ -251,6 +254,9 @@ const betterAuthConfig = {
     return resolveTenantBasedBetterAuthFrom({
       tenantName: tenant?.name,
       tenantDomain: tenant?.domain,
+      hostnames: tenant?.hostnames,
+      direction: tenant?.direction,
+      slug: tenant?.slug,
       emailDomainVerified: tenant?.emailDomainVerified,
     })
   },
