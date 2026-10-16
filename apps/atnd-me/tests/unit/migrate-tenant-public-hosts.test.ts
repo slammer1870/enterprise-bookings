@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { bruCutoverConfirmed } from '../../scripts/bruCutoverConfirmed'
 import {
-  bruCutoverConfirmed,
   legacyTenantPublicHostRows,
   migrateLegacyTenantPublicHosts,
   publicHostRowsToWrite,

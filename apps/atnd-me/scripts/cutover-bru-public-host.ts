@@ -11,8 +11,8 @@
  *   pnpm exec tsx scripts/cutover-bru-public-host.ts --apex-cname-live --homepage-rule-removed
  */
 import 'dotenv/config'
+import { bruCutoverConfirmed } from './bruCutoverConfirmed'
 import {
-  bruCutoverConfirmed,
   isBruGrapplingTenant,
   publicHostRowsToWrite,
 } from '../src/utilities/migrateTenantPublicHosts'

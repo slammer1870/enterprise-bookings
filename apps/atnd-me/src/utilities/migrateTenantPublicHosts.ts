@@ -71,10 +71,6 @@ export function publicHostRowsToWrite(
   return writes
 }
 
-export function bruCutoverConfirmed(argv: readonly string[]): boolean {
-  return argv.includes('--apex-cname-live') && argv.includes('--homepage-rule-removed')
-}
-
 /** Turns a `tenants` select (`redirect_apex` aliased as `redirectApex`) into mapping input. */
 export function legacyTenantPublicHostRows(rows: unknown): LegacyTenantPublicHostRow[] {
   if (!Array.isArray(rows)) return []
