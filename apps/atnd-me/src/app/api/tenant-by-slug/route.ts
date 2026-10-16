@@ -52,14 +52,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null, { status: 404 })
     }
 
-    const savedList = readHostnameDeclaration(tenant).hostnames !== null
-    // A saved hostname list replaces the custom domain. Redirecting the platform
-    // subdomain is a later step; an empty list serves here.
-    const legacyCanonical = !savedList && tenant.domain ? tenant.domain : null
+    const declaration = readHostnameDeclaration(tenant)
+    // A saved list replaces the custom domain. Once it names a custom hostname,
+    // the platform subdomain redirects to the canonical host. An empty list serves.
+    const canonicalHost =
+      declaration.hostnames === null
+        ? tenant.domain
+        : declaration.hostnames.length > 0
+          ? declaration.roles?.canonicalHost
+          : null
     return NextResponse.json({
       id: tenant.id,
       slug: normalized,
-      ...(legacyCanonical ? { canonicalHost: legacyCanonical } : {}),
+      ...(canonicalHost ? { canonicalHost } : {}),
     })
   } catch (err) {
     console.error('[api/tenant-by-slug]', err)

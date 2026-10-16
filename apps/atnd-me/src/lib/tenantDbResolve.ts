@@ -11,6 +11,7 @@ export type TenantIdSlug = { id: number | string; slug: string }
 
 export type HostResolution =
   | { type: 'domain'; id: number | string; slug: string; indexedHost?: string }
+  /** `canonicalHost` is the redirect target: the pair partner, or the stored custom domain on a legacy row. */
   | { type: 'alias'; id: number | string; slug: string; canonicalHost: string }
 
 type DrizzleLike = {
@@ -93,6 +94,7 @@ async function findSavedHostnameDeclaration(
 /**
  * Resolves a request hostname to a tenant.
  * A saved hostname list serves every host that list marks as serving.
+ * An alias host on that list redirects to its pair partner.
  * A row that has not been saved with that list still serves its custom domain
  * and redirects a listed alias to that domain.
  * A hostname that was not saved is not a public host.
@@ -112,7 +114,15 @@ export async function findTenantByHost(
         indexedHost: roles.canonicalHost,
       }
     }
-    // Alias hosts on a saved list are not serving hosts.
+    const alias = roles?.aliases.find((entry) => entry.host === normalizedHost)
+    if (alias) {
+      return {
+        type: 'alias',
+        id: declared.id,
+        slug: declared.slug,
+        canonicalHost: alias.target,
+      }
+    }
     return null
   }
 
