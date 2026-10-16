@@ -23,7 +23,7 @@ import {
   validateRawPublicHostInputs,
   validateTenantPublicHostDeclarationOnSave,
 } from '@/utilities/tenantPublicHostDeclaration'
-import { registerApplePayDomain } from './registerApplePayDomain'
+import { applePayDomainsForDeclaration, registerApplePayDomain } from './registerApplePayDomain'
 import { collectApexActionsFromHookArgs } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
 import { provisionTenantEmailDomain } from '@/lib/resend/provisionTenantEmailDomain'
@@ -593,25 +593,6 @@ export const Tenants: CollectionConfig = {
             ? doc.stripeConnectAccountId.trim()
             : null
 
-        // Domains to register on the platform — only what actually changed.
-        const platformDomains: string[] = []
-        if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
-          platformDomains.push(`${newSlug}.${rootHostname}`)
-        }
-        if (newDomain && newDomain !== prevDomain) {
-          platformDomains.push(newDomain)
-        }
-
-        // Domains to register on the connected account — all current domains whenever
-        // anything changes. This means any save (including the two-save temp-domain trick)
-        // keeps the connected account fully in sync, closing the gap where only the custom
-        // domain changed but the platform subdomain was never registered on the account.
-        const connectedDomains: string[] = []
-        if (connectedAccountId && (platformDomains.length > 0)) {
-          if (newSlug && rootHostname) connectedDomains.push(`${newSlug}.${rootHostname}`)
-          if (newDomain) connectedDomains.push(newDomain)
-        }
-
         const register = async (domain: string, accountId?: string) => {
           await registerApplePayDomain(domain, accountId).catch((err: unknown) => {
             const label = accountId ? `(${accountId})` : '(platform)'
@@ -622,8 +603,47 @@ export const Tenants: CollectionConfig = {
           })
         }
 
-        for (const domain of platformDomains) await register(domain)
-        for (const domain of connectedDomains) await register(domain, connectedAccountId!)
+        const declaredDomains = applePayDomainsForDeclaration(doc)
+        if (declaredDomains !== null) {
+          const previousDeclared = applePayDomainsForDeclaration(previousDoc)
+          const previousServing = new Set(previousDeclared ?? [])
+          const servingChanged =
+            operation === 'create' ||
+            previousDeclared === null ||
+            declaredDomains.length !== previousServing.size ||
+            declaredDomains.some((host) => !previousServing.has(host))
+
+          if (servingChanged) {
+            for (const host of declaredDomains) {
+              if (operation === 'create' || previousDeclared === null || !previousServing.has(host)) {
+                await register(host)
+              }
+            }
+            if (connectedAccountId) {
+              for (const host of declaredDomains) await register(host, connectedAccountId)
+            }
+          }
+        } else {
+          // Legacy rows have no hostname list. Register only what changed.
+          const platformDomains: string[] = []
+          if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
+            platformDomains.push(`${newSlug}.${rootHostname}`)
+          }
+          if (newDomain && newDomain !== prevDomain) {
+            platformDomains.push(newDomain)
+          }
+
+          // Connected account receives every current domain when anything changed, so a
+          // custom-domain save still registers the platform subdomain on that account.
+          const connectedDomains: string[] = []
+          if (connectedAccountId && platformDomains.length > 0) {
+            if (newSlug && rootHostname) connectedDomains.push(`${newSlug}.${rootHostname}`)
+            if (newDomain) connectedDomains.push(newDomain)
+          }
+
+          for (const domain of platformDomains) await register(domain)
+          for (const domain of connectedDomains) await register(domain, connectedAccountId!)
+        }
 
         // If the domain was cleared, no deregistration needed — Stripe doesn't expose a
         // paymentMethodDomains.delete() that would break other integrations on the same domain.
@@ -645,12 +665,16 @@ export const Tenants: CollectionConfig = {
         // (so Cloudflare issues and manages the SSL cert regardless of hosting platform),
         // and store in DB when redirectApex is on.
         if (apexActions.registerApexApplePay) {
-          await registerApplePayDomain(apexActions.registerApexApplePay).catch((err: unknown) => {
-            console.error(
-              `[Tenants afterChange] Failed to register Apple Pay domain "${apexActions.registerApexApplePay}":`,
-              err,
-            )
-          })
+          // A stored hostname list already decides Apple Pay domains. Do not also
+          // register the apex derived from the legacy custom domain.
+          if (declaredDomains === null) {
+            await registerApplePayDomain(apexActions.registerApexApplePay).catch((err: unknown) => {
+              console.error(
+                `[Tenants afterChange] Failed to register Apple Pay domain "${apexActions.registerApexApplePay}":`,
+                err,
+              )
+            })
+          }
           // Register apex with Cloudflare TLS for SaaS using TXT DCV.
           // Cloudflare issues and auto-renews the cert independently of the hosting platform —
           // switching to serverless only requires updating the Cloudflare fallback origin.
