@@ -191,6 +191,7 @@ import * as migration_20260928_000004_fix_kyuzo_hero_color_columns from './20260
 import * as migration_20260928_000005_kyuzo_hero_ctas_array from './20260928_000005_kyuzo_hero_ctas_array'
 import * as migration_20261008_000001_tenants_alias_hosts from './20261008_000001_tenants_alias_hosts'
 import * as migration_20261013_000001_migrate_tenant_public_hosts from './20261013_000001_migrate_tenant_public_hosts'
+import * as migration_20261016_000001_tenants_hostname_list from './20261016_000001_tenants_hostname_list'
 
 export const migrations = [
   {
@@ -1157,5 +1158,10 @@ export const migrations = [
     up: migration_20261013_000001_migrate_tenant_public_hosts.up,
     down: migration_20261013_000001_migrate_tenant_public_hosts.down,
     name: '20261013_000001_migrate_tenant_public_hosts',
+  },
+  {
+    up: migration_20261016_000001_tenants_hostname_list.up,
+    down: migration_20261016_000001_tenants_hostname_list.down,
+    name: '20261016_000001_tenants_hostname_list',
   },
 ]

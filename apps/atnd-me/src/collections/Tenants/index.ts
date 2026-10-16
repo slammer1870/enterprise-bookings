@@ -17,6 +17,9 @@ import {
   validateAliasHosts,
 } from '@/utilities/validateCustomDomain'
 import {
+  DEFAULT_DIRECTION,
+  HOSTNAME_DIRECTIONS,
+  normalizeHostnameList,
   validateRawPublicHostInputs,
   validateTenantPublicHostDeclarationOnSave,
 } from '@/utilities/tenantPublicHostDeclaration'
@@ -252,6 +255,31 @@ export const Tenants: CollectionConfig = {
               .filter((host) => host !== '')
           },
         ],
+      },
+    },
+    {
+      name: 'hostnames',
+      type: 'json',
+      required: false,
+      admin: {
+        hidden: true,
+        description:
+          'Ordered custom hostnames. The platform subdomain is not an entry. Empty means no custom hostname is named.',
+      },
+    },
+    {
+      name: 'direction',
+      type: 'select',
+      defaultValue: DEFAULT_DIRECTION,
+      options: [
+        { label: 'Allow www and non-www', value: HOSTNAME_DIRECTIONS[0] },
+        { label: 'Redirect to www', value: HOSTNAME_DIRECTIONS[1] },
+        { label: 'Redirect to non-www', value: HOSTNAME_DIRECTIONS[2] },
+      ],
+      admin: {
+        hidden: true,
+        description:
+          'One rule for every www/apex pair in the hostname list. The default is Allow www and non-www.',
       },
     },
     {
@@ -693,6 +721,23 @@ export const Tenants: CollectionConfig = {
             const normalized = normalizeCustomDomain(data.domain)
             data.domain = normalized === '' ? null : normalized
           }
+        }
+
+        if (Object.prototype.hasOwnProperty.call(data, 'hostnames')) {
+          if (data.hostnames == null) {
+            data.hostnames = null
+          } else if (!Array.isArray(data.hostnames)) {
+            throw new Error('Hostname list must be a list of hostnames.')
+          } else {
+            data.hostnames = normalizeHostnameList(data.hostnames)
+          }
+        }
+
+        if (
+          Object.prototype.hasOwnProperty.call(data, 'direction') &&
+          (data.direction == null || data.direction === '')
+        ) {
+          data.direction = DEFAULT_DIRECTION
         }
 
         const currentId = operation === 'update' && originalDoc?.id ? originalDoc.id : null

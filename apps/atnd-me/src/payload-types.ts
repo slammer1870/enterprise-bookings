@@ -342,6 +342,22 @@ export interface Tenant {
    */
   aliasHosts?: string[] | null;
   /**
+   * Ordered custom hostnames. The platform subdomain is not an entry. Empty means no custom hostname is named.
+   */
+  hostnames?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * One rule for every www/apex pair in the hostname list. The default is Allow www and non-www.
+   */
+  direction?: ('allow-www-and-non-www' | 'redirect-to-www' | 'redirect-to-non-www') | null;
+  /**
    * Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
    */
   redirectApex?: boolean | null;
@@ -4980,6 +4996,8 @@ export interface TenantsSelect<T extends boolean = true> {
   timeZone?: T;
   domain?: T;
   aliasHosts?: T;
+  hostnames?: T;
+  direction?: T;
   redirectApex?: T;
   apexDomain?: T;
   apexDomainVerificationToken?: T;
