@@ -31,6 +31,6 @@ The payment method domain is the whole registration. A registered hostname does 
 
 Every serving host is an Apple Pay domain, and an alias host is not one.
 
-Allow www and non-www registers both hostnames in the pair. Redirect to www registers only the `www` hostname. Redirect to non-www registers only the apex. A serving hostname outside the canonical pair is registered itself. With no custom hostname, the platform subdomain is the only Apple Pay domain. Once a custom hostname is named, that platform subdomain redirects and is not registered.
+Allow www and non-www registers both hostnames in the pair. Redirect to www registers each `www` hostname that serves, and does not register an apex that redirects. Redirect to non-www registers each apex that serves, and does not register a `www` hostname that redirects. A serving hostname outside the canonical pair is registered itself. With no custom hostname, the platform subdomain is the only Apple Pay domain. Once a custom hostname is named, that platform subdomain redirects and is not registered.
 
 The payment method domain is the whole registration. A registered hostname does not host `/.well-known/apple-developer-merchantid-domain-association`.

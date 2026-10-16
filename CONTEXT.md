@@ -75,5 +75,5 @@ The apex of the canonical host. An apex named only by another hostname is not on
 _Avoid_: From-domain, email domain
 
 **Apple Pay domain**:
-A serving host. Each serving host is one. An alias host is not one.
+A serving host. Each serving host is one, and an alias host is not one.
 _Avoid_: merchant domain, payment domain
