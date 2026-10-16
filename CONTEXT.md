@@ -71,7 +71,7 @@ Whether a custom domain's certificate is issued: Active, Pending, Error, or Unkn
 _Avoid_: SSL status
 
 **Email sending domain**:
-The apex of the canonical host. An apex named only by another hostname is not one.
+The apex of the canonical host, whether or not that apex is in the hostname list. With no custom hostname named, it is the platform apex.
 _Avoid_: From-domain, email domain
 
 **Apple Pay domain**:
