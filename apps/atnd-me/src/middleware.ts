@@ -99,6 +99,8 @@ type TenantHostPayload = {
   slug?: string
   id?: string | number
   canonicalHost?: string
+  /** Set when this host serves but is not the canonical host. Sitemap redirects; the page does not. */
+  indexedHost?: string
 }
 
 /** One host lookup. Alias redirects and serving hosts both come from this response. */
@@ -118,9 +120,21 @@ function aliasCanonicalHost(data: TenantHostPayload | null, hostname: string): s
 }
 
 /**
- * Canonical host when this request host is an alias. Null when the host serves,
- * or when the lookup does not name one.
+ * Canonical host when this request host serves a page but is not the indexed host.
+ * Only `/sitemap.xml` uses this. The page and robots.txt stay on the serving host.
  */
+async function indexedHostIfServingElsewhere(
+  hostname: string,
+  requestHeaders?: Headers,
+): Promise<string | null> {
+  const origin = getPlatformOrigin()
+  if (!origin || !isCustomPublicHostname(hostname)) return null
+  const data = await fetchTenantByHost(origin, hostname, requestHeaders)
+  const indexedHost = data && typeof data.indexedHost === 'string' ? data.indexedHost : null
+  if (!indexedHost || indexedHost === hostname) return null
+  return indexedHost
+}
+
 async function canonicalHostIfAlias(
   hostname: string,
   requestHeaders?: Headers,
@@ -220,6 +234,12 @@ export async function middleware(request: NextRequest) {
     const canonicalHost = await canonicalHostIfAlias(hostname, request.headers)
     if (canonicalHost) {
       return redirectToCanonicalHost(canonicalHost, pathname, request.nextUrl.search)
+    }
+    if (pathname === '/sitemap.xml') {
+      const indexedHost = await indexedHostIfServingElsewhere(hostname, request.headers)
+      if (indexedHost) {
+        return redirectToCanonicalHost(indexedHost, pathname, request.nextUrl.search)
+      }
     }
     const hostLookup = await resolvePublicHostLookup(hostname, request.headers)
     if (hostLookup.kind === 'unknown' || hostLookup.kind === 'failed') {

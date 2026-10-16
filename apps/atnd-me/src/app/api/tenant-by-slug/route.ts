@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
 import { E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER } from '@/utilities/publicHostOutcome'
+import { readHostnameDeclaration } from '@/utilities/tenantPublicHostDeclaration'
 
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
 
@@ -51,10 +52,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null, { status: 404 })
     }
 
+    const savedList = readHostnameDeclaration(tenant).hostnames !== null
+    // A saved hostname list replaces the custom domain. Redirecting the platform
+    // subdomain is a later step; an empty list serves here.
+    const legacyCanonical = !savedList && tenant.domain ? tenant.domain : null
     return NextResponse.json({
       id: tenant.id,
       slug: normalized,
-      ...(tenant.domain ? { canonicalHost: tenant.domain } : {}),
+      ...(legacyCanonical ? { canonicalHost: legacyCanonical } : {}),
     })
   } catch (err) {
     console.error('[api/tenant-by-slug]', err)

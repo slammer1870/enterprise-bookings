@@ -24,7 +24,8 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
-import { getAbsoluteURL, getCanonicalHostname, getIndexedURL, getTenantSiteURL } from '@/utilities/getURL'
+import { getAbsoluteURL, getIndexedURL, getTenantSiteURL } from '@/utilities/getURL'
+import { indexedHostnameForTenant } from '@/utilities/resolvePublicTenant'
 
 export default async function RootLayout({
   children,
@@ -95,7 +96,7 @@ export async function generateMetadata(): Promise<Metadata> {
   )
   const siteUrl = getTenantSiteURL(tenant, headersList)
   const requestPath = headersList.get('x-request-pathname')
-  const canonicalHostname = getCanonicalHostname(tenant)
+  const canonicalHostname = indexedHostnameForTenant(tenant)
   const indexedUrl =
     canonicalHostname && requestPath
       ? getIndexedURL(canonicalHostname, requestPath)

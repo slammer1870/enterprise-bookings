@@ -5,10 +5,10 @@ import type { Media, Page, Post, Config } from '../payload-types'
 import { mergeOpenGraph } from './mergeOpenGraph'
 import {
   getAbsoluteURL,
-  getCanonicalHostname,
   getIndexedURL,
   getTenantSiteURL,
 } from './getURL'
+import { indexedHostnameForTenant } from './resolvePublicTenant'
 import type { TenantWithBranding } from './getTenantContext'
 import { isPlatformPublicHostname } from './publicHostOutcome'
 import { getRequestHostname } from './tenantRequest'
@@ -76,7 +76,7 @@ export const generateMeta = async (args: {
     requestHostname && isPlatformPublicHostname(requestHostname) && !tenantBranding,
   )
 
-  const canonicalHostname = getCanonicalHostname(tenantBranding)
+  const canonicalHostname = indexedHostnameForTenant(tenantBranding)
   const ogImage = getImageURL({
     baseURL: siteUrl,
     canonicalHost: canonicalHostname,

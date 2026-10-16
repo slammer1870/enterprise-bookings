@@ -10,6 +10,7 @@ import {
   getTenantSiteURL,
 } from '@/utilities/getURL'
 import { getRequestHostname } from '@/utilities/tenantRequest'
+import { readHostnameDeclaration } from '@/utilities/tenantPublicHostDeclaration'
 
 type RequestSource = {
   cookies: Awaited<ReturnType<typeof import('next/headers').cookies>>
@@ -23,13 +24,31 @@ export type ResolvedPublicTenant = {
   siteUrl: string
 }
 
+/**
+ * Host named by the indexed URL. A saved hostname list supplies it.
+ * Otherwise the custom domain does, or the platform subdomain when none is named.
+ */
+export function indexedHostnameForTenant(
+  tenant?: {
+    slug?: string | null
+    domain?: string | null
+    hostnames?: unknown
+    direction?: unknown
+  } | null,
+): string | null {
+  if (!tenant) return null
+  const declaration = readHostnameDeclaration(tenant)
+  if (declaration.hostnames !== null) return declaration.roles?.canonicalHost || null
+  return getCanonicalHostname(tenant)
+}
+
 export async function resolvePublicTenant(source: RequestSource): Promise<ResolvedPublicTenant> {
   const payload = await getPayload()
   const tenant = await getTenantWithBranding(payload, {
     cookies: source.cookies,
     headers: source.headers,
   })
-  const indexedHost = tenant ? getCanonicalHostname(tenant) : null
+  const indexedHost = indexedHostnameForTenant(tenant)
 
   let siteUrl = getRequestOrigin(source.headers)
   if (tenant) {

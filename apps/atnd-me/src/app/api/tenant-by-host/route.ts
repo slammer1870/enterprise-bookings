@@ -68,7 +68,12 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ slug: result.slug, id: result.id })
+    const indexedHost = result.indexedHost
+    return NextResponse.json({
+      slug: result.slug,
+      id: result.id,
+      ...(indexedHost && indexedHost !== normalized ? { indexedHost } : {}),
+    })
   } catch (err) {
     console.error('[api/tenant-by-host]', err)
     return NextResponse.json(
