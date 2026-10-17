@@ -1,8 +1,9 @@
 /**
  * Staff (`role: staff`) must reach the Payload admin dashboard on a tenant host.
  *
- * Uses a hostname under `*.127.0.0.1.nip.io` so DNS resolves to loopback while the Host header
- * is not `*.localhost`, which exercises the same middleware branch as production custom domains.
+ * Uses `*.127.0.0.1.nip.io` for the staff tenant and `*.127.0.0.1.sslip.io` for the
+ * other tenant. Those names resolve to loopback and claim different apexes.
+ * The Host header is not `*.localhost`, which exercises the custom-domain middleware branch.
  * Requires outbound DNS (nip.io) — same as typical CI/dev machines.
  *
  * Run via Turborepo from the monorepo root (recommended):
@@ -15,7 +16,8 @@
 import { test, expect } from './helpers/fixtures'
 import { loginAsStaff } from './helpers/auth-helpers'
 import { createTestTenant, createTestUser, getPayloadInstance } from './helpers/data-helpers'
-import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { isNipIoDnsAvailable, isSslipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 import type { Page } from '@playwright/test'
 
@@ -46,15 +48,17 @@ test.describe('Staff admin access (custom domain host)', () => {
   let staffEmail: string
   let tenant1Slug: string
   let nipIoAvailable = false
+  let sslipIoAvailable = false
 
   test.beforeAll(async ({ testData }) => {
     nipIoAvailable = await isNipIoDnsAvailable()
+    sslipIoAvailable = await isSslipIoDnsAvailable()
 
     const payload = await getPayloadInstance()
     const w = testData.workerIndex
     const stamp = Date.now()
     const host1 = nipIoAvailable ? `e2e-staff-${w}-${stamp}.127.0.0.1.nip.io` : undefined
-    const host2 = nipIoAvailable ? `e2e-staff-oth-${w}-${stamp}.127.0.0.1.nip.io` : undefined
+    const host2 = sslipIoAvailable ? `e2e-staff-oth-${w}-${stamp}.127.0.0.1.sslip.io` : undefined
     if (host1) staffOrigin = `http://${host1}:3000`
     if (host2) otherOrigin = `http://${host2}:3000`
 
@@ -62,9 +66,11 @@ test.describe('Staff admin access (custom domain host)', () => {
     const slug2 = `staff-cd-2-${w}-${stamp}`
     tenant1Slug = slug1
 
-    const tenant1 = await createTestTenant('E2E staff custom domain 1', slug1, host1)
+    if (host1) await releaseClaimedApex('nip.io')
+    const tenant1 = await createTestTenant(`E2E staff custom domain 1 ${w} ${stamp}`, slug1, host1)
     if (host2) {
-      await createTestTenant('E2E staff custom domain 2', slug2, host2)
+      await releaseClaimedApex('sslip.io')
+      await createTestTenant(`E2E staff custom domain 2 ${w} ${stamp}`, slug2, host2)
     }
 
     staffEmail = `staffcd${w}${stamp}@test.com`
@@ -82,6 +88,7 @@ test.describe('Staff admin access (custom domain host)', () => {
   })
 
   test('staff can open the admin dashboard on the tenant custom domain', async ({ page, request }) => {
+    test.setTimeout(90_000)
     test.skip(!nipIoAvailable, 'nip.io DNS is not available (outbound DNS required for custom-domain e2e)')
 
     await loginAsStaff(page, staffEmail, { request, password: 'password', adminOrigin: staffOrigin })
@@ -113,7 +120,10 @@ test.describe('Staff admin access (custom domain host)', () => {
   test('staff for tenant A cannot use the admin dashboard on tenant B custom domain', async ({
     page,
   }) => {
-    test.skip(!nipIoAvailable, 'nip.io DNS is not available (outbound DNS required for custom-domain e2e)')
+    test.skip(
+      !nipIoAvailable || !sslipIoAvailable,
+      'loopback DNS is not available for both custom-domain apexes',
+    )
 
     const hostOther = new URL(otherOrigin).hostname
     await page.goto(`${otherOrigin}/admin/login`, { waitUntil: 'domcontentloaded' })

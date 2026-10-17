@@ -2,6 +2,17 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 import { parseBranchSlugFromPathname } from '@/utilities/getLocationContext'
+import {
+  isCustomPublicHostname,
+  platformSubdomainSlug,
+  PUBLIC_HOST_OUTCOME_HEADER,
+  publicHostErrorHtml,
+} from '@/utilities/publicHostOutcome'
+import {
+  fetchTenantByHostLookup,
+  fetchTenantBySlugLookup,
+  resolvePublicHostLookup,
+} from '@/utilities/resolvePublicHostLookup'
 import { PAYLOAD_LOCATION_COOKIE, PUBLIC_BRANCH_SLUG_COOKIE } from '@/utilities/tenantRequest'
 import { POST_LOGIN_REDIRECT_COOKIE } from '@/collections/Users/hooks/constants'
 
@@ -24,6 +35,14 @@ function getRootHostname(): string | null {
 const ADMIN_HEADER = 'x-next-payload-admin'
 const PAYLOAD_TENANT_COOKIE = 'payload-tenant'
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
+
+/** Headers for an internal tenant lookup. Adds the resolve token when one is set. */
+function tenantResolveHeaders(extra?: Record<string, string>): Record<string, string> | undefined {
+  const headers: Record<string, string> = extra ? { ...extra } : {}
+  const token = process.env.INTERNAL_TENANT_RESOLVE_TOKEN
+  if (token) headers[INTERNAL_TENANT_RESOLVE_HEADER] = token
+  return Object.keys(headers).length > 0 ? headers : undefined
+}
 
 function getPlatformOrigin(): string | null {
   const url = process.env.NEXT_PUBLIC_SERVER_URL
@@ -56,6 +75,100 @@ function getPublicHostname(request: NextRequest): string {
  */
 function internalFetchSignal(): AbortSignal | undefined {
   return process.env.NODE_ENV !== 'production' ? AbortSignal.timeout(2000) : undefined
+}
+
+/** Request path for indexed URLs. The visitor's path, not a rewrite target. */
+const REQUEST_PATHNAME_HEADER = 'x-request-pathname'
+
+function requestHeadersWithPath(request: NextRequest, extra?: Record<string, string>): Headers {
+  const headers = new Headers(request.headers)
+  headers.set(REQUEST_PATHNAME_HEADER, request.nextUrl.pathname)
+  if (extra) {
+    for (const [name, value] of Object.entries(extra)) {
+      headers.set(name, value)
+    }
+  }
+  return headers
+}
+
+function redirectToCanonicalHost(canonicalHost: string, pathname: string, search: string): NextResponse {
+  return NextResponse.redirect(`https://${canonicalHost}${pathname}${search}`, 301)
+}
+
+type TenantHostPayload = {
+  slug?: string
+  id?: string | number
+  canonicalHost?: string
+  /** Set when this host serves but is not the canonical host. Sitemap redirects; the page does not. */
+  indexedHost?: string
+}
+
+/** One host lookup. Alias redirects and serving hosts both come from this response. */
+async function fetchTenantByHost(
+  origin: string,
+  hostname: string,
+  requestHeaders?: Headers,
+): Promise<TenantHostPayload | null> {
+  const lookup = await fetchTenantByHostLookup(origin, hostname, requestHeaders ?? null)
+  if (lookup.status !== 'ok') return null
+  return (lookup.data ?? null) as TenantHostPayload | null
+}
+
+function aliasCanonicalHost(data: TenantHostPayload | null, hostname: string): string | null {
+  if (!data || typeof data.canonicalHost !== 'string' || data.canonicalHost === hostname) return null
+  return data.canonicalHost
+}
+
+/**
+ * Canonical host when this request host serves a page but is not the indexed host.
+ * Only `/sitemap.xml` uses this. The page and robots.txt stay on the serving host.
+ */
+async function indexedHostIfServingElsewhere(
+  hostname: string,
+  requestHeaders?: Headers,
+): Promise<string | null> {
+  const origin = getPlatformOrigin()
+  if (!origin || !isCustomPublicHostname(hostname)) return null
+  const data = await fetchTenantByHost(origin, hostname, requestHeaders)
+  const indexedHost = data && typeof data.indexedHost === 'string' ? data.indexedHost : null
+  if (!indexedHost || indexedHost === hostname) return null
+  return indexedHost
+}
+
+async function canonicalHostIfAlias(
+  hostname: string,
+  requestHeaders?: Headers,
+): Promise<string | null> {
+  const origin = getPlatformOrigin()
+  if (!origin) return null
+
+  const slug = platformSubdomainSlug(hostname)
+
+  if (!slug) {
+    if (!isCustomPublicHostname(hostname)) return null
+    return aliasCanonicalHost(await fetchTenantByHost(origin, hostname, requestHeaders), hostname)
+  }
+
+  const lookup = await fetchTenantBySlugLookup(origin, slug, requestHeaders ?? null)
+  if (lookup.status !== 'ok' || !lookup.data) return null
+  return aliasCanonicalHost(lookup.data as TenantHostPayload, hostname)
+}
+
+function publicHostErrorNextResponse(
+  outcome: 'unknown' | 'failed',
+  clearTenantContextCookies: (response: NextResponse) => void,
+): NextResponse {
+  const status = outcome === 'unknown' ? 404 : 503
+  const response = new NextResponse(publicHostErrorHtml(outcome), {
+    status,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      [PUBLIC_HOST_OUTCOME_HEADER]: outcome,
+      'cache-control': 'no-store',
+    },
+  })
+  clearTenantContextCookies(response)
+  return response
 }
 
 export async function middleware(request: NextRequest) {
@@ -103,13 +216,35 @@ export async function middleware(request: NextRequest) {
   if (
     pathname.startsWith('/api') ||
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/favicon') ||
-    pathname.startsWith('/sitemap') ||
-    pathname.startsWith('/robots.txt')
+    pathname.startsWith('/favicon')
   ) {
     // Never mutate tenant cookies for API/static requests. Follow-up admin requests can lack a
     // reliable Referer header, and clearing here wipes the sidebar tenant selection after route
     // changes. Stale cookie cleanup is handled on real frontend page requests below.
+    return NextResponse.next()
+  }
+
+  // These paths used to skip the redirect layer. An alias host still 301s them.
+  if (
+    pathname.startsWith('/sitemap') ||
+    pathname.startsWith('/robots.txt') ||
+    pathname === '/pages-sitemap.xml' ||
+    pathname === '/posts-sitemap.xml'
+  ) {
+    const canonicalHost = await canonicalHostIfAlias(hostname, request.headers)
+    if (canonicalHost) {
+      return redirectToCanonicalHost(canonicalHost, pathname, request.nextUrl.search)
+    }
+    if (pathname === '/sitemap.xml') {
+      const indexedHost = await indexedHostIfServingElsewhere(hostname, request.headers)
+      if (indexedHost) {
+        return redirectToCanonicalHost(indexedHost, pathname, request.nextUrl.search)
+      }
+    }
+    const hostLookup = await resolvePublicHostLookup(hostname, request.headers)
+    if (hostLookup.kind === 'unknown' || hostLookup.kind === 'failed') {
+      return publicHostErrorNextResponse(hostLookup.kind, clearTenantContextCookies)
+    }
     return NextResponse.next()
   }
 
@@ -157,25 +292,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  const parts = hostname.split('.')
-  let subdomain: string | null = null
-
-  if (isLocalhost) {
-    if (parts.length > 1 && parts[0] && parts[0] !== 'localhost') {
-      subdomain = parts[0]
-    }
-  } else if (rootHostname) {
-    if (hostname === rootHostname) {
-      subdomain = null
-    } else if (hostname.endsWith('.' + rootHostname)) {
-      const prefix = hostname.slice(0, -(rootHostname.length + 1))
-      subdomain = prefix.split('.')[0] || null
-    }
-  } else {
-    if (parts.length >= 3 && parts[0]) {
-      subdomain = parts[0]
-    }
-  }
+  let subdomain: string | null = platformSubdomainSlug(hostname)
 
   // Apex → www redirect: when hitting the bare platform domain on a public-facing path, redirect
   // to the www subdomain so the landing-page tenant ("www") handles the request.
@@ -196,10 +313,7 @@ export async function middleware(request: NextRequest) {
   // Custom domain: host is not platform root and not a subdomain of it; resolve tenant by domain lookup.
   let isCustomDomain = false
   let resolvedTenantId: string | number | null = null
-  const internalResolveToken = process.env.INTERNAL_TENANT_RESOLVE_TOKEN
-  const internalResolveHeaders = internalResolveToken
-    ? { [INTERNAL_TENANT_RESOLVE_HEADER]: internalResolveToken }
-    : undefined
+  const internalResolveHeaders = tenantResolveHeaders()
   if (
     !subdomain &&
     !isLocalhost &&
@@ -218,45 +332,16 @@ export async function middleware(request: NextRequest) {
     // Always resolve custom domain from the public Host first. `tenant-slug` may be stale
     // (e.g. another tenant from a prior session or platform subdomain cookie copied incorrectly).
     let resolvedFromHost: { slug: string; id: string | number } | null = null
-    try {
-      const origin = platformOrigin ?? request.nextUrl.origin
-      const url = `${origin}/api/tenant-by-host?host=${encodeURIComponent(hostname)}`
-      const signal = internalFetchSignal()
-      const res = await fetch(url, {
-        cache: 'no-store',
-        // Pass hostname in a header as well: Next.js normalises 127.0.0.1→localhost
-        // in URL query strings during internal routing, so the header is the
-        // authoritative source of the original hostname.
-        headers: { ...internalResolveHeaders, 'x-resolve-host': hostname },
-        ...(signal && { signal }),
-      })
-      if (res.ok) {
-        const data = (await res.json()) as { slug?: string; id?: string | number; redirectTo?: string }
-        // Apex domain: redirect to the www custom domain before any cookie logic
-        if (data?.redirectTo && typeof data.redirectTo === 'string') {
-          // console.log(`[middleware] apex redirect ${hostname} → ${data.redirectTo}`)
-          // Preserve the current request's protocol and port so that local/test
-          // environments (http://...:3000) work correctly.  In production, the
-          // app runs behind a reverse proxy (Traefik) on an internal port (3000)
-          // that must NOT appear in the public redirect URL — strip it when the
-          // protocol is HTTPS (proxy scenario) so the redirect lands on the
-          // standard port. HTTP requests keep their port (local/E2E dev).
-          const redirectUrl = new URL(data.redirectTo)
-          const target = new URL(request.nextUrl.href)
-          target.hostname = redirectUrl.hostname
-          if (target.protocol === 'https:' && target.port === '3000') {
-            target.port = ''
-          }
-          target.pathname = pathname
-          target.search = request.nextUrl.search
-          return NextResponse.redirect(target.toString(), 301)
-        }
-        if (data?.slug && typeof data.slug === 'string') {
-          resolvedFromHost = { slug: data.slug, id: data.id as string | number }
-        }
-      }
-    } catch {
-      // Fall through to cookie-only path
+    const origin = platformOrigin ?? request.nextUrl.origin
+    const hostLookup = await fetchTenantByHostLookup(origin, hostname, request.headers)
+    const data =
+      hostLookup.status === 'ok' ? (hostLookup.data as TenantHostPayload | null) : null
+    const canonicalHost = aliasCanonicalHost(data, hostname)
+    if (canonicalHost) {
+      return redirectToCanonicalHost(canonicalHost, pathname, request.nextUrl.search)
+    }
+    if (data?.slug && typeof data.slug === 'string') {
+      resolvedFromHost = { slug: data.slug, id: data.id as string | number }
     }
 
     if (resolvedFromHost) {
@@ -266,11 +351,29 @@ export async function middleware(request: NextRequest) {
         typeof resolvedFromHost.id === 'string' || typeof resolvedFromHost.id === 'number'
           ? resolvedFromHost.id
           : null
-    } else if (slugLooksValid && slugFromCookie) {
+    } else if (!isCustomPublicHostname(hostname) && slugLooksValid && slugFromCookie) {
       subdomain = slugFromCookie
       isCustomDomain = true
       resolvedTenantId =
         idFromCookie !== null && Number.isFinite(idFromCookie) ? idFromCookie : null
+    }
+  }
+
+  // Platform subdomain is an alias once a custom canonical host is named.
+  // Admin stays on this host. Public paths, including the legacy sitemap routes, redirect.
+  if (subdomain && !isCustomDomain && !isPayloadAdmin) {
+    const canonicalHost = await canonicalHostIfAlias(hostname, request.headers)
+    if (canonicalHost) {
+      return redirectToCanonicalHost(canonicalHost, pathname, request.nextUrl.search)
+    }
+  }
+
+  const isPublicFrontendPath =
+    !isPayloadAdmin && !pathname.startsWith('/auth') && !pathname.startsWith('/next')
+  if (isPublicFrontendPath) {
+    const hostLookup = await resolvePublicHostLookup(hostname, request.headers)
+    if (hostLookup.kind === 'unknown' || hostLookup.kind === 'failed') {
+      return publicHostErrorNextResponse(hostLookup.kind, clearTenantContextCookies)
     }
   }
 
@@ -290,17 +393,14 @@ export async function middleware(request: NextRequest) {
   }
 
   if (!subdomain) {
-    const response = isPayloadAdmin
-      ? NextResponse.next({
-        request: {
-          headers: (() => {
-            const h = new Headers(request.headers)
-            h.set(ADMIN_HEADER, '1')
-            return h
-          })(),
-        },
-      })
-      : NextResponse.next()
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeadersWithPath(
+          request,
+          isPayloadAdmin ? { [ADMIN_HEADER]: '1' } : undefined,
+        ),
+      },
+    })
     // Do not delete tenant cookies on /admin: every admin request was getting Set-Cookie delete
     // which caused the admin dashboard to constantly reload. Only clear on frontend routes.
     if (!pathname.startsWith('/admin')) {
@@ -318,25 +418,25 @@ export async function middleware(request: NextRequest) {
         })()
       : null
 
-  const response = isPayloadAdmin
-    ? NextResponse.next({
-      request: {
-        headers: (() => {
-          const h = new Headers(request.headers)
-          h.set(ADMIN_HEADER, '1')
-          return h
-        })(),
-      },
-    })
-    : tenantRootRewriteUrl
-      ? NextResponse.rewrite(tenantRootRewriteUrl)
-      : NextResponse.next()
+  const forwardedHeaders = requestHeadersWithPath(
+    request,
+    isPayloadAdmin ? { [ADMIN_HEADER]: '1' } : undefined,
+  )
+  const response =
+    !isPayloadAdmin && tenantRootRewriteUrl
+      ? NextResponse.rewrite(tenantRootRewriteUrl, {
+          request: { headers: forwardedHeaders },
+        })
+      : NextResponse.next({
+          request: { headers: forwardedHeaders },
+        })
   const cookieOptions: { httpOnly: boolean; sameSite: 'lax'; path: string; domain?: string } = {
     httpOnly: false,
     sameSite: 'lax',
     path: '/',
   }
   // Custom domain: do not set cookie domain so the cookie is scoped to the current host only.
+  const parts = hostname.split('.')
   if (!isCustomDomain) {
     if (!isLocalhost && rootHostname) {
       cookieOptions.domain = `.${rootHostname}`

@@ -2,16 +2,62 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getTenantContext, getTenantWithBranding } from '../../src/utilities/getTenantContext'
 import { getTenantSiteURL } from '../../src/utilities/getURL'
+import { indexedSitemapURL, publicMetadataURL } from '../../src/utilities/resolvePublicTenant'
 
 describe('tenant SEO URL resolution', () => {
   afterEach(() => {
     vi.unstubAllEnvs()
   })
 
+  it('builds indexed sitemap URLs without port or query', () => {
+    const headers = new Headers({ host: 'tenant.example:3000' })
+    expect(indexedSitemapURL('tenant.example', headers)).toBe('https://tenant.example/sitemap.xml')
+    expect(indexedSitemapURL(null, headers)).toBe('https://tenant.example/sitemap.xml')
+  })
+
+  it('builds public metadata URLs from the canonical host when known', () => {
+    expect(
+      publicMetadataURL('/kids', {
+        indexedHost: 'bru.ie',
+        siteUrl: 'http://bru.ie:3000',
+      }),
+    ).toBe('https://bru.ie/kids')
+  })
+
   it('prefers a tenant custom domain over the platform subdomain', () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
 
-    expect(getTenantSiteURL({ slug: 'bru', domain: 'bru.ie' })).toBe('https://bru.ie')
+    expect(
+      getTenantSiteURL({
+        slug: 'bru',
+        hostnames: ['bru.ie'],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('https://bru.ie')
+  })
+
+  it('uses the canonical host derived from the hostname list and Direction', () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+
+    expect(
+      getTenantSiteURL({
+        slug: 'bru',
+        hostnames: ['www.example.com', 'example.com'],
+        direction: 'redirect-to-non-www',
+      }),
+    ).toBe('https://example.com')
+  })
+
+  it('uses the platform subdomain when the hostname list names no custom hostname', () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+
+    expect(
+      getTenantSiteURL({
+        slug: 'bru',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('https://bru.atnd.test')
   })
 
   it('falls back to the platform subdomain when no custom domain exists', () => {
@@ -32,9 +78,31 @@ describe('tenant SEO URL resolution', () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
 
     const payload = {
-      find: vi
-        .fn()
-        .mockResolvedValueOnce({ docs: [{ id: 7, slug: 'bru', name: 'Bru Grappling', domain: 'bru.ie' }] }),
+      db: {
+        drizzle: {
+          execute: vi.fn().mockResolvedValue({
+            rows: [
+              {
+                id: 7,
+                slug: 'bru',
+                hostnames: ['bru.ie'],
+                direction: 'allow-www-and-non-www',
+              },
+            ],
+          }),
+        },
+      },
+      find: vi.fn().mockResolvedValueOnce({
+        docs: [
+          {
+            id: 7,
+            slug: 'bru',
+            name: 'Bru Grappling',
+            hostnames: ['bru.ie'],
+            direction: 'allow-www-and-non-www',
+          },
+        ],
+      }),
     }
 
     const tenant = await getTenantContext(payload as never, {
@@ -45,8 +113,15 @@ describe('tenant SEO URL resolution', () => {
       id: 7,
       slug: 'bru',
       name: 'Bru Grappling',
-      domain: 'bru.ie',
+      hostnames: ['bru.ie'],
+      direction: 'allow-www-and-non-www',
     })
+    expect(payload.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'tenants',
+        where: { id: { equals: 7 } },
+      }),
+    )
   })
 
   it('resolves tenant context from payload-tenant in Cookie header when Host is platform apex', async () => {
@@ -58,7 +133,8 @@ describe('tenant SEO URL resolution', () => {
         id: 42,
         slug: 'acme',
         name: 'Acme Studio',
-        domain: 'www.acme.com',
+        hostnames: ['www.acme.com'],
+        direction: 'allow-www-and-non-www',
       }),
     }
 
@@ -90,7 +166,8 @@ describe('tenant SEO URL resolution', () => {
               id: 7,
               slug: 'bru',
               name: 'Bru Grappling',
-              domain: null,
+              hostnames: [],
+              direction: 'allow-www-and-non-www',
               description: 'Irish grappling classes',
               logo: { url: '/media/bru.png' },
             },

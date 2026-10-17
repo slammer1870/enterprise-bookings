@@ -1,23 +1,38 @@
 /**
- * E2E: apex domain redirects to the www custom domain.
+ * E2E: a derived apex is not a redirect to the stored www hostname.
  *
- * Uses *.127.0.0.1.nip.io so DNS resolves to loopback while Host is not *.localhost,
- * exercising the same middleware tenant-by-host path as production custom domains.
+ * The stored custom domain still serves. The derived apex is not an alias host,
+ * so a request there is not a 301 to www.
  *
- * Domain layout:
- *   www.e2e-apex-{w}-{stamp}.127.0.0.1.nip.io  →  tenant.domain  (served normally)
- *   e2e-apex-{w}-{stamp}.127.0.0.1.nip.io       →  apex_domain   (301 redirect to www)
+ * Uses *.127.0.0.1.nip.io so DNS resolves to loopback while Host is not *.localhost.
  *
  * Requires outbound DNS (nip.io). Skip when unavailable.
  *
  * Run from monorepo root:
  *   pnpm test:e2e:atnd-me -- apex-domain-redirect
  */
+import type { Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { createTestTenant, getPayloadInstance } from './helpers/data-helpers'
+import { enableApexRedirect } from './helpers/apex-redirect'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 import type { Tenant } from '@repo/shared-types'
+
+const port = process.env.E2E_PORT?.trim() || '3000'
+
+/** Next dev aborts the middleware host lookup after 2s. Compile that route first. */
+async function warmApexLookup(page: Page, origin: string) {
+  const apexHost = new URL(origin).hostname
+  await page.request.get(
+    `http://localhost:${port}/api/tenant-by-host?host=${encodeURIComponent(apexHost)}`,
+    {
+      headers: { 'x-resolve-host': apexHost },
+      timeout: 60_000,
+    },
+  )
+}
 
 test.describe('Apex domain redirect (E2E)', () => {
   test.describe.configure({ timeout: e2eSlowTestTimeout() })
@@ -33,69 +48,37 @@ test.describe('Apex domain redirect (E2E)', () => {
     const w = testData.workerIndex
     const stamp = Date.now()
 
+    await releaseClaimedApex('nip.io')
+
     const apexHost = `e2e-apex-${w}-${stamp}.127.0.0.1.nip.io`
     const wwwHost = `www.${apexHost}`
 
-    wwwOrigin = `http://${wwwHost}:3000`
-    apexOrigin = `http://${apexHost}:3000`
+    wwwOrigin = `http://${wwwHost}:${port}`
+    apexOrigin = `http://${apexHost}:${port}`
 
-    const payload = await getPayloadInstance()
-
-    // Create tenant with the www.* domain and redirectApex enabled.
-    // The afterChange hook will write apexDomain = apexHost so the middleware
-    // can resolve it. We bypass the Cloudflare/Stripe hooks via overrideAccess
-    // but those are mocked in integration; here we use the real hooks but they
-    // will simply log warnings if CLOUDFLARE_API_TOKEN is not set in the e2e env.
+    // The stored www hostname serves. The apex is not in the hostname list, so it
+    // must not 301 to www.
     const slug = `apex-cd-${w}-${stamp}`
-    await createTestTenant(`E2E apex redirect ${w}`, slug, wwwHost)
-
-    // Enable redirectApex via direct Payload update (createTestTenant doesn't support it)
-    await payload.update({
-      collection: 'tenants',
-      where: { slug: { equals: slug } },
-      data: { redirectApex: true },
-      overrideAccess: true,
-    })
-
-    // The afterChange hook stores apexDomain asynchronously. Wait for the
-    // derived value before navigating to avoid racing tenant resolution.
-    await expect
-      .poll(
-        async () => {
-          const result = await payload.find({
-            collection: 'tenants',
-            where: { slug: { equals: slug } },
-            limit: 1,
-            depth: 0,
-            overrideAccess: true,
-          })
-          return result.docs[0]?.apexDomain
-        },
-        { timeout: 15_000 },
-      )
-      .toBe(apexHost)
+    await createTestTenant(`E2E apex redirect ${w} ${stamp}`, slug, wwwHost)
+    await enableApexRedirect(slug, apexHost)
   })
 
-  test('apex domain issues a 301 redirect to the www host', async ({ page }) => {
+  test('a derived apex does not redirect to the stored www host', async ({ page }) => {
     test.skip(!nipIoAvailable, 'nip.io DNS is not available')
+    test.setTimeout(90_000)
 
-    await page.goto(`${apexOrigin}/`, { waitUntil: 'commit' })
-
-    // Playwright follows redirects by default; the final URL must be the www host
-    // (proving the apex redirect fired).  page.goto() returns the final navigation
-    // response so we cannot assert on the 301 status code directly — the URL check
-    // is the canonical proof that the redirect happened.
-    const finalUrl = new URL(page.url())
-    expect(finalUrl.host).toMatch(/^www\./)
+    await warmApexLookup(page, apexOrigin)
+    const response = await page.request.get(`${apexOrigin}/`, { maxRedirects: 0, timeout: 60_000 })
+    expect(response.status()).not.toBe(301)
+    expect(response.headers()['location'] ?? '').not.toContain('www.')
   })
 
-  test('apex redirect preserves the path', async ({ page }) => {
+  test('a derived apex does not redirect a deeper path to the stored www host', async ({ page }) => {
     test.skip(!nipIoAvailable, 'nip.io DNS is not available')
 
-    await page.goto(`${apexOrigin}/home`, { waitUntil: 'domcontentloaded' })
-    const url = new URL(page.url())
-    expect(url.host).toMatch(/^www\./)
-    expect(url.pathname).toBe('/home')
+    const response = await page.request.get(`${apexOrigin}/home`, { maxRedirects: 0, timeout: 60_000 })
+    expect(response.status()).not.toBe(301)
+    expect(response.headers()['location'] ?? '').not.toContain('www.')
   })
 
   test('www domain is served normally without further redirect', async ({ page }) => {
@@ -110,25 +93,31 @@ test.describe('Apex domain redirect (E2E)', () => {
     expect(response?.status()).toBeLessThan(500)
   })
 
-  test('tenant without redirectApex does not redirect its apex', async ({ testData, page }) => {
+  test('a lone hostname serves and does not redirect', async ({ testData, page }) => {
     test.skip(!nipIoAvailable, 'nip.io DNS is not available')
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const plainHost = `e2e-noapex-${w}-${stamp}.127.0.0.1.nip.io`
     const slug = `noapex-cd-${w}-${stamp}`
 
-    // Create a tenant with a non-www domain and no redirectApex
+    // Create a tenant whose only public host is this hostname.
     const payload = await getPayloadInstance()
     await payload.create({
       collection: 'tenants',
-      data: { name: `E2E no-apex ${w}`, slug, domain: plainHost },
+      data: {
+        name: `E2E no-apex ${w}`,
+        slug,
+        hostnames: [plainHost],
+        direction: 'allow-www-and-non-www',
+      },
       overrideAccess: true,
     } as Parameters<typeof payload.create>[0]) as Tenant
 
     // Visiting the domain directly should not redirect (even if the page 404s because no
     // pages are configured for this freshly-created tenant).
-    await page.goto(`http://${plainHost}:3000/`, { waitUntil: 'commit' })
+    await page.goto(`http://${plainHost}:${port}/`, { waitUntil: 'commit' })
     const url = new URL(page.url())
     expect(url.hostname).toBe(plainHost)
   })

@@ -16,6 +16,7 @@ export function PaymentMethodsConnect({
   FeeBreakdownComponent = DropInFeeBreakdown,
   ClassPassFeeBreakdownComponent = ClassPassFeeBreakdown,
   successUrl,
+  analytics,
   ...props
 }: ComponentProps<typeof PaymentMethods>) {
   return (
@@ -27,6 +28,7 @@ export function PaymentMethodsConnect({
       FeeBreakdownComponent={FeeBreakdownComponent}
       ClassPassFeeBreakdownComponent={ClassPassFeeBreakdownComponent}
       successUrl={successUrl ?? "/success"}
+      analytics={analytics}
     />
   );
 }

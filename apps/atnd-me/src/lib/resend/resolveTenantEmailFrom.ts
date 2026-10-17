@@ -1,27 +1,38 @@
 import { sanitizeFromAddress, sanitizeFromName } from '@/utilities/emailConfig'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
+import {
+  canonicalHostForEmail,
+  resolveEmailSendingDomain,
+  type EmailSendingDomainSource,
+} from './emailSendingDomain'
+
+export { resolveEmailSendingDomain, type EmailSendingDomainSource } from './emailSendingDomain'
 
 export type TenantEmailFromInput = {
   tenantName?: string | null
-  /** Website custom domain (tenants.domain), e.g. www.studio.example.com */
+  /** A single host, used when the caller has not passed a hostname list. */
   tenantDomain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+  slug?: string | null
   /** When true, From may use auth@{emailSendingDomain}. When false/undefined, platform default. */
   emailDomainVerified?: boolean | null
 }
 
-/**
- * Domain used for Resend verification + From addresses.
- * Strips a leading `www.` so website hosts like `www.boatyardsauna.ie` send as
- * `auth@boatyardsauna.ie` (not `auth@www.boatyardsauna.ie`).
- */
-export function resolveEmailSendingDomain(websiteDomain: string | null | undefined): string | null {
-  const normalized = websiteDomain ? normalizeCustomDomain(websiteDomain) : ''
-  if (!normalized) return null
-  if (normalized.startsWith('www.')) {
-    const apex = normalized.slice('www.'.length)
-    if (apex.includes('.')) return apex
+function emailSource(args: {
+  tenantDomain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+  slug?: string | null
+}): EmailSendingDomainSource | string | null | undefined {
+  if (args.hostnames === undefined && args.direction === undefined && args.slug === undefined) {
+    return args.tenantDomain
   }
-  return normalized
+  return {
+    hostnames: args.hostnames,
+    direction: args.direction,
+    slug: args.slug,
+  }
 }
 
 /**
@@ -30,7 +41,7 @@ export function resolveEmailSendingDomain(websiteDomain: string | null | undefin
  */
 export function resolveTenantBasedBetterAuthFrom(args: TenantEmailFromInput) {
   const fromName = sanitizeFromName(args.tenantName) || 'ATND ME'
-  const emailDomain = resolveEmailSendingDomain(args.tenantDomain)
+  const emailDomain = resolveEmailSendingDomain(emailSource(args))
   const useTenantDomain = Boolean(args.emailDomainVerified && emailDomain)
   const fromAddressEmail = useTenantDomain ? `auth@${emailDomain}` : 'auth@atnd.me'
 
@@ -59,12 +70,13 @@ function extractEmailHost(emailFrom: string): string | null {
 
 export function isHostTenantEmailDomain(
   host: string,
-  tenantDomain: string | null | undefined,
+  source: EmailSendingDomainSource | string | null | undefined,
 ): boolean {
-  const websiteDomain = tenantDomain ? normalizeCustomDomain(tenantDomain) : null
-  const emailDomain = resolveEmailSendingDomain(tenantDomain)
-  if (!emailDomain && !websiteDomain) return false
-  return host === emailDomain || host === websiteDomain || host === `www.${emailDomain}`
+  const websiteDomain = canonicalHostForEmail(source)
+  const normalizedWebsite = websiteDomain ? normalizeCustomDomain(websiteDomain) : null
+  const emailDomain = resolveEmailSendingDomain(source)
+  if (!emailDomain && !normalizedWebsite) return false
+  return host === emailDomain || host === normalizedWebsite || host === `www.${emailDomain}`
 }
 
 /**
@@ -74,13 +86,17 @@ export function isHostTenantEmailDomain(
 export function getEmailFromTenantDomainValidationError(args: {
   emailFrom?: string | null
   tenantDomain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+  slug?: string | null
   emailDomainVerified?: boolean | null
 }): string | null {
   const from = typeof args.emailFrom === 'string' ? args.emailFrom.trim() : ''
   if (!from) return null
   if (emailFromContainsTemplateVars(from)) return null
 
-  const emailDomain = resolveEmailSendingDomain(args.tenantDomain)
+  const source = emailSource(args)
+  const emailDomain = resolveEmailSendingDomain(source)
   if (!args.emailDomainVerified || !emailDomain) {
     return 'Verify your studio email domain before setting a custom Email From address.'
   }
@@ -90,7 +106,7 @@ export function getEmailFromTenantDomainValidationError(args: {
     return 'Email From must include a valid email address (e.g. hello@your-domain.com).'
   }
 
-  if (!isHostTenantEmailDomain(host, args.tenantDomain)) {
+  if (!isHostTenantEmailDomain(host, source)) {
     return `Email From must use your verified domain (${emailDomain}).`
   }
 
@@ -108,6 +124,9 @@ export function getEmailFromTenantDomainValidationError(args: {
 export function sanitizeEmailFromForTenantDomain(args: {
   emailFrom?: string | null
   tenantDomain?: string | null
+  hostnames?: unknown
+  direction?: unknown
+  slug?: string | null
   emailDomainVerified?: boolean | null
 }): string | undefined {
   const from = typeof args.emailFrom === 'string' ? args.emailFrom.trim() : ''

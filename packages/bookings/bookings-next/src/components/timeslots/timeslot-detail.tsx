@@ -11,6 +11,7 @@ export function TimeslotDetail({
   timeslot,
   manageHref,
   loginToBookUrl,
+  analyticsEnabled,
 }: { 
   timeslot: ScheduleTimeslot;
   /**
@@ -21,6 +22,7 @@ export function TimeslotDetail({
   manageHref?: string | ((timeslotId: number) => string);
   /** Passed through to CheckInButton — see `CheckInButton` `loginToBookUrl`. */
   loginToBookUrl?: LoginToBookUrlResolver;
+  analyticsEnabled?: boolean;
 }) {
   const timeZone = resolveTimeslotTimeZone(timeslot)
 
@@ -85,6 +87,7 @@ export function TimeslotDetail({
           scheduleState={timeslot.scheduleState}
           manageHref={manageHref}
           loginToBookUrl={loginToBookUrl}
+          analyticsEnabled={analyticsEnabled}
         />
       </div>
     </div>
