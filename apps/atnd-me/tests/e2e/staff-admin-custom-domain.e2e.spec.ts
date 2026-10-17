@@ -67,10 +67,10 @@ test.describe('Staff admin access (custom domain host)', () => {
     tenant1Slug = slug1
 
     if (host1) await releaseClaimedApex('nip.io')
-    const tenant1 = await createTestTenant('E2E staff custom domain 1', slug1, host1)
+    const tenant1 = await createTestTenant(`E2E staff custom domain 1 ${w} ${stamp}`, slug1, host1)
     if (host2) {
       await releaseClaimedApex('sslip.io')
-      await createTestTenant('E2E staff custom domain 2', slug2, host2)
+      await createTestTenant(`E2E staff custom domain 2 ${w} ${stamp}`, slug2, host2)
     }
 
     staffEmail = `staffcd${w}${stamp}@test.com`

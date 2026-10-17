@@ -102,7 +102,7 @@ test.describe('Tenant public host declaration (E2E)', () => {
     const otherApexHost = `e2e-decl-xa-other-${w}-${stamp}.127.0.0.1.nip.io`
     const slug = `decl-xa-${w}-${stamp}`
 
-    const tenant = await createTestTenant(`E2E Decl Cross Apex ${w}`, slug, canonicalHost)
+    const tenant = await createTestTenant(`E2E Decl Cross Apex ${w} ${stamp}`, slug, canonicalHost)
     await createTestPage(tenant.id, 'kids', 'Kids')
 
     const payload = await getPayloadInstance()
@@ -135,8 +135,8 @@ test.describe('Tenant public host declaration (E2E)', () => {
     const slug1 = `decl-c1-${w}-${stamp}`
     const slug2 = `decl-c2-${w}-${stamp}`
 
-    await createTestTenant(`E2E Decl Conflict A ${w}`, slug1, host)
-    const tenantB = await createTestTenant(`E2E Decl Conflict B ${w}`, slug2)
+    await createTestTenant(`E2E Decl Conflict A ${w} ${stamp}`, slug1, host)
+    const tenantB = await createTestTenant(`E2E Decl Conflict B ${w} ${stamp}`, slug2)
 
     const payload = await getPayloadInstance()
     await expect(

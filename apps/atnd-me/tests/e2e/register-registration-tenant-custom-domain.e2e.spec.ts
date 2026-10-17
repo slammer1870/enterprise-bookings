@@ -34,7 +34,7 @@ test.describe('Registration tenant (custom domain E2E)', () => {
     registerOrigin = `http://${host}:3000`
 
     const slug = `reg-cd-${w}-${stamp}`
-    const tenant = await createTestTenant(`E2E reg custom domain ${w}`, slug, host)
+    const tenant = await createTestTenant(`E2E reg custom domain ${w} ${stamp}`, slug, host)
     if (tenant.id == null) throw new Error('tenant missing id')
     tenantId = tenant.id
   })
