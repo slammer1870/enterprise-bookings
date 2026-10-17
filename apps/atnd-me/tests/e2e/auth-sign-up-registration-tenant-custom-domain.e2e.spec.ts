@@ -11,6 +11,7 @@
 import { test, expect } from './helpers/fixtures'
 import { createTestTenant, getPayloadInstance } from './helpers/data-helpers'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
@@ -26,12 +27,13 @@ test.describe('Better Auth /auth/sign-up registrationTenant (custom domain E2E)'
     if (!nipIoAvailable) return
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const host = `e2e-bauth-${w}-${stamp}.127.0.0.1.nip.io`
     registerOrigin = `http://${host}:3000`
 
     const slug = `bauth-cd-${w}-${stamp}`
     // `createTestTenant` reuses existing tenants by both `slug` and `name`.
-    // Ensure the name is unique per run so the stored `tenant.domain` always
+    // Ensure the name is unique per run so the stored hostname list always
     // matches the current `host` we’re visiting for this test.
     const tenant = await createTestTenant(`E2E Better Auth CD ${w} ${stamp}`, slug, host)
     if (tenant.id == null) throw new Error('tenant missing id')

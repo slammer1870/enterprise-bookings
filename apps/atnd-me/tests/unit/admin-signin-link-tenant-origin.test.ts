@@ -41,7 +41,7 @@ describe('Admin magic-link callbackURL origin', () => {
         }
       }
       if (collection === 'timeslots') return { tenant: 100 }
-      if (collection === 'tenants') return { slug: 'acme', domain: null }
+      if (collection === 'tenants') return { slug: 'acme', hostnames: [], direction: 'allow-www-and-non-www' }
       return null
     })
 
@@ -91,7 +91,13 @@ describe('Admin magic-link callbackURL origin', () => {
         }
       }
       if (collection === 'timeslots') return { tenant: 100 }
-      if (collection === 'tenants') return { slug: null, domain: 'studio.example.com' }
+      if (collection === 'tenants') {
+        return {
+          slug: 'studio',
+          hostnames: ['studio.example.com'],
+          direction: 'allow-www-and-non-www',
+        }
+      }
       return null
     })
 

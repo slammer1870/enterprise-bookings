@@ -10,8 +10,26 @@ import { middleware } from '../../src/middleware'
  */
 describe('Middleware', () => {
   const originalServerUrl = process.env.NEXT_PUBLIC_SERVER_URL
+  const originalFetch = globalThis.fetch
+
+  beforeEach(() => {
+    globalThis.fetch = async (input: RequestInfo | URL) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+      const href = String(url)
+      const slugMatch = href.match(/[?&]slug=([^&]+)/)
+      if (href.includes('/api/tenant-by-slug') && slugMatch?.[1]) {
+        const slug = decodeURIComponent(slugMatch[1])
+        return new Response(JSON.stringify({ slug, id: 1 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response(null, { status: 404 })
+    }
+  })
 
   afterEach(() => {
+    globalThis.fetch = originalFetch
     if (originalServerUrl !== undefined) {
       process.env.NEXT_PUBLIC_SERVER_URL = originalServerUrl
     } else {

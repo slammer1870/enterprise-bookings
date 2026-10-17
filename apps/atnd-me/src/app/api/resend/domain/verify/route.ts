@@ -14,9 +14,12 @@ import {
   mapResendStatusToEmailDomainStatus,
   verifyDomain,
 } from '@/lib/resend/domains'
-import { resolveEmailSendingDomain } from '@/lib/resend/resolveTenantEmailFrom'
+import {
+  canonicalHostForEmail,
+  isPlatformEmailApex,
+  resolveEmailSendingDomain,
+} from '@/lib/resend/emailSendingDomain'
 import { syncTenantEmailDomainFromResend } from '@/lib/resend/syncTenantEmailDomain'
-import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 export async function POST(request: NextRequest) {
   const payload = await getPayload()
@@ -46,9 +49,12 @@ export async function POST(request: NextRequest) {
     depth: 0,
     overrideAccess: true,
     select: {
-      domain: true,
+      hostnames: true,
+      direction: true,
+      slug: true,
       resendDomainId: true,
       emailDomainVerifiedAt: true,
+      emailDomainStatus: true,
     } as Record<string, boolean>,
   })
 
@@ -56,11 +62,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  const domainRaw = typeof (tenant as any).domain === 'string' ? (tenant as any).domain : ''
-  const websiteDomain = normalizeCustomDomain(domainRaw)
-  const emailDomain = resolveEmailSendingDomain(websiteDomain)
-  if (!emailDomain) {
-    return NextResponse.json({ error: 'Tenant has no custom domain' }, { status: 400 })
+  const websiteDomain = canonicalHostForEmail(tenant)
+  const emailDomain = resolveEmailSendingDomain(tenant)
+  if (!emailDomain || isPlatformEmailApex(emailDomain)) {
+    return NextResponse.json({
+      domain: emailDomain,
+      websiteDomain,
+      status: 'not_configured',
+      resendDomainId: null,
+      records: [],
+      verifiedAt: null,
+    })
   }
 
   let resendDomainId =

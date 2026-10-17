@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { cookies, headers } from 'next/headers'
-import React from 'react'
+import React, { Suspense } from 'react'
 
 // Allow ISR-style data caching (unstable_cache / revalidate tags). Request is still
 // dynamic when cookies()/headers() are read, but we no longer disable the Data Cache.
@@ -8,17 +8,26 @@ export const revalidate = 60
 
 import { Footer } from '@/Footer/Component'
 import { Header } from '@/Header/Component'
+import { UTMTracker } from '@repo/analytics'
 import { Providers } from '@/providers'
 import { InitTheme } from '@/providers/Theme/InitTheme'
 import { mergeOpenGraph } from '@/utilities/mergeOpenGraph'
+import {
+  isPlatformPublicHostname,
+  publicHostErrorMetadata,
+  readPublicHostOutcome,
+} from '@/utilities/publicHostOutcome'
+import { getRequestHostname } from '@/utilities/tenantRequest'
 
 import '@repo/ui/globals.css'
 
 import './globals.css'
 import { Toaster } from 'sonner'
 import { getPayload } from '@/lib/payload'
+import { resolveUmamiAnalyticsConfig } from '@/lib/analytics/config'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
-import { getAbsoluteURL, getTenantSiteURL } from '@/utilities/getURL'
+import { getAbsoluteURL, getIndexedURL, getTenantSiteURL } from '@/utilities/getURL'
+import { indexedHostnameForTenant } from '@/utilities/resolvePublicTenant'
 
 export default async function RootLayout({
   children,
@@ -30,6 +39,7 @@ export default async function RootLayout({
 
   const cookieStore = await cookies()
   const headersList = await headers()
+  const analyticsEnabled = resolveUmamiAnalyticsConfig(getRequestHostname(headersList)).enabled
   const payload = await getPayload()
   const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
   const siteUrl = getTenantSiteURL(tenant, headersList)
@@ -52,6 +62,11 @@ export default async function RootLayout({
 
   return (
     <>
+      {analyticsEnabled && (
+        <Suspense fallback={null}>
+          <UTMTracker />
+        </Suspense>
+      )}
       {structuredData && (
         <script
           id="tenant-structured-data"
@@ -76,21 +91,42 @@ export default async function RootLayout({
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies()
   const headersList = await headers()
+  const hostOutcome = readPublicHostOutcome(headersList)
+  if (hostOutcome) {
+    return publicHostErrorMetadata(hostOutcome)
+  }
+
   const payload = await getPayload()
   const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
+  const requestHostname = getRequestHostname(headersList)
+  const usePlatformDefaults = Boolean(
+    requestHostname && isPlatformPublicHostname(requestHostname) && !tenant,
+  )
   const siteUrl = getTenantSiteURL(tenant, headersList)
+  const requestPath = headersList.get('x-request-pathname')
+  const canonicalHostname = indexedHostnameForTenant(tenant)
+  const indexedUrl =
+    canonicalHostname && requestPath
+      ? getIndexedURL(canonicalHostname, requestPath)
+      : siteUrl
   const logoUrl =
     tenant?.logo && typeof tenant.logo === 'object' && typeof tenant.logo.url === 'string'
       ? getAbsoluteURL(tenant.logo.url, siteUrl)
       : undefined
 
   return {
-    openGraph: mergeOpenGraph({
-      images: logoUrl ? [{ url: logoUrl }] : undefined,
-      siteName: tenant?.name || 'ATND ME',
-      title: tenant?.name || 'ATND ME',
-      url: siteUrl,
-    }),
+    ...(canonicalHostname && requestPath
+      ? { alternates: { canonical: indexedUrl } }
+      : {}),
+    openGraph: mergeOpenGraph(
+      {
+        images: logoUrl ? [{ url: logoUrl }] : undefined,
+        siteName: tenant?.name || 'ATND ME',
+        title: tenant?.name || 'ATND ME',
+        url: indexedUrl,
+      },
+      { usePlatformDefaults },
+    ),
     twitter: {
       card: 'summary_large_image',
       creator: 'ATND',

@@ -19,6 +19,8 @@ import { toast } from 'sonner'
 import { Loader2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
 import { format } from 'date-fns'
+import { useAnalyticsTracker } from '@repo/analytics'
+import type { CheckoutAnalyticsAttribution } from '@repo/payments-next'
 
 const DEFAULT_CANCEL_MESSAGE =
   'This booking will be cancelled without a refund or class-pass credit restore.'
@@ -176,6 +178,7 @@ interface ManageBookingPageClientProps {
       metadata: Record<string, string>
     ) => Promise<Record<string, string> | void>
     successUrl?: string
+    analytics?: CheckoutAnalyticsAttribution
   }>
   /**
    * POST endpoint used to cancel pending bookings on beforeunload (supports keepalive).
@@ -187,6 +190,7 @@ interface ManageBookingPageClientProps {
   initialCheckoutHold?: { id: number; quantity: number; expiresAt: string } | null
   /** Redirect URL after successful payment. Defaults to /dashboard. */
   successUrl?: string
+  analytics?: CheckoutAnalyticsAttribution
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -200,10 +204,21 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
   useCheckoutHolds = false,
   initialCheckoutHold = null,
   successUrl = '/dashboard',
+  analytics,
 }) => {
   const trpc = useTRPC()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { trackEvent } = useAnalyticsTracker()
+  const trackPayAtDoorBooking = (quantity: number) => {
+    if (!analytics) return
+    trackEvent('Booking Completed', {
+      booking_flow: analytics.bookingFlow,
+      quantity,
+      is_trial: timeslot.bookingStatus === 'trialable',
+      payment_method: 'pay_at_door',
+    })
+  }
 
   const [cancelConfirmMessage, setCancelConfirmMessage] = useState(DEFAULT_CANCEL_MESSAGE)
   const [ConfirmationDialog, confirm] = useConfirm(
@@ -538,6 +553,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
         })
         await invalidateBookingQueries()
         toast.success('Booking updated')
+        trackPayAtDoorBooking(target - current)
       } catch {
         // Error toast handled by mutation onError
       }
@@ -628,6 +644,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
       await setBookingQuantity({ timeslotId: timeslot.id, desiredQuantity: target })
       const delta = target - current
       toast.success(`Added ${delta} booking${delta !== 1 ? 's' : ''}.`)
+      trackPayAtDoorBooking(delta)
     } catch {
       // Error toast handled by mutation onError
     }
@@ -836,6 +853,7 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
                   : undefined
               }
               successUrl={successUrl}
+              analytics={analytics}
             />
           </CardContent>
         </Card>
