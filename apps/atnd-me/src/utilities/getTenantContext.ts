@@ -6,7 +6,7 @@ import {
   getPayloadTenantIdFromRequest,
   getTenantSlugFromRequest,
 } from './tenantRequest'
-import { readHostnameDeclaration } from './tenantPublicHostDeclaration'
+import type { TenantURLSource } from './getURL'
 import { normalizeCustomDomain } from './validateCustomDomain'
 import { unstable_cache } from './next-cache'
 
@@ -58,18 +58,6 @@ async function findTenantByHost(payload: Payload, headers?: Headers | null) {
     const normalized = normalizeCustomDomain(hostname)
     if (!normalized) continue
 
-    const result = await payload.find({
-      collection: 'tenants',
-      where: { domain: { equals: normalized } },
-      limit: 1,
-      depth: 1,
-      overrideAccess: true,
-      select: brandingSelect,
-    })
-
-    const doc = result.docs[0] as TenantBrandingDoc | undefined
-    if (doc && legacyOrDeclaredDomainServes(doc, normalized)) return doc
-
     const resolved = await resolveTenantHost(payload, normalized)
     if (!resolved || resolved.type !== 'domain') continue
 
@@ -88,13 +76,10 @@ async function findTenantByHost(payload: Payload, headers?: Headers | null) {
   return null
 }
 
-export type TenantContext = {
+export type TenantContext = TenantURLSource & {
   id: number
   slug: string
   name: string
-  domain?: string | null
-  hostnames?: unknown
-  direction?: unknown
 }
 
 export type TenantRequestSource = TenantSlugSource & {
@@ -160,26 +145,20 @@ export type TenantWithBranding = TenantContext & {
     } | null
   } | number | null
   description?: string | null
-  hostnames?: unknown
-  direction?: unknown
 }
 
-type TenantBrandingDoc = {
+type TenantBrandingDoc = TenantURLSource & {
   id: number
   slug: string
   name?: string
-  domain?: string | null
   logo?: TenantWithBranding['logo']
   description?: string | null
-  hostnames?: unknown
-  direction?: unknown
 }
 
 const brandingSelect = {
   id: true,
   slug: true,
   name: true,
-  domain: true,
   logo: true,
   description: true,
   hostnames: true,
@@ -191,7 +170,6 @@ function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
     id: t.id,
     slug: t.slug,
     name: t.name ?? '',
-    domain: t.domain ?? null,
     logo: t.logo,
     description: t.description,
     hostnames: t.hostnames,
@@ -199,20 +177,10 @@ function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
   }
 }
 
-/** A custom-domain row serves this host. A saved hostname list decides; otherwise the stored domain does. */
-function legacyOrDeclaredDomainServes(doc: TenantBrandingDoc, hostname: string): boolean {
-  const declaration = readHostnameDeclaration(doc)
-  if (declaration.hostnames !== null) {
-    return Boolean(declaration.roles?.servingHosts.includes(hostname))
-  }
-  return doc.domain === hostname
-}
-
 function toTenantContext(t: {
   id: number
   slug: string
   name?: string
-  domain?: string | null
   hostnames?: unknown
   direction?: unknown
 }): TenantContext {
@@ -220,7 +188,6 @@ function toTenantContext(t: {
     id: t.id,
     slug: t.slug,
     name: t.name ?? '',
-    domain: t.domain ?? null,
     ...(t.hostnames !== undefined ? { hostnames: t.hostnames } : {}),
     ...(t.direction !== undefined ? { direction: t.direction } : {}),
   }
@@ -240,7 +207,6 @@ async function fetchTenantContextBySlug(
       id: true,
       slug: true,
       name: true,
-      domain: true,
       hostnames: true,
       direction: true,
     } as any,

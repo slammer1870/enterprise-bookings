@@ -24,22 +24,16 @@ export type ResolvedPublicTenant = {
   siteUrl: string
 }
 
-/**
- * Host named by the indexed URL. A saved hostname list supplies it.
- * Otherwise the custom domain does, or the platform subdomain when none is named.
- */
+/** Host named by the indexed URL, derived from the hostname list and Direction. */
 export function indexedHostnameForTenant(
   tenant?: {
     slug?: string | null
-    domain?: string | null
     hostnames?: unknown
     direction?: unknown
   } | null,
 ): string | null {
   if (!tenant) return null
-  const declaration = readHostnameDeclaration(tenant)
-  if (declaration.hostnames !== null) return declaration.roles?.canonicalHost || null
-  return getCanonicalHostname(tenant)
+  return readHostnameDeclaration(tenant).roles.canonicalHost || getCanonicalHostname(tenant)
 }
 
 export async function resolvePublicTenant(source: RequestSource): Promise<ResolvedPublicTenant> {

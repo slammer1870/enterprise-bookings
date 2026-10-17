@@ -4,16 +4,11 @@ import {
   parseDirection,
 } from '@/utilities/hostnameDirection'
 
-/**
- * What the email sending domain is read from.
- * A saved hostname list (including an empty one) supplies the canonical host.
- * `domain` is the legacy custom domain, used only when that list has not been saved.
- */
+/** The hostname list and Direction the email sending domain is read from. */
 export type EmailSendingDomainSource = {
   hostnames?: unknown
   direction?: unknown
   slug?: unknown
-  domain?: unknown
 }
 
 /** Apex of the platform host in NEXT_PUBLIC_SERVER_URL. Null when that URL is unset. */
@@ -76,15 +71,9 @@ export function canonicalHostForEmail(
   }
   if (source == null) return null
 
-  const hostnames = savedHostnames(source.hostnames)
-  if (hostnames !== null) {
-    if (hostnames.length === 0) return platformSubdomain(source.slug)
-    return canonicalHostFromList(hostnames, parseDirection(source.direction)) || null
-  }
-
-  const domain = typeof source.domain === 'string' ? normalizeHost(source.domain) : ''
-  if (domain) return domain
-  return platformSubdomain(source.slug)
+  const hostnames = savedHostnames(source.hostnames) ?? []
+  if (hostnames.length === 0) return platformSubdomain(source.slug)
+  return canonicalHostFromList(hostnames, parseDirection(source.direction)) || null
 }
 
 /**

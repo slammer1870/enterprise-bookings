@@ -1,6 +1,6 @@
 /**
  * A form posted from a named hostname is allowed. An unnamed hostname is refused.
- * A row that still has only the custom domain and the alias list allows the custom domain.
+ * A named hostname is allowed only when it is in the hostname list.
  *
  * Run with: pnpm test:int -- form-origin-allowlist
  */
@@ -55,9 +55,7 @@ describe('Form origin allowlist', () => {
   const aliasRegistrable = `form-alias-${stamp}.com`
   const aliasApex = aliasRegistrable
   const aliasWww = `www.${aliasRegistrable}`
-  const legacyRegistrable = `form-legacy-${stamp}.com`
-  const legacyDomain = legacyRegistrable
-  const legacyAlias = `www.${legacyRegistrable}`
+  const emptyHost = `form-empty-${stamp}.com`
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -82,17 +80,17 @@ describe('Form origin allowlist', () => {
       },
       overrideAccess: true,
     })
-    const legacy = await payload.create({
+    const empty = await payload.create({
       collection: 'tenants',
       data: {
-        name: `Form legacy ${stamp}`,
-        slug: `form-legacy-${stamp}`,
-        domain: legacyDomain,
-        aliasHosts: [legacyAlias],
+        name: `Form empty ${stamp}`,
+        slug: `form-empty-${stamp}`,
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
       },
       overrideAccess: true,
     })
-    tenantIds.push(serving.id, alias.id, legacy.id)
+    tenantIds.push(serving.id, alias.id, empty.id)
   }, HOOK_TIMEOUT)
 
   afterAll(async () => {
@@ -130,12 +128,8 @@ describe('Form origin allowlist', () => {
     expect(response.status).toBe(403)
   }, TEST_TIMEOUT)
 
-  it('still allows the custom domain on a row that has not saved a hostname list', async () => {
-    await expectAllowed(`https://${legacyDomain}`)
-  }, TEST_TIMEOUT)
-
-  it('still refuses an alias on a row that has not saved a hostname list', async () => {
-    const response = await postForm(`https://${legacyAlias}`)
+  it('refuses a hostname when the tenant hostname list is empty', async () => {
+    const response = await postForm(`https://${emptyHost}`)
     expect(response.status).toBe(403)
   }, TEST_TIMEOUT)
 })

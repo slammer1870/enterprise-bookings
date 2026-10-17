@@ -1,13 +1,17 @@
 import { expect } from '@playwright/test'
 import { getPayloadInstance } from './data-helpers'
 
-/** Turn on the existing apex redirect and wait until the derived apex is stored. */
+/**
+ * Store only the www hostname. The apex is not in the list, so a request there
+ * is not a redirect to www.
+ */
 export async function enableApexRedirect(slug: string, apexHost: string): Promise<void> {
   const payload = await getPayloadInstance()
+  const wwwHost = apexHost.startsWith('www.') ? apexHost : `www.${apexHost}`
   await payload.update({
     collection: 'tenants',
     where: { slug: { equals: slug } },
-    data: { redirectApex: true },
+    data: { hostnames: [wwwHost], direction: 'allow-www-and-non-www' },
     overrideAccess: true,
   })
 
@@ -21,9 +25,10 @@ export async function enableApexRedirect(slug: string, apexHost: string): Promis
           depth: 0,
           overrideAccess: true,
         })
-        return result.docs[0]?.apexDomain
+        const hostnames = result.docs[0]?.hostnames
+        return Array.isArray(hostnames) ? hostnames : []
       },
       { timeout: 15_000 },
     )
-    .toBe(apexHost)
+    .toEqual([wwwHost])
 }

@@ -85,27 +85,16 @@ describe('getTrustedOriginsWithCustomDomains', () => {
     expect(origins).toContain('https://new.brugrappling.ie')
   })
 
-  it('trusts every hostname in a saved list and only the custom domain on a legacy row', () => {
+  it('trusts every hostname in a saved list and none when the list is missing or empty', () => {
     expect(
       originHostnamesForTenant({
-        domain: 'www.example.com',
         hostnames: ['www.example.com', 'example.com'],
       }),
     ).toEqual(['www.example.com', 'example.com'])
 
-    expect(
-      originHostnamesForTenant({
-        domain: 'example.com',
-        hostnames: null,
-      }),
-    ).toEqual(['example.com'])
-
-    expect(
-      originHostnamesForTenant({
-        domain: 'left-behind.example.com',
-        hostnames: [],
-      }),
-    ).toEqual([])
+    expect(originHostnamesForTenant({ hostnames: null })).toEqual([])
+    expect(originHostnamesForTenant({})).toEqual([])
+    expect(originHostnamesForTenant({ hostnames: [] })).toEqual([])
   })
 
   it('returns only platform origins when customDomains is empty', () => {

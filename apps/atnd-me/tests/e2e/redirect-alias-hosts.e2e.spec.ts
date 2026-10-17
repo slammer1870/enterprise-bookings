@@ -1,24 +1,41 @@
 /**
- * E2E: once a canonical host is named, every alias host 301s to it.
+ * E2E: a www host in a pair redirects to its apex. A hostname on another apex serves.
+ * The platform subdomain redirects to the canonical host.
  *
- * Uses *.127.0.0.1.nip.io so DNS resolves to loopback while Host is not *.localhost,
- * the same shape as the apex-domain redirect end-to-end test.
- *
- * The request observes the 301. Following it and checking only the final page would hide
- * the alias response.
- *
- * Requires outbound DNS (nip.io) for custom hosts. Skip those when unavailable.
- *
- * Run from monorepo root:
- *   pnpm test:e2e:atnd-me -- redirect-alias-hosts
+ * The public host is `x-forwarded-host`. The connection is loopback so the
+ * hostname can be a real registrable domain. nip.io is not a public suffix,
+ * so it cannot form a www/apex pair or a second apex.
  */
-import type { APIResponse } from '@playwright/test'
+import type { APIResponse, Page } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { createTestPage, createTestTenant, getPayloadInstance } from './helpers/data-helpers'
-import { isNipIoDnsAvailable } from './helpers/dns-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 const port = process.env.E2E_PORT?.trim() || '3000'
+
+async function warmHostLookup(page: Page, host: string) {
+  await page.request.get(
+    `http://127.0.0.1:${port}/api/tenant-by-host?host=${encodeURIComponent(host)}`,
+    {
+      headers: { 'x-resolve-host': host },
+      timeout: 60_000,
+    },
+  )
+}
+
+async function warmSlugLookup(page: Page, slug: string) {
+  await page.request.get(`http://127.0.0.1:${port}/api/tenant-by-slug?slug=${encodeURIComponent(slug)}`, {
+    timeout: 60_000,
+  })
+}
+
+async function requestPublic(page: Page, host: string, pathAndQuery: string): Promise<APIResponse> {
+  return page.request.get(`http://127.0.0.1:${port}${pathAndQuery}`, {
+    headers: { 'x-forwarded-host': host },
+    maxRedirects: 0,
+    timeout: 60_000,
+  })
+}
 
 async function expectAliasRedirect(
   response: APIResponse,
@@ -35,7 +52,6 @@ async function expectAliasRedirect(
 test.describe('Redirect alias hosts to the canonical host (E2E)', () => {
   test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
-  let nipIoAvailable = false
   let canonicalHost = ''
   let wwwHost = ''
   let otherApexHost = ''
@@ -43,14 +59,11 @@ test.describe('Redirect alias hosts to the canonical host (E2E)', () => {
   let tenantName = ''
 
   test.beforeAll(async ({ testData }) => {
-    nipIoAvailable = await isNipIoDnsAvailable()
-    if (!nipIoAvailable) return
-
     const w = testData.workerIndex
     const stamp = Date.now()
-    canonicalHost = `e2e-alias-${w}-${stamp}.127.0.0.1.nip.io`
+    canonicalHost = `e2e-alias-${w}-${stamp}.com`
     wwwHost = `www.${canonicalHost}`
-    otherApexHost = `e2e-alias-other-${w}-${stamp}.127.0.0.1.nip.io`
+    otherApexHost = `e2e-alias-other-${w}-${stamp}.com`
     const slug = `alias-${w}-${stamp}`
     platformHost = `${slug}.localhost`
     tenantName = `E2E Alias ${w} ${stamp}`
@@ -62,7 +75,10 @@ test.describe('Redirect alias hosts to the canonical host (E2E)', () => {
     await payload.update({
       collection: 'tenants',
       id: tenant.id,
-      data: { aliasHosts: [wwwHost, otherApexHost] },
+      data: {
+        hostnames: [canonicalHost, wwwHost, otherApexHost],
+        direction: 'redirect-to-non-www',
+      },
       overrideAccess: true,
     })
   })
@@ -70,20 +86,9 @@ test.describe('Redirect alias hosts to the canonical host (E2E)', () => {
   test('a www alias returns 301 to the canonical host and does not serve the page', async ({
     page,
   }) => {
-    test.skip(!nipIoAvailable, 'nip.io DNS is not available')
+    await warmHostLookup(page, wwwHost)
 
-    await page.request.get(
-      `http://localhost:${port}/api/tenant-by-host?host=${encodeURIComponent(wwwHost)}`,
-      {
-        headers: { 'x-resolve-host': wwwHost },
-        timeout: 60_000,
-      },
-    )
-
-    const redirect = await page.request.get(`http://${wwwHost}:${port}/kids?ref=1`, {
-      maxRedirects: 0,
-      timeout: 60_000,
-    })
+    const redirect = await requestPublic(page, wwwHost, '/kids?ref=1')
     await expectAliasRedirect(redirect, canonicalHost, '/kids?ref=1')
     const body = await redirect.text()
     expect(body).not.toContain(tenantName)
@@ -91,12 +96,7 @@ test.describe('Redirect alias hosts to the canonical host (E2E)', () => {
   })
 
   test('the platform subdomain redirects to the canonical host', async ({ page }) => {
-    test.skip(!nipIoAvailable, 'nip.io DNS is not available')
-
-    await page.request.get(
-      `http://localhost:${port}/api/tenant-by-slug?slug=${encodeURIComponent(platformHost.split('.')[0] ?? '')}`,
-      { timeout: 60_000 },
-    )
+    await warmSlugLookup(page, platformHost.split('.')[0] ?? '')
 
     // *.localhost resolves in the browser. Node's DNS does not, so the 301 is observed
     // on the navigation response rather than via APIRequestContext.
@@ -111,50 +111,33 @@ test.describe('Redirect alias hosts to the canonical host (E2E)', () => {
     expect(redirect.headers()['location']).toBe(`https://${canonicalHost}/kids?ref=1`)
   })
 
-  test('an alias on another apex redirects to the canonical host', async ({ page }) => {
-    test.skip(!nipIoAvailable, 'nip.io DNS is not available')
+  test('a hostname on another apex serves and does not redirect to the canonical host', async ({
+    page,
+  }) => {
+    await warmHostLookup(page, otherApexHost)
 
-    await page.request.get(
-      `http://localhost:${port}/api/tenant-by-host?host=${encodeURIComponent(otherApexHost)}`,
-      {
-        headers: { 'x-resolve-host': otherApexHost },
-        timeout: 60_000,
-      },
-    )
-
-    const redirect = await page.request.get(`http://${otherApexHost}:${port}/kids?ref=1`, {
-      maxRedirects: 0,
-      timeout: 60_000,
-    })
-    await expectAliasRedirect(redirect, canonicalHost, '/kids?ref=1')
+    const response = await requestPublic(page, otherApexHost, '/kids?ref=1')
+    expect(response.status()).toBe(200)
+    expect(response.headers()['location'] ?? '').toBe('')
   })
 
   test('robots and sitemap paths on an alias redirect to the canonical host', async ({ page }) => {
-    test.skip(!nipIoAvailable, 'nip.io DNS is not available')
-
     const paths = ['/robots.txt?ref=1', '/sitemap.xml?ref=1', '/pages-sitemap.xml?ref=1', '/posts-sitemap.xml?ref=1']
     for (const pathAndQuery of paths) {
-      const redirect = await page.request.get(`http://${wwwHost}:${port}${pathAndQuery}`, {
-        maxRedirects: 0,
-        timeout: 60_000,
-      })
+      const redirect = await requestPublic(page, wwwHost, pathAndQuery)
       await expectAliasRedirect(redirect, canonicalHost, pathAndQuery)
     }
   })
 
   test('the canonical host returns 404 for the legacy sitemap routes', async ({ page }) => {
-    test.skip(!nipIoAvailable, 'nip.io DNS is not available')
-
-    const pagesSitemap = await page.request.get(`http://${canonicalHost}:${port}/pages-sitemap.xml`, {
-      maxRedirects: 0,
-      timeout: 60_000,
-    })
+    test.setTimeout(90_000)
+    // A cold /api/tenant-by-host compile exceeds the dev lookup abort, and middleware
+    // then answers 503 before this route can 404.
+    await warmHostLookup(page, canonicalHost)
+    const pagesSitemap = await requestPublic(page, canonicalHost, '/pages-sitemap.xml')
     expect(pagesSitemap.status()).toBe(404)
 
-    const postsSitemap = await page.request.get(`http://${canonicalHost}:${port}/posts-sitemap.xml`, {
-      maxRedirects: 0,
-      timeout: 60_000,
-    })
+    const postsSitemap = await requestPublic(page, canonicalHost, '/posts-sitemap.xml')
     expect(postsSitemap.status()).toBe(404)
   })
 

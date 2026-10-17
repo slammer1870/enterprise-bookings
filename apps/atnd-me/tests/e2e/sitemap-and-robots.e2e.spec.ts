@@ -14,6 +14,7 @@
 import { test, expect } from './helpers/fixtures'
 import { createTestPage, createTestTenant, getPayloadInstance } from './helpers/data-helpers'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 const port = process.env.E2E_PORT?.trim() || '3000'
@@ -65,6 +66,7 @@ test.describe('Publish sitemap and robots on the canonical host (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const canonicalHost = `e2e-sitemap-${w}-${stamp}.127.0.0.1.nip.io`
     const slug = `sitemap-${w}-${stamp}`
 

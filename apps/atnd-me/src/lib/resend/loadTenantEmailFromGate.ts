@@ -14,7 +14,6 @@ export async function loadTenantEmailFromGate(
       depth: 0,
       overrideAccess: true,
       select: {
-        domain: true,
         hostnames: true,
         direction: true,
         slug: true,
@@ -24,14 +23,12 @@ export async function loadTenantEmailFromGate(
     .catch(() => null)
   if (!tenant) return null
   const doc = tenant as {
-    domain?: unknown
     hostnames?: unknown
     direction?: unknown
     slug?: unknown
     emailDomainStatus?: unknown
   }
   return {
-    domain: typeof doc.domain === 'string' ? doc.domain : null,
     hostnames: doc.hostnames,
     direction: doc.direction,
     slug: typeof doc.slug === 'string' ? doc.slug : null,

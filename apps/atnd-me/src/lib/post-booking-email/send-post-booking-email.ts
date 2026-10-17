@@ -3,6 +3,7 @@ import { render } from '@react-email/components'
 import { PostBookingEmailLayout } from '@/emails/post-booking-email'
 import { resolveTenantEmailBranding } from '@/lib/email/tenant-email-branding'
 import { sanitizeEmailFromForTenantDomain } from '@/lib/resend/resolveTenantEmailFrom'
+import type { TenantURLSource } from '@/utilities/getURL'
 import { renderPostBookingEmailBodyHtml } from './render-body-html'
 import {
   replaceTemplateVars,
@@ -20,11 +21,7 @@ export type SendableEmailConfig = {
   message?: unknown
 }
 
-export type TenantEmailFromGate = {
-  domain?: string | null
-  hostnames?: unknown
-  direction?: unknown
-  slug?: string | null
+export type TenantEmailFromGate = TenantURLSource & {
   verified?: boolean | null
 }
 
@@ -117,7 +114,6 @@ export async function sendPostBookingEmail({
   const rawFrom = applyTemplate(config.emailFrom, templateContext) || undefined
   const from = sanitizeEmailFromForTenantDomain({
     emailFrom: rawFrom,
-    tenantDomain: tenantEmailFrom?.domain,
     hostnames: tenantEmailFrom?.hostnames,
     direction: tenantEmailFrom?.direction,
     slug: tenantEmailFrom?.slug,

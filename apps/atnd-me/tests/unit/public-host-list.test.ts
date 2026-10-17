@@ -195,57 +195,45 @@ describe('public host list', () => {
     ])
   })
 
-  it('lists the canonical host, aliases in named order, then the platform subdomain', async () => {
+  it('lists saved hostnames in typed order, then the platform subdomain as an alias to the canonical host', async () => {
     const rows = await renderedRows({
       slug: 'bru-grappling',
-      domain: 'brugrappling.ie',
-      aliasHosts: ['www.brugrappling.ie', 'blog.shop.example.co.uk'],
+      hostnames: ['brugrappling.ie', 'www.brugrappling.ie', 'blog.shop.example.co.uk'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'brugrappling.ie canonical CNAME @ cname.atnd.me Unknown Unknown',
-      'www.brugrappling.ie alias CNAME www cname.atnd.me Unknown Unknown',
-      'blog.shop.example.co.uk alias CNAME blog.shop cname.atnd.me Unknown Unknown',
-      'bru-grappling.atnd.me alias',
+      'www.brugrappling.ie serving CNAME www cname.atnd.me Unknown Unknown',
+      'blog.shop.example.co.uk serving CNAME blog.shop cname.atnd.me Unknown Unknown',
+      'bru-grappling.atnd.me alias to brugrappling.ie',
     ])
   })
 
   it('normalizes hostnames before showing the routing record', async () => {
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'WWW.Example.COM',
-      aliasHosts: ['Blog.Example.com'],
+      hostnames: ['WWW.Example.COM', 'Blog.Example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Unknown Unknown',
-      'blog.example.com alias CNAME blog cname.atnd.me Unknown Unknown',
-      'studio.atnd.me alias',
+      'blog.example.com serving CNAME blog cname.atnd.me Unknown Unknown',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
-  it('marks the platform subdomain canonical when it is the only public host', async () => {
-    const rows = await renderedRows({
-      slug: 'studio',
-      domain: null,
-      aliasHosts: [],
-    })
-
-    expect(rows).toEqual(['studio.atnd.me canonical'])
-  })
-
-  it('ignores redirectApex and does not prescribe TTL or an anycast A record', async () => {
+  it('does not prescribe TTL or an anycast A record for a labeled host', async () => {
     const html = await renderedHtml({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
-      redirectApex: true,
-      apexDomain: 'example.com',
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rowsFromHtml(html)).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Unknown Unknown',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
     expect(html.toLowerCase()).not.toContain('ttl')
     expect(html.toLowerCase()).not.toContain('anycast')
@@ -259,8 +247,8 @@ describe('public host list', () => {
 
     const html = await renderedHtml({
       slug: 'bru-grappling',
-      domain: 'brugrappling.ie',
-      aliasHosts: ['www.brugrappling.ie'],
+      hostnames: ['brugrappling.ie', 'www.brugrappling.ie'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rowsFromHtml(html)).toEqual([
@@ -268,8 +256,8 @@ describe('public host list', () => {
       'A @ 192.0.2.10',
       'A @ 192.0.2.11',
       'AAAA @ 2001:db8::10',
-      'www.brugrappling.ie alias CNAME www cname.atnd.me Unknown Unknown',
-      'bru-grappling.atnd.me alias',
+      'www.brugrappling.ie serving CNAME www cname.atnd.me Unknown Unknown',
+      'bru-grappling.atnd.me alias to brugrappling.ie',
     ])
     expect(html.toLowerCase()).not.toContain('ttl')
   })
@@ -279,14 +267,14 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'example.com',
-      aliasHosts: [],
+      hostnames: ['example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'example.com canonical CNAME @ cname.atnd.me Unknown Unknown',
       'A @ 192.0.2.10',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to example.com',
     ])
   })
 
@@ -296,16 +284,16 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: ['example.com'],
+      hostnames: ['www.example.com', 'example.com'],
+      direction: 'redirect-to-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Unknown Unknown',
-      'example.com alias CNAME @ cname.atnd.me Unknown Unknown',
+      'example.com alias to www.example.com CNAME @ cname.atnd.me Unknown Unknown',
       'A @ 192.0.2.10',
       'AAAA @ 2001:db8::10',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
@@ -315,14 +303,14 @@ describe('public host list', () => {
 
     const html = await renderedHtml({
       slug: 'studio',
-      domain: 'example.com',
-      aliasHosts: [],
+      hostnames: ['example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rowsFromHtml(html)).toEqual([
       'example.com canonical CNAME @ cname.atnd.me Unknown Unknown',
       'A @ 192.0.2.10',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to example.com',
     ])
     expect(html).not.toContain('>AAAA<')
     expect(html.match(/cname\.atnd\.me/g)).toEqual(['cname.atnd.me'])
@@ -337,15 +325,15 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'example.com',
-      aliasHosts: [],
+      hostnames: ['example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'example.com canonical CNAME @ cname.atnd.me Active Active',
       'A @ 192.0.2.10',
       'AAAA @ 2001:db8::10',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to example.com',
     ])
   })
 
@@ -354,8 +342,8 @@ describe('public host list', () => {
 
     const html = await renderedHtml({
       slug: 'studio',
-      domain: 'example.com',
-      aliasHosts: [],
+      hostnames: ['example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rowsFromHtml(html)).toEqual(['example.com canonical CNAME @ Unknown Unknown'])
@@ -369,15 +357,15 @@ describe('public host list', () => {
 
     const html = await renderedHtml({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(html).toContain('DNS status')
     expect(html).toContain('Certificate status')
     expect(rowsFromHtml(html)).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Active Active',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
@@ -388,13 +376,13 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Pending Active',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
@@ -405,8 +393,8 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows[0]).toBe('www.example.com canonical CNAME www cname.atnd.me Active Active')
@@ -434,20 +422,20 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: issuing.slice(1).map(([hostname]) => hostname),
+      hostnames: issuing.map(([hostname]) => hostname),
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Active Pending',
-      'backup.example.com alias CNAME backup cname.atnd.me Active Pending',
-      'init.example.com alias CNAME init cname.atnd.me Active Pending',
-      'validation.example.com alias CNAME validation cname.atnd.me Active Pending',
-      'issuance.example.com alias CNAME issuance cname.atnd.me Active Pending',
-      'deployment.example.com alias CNAME deployment cname.atnd.me Active Pending',
-      'staging-deployment.example.com alias CNAME staging-deployment cname.atnd.me Active Pending',
-      'pending-ssl.example.com alias CNAME pending-ssl cname.atnd.me Active Pending',
-      'studio.atnd.me alias',
+      'backup.example.com serving CNAME backup cname.atnd.me Active Pending',
+      'init.example.com serving CNAME init cname.atnd.me Active Pending',
+      'validation.example.com serving CNAME validation cname.atnd.me Active Pending',
+      'issuance.example.com serving CNAME issuance cname.atnd.me Active Pending',
+      'deployment.example.com serving CNAME deployment cname.atnd.me Active Pending',
+      'staging-deployment.example.com serving CNAME staging-deployment cname.atnd.me Active Pending',
+      'pending-ssl.example.com serving CNAME pending-ssl cname.atnd.me Active Pending',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
@@ -465,15 +453,15 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'blocked.example.com',
-      aliasHosts: ['moved.example.com', 'deleted.example.com'],
+      hostnames: ['blocked.example.com', 'moved.example.com', 'deleted.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'blocked.example.com canonical CNAME blocked cname.atnd.me Error custom hostname blocked caa record forbids issuance Pending',
-      'moved.example.com alias CNAME moved cname.atnd.me Error Active',
-      'deleted.example.com alias CNAME deleted cname.atnd.me Error Active',
-      'studio.atnd.me alias',
+      'moved.example.com serving CNAME moved cname.atnd.me Error Active',
+      'deleted.example.com serving CNAME deleted cname.atnd.me Error Active',
+      'studio.atnd.me alias to blocked.example.com',
     ])
   })
 
@@ -486,16 +474,16 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'missing.example.com',
-      aliasHosts: ['unmapped.example.com', 'inactive.example.com', 'held.example.com'],
+      hostnames: ['missing.example.com', 'unmapped.example.com', 'inactive.example.com', 'held.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'missing.example.com canonical CNAME missing cname.atnd.me Unknown Unknown',
-      'unmapped.example.com alias CNAME unmapped cname.atnd.me Unknown Unknown',
-      'inactive.example.com alias CNAME inactive cname.atnd.me Active Unknown',
-      'held.example.com alias CNAME held cname.atnd.me Active Unknown',
-      'studio.atnd.me alias',
+      'unmapped.example.com serving CNAME unmapped cname.atnd.me Unknown Unknown',
+      'inactive.example.com serving CNAME inactive cname.atnd.me Active Unknown',
+      'held.example.com serving CNAME held cname.atnd.me Active Unknown',
+      'studio.atnd.me alias to missing.example.com',
     ])
   })
 
@@ -507,13 +495,13 @@ describe('public host list', () => {
 
     const html = await renderedHtml({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rowsFromHtml(html)).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Active Active',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
     expect(html).not.toContain('old.example.com')
   })
@@ -525,13 +513,13 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Unknown Unknown',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
@@ -551,14 +539,14 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Pending Active',
       'TXT _cf-custom-hostname.www.example.com ownership-token',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
@@ -592,15 +580,15 @@ describe('public host list', () => {
 
     const html = await renderedHtml({
       slug: 'studio',
-      domain: 'example.com',
-      aliasHosts: [],
+      hostnames: ['example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rowsFromHtml(html)).toEqual([
       'example.com canonical CNAME @ cname.atnd.me Active Pending',
       'TXT _acme-challenge.example.com acme-token-1',
       'TXT _acme-challenge.example.com acme-token-2',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to example.com',
     ])
     expect(html).not.toContain('ownership-token')
     expect(html).not.toContain('dcv.cloudflare.com')
@@ -627,15 +615,15 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Pending Pending',
       'TXT _cf-custom-hostname.www.example.com ownership-token',
       'TXT _acme-challenge.www.example.com acme-token',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 
@@ -663,13 +651,13 @@ describe('public host list', () => {
 
     const html = await renderedHtml({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rowsFromHtml(html)).toEqual([
       `www.example.com canonical CNAME www cname.atnd.me Pending ${cloudflareZoneError} Pending`,
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
     expect(html).not.toContain('ownership-token')
     expect(html).not.toContain('acme-token')
@@ -692,14 +680,14 @@ describe('public host list', () => {
 
     const rows = await renderedRows({
       slug: 'studio',
-      domain: 'www.example.com',
-      aliasHosts: [],
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
     })
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Pending caa record forbids issuance Active',
       'TXT _cf-custom-hostname.www.example.com ownership-token',
-      'studio.atnd.me alias',
+      'studio.atnd.me alias to www.example.com',
     ])
   })
 })
@@ -756,9 +744,10 @@ describe('tenant admin public host panels', () => {
     const publicHostsAt = visible.indexOf('publicHosts')
     const emailAt = visible.indexOf('emailDomainDnsInstructions')
 
-    expect(fields.find((field) => field.name === 'domain')?.admin?.hidden).toBe(true)
-    expect(fields.find((field) => field.name === 'aliasHosts')?.admin?.hidden).toBe(true)
-    expect(fields.find((field) => field.name === 'redirectApex')?.admin?.hidden).toBe(true)
+    expect(fields.find((field) => field.name === 'domain')).toBeUndefined()
+    expect(fields.find((field) => field.name === 'aliasHosts')).toBeUndefined()
+    expect(fields.find((field) => field.name === 'redirectApex')).toBeUndefined()
+    expect(fields.find((field) => field.name === 'apexDomain')).toBeUndefined()
     expect(hostnamesAt).toBeGreaterThanOrEqual(0)
     expect(directionAt).toBeGreaterThan(hostnamesAt)
     expect(publicHostsAt).toBeGreaterThan(directionAt)

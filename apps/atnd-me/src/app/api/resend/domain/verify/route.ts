@@ -49,7 +49,6 @@ export async function POST(request: NextRequest) {
     depth: 0,
     overrideAccess: true,
     select: {
-      domain: true,
       hostnames: true,
       direction: true,
       slug: true,

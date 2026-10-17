@@ -1,6 +1,6 @@
 /**
- * Integration tests for apex domain redirect support on Tenants.
- * Covers findTenantByHost (single OR query) and the tenant-by-host API route.
+ * Integration tests for Direction on a www/apex pair.
+ * A named apex with Redirect to www is an alias. An apex that is not in the list is not a public host.
  *
  * Run with: pnpm test:int -- tenants-apex-domain
  */
@@ -49,11 +49,11 @@ function makeSlug(label: string) {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe('Apex domain — findTenantByHost', () => {
+describe('Apex hostname — findTenantByHost', () => {
   let payload: Payload
   let wwwTenant: Tenant
-  let apexTenant: Tenant   // separate tenant with redirectApex on a different domain
-  let noApexTenant: Tenant // redirectApex: false
+  let otherTenant: Tenant
+  let loneWwwTenant: Tenant
 
   const wwwDomain = `www.apex-int-${stamp}.com`
   const apexDomain = `apex-int-${stamp}.com`
@@ -61,44 +61,41 @@ describe('Apex domain — findTenantByHost', () => {
   const otherWww = `www.other-apex-int-${stamp}.com`
   const otherApex = `other-apex-int-${stamp}.com`
 
-  const noApexWww = `www.noapex-int-${stamp}.com`
+  const loneWww = `www.noapex-int-${stamp}.com`
 
   beforeAll(async () => {
     const payloadConfig = await config
     payload = await getPayload({ config: payloadConfig })
 
-    // Tenant 1: www.* domain with redirectApex enabled
     wwwTenant = (await payload.create({
       collection: 'tenants',
       data: {
         name: 'Apex int tenant 1',
         slug: makeSlug('one'),
-        domain: wwwDomain,
-        redirectApex: true,
+        hostnames: [wwwDomain, apexDomain],
+        direction: 'redirect-to-www',
       },
       overrideAccess: true,
     })) as Tenant
 
-    // Tenant 2: a different www.* domain with redirectApex enabled
-    apexTenant = (await payload.create({
+    otherTenant = (await payload.create({
       collection: 'tenants',
       data: {
         name: 'Apex int tenant 2',
         slug: makeSlug('two'),
-        domain: otherWww,
-        redirectApex: true,
+        hostnames: [otherWww, otherApex],
+        direction: 'redirect-to-www',
       },
       overrideAccess: true,
     })) as Tenant
 
-    // Tenant 3: redirectApex disabled
-    noApexTenant = (await payload.create({
+    loneWwwTenant = (await payload.create({
       collection: 'tenants',
       data: {
-        name: 'Apex int tenant 3 (no apex)',
+        name: 'Apex int tenant 3 (www only)',
         slug: makeSlug('three'),
-        domain: noApexWww,
-        redirectApex: false,
+        hostnames: [loneWww],
+        direction: 'allow-www-and-non-www',
       },
       overrideAccess: true,
     })) as Tenant
@@ -106,7 +103,7 @@ describe('Apex domain — findTenantByHost', () => {
 
   afterAll(async () => {
     if (payload) {
-      for (const t of [wwwTenant, apexTenant, noApexTenant]) {
+      for (const t of [wwwTenant, otherTenant, loneWwwTenant]) {
         if (!t?.id) continue
         await payload.delete({
           collection: 'tenants',
@@ -118,63 +115,39 @@ describe('Apex domain — findTenantByHost', () => {
     }
   }, TEST_TIMEOUT)
 
-  it('resolves www domain as type=domain', async () => {
+  it('resolves www as a serving host', async () => {
     const result = await findTenantByHost(payload, wwwDomain)
     expect(result).not.toBeNull()
     expect(result?.type).toBe('domain')
     expect(result?.slug).toBe(makeSlug('one'))
   }, TEST_TIMEOUT)
 
-  it('does not resolve a derived apex that is not an alias host', async () => {
+  it('resolves the named apex as an alias to www when Direction is Redirect to www', async () => {
     const result = await findTenantByHost(payload, apexDomain)
-    expect(result).toBeNull()
+    expect(result).toMatchObject({
+      type: 'alias',
+      slug: makeSlug('one'),
+      canonicalHost: wwwDomain,
+    })
   }, TEST_TIMEOUT)
 
-  it('does not resolve another tenant derived apex that is not an alias host', async () => {
+  it('resolves another tenant apex as an alias to that tenant www host', async () => {
     const result = await findTenantByHost(payload, otherApex)
-    expect(result).toBeNull()
+    expect(result).toMatchObject({
+      type: 'alias',
+      slug: makeSlug('two'),
+      canonicalHost: otherWww,
+    })
   }, TEST_TIMEOUT)
 
-  it('does not resolve apex when redirectApex is false', async () => {
-    const noApexApex = noApexWww.slice(4) // strip 'www.'
-    const result = await findTenantByHost(payload, noApexApex)
+  it('does not resolve an apex that is not in the hostname list', async () => {
+    const unnamedApex = loneWww.slice(4)
+    const result = await findTenantByHost(payload, unnamedApex)
     expect(result).toBeNull()
   }, TEST_TIMEOUT)
 
   it('returns null for an unknown host', async () => {
     const result = await findTenantByHost(payload, 'totally-unknown.example.com')
     expect(result).toBeNull()
-  }, TEST_TIMEOUT)
-
-  it('persists apexDomain column when redirectApex is true', async () => {
-    const fresh = await payload.findByID({
-      collection: 'tenants',
-      id: wwwTenant.id,
-      overrideAccess: true,
-    }) as Tenant & { apexDomain?: string | null }
-    expect(fresh.apexDomain).toBe(apexDomain)
-  }, TEST_TIMEOUT)
-
-  it('clears apexDomain column when redirectApex is toggled off', async () => {
-    await payload.update({
-      collection: 'tenants',
-      id: wwwTenant.id,
-      data: { redirectApex: false },
-      overrideAccess: true,
-    })
-    const fresh = await payload.findByID({
-      collection: 'tenants',
-      id: wwwTenant.id,
-      overrideAccess: true,
-    }) as Tenant & { apexDomain?: string | null }
-    expect(fresh.apexDomain ?? null).toBeNull()
-
-    // Restore for subsequent tests
-    await payload.update({
-      collection: 'tenants',
-      id: wwwTenant.id,
-      data: { redirectApex: true },
-      overrideAccess: true,
-    })
   }, TEST_TIMEOUT)
 })

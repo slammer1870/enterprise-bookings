@@ -4,7 +4,6 @@ import {
   getTenantPlatformSubdomain,
   mergeTenantPublicHostDeclaration,
   readHostnameDeclaration,
-  validateTenantPublicHostDeclarationStructure,
 } from '@/utilities/tenantPublicHostDeclaration'
 
 describe('tenantPublicHostDeclaration', () => {
@@ -34,80 +33,36 @@ describe('tenantPublicHostDeclaration', () => {
     })
   })
 
-  describe('validateTenantPublicHostDeclarationStructure', () => {
-    it('refuses alias hosts when no canonical host is named', () => {
-      const result = validateTenantPublicHostDeclarationStructure({
-        canonicalHost: null,
-        aliasHosts: ['www.example.com'],
-        slug: 'studio',
-      })
-      expect(result).not.toBe(true)
-    })
-
-    it('refuses clearing the canonical host while aliases remain', () => {
-      const result = validateTenantPublicHostDeclarationStructure({
-        canonicalHost: null,
-        aliasHosts: ['www.example.com'],
-        slug: 'studio',
-        previousCanonicalHost: 'example.com',
-      })
-      expect(result).not.toBe(true)
-    })
-
-    it('refuses duplicate hostnames on the same tenant', () => {
-      const result = validateTenantPublicHostDeclarationStructure({
-        canonicalHost: 'example.com',
-        aliasHosts: ['www.example.com', 'www.example.com'],
-        slug: 'studio',
-      })
-      expect(result).not.toBe(true)
-    })
-
-    it('refuses the canonical host listed as its own alias', () => {
-      const result = validateTenantPublicHostDeclarationStructure({
-        canonicalHost: 'example.com',
-        aliasHosts: ['www.example.com', 'example.com'],
-        slug: 'studio',
-      })
-      expect(result).not.toBe(true)
-    })
-
-    it('accepts a canonical host with distinct aliases', () => {
-      const result = validateTenantPublicHostDeclarationStructure({
-        canonicalHost: 'example.com',
-        aliasHosts: ['www.example.com', 'other.example.org'],
-        slug: 'studio',
-      })
-      expect(result).toBe(true)
-    })
-  })
-
   describe('mergeTenantPublicHostDeclaration', () => {
-    it('merges partial updates with the stored declaration', () => {
+    it('merges a partial hostname list with the stored declaration', () => {
       const merged = mergeTenantPublicHostDeclaration(
-        { aliasHosts: ['www.example.com'] },
-        { domain: 'example.com', aliasHosts: [], slug: 'studio' },
+        { direction: 'redirect-to-www' },
+        { hostnames: ['www.example.com', 'example.com'], slug: 'studio' },
       )
       expect(merged).toEqual({
-        canonicalHost: 'example.com',
-        aliasHosts: ['www.example.com'],
-        hostnames: null,
-        direction: 'allow-www-and-non-www',
+        hostnames: ['www.example.com', 'example.com'],
+        direction: 'redirect-to-www',
         slug: 'studio',
       })
+    })
+
+    it('treats a missing hostname list as empty', () => {
+      const merged = mergeTenantPublicHostDeclaration({}, { slug: 'studio' })
+      expect(merged.hostnames).toEqual([])
+      expect(merged.direction).toBe('allow-www-and-non-www')
     })
   })
 
   describe('readHostnameDeclaration', () => {
-    it('leaves a row that has no hostname list without derived roles', () => {
-      const read = readHostnameDeclaration({
-        domain: 'www.example.com',
-        aliasHosts: ['example.com'],
-        slug: 'studio',
-      })
-      expect(read.hostnames).toBeNull()
+    it('derives the platform subdomain when no hostname list is stored', () => {
+      const read = readHostnameDeclaration({ slug: 'studio' })
+      expect(read.hostnames).toEqual([])
       expect(read.direction).toBe('allow-www-and-non-www')
-      expect(read.roles).toBeNull()
+      expect(read.roles).toEqual({
+        canonicalHost: 'studio.atnd.me',
+        servingHosts: ['studio.atnd.me'],
+        aliases: [],
+      })
     })
 
     it('derives example.com as canonical and www.example.com as serving when both are allowed', () => {

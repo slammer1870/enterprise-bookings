@@ -15,19 +15,16 @@ export const getServerSideURL = () => {
 
 type HeadersLike = Pick<Headers, 'get'>
 
-type TenantURLSource = {
+export type TenantURLSource = {
   slug?: string | null
-  domain?: string | null
   hostnames?: unknown
   direction?: unknown
 }
 
-/** Canonical host from a saved hostname list, or null when the list has not been saved. */
+/** Canonical host derived from the hostname list and Direction. */
 const canonicalHostFromDeclaration = (tenant?: TenantURLSource | null): string | null => {
   if (!tenant) return null
-  const declaration = readHostnameDeclaration(tenant)
-  if (declaration.hostnames === null) return null
-  const canonical = declaration.roles?.canonicalHost?.trim()
+  const canonical = readHostnameDeclaration(tenant).roles.canonicalHost.trim()
   return canonical || null
 }
 
@@ -109,12 +106,6 @@ export const getTenantSiteURL = (
     return `${protocol}://${canonicalHost}`
   }
 
-  const customDomain = tenant?.domain?.trim()
-  if (customDomain) {
-    const protocol = customDomain.includes('localhost') ? 'http' : getProtocolFromHeaders(headers)
-    return `${protocol}://${customDomain}`
-  }
-
   const slug = tenant?.slug?.trim()
   if (slug) {
     return getTenantSubdomainURL(slug, headers)
@@ -124,18 +115,12 @@ export const getTenantSiteURL = (
 }
 
 /**
- * Host search engines should index. A saved hostname list supplies the canonical host.
- * Otherwise a named custom domain does, or the platform subdomain when none is named.
+ * Host search engines should index. The hostname list supplies the canonical host.
+ * With no custom hostname, that is the platform subdomain.
  */
 export const getCanonicalHostname = (tenant?: TenantURLSource | null): string | null => {
   const canonicalHost = canonicalHostFromDeclaration(tenant)
   if (canonicalHost) return canonicalHost
-
-  const customDomain = tenant?.domain?.trim().toLowerCase()
-  if (customDomain) {
-    const hostname = customDomain.split(':')[0]?.trim()
-    return hostname || null
-  }
 
   const slug = tenant?.slug?.trim()
   const platformHostname = getPlatformHostname()

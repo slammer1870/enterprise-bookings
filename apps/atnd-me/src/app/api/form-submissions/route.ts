@@ -32,7 +32,7 @@ function parseOrigin(origin: string): URL | null {
   }
 }
  
-async function isAllowedCustomDomain(hostname: string): Promise<boolean> {
+async function isNamedHostnameAllowed(hostname: string): Promise<boolean> {
   const now = Date.now()
   const cached = domainAllowCache.get(hostname)
   if (cached && cached.expiresAt > now) return cached.ok
@@ -66,7 +66,7 @@ async function resolveAllowedOrigin(request: Request): Promise<string | null> {
   }
  
   // Named hostnames, or a legacy custom domain on a row that has not saved a list.
-  if (await isAllowedCustomDomain(hostname)) return originHeader
+  if (await isNamedHostnameAllowed(hostname)) return originHeader
  
   return null
 }

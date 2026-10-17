@@ -3,16 +3,12 @@ import type { Payload } from 'payload'
 import { brandingFromTenantDoc } from '@/lib/email/tenant-email-branding'
 import { isEmailDomainVerified } from '@/lib/resend/resolveTenantEmailFrom'
 import { findTenantByHost } from '@/lib/tenantDbResolve'
-import { getServerSideURL } from '@/utilities/getURL'
-import { storedHostnameList } from '@/utilities/tenantPublicHostDeclaration'
+import { getServerSideURL, type TenantURLSource } from '@/utilities/getURL'
+import { type TenantPublicHostDocSlice } from '@/utilities/tenantPublicHostDeclaration'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
-export type TenantEmailFromContext = {
+export type TenantEmailFromContext = TenantURLSource & {
   name: string
-  domain?: string | null
-  hostnames?: unknown
-  direction?: unknown
-  slug?: string | null
   emailDomainVerified?: boolean
   logoUrl?: string | null
 }
@@ -24,30 +20,20 @@ type PayloadLike = {
 
 function tenantFromDoc(
   tenant:
-    | {
+    | (TenantPublicHostDocSlice & {
         name?: unknown
-        slug?: unknown
-        domain?: unknown
-        hostnames?: unknown
-        direction?: unknown
         logo?: unknown
         emailDomainStatus?: unknown
-      }
+      })
     | undefined,
-  fallbackDomain?: string,
 ): TenantEmailFromContext | null {
   const name = tenant?.name != null ? String(tenant.name).trim() : ''
   if (!name) return null
-  const domain =
-    tenant?.domain != null && String(tenant.domain).trim()
-      ? String(tenant.domain).trim()
-      : fallbackDomain || null
   const branding = brandingFromTenantDoc(
     tenant
       ? {
           name,
           slug: tenant.slug,
-          domain,
           hostnames: tenant.hostnames,
           direction: tenant.direction,
           logo: tenant.logo,
@@ -56,7 +42,6 @@ function tenantFromDoc(
   )
   return {
     name: branding.name,
-    domain,
     hostnames: tenant?.hostnames,
     direction: tenant?.direction,
     slug: typeof tenant?.slug === 'string' ? tenant.slug : null,
@@ -68,7 +53,6 @@ function tenantFromDoc(
 const tenantEmailSelect = {
   name: true,
   slug: true,
-  domain: true,
   hostnames: true,
   direction: true,
   logo: true,
@@ -127,28 +111,12 @@ export async function resolveTenantForMagicLinkUrl(
 
   async function findTenantByDomain(domain: string): Promise<TenantEmailFromContext | null> {
     const client = await getPayloadClient(payload)
-    const result = await client.find({
-      collection: 'tenants',
-      where: { domain: { equals: domain } },
-      limit: 1,
-      depth: 1,
-      overrideAccess: true,
-      select: tenantEmailSelect as any,
-    })
-    const fromDomain = tenantFromDoc(result.docs[0] as any, domain)
-    if (fromDomain) return fromDomain
-
     const drizzle = (client as { db?: { drizzle?: { execute?: unknown } } }).db?.drizzle
     if (!drizzle || typeof drizzle.execute !== 'function') return null
 
     const resolved = await findTenantByHost(client as Payload, domain)
     if (!resolved) return null
-
-    const fromList = await findTenantBySlug(resolved.slug)
-    if (!fromList) return null
-    const named = storedHostnameList(fromList.hostnames)
-    if (!named?.includes(domain)) return null
-    return fromList
+    return findTenantBySlug(resolved.slug)
   }
 
   // Local dev: support tenant.localhost
@@ -168,7 +136,7 @@ export async function resolveTenantForMagicLinkUrl(
     }
   }
 
-  // Custom domain: match tenants.domain
+  // A named hostname: match the hostname list.
   const normalized = normalizeCustomDomain(hostname)
   if (!normalized) return null
 

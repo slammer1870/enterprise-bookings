@@ -8,6 +8,7 @@ import type { APIResponse } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { createTestPage, createTestTenant } from './helpers/data-helpers'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 import { E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER } from '../../src/utilities/publicHostOutcome'
 
@@ -65,6 +66,7 @@ test.describe('Unknown host and failed lookup (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const canonicalHost = `e2e-fail-${w}-${stamp}.127.0.0.1.nip.io`
     const tenantName = `E2E Fail Lookup ${w} ${stamp}`
     const slug = `fail-${w}-${stamp}`

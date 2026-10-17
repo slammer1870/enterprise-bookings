@@ -5,15 +5,12 @@ import type { NextRequest } from 'next/server'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getUserTenantIds } from '@/access/tenant-scoped'
+import type { TenantURLSource } from '@/utilities/getURL'
 import { getTenantIdentifierFromRequest } from '@/utilities/tenantRequest'
 import type { TenantStripeStatus } from '@/lib/stripe-connect/tenantStripe'
 
-export type TenantForConnect = {
+export type TenantForConnect = TenantURLSource & {
   id: number
-  slug?: string | null
-  domain?: string | null
-  hostnames?: unknown
-  direction?: unknown
   stripeConnectAccountId?: string | null
   stripeConnectOnboardingStatus?: TenantStripeStatus | null
 }
@@ -67,7 +64,6 @@ export async function resolveTenantForConnect(
       select: {
         id: true,
         slug: true,
-        domain: true,
         hostnames: true,
         direction: true,
         stripeConnectAccountId: true,
@@ -85,7 +81,6 @@ export async function resolveTenantForConnect(
     select: {
       id: true,
       slug: true,
-      domain: true,
       hostnames: true,
       direction: true,
       stripeConnectAccountId: true,

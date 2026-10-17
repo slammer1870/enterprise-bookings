@@ -44,22 +44,33 @@ describe('resolveTrustedPasswordResetOrigin', () => {
     expect(find).not.toHaveBeenCalled()
   })
 
-  it('trusts custom domains only when present on a tenant', async () => {
-    const find = vi.fn(async () => ({ docs: [{ id: 1 }] }))
+  it('trusts a named hostname when it is in the hostname list', async () => {
+    const find = vi.fn(async () => ({ docs: [] }))
     const origin = await resolveTrustedPasswordResetOrigin({
       headers: new Headers({
         host: 'studio.example.com',
         'x-forwarded-proto': 'https',
       }),
-      payload: { find },
+      payload: {
+        find,
+        db: {
+          drizzle: {
+            execute: async () => ({
+              rows: [
+                {
+                  id: 1,
+                  slug: 'studio',
+                  hostnames: ['studio.example.com'],
+                  direction: 'allow-www-and-non-www',
+                },
+              ],
+            }),
+          },
+        },
+      },
     })
     expect(origin).toBe('https://studio.example.com')
-    expect(find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        collection: 'tenants',
-        where: { domain: { equals: 'studio.example.com' } },
-      }),
-    )
+    expect(find).not.toHaveBeenCalled()
   })
 
   it('trusts an alias hostname named in the hostname list', async () => {
@@ -131,19 +142,12 @@ describe('Admin forgot-password reset URL', () => {
 
     expect(html).toContain('https://atnd-me.com/admin/reset/abc123')
     expect(html).not.toContain('evil.example')
-    // Trusted-origin check may query the untrusted host; platform apex branding
-    // must not trigger another tenants.find (avoids getPayload/Postgres in unit tests).
-    expect(find).toHaveBeenCalledTimes(1)
-    expect(find).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { domain: { equals: 'evil.example' } },
-      }),
-    )
+    expect(find).not.toHaveBeenCalled()
   })
 
   it('scopes the reset link to a trusted tenant subdomain', async () => {
     const find = vi.fn(async () => ({
-      docs: [{ name: 'Acme', slug: 'acme', domain: null, logo: null }],
+      docs: [{ name: 'Acme', slug: 'acme', hostnames: [], logo: null }],
     }))
     const html = await generateEmailHTML()({
       token: 'tok',

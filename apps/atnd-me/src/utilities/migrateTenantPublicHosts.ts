@@ -1,4 +1,5 @@
 import { DEFAULT_DIRECTION, getClaimedApex, type Direction } from '@/utilities/hostnameDirection'
+import { stringsOf } from '@/utilities/stringsOf'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 
 export type LegacyTenantPublicHostRow = {
@@ -77,11 +78,6 @@ export function publicHostRowsToWrite(rows: LegacyTenantPublicHostRow[]): Hostna
   return rows.map((row) => ({ id: row.id, ...migrateLegacyTenantPublicHosts(row) }))
 }
 
-function aliasHostsOf(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.filter((host): host is string => typeof host === 'string')
-}
-
 /** Turns a `tenants` select into mapping input. */
 export function legacyTenantPublicHostRows(rows: unknown): LegacyTenantPublicHostRow[] {
   if (!Array.isArray(rows)) return []
@@ -98,7 +94,7 @@ export function legacyTenantPublicHostRows(rows: unknown): LegacyTenantPublicHos
       domain: typeof record.domain === 'string' ? record.domain : null,
       redirectApex: record.redirectApex === true,
       apexDomain: typeof record.apexDomain === 'string' ? record.apexDomain : null,
-      aliasHosts: aliasHostsOf(record.aliasHosts),
+      aliasHosts: stringsOf(record.aliasHosts),
     })
   }
   return legacy

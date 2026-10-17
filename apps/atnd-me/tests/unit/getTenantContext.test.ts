@@ -96,7 +96,8 @@ describe('getTenantSlug (slug extraction)', () => {
         id: 42,
         slug: 'acme',
         name: 'Acme Gym',
-        domain: 'www.acme.com',
+        hostnames: ['www.acme.com'],
+        direction: 'allow-www-and-non-www',
       })),
     }
 
@@ -111,7 +112,8 @@ describe('getTenantSlug (slug extraction)', () => {
       id: 42,
       slug: 'acme',
       name: 'Acme Gym',
-      domain: 'www.acme.com',
+      hostnames: ['www.acme.com'],
+      direction: 'allow-www-and-non-www',
     })
     expect(payload.findByID).toHaveBeenCalledOnce()
   })
@@ -124,7 +126,8 @@ describe('getTenantSlug (slug extraction)', () => {
         id: 42,
         slug: 'acme',
         name: 'Acme Gym',
-        domain: null,
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
       })),
     }
 
@@ -138,7 +141,8 @@ describe('getTenantSlug (slug extraction)', () => {
       id: 42,
       slug: 'acme',
       name: 'Acme Gym',
-      domain: null,
+      hostnames: [],
+      direction: 'allow-www-and-non-www',
     })
     expect(payload.findByID).toHaveBeenCalledOnce()
   })
@@ -151,7 +155,6 @@ describe('getTenantSlug (slug extraction)', () => {
         id: 7,
         slug: 'bru',
         name: 'Bru',
-        domain: 'www.example.com',
         hostnames: ['www.example.com', 'example.com'],
         direction: 'redirect-to-non-www',
       })),

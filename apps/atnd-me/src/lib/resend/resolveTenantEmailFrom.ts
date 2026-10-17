@@ -10,7 +10,7 @@ export { resolveEmailSendingDomain, type EmailSendingDomainSource } from './emai
 
 export type TenantEmailFromInput = {
   tenantName?: string | null
-  /** Legacy custom domain (tenants.domain). Ignored once a hostname list is saved. */
+  /** A single host, used when the caller has not passed a hostname list. */
   tenantDomain?: string | null
   hostnames?: unknown
   direction?: unknown
@@ -32,7 +32,6 @@ function emailSource(args: {
     hostnames: args.hostnames,
     direction: args.direction,
     slug: args.slug,
-    domain: args.tenantDomain,
   }
 }
 

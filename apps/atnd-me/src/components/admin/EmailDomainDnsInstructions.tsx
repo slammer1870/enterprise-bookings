@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Admin UI: Resend email sending domain DNS records + Check status for tenants.domain.
+ * Admin UI: Resend email sending domain DNS records. The domain is the apex of the canonical host.
  */
 import React, { useCallback, useEffect, useState } from 'react'
 import { useDocumentInfo, useFormFields } from '@payloadcms/ui'
@@ -59,12 +59,10 @@ export const EmailDomainDnsInstructions: React.FC = () => {
   const hostnames = useFormFields(([fields]) => fields.hostnames)
   const direction = useFormFields(([fields]) => fields.direction)
   const slug = useFormFields(([fields]) => fields.slug)
-  const domain = useFormFields(([fields]) => fields.domain)
   const declaration = {
     hostnames: hostnames?.value,
     direction: direction?.value,
     slug: typeof slug?.value === 'string' ? slug.value : null,
-    domain: typeof domain?.value === 'string' ? domain.value : null,
   }
   const emailSendingDomain = resolveEmailSendingDomain(declaration)
   const canonicalHost = canonicalHostForEmail(declaration)

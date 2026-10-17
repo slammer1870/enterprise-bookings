@@ -14,6 +14,7 @@ import { test, expect } from './helpers/fixtures'
 import { createTestPage, createTestTenant } from './helpers/data-helpers'
 import { enableApexRedirect } from './helpers/apex-redirect'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 const port = process.env.E2E_PORT?.trim() || '3000'
@@ -48,6 +49,7 @@ test.describe('Serve the named canonical host (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const canonicalHost = `e2e-canon-${w}-${stamp}.127.0.0.1.nip.io`
     const tenantName = `E2E Canonical ${w} ${stamp}`
     const slug = `canon-${w}-${stamp}`
@@ -99,6 +101,7 @@ test.describe('Serve the named canonical host (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const apexHost = `e2e-legacy-${w}-${stamp}.127.0.0.1.nip.io`
     const wwwHost = `www.${apexHost}`
     const slug = `legacy-${w}-${stamp}`

@@ -16,6 +16,7 @@ import { test, expect } from './helpers/fixtures'
 import { createTestTenant, getPayloadInstance } from './helpers/data-helpers'
 import { enableApexRedirect } from './helpers/apex-redirect'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 import type { Tenant } from '@repo/shared-types'
 
@@ -47,14 +48,16 @@ test.describe('Apex domain redirect (E2E)', () => {
     const w = testData.workerIndex
     const stamp = Date.now()
 
+    await releaseClaimedApex('nip.io')
+
     const apexHost = `e2e-apex-${w}-${stamp}.127.0.0.1.nip.io`
     const wwwHost = `www.${apexHost}`
 
     wwwOrigin = `http://${wwwHost}:${port}`
     apexOrigin = `http://${apexHost}:${port}`
 
-    // The stored www hostname serves. redirectApex still writes apexDomain, and that
-    // derived apex is not an alias, so it must not 301 to www.
+    // The stored www hostname serves. The apex is not in the hostname list, so it
+    // must not 301 to www.
     const slug = `apex-cd-${w}-${stamp}`
     await createTestTenant(`E2E apex redirect ${w} ${stamp}`, slug, wwwHost)
     await enableApexRedirect(slug, apexHost)
@@ -90,19 +93,25 @@ test.describe('Apex domain redirect (E2E)', () => {
     expect(response?.status()).toBeLessThan(500)
   })
 
-  test('tenant without redirectApex does not redirect its apex', async ({ testData, page }) => {
+  test('a lone hostname serves and does not redirect', async ({ testData, page }) => {
     test.skip(!nipIoAvailable, 'nip.io DNS is not available')
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const plainHost = `e2e-noapex-${w}-${stamp}.127.0.0.1.nip.io`
     const slug = `noapex-cd-${w}-${stamp}`
 
-    // Create a tenant with a non-www domain and no redirectApex
+    // Create a tenant whose only public host is this hostname.
     const payload = await getPayloadInstance()
     await payload.create({
       collection: 'tenants',
-      data: { name: `E2E no-apex ${w}`, slug, domain: plainHost },
+      data: {
+        name: `E2E no-apex ${w}`,
+        slug,
+        hostnames: [plainHost],
+        direction: 'allow-www-and-non-www',
+      },
       overrideAccess: true,
     } as Parameters<typeof payload.create>[0]) as Tenant
 

@@ -193,6 +193,7 @@ import * as migration_20261008_000001_tenants_alias_hosts from './20261008_00000
 import * as migration_20261013_000001_migrate_tenant_public_hosts from './20261013_000001_migrate_tenant_public_hosts'
 import * as migration_20261016_000001_tenants_hostname_list from './20261016_000001_tenants_hostname_list'
 import * as migration_20261016_000002_migrate_hostname_list from './20261016_000002_migrate_hostname_list'
+import * as migration_20261017_000001_drop_legacy_declaration_fields from './20261017_000001_drop_legacy_declaration_fields'
 
 export const migrations = [
   {
@@ -1169,5 +1170,10 @@ export const migrations = [
     up: migration_20261016_000002_migrate_hostname_list.up,
     down: migration_20261016_000002_migrate_hostname_list.down,
     name: '20261016_000002_migrate_hostname_list',
+  },
+  {
+    up: migration_20261017_000001_drop_legacy_declaration_fields.up,
+    down: migration_20261017_000001_drop_legacy_declaration_fields.down,
+    name: '20261017_000001_drop_legacy_declaration_fields',
   },
 ]

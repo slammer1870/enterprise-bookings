@@ -7,6 +7,7 @@
 import { test, expect } from './helpers/fixtures'
 import { createTestPage, createTestTenant, getPayloadInstance } from './helpers/data-helpers'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 const port = process.env.E2E_PORT?.trim() || '3000'
@@ -23,6 +24,7 @@ test.describe('Tenant public host declaration (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const base = `e2e-decl-${w}-${stamp}.127.0.0.1.nip.io`
     const canonicalHost = `shop.blog.${base}`
     const undeclaredHost = `other.blog.${base}`
@@ -39,7 +41,7 @@ test.describe('Tenant public host declaration (E2E)', () => {
     expect(body).toContain('<title>Not found</title>')
   })
 
-  test('replacing the canonical host drops the previous hostname unless it stays on the alias list', async ({
+  test('replacing the hostname list drops the previous hostname, and keeping it in the list makes it serve', async ({
     testData,
     page,
   }) => {
@@ -48,6 +50,7 @@ test.describe('Tenant public host declaration (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const oldCanonical = `e2e-decl-old-${w}-${stamp}.127.0.0.1.nip.io`
     const newCanonical = `e2e-decl-new-${w}-${stamp}.127.0.0.1.nip.io`
     const slug = `decl-rep-${w}-${stamp}`
@@ -60,7 +63,7 @@ test.describe('Tenant public host declaration (E2E)', () => {
     await payload.update({
       collection: 'tenants',
       id: tenant.id,
-      data: { domain: newCanonical },
+      data: { hostnames: [newCanonical], direction: 'allow-www-and-non-www' },
       overrideAccess: true,
     })
 
@@ -73,24 +76,28 @@ test.describe('Tenant public host declaration (E2E)', () => {
     await payload.update({
       collection: 'tenants',
       id: tenant.id,
-      data: { domain: newCanonical, aliasHosts: [oldCanonical] },
+      data: {
+        hostnames: [newCanonical, oldCanonical],
+        direction: 'allow-www-and-non-www',
+      },
       overrideAccess: true,
     })
 
-    const redirect = await page.request.get(`http://${oldCanonical}:${port}/kids?ref=1`, {
+    const served = await page.request.get(`http://${oldCanonical}:${port}/kids?ref=1`, {
       maxRedirects: 0,
       timeout: 60_000,
     })
-    expect(redirect.status()).toBe(301)
-    expect(redirect.headers()['location']).toBe(`https://${newCanonical}/kids?ref=1`)
+    expect(served.status()).toBe(200)
+    expect(served.headers()['location'] ?? '').toBe('')
   })
 
-  test('an alias on another apex redirects to the canonical host', async ({ testData, page }) => {
+  test('a hostname on another apex serves when it is in the list', async ({ testData, page }) => {
     const nipIoAvailable = await isNipIoDnsAvailable()
     test.skip(!nipIoAvailable, 'nip.io DNS is not available')
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const canonicalHost = `e2e-decl-xa-${w}-${stamp}.127.0.0.1.nip.io`
     const otherApexHost = `e2e-decl-xa-other-${w}-${stamp}.127.0.0.1.nip.io`
     const slug = `decl-xa-${w}-${stamp}`
@@ -102,16 +109,19 @@ test.describe('Tenant public host declaration (E2E)', () => {
     await payload.update({
       collection: 'tenants',
       id: tenant.id,
-      data: { aliasHosts: [otherApexHost] },
+      data: {
+        hostnames: [canonicalHost, otherApexHost],
+        direction: 'allow-www-and-non-www',
+      },
       overrideAccess: true,
     })
 
-    const redirect = await page.request.get(`http://${otherApexHost}:${port}/kids?ref=1`, {
+    const served = await page.request.get(`http://${otherApexHost}:${port}/kids?ref=1`, {
       maxRedirects: 0,
       timeout: 60_000,
     })
-    expect(redirect.status()).toBe(301)
-    expect(redirect.headers()['location']).toBe(`https://${canonicalHost}/kids?ref=1`)
+    expect(served.status()).toBe(200)
+    expect(served.headers()['location'] ?? '').toBe('')
   })
 
   test('refuses saving a hostname another tenant already uses', async ({ testData }) => {
@@ -120,6 +130,7 @@ test.describe('Tenant public host declaration (E2E)', () => {
 
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const host = `e2e-decl-conflict-${w}-${stamp}.127.0.0.1.nip.io`
     const slug1 = `decl-c1-${w}-${stamp}`
     const slug2 = `decl-c2-${w}-${stamp}`
@@ -132,7 +143,7 @@ test.describe('Tenant public host declaration (E2E)', () => {
       payload.update({
         collection: 'tenants',
         id: tenantB.id,
-        data: { domain: host },
+        data: { hostnames: [host] },
         overrideAccess: true,
       }),
     ).rejects.toThrow(/already uses/i)

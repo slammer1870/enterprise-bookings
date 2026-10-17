@@ -53,14 +53,10 @@ export async function GET(request: NextRequest) {
     }
 
     const declaration = readHostnameDeclaration(tenant)
-    // A saved list replaces the custom domain. Once it names a custom hostname,
-    // the platform subdomain redirects to the canonical host. An empty list serves.
+    // Once the list names a custom hostname, the platform subdomain redirects to the
+    // canonical host. An empty list serves on the platform subdomain.
     const canonicalHost =
-      declaration.hostnames === null
-        ? tenant.domain
-        : declaration.hostnames.length > 0
-          ? declaration.roles?.canonicalHost
-          : null
+      declaration.hostnames.length > 0 ? declaration.roles.canonicalHost : null
     return NextResponse.json({
       id: tenant.id,
       slug: normalized,

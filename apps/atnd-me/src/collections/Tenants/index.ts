@@ -11,20 +11,16 @@ import { tenantOrgPayloadAdminAccess } from '@/access/userTenantAccess'
 import { normalizeAndValidateTenantSlugFormat } from '@repo/shared-utils'
 import { extraBlockSlugs } from '../../blocks/registry'
 import {
-  normalizeCustomDomain,
-  validateCustomDomainFormat,
-  validateCustomDomainNotPlatform,
-  validateAliasHosts,
-} from '@/utilities/validateCustomDomain'
-import {
   DEFAULT_DIRECTION,
   HOSTNAME_DIRECTIONS,
   normalizeHostnameList,
+} from '@/utilities/tenantPublicHostDeclaration'
+import {
   validateRawPublicHostInputs,
   validateTenantPublicHostDeclarationOnSave,
-} from '@/utilities/tenantPublicHostDeclaration'
+} from '@/utilities/validateTenantPublicHostOnSave'
 import { applePayDomainsForDeclaration, registerApplePayDomain } from './registerApplePayDomain'
-import { collectApexActionsFromHookArgs } from './apexDomainHook'
+import { customHostnamesToRegister } from './apexDomainHook'
 import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
 import { isPlatformEmailApex, resolveEmailSendingDomain } from '@/lib/resend/emailSendingDomain'
 import { provisionTenantEmailDomain } from '@/lib/resend/provisionTenantEmailDomain'
@@ -219,48 +215,6 @@ export const Tenants: CollectionConfig = {
       },
     },
     {
-      name: 'domain',
-      type: 'text',
-      required: false,
-      index: true,
-      admin: {
-        hidden: true,
-        description:
-          'Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. Declaration does not wait on DNS or certificate status.',
-      },
-      validate: (value: unknown) => {
-        const str = value == null ? '' : String(value).trim()
-        const formatResult = validateCustomDomainFormat(str || null)
-        if (formatResult !== true) return formatResult
-        if (str === '') return true
-        const normalized = normalizeCustomDomain(str)
-        const notPlatformResult = validateCustomDomainNotPlatform(normalized)
-        return notPlatformResult
-      },
-    },
-    {
-      name: 'aliasHosts',
-      type: 'text',
-      hasMany: true,
-      index: true,
-      admin: {
-        hidden: true,
-        description:
-          'Hostnames that redirect to the canonical host (the custom domain). Enter only the hostname—no protocol or path.',
-      },
-      validate: (value: unknown) => validateAliasHosts(value),
-      hooks: {
-        beforeValidate: [
-          ({ value }) => {
-            if (!Array.isArray(value)) return value
-            return value
-              .map((host) => (host == null ? '' : normalizeCustomDomain(String(host))))
-              .filter((host) => host !== '')
-          },
-        ],
-      },
-    },
-    {
       name: 'hostnames',
       type: 'json',
       label: 'Hostnames',
@@ -294,24 +248,6 @@ export const Tenants: CollectionConfig = {
       admin: {
         components: { Field: '@/components/admin/PublicHostList' },
       },
-    },
-    {
-      name: 'redirectApex',
-      type: 'checkbox',
-      defaultValue: false,
-      admin: {
-        hidden: true,
-        description:
-          'Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.',
-      },
-    },
-    {
-      name: 'apexDomain',
-      type: 'text',
-      required: false,
-      index: true,
-      admin: { hidden: true },
-      access: { update: adminOnlyUpdate },
     },
     {
       name: 'apexDomainVerificationToken',
@@ -573,20 +509,6 @@ export const Tenants: CollectionConfig = {
     afterChange: [
       async ({ doc, previousDoc, operation, req, context }) => {
         if (context?.skipApexHook || context?.skipEmailDomainHook) return
-        const rootHostname = (() => {
-          const url = process.env.NEXT_PUBLIC_SERVER_URL
-          if (!url) return null
-          try { return new URL(url).hostname.toLowerCase() } catch { return null }
-        })()
-
-        const newSlug = typeof doc?.slug === 'string' ? doc.slug.trim() : null
-        const prevSlug = typeof previousDoc?.slug === 'string' ? previousDoc.slug.trim() : null
-        const newDomain =
-          typeof doc?.domain === 'string' && doc.domain.trim() ? doc.domain.trim() : null
-        const prevDomain =
-          typeof previousDoc?.domain === 'string' && previousDoc.domain.trim()
-            ? previousDoc.domain.trim()
-            : null
 
         const connectedAccountId =
           typeof doc?.stripeConnectAccountId === 'string' && doc.stripeConnectAccountId.trim()
@@ -604,113 +526,40 @@ export const Tenants: CollectionConfig = {
         }
 
         const declaredDomains = applePayDomainsForDeclaration(doc)
-        if (declaredDomains !== null) {
-          const previousDeclared = applePayDomainsForDeclaration(previousDoc)
-          const previousServing = new Set(previousDeclared ?? [])
-          const servingChanged =
-            operation === 'create' ||
-            previousDeclared === null ||
-            declaredDomains.length !== previousServing.size ||
-            declaredDomains.some((host) => !previousServing.has(host))
+        const previousDeclared =
+          operation === 'create' || !previousDoc ? [] : applePayDomainsForDeclaration(previousDoc)
+        const previousServing = new Set(previousDeclared)
+        const servingChanged =
+          operation === 'create' ||
+          declaredDomains.length !== previousServing.size ||
+          declaredDomains.some((host) => !previousServing.has(host))
 
-          if (servingChanged) {
-            for (const host of declaredDomains) {
-              if (operation === 'create' || previousDeclared === null || !previousServing.has(host)) {
-                await register(host)
-              }
-            }
-            if (connectedAccountId) {
-              for (const host of declaredDomains) await register(host, connectedAccountId)
+        if (servingChanged) {
+          for (const host of declaredDomains) {
+            if (operation === 'create' || !previousServing.has(host)) {
+              await register(host)
             }
           }
-        } else {
-          // Legacy rows have no hostname list. Register only what changed.
-          const platformDomains: string[] = []
-          if (newSlug && rootHostname && (operation === 'create' || newSlug !== prevSlug)) {
-            platformDomains.push(`${newSlug}.${rootHostname}`)
+          if (connectedAccountId) {
+            for (const host of declaredDomains) await register(host, connectedAccountId)
           }
-          if (newDomain && newDomain !== prevDomain) {
-            platformDomains.push(newDomain)
-          }
-
-          // Connected account receives every current domain when anything changed, so a
-          // custom-domain save still registers the platform subdomain on that account.
-          const connectedDomains: string[] = []
-          if (connectedAccountId && platformDomains.length > 0) {
-            if (newSlug && rootHostname) connectedDomains.push(`${newSlug}.${rootHostname}`)
-            if (newDomain) connectedDomains.push(newDomain)
-          }
-
-          for (const domain of platformDomains) await register(domain)
-          for (const domain of connectedDomains) await register(domain, connectedAccountId!)
         }
 
-        // If the domain was cleared, no deregistration needed — Stripe doesn't expose a
-        // paymentMethodDomains.delete() that would break other integrations on the same domain.
-
-        // Main custom domain: register as a Cloudflare TLS for SaaS custom hostname.
-        // CNAME DCV means the client only needs one DNS record (CNAME → platform subdomain)
-        // and Cloudflare verifies ownership automatically — no TXT token needed.
-        const apexActions = collectApexActionsFromHookArgs({ doc, previousDoc, operation })
-        if (apexActions.registerDomain) {
-          await createOrGetCustomHostname(apexActions.registerDomain, false).catch((err: unknown) => {
-            console.error(
-              `[Tenants afterChange] Failed to register Cloudflare custom hostname "${apexActions.registerDomain}":`,
-              err,
-            )
-          })
-        }
-
-        // Apex domain: register with Apple Pay, register with Cloudflare TLS for SaaS
-        // (so Cloudflare issues and manages the SSL cert regardless of hosting platform),
-        // and store in DB when redirectApex is on.
-        if (apexActions.registerApexApplePay) {
-          // A stored hostname list already decides Apple Pay domains. Do not also
-          // register the apex derived from the legacy custom domain.
-          if (declaredDomains === null) {
-            await registerApplePayDomain(apexActions.registerApexApplePay).catch((err: unknown) => {
+        // Named hostnames are registered as Cloudflare custom hostnames when they are saved.
+        // An apex uses TXT validation. A hostname that leaves the list is not deleted here.
+        for (const registration of customHostnamesToRegister({
+          operation,
+          hostnames: doc?.hostnames,
+          previousHostnames: previousDoc?.hostnames,
+        })) {
+          await createOrGetCustomHostname(registration.hostname, registration.isApex).catch(
+            (err: unknown) => {
               console.error(
-                `[Tenants afterChange] Failed to register Apple Pay domain "${apexActions.registerApexApplePay}":`,
+                `[Tenants afterChange] Failed to register Cloudflare custom hostname "${registration.hostname}":`,
                 err,
               )
-            })
-          }
-          // Register apex with Cloudflare TLS for SaaS using TXT DCV.
-          // Cloudflare issues and auto-renews the cert independently of the hosting platform —
-          // switching to serverless only requires updating the Cloudflare fallback origin.
-          const cfApexResult = await createOrGetCustomHostname(
-            apexActions.registerApexApplePay,
-            true,
-          ).catch((err: unknown) => {
-            console.error(
-              `[Tenants afterChange] Failed to register Cloudflare apex hostname "${apexActions.registerApexApplePay}":`,
-              err,
-            )
-            return null
-          })
-          await req.payload.update({
-            collection: 'tenants',
-            id: doc.id,
-            data: {
-              apexDomain: apexActions.apexDomainToStore,
-              // Store the TXT DCV token so the admin UI can show it to the tenant.
-              apexDomainVerificationToken: cfApexResult?.verificationTxtValue ?? null,
             },
-            req,
-            overrideAccess: true,
-            context: { skipApexHook: true },
-          }).catch((err: unknown) => {
-            console.error('[Tenants afterChange] Failed to store apexDomain:', err)
-          })
-        } else if (apexActions.clearApex) {
-          await req.payload.update({
-            collection: 'tenants',
-            id: doc.id,
-            data: { apexDomain: null, apexDomainVerificationToken: null },
-            req,
-            overrideAccess: true,
-            context: { skipApexHook: true },
-          })
+          )
         }
 
         // Resend email sending domain follows the apex of the canonical host.
@@ -745,13 +594,8 @@ export const Tenants: CollectionConfig = {
 
         validateRawPublicHostInputs(data)
 
-        if (Object.prototype.hasOwnProperty.call(data, 'domain')) {
-          if (data.domain == null || data.domain === '') {
-            data.domain = null
-          } else if (typeof data.domain === 'string') {
-            const normalized = normalizeCustomDomain(data.domain)
-            data.domain = normalized === '' ? null : normalized
-          }
+        if (operation === 'create' && !Object.prototype.hasOwnProperty.call(data, 'hostnames')) {
+          data.hostnames = []
         }
 
         if (Object.prototype.hasOwnProperty.call(data, 'hostnames')) {

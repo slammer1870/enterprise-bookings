@@ -44,7 +44,6 @@ export const validateEmailFromField: TextFieldSingleValidation = async (value, {
   const gate = await loadTenantEmailFromGate(req.payload, tenantId)
   const error = getEmailFromTenantDomainValidationError({
     emailFrom: raw,
-    tenantDomain: gate?.domain,
     hostnames: gate?.hostnames,
     direction: gate?.direction,
     slug: gate?.slug,

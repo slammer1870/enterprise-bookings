@@ -12,6 +12,7 @@ import type { Page, Response } from '@playwright/test'
 import { test, expect } from './helpers/fixtures'
 import { createTestPage, createTestTenant, getPayloadInstance } from './helpers/data-helpers'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
 const port = process.env.E2E_PORT?.trim() || '3000'
@@ -20,26 +21,6 @@ const TINY_PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4////fwAJ+wP9KobjigAAAABJRU5ErkJggg==',
   'base64',
 )
-
-/** nip.io hosts share one claimed apex, so only one such tenant can exist. */
-async function releaseNipIoApex(): Promise<void> {
-  const payload = await getPayloadInstance()
-  const existing = await payload.find({
-    collection: 'tenants',
-    where: { domain: { contains: 'nip.io' } },
-    limit: 100,
-    depth: 0,
-    overrideAccess: true,
-  })
-  for (const doc of existing.docs) {
-    await payload.update({
-      collection: 'tenants',
-      id: doc.id,
-      data: { domain: null },
-      overrideAccess: true,
-    })
-  }
-}
 
 async function createPageImage(tenantId: number, mediaUrl: string): Promise<number> {
   const payload = await getPayloadInstance()
@@ -156,7 +137,7 @@ test.describe('Share image (E2E)', () => {
     const slug = `share-${w}-${stamp}`
     const mediaUrl = 'https://files.example.com/share/photo.jpg?v=2'
 
-    await releaseNipIoApex()
+    await releaseClaimedApex('nip.io')
     const tenant = await createTestTenant(`E2E Share ${w} ${stamp}`, slug, canonicalHost)
     const imageId = await createPageImage(tenant.id, mediaUrl)
     await createTestPage(tenant.id, 'kids', 'Kids', { meta: { image: imageId } })
@@ -185,7 +166,7 @@ test.describe('Share image (E2E)', () => {
     const fileName = `origin-${stamp}.png`
     const shareImage = `http://localhost:${port}/api/media/file/${fileName}`
 
-    await releaseNipIoApex()
+    await releaseClaimedApex('nip.io')
     const tenant = await createTestTenant(`E2E Share Origin ${w} ${stamp}`, slug, canonicalHost)
     const imageId = await createPathImage(tenant.id, fileName)
     await createTestPage(tenant.id, 'kids', 'Kids', { meta: { image: imageId } })
@@ -216,7 +197,7 @@ test.describe('Share image (E2E)', () => {
     const fileName = `kids-photo-${stamp}.png`
     const shareImage = `https://${canonicalHost}/api/media/file/${fileName}`
 
-    await releaseNipIoApex()
+    await releaseClaimedApex('nip.io')
     const tenant = await createTestTenant(`E2E Share Path ${w} ${stamp}`, slug, canonicalHost)
     const imageId = await createPathImage(tenant.id, fileName)
     await storeMediaFileUrl(imageId, `api/media/file/${fileName}`)

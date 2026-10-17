@@ -27,7 +27,13 @@ describe('tenant SEO URL resolution', () => {
   it('prefers a tenant custom domain over the platform subdomain', () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
 
-    expect(getTenantSiteURL({ slug: 'bru', domain: 'bru.ie' })).toBe('https://bru.ie')
+    expect(
+      getTenantSiteURL({
+        slug: 'bru',
+        hostnames: ['bru.ie'],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('https://bru.ie')
   })
 
   it('uses the canonical host derived from the hostname list and Direction', () => {
@@ -36,7 +42,6 @@ describe('tenant SEO URL resolution', () => {
     expect(
       getTenantSiteURL({
         slug: 'bru',
-        domain: 'www.example.com',
         hostnames: ['www.example.com', 'example.com'],
         direction: 'redirect-to-non-www',
       }),
@@ -49,7 +54,6 @@ describe('tenant SEO URL resolution', () => {
     expect(
       getTenantSiteURL({
         slug: 'bru',
-        domain: 'bru.ie',
         hostnames: [],
         direction: 'allow-www-and-non-www',
       }),
@@ -74,9 +78,31 @@ describe('tenant SEO URL resolution', () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
 
     const payload = {
-      find: vi
-        .fn()
-        .mockResolvedValueOnce({ docs: [{ id: 7, slug: 'bru', name: 'Bru Grappling', domain: 'bru.ie' }] }),
+      db: {
+        drizzle: {
+          execute: vi.fn().mockResolvedValue({
+            rows: [
+              {
+                id: 7,
+                slug: 'bru',
+                hostnames: ['bru.ie'],
+                direction: 'allow-www-and-non-www',
+              },
+            ],
+          }),
+        },
+      },
+      find: vi.fn().mockResolvedValueOnce({
+        docs: [
+          {
+            id: 7,
+            slug: 'bru',
+            name: 'Bru Grappling',
+            hostnames: ['bru.ie'],
+            direction: 'allow-www-and-non-www',
+          },
+        ],
+      }),
     }
 
     const tenant = await getTenantContext(payload as never, {
@@ -87,8 +113,15 @@ describe('tenant SEO URL resolution', () => {
       id: 7,
       slug: 'bru',
       name: 'Bru Grappling',
-      domain: 'bru.ie',
+      hostnames: ['bru.ie'],
+      direction: 'allow-www-and-non-www',
     })
+    expect(payload.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'tenants',
+        where: { id: { equals: 7 } },
+      }),
+    )
   })
 
   it('resolves tenant context from payload-tenant in Cookie header when Host is platform apex', async () => {
@@ -100,7 +133,8 @@ describe('tenant SEO URL resolution', () => {
         id: 42,
         slug: 'acme',
         name: 'Acme Studio',
-        domain: 'www.acme.com',
+        hostnames: ['www.acme.com'],
+        direction: 'allow-www-and-non-www',
       }),
     }
 
@@ -132,7 +166,8 @@ describe('tenant SEO URL resolution', () => {
               id: 7,
               slug: 'bru',
               name: 'Bru Grappling',
-              domain: null,
+              hostnames: [],
+              direction: 'allow-www-and-non-www',
               description: 'Irish grappling classes',
               logo: { url: '/media/bru.png' },
             },

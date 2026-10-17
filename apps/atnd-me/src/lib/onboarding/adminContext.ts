@@ -7,7 +7,7 @@ import type { User as SharedUser } from '@repo/shared-types'
 
 import { getUserTenantIds } from '@/access/tenant-scoped'
 import { isAdmin, isTenantAdmin } from '@/access/userTenantAccess'
-import { getTenantSiteURL } from '@/utilities/getURL'
+import { getTenantSiteURL, type TenantURLSource } from '@/utilities/getURL'
 import { getTenantSlugFromHost } from '@/utilities/tenantRequest'
 
 export async function resolveOnboardingUser(
@@ -141,12 +141,7 @@ export async function resolveOnboardingTenantId(
 }
 
 export function buildTenantPublicSiteURL(
-  tenant: {
-    slug?: string | null
-    domain?: string | null
-    hostnames?: unknown
-    direction?: unknown
-  },
+  tenant: TenantURLSource,
   request: NextRequest,
 ): string {
   return getTenantSiteURL(tenant, request.headers)

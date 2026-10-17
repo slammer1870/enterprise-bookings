@@ -9,17 +9,14 @@ import {
 } from '@/utilities/tenantPublicHostDeclaration'
 
 /**
- * Serving hosts to register when the hostname list is stored.
- * Null when this row has not been saved with a hostname list.
- * An alias host is absent. A missing pair partner is not invented.
+ * Serving hosts to register. An alias host is absent. A missing pair partner is not invented.
+ * With no custom hostname, the platform subdomain is the only Apple Pay domain.
  */
 export function applePayDomainsForDeclaration(
   doc: TenantPublicHostDocSlice | null | undefined,
-): string[] | null {
-  if (!doc) return null
-  const declaration = readHostnameDeclaration(doc)
-  if (declaration.hostnames === null || declaration.roles === null) return null
-  return declaration.roles.servingHosts
+): string[] {
+  if (!doc) return []
+  return readHostnameDeclaration(doc).roles.servingHosts
 }
 
 /**
@@ -117,40 +114,24 @@ export async function registerApplePayDomain(
 }
 
 /**
- * Registers all platform domains (platform subdomains + custom domain) for a specific tenant
- * on a connected Stripe account. Call this after a tenant completes OAuth onboarding so Apple
- * Pay is immediately available without waiting for the next domain change.
+ * Registers this tenant's serving hosts on a connected Stripe account.
+ * Call this after OAuth onboarding so Apple Pay is available without waiting for the next save.
  */
 export async function registerAllDomainsForConnectedAccount(
   payload: Payload,
   connectedAccountId: string,
   tenantId: number,
 ): Promise<void> {
-  const rootHostname = (() => {
-    const url = process.env.NEXT_PUBLIC_SERVER_URL
-    if (!url) return null
-    try { return new URL(url).hostname.toLowerCase() } catch { return null }
-  })()
-
   const tenant = await payload.findByID({
     collection: 'tenants',
     id: tenantId,
     depth: 0,
     overrideAccess: true,
-    select: { slug: true, domain: true, hostnames: true, direction: true } as Record<string, boolean>,
+    select: { slug: true, hostnames: true, direction: true } as Record<string, boolean>,
   })
 
   const tenantDoc = tenant as TenantPublicHostDocSlice
-  const declared = applePayDomainsForDeclaration(tenantDoc)
-  const slug = typeof tenantDoc.slug === 'string' ? tenantDoc.slug.trim() : null
-  const customDomain = typeof tenantDoc.domain === 'string' ? tenantDoc.domain.trim() : null
-
-  const domains: string[] =
-    declared ??
-    [
-      ...(slug && rootHostname ? [`${slug}.${rootHostname}`] : []),
-      ...(customDomain ? [customDomain] : []),
-    ]
+  const domains = applePayDomainsForDeclaration(tenantDoc)
 
   for (const domain of domains) {
     await registerApplePayDomain(domain, connectedAccountId).catch((err: unknown) => {

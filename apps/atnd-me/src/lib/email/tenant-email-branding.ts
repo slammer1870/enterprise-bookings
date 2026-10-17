@@ -1,18 +1,15 @@
 import type { BasePayload } from 'payload'
 
 import { getAbsoluteURL, getTenantSiteURL } from '@/utilities/getURL'
+import type { TenantPublicHostDocSlice } from '@/utilities/tenantPublicHostDeclaration'
 
 export type TenantEmailBranding = {
   name: string
   logoUrl: string | null
 }
 
-type TenantBrandingSource = {
+type TenantBrandingSource = TenantPublicHostDocSlice & {
   name?: unknown
-  slug?: unknown
-  domain?: unknown
-  hostnames?: unknown
-  direction?: unknown
   logo?: unknown
 }
 
@@ -48,7 +45,6 @@ function logoUrlFromTenant(tenant: TenantBrandingSource): string | null {
 
   const siteUrl = getTenantSiteURL({
     slug: typeof tenant.slug === 'string' ? tenant.slug : null,
-    domain: typeof tenant.domain === 'string' ? tenant.domain : null,
     hostnames: tenant.hostnames,
     direction: tenant.direction,
   })
@@ -102,7 +98,6 @@ export async function resolveTenantEmailBranding(
       select: {
         name: true,
         slug: true,
-        domain: true,
         hostnames: true,
         direction: true,
         logo: true,

@@ -59,7 +59,10 @@ async function assignOrgAdmin(email: string, tenantId: number): Promise<void> {
 
 async function openTenantHosts(page: Page, tenantId: number): Promise<PublicHostCells[]> {
   const origin = new URL(page.url()).origin
-  await page.goto(`${origin}/admin/collections/tenants/${tenantId}`, { waitUntil: 'domcontentloaded' })
+  await page.goto(`${origin}/admin/collections/tenants/${tenantId}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 60_000,
+  })
   return publicHostCells(page)
 }
 
@@ -98,12 +101,12 @@ test.describe('public host list in admin', () => {
     const apex = `ph${stamp}.com`
     const canonical = `blog.shop.${apex}`
     const alias = `www.${apex}`
-    const tenant = await createTestTenant(`Public hosts ${stamp}`, slug, canonical)
+    const tenant = await createTestTenant(`Public hosts ${stamp}`, slug)
     const payload = await getPayloadInstance()
     await payload.update({
       collection: 'tenants',
       id: tenant.id,
-      data: { aliasHosts: [alias] },
+      data: { hostnames: [canonical, alias], direction: 'allow-www-and-non-www' },
       overrideAccess: true,
     })
 
@@ -136,7 +139,7 @@ test.describe('public host list in admin', () => {
       },
       {
         host: alias,
-        role: 'alias',
+        role: 'serving',
         type: 'CNAME',
         dnsHost: 'www',
         value: 'cname.localhost',
@@ -145,7 +148,7 @@ test.describe('public host list in admin', () => {
       },
       {
         host: `${slug}.localhost`,
-        role: 'alias',
+        role: `alias to ${canonical}`,
         type: '',
         dnsHost: '',
         value: '',
@@ -210,7 +213,7 @@ test.describe('public host list in admin', () => {
       },
       {
         host: `${slug}.localhost`,
-        role: 'alias',
+        role: `alias to ${canonical}`,
         type: '',
         dnsHost: '',
         value: '',
@@ -339,9 +342,9 @@ test.describe('public host list in admin', () => {
       })
       const hostnames = page.getByRole('textbox', { name: 'Hostnames' })
       await expect(hostnames).toHaveValue(`${www}, ${apex}`, { timeout: e2eExpectTimeout(45_000) })
-      await expect(page.locator('#field-domain')).toHaveAttribute('type', 'hidden')
-      await expect(page.locator('#field-aliasHosts')).toHaveAttribute('type', 'hidden')
-      await expect(page.locator('#field-redirectApex')).toHaveAttribute('type', 'hidden')
+      await expect(page.locator('#field-domain')).toHaveCount(0)
+      await expect(page.locator('#field-aliasHosts')).toHaveCount(0)
+      await expect(page.locator('#field-redirectApex')).toHaveCount(0)
       await expect(page.getByText('Custom domain for this tenant')).toHaveCount(0)
       await expect(page.getByText('Redirect the bare apex domain')).toHaveCount(0)
 
@@ -389,9 +392,11 @@ test.describe('public host list in admin', () => {
       const refused = page.waitForResponse(
         (response) =>
           response.request().method() === 'PATCH' && response.url().includes(`/api/tenants/${tenant.id}`),
+        { timeout: 60_000 },
       )
       await page.locator('#action-save').click()
-      expect((await refused).status()).toBe(400)
+      const save = await refused
+      expect(save.status(), await save.text()).toBe(400)
       await expect(page.getByText(`Redirect to non-www needs ${apex} in the hostname list.`)).toBeVisible()
       await expect(redirectNonWww).toBeChecked()
     }
@@ -473,6 +478,7 @@ test.describe('public host list in admin', () => {
       const refused = page.waitForResponse(
         (response) =>
           response.request().method() === 'PATCH' && response.url().includes(`/api/tenants/${tenant.id}`),
+        { timeout: 60_000 },
       )
       await page.locator('#action-save').click()
       expect((await refused).status()).toBe(400)

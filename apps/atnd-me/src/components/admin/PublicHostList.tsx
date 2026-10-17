@@ -6,7 +6,6 @@ import { getPlatformRootHostname } from '@/utilities/validateCustomDomain'
 import {
   getClaimedApex,
   getTenantPlatformSubdomain,
-  mergeTenantPublicHostDeclaration,
   readHostnameDeclaration,
   type DerivedPublicHostRoles,
   type TenantPublicHostDocSlice,
@@ -74,10 +73,8 @@ function recordRow(key: string, type: RecordRow['type'], host: string, value: st
 
 function hostDeclaration(data: unknown): TenantPublicHostDocSlice {
   if (data == null || typeof data !== 'object') return {}
-  const doc = data as Pick<Tenant, 'domain' | 'aliasHosts' | 'hostnames' | 'direction' | 'slug'>
+  const doc = data as Pick<Tenant, 'hostnames' | 'direction' | 'slug'>
   return {
-    domain: doc.domain,
-    aliasHosts: doc.aliasHosts,
     hostnames: doc.hostnames,
     direction: doc.direction,
     slug: doc.slug,
@@ -132,40 +129,16 @@ function platformRow(hostname: string, role: string): PlatformRow {
 async function publicHostRows(data: unknown): Promise<PublicHostRow[]> {
   const doc = hostDeclaration(data)
   const stored = readHostnameDeclaration(doc)
-  const rows: PublicHostRow[] = []
-
-  if (stored.hostnames !== null && stored.roles) {
-    const roles = stored.roles
-    const hostnames = stored.hostnames
-    rows.push(
-      ...(await customHostRows(hostnames.map((hostname) => ({ hostname, role: hostnameRole(hostname, roles) })))),
-    )
-    const platformHost = getTenantPlatformSubdomain(typeof doc.slug === 'string' ? doc.slug : '')
-    if (platformHost) {
-      const role = hostnames.length === 0 ? 'canonical' : `alias to ${roles.canonicalHost}`
-      rows.push(platformRow(platformHost, role))
-    }
-    return rows
-  }
-
-  const declaration = mergeTenantPublicHostDeclaration(doc)
-  if (declaration.canonicalHost) {
-    const customHosts = [declaration.canonicalHost, ...declaration.aliasHosts]
-    rows.push(
-      ...(await customHostRows(
-        customHosts.map((hostname, index) => ({
-          hostname,
-          role: index === 0 ? 'canonical' : 'alias',
-        })),
-      )),
-    )
-  }
-
-  const platformHost = getTenantPlatformSubdomain(declaration.slug)
+  const roles = stored.roles
+  const hostnames = stored.hostnames
+  const rows: PublicHostRow[] = await customHostRows(
+    hostnames.map((hostname) => ({ hostname, role: hostnameRole(hostname, roles) })),
+  )
+  const platformHost = getTenantPlatformSubdomain(typeof doc.slug === 'string' ? doc.slug : '')
   if (platformHost) {
-    rows.push(platformRow(platformHost, declaration.canonicalHost ? 'alias' : 'canonical'))
+    const role = hostnames.length === 0 ? 'canonical' : `alias to ${roles.canonicalHost}`
+    rows.push(platformRow(platformHost, role))
   }
-
   return rows
 }
 

@@ -56,7 +56,6 @@ describe('Tenant public host declaration', () => {
   const registrableB = `unique-b-${stamp}.com`
   const domainA = `www.${registrableA}`
   const domainB = `www.${registrableB}`
-  const apexA = registrableA
 
   beforeAll(async () => {
     const payloadConfig = await config
@@ -76,7 +75,7 @@ describe('Tenant public host declaration', () => {
 
     tenantA = (await payload.create({
       collection: 'tenants',
-      data: { name: `Decl A ${stamp}`, slug: slugA, domain: domainA },
+      data: { name: `Decl A ${stamp}`, slug: slugA, hostnames: [domainA], direction: 'allow-www-and-non-www' },
       overrideAccess: true,
     })) as Tenant
 
@@ -134,48 +133,31 @@ describe('Tenant public host declaration', () => {
     }
   }, TEST_TIMEOUT)
 
-  it('refuses a hostname with a port', async () => {
-    await expect(
-      payload.update({
-        collection: 'tenants',
-        id: tenantB.id,
-        data: { domain: `www.${registrableB}:443` },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/port/i)
-  }, TEST_TIMEOUT)
+  it('ignores a write of the old declaration fields and keeps serving the hostname list', async () => {
+    const before = await findTenantByHost(payload, domainA)
+    expect(before).toMatchObject({ type: 'domain', slug: slugA })
 
-  it('refuses alias hosts without a canonical host', async () => {
-    await expect(
-      payload.update({
-        collection: 'tenants',
-        id: tenantB.id,
-        data: { aliasHosts: ['www.example.org'] },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/canonical host/i)
-  }, TEST_TIMEOUT)
+    await payload.update({
+      collection: 'tenants',
+      id: tenantA.id,
+      data: {
+        domain: `www.${registrableB}`,
+        aliasHosts: [`alt.${registrableB}`],
+        redirectApex: true,
+        apexDomain: registrableB,
+      } as Record<string, unknown>,
+      overrideAccess: true,
+    })
 
-  it('refuses a hostname already used as another tenant canonical host', async () => {
-    await expect(
-      payload.update({
-        collection: 'tenants',
-        id: tenantB.id,
-        data: { domain: domainA },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/already uses/i)
-  }, TEST_TIMEOUT)
-
-  it('refuses a hostname on an apex another tenant has claimed', async () => {
-    await expect(
-      payload.update({
-        collection: 'tenants',
-        id: tenantB.id,
-        data: { domain: apexA },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/apex/i)
+    const after = await payload.findByID({
+      collection: 'tenants',
+      id: tenantA.id,
+      overrideAccess: true,
+    })
+    expect(after.hostnames).toEqual([domainA])
+    expect(await findTenantByHost(payload, domainA)).toMatchObject({ type: 'domain', slug: slugA })
+    expect(await findTenantByHost(payload, `alt.${registrableB}`)).toBeNull()
+    expect(await findTenantByHost(payload, registrableB)).toBeNull()
   }, TEST_TIMEOUT)
 
   it('applies the same refusal rules to a super admin with access enforced', async () => {
@@ -183,7 +165,7 @@ describe('Tenant public host declaration', () => {
       payload.update({
         collection: 'tenants',
         id: tenantB.id,
-        data: { domain: domainA },
+        data: { hostnames: [domainA] },
         user: superAdmin,
         overrideAccess: false,
       }),
@@ -195,94 +177,23 @@ describe('Tenant public host declaration', () => {
       payload.update({
         collection: 'tenants',
         id: tenantB.id,
-        data: { domain: domainA },
+        data: { hostnames: [domainA] },
         user: orgAdmin,
         overrideAccess: false,
       }),
     ).rejects.toThrow(/already uses/i)
   }, TEST_TIMEOUT)
 
-  it('refuses a scheme in the hostname on save', async () => {
-    await expect(
-      payload.update({
-        collection: 'tenants',
-        id: tenantB.id,
-        data: { domain: `https://www.${registrableB}` },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/protocol|hostname/i)
-  }, TEST_TIMEOUT)
-
-  it('refuses clearing the canonical host while alias hosts remain', async () => {
-    await payload.update({
-      collection: 'tenants',
-      id: tenantB.id,
-      data: { domain: domainB, aliasHosts: [`alt.${registrableB}`] },
-      overrideAccess: true,
-    })
-
-    await expect(
-      payload.update({
-        collection: 'tenants',
-        id: tenantB.id,
-        data: { domain: null },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/alias hosts before removing/i)
-  }, TEST_TIMEOUT)
-
-  it('lets an org admin save a valid canonical host', async () => {
+  it('lets an org admin save a valid hostname list', async () => {
     const updated = await payload.update({
       collection: 'tenants',
       id: tenantB.id,
-      data: { domain: domainB },
+      data: { hostnames: [domainB], direction: 'allow-www-and-non-www' },
       user: orgAdmin,
       overrideAccess: false,
     })
-    expect(updated.domain).toBe(domainB)
-  }, TEST_TIMEOUT)
-
-  it('frees an apex after the last hostname on it is removed', async () => {
-    const slugC = `decl-c-${stamp}`
-    const registrableC = `unique-c-${stamp}.co.uk`
-    const deepHost = `blog.shop.${registrableC}`
-    const otherOnApex = `other.${registrableC}`
-
-    const tenantC = (await payload.create({
-      collection: 'tenants',
-      data: { name: `Decl C ${stamp}`, slug: slugC, domain: deepHost },
-      overrideAccess: true,
-    })) as Tenant
-
-    await expect(
-      payload.update({
-        collection: 'tenants',
-        id: tenantB.id,
-        data: { domain: otherOnApex },
-        overrideAccess: true,
-      }),
-    ).rejects.toThrow(/apex/i)
-
-    await payload.update({
-      collection: 'tenants',
-      id: tenantC.id,
-      data: { domain: null },
-      overrideAccess: true,
-    })
-
-    const updated = await payload.update({
-      collection: 'tenants',
-      id: tenantB.id,
-      data: { domain: otherOnApex },
-      overrideAccess: true,
-    })
-    expect(updated.domain).toBe(otherOnApex)
-
-    await payload.delete({
-      collection: 'tenants',
-      where: { id: { equals: tenantC.id } },
-      overrideAccess: true,
-    })
+    expect(updated.hostnames).toEqual([domainB])
+    expect(await findTenantByHost(payload, domainB)).toMatchObject({ type: 'domain', slug: slugB })
   }, TEST_TIMEOUT)
 
   const listRegistrable = `list-${stamp}.com`
@@ -603,7 +514,7 @@ describe('Tenant public host declaration', () => {
       payload.update({
         collection: 'tenants',
         id: tenantB.id,
-        data: { domain: otherOnApex },
+        data: { hostnames: [otherOnApex] },
         overrideAccess: true,
       }),
     ).rejects.toThrow(/apex/i)
@@ -627,53 +538,14 @@ describe('Tenant public host declaration', () => {
     const updated = await payload.update({
       collection: 'tenants',
       id: tenantB.id,
-      data: { domain: otherOnApex },
+      data: { hostnames: [otherOnApex], direction: 'allow-www-and-non-www' },
       overrideAccess: true,
     })
-    expect(updated.domain).toBe(otherOnApex)
+    expect(updated.hostnames).toEqual([otherOnApex])
   }, TEST_TIMEOUT)
 
-  it('resolves a row that only has the custom domain, the alias list, and Redirect apex as it does today', async () => {
-    const legacySlug = `decl-legacy-${stamp}`
-    const legacyWww = `www.legacy-${stamp}.com`
-    const legacyAlias = `alt.legacy-${stamp}.com`
-    const legacyApex = `legacy-${stamp}.com`
-    const legacy = (await payload.create({
-      collection: 'tenants',
-      data: {
-        name: `Decl legacy ${stamp}`,
-        slug: legacySlug,
-        domain: legacyWww,
-        aliasHosts: [legacyAlias],
-        redirectApex: true,
-      },
-      overrideAccess: true,
-    })) as Tenant
-
-    const domainHit = await findTenantByHost(payload, legacyWww)
-    const aliasHit = await findTenantByHost(payload, legacyAlias)
-    const apexHit = await findTenantByHost(payload, legacyApex)
-    expect(domainHit).toMatchObject({ type: 'domain', slug: legacySlug })
-    expect(aliasHit).toMatchObject({
-      type: 'alias',
-      slug: legacySlug,
-      canonicalHost: legacyWww,
-    })
-    expect(apexHit).toBeNull()
-
-    const doc = (await payload.findByID({
-      collection: 'tenants',
-      id: legacy.id,
-      overrideAccess: true,
-    })) as Tenant & { hostnames?: unknown; direction?: unknown }
-    const read = readHostnameDeclaration(doc)
-    expect(read.hostnames).toBeNull()
-    expect(read.roles).toBeNull()
-
-    await payload.delete({
-      collection: 'tenants',
-      where: { id: { equals: legacy.id } },
-      overrideAccess: true,
-    })
+  it('does not serve a hostname that was never saved on the hostname list', async () => {
+    const absent = `absent-${stamp}.com`
+    expect(await findTenantByHost(payload, absent)).toBeNull()
   }, TEST_TIMEOUT)
 })

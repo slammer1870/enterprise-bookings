@@ -334,14 +334,6 @@ export interface Tenant {
       )
     | null;
   /**
-   * Custom domain for this tenant (e.g. studio.example.com). Enter only the hostname—no protocol or path. Must be unique; cannot be the platform domain or localhost. Declaration does not wait on DNS or certificate status.
-   */
-  domain?: string | null;
-  /**
-   * Hostnames that redirect to the canonical host (the custom domain). Enter only the hostname—no protocol or path.
-   */
-  aliasHosts?: string[] | null;
-  /**
    * Comma-separated hostnames. The platform subdomain is assigned from the slug and is not typed here.
    */
   hostnames?:
@@ -357,11 +349,6 @@ export interface Tenant {
    * One rule for every www/apex pair in the hostname list. The default is Allow www and non-www.
    */
   direction?: ('allow-www-and-non-www' | 'redirect-to-www' | 'redirect-to-non-www') | null;
-  /**
-   * Redirect the bare apex domain (e.g. example.com) to this subdomain. Recommended for www.* domains. Use with care for other subdomains if the apex is a separate website.
-   */
-  redirectApex?: boolean | null;
-  apexDomain?: string | null;
   apexDomainVerificationToken?: string | null;
   /**
    * Resend Domains API id for this tenant custom domain (set by hooks/API).
@@ -4994,12 +4981,8 @@ export interface TenantsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   timeZone?: T;
-  domain?: T;
-  aliasHosts?: T;
   hostnames?: T;
   direction?: T;
-  redirectApex?: T;
-  apexDomain?: T;
   apexDomainVerificationToken?: T;
   resendDomainId?: T;
   emailDomainStatus?: T;

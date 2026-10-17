@@ -3,7 +3,7 @@ import { APIError, type Endpoint } from 'payload'
 import { isAdmin, isLocationManager, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
 import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
 import { ATND_ME_BOOKINGS_COLLECTION_SLUGS } from '@/constants/bookings-collection-slugs'
-import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
+import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL, type TenantURLSource } from '@/utilities/getURL'
 import { sendBookingCompletionMagicLink } from '@/lib/auth/options'
 
 function coerceNumericId(input: unknown): number | null {
@@ -25,17 +25,12 @@ function getServerUrl(): string | undefined {
 
 function buildTenantScopedCallbackURL(args: {
   callbackPath: string
-  tenant: {
-    slug?: string | null
-    domain?: string | null
-    hostnames?: unknown
-    direction?: unknown
-  } | null
+  tenant: TenantURLSource | null
   headers: Headers
   serverUrlFallback?: string | undefined
 }): string {
   const base =
-    args.tenant != null && (args.tenant.domain != null || args.tenant.slug != null)
+    args.tenant != null && args.tenant.slug != null
       ? getTenantSiteURL(args.tenant, args.headers)
       : getRequestOrigin(args.headers) || args.serverUrlFallback
 
@@ -154,13 +149,8 @@ export const sendLateBookingMagicLinkEndpoint: Endpoint = {
             collection: 'tenants',
             id: tenantIdForCallback as any,
             depth: 0,
-            select: { slug: true, domain: true, hostnames: true, direction: true } as any,
-          })) as unknown as {
-            slug?: string | null
-            domain?: string | null
-            hostnames?: unknown
-            direction?: unknown
-          } | null)
+            select: { slug: true, hostnames: true, direction: true } as any,
+          })) as unknown as TenantURLSource | null)
         : null
 
     const callbackURL = buildTenantScopedCallbackURL({

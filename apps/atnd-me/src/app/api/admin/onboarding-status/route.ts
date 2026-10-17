@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
     overrideAccess: true,
     select: {
       slug: true,
-      domain: true,
       hostnames: true,
       direction: true,
       stripeConnectOnboardingStatus: true,
@@ -75,7 +74,6 @@ export async function GET(request: NextRequest) {
   const siteURL = buildTenantPublicSiteURL(
     {
       slug: tenantSlug,
-      domain: typeof tenant.domain === 'string' ? tenant.domain : null,
       hostnames: tenant.hostnames,
       direction: tenant.direction,
     },
