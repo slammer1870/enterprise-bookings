@@ -16,7 +16,7 @@ const DEFAULT_CANCEL_MESSAGE =
 
 // Optional analytics - only used if available
 let useAnalyticsTracker:
-  | (() => { trackEvent: (_event: string) => void })
+  | (() => { trackEvent: (_event: string, _props?: Record<string, unknown>) => void })
   | null = null;
 try {
   const analytics = require("@repo/analytics");
@@ -79,6 +79,7 @@ export const CheckInButton = ({
   scheduleState,
   manageHref,
   loginToBookUrl,
+  analyticsEnabled = false,
 }: {
   timeslotId: number;
   type: ScheduleTimeslot["eventType"]["type"];
@@ -94,6 +95,7 @@ export const CheckInButton = ({
    * a tenant-specific sign-in route (e.g. `/auth/sign-in?callbackUrl=...`).
    */
   loginToBookUrl?: LoginToBookUrlResolver;
+  analyticsEnabled?: boolean;
 }) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -197,6 +199,13 @@ export const CheckInButton = ({
         // If we got a redirectUrl the server is sending the user to the booking/payment page.
         if (result?.redirectUrl == null) {
           toast.success("Booked");
+          if (analyticsEnabled)
+            trackEvent("Booking Completed", {
+              booking_flow: "schedule",
+              quantity: 1,
+              is_trial: isTrialBooking,
+              payment_method: "pay_at_door",
+            });
         }
         trackEvent("Booking Initiated");
       } catch {

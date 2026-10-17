@@ -59,6 +59,7 @@
     "@radix-ui/react-select": "^2.0.0",
     "@radix-ui/react-slot": "^1.0.2",
     "@react-email/components": "^1.0.1",
+    "@repo/analytics": "workspace:*",
     "@repo/auth-next": "workspace:*",
     "@repo/better-auth-config": "workspace:*",
     "@repo/bookings-next": "workspace:*",
@@ -104,7 +105,8 @@
     "sonner": "*",
     "stripe": "20.4.1",
     "svix": "^1.84.1",
-    "tailwind-merge": "^2.3.0"
+    "tailwind-merge": "^2.3.0",
+    "tldts": "^7.0.19"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

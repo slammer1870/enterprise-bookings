@@ -4,7 +4,12 @@
  * can resolve tenant from Host and set trusted origins for auth.
  */
 
+import { isIP } from 'node:net'
 import dns from 'node:dns/promises'
+
+import { getPlatformRootHostname, normalizeCustomDomain } from '@/utilities/publicHostname'
+
+export { getPlatformRootHostname, normalizeCustomDomain }
 
 /** Max length for a full hostname (RFC 2535). */
 const MAX_HOSTNAME_LENGTH = 253
@@ -14,20 +19,6 @@ const DNS_LOOKUP_TIMEOUT_MS = 8000
 
 /** Regex: valid hostname label (one part between dots). Letters, digits, hyphens; no leading/trailing hyphen. */
 const LABEL_REGEX = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/
-
-/**
- * Returns the root hostname from NEXT_PUBLIC_SERVER_URL (e.g. atnd-me.com).
- * Used to reject custom domains that would conflict with the platform.
- */
-export function getPlatformRootHostname(): string | null {
-  const url = process.env.NEXT_PUBLIC_SERVER_URL
-  if (!url) return null
-  try {
-    return new URL(url).hostname.toLowerCase()
-  } catch {
-    return null
-  }
-}
 
 /**
  * Strips the first DNS label from a hostname, returning the parent domain.
@@ -42,19 +33,6 @@ export function stripFirstLabel(hostname: string): string | null {
   // Remainder must itself contain a dot to be a valid multi-label domain
   if (!remainder.includes('.')) return null
   return remainder
-}
-
-/**
- * Normalizes a custom domain for storage: trim, lowercase, remove port if present.
- * Does not validate; use validateCustomDomainFormat for that.
- */
-export function normalizeCustomDomain(value: string): string {
-  let s = value.trim().toLowerCase()
-  const portIdx = s.indexOf(':')
-  if (portIdx !== -1) {
-    s = s.slice(0, portIdx)
-  }
-  return s.trim()
 }
 
 /**
@@ -79,6 +57,14 @@ export function validateCustomDomainFormat(
 
   if (s.includes('://') || s.includes('/')) {
     return 'Enter only the hostname (e.g. studio.example.com), without protocol or path.'
+  }
+
+  if (/:[0-9]{1,5}$/.test(s)) {
+    return 'Hostname must not include a port.'
+  }
+
+  if (isIP(s)) {
+    return 'Cannot use an IP address as a public host.'
   }
 
   if (s.startsWith('.') || s.endsWith('.')) {
@@ -106,6 +92,22 @@ export function validateCustomDomainFormat(
     return 'Cannot use localhost as a custom domain. Use the tenant subdomain in development.'
   }
 
+  return true
+}
+
+/**
+ * Validates a list of alias hostnames. Each entry is a bare hostname, same format as a custom domain.
+ */
+export function validateAliasHosts(value: unknown): true | string {
+  const hosts = Array.isArray(value) ? value : value == null || value === '' ? [] : [value]
+  for (const host of hosts) {
+    const str = host == null ? '' : String(host).trim()
+    if (str === '') continue
+    const formatResult = validateCustomDomainFormat(str)
+    if (formatResult !== true) return formatResult
+    const notPlatformResult = validateCustomDomainNotPlatform(normalizeCustomDomain(str))
+    if (notPlatformResult !== true) return notPlatformResult
+  }
   return true
 }
 
