@@ -1,9 +1,9 @@
-import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
-
-type TenantURLSource = {
-  slug?: string | null
-  domain?: string | null
-}
+import {
+  getAbsoluteURL,
+  getRequestOrigin,
+  getTenantSiteURL,
+  type TenantURLSource,
+} from '@/utilities/getURL'
 
 /** Restrict callback paths to same-site relative URLs. */
 export function sanitizeRedirectPath(value: unknown, fallback = '/'): string {
@@ -21,7 +21,7 @@ export function buildAuthCallbackURL(args: {
 }): string {
   const path = sanitizeRedirectPath(args.redirectTo)
   const base =
-    args.tenant != null && (args.tenant.domain != null || args.tenant.slug != null)
+    args.tenant != null && (args.tenant.hostnames != null || args.tenant.slug != null)
       ? getTenantSiteURL(args.tenant, args.headers)
       : getRequestOrigin(args.headers) || args.serverUrlFallback
 

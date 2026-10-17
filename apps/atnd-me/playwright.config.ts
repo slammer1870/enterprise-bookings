@@ -2,8 +2,9 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
 
-// Load .env from this package so test workers and webServer use the same DB (DATABASE_URI)
-// when run from monorepo root (e.g. turbo) or from apps/atnd-me.
+// Load the package's established test/development environment. Analytics preflight values
+// are explicitly exported by scripts/analytics-preflight.sh; never load generic .env.local
+// here because Playwright may run `payload migrate:fresh` against DATABASE_URI.
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 dotenv.config({ path: path.resolve(__dirname, '.env') })
 
@@ -76,6 +77,10 @@ function resolveMaxFailures(): number | undefined {
   return DEFAULT_LOCAL_MAX_FAILURES
 }
 
+/** Defaults to 3000. Set E2E_PORT when that port is already taken by another app. */
+const e2ePort = process.env.E2E_PORT?.trim() || '3000'
+const e2eOrigin = `http://localhost:${e2ePort}`
+
 const prodWebCommand = skipWebserverMigrate
   ? 'pnpm start:e2e'
   : 'pnpm run payload migrate:fresh --force-accept-warning && pnpm start:e2e'
@@ -83,6 +88,23 @@ const prodWebCommand = skipWebserverMigrate
 const devWebCommand = skipWebserverMigrate
   ? 'pnpm dev:e2e'
   : 'pnpm run payload migrate:fresh --force-accept-warning && pnpm dev:e2e'
+
+const sharedWebServerEnv = {
+  PORT: e2ePort,
+  // Host lookup calls the platform origin. Keep it on this server when E2E_PORT
+  // is not the port in .env. The default port 3000 matches that file.
+  NEXT_PUBLIC_SERVER_URL: e2eOrigin,
+  NODE_OPTIONS: nodeOptionsWithLoader,
+  ENABLE_TEST_MAGIC_LINKS: 'true',
+  ENABLE_TEST_WEBHOOKS: 'true',
+  PW_E2E_PROFILE: 'true',
+  PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true',
+  // Apex public-host rows in admin. TEST-NET addresses, not the SaaS anycast.
+  CLOUDFLARE_APEX_PROXYING_A: '192.0.2.10',
+  CLOUDFLARE_APEX_PROXYING_AAAA: '2001:db8::10',
+  ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
+  ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -98,7 +120,7 @@ export default defineConfig({
     timeout: fastE2E ? 8_000 : 15_000,
   },
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: e2eOrigin,
     actionTimeout: fastE2E ? 10_000 : 30_000,
     navigationTimeout: fastE2E ? 20_000 : 60_000,
     trace: 'off',
@@ -114,43 +136,30 @@ export default defineConfig({
     ? {
         // Production mode: reuse the existing build, then launch it.
         command: prodWebCommand,
-        url: 'http://localhost:3000/admin',
+        url: `${e2eOrigin}/admin`,
         // Building the standalone app can exceed 2 minutes on cold or uncached runs.
         timeout: 600000,
         reuseExistingServer: !process.env.CI,
         stdout: 'pipe',
         stderr: 'pipe',
         env: {
+          ...sharedWebServerEnv,
           NODE_ENV: 'production',
-          NODE_OPTIONS: nodeOptionsWithLoader,
-          ENABLE_TEST_MAGIC_LINKS: 'true',
-          ENABLE_TEST_WEBHOOKS: 'true', // Mock Stripe/create-payment-intent in e2e (avoid "No such destination" for placeholder accounts)
-          PW_E2E_PROFILE: 'true', // Disables schema push + uses noop email in app (see payload.config.ts)
-          PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
-          // Same DB as test workers so tenant/lesson data created in fixtures is visible to the app
-          ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
-          ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
         },
       }
     : {
         // Dev mode fallback: `next dev` with payload-auth loader (no build required, slower)
         command: devWebCommand,
-        url: 'http://localhost:3000/admin',
+        url: `${e2eOrigin}/admin`,
         // Admin route compilation can be slow on fresh builds / CI
         timeout: 600000,
         reuseExistingServer: !process.env.CI,
         stdout: 'pipe',
         stderr: 'pipe',
         env: {
+          ...sharedWebServerEnv,
           NODE_ENV: 'development',
           CI: 'true',
-          NODE_OPTIONS: nodeOptionsWithLoader,
-          ENABLE_TEST_MAGIC_LINKS: 'true',
-          ENABLE_TEST_WEBHOOKS: 'true',
-          PW_E2E_PROFILE: 'true', // Disables schema push in test workers (see payload.config.ts)
-          PW_E2E_SKIP_DEFAULT_TENANT_DATA: 'true', // Skip expensive default data creation in tests
-          ...(process.env.DATABASE_URI && { DATABASE_URI: process.env.DATABASE_URI }),
-          ...(process.env.PAYLOAD_SECRET && { PAYLOAD_SECRET: process.env.PAYLOAD_SECRET }),
         },
       },
 })

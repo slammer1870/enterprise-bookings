@@ -77,10 +77,14 @@ describe('buildAuthCallbackURL', () => {
     expect(url).toBe('https://acme.atnd-me.com/emergency-contacts')
   })
 
-  it('builds a tenant subdomain callback URL when slug is provided', () => {
+  it('builds a canonical tenant callback URL from the hostname declaration', () => {
     const url = buildAuthCallbackURL({
       redirectTo: '/emergency-contacts',
-      tenant: { slug: 'acme', domain: 'studio.example.com' },
+      tenant: {
+        slug: 'acme',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
+      },
       headers: new Headers({ host: 'ignored.example.com', 'x-forwarded-proto': 'https' }),
     })
     expect(url).toBe('https://studio.example.com/emergency-contacts')

@@ -111,6 +111,7 @@ export function EventAuthenticatedCheckout({
       quantity={quantity}
       successUrl={successUrl}
       enabledMethods={['dropin']}
+      analytics={{ bookingFlow: 'event' }}
       // EventTicketPanel already renders BookingFeeBreakdown; keep a no-op so
       // DropInCheckoutWithFee still shows the fee-inclusive Total.
       FeeBreakdownComponent={() => null}

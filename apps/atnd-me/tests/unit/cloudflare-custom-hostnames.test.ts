@@ -219,13 +219,28 @@ describe('getCustomHostnameStatus', () => {
       sslStatus: 'pending',
       rawHostnameStatus: 'pending',
       rawSslStatus: 'pending_validation',
-      ownershipTxtValue: 'txt-token-abc',
+      ownershipTxt: { name: '_cf-custom-hostname.croilan.com', value: 'txt-token-abc' },
       sslValidationRecords: [
-        { status: 'pending', txtName: '_acme-challenge.croilan.com', txtValue: 'acme-token-1' },
-        { status: 'pending', txtName: '_acme-challenge.croilan.com', txtValue: 'acme-token-2' },
+        { status: 'pending', name: '_acme-challenge.croilan.com', value: 'acme-token-1' },
+        { status: 'pending', name: '_acme-challenge.croilan.com', value: 'acme-token-2' },
       ],
       verificationErrors: [],
     })
+  })
+
+  it('omits ownership TXT when Cloudflare has not issued both a name and a value', async () => {
+    const record = {
+      ...makeHostnameResponse({ status: 'pending' }),
+      ownership_verification: { type: 'txt', name: '_cf-custom-hostname.croilan.com', value: '   ' },
+    }
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(makeApiResponse([record], 200))
+      .mockResolvedValueOnce(makeApiResponse(record, 200))
+
+    const { getCustomHostnameStatus } = await import('@/lib/cloudflare/customHostnames')
+    const status = await getCustomHostnameStatus('croilan.com')
+
+    expect(status?.ownershipTxt).toBeNull()
   })
 
   it('returns verification errors from Cloudflare', async () => {

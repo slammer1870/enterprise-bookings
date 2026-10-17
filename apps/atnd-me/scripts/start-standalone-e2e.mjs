@@ -93,11 +93,15 @@ const cleanedBaseNodeOptions = baseNodeOptions
   .replace(/--import\s+["']?[^"'\s]+register-payload-auth-loader\.mjs["']?\s*/g, '')
   .replace(/--no-deprecation\s*/g, '')
 
+const e2ePort = process.env.PORT?.trim() || process.env.E2E_PORT?.trim() || '3000'
+
 const env = {
   ...process.env,
   ENABLE_TEST_WEBHOOKS: 'true',
-  INTERNAL_TENANT_RESOLVE_TOKEN: process.env.INTERNAL_TENANT_RESOLVE_TOKEN ?? 'e2e-internal-test-secret',
+  INTERNAL_TENANT_RESOLVE_TOKEN:
+    process.env.INTERNAL_TENANT_RESOLVE_TOKEN ?? 'e2e-internal-test-secret',
   NODE_OPTIONS: `${cleanedBaseNodeOptions} --no-deprecation ${loaderNodeOptions}`.trim(),
+  PORT: e2ePort,
 }
 // Avoid inherited NODE_PATH pulling unexpected packages into resolution.
 delete env.NODE_PATH
@@ -119,7 +123,9 @@ if (useNextStart) {
   try {
     nextBin = require.resolve('next/dist/bin/next', { paths: [appRoot] })
   } catch {
-    throw new Error('Unable to resolve next binary from apps/atnd-me. Did you run \`pnpm install\`?')
+    throw new Error(
+      'Unable to resolve next binary from apps/atnd-me. Did you run \`pnpm install\`?',
+    )
   }
 
   // Point Next at the workspace sharp install (single version, with native bindings).
@@ -133,7 +139,7 @@ if (useNextStart) {
   env.E2E_DISABLE_STANDALONE = 'true'
 
   console.log(`[e2e] starting via next start (cwd=${appRoot})`)
-  child = spawn(process.execPath, [nextBin, 'start', '--hostname', '0.0.0.0', '--port', '3000'], {
+  child = spawn(process.execPath, [nextBin, 'start', '--hostname', '0.0.0.0', '--port', e2ePort], {
     stdio: 'inherit',
     env,
     cwd: appRoot,
@@ -143,7 +149,9 @@ if (useNextStart) {
 
   const serverEntrypoint = path.join(standaloneAppDir, 'server.js')
   if (!fs.existsSync(serverEntrypoint)) {
-    throw new Error(`Missing standalone server entrypoint: ${serverEntrypoint}. Did you run \`pnpm build\`?`)
+    throw new Error(
+      `Missing standalone server entrypoint: ${serverEntrypoint}. Did you run \`pnpm build\`?`,
+    )
   }
 
   const buildIdPath = path.join(standaloneNextDir, 'BUILD_ID')
