@@ -121,6 +121,7 @@
     "db:prepare": {
       "dependsOn": ["^build"],
       "env": ["DATABASE_URI", "PAYLOAD_SECRET", "CI", "NODE_ENV"],
+      "inputs": ["$TURBO_DEFAULT$"],
       "cache": false
     },
     "test:e2e": {
