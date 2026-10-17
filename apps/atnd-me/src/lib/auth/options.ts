@@ -1,11 +1,15 @@
 import { createBetterAuthPluginOptions, createCustomExpiryMagicLinkSender } from '@repo/better-auth-config/server'
 import { customSession } from 'better-auth/plugins'
 import { buildSanitizedBetterAuthCustomSession, sanitizeTenantMemberships } from '@repo/shared-utils'
+import { namedHostnameIsAllowed, originHostnamesForTenant } from '@/lib/tenantDbResolve'
 import { getServerSideURL } from '@/utilities/getURL'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { registrationTenantDatabaseHooks } from '@/lib/auth/registration-tenant-database-hooks'
 import { resolveTenantBasedBetterAuthFrom } from '@/lib/resend/resolveTenantEmailFrom'
-import { resolveTenantForMagicLinkUrl } from '@/lib/email/resolveTenantForEmailUrl'
+import {
+  resolveTenantForMagicLinkUrl,
+  type TenantEmailFromContext,
+} from '@/lib/email/resolveTenantForEmailUrl'
 
 /**
  * Generate trusted origins for Better Auth, including wildcard patterns for tenant subdomains.
@@ -86,7 +90,7 @@ const tenantDomainCache = new Map<string, TenantDomainCacheEntry>()
 type TenantDomainsCacheAllEntry = { domains: string[]; atMs: number }
 let tenantDomainsAllCache: TenantDomainsCacheAllEntry | null = null
 
-async function isTenantCustomDomain(hostname: string): Promise<boolean> {
+async function isNamedTenantHostname(hostname: string): Promise<boolean> {
   const now = Date.now()
   // In E2E, tenants are created after the webServer boots; avoid stale cache.
   const ttlMs = process.env.PW_E2E_PROFILE ? 0 : 5 * 60_000
@@ -96,15 +100,7 @@ async function isTenantCustomDomain(hostname: string): Promise<boolean> {
   try {
     const { getPayload } = await import('@/lib/payload')
     const payload = await getPayload()
-    const result = await payload.find({
-      collection: 'tenants',
-      where: { domain: { equals: hostname } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: { id: true } as any,
-    })
-    const ok = Boolean(result.docs[0])
+    const ok = await namedHostnameIsAllowed(payload, hostname)
     tenantDomainCache.set(hostname, { ok, atMs: now })
     return ok
   } catch {
@@ -114,7 +110,7 @@ async function isTenantCustomDomain(hostname: string): Promise<boolean> {
   }
 }
 
-async function getAllTenantCustomDomains(): Promise<string[]> {
+async function namedHostnamesForTrustedOrigins(): Promise<string[]> {
   const now = Date.now()
   // In E2E, tenants are created after the webServer boots; avoid stale cache.
   const ttlMs = process.env.PW_E2E_PROFILE ? 0 : 5 * 60_000
@@ -127,17 +123,15 @@ async function getAllTenantCustomDomains(): Promise<string[]> {
     const payload = await getPayload()
     const result = await payload.find({
       collection: 'tenants',
-      where: { domain: { exists: true } },
       limit: 1000,
       depth: 0,
       overrideAccess: true,
-      select: { domain: true } as any,
+      select: { hostnames: true } as any,
     })
 
-    const domains = (result.docs as Array<{ domain?: unknown }>)
-      .map((d) => (d?.domain != null ? String(d.domain) : ''))
-      .map((d) => normalizeCustomDomain(d) || '')
-      .filter(Boolean)
+    const domains = (result.docs as Array<{ hostnames?: unknown }>).flatMap(
+      (doc) => originHostnamesForTenant(doc),
+    )
 
     tenantDomainsAllCache = { domains, atMs: now }
     return domains
@@ -152,22 +146,22 @@ async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
   // Include:
   // - platform origins (+ wildcard subdomains)
   // - optional env-provided extras (kept for emergency overrides)
-  // - *all* tenant custom domains from DB so Better Auth can validate callbackURL even when
+  // - every hostname a tenant has named, so Better Auth can validate callbackURL even when
   //   the request lacks an Origin header (common for some auth flows / proxies).
-  const allTenantDomains = await getAllTenantCustomDomains()
+  const namedHostnames = await namedHostnamesForTrustedOrigins()
   const base = getTrustedOriginsWithCustomDomains([
     ...getExtraTrustedOriginHosts(),
-    ...allTenantDomains,
+    ...namedHostnames,
   ])
   if (
     process.env.E2E_DEBUG_TRUSTED_ORIGINS &&
     process.env.PW_E2E_PROFILE &&
-    allTenantDomains.some((d) => d.includes('nip.io'))
+    namedHostnames.some((d) => d.includes('nip.io'))
   ) {
     // eslint-disable-next-line no-console
     console.log('[trustedOriginsFromRequest debug base]', {
-      allTenantDomainsCount: allTenantDomains.length,
-      nipIoDomains: allTenantDomains.filter((d) => d.includes('nip.io')).slice(0, 5),
+      allTenantDomainsCount: namedHostnames.length,
+      nipIoDomains: namedHostnames.filter((d) => d.includes('nip.io')).slice(0, 5),
       baseCount: base.length,
     })
   }
@@ -202,7 +196,7 @@ async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
     return trusted
   }
 
-  const isTenant = await isTenantCustomDomain(hostname)
+  const isTenant = await isNamedTenantHostname(hostname)
   if (!isTenant) return base
 
   // Enforce https origins only (we redirect http->https at the edge/app).
@@ -214,6 +208,16 @@ async function trustedOriginsFromRequest(request: Request): Promise<string[]> {
 }
 
 const BOOKING_MAGIC_LINK_EXPIRY_SECONDS = 36 * 60 * 60 // 36 hours
+
+function authFromForTenant(tenant: TenantEmailFromContext | null) {
+  return resolveTenantBasedBetterAuthFrom({
+    tenantName: tenant?.name,
+    hostnames: tenant?.hostnames,
+    direction: tenant?.direction,
+    slug: tenant?.slug,
+    emailDomainVerified: tenant?.emailDomainVerified,
+  })
+}
 
 const betterAuthConfig = {
   appName: 'ATND ME',
@@ -244,25 +248,13 @@ const betterAuthConfig = {
     }
     return null
   },
-  resolveMagicLinkFrom: async ({ url }: { url: string }) => {
-    const tenant = await resolveTenantForMagicLinkUrl(url)
-    return resolveTenantBasedBetterAuthFrom({
-      tenantName: tenant?.name,
-      tenantDomain: tenant?.domain,
-      emailDomainVerified: tenant?.emailDomainVerified,
-    })
-  },
+  resolveMagicLinkFrom: async ({ url }: { url: string }) =>
+    authFromForTenant(await resolveTenantForMagicLinkUrl(url)),
   resolveMagicLinkLogoUrl: async ({ url }: { url: string }) =>
     (await resolveTenantForMagicLinkUrl(url))?.logoUrl ?? null,
   resolveResetPasswordAppName: async ({ url }: { url: string }) => (await resolveTenantForMagicLinkUrl(url))?.name ?? null,
-  resolveResetPasswordFrom: async ({ url }: { url: string }) => {
-    const tenant = await resolveTenantForMagicLinkUrl(url)
-    return resolveTenantBasedBetterAuthFrom({
-      tenantName: tenant?.name,
-      tenantDomain: tenant?.domain,
-      emailDomainVerified: tenant?.emailDomainVerified,
-    })
-  },
+  resolveResetPasswordFrom: async ({ url }: { url: string }) =>
+    authFromForTenant(await resolveTenantForMagicLinkUrl(url)),
   resolveResetPasswordLogoUrl: async ({ url }: { url: string }) =>
     (await resolveTenantForMagicLinkUrl(url))?.logoUrl ?? null,
   roles: {

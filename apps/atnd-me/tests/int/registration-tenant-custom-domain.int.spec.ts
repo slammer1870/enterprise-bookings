@@ -19,7 +19,8 @@ const HOOK_TIMEOUT = 300000
 describe('Registration tenant (custom domain)', () => {
   let payload: Payload
   let tenant: Tenant
-  const customDomain = `book-reg-${Date.now()}.reg-int.example.com`
+  // Outside the platform apex. atnd-platform-int.example.com claims example.com.
+  const customDomain = `book-reg-${Date.now()}.reg-int.test`
   const platformUrl = 'https://atnd-platform-int.example.com'
   let prevServerUrl: string | undefined
 
@@ -35,7 +36,8 @@ describe('Registration tenant (custom domain)', () => {
       data: {
         name: 'Reg test tenant',
         slug: `reg-test-${Date.now()}`,
-        domain: customDomain,
+        hostnames: [customDomain],
+        direction: 'allow-www-and-non-www',
       },
       overrideAccess: true,
     })) as Tenant

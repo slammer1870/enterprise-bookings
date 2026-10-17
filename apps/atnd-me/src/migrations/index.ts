@@ -189,6 +189,11 @@ import * as migration_20260928_000002_enable_kyuzo_hero_for_darkhorse from './20
 import * as migration_20260928_000003_kyuzo_hero_customization from './20260928_000003_kyuzo_hero_customization'
 import * as migration_20260928_000004_fix_kyuzo_hero_color_columns from './20260928_000004_fix_kyuzo_hero_color_columns'
 import * as migration_20260928_000005_kyuzo_hero_ctas_array from './20260928_000005_kyuzo_hero_ctas_array'
+import * as migration_20261008_000001_tenants_alias_hosts from './20261008_000001_tenants_alias_hosts'
+import * as migration_20261013_000001_migrate_tenant_public_hosts from './20261013_000001_migrate_tenant_public_hosts'
+import * as migration_20261016_000001_tenants_hostname_list from './20261016_000001_tenants_hostname_list'
+import * as migration_20261016_000002_migrate_hostname_list from './20261016_000002_migrate_hostname_list'
+import * as migration_20261017_000001_drop_legacy_declaration_fields from './20261017_000001_drop_legacy_declaration_fields'
 
 export const migrations = [
   {
@@ -1145,5 +1150,30 @@ export const migrations = [
     up: migration_20260928_000005_kyuzo_hero_ctas_array.up,
     down: migration_20260928_000005_kyuzo_hero_ctas_array.down,
     name: '20260928_000005_kyuzo_hero_ctas_array',
+  },
+  {
+    up: migration_20261008_000001_tenants_alias_hosts.up,
+    down: migration_20261008_000001_tenants_alias_hosts.down,
+    name: '20261008_000001_tenants_alias_hosts',
+  },
+  {
+    up: migration_20261013_000001_migrate_tenant_public_hosts.up,
+    down: migration_20261013_000001_migrate_tenant_public_hosts.down,
+    name: '20261013_000001_migrate_tenant_public_hosts',
+  },
+  {
+    up: migration_20261016_000001_tenants_hostname_list.up,
+    down: migration_20261016_000001_tenants_hostname_list.down,
+    name: '20261016_000001_tenants_hostname_list',
+  },
+  {
+    up: migration_20261016_000002_migrate_hostname_list.up,
+    down: migration_20261016_000002_migrate_hostname_list.down,
+    name: '20261016_000002_migrate_hostname_list',
+  },
+  {
+    up: migration_20261017_000001_drop_legacy_declaration_fields.up,
+    down: migration_20261017_000001_drop_legacy_declaration_fields.down,
+    name: '20261017_000001_drop_legacy_declaration_fields',
   },
 ]

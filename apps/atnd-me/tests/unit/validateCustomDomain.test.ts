@@ -116,6 +116,14 @@ describe('validateCustomDomain', () => {
       expect(validateCustomDomainFormat('app.localhost')).not.toBe(true)
     })
 
+    it('rejects a port suffix', () => {
+      expect(validateCustomDomainFormat('studio.example.com:443')).not.toBe(true)
+    })
+
+    it('rejects an IP address', () => {
+      expect(validateCustomDomainFormat('192.0.2.1')).not.toBe(true)
+    })
+
     it('rejects hostname over 253 chars', () => {
       const long = 'a.' + 'b'.repeat(250)
       expect(validateCustomDomainFormat(long)).not.toBe(true)

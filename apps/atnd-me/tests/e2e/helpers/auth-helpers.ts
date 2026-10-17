@@ -177,6 +177,7 @@ export async function loginToAdminPanel(
   const apiLogin = await apiRequest.post(apiLoginUrl, {
     data: { email, password },
     headers: extraHeaders,
+    timeout: 60_000,
   })
 
   if (apiLogin.ok()) {
