@@ -36,9 +36,69 @@ describe('resolveEmailSendingDomain', () => {
     expect(resolveEmailSendingDomain('WWW.BoatyardSauna.ie')).toBe('boatyardsauna.ie')
   })
 
-  it('keeps non-www domains as-is', () => {
+  it('uses the registrable apex of a hostname', () => {
     expect(resolveEmailSendingDomain('boatyardsauna.ie')).toBe('boatyardsauna.ie')
-    expect(resolveEmailSendingDomain('book.studio.example.com')).toBe('book.studio.example.com')
+    expect(resolveEmailSendingDomain('book.studio.example.com')).toBe('example.com')
+  })
+
+  it('sends www.example.com, example.com, and mysite.example.com as example.com', () => {
+    const direction = 'allow-www-and-non-www'
+    expect(
+      resolveEmailSendingDomain({ hostnames: ['www.example.com'], direction, slug: 'studio' }),
+    ).toBe('example.com')
+    expect(
+      resolveEmailSendingDomain({ hostnames: ['example.com'], direction, slug: 'studio' }),
+    ).toBe('example.com')
+    expect(
+      resolveEmailSendingDomain({ hostnames: ['mysite.example.com'], direction, slug: 'studio' }),
+    ).toBe('example.com')
+  })
+
+  it('sends blog.shop.example.co.uk as example.co.uk when that apex is not in the list', () => {
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['blog.shop.example.co.uk'],
+        direction: 'allow-www-and-non-www',
+        slug: 'studio',
+      }),
+    ).toBe('example.co.uk')
+  })
+
+  it('ignores another apex when the canonical host is example.com', () => {
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['www.example.com', 'example.com', 'www.other.com', 'other.com'],
+        direction: 'allow-www-and-non-www',
+        slug: 'studio',
+      }),
+    ).toBe('example.com')
+  })
+
+  it('still sends as example.com when Direction is Redirect to www', () => {
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['www.example.com', 'example.com'],
+        direction: 'redirect-to-www',
+        slug: 'studio',
+      }),
+    ).toBe('example.com')
+  })
+
+  it('uses the platform apex when no custom hostname is named', () => {
+    const previous = process.env.NEXT_PUBLIC_SERVER_URL
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd.me'
+    try {
+      expect(
+        resolveEmailSendingDomain({
+          hostnames: [],
+          direction: 'allow-www-and-non-www',
+          slug: 'studio',
+        }),
+      ).toBe('atnd.me')
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_SERVER_URL
+      else process.env.NEXT_PUBLIC_SERVER_URL = previous
+    }
   })
 })
 
@@ -50,7 +110,7 @@ describe('resolveTenantBasedBetterAuthFrom', () => {
         tenantDomain: 'studio.example.com',
         emailDomainVerified: true,
       }),
-    ).toEqual({ fromName: 'Studio', fromAddress: 'auth@studio.example.com' })
+    ).toEqual({ fromName: 'Studio', fromAddress: 'auth@example.com' })
 
     expect(
       resolveTenantBasedBetterAuthFrom({
@@ -116,11 +176,11 @@ describe('sanitizeEmailFromForTenantDomain', () => {
   it('allows apex From when website domain is www-prefixed and verified', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
-        emailFrom: 'Studio <hello@studio.example.com>',
+        emailFrom: 'Studio <hello@example.com>',
         tenantDomain: 'www.studio.example.com',
         emailDomainVerified: true,
       }),
-    ).toBe('Studio <hello@studio.example.com>')
+    ).toBe('Studio <hello@example.com>')
   })
 })
 

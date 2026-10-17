@@ -1,107 +1,126 @@
 import type { MetadataRoute } from 'next'
 import { cookies, headers } from 'next/headers'
 
-import { getPayload } from '@/lib/payload'
-import { getTenantWithBranding } from '@/utilities/getTenantContext'
-import { getAbsoluteURL, getRequestOrigin, getTenantSiteURL } from '@/utilities/getURL'
+import type { Payload } from 'payload'
+
+import { getRequestOrigin } from '@/utilities/getURL'
+import {
+  publicMetadataURL,
+  resolvePublicTenant,
+} from '@/utilities/resolvePublicTenant'
+import { guardPublicHostAppRoute } from '@/utilities/guardPublicHostAppRoute'
+import { publicHostErrorResponse } from '@/utilities/publicHostOutcome'
 
 export const dynamic = 'force-dynamic'
 
 type SitemapDoc = { slug?: string | null; updatedAt?: string | null }
 
+const SITEMAP_PAGE_SIZE = 100
+
+async function publishedDocs(
+  payload: Payload,
+  collection: 'pages' | 'posts',
+  tenantId: number,
+): Promise<SitemapDoc[]> {
+  const docs: SitemapDoc[] = []
+  let page = 1
+
+  for (;;) {
+    const result = await payload.find({
+      collection,
+      overrideAccess: false,
+      draft: false,
+      depth: 0,
+      limit: SITEMAP_PAGE_SIZE,
+      page,
+      pagination: true,
+      context: { tenant: tenantId },
+      where: {
+        _status: { equals: 'published' },
+        tenant: { equals: tenantId },
+      },
+      select: { slug: true, updatedAt: true },
+    })
+    docs.push(...(result.docs as SitemapDoc[]))
+    if (!result.hasNextPage) return docs
+    page += 1
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cookieStore = await cookies()
   const headersList = await headers()
-  const requestOrigin = getRequestOrigin(headersList)
+  await guardPublicHostAppRoute(headersList)
+
   const dateFallback = new Date().toISOString()
 
-  let siteUrl = requestOrigin
-  let pages: SitemapDoc[] = []
-  let posts: SitemapDoc[] = []
+  let resolved = {
+    indexedHost: null as string | null,
+    siteUrl: getRequestOrigin(headersList),
+  }
+  let pageDocs: SitemapDoc[] = []
+  let postDocs: SitemapDoc[] = []
   let isTenantSite = false
 
   try {
-    const payload = await getPayload()
-    const tenant = await getTenantWithBranding(payload, {
+    const tenantContext = await resolvePublicTenant({
       cookies: cookieStore,
       headers: headersList,
     })
+    resolved = tenantContext
 
-    if (tenant) {
+    if (tenantContext.tenant) {
       isTenantSite = true
-      siteUrl = getTenantSiteURL(tenant, headersList)
-
-      const [pageResult, postResult] = await Promise.all([
-        payload.find({
-          collection: 'pages',
-          overrideAccess: false,
-          draft: false,
-          depth: 0,
-          limit: 1000,
-          pagination: false,
-          where: {
-            _status: { equals: 'published' },
-            tenant: { equals: tenant.id },
-          },
-          select: { slug: true, updatedAt: true },
-        }),
-        payload.find({
-          collection: 'posts',
-          overrideAccess: false,
-          draft: false,
-          depth: 0,
-          limit: 1000,
-          pagination: false,
-          where: {
-            _status: { equals: 'published' },
-            tenant: { equals: tenant.id },
-          },
-          select: { slug: true, updatedAt: true },
-        }),
+      const [publishedPages, publishedPosts] = await Promise.all([
+        publishedDocs(tenantContext.payload, 'pages', tenantContext.tenant.id),
+        publishedDocs(tenantContext.payload, 'posts', tenantContext.tenant.id),
       ])
-      pages = pageResult.docs as SitemapDoc[]
-      posts = postResult.docs as SitemapDoc[]
+      pageDocs = publishedPages
+      postDocs = publishedPosts
     }
   } catch (error) {
-    // A crawler must still receive a valid sitemap if the CMS is temporarily
-    // unavailable. The homepage is better than a 500 and can lead Google back
-    // to the rest of the site.
+    if (error instanceof Response) throw error
     console.error('Unable to build tenant sitemap from Payload:', error)
+    throw publicHostErrorResponse('failed')
   }
+
+  const urlFor = (path: string) => publicMetadataURL(path, resolved)
 
   const routes: MetadataRoute.Sitemap = [
     {
-      url: getAbsoluteURL('/', siteUrl),
+      url: urlFor('/'),
       lastModified: dateFallback,
     },
     {
-      url: getAbsoluteURL('/search', siteUrl),
+      url: urlFor('/search'),
       lastModified: dateFallback,
     },
     {
-      url: getAbsoluteURL('/posts', siteUrl),
+      url: urlFor('/posts'),
       lastModified: dateFallback,
     },
   ]
 
-  for (const page of pages) {
-    if (!page?.slug) continue
+  for (const pageDoc of pageDocs) {
+    if (!pageDoc?.slug) continue
 
     const pathname =
-      page.slug === 'home' || (!isTenantSite && page.slug === 'root') ? '/' : `/${page.slug}`
+      pageDoc.slug === 'home' || (!isTenantSite && pageDoc.slug === 'root')
+        ? '/'
+        : `/${pageDoc.slug}`
 
     routes.push({
-      url: getAbsoluteURL(pathname, siteUrl),
-      lastModified: page.updatedAt || dateFallback,
+      url: urlFor(pathname),
+      lastModified: pageDoc.updatedAt || dateFallback,
     })
   }
 
-  for (const post of posts) {
-    if (!post?.slug) continue
+  for (const postDoc of postDocs) {
+    if (!postDoc?.slug) continue
 
     routes.push({
-      url: getAbsoluteURL(`/posts/${post.slug}`, siteUrl),
-      lastModified: post.updatedAt || dateFallback,
+      url: urlFor(`/posts/${postDoc.slug}`),
+      lastModified: postDoc.updatedAt || dateFallback,
     })
   }
 
