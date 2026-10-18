@@ -4,6 +4,8 @@
 
 A handoff spec for tenant public-host declaration: an ordered hostname list and one Direction replace the custom domain, the alias list, and Redirect apex, and every reader of those fields follows it. The map is done when nothing is left to decide before implementation.
 
+Handoff spec: [Hostname list and Direction](spec.md) (ready-for-agent).
+
 ## Notes
 
 Domain: atnd-me tenant public hosts. Glossary: `CONTEXT.md`.
@@ -34,14 +36,14 @@ Standing preferences:
 - [What does admin show for the hostname list and Direction?](issues/04-admin-hostname-list.md) — The custom domain field, the alias list, and Redirect apex leave the form. One comma-separated hostname field has Direction under it and above the public-host list: Allow www and non-www, Redirect to www, or Redirect to non-www. Redirect to www can be selected only when `www` of the first hostname's registrable domain is in the list; Redirect to non-www only when that apex is. Both stay visible. A later incomplete pair does not change that, and that hostname serves. If the selected Direction needs a missing hostname, the choice stays selected, saving is refused, and the stored Direction stays. The public-host list shows saved hostnames in typed order, then the platform subdomain, the same list for a platform super-admin and an org admin. Each typed hostname shows its role, a routing record, a DNS status, and a certificate status. The role reads canonical, serving, or alias to its target. The platform subdomain is role only. TXT rows and Apex Proxying rows stay. The email-domain panel stays where it is. The role is assigned on save. DNS status and certificate status are read when the tenant is opened and may still be Pending or Unknown.
 - [What is the email sending domain?](issues/05-email-sending-domain.md) — The apex of the canonical host. `www.example.com`, `example.com`, and `mysite.example.com` share `example.com`, including when that apex is not in the list. Direction does not change it. Another apex in the list is not an email sending domain. With no custom hostname, it is the platform apex.
 - [How does a serving host that is not the canonical host respond?](issues/03-non-canonical-serving-host.md) — It returns 200 for `/` and a content path, with no `noindex`. The canonical link and the Open Graph URL are the indexed URL. `/robots.txt` returns 200, with the same allow and disallow rules, and its Sitemap line names the canonical host. `/sitemap.xml` returns 301 to the canonical host. `/pages-sitemap.xml` and `/posts-sitemap.xml` return 404. An alias returns 301 to its pair partner.
+- [What is the outline of the handoff spec?](issues/08-handoff-spec-outline.md) — Eight sections, in order: Declaration, Public responses, Admin, Email sending domain, Apple Pay, Migration, Acceptance, Out of scope. The spec replaces the public-host spec, the admin DNS spec, and the migration note as the source of which host serves. The admin DNS spec remains the wording for the routing record, the status table, TXT rows, and Apex Proxying.
 
 ## Not yet specified
-
-- Whether the email DNS panel changes shape. The email sending domain is the apex of the canonical host.
 
 ## Out of scope
 
 - Implementing the refactor. This map ends at a handoff spec.
+- The email DNS panel's shape. The email sending domain is decided, and the panel stays where it is. Whether that panel changes shape is outside the handoff spec. [What is the outline of the handoff spec?](issues/08-handoff-spec-outline.md) left it there.
 - Location subdomains and organisation sub-subdomains.
 - Repairing old URL paths, and repairing Open Graph image URLs that prefix the tenant origin onto an already-absolute media URL.
 - The platform's own redirect from the platform apex to the platform `www` host.
