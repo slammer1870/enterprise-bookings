@@ -1,5 +1,6 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { resolveTenantForMagicLinkUrl } from '../../src/lib/email/resolveTenantForEmailUrl'
 import {
   brandingFromTenantDoc,
   buildTenantEmailHeaderHtml,
@@ -8,6 +9,10 @@ import {
 } from '../../src/lib/email/tenant-email-branding'
 
 describe('tenant email branding', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('builds name-only branding when logo is missing', () => {
     expect(brandingFromTenantDoc({ name: 'Brú Grappling', slug: 'bru' })).toEqual({
       name: 'Brú Grappling',
@@ -20,7 +25,8 @@ describe('tenant email branding', () => {
       brandingFromTenantDoc({
         name: 'Studio',
         slug: 'studio',
-        domain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         logo: { url: '/api/media/file/logo.png' },
       }),
     ).toEqual({
@@ -28,6 +34,76 @@ describe('tenant email branding', () => {
       // Protocol follows platform env (http in local/unit tests).
       logoUrl: 'http://studio.example.com/api/media/file/logo.png',
     })
+  })
+
+  it('absolutizes a relative logo against the canonical host from the hostname list', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+    const doc = {
+      name: 'Studio',
+      slug: 'studio',
+      hostnames: ['www.example.com', 'example.com'],
+      direction: 'redirect-to-non-www',
+      logo: { url: '/api/media/file/logo.png' },
+    }
+    const find = vi.fn(async (args: { where?: { slug?: { equals?: string } } }) => {
+      if (args.where?.slug?.equals === 'studio') return { docs: [doc] }
+      return { docs: [] }
+    })
+
+    const tenant = await resolveTenantForMagicLinkUrl('https://www.example.com/admin/reset/token', {
+      find,
+      db: {
+        drizzle: {
+          execute: async () => ({
+            rows: [
+              {
+                id: 1,
+                slug: 'studio',
+                hostnames: doc.hostnames,
+                direction: doc.direction,
+              },
+            ],
+          }),
+        },
+      },
+    })
+
+    expect(tenant?.logoUrl).toBe('https://example.com/api/media/file/logo.png')
+  })
+
+  it('absolutizes a relative logo when the link host is the canonical host and not the stored custom domain', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+    const doc = {
+      name: 'Studio',
+      slug: 'studio',
+      hostnames: ['www.example.com', 'example.com'],
+      direction: 'redirect-to-non-www',
+      logo: { url: '/api/media/file/logo.png' },
+    }
+    const find = vi.fn(async (args: { where?: { slug?: { equals?: string }; domain?: { equals?: string } } }) => {
+      if (args.where?.slug?.equals === 'studio') return { docs: [doc] }
+      return { docs: [] }
+    })
+
+    const tenant = await resolveTenantForMagicLinkUrl('https://example.com/admin/reset/token', {
+      find,
+      db: {
+        drizzle: {
+          execute: async () => ({
+            rows: [
+              {
+                id: 1,
+                slug: 'studio',
+                hostnames: doc.hostnames,
+                direction: doc.direction,
+              },
+            ],
+          }),
+        },
+      },
+    })
+
+    expect(tenant?.logoUrl).toBe('https://example.com/api/media/file/logo.png')
   })
 
   it('keeps absolute logo urls as-is', () => {
@@ -69,7 +145,7 @@ describe('tenant email branding', () => {
     const findByID = vi.fn().mockResolvedValue({
       name: 'Loaded Tenant',
       slug: 'loaded',
-      domain: null,
+      hostnames: [],
       logo: { url: '/api/media/file/t.png' },
     })
     const payload = { findByID } as any

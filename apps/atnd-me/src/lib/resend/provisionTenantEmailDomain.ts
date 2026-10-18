@@ -1,12 +1,12 @@
 import type { BasePayload } from 'payload'
 import { createOrGetDomain, deleteDomain } from './domains'
-import { resolveEmailSendingDomain } from './resolveTenantEmailFrom'
+import { isPlatformEmailApex } from './emailSendingDomain'
 import { syncTenantEmailDomainFromResend } from './syncTenantEmailDomain'
 
 /**
- * Provision or tear down a Resend sending domain when tenants.domain changes.
- * Uses the email sending domain (www. stripped), not the raw website hostname.
- * Best-effort: failures are logged and do not throw (website domain still works).
+ * Provision or tear down a Resend sending domain when the email sending domain changes.
+ * That domain is the apex of the canonical host. The platform apex is not provisioned.
+ * Best-effort: failures are logged and do not throw (the public host still works).
  */
 export async function provisionTenantEmailDomain(args: {
   payload: BasePayload
@@ -18,9 +18,9 @@ export async function provisionTenantEmailDomain(args: {
   const { payload, tenantId, newDomain, previousResendDomainId, req } = args
 
   try {
-    const emailDomain = resolveEmailSendingDomain(newDomain)
-
-    if (!emailDomain) {
+    const emailDomain = newDomain?.trim().toLowerCase() || null
+    // The platform apex is shared. Do not create or delete a Resend domain for it.
+    if (!emailDomain || isPlatformEmailApex(emailDomain)) {
       if (previousResendDomainId) {
         await deleteDomain(previousResendDomainId).catch((err: unknown) => {
           console.error(

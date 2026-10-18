@@ -13,6 +13,7 @@
 import { test, expect } from './helpers/fixtures'
 import { createTestTenant, getPayloadInstance } from './helpers/data-helpers'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
@@ -28,6 +29,7 @@ test.describe('Registration tenant (custom domain E2E)', () => {
     if (!nipIoAvailable) return
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const host = `e2e-reg-${w}-${stamp}.127.0.0.1.nip.io`
     registerOrigin = `http://${host}:3000`
 
@@ -38,6 +40,7 @@ test.describe('Registration tenant (custom domain E2E)', () => {
   })
 
   test('register from tenant custom domain persists registrationTenant', async ({ page }) => {
+    test.setTimeout(120_000)
     test.skip(!nipIoAvailable, 'nip.io DNS is not available (outbound DNS required for custom-domain e2e)')
 
     const email = `e2eregcd${Date.now()}@test.com`

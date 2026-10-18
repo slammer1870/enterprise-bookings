@@ -1,4 +1,9 @@
 import canUseDOM from './canUseDOM'
+import {
+  getTenantPlatformSubdomain,
+  readHostnameDeclaration,
+  storedHostnameList,
+} from './tenantPublicHostDeclaration'
 
 export const getServerSideURL = () => {
   return (
@@ -11,9 +16,22 @@ export const getServerSideURL = () => {
 
 type HeadersLike = Pick<Headers, 'get'>
 
-type TenantURLSource = {
+export type TenantURLSource = {
   slug?: string | null
+  hostnames?: unknown
+  direction?: unknown
+  /**
+   * The old single custom domain. Callers that have not moved to the hostname
+   * list still pass it. A stored hostname list, including an empty one, wins.
+   */
   domain?: string | null
+}
+
+/** Canonical host derived from the hostname list and Direction. */
+const canonicalHostFromDeclaration = (tenant?: TenantURLSource | null): string | null => {
+  if (!tenant) return null
+  const canonical = readHostnameDeclaration(tenant).roles.canonicalHost.trim()
+  return canonical || null
 }
 
 const getPlatformURL = () => getServerSideURL()
@@ -81,10 +99,26 @@ export const getTenantSiteURL = (
   tenant?: TenantURLSource | null,
   headers?: HeadersLike | null,
 ) => {
-  const customDomain = tenant?.domain?.trim()
-  if (customDomain) {
-    const protocol = customDomain.includes('localhost') ? 'http' : getProtocolFromHeaders(headers)
-    return `${protocol}://${customDomain}`
+  const storedHosts = tenant ? storedHostnameList(tenant.hostnames) : null
+  if (storedHosts == null) {
+    const legacyDomain = tenant?.domain?.trim()
+    if (legacyDomain) {
+      const protocol = legacyDomain.includes('localhost') ? 'http' : getProtocolFromHeaders(headers)
+      return `${protocol}://${legacyDomain}`
+    }
+  }
+
+  const canonicalHost = canonicalHostFromDeclaration(tenant)
+  if (canonicalHost) {
+    const slug = tenant?.slug?.trim()
+    if (slug) {
+      const platformHost = getTenantPlatformSubdomain(slug)
+      if (platformHost && canonicalHost === platformHost) {
+        return getTenantSubdomainURL(slug, headers)
+      }
+    }
+    const protocol = canonicalHost.includes('localhost') ? 'http' : getProtocolFromHeaders(headers)
+    return `${protocol}://${canonicalHost}`
   }
 
   const slug = tenant?.slug?.trim()
@@ -93,6 +127,31 @@ export const getTenantSiteURL = (
   }
 
   return getPlatformURL()
+}
+
+/**
+ * Host search engines should index. The hostname list supplies the canonical host.
+ * With no custom hostname, that is the platform subdomain.
+ */
+export const getCanonicalHostname = (tenant?: TenantURLSource | null): string | null => {
+  const canonicalHost = canonicalHostFromDeclaration(tenant)
+  if (canonicalHost) return canonicalHost
+
+  const slug = tenant?.slug?.trim()
+  const platformHostname = getPlatformHostname()
+  if (!slug || !platformHostname) return null
+
+  return `${slug}.${platformHostname}`
+}
+
+/**
+ * Indexed URL: `https://<canonical host><path>`, with no query and no port.
+ * `path` is the request path.
+ */
+export const getIndexedURL = (canonicalHostname: string, path: string): string => {
+  const withoutQuery = path.split('?')[0] ?? '/'
+  const requestPath = withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`
+  return `https://${canonicalHostname}${requestPath}`
 }
 
 export const getAbsoluteURL = (pathname: string, baseURL: string) => {

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getPayload } from '@/lib/payload'
+import { namedHostnameIsAllowed } from '@/lib/tenantDbResolve'
 import type { FormSubmission } from '@/payload-types'
 import { getServerSideURL } from '@/utilities/getURL'
-import type { CollectionSlug } from 'payload'
  
 type CacheEntry = { ok: boolean; expiresAt: number }
 const domainAllowCache = new Map<string, CacheEntry>()
@@ -32,23 +32,13 @@ function parseOrigin(origin: string): URL | null {
   }
 }
  
-async function isAllowedCustomDomain(hostname: string): Promise<boolean> {
+async function isNamedHostnameAllowed(hostname: string): Promise<boolean> {
   const now = Date.now()
   const cached = domainAllowCache.get(hostname)
   if (cached && cached.expiresAt > now) return cached.ok
  
   const payload = await getPayload()
-  const res = await payload.find({
-    collection: 'tenants' as CollectionSlug,
-    where: { domain: { equals: hostname } },
-    depth: 0,
-    limit: 1,
-    overrideAccess: true,
-    // Existence-only check; do not fetch tenant fields.
-    select: { id: true } as any,
-  })
- 
-  const ok = res.docs.length > 0
+  const ok = await namedHostnameIsAllowed(payload, hostname)
   domainAllowCache.set(hostname, { ok, expiresAt: now + DOMAIN_CACHE_TTL_MS })
   return ok
 }
@@ -75,8 +65,8 @@ async function resolveAllowedOrigin(request: Request): Promise<string | null> {
     return originHeader
   }
  
-  // Custom domains: only allow if they exist in tenants.domain
-  if (await isAllowedCustomDomain(hostname)) return originHeader
+  // A hostname on a stored hostname list.
+  if (await isNamedHostnameAllowed(hostname)) return originHeader
  
   return null
 }

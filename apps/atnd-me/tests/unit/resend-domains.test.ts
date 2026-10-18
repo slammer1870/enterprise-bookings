@@ -32,13 +32,93 @@ describe('mapResendStatusToEmailDomainStatus', () => {
 
 describe('resolveEmailSendingDomain', () => {
   it('strips leading www for email sending', () => {
-    expect(resolveEmailSendingDomain('www.boatyardsauna.ie')).toBe('boatyardsauna.ie')
-    expect(resolveEmailSendingDomain('WWW.BoatyardSauna.ie')).toBe('boatyardsauna.ie')
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['www.boatyardsauna.ie'],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('boatyardsauna.ie')
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['WWW.BoatyardSauna.ie'],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('boatyardsauna.ie')
   })
 
-  it('keeps non-www domains as-is', () => {
-    expect(resolveEmailSendingDomain('boatyardsauna.ie')).toBe('boatyardsauna.ie')
-    expect(resolveEmailSendingDomain('book.studio.example.com')).toBe('book.studio.example.com')
+  it('uses the registrable apex of a hostname', () => {
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['boatyardsauna.ie'],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('boatyardsauna.ie')
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['book.studio.example.com'],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('example.com')
+  })
+
+  it('sends www.example.com, example.com, and mysite.example.com as example.com', () => {
+    const direction = 'allow-www-and-non-www'
+    expect(
+      resolveEmailSendingDomain({ hostnames: ['www.example.com'], direction, slug: 'studio' }),
+    ).toBe('example.com')
+    expect(
+      resolveEmailSendingDomain({ hostnames: ['example.com'], direction, slug: 'studio' }),
+    ).toBe('example.com')
+    expect(
+      resolveEmailSendingDomain({ hostnames: ['mysite.example.com'], direction, slug: 'studio' }),
+    ).toBe('example.com')
+  })
+
+  it('sends blog.shop.example.co.uk as example.co.uk when that apex is not in the list', () => {
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['blog.shop.example.co.uk'],
+        direction: 'allow-www-and-non-www',
+        slug: 'studio',
+      }),
+    ).toBe('example.co.uk')
+  })
+
+  it('ignores another apex when the canonical host is example.com', () => {
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['www.example.com', 'example.com', 'www.other.com', 'other.com'],
+        direction: 'allow-www-and-non-www',
+        slug: 'studio',
+      }),
+    ).toBe('example.com')
+  })
+
+  it('still sends as example.com when Direction is Redirect to www', () => {
+    expect(
+      resolveEmailSendingDomain({
+        hostnames: ['www.example.com', 'example.com'],
+        direction: 'redirect-to-www',
+        slug: 'studio',
+      }),
+    ).toBe('example.com')
+  })
+
+  it('uses the platform apex when no custom hostname is named', () => {
+    const previous = process.env.NEXT_PUBLIC_SERVER_URL
+    process.env.NEXT_PUBLIC_SERVER_URL = 'https://atnd.me'
+    try {
+      expect(
+        resolveEmailSendingDomain({
+          hostnames: [],
+          direction: 'allow-www-and-non-www',
+          slug: 'studio',
+        }),
+      ).toBe('atnd.me')
+    } finally {
+      if (previous === undefined) delete process.env.NEXT_PUBLIC_SERVER_URL
+      else process.env.NEXT_PUBLIC_SERVER_URL = previous
+    }
   })
 })
 
@@ -47,15 +127,17 @@ describe('resolveTenantBasedBetterAuthFrom', () => {
     expect(
       resolveTenantBasedBetterAuthFrom({
         tenantName: 'Studio',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: true,
       }),
-    ).toEqual({ fromName: 'Studio', fromAddress: 'auth@studio.example.com' })
+    ).toEqual({ fromName: 'Studio', fromAddress: 'auth@example.com' })
 
     expect(
       resolveTenantBasedBetterAuthFrom({
         tenantName: 'Studio',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: false,
       }),
     ).toEqual({ fromName: 'Studio', fromAddress: 'auth@atnd.me' })
@@ -65,7 +147,8 @@ describe('resolveTenantBasedBetterAuthFrom', () => {
     expect(
       resolveTenantBasedBetterAuthFrom({
         tenantName: 'Boatyard',
-        tenantDomain: 'www.boatyardsauna.ie',
+        hostnames: ['www.boatyardsauna.ie'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: true,
       }),
     ).toEqual({ fromName: 'Boatyard', fromAddress: 'auth@boatyardsauna.ie' })
@@ -77,7 +160,8 @@ describe('sanitizeEmailFromForTenantDomain', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
         emailFrom: 'Hello <hello@studio.example.com>',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: false,
       }),
     ).toBeUndefined()
@@ -87,7 +171,8 @@ describe('sanitizeEmailFromForTenantDomain', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
         emailFrom: 'Hello <hello@studio.example.com>',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: true,
       }),
     ).toBe('Hello <hello@studio.example.com>')
@@ -97,7 +182,8 @@ describe('sanitizeEmailFromForTenantDomain', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
         emailFrom: 'Hello <hello@other.com>',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: true,
       }),
     ).toBeUndefined()
@@ -107,7 +193,8 @@ describe('sanitizeEmailFromForTenantDomain', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
         emailFrom: 'Hello <hello@other.com>',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: false,
       }),
     ).toBeUndefined()
@@ -116,11 +203,12 @@ describe('sanitizeEmailFromForTenantDomain', () => {
   it('allows apex From when website domain is www-prefixed and verified', () => {
     expect(
       sanitizeEmailFromForTenantDomain({
-        emailFrom: 'Studio <hello@studio.example.com>',
-        tenantDomain: 'www.studio.example.com',
+        emailFrom: 'Studio <hello@example.com>',
+        hostnames: ['www.studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: true,
       }),
-    ).toBe('Studio <hello@studio.example.com>')
+    ).toBe('Studio <hello@example.com>')
   })
 })
 
@@ -129,7 +217,8 @@ describe('getEmailFromTenantDomainValidationError', () => {
     expect(
       getEmailFromTenantDomainValidationError({
         emailFrom: '',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: false,
       }),
     ).toBeNull()
@@ -138,7 +227,8 @@ describe('getEmailFromTenantDomainValidationError', () => {
     expect(
       getEmailFromTenantDomainValidationError({
         emailFrom: 'Hello <{{staff.email}}>',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: false,
       }),
     ).toBeNull()
@@ -148,7 +238,8 @@ describe('getEmailFromTenantDomainValidationError', () => {
     expect(
       getEmailFromTenantDomainValidationError({
         emailFrom: 'hello@studio.example.com',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: false,
       }),
     ).toMatch(/Verify your studio email domain/)
@@ -156,7 +247,8 @@ describe('getEmailFromTenantDomainValidationError', () => {
     expect(
       getEmailFromTenantDomainValidationError({
         emailFrom: 'hello@other.com',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: true,
       }),
     ).toMatch(/verified domain/)
@@ -166,7 +258,8 @@ describe('getEmailFromTenantDomainValidationError', () => {
     expect(
       getEmailFromTenantDomainValidationError({
         emailFrom: 'Studio <hello@studio.example.com>',
-        tenantDomain: 'studio.example.com',
+        hostnames: ['studio.example.com'],
+        direction: 'allow-www-and-non-www',
         emailDomainVerified: true,
       }),
     ).toBeNull()

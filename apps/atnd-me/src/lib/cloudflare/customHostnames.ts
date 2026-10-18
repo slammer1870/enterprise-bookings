@@ -48,10 +48,14 @@ interface CfCustomHostname {
 
 export type HostnameVerificationStatus = 'active' | 'pending' | 'error' | 'unknown'
 
-export interface SslValidationRecord {
+/** A TXT name and value Cloudflare issued. Present only when both are set. */
+export interface TxtRecord {
+  name: string
+  value: string
+}
+
+export interface SslValidationRecord extends TxtRecord {
   status: HostnameVerificationStatus
-  txtName: string
-  txtValue: string
 }
 
 export interface CustomHostnameStatusResult {
@@ -63,8 +67,8 @@ export interface CustomHostnameStatusResult {
   rawHostnameStatus: string
   /** Raw Cloudflare SSL status string */
   rawSslStatus: string
-  /** The ownership TXT value (_cf-custom-hostname) if available */
-  ownershipTxtValue: string | null
+  /** Ownership TXT (_cf-custom-hostname) when Cloudflare has issued both name and value */
+  ownershipTxt: TxtRecord | null
   /** ACME DCV TXT records (_acme-challenge) required for apex TXT validation */
   sslValidationRecords: SslValidationRecord[]
   /** Cloudflare hostname activation errors, if any */
@@ -114,19 +118,30 @@ function toHostnameStatus(s: string): HostnameVerificationStatus {
   return 'unknown'
 }
 
+/** Trimmed name and value, or null when either side is blank. */
+function issuedTxt(name: string | undefined, value: string | undefined): TxtRecord | null {
+  const trimmedName = name?.trim() ?? ''
+  const trimmedValue = value?.trim() ?? ''
+  if (trimmedName === '' || trimmedValue === '') return null
+  return { name: trimmedName, value: trimmedValue }
+}
+
+function extractOwnershipTxt(record: CfCustomHostname): TxtRecord | null {
+  return issuedTxt(record.ownership_verification?.name, record.ownership_verification?.value)
+}
+
 function extractSslValidationRecords(record: CfCustomHostname): SslValidationRecord[] {
   const sources = [
     ...(record.ssl?.validation_records ?? []),
     ...(record.ssl?.dcv_delegation_records ?? []),
   ]
-
-  return sources
-    .filter((r) => r.txt_name && r.txt_value)
-    .map((r) => ({
-      status: toHostnameStatus(r.status),
-      txtName: r.txt_name,
-      txtValue: r.txt_value,
-    }))
+  const rows: SslValidationRecord[] = []
+  for (const source of sources) {
+    const txt = issuedTxt(source.txt_name, source.txt_value)
+    if (!txt) continue
+    rows.push({ status: toHostnameStatus(source.status), ...txt })
+  }
+  return rows
 }
 
 async function fetchCustomHostnameById(
@@ -255,7 +270,7 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
       sslStatus: toHostnameStatus(record.ssl?.status ?? ''),
       rawHostnameStatus: record.status,
       rawSslStatus: record.ssl?.status ?? '',
-      ownershipTxtValue: record.ownership_verification?.value ?? null,
+      ownershipTxt: extractOwnershipTxt(record),
       sslValidationRecords,
       verificationErrors: record.verification_errors ?? [],
     }
