@@ -2,6 +2,7 @@ import canUseDOM from './canUseDOM'
 import {
   getTenantPlatformSubdomain,
   readHostnameDeclaration,
+  storedHostnameList,
 } from './tenantPublicHostDeclaration'
 
 export const getServerSideURL = () => {
@@ -19,6 +20,11 @@ export type TenantURLSource = {
   slug?: string | null
   hostnames?: unknown
   direction?: unknown
+  /**
+   * The old single custom domain. Callers that have not moved to the hostname
+   * list still pass it. A stored hostname list, including an empty one, wins.
+   */
+  domain?: string | null
 }
 
 /** Canonical host derived from the hostname list and Direction. */
@@ -93,6 +99,15 @@ export const getTenantSiteURL = (
   tenant?: TenantURLSource | null,
   headers?: HeadersLike | null,
 ) => {
+  const storedHosts = tenant ? storedHostnameList(tenant.hostnames) : null
+  if (storedHosts == null) {
+    const legacyDomain = tenant?.domain?.trim()
+    if (legacyDomain) {
+      const protocol = legacyDomain.includes('localhost') ? 'http' : getProtocolFromHeaders(headers)
+      return `${protocol}://${legacyDomain}`
+    }
+  }
+
   const canonicalHost = canonicalHostFromDeclaration(tenant)
   if (canonicalHost) {
     const slug = tenant?.slug?.trim()

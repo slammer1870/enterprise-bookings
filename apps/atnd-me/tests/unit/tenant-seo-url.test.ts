@@ -66,6 +66,30 @@ describe('tenant SEO URL resolution', () => {
     expect(getTenantSiteURL({ slug: 'bru' })).toBe('https://bru.atnd.test')
   })
 
+  it('uses a legacy custom domain when no hostname list is stored', () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'http://localhost:3000')
+
+    expect(
+      getTenantSiteURL(
+        { slug: 'acme', domain: 'studio.example.com' },
+        new Headers({ host: 'ignored.example.com', 'x-forwarded-proto': 'https' }),
+      ),
+    ).toBe('https://studio.example.com')
+  })
+
+  it('ignores a legacy custom domain when the hostname list is stored empty', () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+
+    expect(
+      getTenantSiteURL({
+        slug: 'bru',
+        domain: 'bru.ie',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toBe('https://bru.atnd.test')
+  })
+
   it('preserves localhost ports for tenant subdomains in development', () => {
     vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'http://localhost:3000')
 
