@@ -10,8 +10,6 @@ export { resolveEmailSendingDomain, type EmailSendingDomainSource } from './emai
 
 export type TenantEmailFromInput = {
   tenantName?: string | null
-  /** A single host, used when the caller has not passed a hostname list. */
-  tenantDomain?: string | null
   hostnames?: unknown
   direction?: unknown
   slug?: string | null
@@ -20,14 +18,10 @@ export type TenantEmailFromInput = {
 }
 
 function emailSource(args: {
-  tenantDomain?: string | null
   hostnames?: unknown
   direction?: unknown
   slug?: string | null
-}): EmailSendingDomainSource | string | null | undefined {
-  if (args.hostnames === undefined && args.direction === undefined && args.slug === undefined) {
-    return args.tenantDomain
-  }
+}): EmailSendingDomainSource {
   return {
     hostnames: args.hostnames,
     direction: args.direction,
@@ -70,7 +64,7 @@ function extractEmailHost(emailFrom: string): string | null {
 
 export function isHostTenantEmailDomain(
   host: string,
-  source: EmailSendingDomainSource | string | null | undefined,
+  source: EmailSendingDomainSource | null | undefined,
 ): boolean {
   const websiteDomain = canonicalHostForEmail(source)
   const normalizedWebsite = websiteDomain ? normalizeCustomDomain(websiteDomain) : null
@@ -85,7 +79,6 @@ export function isHostTenantEmailDomain(
  */
 export function getEmailFromTenantDomainValidationError(args: {
   emailFrom?: string | null
-  tenantDomain?: string | null
   hostnames?: unknown
   direction?: unknown
   slug?: string | null
@@ -123,7 +116,6 @@ export function getEmailFromTenantDomainValidationError(args: {
  */
 export function sanitizeEmailFromForTenantDomain(args: {
   emailFrom?: string | null
-  tenantDomain?: string | null
   hostnames?: unknown
   direction?: unknown
   slug?: string | null

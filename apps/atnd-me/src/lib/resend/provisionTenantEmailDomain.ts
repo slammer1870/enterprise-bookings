@@ -1,6 +1,6 @@
 import type { BasePayload } from 'payload'
 import { createOrGetDomain, deleteDomain } from './domains'
-import { isPlatformEmailApex, resolveEmailSendingDomain } from './emailSendingDomain'
+import { isPlatformEmailApex } from './emailSendingDomain'
 import { syncTenantEmailDomainFromResend } from './syncTenantEmailDomain'
 
 /**
@@ -18,7 +18,7 @@ export async function provisionTenantEmailDomain(args: {
   const { payload, tenantId, newDomain, previousResendDomainId, req } = args
 
   try {
-    const emailDomain = resolveEmailSendingDomain(newDomain)
+    const emailDomain = newDomain?.trim().toLowerCase() || null
     // The platform apex is shared. Do not create or delete a Resend domain for it.
     if (!emailDomain || isPlatformEmailApex(emailDomain)) {
       if (previousResendDomainId) {

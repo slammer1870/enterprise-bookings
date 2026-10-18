@@ -3,13 +3,10 @@ import {
   getClaimedApex,
   parseDirection,
 } from '@/utilities/hostnameDirection'
+import type { TenantPublicHostDocSlice } from '@/utilities/tenantPublicHostDeclaration'
 
 /** The hostname list and Direction the email sending domain is read from. */
-export type EmailSendingDomainSource = {
-  hostnames?: unknown
-  direction?: unknown
-  slug?: unknown
-}
+export type EmailSendingDomainSource = TenantPublicHostDocSlice
 
 /** Apex of the platform host in NEXT_PUBLIC_SERVER_URL. Null when that URL is unset. */
 export function platformEmailApex(): string | null {
@@ -63,12 +60,8 @@ function platformSubdomain(slug: unknown): string | null {
 
 /** Host whose apex is the email sending domain. */
 export function canonicalHostForEmail(
-  source: EmailSendingDomainSource | string | null | undefined,
+  source: EmailSendingDomainSource | null | undefined,
 ): string | null {
-  if (typeof source === 'string') {
-    const host = normalizeHost(source)
-    return host || null
-  }
   if (source == null) return null
 
   const hostnames = savedHostnames(source.hostnames) ?? []
@@ -78,10 +71,10 @@ export function canonicalHostForEmail(
 
 /**
  * Email sending domain: the apex of the canonical host.
- * A string is that host. With no custom hostname, this is the platform apex.
+ * With no custom hostname, this is the platform apex.
  */
 export function resolveEmailSendingDomain(
-  source: EmailSendingDomainSource | string | null | undefined,
+  source: EmailSendingDomainSource | null | undefined,
 ): string | null {
   const canonical = canonicalHostForEmail(source)
   if (!canonical) return null
