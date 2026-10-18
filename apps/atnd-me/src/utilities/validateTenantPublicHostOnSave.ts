@@ -36,11 +36,7 @@ function validateHostnameNotPlatform(hostname: string): true | string {
 }
 
 function validateDeclaredHostname(hostname: string): true | string {
-  const format = validateCustomDomainFormat(hostname)
-  if (format !== true) return format
-  const notPlatform = validateCustomDomainNotPlatform(hostname)
-  if (notPlatform !== true) return notPlatform
-  return true
+  return validateCustomDomainFormat(hostname)
 }
 
 export function assertHostnameList(hostnames: string[], direction: Direction): void {

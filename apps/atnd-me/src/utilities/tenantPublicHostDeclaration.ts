@@ -65,7 +65,7 @@ export function slugFromPlatformSubdomain(hostname: string): string | null {
   return label
 }
 
-function normalizeAliasHostsList(value: unknown): string[] {
+export function normalizeHostnameList(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   const out: string[] = []
   for (const host of value) {
@@ -74,10 +74,6 @@ function normalizeAliasHostsList(value: unknown): string[] {
     if (normalized) out.push(normalized)
   }
   return out
-}
-
-export function normalizeHostnameList(value: unknown): string[] {
-  return normalizeAliasHostsList(value)
 }
 
 /**
