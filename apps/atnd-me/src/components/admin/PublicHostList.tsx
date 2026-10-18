@@ -43,6 +43,7 @@ type RoutingRow = {
   key: string
   hostname: string
   role: HostRole
+  recordType: 'CNAME' | 'A' | 'AAAA'
   dnsHost: string
   value: string
   dnsStatus: StatusLabel
@@ -95,28 +96,47 @@ async function customHostRows(hosts: Array<{ hostname: string; role: string }>):
   const rows: PublicHostRow[] = []
   for (const [index, host] of hosts.entries()) {
     const status = statuses[index] ?? null
-    rows.push({
-      kind: 'routing',
-      key: host.hostname,
-      hostname: host.hostname,
-      role: host.role,
-      dnsHost: dnsHost(host.hostname),
-      value: target ?? '',
-      dnsStatus: dnsStatusLabel(status?.rawHostnameStatus),
-      certificateStatus: certificateStatusLabel(status?.rawSslStatus),
-      verificationErrors: status?.verificationErrors ?? [],
-    })
+    const dnsStatus = dnsStatusLabel(status?.rawHostnameStatus)
+    const certificateStatus = certificateStatusLabel(status?.rawSslStatus)
+    const verificationErrors = status?.verificationErrors ?? []
+    const apexAddresses = dnsHost(host.hostname) === '@' ? apexProxyingRecords() : []
+    const [first, ...rest] = apexAddresses
+    if (first) {
+      rows.push({
+        kind: 'routing',
+        key: host.hostname,
+        hostname: host.hostname,
+        role: host.role,
+        recordType: first.type,
+        dnsHost: '@',
+        value: first.value,
+        dnsStatus,
+        certificateStatus,
+        verificationErrors,
+      })
+      for (const record of rest) {
+        rows.push(recordRow(`${host.hostname}:${record.type}:${record.value}`, record.type, '@', record.value))
+      }
+    } else {
+      rows.push({
+        kind: 'routing',
+        key: host.hostname,
+        hostname: host.hostname,
+        role: host.role,
+        recordType: 'CNAME',
+        dnsHost: dnsHost(host.hostname),
+        value: target ?? '',
+        dnsStatus,
+        certificateStatus,
+        verificationErrors,
+      })
+    }
     const ownership = ownershipTxtToShow(status)
     if (ownership) {
       rows.push(recordRow(`TXT:${host.hostname}:${ownership.name}`, 'TXT', ownership.name, ownership.value))
     }
     for (const txt of acmeTxtsToShow(status)) {
       rows.push(recordRow(`TXT:${host.hostname}:${txt.name}:${txt.value}`, 'TXT', txt.name, txt.value))
-    }
-    if (dnsHost(host.hostname) === '@') {
-      for (const record of apexProxyingRecords()) {
-        rows.push(recordRow(`${host.hostname}:${record.type}:${record.value}`, record.type, '@', record.value))
-      }
     }
   }
   return rows
@@ -170,7 +190,7 @@ function rowCells(row: PublicHostRow): Record<ColumnKey, React.ReactNode> {
       ...EMPTY_CELLS,
       host: row.hostname,
       role: row.role,
-      type: 'CNAME',
+      type: row.recordType,
       dnsHost: row.dnsHost,
       value: row.value,
       dnsStatus: (
@@ -205,10 +225,11 @@ function HostRow({ row }: { row: PublicHostRow }) {
 
 /**
  * One list of the tenant's public hosts. A stored hostname list is shown in
- * typed order, then the platform subdomain. Each typed hostname shows its role,
- * a CNAME to the SaaS target, and DNS and certificate status. An apex also shows
- * Apex Proxying A and AAAA rows when those addresses are known. The platform
- * subdomain shows its role only.
+ * typed order, then the platform subdomain. A labeled hostname shows its role,
+ * a CNAME to the SaaS target, and DNS and certificate status. An apex with
+ * allocated Apex Proxying addresses shows those A and AAAA records at `@`
+ * instead of a CNAME, with status on the first address. The platform subdomain
+ * shows its role only.
  */
 export const PublicHostList: UIFieldServerComponent = async ({ data }) => {
   const rows = await publicHostRows(data)

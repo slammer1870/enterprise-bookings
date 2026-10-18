@@ -188,9 +188,8 @@ describe('public host list', () => {
 
     expect(rows).toEqual([
       'www.example.com alias to example.com CNAME www cname.atnd.me Unknown Unknown',
-      'example.com canonical CNAME @ cname.atnd.me Pending Pending',
+      'example.com canonical A @ 192.0.2.10 Pending Pending',
       'TXT _cf-custom-hostname.example.com ownership-token',
-      'A @ 192.0.2.10',
       'studio.atnd.me alias to example.com',
     ])
   })
@@ -252,8 +251,7 @@ describe('public host list', () => {
     })
 
     expect(rowsFromHtml(html)).toEqual([
-      'brugrappling.ie canonical CNAME @ cname.atnd.me Unknown Unknown',
-      'A @ 192.0.2.10',
+      'brugrappling.ie canonical A @ 192.0.2.10 Unknown Unknown',
       'A @ 192.0.2.11',
       'AAAA @ 2001:db8::10',
       'www.brugrappling.ie serving CNAME www cname.atnd.me Unknown Unknown',
@@ -272,8 +270,7 @@ describe('public host list', () => {
     })
 
     expect(rows).toEqual([
-      'example.com canonical CNAME @ cname.atnd.me Unknown Unknown',
-      'A @ 192.0.2.10',
+      'example.com canonical A @ 192.0.2.10 Unknown Unknown',
       'studio.atnd.me alias to example.com',
     ])
   })
@@ -290,8 +287,7 @@ describe('public host list', () => {
 
     expect(rows).toEqual([
       'www.example.com canonical CNAME www cname.atnd.me Unknown Unknown',
-      'example.com alias to www.example.com CNAME @ cname.atnd.me Unknown Unknown',
-      'A @ 192.0.2.10',
+      'example.com alias to www.example.com A @ 192.0.2.10 Unknown Unknown',
       'AAAA @ 2001:db8::10',
       'studio.atnd.me alias to www.example.com',
     ])
@@ -308,15 +304,14 @@ describe('public host list', () => {
     })
 
     expect(rowsFromHtml(html)).toEqual([
-      'example.com canonical CNAME @ cname.atnd.me Unknown Unknown',
-      'A @ 192.0.2.10',
+      'example.com canonical A @ 192.0.2.10 Unknown Unknown',
       'studio.atnd.me alias to example.com',
     ])
     expect(html).not.toContain('>AAAA<')
-    expect(html.match(/cname\.atnd\.me/g)).toEqual(['cname.atnd.me'])
+    expect(html).not.toContain('cname.atnd.me')
   })
 
-  it('leaves DNS and certificate status off Apex Proxying rows', async () => {
+  it('puts DNS and certificate status on the first Apex Proxying row only', async () => {
     process.env.CLOUDFLARE_APEX_PROXYING_A = '192.0.2.10'
     process.env.CLOUDFLARE_APEX_PROXYING_AAAA = '2001:db8::10'
     installCloudflare({
@@ -330,8 +325,7 @@ describe('public host list', () => {
     })
 
     expect(rows).toEqual([
-      'example.com canonical CNAME @ cname.atnd.me Active Active',
-      'A @ 192.0.2.10',
+      'example.com canonical A @ 192.0.2.10 Active Active',
       'AAAA @ 2001:db8::10',
       'studio.atnd.me alias to example.com',
     ])
