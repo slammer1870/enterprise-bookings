@@ -545,12 +545,14 @@ export const Tenants: CollectionConfig = {
           }
         }
 
-        // Named hostnames are registered as Cloudflare custom hostnames when they are saved.
-        // An apex uses TXT validation. A hostname that leaves the list is not deleted here.
+        // The first hostname is registered with Cloudflare. Redirect to www also registers
+        // its parent. A hostname that leaves the list is not deleted here.
         for (const registration of customHostnamesToRegister({
           operation,
           hostnames: doc?.hostnames,
           previousHostnames: previousDoc?.hostnames,
+          direction: doc?.direction,
+          previousDirection: previousDoc?.direction,
         })) {
           await createOrGetCustomHostname(registration.hostname, registration.isApex).catch(
             (err: unknown) => {
