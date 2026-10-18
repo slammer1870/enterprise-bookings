@@ -11,6 +11,7 @@ import {
 export type TenantIdSlug = { id: number | string; slug: string }
 
 export type HostResolution =
+  /** A serving host. `indexedHost` is the canonical host named in the indexed URL. */
   | { type: 'domain'; id: number | string; slug: string; indexedHost?: string }
   /** `canonicalHost` is the pair partner this alias host redirects to. */
   | { type: 'alias'; id: number | string; slug: string; canonicalHost: string }

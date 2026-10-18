@@ -65,7 +65,7 @@ async function resolveAllowedOrigin(request: Request): Promise<string | null> {
     return originHeader
   }
  
-  // Named hostnames, or a legacy custom domain on a row that has not saved a list.
+  // A hostname on a stored hostname list.
   if (await isNamedHostnameAllowed(hostname)) return originHeader
  
   return null
