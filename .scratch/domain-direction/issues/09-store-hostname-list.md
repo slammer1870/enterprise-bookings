@@ -4,7 +4,9 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
+
+**Verified by:** `apps/atnd-me/tests/int/tenant-public-host-declaration.int.spec.ts`. A later www/apex pair's derived roles: `apps/atnd-me/tests/unit/tenant-public-host-declaration.test.ts`.
 
 - [x] Saving an ordered hostname list and one Direction stores that list and that Direction
 - [x] Reading the declaration derives the canonical host, the serving hosts, and each alias host's target. Those roles are not stored
