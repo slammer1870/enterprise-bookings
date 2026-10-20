@@ -1,6 +1,7 @@
 import path from 'path'
 import { fileURLToPath } from 'url'
 import dotenv from 'dotenv'
+import { E2E_START_WEBHOOK_SECRET } from './tests/e2e/helpers/e2e-webhook-secret'
 
 // Load .env from this package so test workers and webServer use the same DB (DATABASE_URI)
 // when run from monorepo root (e.g. turbo) or from apps/atnd-me.
@@ -26,6 +27,12 @@ process.env.ENABLE_TEST_MAGIC_LINKS ??= 'true'
 
 // Use production build for e2e tests (faster, more stable, cacheable by Turbo)
 const useProductionBuild = process.env.E2E_USE_PROD !== 'false'
+
+// start:e2e verifies with E2E_START_WEBHOOK_SECRET. dotenv above loaded a
+// developer STRIPE_CONNECT_WEBHOOK_SECRET that the server will reject.
+if (useProductionBuild) {
+  process.env.STRIPE_CONNECT_WEBHOOK_SECRET = E2E_START_WEBHOOK_SECRET
+}
 
 const truthyEnv = (v: string | undefined) =>
   ['1', 'true', 'yes'].includes((v ?? '').toLowerCase())
