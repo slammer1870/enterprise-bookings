@@ -19,6 +19,8 @@ import {
   GIFT_VOUCHER_MAX_EUROS,
 } from '@/lib/stripe-connect/createGiftVoucherPaymentIntent'
 import { ensureStripeCustomerIdForAccount } from '@repo/bookings-payments'
+import { getPayloadLocationIdFromRequest } from '@/utilities/tenantRequest'
+import { locationForBranchId } from '@/lib/stripe-connect/locationForBranchId'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -126,6 +128,9 @@ export async function POST(request: NextRequest) {
       customerId = ensured.stripeCustomerId
     }
 
+    const sellingBranchId = getPayloadLocationIdFromRequest(request)
+    const branch = await locationForBranchId(payload, sellingBranchId, tenant.id)
+
     const result = await createGiftVoucherPaymentIntent({
       tenant: {
         id: tenant.id,
@@ -138,6 +143,7 @@ export async function POST(request: NextRequest) {
       purchaserName,
       userId,
       customerId,
+      branch,
       payload,
     })
 

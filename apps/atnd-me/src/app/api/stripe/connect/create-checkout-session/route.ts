@@ -5,6 +5,15 @@ import {
   createTenantCheckoutSession,
 } from '@/lib/stripe-connect/charges'
 import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
+import { branchChargeMetadata, omitClientBranchMetadata } from '@/lib/stripe-connect/branchChargeMetadata'
+import {
+  locationForBranchId,
+  locationForBranchSlug,
+} from '@/lib/stripe-connect/locationForBranchId'
+import {
+  getPayloadLocationIdFromRequest,
+  getPublicBranchSlugFromRequest,
+} from '@/utilities/tenantRequest'
 import {
   getCurrentUser,
   resolveTenantForConnect,
@@ -162,8 +171,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 })
   }
 
+  const metadataWithoutBranch = omitClientBranchMetadata(metadataFromBody)
+  const sellingBranch =
+    metadataFromBody?.type === 'class_pass_purchase'
+      ? await locationForBranchId(payload, getPayloadLocationIdFromRequest(request), tenantId)
+      : mode === 'subscription'
+        ? await locationForBranchSlug(
+            payload,
+            getPublicBranchSlugFromRequest(request),
+            tenantId,
+          )
+        : null
+
   const metadata = {
-    ...metadataFromBody,
+    ...metadataWithoutBranch,
+    ...branchChargeMetadata(sellingBranch ? [sellingBranch] : []),
     tenantId: String(tenant.id),
     ...(metadataFromBody?.type === 'class_pass_purchase' ? { userId: String(userId) } : {}),
     ...(discountCodeRaw ? { discountCode: discountCodeRaw } : {}),

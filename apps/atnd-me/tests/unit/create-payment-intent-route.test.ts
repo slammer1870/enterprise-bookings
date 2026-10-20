@@ -66,6 +66,7 @@ vi.mock('@/lib/payload', () => ({
 }))
 
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
+import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
 import { POST } from '@/app/api/stripe/connect/create-payment-intent/route'
 
 const TIMESLOT_ID = 7
@@ -217,6 +218,98 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/already used this drop-in/i)
     expect(mockHasUsedDropInProduct).toHaveBeenCalled()
+  })
+
+  it('stamps the timeslot branch on the PaymentIntent and ignores a client branch', async () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') {
+          return Promise.resolve(
+            makeTimeslot({ branch: { id: 12, name: 'Rathmines', slug: 'rathmines' } }),
+          )
+        }
+        if (collection === 'locations' && id === 12) {
+          return Promise.resolve({ id: 12, name: 'Rathmines', slug: 'rathmines' })
+        }
+        if (collection === 'tenants') {
+          return Promise.resolve({
+            ...makeTenant(),
+            stripeConnectAccountId: 'acct_LiveConnect1',
+          })
+        }
+        if (collection === 'drop-ins') {
+          return Promise.resolve({ id: id ?? 1, oncePerUser: false, maxBookingsPerTimeslot: null })
+        }
+        return Promise.resolve(null)
+      },
+    )
+
+    try {
+      const res = await POST(
+        makeRequest({
+          metadata: {
+            timeslotId: String(TIMESLOT_ID),
+            holdId: String(HOLD_ID),
+            branchName: 'Client Branch',
+            branchSlug: 'client-branch',
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(createTenantPaymentIntent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            branchName: 'Rathmines',
+            branchSlug: 'rathmines',
+          }),
+        }),
+      )
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv
+    }
+  })
+
+  it('leaves the PaymentIntent unlabeled when the timeslot has no branch', async () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
+        if (collection === 'tenants') {
+          return Promise.resolve({
+            ...makeTenant(),
+            stripeConnectAccountId: 'acct_LiveConnect1',
+          })
+        }
+        if (collection === 'drop-ins') {
+          return Promise.resolve({ id: id ?? 1, oncePerUser: false, maxBookingsPerTimeslot: null })
+        }
+        return Promise.resolve(null)
+      },
+    )
+
+    try {
+      const res = await POST(
+        makeRequest({
+          metadata: {
+            timeslotId: String(TIMESLOT_ID),
+            holdId: String(HOLD_ID),
+            branchName: 'Client Branch',
+            branchSlug: 'client-branch',
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      const metadata = vi.mocked(createTenantPaymentIntent).mock.calls[0]?.[0]?.metadata
+      expect(metadata?.branchName).toBeUndefined()
+      expect(metadata?.branchSlug).toBeUndefined()
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv
+    }
   })
 
   it('skips oncePerUser enforcement for eventCheckout metadata', async () => {
