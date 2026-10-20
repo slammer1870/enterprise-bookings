@@ -91,7 +91,7 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     min: 0,
     admin: {
       description:
-        "Class price charged for this booking in cents after trial, quantity, and promo discounts (excludes platform booking fee).",
+        "Class price for this booking in cents, excluding the platform booking fee. Gift-voucher value redeemed on the class is included. Other promo discounts are not.",
     },
   },
   {
@@ -154,13 +154,30 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
 
 export function transactionsCollection(
   opts?: CollectionOverrides,
+  options?: { includeBranch?: boolean },
 ): CollectionConfig {
   const access = opts?.access
     ? { ...defaultAccess, ...opts.access }
     : defaultAccess;
   const fields = opts?.fields
     ? opts.fields({ defaultFields: [...defaultFields] })
-    : defaultFields;
+    : [...defaultFields];
+  if (
+    options?.includeBranch &&
+    !fields.some((field) => "name" in field && field.name === "branch")
+  ) {
+    fields.push({
+      name: "branch",
+      type: "relationship",
+      relationTo: "locations" as CollectionSlug,
+      required: false,
+      index: true,
+      admin: {
+        description:
+          "Site where this booking was taken. Empty when the timeslot has no branch.",
+      },
+    });
+  }
   const base: CollectionConfig = {
     slug: "transactions",
     dbName: "booking_transactions",

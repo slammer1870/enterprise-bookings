@@ -4,17 +4,10 @@
 import { createHmac } from 'node:crypto'
 import type { APIRequestContext } from '@playwright/test'
 import { BASE_URL } from './auth-helpers'
+import { resolveE2EStripeWebhookSecret } from './e2e-webhook-secret'
 
 function webhookSecret(): string {
-  const secret =
-    process.env.STRIPE_CONNECT_WEBHOOK_SECRET?.trim() ||
-    process.env.STRIPE_WEBHOOK_SECRET?.trim()
-  if (!secret) {
-    throw new Error(
-      'STRIPE_CONNECT_WEBHOOK_SECRET (or STRIPE_WEBHOOK_SECRET) is required to sign e2e webhooks',
-    )
-  }
-  return secret
+  return resolveE2EStripeWebhookSecret(process.env)
 }
 
 export function signStripeWebhookBody(body: string, secret = webhookSecret()): string {

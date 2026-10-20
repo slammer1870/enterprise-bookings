@@ -57,6 +57,10 @@ vi.mock('@/lib/stripe-connect/charges', () => ({
   createTenantPaymentIntent: vi.fn().mockResolvedValue({ client_secret: 'pi_live_secret' }),
 }))
 
+vi.mock('@/lib/stripe-connect/issueRemainderDiscountCode', () => ({
+  issueRemainderDiscountCodeIfNeeded: vi.fn().mockResolvedValue({ issued: false, reason: 'no_remainder' }),
+}))
+
 vi.mock('@/lib/api/request-utils', () => ({
   coerceMetadata: vi.fn().mockImplementation((m: unknown) => m as Record<string, string>),
 }))
@@ -65,7 +69,9 @@ vi.mock('@/lib/payload', () => ({
   getPayload: vi.fn().mockResolvedValue(mockPayload),
 }))
 
+import { fulfillCheckoutHold } from '@repo/bookings-payments'
 import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
+import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
 import { POST } from '@/app/api/stripe/connect/create-payment-intent/route'
 
 const TIMESLOT_ID = 7
@@ -119,6 +125,8 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
       expiresAt: new Date().toISOString(),
     })
     mockComputeRemainingCapacityWithHolds.mockResolvedValue(10)
+    mockPayload.find.mockReset()
+    mockPayload.find.mockResolvedValue({ docs: [], totalDocs: 0 })
     mockPayload.findByID.mockImplementation(
       ({ collection, id }: { collection: string; id?: number }) => {
         if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
@@ -217,6 +225,143 @@ describe('POST /api/stripe/connect/create-payment-intent', () => {
     expect(res.status).toBe(400)
     expect(body.error).toMatch(/already used this drop-in/i)
     expect(mockHasUsedDropInProduct).toHaveBeenCalled()
+  })
+
+  it('stamps the timeslot branch on the PaymentIntent and ignores a client branch', async () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') {
+          return Promise.resolve(
+            makeTimeslot({ branch: { id: 12, name: 'Rathmines', slug: 'rathmines' } }),
+          )
+        }
+        if (collection === 'locations' && id === 12) {
+          return Promise.resolve({ id: 12, name: 'Rathmines', slug: 'rathmines' })
+        }
+        if (collection === 'tenants') {
+          return Promise.resolve({
+            ...makeTenant(),
+            stripeConnectAccountId: 'acct_LiveConnect1',
+          })
+        }
+        if (collection === 'drop-ins') {
+          return Promise.resolve({ id: id ?? 1, oncePerUser: false, maxBookingsPerTimeslot: null })
+        }
+        return Promise.resolve(null)
+      },
+    )
+
+    try {
+      const res = await POST(
+        makeRequest({
+          metadata: {
+            timeslotId: String(TIMESLOT_ID),
+            holdId: String(HOLD_ID),
+            branchName: 'Client Branch',
+            branchSlug: 'client-branch',
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      expect(createTenantPaymentIntent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            branchName: 'Rathmines',
+            branchSlug: 'rathmines',
+          }),
+        }),
+      )
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv
+    }
+  })
+
+  it('stores the class price including a redeemed gift voucher on a zero-amount booking', async () => {
+    vi.mocked(fulfillCheckoutHold).mockResolvedValue({ confirmedBookingIds: [1], refunded: false })
+    mockPayload.find.mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'discount-codes') {
+        return Promise.resolve({
+          docs: [
+            {
+              id: 9,
+              code: 'GIFT50',
+              type: 'amount_off',
+              value: 50,
+              maxRedemptions: 1,
+              timesRedeemed: 0,
+              status: 'active',
+              sourcePaymentIntentId: 'pi_gift',
+              rootPurchasedAt: '2026-01-01T00:00:00.000Z',
+              lastConsumedHoldId: HOLD_ID,
+            },
+          ],
+          totalDocs: 1,
+        })
+      }
+      return Promise.resolve({ docs: [], totalDocs: 0 })
+    })
+
+    const res = await POST(
+      makeRequest({
+        price: 0,
+        confirmOnly: true,
+        metadata: {
+          timeslotId: String(TIMESLOT_ID),
+          holdId: String(HOLD_ID),
+          discountCode: 'GIFT50',
+          classPriceBeforeDiscount: '20',
+        },
+      }),
+    )
+
+    expect(res.status).toBe(200)
+    expect(fulfillCheckoutHold).toHaveBeenCalledWith(
+      mockPayload,
+      expect.objectContaining({ classPriceAmountCents: 2000 }),
+    )
+  })
+
+  it('leaves the PaymentIntent unlabeled when the timeslot has no branch', async () => {
+    const previousNodeEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'production'
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') return Promise.resolve(makeTimeslot())
+        if (collection === 'tenants') {
+          return Promise.resolve({
+            ...makeTenant(),
+            stripeConnectAccountId: 'acct_LiveConnect1',
+          })
+        }
+        if (collection === 'drop-ins') {
+          return Promise.resolve({ id: id ?? 1, oncePerUser: false, maxBookingsPerTimeslot: null })
+        }
+        return Promise.resolve(null)
+      },
+    )
+
+    try {
+      const res = await POST(
+        makeRequest({
+          metadata: {
+            timeslotId: String(TIMESLOT_ID),
+            holdId: String(HOLD_ID),
+            branchName: 'Client Branch',
+            branchSlug: 'client-branch',
+          },
+        }),
+      )
+
+      expect(res.status).toBe(200)
+      const metadata = vi.mocked(createTenantPaymentIntent).mock.calls[0]?.[0]?.metadata
+      expect(metadata?.branchName).toBeUndefined()
+      expect(metadata?.branchSlug).toBeUndefined()
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv
+    }
   })
 
   it('skips oncePerUser enforcement for eventCheckout metadata', async () => {

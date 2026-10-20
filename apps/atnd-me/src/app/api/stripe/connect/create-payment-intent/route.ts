@@ -3,6 +3,9 @@ import type { NextRequest } from 'next/server'
 
 import { getPayload } from '@/lib/payload'
 import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
+import { branchChargeMetadata, omitClientBranchMetadata } from '@/lib/stripe-connect/branchChargeMetadata'
+import { classBranchLedgerCentsForCode } from '@/lib/stripe-connect/classBranchLedgerCents'
+import { locationForBranchId } from '@/lib/stripe-connect/locationForBranchId'
 import {
   getCurrentUser,
   resolveTenantSlugOrId,
@@ -164,6 +167,7 @@ export async function POST(request: NextRequest) {
   })) as {
     tenant?: number | { id: number }
     remainingCapacity?: number
+    branch?: number | null
     eventType?: any
   } | null
 
@@ -400,12 +404,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
+    const classPriceBeforeDiscount =
+      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
+        ? Number(classPriceBeforeDiscountRaw)
+        : NaN
+    const ledgerCents = await classBranchLedgerCentsForCode({
+      payload,
+      tenantId,
+      discountCode: discountCodeMeta,
+      cashCents: classPriceAmountCents,
+      classPriceBeforeDiscountEuros: Number.isFinite(classPriceBeforeDiscount)
+        ? classPriceBeforeDiscount
+        : null,
+    })
+
     const result = await fulfillCheckoutHold(payload, {
       holdId,
       userId: user.id,
       tenantId,
       dropInId: trackableDropInId,
-      classPriceAmountCents,
+      classPriceAmountCents: ledgerCents,
       tenantContext: { tenant: tenantId },
       timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
@@ -417,12 +436,6 @@ export async function POST(request: NextRequest) {
         `create-payment-intent: hold ${holdId} refunded after consuming discount ${discountCodeMeta}; code remains consumed`,
       )
     }
-
-    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
-    const classPriceBeforeDiscount =
-      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
-        ? Number(classPriceBeforeDiscountRaw)
-        : NaN
 
     let remainder:
       | {
@@ -488,6 +501,9 @@ export async function POST(request: NextRequest) {
       stripeAccountId: tenant.stripeConnectAccountId,
     })
 
+    const metadataWithoutBranch = omitClientBranchMetadata(metadata)
+    const branchLocation = await locationForBranchId(payload, timeslot.branch)
+
     const { client_secret } = await createTenantPaymentIntent({
       tenant: {
         id: tenant.id,
@@ -501,7 +517,8 @@ export async function POST(request: NextRequest) {
       customerId: stripeCustomerId,
       receiptEmail: user.email,
       metadata: {
-        ...(metadata ?? {}),
+        ...metadataWithoutBranch,
+        ...branchChargeMetadata([branchLocation]),
         timeslotId: String(timeslotId),
         userId: String(user.id),
         quantity: String(quantity),

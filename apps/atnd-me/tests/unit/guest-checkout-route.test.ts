@@ -323,6 +323,58 @@ describe('POST /api/events/guest-checkout', () => {
     }
   })
 
+  it('stamps the timeslot branch on the guest PaymentIntent', async () => {
+    const prevNodeEnv = process.env.NODE_ENV
+    const prevEnableTestWebhooks = process.env.ENABLE_TEST_WEBHOOKS
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('ENABLE_TEST_WEBHOOKS', '')
+
+    const { isStripeTestAccount } = await import('@/lib/stripe-connect/test-accounts')
+    ;(isStripeTestAccount as ReturnType<typeof vi.fn>).mockReturnValue(false)
+
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'timeslots') {
+          return Promise.resolve(
+            makeTimeslot({ branch: { id: 12, name: 'Rathmines', slug: 'rathmines' } }),
+          )
+        }
+        if (collection === 'locations' && id === 12) {
+          return Promise.resolve({ id: 12, name: 'Rathmines', slug: 'rathmines' })
+        }
+        if (collection === 'tenants') {
+          return Promise.resolve({
+            id: TENANT_ID,
+            stripeConnectAccountId: 'acct_1RealConnectAccount',
+            stripeConnectOnboardingStatus: 'active',
+          })
+        }
+        return Promise.resolve(null)
+      },
+    )
+
+    try {
+      const res = await POST(makeRequest())
+
+      expect(res.status).toBe(200)
+      expect(mockCreateTenantPaymentIntent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            branchName: 'Rathmines',
+            branchSlug: 'rathmines',
+          }),
+        }),
+      )
+    } finally {
+      vi.stubEnv('NODE_ENV', prevNodeEnv ?? 'test')
+      if (prevEnableTestWebhooks === undefined) {
+        vi.unstubAllEnvs()
+      } else {
+        vi.stubEnv('ENABLE_TEST_WEBHOOKS', prevEnableTestWebhooks)
+      }
+    }
+  })
+
   it('releases the checkout hold when payment intent creation fails', async () => {
     const prevNodeEnv = process.env.NODE_ENV
     const prevEnableTestWebhooks = process.env.ENABLE_TEST_WEBHOOKS

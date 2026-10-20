@@ -189,6 +189,8 @@ import * as migration_20260928_000002_enable_kyuzo_hero_for_darkhorse from './20
 import * as migration_20260928_000003_kyuzo_hero_customization from './20260928_000003_kyuzo_hero_customization'
 import * as migration_20260928_000004_fix_kyuzo_hero_color_columns from './20260928_000004_fix_kyuzo_hero_color_columns'
 import * as migration_20260928_000005_kyuzo_hero_ctas_array from './20260928_000005_kyuzo_hero_ctas_array'
+import * as migration_20261020_000001_booking_transactions_branch_id from './20261020_000001_booking_transactions_branch_id'
+import * as migration_20261020_000002_branch_ledger_columns from './20261020_000002_branch_ledger_columns'
 
 export const migrations = [
   {
@@ -1145,5 +1147,15 @@ export const migrations = [
     up: migration_20260928_000005_kyuzo_hero_ctas_array.up,
     down: migration_20260928_000005_kyuzo_hero_ctas_array.down,
     name: '20260928_000005_kyuzo_hero_ctas_array',
+  },
+  {
+    up: migration_20261020_000001_booking_transactions_branch_id.up,
+    down: migration_20261020_000001_booking_transactions_branch_id.down,
+    name: '20261020_000001_booking_transactions_branch_id',
+  },
+  {
+    up: migration_20261020_000002_branch_ledger_columns.up,
+    down: migration_20261020_000002_branch_ledger_columns.down,
+    name: '20261020_000002_branch_ledger_columns',
   },
 ]

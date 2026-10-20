@@ -3695,7 +3695,7 @@ export interface Transaction {
    */
   dropInId?: number | null;
   /**
-   * Class price charged for this booking in cents after trial, quantity, and promo discounts (excludes platform booking fee).
+   * Class price for this booking in cents, excluding the platform booking fee. Gift-voucher value redeemed on the class is included. Other promo discounts are not.
    */
   amountCents?: number | null;
   /**
@@ -3718,6 +3718,10 @@ export interface Transaction {
    * Set when class-pass credit was restored on cancel.
    */
   classPassRestoredAt?: string | null;
+  /**
+   * Site where this booking was taken. Empty when the timeslot has no branch.
+   */
+  branch?: (number | null) | Location;
   updatedAt: string;
   createdAt: string;
 }
@@ -4072,6 +4076,14 @@ export interface DiscountCode {
    * Idempotency key from an external migration (e.g. old gift voucher id).
    */
   externalId?: string | null;
+  /**
+   * Site where this voucher was sold. Copied onto remainder codes. Empty when the sale had no branch.
+   */
+  branch?: (number | null) | Location;
+  /**
+   * Unused gift-voucher value recognized after redeem-by. The sale branch receives it; an empty branch is tenant-level. Set once.
+   */
+  breakageCents?: number | null;
   /**
    * Booking that triggered remainder issuance (idempotency).
    */
@@ -5102,6 +5114,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   refundedAt?: T;
   stripeRefundId?: T;
   classPassRestoredAt?: T;
+  branch?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -5145,6 +5158,8 @@ export interface DiscountCodesSelect<T extends boolean = true> {
   rootPurchasedAt?: T;
   parentDiscountCode?: T;
   externalId?: T;
+  branch?: T;
+  breakageCents?: T;
   sourceBookingId?: T;
   sourceHoldId?: T;
   sourcePaymentIntentId?: T;

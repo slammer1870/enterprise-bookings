@@ -16,6 +16,10 @@ import { calculateBookingFeeAmount } from '@/lib/stripe-connect/bookingFee'
 import {
   GIFT_VOUCHER_PURCHASE_TYPE,
 } from '@/lib/stripe-connect/giftVoucherConstants'
+import {
+  branchChargeMetadata,
+  type BranchLocation,
+} from '@/lib/stripe-connect/branchChargeMetadata'
 
 export {
   GIFT_VOUCHER_MIN_EUROS,
@@ -33,6 +37,8 @@ export type CreateGiftVoucherPaymentIntentParams = {
   purchaserName: string
   userId?: number | null
   customerId?: string | null
+  /** Selling branch, already resolved on the server. Omitted when the request has none. */
+  branch?: BranchLocation | null
   payload: Payload
 }
 
@@ -58,6 +64,7 @@ export async function createGiftVoucherPaymentIntent(
     purchaserName,
     userId,
     customerId,
+    branch,
     payload,
   } = params
 
@@ -78,6 +85,7 @@ export async function createGiftVoucherPaymentIntent(
   const receiptEmail = purchaserEmail.trim()
 
   const meta: Record<string, string> = {
+    ...branchChargeMetadata(branch ? [branch] : []),
     type: GIFT_VOUCHER_PURCHASE_TYPE,
     tenantId: String(tenant.id),
     // Face value only — webhook issues a discount code for this amount (fee excluded).

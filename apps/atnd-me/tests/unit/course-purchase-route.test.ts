@@ -50,14 +50,16 @@ vi.mock('@repo/bookings-payments', async (importOriginal) => {
   }
 })
 
+import { NextRequest } from 'next/server'
+
 import { POST } from '@/app/api/courses/purchase/route'
 
-function makeRequest(body: unknown) {
-  return new Request('http://localhost/api/courses/purchase', {
+function makeRequest(body: unknown, headers: Record<string, string> = {}) {
+  return new NextRequest('http://localhost/api/courses/purchase', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...headers },
     body: JSON.stringify(body),
-  }) as any
+  })
 }
 
 describe('POST /api/courses/purchase', () => {
@@ -120,6 +122,41 @@ describe('POST /api/courses/purchase', () => {
     const res = await POST(makeRequest({ courseId: 4 }))
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toMatchObject({ error: expect.stringMatching(/sold out/i) })
+  })
+
+  it('stamps the public branch cookie on the PaymentIntent and ignores a client branch', async () => {
+    mockIsStripeTestAccount.mockReturnValue(false)
+    mockResolveTenantForConnect.mockResolvedValue({
+      id: 1,
+      stripeConnectAccountId: 'acct_1RealConnectAccount',
+      stripeConnectOnboardingStatus: 'active',
+    })
+    mockPayload.find.mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'locations') {
+        return Promise.resolve({
+          docs: [{ id: 12, name: 'Rathmines', slug: 'rathmines', tenant: 1 }],
+          totalDocs: 1,
+        })
+      }
+      return Promise.resolve({ docs: [], totalDocs: 0 })
+    })
+
+    const res = await POST(
+      makeRequest(
+        { courseId: 4, metadata: { branchName: 'Client Branch', branchSlug: 'client-branch' } },
+        { cookie: 'branch-slug=rathmines' },
+      ),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mockCreateTenantPaymentIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          branchName: 'Rathmines',
+          branchSlug: 'rathmines',
+        }),
+      }),
+    )
   })
 
   it('creates PaymentIntent with productType course (not class-pass)', async () => {
