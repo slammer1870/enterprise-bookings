@@ -1,6 +1,8 @@
 import type { Payload } from 'payload'
 import { sql } from '@payloadcms/db-postgres'
 
+import { recognizeGiftVoucherBreakage } from '@/lib/stripe-connect/classBranchLedgerCents'
+
 export type TenantDiscountCode = {
   id: number
   code: string
@@ -159,12 +161,14 @@ export async function checkTenantDiscountCode(
       return { ok: false, error: 'This discount code has already been used.' }
     }
     if (anyDoc && isDiscountCodeExpired(anyDoc.redeemBy)) {
+      await recognizeGiftVoucherBreakage(payload, anyDoc)
       return { ok: false, error: 'This discount code has expired.' }
     }
     return { ok: false, error: 'Invalid or inactive discount code.' }
   }
 
   if (isDiscountCodeExpired(discountDoc.redeemBy)) {
+    await recognizeGiftVoucherBreakage(payload, discountDoc)
     return { ok: false, error: 'This discount code has expired.' }
   }
 

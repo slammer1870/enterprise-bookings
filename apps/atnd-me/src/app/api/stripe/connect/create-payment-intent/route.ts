@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
 import { branchChargeMetadata, omitClientBranchMetadata } from '@/lib/stripe-connect/branchChargeMetadata'
+import { classBranchLedgerCentsForCode } from '@/lib/stripe-connect/classBranchLedgerCents'
 import { locationForBranchId } from '@/lib/stripe-connect/locationForBranchId'
 import {
   getCurrentUser,
@@ -403,12 +404,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
+    const classPriceBeforeDiscount =
+      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
+        ? Number(classPriceBeforeDiscountRaw)
+        : NaN
+    const ledgerCents = await classBranchLedgerCentsForCode({
+      payload,
+      tenantId,
+      discountCode: discountCodeMeta,
+      cashCents: classPriceAmountCents,
+      classPriceBeforeDiscountEuros: Number.isFinite(classPriceBeforeDiscount)
+        ? classPriceBeforeDiscount
+        : null,
+    })
+
     const result = await fulfillCheckoutHold(payload, {
       holdId,
       userId: user.id,
       tenantId,
       dropInId: trackableDropInId,
-      classPriceAmountCents,
+      classPriceAmountCents: ledgerCents,
       tenantContext: { tenant: tenantId },
       timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
@@ -420,12 +436,6 @@ export async function POST(request: NextRequest) {
         `create-payment-intent: hold ${holdId} refunded after consuming discount ${discountCodeMeta}; code remains consumed`,
       )
     }
-
-    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
-    const classPriceBeforeDiscount =
-      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
-        ? Number(classPriceBeforeDiscountRaw)
-        : NaN
 
     let remainder:
       | {

@@ -290,6 +290,34 @@ export const DiscountCodes: CollectionConfig = {
       },
     },
     {
+      name: 'branch',
+      type: 'relationship',
+      relationTo: 'locations',
+      required: false,
+      index: true,
+      label: 'Sale branch',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'Site where this voucher was sold. Copied onto remainder codes. Empty when the sale had no branch.',
+        position: 'sidebar',
+      },
+    },
+    {
+      name: 'breakageCents',
+      type: 'number',
+      required: false,
+      min: 0,
+      label: 'Breakage (cents)',
+      access: adminOnlyFieldAccess,
+      admin: {
+        description:
+          'Unused gift-voucher value recognized after redeem-by. The sale branch receives it; an empty branch is tenant-level. Set once.',
+        position: 'sidebar',
+        readOnly: true,
+      },
+    },
+    {
       name: 'sourceBookingId',
       type: 'number',
       label: 'Source booking ID',

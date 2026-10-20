@@ -19,6 +19,8 @@ export type IssuePurchasedGiftVoucherParams = {
   purchaserEmail: string
   purchaserName?: string | null
   userId?: number | null
+  /** Selling site (`locations` id). Omitted when the sale has no branch. */
+  branchId?: number | null
 }
 
 export type IssuePurchasedGiftVoucherResult =
@@ -89,6 +91,7 @@ export async function issuePurchasedGiftVoucher(
     amountEuros,
     purchaserEmail,
     purchaserName,
+    branchId,
   } = params
 
   const piId = typeof paymentIntentId === 'string' ? paymentIntentId.trim() : ''
@@ -140,6 +143,9 @@ export async function issuePurchasedGiftVoucher(
         rootPurchasedAt: now.toISOString(),
         redeemBy,
         sourcePaymentIntentId: piId,
+        ...(typeof branchId === 'number' && Number.isFinite(branchId) && branchId > 0
+          ? { branch: branchId }
+          : {}),
         status: 'active',
       },
       overrideAccess: true,

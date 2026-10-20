@@ -91,7 +91,7 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
     min: 0,
     admin: {
       description:
-        "Class price charged for this booking in cents after trial, quantity, and promo discounts (excludes platform booking fee).",
+        "Class price for this booking in cents, excluding the platform booking fee. Gift-voucher value redeemed on the class is included. Other promo discounts are not.",
     },
   },
   {

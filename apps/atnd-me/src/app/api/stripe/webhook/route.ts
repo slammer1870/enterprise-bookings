@@ -52,6 +52,8 @@ import {
   issuePurchasedGiftVoucher,
   parseGiftVoucherPurchaseMetadata,
 } from '@/lib/stripe-connect/issuePurchasedGiftVoucher'
+import { classBranchLedgerCentsForCode } from '@/lib/stripe-connect/classBranchLedgerCents'
+import { locationForBranchSlug } from '@/lib/stripe-connect/locationForBranchId'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 
 export async function POST(request: NextRequest) {
@@ -109,6 +111,9 @@ export async function POST(request: NextRequest) {
       const parsed = parseGiftVoucherPurchaseMetadata(meta)
       if (paymentIntentId && parsed.isGiftVoucher && parsed.purchaserEmail) {
         try {
+          const saleBranch = meta.branchSlug
+            ? await locationForBranchSlug(payload, meta.branchSlug, tenant.id)
+            : null
           const result = await issuePurchasedGiftVoucher({
             payload,
             tenantId: tenant.id,
@@ -117,6 +122,7 @@ export async function POST(request: NextRequest) {
             purchaserEmail: parsed.purchaserEmail,
             purchaserName: parsed.purchaserName || null,
             userId: parsed.userId,
+            branchId: saleBranch?.id ?? null,
           })
           if (!result.issued) {
             payload.logger?.error?.(
@@ -211,12 +217,25 @@ export async function POST(request: NextRequest) {
                 ),
               )
             : undefined)
+        const classPriceBeforeDiscount = Number(meta.classPriceBeforeDiscount)
+        const ledgerCents =
+          classPriceAmountCents == null
+            ? undefined
+            : await classBranchLedgerCentsForCode({
+                payload,
+                tenantId: tenant.id,
+                discountCode: typeof meta.discountCode === 'string' ? meta.discountCode : null,
+                cashCents: classPriceAmountCents,
+                classPriceBeforeDiscountEuros: Number.isFinite(classPriceBeforeDiscount)
+                  ? classPriceBeforeDiscount
+                  : null,
+              })
         const fulfillResult = await fulfillCheckoutHold(payload, {
           holdId,
           userId,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
           dropInId: dropInIdFromMeta,
-          classPriceAmountCents,
+          classPriceAmountCents: ledgerCents,
           tenantId: tenant.id,
           tenantContext: paymentIntentTenantContext,
           refundPaymentIntent:
@@ -236,7 +255,6 @@ export async function POST(request: NextRequest) {
 
         const discountCodeMeta =
           typeof meta.discountCode === 'string' ? meta.discountCode.trim() : ''
-        const classPriceBeforeDiscount = Number(meta.classPriceBeforeDiscount)
         if (discountCodeMeta && !fulfillResult.refunded) {
           try {
             const { consumeDiscountCodeRedemption } = await import(

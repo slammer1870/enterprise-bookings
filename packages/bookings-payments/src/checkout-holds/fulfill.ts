@@ -57,8 +57,9 @@ export async function fulfillCheckoutHold(
     /** Drop-in product id for once-per-user tracking (stripe/drop-in checkouts). */
     dropInId?: number | null
     /**
-     * Total class price charged for this hold in cents, after trial/quantity/promo
-     * discounts and excluding platform booking fee. Split across the hold quantity.
+     * Total class price for this hold in cents, excluding the platform booking fee.
+     * Gift-voucher value redeemed on the class is included. Other promo discounts are not.
+     * Split across the hold quantity.
      */
     classPriceAmountCents?: number
     tenantId: number
