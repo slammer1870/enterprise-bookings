@@ -1,6 +1,6 @@
 /**
  * Stripe Connect webhook: account.*, payment_intent.succeeded, checkout.session.completed,
- * customer.subscription.*, product.*, price.*, coupon.*, promotion_code.*.
+ * invoice.created, invoice.paid, customer.subscription.*, product.*, price.*, coupon.*, promotion_code.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
@@ -55,6 +55,7 @@ import {
 import { classBranchLedgerCentsForCode } from '@/lib/stripe-connect/classBranchLedgerCents'
 import { locationForBranchSlug } from '@/lib/stripe-connect/locationForBranchId'
 import { getPlatformStripe } from '@/lib/stripe/platform'
+import { copyInvoiceBranchOntoCharge, copySubscriptionBranchOntoInvoice } from '@/lib/stripe-connect/copySubscriptionBranch'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -434,6 +435,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
+
+  if (event.type === 'invoice.created' || event.type === 'invoice.paid') {
+    const invoice = (event.data?.object ?? {}) as Parameters<
+      typeof copySubscriptionBranchOntoInvoice
+    >[0]['invoice'] &
+      Parameters<typeof copyInvoiceBranchOntoCharge>[0]['invoice']
+    const stripe = getPlatformStripe()
+    const stripeAccount = getAccountIdFromEvent(event)
+    if (event.type === 'invoice.created') {
+      await copySubscriptionBranchOntoInvoice({ stripeAccount, stripe, invoice })
+    } else {
+      await copyInvoiceBranchOntoCharge({ stripeAccount, stripe, invoice })
+    }
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
   }
