@@ -2,6 +2,7 @@ import type { CollectionSlug } from 'payload'
 import {
   BOOKINGS_COLLECTION_SLUG,
   CHECKOUT_HOLD_COLLECTION_SLUG,
+  TIMESLOTS_COLLECTION_SLUG,
   TRANSACTIONS_COLLECTION_SLUG,
 } from './constants'
 import {
@@ -177,6 +178,15 @@ export async function fulfillCheckoutHold(
       ? splitCents(opts.classPriceAmountCents, hold.quantity)
       : null
 
+  const timeslotsSlug = opts.timeslotsSlug ?? TIMESLOTS_COLLECTION_SLUG
+  const timeslot = (await payload.findByID({
+    collection: timeslotsSlug,
+    id: timeslotId,
+    depth: 0,
+    overrideAccess: true,
+  })) as { branch?: number | { id: number } | null } | null
+  const branchId = relationId(timeslot?.branch)
+
   for (let i = 0; i < hold.quantity; i++) {
     const created = (await payload.create({
       collection: bookingsSlug,
@@ -207,6 +217,7 @@ export async function fulfillCheckoutHold(
         ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
         ...(dropInId != null ? { dropInId } : {}),
         ...(amountCentsPerBooking != null ? { amountCents: amountCentsPerBooking[i] } : {}),
+        ...(branchId != null ? { branch: branchId } : {}),
         tenant: opts.tenantId,
       },
       ...(tenantContext ? { context: tenantContext } : {}),

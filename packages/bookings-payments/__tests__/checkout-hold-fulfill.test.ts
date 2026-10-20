@@ -124,6 +124,32 @@ describe('fulfillCheckoutHold', () => {
     expect(txnCreates[0]?.[0].data.amountCents).toBeUndefined()
   })
 
+  it('stores the timeslot branch on each drop-in transaction', async () => {
+    const payload = makePayload()
+    payload.findByID.mockImplementation(({ collection, id }: { collection: string; id: number }) => {
+      if (collection === 'booking-checkout-holds' && id === HOLD_ID) {
+        return Promise.resolve({ ...hold })
+      }
+      if (collection === 'timeslots') {
+        return Promise.resolve({ id: TIMESLOT_ID, branch: 42, eventType: { places: PLACES } })
+      }
+      return Promise.reject(new Error('Not found'))
+    })
+
+    await fulfillCheckoutHold(payload as never, {
+      holdId: HOLD_ID,
+      userId: USER_ID,
+      paymentIntentId: PI_ID,
+      tenantId: TENANT_ID,
+    })
+
+    const txnCreates = (payload.create as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([args]) => args.collection === 'transactions',
+    )
+    expect(txnCreates).toHaveLength(2)
+    expect(txnCreates.map(([args]) => args.data.branch)).toEqual([42, 42])
+  })
+
   it('splits classPriceAmountCents across the hold quantity on each transaction', async () => {
     const payload = makePayload()
 

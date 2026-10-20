@@ -110,8 +110,13 @@ export const bookingsPaymentsPlugin =
       ctx.collections.push(
         transactionsCollection(
           classPass?.bookingTransactionsOverrides ??
-            dropIns?.bookingTransactionsOverrides
-        )
+            dropIns?.bookingTransactionsOverrides,
+          {
+            includeBranch: ctx.collections.some(
+              (collection) => collection.slug === "locations",
+            ),
+          },
+        ),
       );
       const bookingsCol = ctx.collections.find((c) => c.slug === "bookings");
       if (bookingsCol) {

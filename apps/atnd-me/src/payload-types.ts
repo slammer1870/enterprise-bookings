@@ -3718,6 +3718,10 @@ export interface Transaction {
    * Set when class-pass credit was restored on cancel.
    */
   classPassRestoredAt?: string | null;
+  /**
+   * Site where this booking was taken. Empty when the timeslot has no branch.
+   */
+  branch?: (number | null) | Location;
   updatedAt: string;
   createdAt: string;
 }
@@ -5102,6 +5106,7 @@ export interface TransactionsSelect<T extends boolean = true> {
   refundedAt?: T;
   stripeRefundId?: T;
   classPassRestoredAt?: T;
+  branch?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -154,13 +154,30 @@ const defaultFields: NonNullable<CollectionConfig["fields"]> = [
 
 export function transactionsCollection(
   opts?: CollectionOverrides,
+  options?: { includeBranch?: boolean },
 ): CollectionConfig {
   const access = opts?.access
     ? { ...defaultAccess, ...opts.access }
     : defaultAccess;
   const fields = opts?.fields
     ? opts.fields({ defaultFields: [...defaultFields] })
-    : defaultFields;
+    : [...defaultFields];
+  if (
+    options?.includeBranch &&
+    !fields.some((field) => "name" in field && field.name === "branch")
+  ) {
+    fields.push({
+      name: "branch",
+      type: "relationship",
+      relationTo: "locations" as CollectionSlug,
+      required: false,
+      index: true,
+      admin: {
+        description:
+          "Site where this booking was taken. Empty when the timeslot has no branch.",
+      },
+    });
+  }
   const base: CollectionConfig = {
     slug: "transactions",
     dbName: "booking_transactions",
