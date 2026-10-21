@@ -34,6 +34,7 @@ import {
   Subscription,
 } from "@repo/shared-types";
 import { checkRole, stripe } from "@repo/shared-utils";
+import { maxBookableQuantity } from "@repo/shared-utils/booking-capacity";
 import {
   getMaxSubscriptionQuantityPerTimeslot,
   hasReachedSubscriptionLimit,
@@ -682,6 +683,14 @@ export const bookingsRouter = {
 
       const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
 
+      const viewerIdRaw: unknown = (ctx.user as { id?: unknown })?.id;
+      const parsedViewerId =
+        typeof viewerIdRaw === "string" ? parseInt(viewerIdRaw, 10) : viewerIdRaw;
+      const viewerUserId =
+        typeof parsedViewerId === "number" && Number.isFinite(parsedViewerId)
+          ? parsedViewerId
+          : null;
+
       // Business eligibility for booking creation (including "pending" bookings for checkout).
       // UI may mark the timeslot as closed after startTime, but we still allow users to
       // create bookings until endTime so late arrivals can complete booking via link.
@@ -702,19 +711,14 @@ export const bookingsRouter = {
         // Late-completion bypass:
         // If the user already has a pending/waiting booking for this timeslot,
         // allow them to complete their booking even if the timeslot endTime has passed.
-        const viewerIdRaw: any = (ctx.user as any)?.id;
-        const viewerId =
-          typeof viewerIdRaw === "string"
-            ? parseInt(viewerIdRaw, 10)
-            : viewerIdRaw;
-        const hasPendingOrWaiting = Number.isFinite(viewerId)
+        const hasPendingOrWaiting = viewerUserId != null
           ? (
               await ctx.payload.find({
                 collection: ctx.bookingsSlugs.bookings as any,
                 where: {
                   and: [
                     { timeslot: { equals: timeslotId } },
-                    { user: { equals: viewerId } },
+                    { user: { equals: viewerUserId } },
                     { status: { in: ["pending", "waiting"] } },
                     ...(timeslotTenantId != null
                       ? [{ tenant: { equals: timeslotTenantId } }]
@@ -767,8 +771,24 @@ export const bookingsRouter = {
         }
       }
 
-      // Validate quantity against remaining capacity
-      const maxQuantity = Math.max(1, timeslot.remainingCapacity || 1);
+      // Validate quantity against remaining capacity.
+      // Global remaining already subtracts the viewer's checkout hold. Add that
+      // hold back so the owner can book the places they are holding.
+      let ownHoldQuantity = 0;
+      if (
+        viewerUserId != null &&
+        hasCollection(ctx.payload, CHECKOUT_HOLD_COLLECTION_SLUG)
+      ) {
+        const activeHold = await getActiveCheckoutHoldService(ctx.payload, {
+          timeslotId,
+          userId: viewerUserId,
+        });
+        ownHoldQuantity = activeHold?.quantity ?? 0;
+      }
+      const maxQuantity = maxBookableQuantity(
+        timeslot.remainingCapacity,
+        ownHoldQuantity,
+      );
       if (quantity > maxQuantity) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1366,15 +1386,10 @@ export const bookingsRouter = {
         confirmedBookings.length > 0 &&
         hasCollection(ctx.payload, CHECKOUT_HOLD_COLLECTION_SLUG)
       ) {
-        const viewerIdRaw: unknown = (ctx.user as { id?: unknown })?.id;
-        const viewerId =
-          typeof viewerIdRaw === "string"
-            ? parseInt(viewerIdRaw, 10)
-            : viewerIdRaw;
-        if (Number.isFinite(viewerId)) {
+        if (viewerUserId != null) {
           const activeHold = await getActiveCheckoutHoldService(ctx.payload, {
             timeslotId,
-            userId: viewerId as number,
+            userId: viewerUserId,
           });
           if (activeHold?.id != null && activeHold.status === "active") {
             await updateSafe(

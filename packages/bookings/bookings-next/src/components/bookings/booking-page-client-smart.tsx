@@ -9,6 +9,10 @@ import { QuantitySelector } from './quantity-selector'
 import { BookingForm } from './booking-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import type { CheckoutLegalConfig } from '@repo/payments-next'
+import {
+  maxBookableQuantity,
+  type ViewerCheckoutHold,
+} from '@repo/shared-utils/booking-capacity'
 
 type PaymentMethodsLike = {
   allowedDropIn?: {
@@ -87,6 +91,12 @@ interface BookingPageClientSmartProps {
   /** When true, release checkout holds on leave instead of cancelling pending bookings. */
   useCheckoutHolds?: boolean
 
+  /**
+   * Viewer's active checkout hold. `timeslot.remainingCapacity` already subtracts it;
+   * the quantity cap adds it back so the owner can still book those places.
+   */
+  initialCheckoutHold?: ViewerCheckoutHold | null
+
   /** API route for keepalive hold release on navigation (defaults to `/api/bookings/release-hold`). */
   releaseHoldApiUrl?: string
 
@@ -100,6 +110,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   PaymentMethodsComponent,
   cancelPendingApiUrl = '/api/bookings/cancel-pending',
   useCheckoutHolds = false,
+  initialCheckoutHold = null,
   releaseHoldApiUrl = '/api/bookings/release-hold',
   checkoutLegal,
 }) => {
@@ -275,7 +286,12 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     (paymentMethods?.allowedCourses?.length ?? 0) > 0
   )
 
-  const capacityMaxQuantity = Math.max(1, timeslot.remainingCapacity || 1)
+  // Global remaining already subtracts this viewer's hold. Add it back so a reload
+  // that reserved one place does not stop them booking the rest.
+  const capacityMaxQuantity = maxBookableQuantity(
+    timeslot.remainingCapacity,
+    useCheckoutHolds ? initialCheckoutHold?.quantity : 0,
+  )
 
   const maxFromMaybeCap = (raw: unknown): number => {
     if (raw == null) return Infinity

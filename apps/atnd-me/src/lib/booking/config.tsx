@@ -6,6 +6,7 @@ import { getRequestHost, redirectToManageIfMultipleBookings } from './utils'
 import { getCheckoutLegalForTenant } from '@/lib/checkout/getCheckoutLegalForTenant'
 import type { CheckoutLegalConfig } from '@repo/payments-next'
 import type { Timeslot } from '@repo/shared-types'
+import type { ViewerCheckoutHold } from '@repo/shared-utils/booking-capacity'
 
 async function getCheckoutLegal(timeslot: Timeslot): Promise<CheckoutLegalConfig | null> {
   const tenantId =
@@ -26,12 +27,27 @@ async function BookingPageWithLegal({
   onSuccessRedirect?: string
 }) {
   const checkoutLegal = await getCheckoutLegal(timeslot)
+  let initialCheckoutHold: ViewerCheckoutHold | null = null
+  try {
+    const caller = await createCaller()
+    const hold = await caller.bookings.getActiveCheckoutHold({ timeslotId: timeslot.id })
+    if (hold && hold.quantity > 0) {
+      initialCheckoutHold = {
+        id: hold.id,
+        quantity: hold.quantity,
+        expiresAt: hold.expiresAt,
+      }
+    }
+  } catch {
+    initialCheckoutHold = null
+  }
   return (
     <BookingPageClientSmart
       timeslot={timeslot}
       onSuccessRedirect={onSuccessRedirect}
       PaymentMethodsComponent={PaymentMethodsConnect}
       useCheckoutHolds={true}
+      initialCheckoutHold={initialCheckoutHold}
       releaseHoldApiUrl="/api/bookings/release-hold"
       cancelPendingApiUrl="/api/bookings/cancel-pending"
       checkoutLegal={checkoutLegal ?? undefined}

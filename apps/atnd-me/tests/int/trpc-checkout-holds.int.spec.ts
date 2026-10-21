@@ -162,4 +162,64 @@ describe('tRPC checkout holds', () => {
     },
     HOOK_TIMEOUT,
   )
+
+  it(
+    'hold owner can book both places on a 2-place slot after their checkout hold of one is active',
+    async () => {
+      const hasHoldCollection = payload.config.collections?.some(
+        (c) => c.slug === 'booking-checkout-holds',
+      )
+      if (!hasHoldCollection) return
+
+      const eventType = (await payload.create({
+        collection: 'event-types',
+        data: {
+          name: 'Two Place Hold Class',
+          places: 2,
+          description: 'Own hold must not block the owner',
+          tenant: testTenant.id,
+        },
+        overrideAccess: true,
+      })) as EventType
+
+      const { date, startTime, endTime, lockOutTime, active } = defaultTimeslotFields(4)
+      const twoPlaceSlot = (await payload.create({
+        collection: 'timeslots',
+        data: {
+          eventType: eventType.id,
+          date,
+          startTime,
+          endTime,
+          tenant: testTenant.id,
+          active,
+          lockOutTime,
+        },
+        overrideAccess: true,
+      })) as Timeslot
+
+      const caller = await createCaller(user)
+      await caller.bookings.upsertCheckoutHold({
+        timeslotId: twoPlaceSlot.id as number,
+        quantity: 1,
+      })
+
+      const withHold = await payload.findByID({
+        collection: 'timeslots',
+        id: twoPlaceSlot.id as number,
+        depth: 0,
+        overrideAccess: true,
+      })
+      // Global remaining subtracts the viewer's own hold: 2 places − 1 hold = 1.
+      expect(withHold.remainingCapacity).toBe(1)
+
+      const bookings = await caller.bookings.createBookings({
+        timeslotId: twoPlaceSlot.id as number,
+        quantity: 2,
+        status: 'confirmed',
+      })
+
+      expect(bookings).toHaveLength(2)
+    },
+    HOOK_TIMEOUT,
+  )
 })
