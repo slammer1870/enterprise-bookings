@@ -9,6 +9,10 @@ import { QuantitySelector } from './quantity-selector'
 import { BookingForm } from './booking-form'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@repo/ui/components/ui/card'
 import type { CheckoutLegalConfig } from '@repo/payments-next'
+import {
+  maxBookableQuantity,
+  type ViewerCheckoutHold,
+} from '@repo/shared-utils/booking-capacity'
 
 type PaymentMethodsLike = {
   allowedDropIn?: {
@@ -87,6 +91,12 @@ interface BookingPageClientSmartProps {
   /** When true, release checkout holds on leave instead of cancelling pending bookings. */
   useCheckoutHolds?: boolean
 
+  /**
+   * Viewer's active checkout hold. `timeslot.remainingCapacity` already subtracts it;
+   * the quantity cap adds it back so the owner can still book those places.
+   */
+  initialCheckoutHold?: ViewerCheckoutHold | null
+
   /** API route for keepalive hold release on navigation (defaults to `/api/bookings/release-hold`). */
   releaseHoldApiUrl?: string
 
@@ -100,6 +110,7 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   PaymentMethodsComponent,
   cancelPendingApiUrl = '/api/bookings/cancel-pending',
   useCheckoutHolds = false,
+  initialCheckoutHold = null,
   releaseHoldApiUrl = '/api/bookings/release-hold',
   checkoutLegal,
 }) => {
@@ -117,8 +128,16 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   }, [quantity])
 
   const paymentRedirectInProgressRef = useRef(false)
-  /** Bumped on unmount so in-flight hold upserts after leave are rolled back. */
+  /** Bumped on leave so in-flight hold upserts after abandon are rolled back. */
   const checkoutSessionRef = useRef(0)
+  /**
+   * A refresh fires the same pagehide/beforeunload events as leaving the site.
+   * Releasing on refresh races the next document: capacity still counts the
+   * hold, then the hold is gone, so the owner sees one place instead of two.
+   * Only navigationType "reload" sets this. A full navigation away, tab close,
+   * and in-app unmount still release.
+   */
+  const reloadingRef = useRef(false)
 
   if (!timeslot?.id) {
     return (
@@ -192,7 +211,10 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     ],
   )
 
-  // When user leaves the booking page, cancel pending bookings or release checkout holds
+  // In-app navigation releases a checkout hold. A document reload must not:
+  // beforeunload would drop the hold while the next render still counts it.
+  // pagehide also fires when the browser leaves for another URL, so that path
+  // still releases unless the Navigation API reported a reload.
   useEffect(() => {
     const timeslotId = timeslot.id
 
@@ -224,24 +246,31 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
       }).catch(() => {})
     }
 
-    const handlePageHide = () => {
+    const onNavigate = (event: Event) => {
+      const navigationType = (event as Event & { navigationType?: string }).navigationType
+      if (navigationType === 'reload') reloadingRef.current = true
+    }
+
+    const onPageExit = () => {
+      // Refresh keeps the hold for the next document. Every other exit releases.
+      if (useCheckoutHolds && reloadingRef.current) return
       checkoutSessionRef.current += 1
       postAbandonViaApi(true)
     }
 
-    const handleBeforeUnload = () => {
-      checkoutSessionRef.current += 1
-      postAbandonViaApi(true)
-    }
-
-    window.addEventListener('pagehide', handlePageHide)
-    window.addEventListener('beforeunload', handleBeforeUnload)
+    const navigation = (window as Window & { navigation?: EventTarget }).navigation
+    navigation?.addEventListener('navigate', onNavigate)
+    window.addEventListener('pagehide', onPageExit)
+    window.addEventListener('beforeunload', onPageExit)
 
     return () => {
-      checkoutSessionRef.current += 1
-      window.removeEventListener('pagehide', handlePageHide)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
+      const reloading = useCheckoutHolds && reloadingRef.current
+      navigation?.removeEventListener('navigate', onNavigate)
+      window.removeEventListener('pagehide', onPageExit)
+      window.removeEventListener('beforeunload', onPageExit)
       if (paymentRedirectInProgressRef.current) return
+      if (reloading) return
+      checkoutSessionRef.current += 1
       postAbandonViaApi(false)
 
       if (!useCheckoutHolds) {
@@ -275,7 +304,12 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     (paymentMethods?.allowedCourses?.length ?? 0) > 0
   )
 
-  const capacityMaxQuantity = Math.max(1, timeslot.remainingCapacity || 1)
+  // Global remaining already subtracts this viewer's hold. Add it back so a reload
+  // that reserved one place does not stop them booking the rest.
+  const capacityMaxQuantity = maxBookableQuantity(
+    timeslot.remainingCapacity,
+    useCheckoutHolds ? initialCheckoutHold?.quantity : 0,
+  )
 
   const maxFromMaybeCap = (raw: unknown): number => {
     if (raw == null) return Infinity

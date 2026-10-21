@@ -6,6 +6,7 @@ import {
   createCallerForBooking,
   requireAuthForBooking,
 } from '@/lib/booking'
+import type { ViewerCheckoutHold } from '@repo/shared-utils/booking-capacity'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,7 +30,7 @@ export default async function ManageBookingPage({ params }: ManageBookingPagePro
   try {
     const timeslot = await caller.timeslots.getById({ id })
 
-    let initialCheckoutHold: { id: number; quantity: number; expiresAt: string } | null = null
+    let initialCheckoutHold: ViewerCheckoutHold | null = null
     try {
       initialCheckoutHold = await caller.bookings.getActiveCheckoutHold({ timeslotId: id })
     } catch {

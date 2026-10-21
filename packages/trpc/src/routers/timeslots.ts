@@ -24,7 +24,11 @@ import { resolveGetByDateBranch } from "../utils/scheduleBranch";
 
 import { EventType, Timeslot, TimeslotScheduleState, ScheduleTimeslot } from "@repo/shared-types";
 import { hasConfirmedBookingForTenant } from "@repo/bookings-plugin";
-import { hasUsedDropInProduct } from "@repo/bookings-payments";
+import {
+  hasUsedDropInProduct,
+  getActiveCheckoutHold as getActiveCheckoutHoldService,
+  CHECKOUT_HOLD_COLLECTION_SLUG,
+} from "@repo/bookings-payments";
 import {
   checkRole,
   getDayRange,
@@ -270,11 +274,13 @@ export const timeslotsRouter = {
       }
 
       // Validate remaining capacity - but allow access if the user has pending bookings
-      // for this timeslot so they can return to the page and complete payment
+      // for this timeslot so they can return to the page and complete payment.
+      // Global remaining also subtracts the viewer's own checkout hold. That hold is
+      // not a booking, so reload must still load unless confirmed bookings filled the class.
       if (timeslot.remainingCapacity <= 0 || timeslot.bookingStatus === "waitlist") {
-        if (hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
-          const userId = typeof ctx.user?.id === "string" ? parseInt(ctx.user.id, 10) : ctx.user?.id;
-          if (userId && !Number.isNaN(userId)) {
+        const userId = typeof ctx.user?.id === "string" ? parseInt(ctx.user.id, 10) : ctx.user?.id;
+        if (userId && !Number.isNaN(userId)) {
+          if (hasCollection(ctx.payload, ctx.bookingsSlugs.bookings)) {
             const timeslotTenantId = tenantId ?? deriveTenantIdFromTimeslot(timeslot);
             const userPending = await findSafe(ctx.payload, ctx.bookingsSlugs.bookings, {
               where: {
@@ -292,6 +298,21 @@ export const timeslotsRouter = {
             });
             if (userPending.docs.length > 0) {
               // User has pending bookings; allow through so they can complete checkout
+              return timeslot;
+            }
+          }
+
+          // Waitlist means confirmed bookings already fill the class. A hold must not
+          // reopen that. Someone else's hold leaves this viewer with no active hold.
+          if (
+            timeslot.bookingStatus !== "waitlist" &&
+            hasCollection(ctx.payload, CHECKOUT_HOLD_COLLECTION_SLUG)
+          ) {
+            const activeHold = await getActiveCheckoutHoldService(ctx.payload, {
+              timeslotId: input.id,
+              userId,
+            });
+            if ((activeHold?.quantity ?? 0) > 0) {
               return timeslot;
             }
           }

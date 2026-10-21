@@ -19,6 +19,7 @@ import { toast } from 'sonner'
 import { Loader2, Minus, Plus, Trash2 } from 'lucide-react'
 import { useConfirm } from '@repo/ui/components/ui/use-confirm'
 import { format } from 'date-fns'
+import type { ViewerCheckoutHold } from '@repo/shared-utils/booking-capacity'
 
 const DEFAULT_CANCEL_MESSAGE =
   'This booking will be cancelled without a refund or class-pass credit restore.'
@@ -184,7 +185,7 @@ interface ManageBookingPageClientProps {
   cancelPendingApiUrl?: string
   releaseHoldApiUrl?: string
   useCheckoutHolds?: boolean
-  initialCheckoutHold?: { id: number; quantity: number; expiresAt: string } | null
+  initialCheckoutHold?: ViewerCheckoutHold | null
   /** Redirect URL after successful payment. Defaults to /dashboard. */
   successUrl?: string
 }
@@ -268,11 +269,9 @@ export const ManageBookingPageClient: React.FC<ManageBookingPageClientProps> = (
     [useCheckoutHolds, initialBookings],
   )
 
-  const [checkoutHold, setCheckoutHold] = useState<{
-    id: number
-    quantity: number
-    expiresAt: string
-  } | null>(initialCheckoutHold)
+  const [checkoutHold, setCheckoutHold] = useState<ViewerCheckoutHold | null>(
+    initialCheckoutHold,
+  )
 
   const [isInCheckout, setIsInCheckout] = useState(
     () =>

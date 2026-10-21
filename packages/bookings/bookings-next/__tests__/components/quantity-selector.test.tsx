@@ -37,11 +37,11 @@ describe('QuantitySelector', () => {
     )
 
     expect(screen.getByText('Number of Slots')).toBeInTheDocument()
-    expect(screen.getByText('5 slots available')).toBeInTheDocument()
+    expect(screen.getByText('5 places remaining')).toBeInTheDocument()
     expect(screen.getByText('1')).toBeInTheDocument() // Displayed quantity
   })
 
-  it('displays singular form when only 1 slot available', () => {
+  it('displays singular form when only 1 place remains', () => {
     const lesson = createMockTimeslot(1)
     const onQuantityChange = vi.fn()
 
@@ -53,7 +53,7 @@ describe('QuantitySelector', () => {
       />
     )
 
-    expect(screen.getByText('1 slot available')).toBeInTheDocument()
+    expect(screen.getByText('1 place remaining')).toBeInTheDocument()
   })
 
   it('calls onQuantityChange when increase button is clicked', async () => {
@@ -190,7 +190,7 @@ describe('QuantitySelector', () => {
     )
 
     // Should default to 1 when capacity is 0
-    expect(screen.getByText('1 slot available')).toBeInTheDocument()
+    expect(screen.getByText('1 place remaining')).toBeInTheDocument()
     // No +/- buttons are shown when quantity cannot be adjusted
     expect(screen.queryByLabelText('Increase quantity')).toBeNull()
     expect(screen.queryByLabelText('Decrease quantity')).toBeNull()

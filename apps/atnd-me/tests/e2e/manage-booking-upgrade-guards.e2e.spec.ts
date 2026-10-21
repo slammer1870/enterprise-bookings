@@ -352,7 +352,7 @@ test.describe('Manage booking upgrade guards', () => {
           lessonId: lesson.id,
         })
 
-        await expect(page.getByText(/1 slot available/i)).toBeVisible({ timeout: 10000 })
+        await expect(page.getByText(/1 place remaining/i)).toBeVisible({ timeout: 10000 })
         await expect(page.getByRole('button', { name: /increase quantity/i })).toHaveCount(0)
 
         await createTestBooking(user.id, lesson.id, 'confirmed')
