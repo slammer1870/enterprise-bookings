@@ -128,15 +128,16 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   }, [quantity])
 
   const paymentRedirectInProgressRef = useRef(false)
-  /** Bumped on unmount so in-flight hold upserts after leave are rolled back. */
+  /** Bumped on leave so in-flight hold upserts after abandon are rolled back. */
   const checkoutSessionRef = useRef(0)
   /**
-   * Reload and tab close fire pagehide/beforeunload. Releasing the hold there
-   * races the next document: capacity still counts the hold, then the hold is
-   * gone, so the owner sees one place instead of two. In-app navigation does
-   * not set this and still releases on unmount.
+   * A refresh fires the same pagehide/beforeunload events as leaving the site.
+   * Releasing on refresh races the next document: capacity still counts the
+   * hold, then the hold is gone, so the owner sees one place instead of two.
+   * Only navigationType "reload" sets this. A full navigation away, tab close,
+   * and in-app unmount still release.
    */
-  const pageUnloadingRef = useRef(false)
+  const reloadingRef = useRef(false)
 
   if (!timeslot?.id) {
     return (
@@ -210,8 +211,10 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     ],
   )
 
-  // In-app navigation releases a checkout hold. Reload must not: beforeunload
-  // would drop the hold while the next render still counts it.
+  // In-app navigation releases a checkout hold. A document reload must not:
+  // beforeunload would drop the hold while the next render still counts it.
+  // pagehide also fires when the browser leaves for another URL, so that path
+  // still releases unless the Navigation API reported a reload.
   useEffect(() => {
     const timeslotId = timeslot.id
 
@@ -243,23 +246,31 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
       }).catch(() => {})
     }
 
-    const markPageUnloading = () => {
-      pageUnloadingRef.current = true
-      checkoutSessionRef.current += 1
-      if (!useCheckoutHolds) postAbandonViaApi(true)
+    const onNavigate = (event: Event) => {
+      const navigationType = (event as Event & { navigationType?: string }).navigationType
+      if (navigationType === 'reload') reloadingRef.current = true
     }
 
-    window.addEventListener('pagehide', markPageUnloading)
-    window.addEventListener('beforeunload', markPageUnloading)
+    const onPageExit = () => {
+      // Refresh keeps the hold for the next document. Every other exit releases.
+      if (useCheckoutHolds && reloadingRef.current) return
+      checkoutSessionRef.current += 1
+      postAbandonViaApi(true)
+    }
+
+    const navigation = (window as Window & { navigation?: EventTarget }).navigation
+    navigation?.addEventListener('navigate', onNavigate)
+    window.addEventListener('pagehide', onPageExit)
+    window.addEventListener('beforeunload', onPageExit)
 
     return () => {
-      const unloading = pageUnloadingRef.current
-      checkoutSessionRef.current += 1
-      window.removeEventListener('pagehide', markPageUnloading)
-      window.removeEventListener('beforeunload', markPageUnloading)
+      const reloading = useCheckoutHolds && reloadingRef.current
+      navigation?.removeEventListener('navigate', onNavigate)
+      window.removeEventListener('pagehide', onPageExit)
+      window.removeEventListener('beforeunload', onPageExit)
       if (paymentRedirectInProgressRef.current) return
-      // Reload keeps the checkout hold. Leaving this route still releases it.
-      if (unloading && useCheckoutHolds) return
+      if (reloading) return
+      checkoutSessionRef.current += 1
       postAbandonViaApi(false)
 
       if (!useCheckoutHolds) {

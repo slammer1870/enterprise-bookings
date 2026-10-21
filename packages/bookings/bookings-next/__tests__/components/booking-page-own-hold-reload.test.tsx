@@ -104,22 +104,46 @@ function installReleaseRecorder() {
   return calls
 }
 
+/** Chromium reports a refresh as navigationType "reload" before pagehide. */
+function installNavigation() {
+  const navigation = new EventTarget()
+  Object.defineProperty(window, 'navigation', {
+    configurable: true,
+    writable: true,
+    value: navigation,
+  })
+  return navigation
+}
+
+function dispatchNavigation(navigation: EventTarget, navigationType: 'reload' | 'push') {
+  const event = new Event('navigate', { cancelable: true })
+  Object.defineProperty(event, 'navigationType', { value: navigationType })
+  navigation.dispatchEvent(event)
+}
+
+function leaveDocument() {
+  window.dispatchEvent(new Event('beforeunload'))
+  window.dispatchEvent(new Event('pagehide'))
+}
+
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.clearAllMocks()
+  Reflect.deleteProperty(window, 'navigation')
 })
 
 describe('Booking page reload — two places, viewer owns one hold', () => {
   it('keeps the hold on reload and still shows two adjustable places', () => {
     const releaseCalls = installReleaseRecorder()
+    const navigation = installNavigation()
 
     const firstVisit = renderBookingPage(2)
     expect(screen.getByText('2 places remaining')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /increase quantity/i })).toBeEnabled()
 
-    // Browser reload fires these before the next document is rendered.
-    window.dispatchEvent(new Event('beforeunload'))
-    window.dispatchEvent(new Event('pagehide'))
+    // A refresh is a reload. pagehide alone is also how a full navigation away starts.
+    dispatchNavigation(navigation, 'reload')
+    leaveDocument()
     firstVisit.unmount()
 
     expect(releaseCalls).not.toContain(RELEASE_URL)
@@ -130,5 +154,27 @@ describe('Booking page reload — two places, viewer owns one hold', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /increase quantity/i }))
     expect(screen.getByText('2')).toBeInTheDocument()
+  })
+
+  it('releases the hold when the document unloads to another page', () => {
+    const releaseCalls = installReleaseRecorder()
+    const navigation = installNavigation()
+
+    const view = renderBookingPage(2, ownHold)
+    dispatchNavigation(navigation, 'push')
+    leaveDocument()
+    view.unmount()
+
+    expect(releaseCalls).toContain(RELEASE_URL)
+  })
+
+  it('releases the hold on an in-app leave that never fires pagehide', () => {
+    const releaseCalls = installReleaseRecorder()
+    installNavigation()
+
+    const view = renderBookingPage(2, ownHold)
+    view.unmount()
+
+    expect(releaseCalls).toContain(RELEASE_URL)
   })
 })
