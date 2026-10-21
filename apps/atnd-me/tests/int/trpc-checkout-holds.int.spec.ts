@@ -222,4 +222,78 @@ describe('tRPC checkout holds', () => {
     },
     HOOK_TIMEOUT,
   )
+
+  it(
+    'reloading the booking page still loads when the viewer checkout hold filled the last place',
+    async () => {
+      const hasHoldCollection = payload.config.collections?.some(
+        (c) => c.slug === 'booking-checkout-holds',
+      )
+      if (!hasHoldCollection) return
+
+      // One place. Checkout reserves it, so a reload sees remaining capacity 0.
+      // That place is this viewer's hold — the booking page must still load for them.
+      const eventType = (await payload.create({
+        collection: 'event-types',
+        data: {
+          name: 'Last Place Hold Class',
+          places: 1,
+          description: 'Owner hold must not look fully booked on reload',
+          tenant: testTenant.id,
+        },
+        overrideAccess: true,
+      })) as EventType
+
+      const { date, startTime, endTime, lockOutTime, active } = defaultTimeslotFields(5)
+      const lastPlaceSlot = (await payload.create({
+        collection: 'timeslots',
+        data: {
+          eventType: eventType.id,
+          date,
+          startTime,
+          endTime,
+          tenant: testTenant.id,
+          active,
+          lockOutTime,
+        },
+        overrideAccess: true,
+      })) as Timeslot
+
+      const owner = await createCaller(user)
+      await owner.bookings.upsertCheckoutHold({
+        timeslotId: lastPlaceSlot.id as number,
+        quantity: 1,
+      })
+
+      const withHold = await payload.findByID({
+        collection: 'timeslots',
+        id: lastPlaceSlot.id as number,
+        depth: 0,
+        overrideAccess: true,
+      })
+      expect(withHold.remainingCapacity).toBe(0)
+
+      const reloaded = await owner.timeslots.getByIdForBooking({
+        id: lastPlaceSlot.id as number,
+      })
+      expect(reloaded.id).toBe(lastPlaceSlot.id)
+
+      const other = (await payload.create({
+        collection: 'users',
+        data: {
+          name: 'Other Hold User',
+          email: `other-hold-${Date.now()}@test.com`,
+          password: 'test',
+          role: ['user'],
+          emailVerified: true,
+        },
+        overrideAccess: true,
+      })) as User
+      const otherCaller = await createCaller(other)
+      await expect(
+        otherCaller.timeslots.getByIdForBooking({ id: lastPlaceSlot.id as number }),
+      ).rejects.toThrow('This timeslot is fully booked')
+    },
+    HOOK_TIMEOUT,
+  )
 })

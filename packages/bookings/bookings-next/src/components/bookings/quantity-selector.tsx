@@ -47,8 +47,8 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
           <Label>Number of Slots</Label>
           <p className="text-sm text-muted-foreground">
             {maxQuantity === 1
-              ? '1 slot available'
-              : `${maxQuantity} slots available`}
+              ? '1 place remaining'
+              : `${maxQuantity} places remaining`}
           </p>
         </div>
         {canAdjustQuantity ? (
@@ -85,7 +85,7 @@ export const QuantitySelector: React.FC<QuantitySelectorProps> = ({
       </div>
       {quantity > maxQuantity && (
         <p className="text-sm text-destructive">
-          Maximum {maxQuantity} slot{maxQuantity !== 1 ? 's' : ''} available
+          Maximum {maxQuantity} place{maxQuantity !== 1 ? 's' : ''} remaining
         </p>
       )}
     </div>

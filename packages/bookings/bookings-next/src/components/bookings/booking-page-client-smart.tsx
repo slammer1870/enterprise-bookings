@@ -130,6 +130,13 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
   const paymentRedirectInProgressRef = useRef(false)
   /** Bumped on unmount so in-flight hold upserts after leave are rolled back. */
   const checkoutSessionRef = useRef(0)
+  /**
+   * Reload and tab close fire pagehide/beforeunload. Releasing the hold there
+   * races the next document: capacity still counts the hold, then the hold is
+   * gone, so the owner sees one place instead of two. In-app navigation does
+   * not set this and still releases on unmount.
+   */
+  const pageUnloadingRef = useRef(false)
 
   if (!timeslot?.id) {
     return (
@@ -203,7 +210,8 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
     ],
   )
 
-  // When user leaves the booking page, cancel pending bookings or release checkout holds
+  // In-app navigation releases a checkout hold. Reload must not: beforeunload
+  // would drop the hold while the next render still counts it.
   useEffect(() => {
     const timeslotId = timeslot.id
 
@@ -235,24 +243,23 @@ export const BookingPageClientSmart: React.FC<BookingPageClientSmartProps> = ({
       }).catch(() => {})
     }
 
-    const handlePageHide = () => {
+    const markPageUnloading = () => {
+      pageUnloadingRef.current = true
       checkoutSessionRef.current += 1
-      postAbandonViaApi(true)
+      if (!useCheckoutHolds) postAbandonViaApi(true)
     }
 
-    const handleBeforeUnload = () => {
-      checkoutSessionRef.current += 1
-      postAbandonViaApi(true)
-    }
-
-    window.addEventListener('pagehide', handlePageHide)
-    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', markPageUnloading)
+    window.addEventListener('beforeunload', markPageUnloading)
 
     return () => {
+      const unloading = pageUnloadingRef.current
       checkoutSessionRef.current += 1
-      window.removeEventListener('pagehide', handlePageHide)
-      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', markPageUnloading)
+      window.removeEventListener('beforeunload', markPageUnloading)
       if (paymentRedirectInProgressRef.current) return
+      // Reload keeps the checkout hold. Leaving this route still releases it.
+      if (unloading && useCheckoutHolds) return
       postAbandonViaApi(false)
 
       if (!useCheckoutHolds) {
