@@ -52,8 +52,8 @@ import { default as default_a5117e5f562e81a9d1ce48d0eee41679 } from '@/component
 import { default as default_abb3478227777dca3f79955efb5fd481 } from '@/components/admin/EmailDomainDnsInstructions'
 import { default as default_33fe04c6d27fadf8c7acaa77721ae6da } from '@/components/admin/StripeConnectStatus'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
-import { DiscountCodeValueField as DiscountCodeValueField_41b58f2146d9fbeafdf93dc3f6f448c2 } from '@/components/admin/DiscountCodeValueField'
 import { CreateStripeSubscriptionButton as CreateStripeSubscriptionButton_ed3014cce3aceb51cef0b2454cfe3a0b } from '@/components/admin/CreateStripeSubscriptionButton'
+import { DiscountCodeValueField as DiscountCodeValueField_41b58f2146d9fbeafdf93dc3f6f448c2 } from '@/components/admin/DiscountCodeValueField'
 import { HexColorField as HexColorField_ca548eebdfa866ec41325bf80e7732ed } from '@repo/website/src/admin/HexColorField'
 import { MultiLocationOnlyRelationshipField as MultiLocationOnlyRelationshipField_0b514c4784cda3a47f7469391b2c945a } from '@/components/admin/MultiLocationOnlyRelationshipField'
 import { BookingThemePreviewField as BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b } from '@/components/admin/booking-theme/BookingThemePreviewField'
@@ -152,8 +152,8 @@ export const importMap = {
   "@/components/admin/EmailDomainDnsInstructions#default": default_abb3478227777dca3f79955efb5fd481,
   "@/components/admin/StripeConnectStatus#default": default_33fe04c6d27fadf8c7acaa77721ae6da,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
-  "@/components/admin/DiscountCodeValueField#DiscountCodeValueField": DiscountCodeValueField_41b58f2146d9fbeafdf93dc3f6f448c2,
   "@/components/admin/CreateStripeSubscriptionButton#CreateStripeSubscriptionButton": CreateStripeSubscriptionButton_ed3014cce3aceb51cef0b2454cfe3a0b,
+  "@/components/admin/DiscountCodeValueField#DiscountCodeValueField": DiscountCodeValueField_41b58f2146d9fbeafdf93dc3f6f448c2,
   "@repo/website/src/admin/HexColorField#HexColorField": HexColorField_ca548eebdfa866ec41325bf80e7732ed,
   "@/components/admin/MultiLocationOnlyRelationshipField#MultiLocationOnlyRelationshipField": MultiLocationOnlyRelationshipField_0b514c4784cda3a47f7469391b2c945a,
   "@/components/admin/booking-theme/BookingThemePreviewField#BookingThemePreviewField": BookingThemePreviewField_f99cc0d8c8277a77a8081b913025d90b,
