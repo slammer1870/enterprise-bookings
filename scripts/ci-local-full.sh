@@ -4,6 +4,24 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Prepend disposable Corepack shims so Turbo's nested scripts use the pinned pnpm version.
+COREPACK_PNPM_SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/enterprise-bookings-corepack.XXXXXX")"
+trap 'if [[ -d "${COREPACK_PNPM_SHIM_DIR:-}" ]]; then rm -rf -- "$COREPACK_PNPM_SHIM_DIR"; fi' EXIT
+
+corepack enable --install-directory "$COREPACK_PNPM_SHIM_DIR" pnpm
+export PATH="$COREPACK_PNPM_SHIM_DIR:$PATH"
+
+EXPECTED_PNPM_VERSION="$(node -p "require('./package.json').packageManager.replace(/^pnpm@/, '')")"
+# Match Turbo's execution model: a child shell starts inside a workspace package.
+CHILD_PNPM_VERSION="$(cd apps/atnd-me && pnpm --version)"
+if [[ "$CHILD_PNPM_VERSION" != "$EXPECTED_PNPM_VERSION" ]]; then
+  echo "Expected pnpm $EXPECTED_PNPM_VERSION from Corepack, got $CHILD_PNPM_VERSION"
+  exit 1
+fi
+echo "Using pnpm $CHILD_PNPM_VERSION via temporary Corepack shim (verified from apps/atnd-me child shell)"
+
+if [[ "${1:-}" == "--verify-pnpm-shim" ]]; then exit 0; fi
+
 # Shared CI env (matches GitHub Actions where applicable).
 export PAYLOAD_SECRET="${PAYLOAD_SECRET:-test-secret-key-for-ci-builds-only}"
 export STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY:-sk_test_1234567890}"
