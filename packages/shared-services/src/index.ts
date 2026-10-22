@@ -2,6 +2,8 @@ export * from "./timeslot";
 export * from "./subscription";
 export * from "./user";
 export * from "./class-pass-valid-for-lesson";
+export * from "./event-type-allowance";
+export * from "./product-allow-list";
 export * from "./course-enrollment-valid-for-timeslot";
 export * from "./course-enrollment-booking-fields";
 

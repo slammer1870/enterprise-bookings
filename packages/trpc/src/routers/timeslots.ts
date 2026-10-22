@@ -29,6 +29,7 @@ import {
   getActiveCheckoutHold as getActiveCheckoutHoldService,
   CHECKOUT_HOLD_COLLECTION_SLUG,
 } from "@repo/bookings-payments";
+import { allowListsByEventTypeId } from "@repo/shared-services";
 import {
   checkRole,
   getDayRange,
@@ -751,9 +752,24 @@ export const timeslotsRouter = {
             overrideAccess: true,
             req: queryOptions.req,
           });
+          const allowLists = await allowListsByEventTypeId(ctx.payload, eventTypeIds, {
+            tenantId: tenantId ?? null,
+          });
           (eventTypes.docs as any[]).forEach((co) => {
             const id = relationId(co?.id);
             if (!id) return;
+            const lists = allowLists.get(id);
+            if (lists) {
+              const pm =
+                co.paymentMethods && typeof co.paymentMethods === "object"
+                  ? co.paymentMethods
+                  : {};
+              co.paymentMethods = {
+                ...pm,
+                allowedPlans: lists.plans,
+                allowedClassPasses: lists.classPassTypes,
+              };
+            }
             eventTypesById.set(id, sanitizeEventType(co));
           });
         }

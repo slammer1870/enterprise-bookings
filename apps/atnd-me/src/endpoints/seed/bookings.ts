@@ -337,7 +337,6 @@ export async function seedBookings({
         name: 'Wood fired sauna (50 min)',
         places: 12,
         description: '50-minute sauna. Pay by card or use Sauna Only / All Access pass.',
-        paymentMethods: { allowedClassPasses: [saunaOnlyId, allAccessId] },
       },
       tenant.id,
       { draft: false, overrideAccess: true },
@@ -348,13 +347,22 @@ export async function seedBookings({
         name: 'Wood fired sauna (30 min)',
         places: 8,
         description: '30-minute sauna. Sauna Only or All Access pass only.',
-        paymentMethods: { allowedClassPasses: [saunaOnlyId, allAccessId] },
       },
       tenant.id,
       { draft: false, overrideAccess: true },
     )
     allEventTypes.push(opt50 as EventType, opt30 as EventType)
     const opt50Id = getId(opt50)
+    const opt30Id = getId(opt30)
+    for (const passId of [saunaOnlyId, allAccessId]) {
+      await payload.update({
+        collection: 'class-pass-types',
+        id: passId,
+        data: { allowedEventTypes: [opt50Id, opt30Id] },
+        req,
+        overrideAccess: true,
+      })
+    }
 
     const pastTimeslots: { id: number }[] = []
     for (let d = 1; d <= 21; d++) {

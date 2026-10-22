@@ -1385,11 +1385,6 @@ async function migrateEventTypes(
               if (allowedDropIn == null) return null
               return (maps.dropInIdMap.get(allowedDropIn as any) ?? allowedDropIn) as any
             })(),
-            allowedPlans: (() => {
-              const allowedPlans = getObjValue(sourcePm, 'allowedPlans')
-              const arr = Array.isArray(allowedPlans) ? allowedPlans : []
-              return (arr.map((id) => maps.planIdMap.get(id as any) ?? id) as any) as any
-            })(),
           }
         : undefined
 
@@ -1422,6 +1417,38 @@ async function migrateEventTypes(
       overrideAccess: true,
     } as any)
     maps.classOptionIdMap.set(sourceId, created.id as Id)
+
+    const sourceAllowedPlans =
+      args.includePaymentMethods && canEnablePayments && sourcePm
+        ? getObjValue(sourcePm, 'allowedPlans')
+        : null
+    const mappedPlanIds = (Array.isArray(sourceAllowedPlans) ? sourceAllowedPlans : [])
+      .map((id) => maps.planIdMap.get(id as any) ?? id)
+      .filter((id): id is Id => id != null)
+    for (const planId of mappedPlanIds) {
+      const plan = await payload.findByID({
+        collection: 'plans',
+        id: planId as any,
+        depth: 0,
+        overrideAccess: true,
+        req,
+      })
+      const existing = (Array.isArray((plan as { allowedEventTypes?: unknown }).allowedEventTypes)
+        ? (plan as { allowedEventTypes: unknown[] }).allowedEventTypes
+        : []
+      )
+        .map((entry) => (typeof entry === 'object' && entry && 'id' in entry ? (entry as { id: Id }).id : entry))
+        .filter((id): id is Id => typeof id === 'number' || typeof id === 'string')
+      if (!existing.includes(created.id as Id)) {
+        await payload.update({
+          collection: 'plans',
+          id: planId as any,
+          data: { allowedEventTypes: [...existing, created.id] },
+          req,
+          overrideAccess: true,
+        })
+      }
+    }
   }
 }
 

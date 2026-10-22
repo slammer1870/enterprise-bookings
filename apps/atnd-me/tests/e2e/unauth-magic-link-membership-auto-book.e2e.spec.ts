@@ -97,9 +97,14 @@ test.describe('Unauth magic link booking with active membership', () => {
       data: {
         paymentMethods: {
           allowedDropIn: dropIn.id,
-          allowedPlans: [plan.id],
         },
       },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 
@@ -424,9 +429,14 @@ test.describe('Unauth magic link booking with active membership', () => {
       data: {
         paymentMethods: {
           allowedDropIn: dropIn.id,
-          allowedPlans: [plan.id],
         },
       },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 

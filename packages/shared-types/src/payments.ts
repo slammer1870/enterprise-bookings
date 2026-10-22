@@ -50,7 +50,15 @@ export interface Plan {
      * - `null`/`undefined` => no per-viewer limit (still bounded by event type capacity)
      */
     maxBookingsPerTimeslot?: number | null;
+    eventTypeOverrides?:
+      | {
+          id?: string | null;
+          eventType?: number | { id: number } | null;
+          sessions?: number | null;
+        }[]
+      | null;
   } | null;
+  allowedEventTypes?: Array<number | { id: number }> | null;
   priceInformation?: {
     price: number;
     intervalCount: number;

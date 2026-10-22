@@ -191,6 +191,7 @@ import * as migration_20260928_000004_fix_kyuzo_hero_color_columns from './20260
 import * as migration_20260928_000005_kyuzo_hero_ctas_array from './20260928_000005_kyuzo_hero_ctas_array'
 import * as migration_20261020_000001_booking_transactions_branch_id from './20261020_000001_booking_transactions_branch_id'
 import * as migration_20261020_000002_branch_ledger_columns from './20261020_000002_branch_ledger_columns'
+import * as migration_20261022_000001_product_allowed_event_types from './20261022_000001_product_allowed_event_types'
 
 export const migrations = [
   {
@@ -1157,5 +1158,10 @@ export const migrations = [
     up: migration_20261020_000002_branch_ledger_columns.up,
     down: migration_20261020_000002_branch_ledger_columns.down,
     name: '20261020_000002_branch_ledger_columns',
+  },
+  {
+    up: migration_20261022_000001_product_allowed_event_types.up,
+    down: migration_20261022_000001_product_allowed_event_types.down,
+    name: '20261022_000001_product_allowed_event_types',
   },
 ]

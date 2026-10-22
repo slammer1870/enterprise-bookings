@@ -76,6 +76,42 @@ export function injectAllowedPlansIntoCollection(
 }
 
 /**
+ * Read-only list of class pass types whose allowedEventTypes includes this event type.
+ * Merchants edit the list on the class pass type.
+ */
+export function injectIncludingClassPassTypesJoin(collection: CollectionConfig): void {
+  injectPaymentMethodField(collection, "includingClassPassTypes", {
+    type: "join",
+    label: "Class passes that include this",
+    collection: "class-pass-types" as CollectionSlug,
+    on: "allowedEventTypes",
+    admin: {
+      readOnly: true,
+      description:
+        "Class pass types that can pay for this event type. Edit the list on the class pass type.",
+    },
+  });
+}
+
+/**
+ * Read-only list of memberships whose allowedEventTypes includes this event type.
+ * Merchants edit the list on the membership.
+ */
+export function injectIncludingPlansJoin(collection: CollectionConfig): void {
+  injectPaymentMethodField(collection, "includingPlans", {
+    type: "join",
+    label: "Memberships that include this",
+    collection: "plans" as CollectionSlug,
+    on: "allowedEventTypes",
+    admin: {
+      readOnly: true,
+      description:
+        "Memberships that can pay for this event type. Edit the list on the membership.",
+    },
+  });
+}
+
+/**
  * Injects or appends "allowedDropIn" into the paymentMethods group of the given collection.
  * Used when the drop-ins feature is enabled.
  */

@@ -201,10 +201,20 @@ test.describe('Booking page: payment method tab filtering by quantity', () => {
         data: {
           paymentMethods: {
             allowedDropIn: dropIn.id,
-            allowedPlans: [plan.id],
-            allowedClassPasses: [classPassType.id],
           },
         },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'plans',
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'class-pass-types',
+        id: classPassType.id,
+        data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
 
@@ -430,9 +440,14 @@ test.describe('Booking page: payment method tab filtering by quantity', () => {
         data: {
           paymentMethods: {
             allowedDropIn: dropIn.id,
-            allowedClassPasses: [classPassType.id],
           },
         },
+        overrideAccess: true,
+      })
+      await payload.update({
+        collection: 'class-pass-types',
+        id: classPassType.id,
+        data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
 

@@ -224,6 +224,14 @@ export interface ClassPassType {
    * - `null`/`undefined` => no per-viewer limit (still bounded by event type capacity)
    */
   maxBookingsPerTimeslot?: number | null;
+  allowedEventTypes?: Array<number | { id: number }> | null;
+  eventTypeOverrides?:
+    | {
+        id?: string | null;
+        eventType?: number | { id: number } | null;
+        quantity?: number | null;
+      }[]
+    | null;
   status?: "active" | "inactive" | null;
   priceInformation?: {
     price?: number | null;

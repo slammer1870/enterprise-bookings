@@ -6,6 +6,7 @@ import {
   classPassDeleteAccess,
 } from "../access/class-passes";
 import type { CollectionOverrides } from "../../types";
+import { snapshotClassPassCreditsOnCreate } from "../hooks/snapshot-class-pass-credits";
 
 const STATUS_OPTIONS = ["active", "expired", "used", "cancelled"] as const;
 
@@ -23,6 +24,7 @@ const defaultAccess: NonNullable<CollectionConfig["access"]> = {
 };
 
 export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
+  const eventTypesSlug = opts.eventTypesSlug ?? "event-types";
   const adminGroup = opts.adminGroup ?? "Billing";
   const overrides = opts.overrides;
 
@@ -49,7 +51,34 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
       type: "number",
       required: true,
       min: 0,
-      admin: { description: "Number of passes/credits remaining (original is on the pass type)" },
+      admin: {
+        description:
+          "Shared credits remaining for event types without their own row. Original allowance is on the pass type.",
+      },
+    },
+    {
+      name: "eventTypeOverrides",
+      label: "Per event type credits",
+      type: "array",
+      admin: {
+        description: "Remaining credits for event types that have their own allowance.",
+      },
+      fields: [
+        {
+          name: "eventType",
+          label: "Event type",
+          type: "relationship",
+          relationTo: eventTypesSlug as import("payload").CollectionSlug,
+          required: true,
+        },
+        {
+          name: "quantity",
+          label: "Remaining",
+          type: "number",
+          required: true,
+          min: 0,
+        },
+      ],
     },
     {
       name: "expirationDate",
@@ -93,6 +122,7 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
   ];
 
   const defaultHooks: NonNullable<CollectionConfig["hooks"]> = {
+    beforeChange: [snapshotClassPassCreditsOnCreate],
     beforeValidate: [
       async ({ data, operation }) => {
         if (operation === "create" && data?.expirationDate) {

@@ -5,6 +5,7 @@ import { findSafe, findByIdSafe, hasCollection } from "./collections";
 import { DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS } from "../bookings-slugs";
 import type { EventType, Timeslot } from "@repo/shared-types";
 import { resolveTimeZone } from "@repo/shared-utils";
+import { attachProductAllowLists, relationId } from "@repo/shared-services";
 
 export type TenantContext = {
   headers: Headers;
@@ -209,6 +210,8 @@ export async function populateTimeslotEventType(
       // Shallow-clone into plain objects to preserve explicit `null` values.
       const anyPop = populated as any;
       const plain: any = { ...anyPop };
+      const timeslotTenantId = relationId((timeslot as { tenant?: unknown }).tenant);
+      await attachProductAllowLists(payload, plain, { tenantId: timeslotTenantId });
 
       // Ensure `paymentMethods.allowedDropIn` includes `maxBookingsPerTimeslot`.
       // The manage-page quantity-cap logic uses:

@@ -9,6 +9,7 @@ import { checkRole } from "@repo/shared-utils";
 import type { AccessControls, HooksConfig, User } from "@repo/shared-types";
 import { beforeProductChange } from "../hooks/before-product-change";
 import type { MembershipBranchConfig } from "../types";
+import { relationId, relationIds, validateEventTypeOverrideRows } from "@repo/shared-services";
 
 const defaultLabels: Labels = {
   singular: "Membership",
@@ -27,7 +28,8 @@ const defaultAccess: AccessControls = {
   delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
 };
 
-const defaultFields: Field[] = [
+function planFields(eventTypesSlug: string): Field[] {
+  return [
   { name: "name", label: "Name", type: "text", required: true },
   {
     name: "features",
@@ -35,6 +37,17 @@ const defaultFields: Field[] = [
     label: "Features",
     admin: { description: "Features that are included in this plan" },
     fields: [{ name: "feature", label: "Feature", type: "text" }],
+  },
+  {
+    name: "allowedEventTypes",
+    label: "Allowed event types",
+    type: "relationship",
+    relationTo: eventTypesSlug as import("payload").CollectionSlug,
+    hasMany: true,
+    admin: {
+      description:
+        "Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types.",
+    },
   },
   {
     name: "sessionsInformation",
@@ -90,6 +103,45 @@ const defaultFields: Field[] = [
         type: "checkbox",
         required: false,
         admin: { hidden: true },
+      },
+      {
+        type: "collapsible",
+        label: "Advanced",
+        admin: { initCollapsed: true },
+        fields: [
+          {
+            name: "eventTypeOverrides",
+            label: "Per event type limits",
+            type: "array",
+            admin: {
+              description:
+                "Optional. A row replaces the shared session allowance for that event type only. The same period applies. It does not draw from the shared pool.",
+            },
+            fields: [
+              {
+                name: "eventType",
+                label: "Event type",
+                type: "relationship",
+                relationTo: eventTypesSlug as import("payload").CollectionSlug,
+                required: true,
+                filterOptions: ({ data }) => {
+                  const ids = relationIds(
+                    (data as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
+                  );
+                  if (ids.length === 0) return false;
+                  return { id: { in: ids } };
+                },
+              },
+              {
+                name: "sessions",
+                label: "Sessions",
+                type: "number",
+                required: true,
+                min: 1,
+              },
+            ],
+          },
+        ],
       },
     ],
   },
@@ -191,7 +243,8 @@ const defaultFields: Field[] = [
     admin: { description: "Skip syncing to Stripe" },
     required: false,
   },
-];
+  ];
+}
 
 const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
   if (!data || typeof data !== "object") return data;
@@ -214,6 +267,24 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
   ) {
     si.maxBookingsPerTimeslot = si.allowMultipleBookingsPerTimeslot ? null : 1;
   }
+
+  const doc = data as {
+    allowedEventTypes?: unknown;
+    sessionsInformation?: {
+      eventTypeOverrides?: Array<{ eventType?: unknown; sessions?: number | null }>;
+    };
+  };
+  const rows = Array.isArray(doc.sessionsInformation?.eventTypeOverrides)
+    ? doc.sessionsInformation.eventTypeOverrides
+    : [];
+  const validation = validateEventTypeOverrideRows({
+    allowedEventTypeIds: relationIds(doc.allowedEventTypes),
+    rows: rows.map((row) => ({
+      eventTypeId: relationId(row?.eventType),
+      count: typeof row?.sessions === "number" ? row.sessions : null,
+    })),
+  });
+  if (validation !== true) throw new Error(validation);
 
   return data;
 };
@@ -246,9 +317,13 @@ export function generatePlansCollection(
         ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
-    fields:
-      overrides?.fields && typeof overrides.fields === "function"
+    fields: (() => {
+      const eventTypesSlug =
+        config.eventTypesSlug ?? config.paymentMethodSlugs?.[0] ?? "event-types";
+      const defaultFields = planFields(eventTypesSlug);
+      return overrides?.fields && typeof overrides.fields === "function"
         ? overrides.fields({ defaultFields })
-        : defaultFields,
+        : defaultFields;
+    })(),
   };
 }

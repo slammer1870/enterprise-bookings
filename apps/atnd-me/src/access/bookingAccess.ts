@@ -6,6 +6,7 @@
 import type { Access, AccessArgs } from 'payload'
 import { createBookingAccess } from '@repo/bookings-plugin'
 import { checkClassPass } from '@repo/bookings-payments'
+import { attachProductAllowLists } from '@repo/shared-services'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { getTenantFromTimeslot } from '@/utilities/getTenantFromTimeslot'
@@ -113,6 +114,10 @@ export const bookingCreateAccessWithPaymentValidation: Access = async (args: Acc
       timeslot as { id: number; tenant?: number | { id: number } },
     )
     if (tenantId == null) return false
+
+    if (eventType && typeof eventType === 'object') {
+      await attachProductAllowLists(req.payload, eventType, { tenantId })
+    }
 
     if (user?.id && hasAllowedClassPasses(eventType)) {
       const result = await checkClassPass({

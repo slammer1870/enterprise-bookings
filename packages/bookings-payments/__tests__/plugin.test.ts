@@ -1,6 +1,6 @@
 /**
  * Plugin registration: when classPass.enabled, config includes class-pass-types,
- * class-passes, transactions, and event-types has allowedClassPasses (relationship to types) in paymentMethods.
+ * class-passes, transactions, and event-types lists class pass types that include it.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildConfig, getPayload, type Payload } from "payload";
@@ -34,15 +34,16 @@ describe("bookingsPaymentsPlugin", () => {
     expect(slugs).toContain("transactions");
   });
 
-  it("injects allowedClassPasses into event-types paymentMethods group", () => {
+  it("injects a read-only join of class pass types that include this event type", () => {
     const co = payload.config.collections?.find((c) => c.slug === "event-types");
     expect(co).toBeDefined();
     const group = co?.fields?.find(
       (f) => f.type === "group" && "name" in f && f.name === "paymentMethods"
     );
     expect(group).toBeDefined();
-    const fields = group && "fields" in group ? (group.fields as Array<{ name?: string }>) : [];
-    expect(fields.some((f) => f.name === "allowedClassPasses")).toBe(true);
+    const fields = group && "fields" in group ? (group.fields as Array<{ name?: string; type?: string }>) : [];
+    expect(fields.some((f) => f.name === "allowedClassPasses")).toBe(false);
+    expect(fields.some((f) => f.name === "includingClassPassTypes" && f.type === "join")).toBe(true);
   });
 
   it("injects transactions relationship into bookings when transactions collection exists", () => {

@@ -13,13 +13,14 @@ import {
 } from "../utils/tenant";
 
 import { Subscription, Timeslot, Plan } from "@repo/shared-types";
-import { getIntervalStartAndEndDate, getSessionLimitWindowStartAndEndDate } from "@repo/shared-utils";
 import {
   hasReachedSubscriptionLimit,
   getRemainingSessionsInPeriod,
   subscriptionNeedsCustomerPortal,
   getSubscriptionUpgradeOptions,
   getRemainingSessionsInPeriodForPlan,
+  attachProductAllowLists,
+  relationId,
 } from "@repo/shared-services";
 
 export const subscriptionsRouter = {
@@ -118,75 +119,42 @@ export const subscriptionsRouter = {
           }),
         }),
         timeslotDate: z.date(),
+        timeslotId: z.number().optional(),
       })
     )
     .query(async ({ ctx, input }) => {
       const { user, payload } = ctx;
       const { subscription, timeslotDate } = input;
 
-      const plan = subscription.plan;
-
-      if (
-        !plan.sessionsInformation ||
-        plan.sessionsInformation.sessions == null ||
-        !plan.sessionsInformation.interval ||
-        plan.sessionsInformation.intervalCount == null
-      ) {
-        payload.logger.info(
-          `Plan does not have sessions information (planId: ${plan.id})`
+      let eventTypeId: number | null = null;
+      if (input.timeslotId != null) {
+        const timeslot = await findByIdSafe<Timeslot>(
+          payload,
+          ctx.bookingsSlugs.timeslots,
+          input.timeslotId,
+          { depth: 0, overrideAccess: true },
         );
-        return false;
+        eventTypeId = relationId(timeslot?.eventType);
       }
 
-      const intervalType = plan.sessionsInformation.interval;
-      const intervalCount = plan.sessionsInformation.intervalCount || 1;
-
-      const { startDate, endDate } =
-        intervalType === "day" || intervalType === "week" || intervalType === "month"
-          ? getSessionLimitWindowStartAndEndDate({
-              intervalType,
-              intervalCount,
-              lessonDate: timeslotDate,
-            })
-          : getIntervalStartAndEndDate(intervalType, intervalCount, timeslotDate);
-
-      // TODO: add a check to see if the subscription is a drop in or free
-      // if it is, then we need to check the drop in limit
-      // if it is not, then we need to check the sessions limit
-
-      try {
-        const tenantId = await resolveTenantId(payload, getTenantSlug(ctx));
-
-        const bookings = await findSafe(payload, "bookings", {
-          depth: 5,
-          where: {
-            user: { equals: user.id },
-            "timeslot.eventType.paymentMethods.allowedPlans": {
-              contains: plan.id,
-            },
-            "timeslot.startTime": {
-              greater_than: startDate,
-              less_than: endDate,
-            },
-            status: { equals: "confirmed" },
-            ...(tenantId != null ? { tenant: { equals: tenantId } } : {}),
-          },
+      const plan = (await payload
+        .findByID({
+          collection: "plans" as import("payload").CollectionSlug,
+          id: subscription.plan.id,
+          depth: 0,
           overrideAccess: true,
-        });
+        })
+        .catch(() => subscription.plan)) as Plan;
 
-        payload.logger.info(
-          `Bookings found for subscription (planId: ${plan.id}, count: ${bookings.docs.length})`
-        );
-
-        if (bookings.docs.length >= plan.sessionsInformation.sessions) {
-          return true;
-        }
-      } catch (error) {
-        console.error("Error finding bookings:", error);
-        throw error;
-      }
-
-      return false;
+      return hasReachedSubscriptionLimit(
+        {
+          user: user.id,
+          plan,
+        } as Subscription,
+        payload,
+        timeslotDate,
+        eventTypeId,
+      );
     }),
   getSubscriptionForTimeslot: optionalUserProcedure
     .use(requireBookingCollections("timeslots"))
@@ -239,6 +207,10 @@ export const subscriptionsRouter = {
 
       const eventType =
         typeof timeslot.eventType === "object" ? timeslot.eventType : null;
+      if (eventType) {
+        await attachProductAllowLists(payload, eventType, { tenantId });
+      }
+      const eventTypeId = relationId(eventType);
       const allowedPlans = eventType?.paymentMethods?.allowedPlans || [];
       const allowedPlanDocs = (allowedPlans as unknown[]).filter(
         (p): p is Plan => typeof p === "object" && p != null && "id" in p
@@ -323,13 +295,15 @@ export const subscriptionsRouter = {
       const limitReached = await hasReachedSubscriptionLimit(
         subscription as Subscription,
         payload,
-        new Date(timeslot.startTime)
+        new Date(timeslot.startTime),
+        eventTypeId,
       );
 
       const remainingSessions = await getRemainingSessionsInPeriod(
         subscription as Subscription,
         payload,
-        new Date(timeslot.startTime)
+        new Date(timeslot.startTime),
+        eventTypeId,
       );
 
       const selectedQuantity = input.quantity ?? 1;
@@ -387,7 +361,8 @@ export const subscriptionsRouter = {
                   subscription as Subscription,
                   plan,
                   payload,
-                  timeslotDate
+                  timeslotDate,
+                  eventTypeId,
                 );
 
                 if (remainingForPlan != null && remainingForPlan < selectedQuantity) {
@@ -413,7 +388,8 @@ export const subscriptionsRouter = {
               subscription as Subscription,
               (eligiblePlansForQuantity ?? allowedPlanDocs) as Plan[],
               payload,
-              new Date(timeslot.startTime)
+              new Date(timeslot.startTime),
+              eventTypeId,
             )
           : [];
 

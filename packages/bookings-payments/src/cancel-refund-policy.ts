@@ -10,6 +10,10 @@ import {
   type CancelPaymentMethod,
   type TenantRefundPolicy,
 } from "./refund-policy";
+import {
+  adjustClassPassForEventType,
+  eventTypeIdForTimeslot,
+} from "./class-pass/utilities/adjust-class-pass-credits";
 
 type BookingLike = {
   id: number;
@@ -184,30 +188,22 @@ export function computePartialRefundAmountCents(opts: {
 async function restoreClassPassCredit(
   payload: Payload,
   tx: TransactionLike,
+  booking: BookingLike,
   req?: PayloadRequest,
 ): Promise<void> {
   if (tx.classPassRestoredAt) return;
   const passId = tx.classPassId;
   if (passId == null) return;
 
-  const pass = (await payload.findByID({
-    collection: "class-passes" as any,
-    id: passId,
-    depth: 0,
-    overrideAccess: true,
-    req,
-  })) as { quantity?: number; status?: string } | null;
-  if (!pass || typeof pass.quantity !== "number") return;
-
-  const nextQty = pass.quantity + 1;
-  const status = nextQty > 0 ? "active" : (pass.status ?? "used");
-  await payload.update({
-    collection: "class-passes" as any,
-    id: passId,
-    data: { quantity: nextQty, status } as Record<string, unknown>,
-    overrideAccess: true,
+  const eventTypeId = await eventTypeIdForTimeslot(payload, booking.timeslot, req);
+  const restored = await adjustClassPassForEventType({
+    payload,
+    passId,
+    eventTypeId,
+    delta: 1,
     req,
   });
+  if (!restored.ok) return;
 
   await payload.update({
     collection: "transactions" as any,
@@ -325,7 +321,7 @@ export async function applyCancelRefundPolicy(
   }
 
   if (paymentMethod === "class_pass") {
-    await restoreClassPassCredit(payload, tx, opts.req);
+    await restoreClassPassCredit(payload, tx, booking, opts.req);
     return { applied: true, kind: "class_pass" };
   }
 

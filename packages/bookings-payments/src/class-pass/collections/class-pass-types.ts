@@ -9,6 +9,13 @@ import {
 } from "../access/class-pass-types";
 import { beforeClassPassTypeChange } from "../hooks/before-class-pass-type-change";
 import type { CollectionOverrides } from "../../types";
+import {
+  classPassSharedPoolIsDisplayOnly,
+  displayQuantityForClassPassType,
+  relationId,
+  relationIds,
+  validateEventTypeOverrideRows,
+} from "@repo/shared-services";
 
 const adminOnlyFieldAccess = {
   read: ({ req: { user } }: { req: { user: unknown } }) => checkRole(["admin"], user as User | null),
@@ -17,9 +24,63 @@ const adminOnlyFieldAccess = {
 };
 
 export type ClassPassTypesOpts = {
+  eventTypesSlug?: string;
   adminGroup?: string;
   overrides?: CollectionOverrides;
 };
+
+function allowedEventTypesField(eventTypesSlug: string): Field {
+  return {
+    name: "allowedEventTypes",
+    label: "Allowed event types",
+    type: "relationship",
+    relationTo: eventTypesSlug as import("payload").CollectionSlug,
+    hasMany: true,
+    admin: {
+      description: "Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types.",
+    },
+  };
+}
+
+function eventTypeOverrideFields(eventTypesSlug: string, countName: "quantity" | "sessions", countLabel: string): Field {
+  return {
+    type: "collapsible",
+    label: "Advanced",
+    admin: { initCollapsed: true },
+    fields: [
+      {
+        name: "eventTypeOverrides",
+        label: "Per event type limits",
+        type: "array",
+        admin: {
+          description:
+            "Optional. A row replaces the shared allowance for that event type only. It does not draw from the shared pool.",
+        },
+        fields: [
+          {
+            name: "eventType",
+            label: "Event type",
+            type: "relationship",
+            relationTo: eventTypesSlug as import("payload").CollectionSlug,
+            required: true,
+            filterOptions: ({ data }) => {
+              const ids = relationIds((data as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes);
+              if (ids.length === 0) return false;
+              return { id: { in: ids } };
+            },
+          },
+          {
+            name: countName,
+            label: countLabel,
+            type: "number",
+            required: true,
+            min: 1,
+          },
+        ],
+      },
+    ],
+  };
+}
 
 const defaultAccess: NonNullable<CollectionConfig["access"]> = {
   read: classPassTypesReadAccess,
@@ -28,7 +89,8 @@ const defaultAccess: NonNullable<CollectionConfig["access"]> = {
   delete: classPassTypesDeleteAccess,
 };
 
-const defaultFields: Field[] = [
+function classPassTypeFields(eventTypesSlug: string): Field[] {
+  return [
   {
     name: "name",
     label: "Name",
@@ -43,6 +105,7 @@ const defaultFields: Field[] = [
     required: false,
     admin: { description: "Optional description of what this pass type covers" },
   },
+  allowedEventTypesField(eventTypesSlug),
   {
     name: "quantity",
     label: "Quantity of passes",
@@ -91,6 +154,7 @@ const defaultFields: Field[] = [
     required: false,
     admin: { hidden: true },
   },
+  eventTypeOverrideFields(eventTypesSlug, "quantity", "Quantity"),
   {
     name: "stripeProductId",
     type: "text",
@@ -149,14 +213,17 @@ const defaultFields: Field[] = [
     admin: { description: "Skip syncing price/status from Stripe on save" },
     required: false,
   },
-];
+  ];
+}
 
 export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): CollectionConfig {
+  const eventTypesSlug = opts.eventTypesSlug ?? "event-types";
   const adminGroup = opts.adminGroup ?? "Products";
   const overrides = opts.overrides;
   const access = overrides?.access
     ? { ...defaultAccess, ...overrides.access }
     : defaultAccess;
+  const defaultFields = classPassTypeFields(eventTypesSlug);
   const fields = overrides?.fields
     ? overrides.fields({ defaultFields: [...defaultFields] })
     : defaultFields;
@@ -178,6 +245,25 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
           typeof d.maxBookingsPerTimeslot === "undefined"
         ) {
           d.maxBookingsPerTimeslot = d.allowMultipleBookingsPerTimeslot ? null : 1
+        }
+
+        const doc = d as typeof d & {
+          allowedEventTypes?: unknown
+          quantity?: number
+          eventTypeOverrides?: Array<{ eventType?: unknown; quantity?: number | null }>
+        }
+        const rows = Array.isArray(doc.eventTypeOverrides) ? doc.eventTypeOverrides : []
+        const allowedIds = relationIds(doc.allowedEventTypes)
+        const validation = validateEventTypeOverrideRows({
+          allowedEventTypeIds: allowedIds,
+          rows: rows.map((row) => ({
+            eventTypeId: relationId(row?.eventType),
+            count: typeof row?.quantity === "number" ? row.quantity : null,
+          })),
+        })
+        if (validation !== true) throw new Error(validation)
+        if (classPassSharedPoolIsDisplayOnly(doc)) {
+          doc.quantity = displayQuantityForClassPassType(doc, doc.quantity ?? 1)
         }
 
         return d

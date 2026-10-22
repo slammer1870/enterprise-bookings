@@ -11,7 +11,8 @@ import { Price } from "./price";
 
 export type UpgradeOption = {
   plan: Plan;
-  maxAdditionalSessions: number;
+  /** Null means the target plan does not cap this event type. */
+  maxAdditionalSessions: number | null;
 };
 
 export type PlanViewProps = {
@@ -32,6 +33,8 @@ export type PlanViewProps = {
   needsCustomerPortal?: boolean;
   /** Upgrade options with pro-rata additional sessions when limit reached. */
   upgradeOptions?: UpgradeOption[];
+  /** Event type this lesson is for. Names remaining credits and upgrade copy. */
+  eventTypeName?: string;
   onCreateCheckoutSession: (
     _planId: string,
     _metadata?: { [key: string]: string | undefined }
@@ -58,6 +61,7 @@ export function PlanView({
   subscriptionAllowsMultiplePerTimeslot = true,
   needsCustomerPortal = false,
   upgradeOptions = [],
+  eventTypeName,
   onCreateCheckoutSession,
   onCreateCustomerPortal,
   onCreateCustomerUpgradePortal,
@@ -151,12 +155,15 @@ export function PlanView({
       {subscriptionLimitReached && (
         <p className="text-sm text-red-500 mb-2">
           You have reached the limit of your subscription
+          {eventTypeName ? ` for ${eventTypeName}` : ""}
         </p>
       )}
       {(subscriptionLimitReached || notEnoughSessionsLeft) && upgradeOptions.length > 0 && (
         <div className="flex flex-col gap-3 mb-4">
           <p className="text-sm text-muted-foreground">
-            Upgrade to get more sessions this period (pro-rata):
+            {eventTypeName
+              ? `Upgrade to get more ${eventTypeName} this period:`
+              : "Upgrade to get more sessions this period (pro-rata):"}
           </p>
           {upgradeOptions.map(({ plan, maxAdditionalSessions }) => (
             <Card key={plan.id}>
@@ -169,7 +176,13 @@ export function PlanView({
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
                 <p className="text-sm text-muted-foreground">
-                  {maxAdditionalSessions} more session{maxAdditionalSessions === 1 ? "" : "s"} this period
+                  {maxAdditionalSessions == null
+                    ? eventTypeName
+                      ? `Unlimited ${eventTypeName}`
+                      : "Unlimited for this event type"
+                    : eventTypeName
+                      ? `${maxAdditionalSessions} more ${eventTypeName} this period`
+                      : `${maxAdditionalSessions} more session${maxAdditionalSessions === 1 ? "" : "s"} this period`}
                 </p>
                 {plan.features?.map(({ id, feature }) => (
                   <div
@@ -224,8 +237,9 @@ export function PlanView({
       )}
       {notEnoughSessionsLeft && (
         <p className="text-sm text-amber-600 mb-2">
-          You have {remainingSessions} session{remainingSessions === 1 ? "" : "s"} left this period.
-          Reduce quantity to {remainingSessions} or use drop-in to pay for more.
+          {eventTypeName
+            ? `You have ${remainingSessions} ${eventTypeName} left this period. Reduce quantity to ${remainingSessions} or use drop-in to pay for more.`
+            : `You have ${remainingSessions} session${remainingSessions === 1 ? "" : "s"} left this period. Reduce quantity to ${remainingSessions} or use drop-in to pay for more.`}
         </p>
       )}
       {showPastDueMessage && (
@@ -241,6 +255,13 @@ export function PlanView({
         )}
       {canUseSubscriptionForQuantity && onConfirmBookingWithSubscription && subscription.id != null && (
         <div className="mb-4">
+          {remainingSessions != null && remainingSessions > 0 && (
+            <p className="text-sm text-muted-foreground mb-2">
+              {eventTypeName
+                ? `${remainingSessions} ${eventTypeName} left this period.`
+                : `${remainingSessions} session${remainingSessions === 1 ? "" : "s"} left this period.`}
+            </p>
+          )}
           <Button
             className="w-full"
             disabled={isUsingMembership}

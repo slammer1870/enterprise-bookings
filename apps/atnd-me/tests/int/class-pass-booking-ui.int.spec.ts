@@ -121,9 +121,9 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     classPassTypeId = cpt.id as number
 
     await payload.update({
-      collection: 'event-types',
-      id: classOptionId,
-      data: { paymentMethods: { allowedClassPasses: [classPassTypeId] } },
+      collection: 'class-pass-types',
+      id: classPassTypeId,
+      data: { allowedEventTypes: [classOptionId] },
       overrideAccess: true,
     })
 

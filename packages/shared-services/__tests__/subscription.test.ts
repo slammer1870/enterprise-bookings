@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { Payload } from "payload";
 import {
   getRemainingSessionsInPeriod,
+  getRemainingSessionsInPeriodForPlan,
   hasReachedSubscriptionLimit,
   subscriptionNeedsCustomerPortal,
   canUseSubscriptionForBooking,
@@ -338,5 +339,176 @@ describe("getSubscriptionUpgradeOptions", () => {
     );
     expect(result).toHaveLength(1);
     expect(result[0]!.maxAdditionalSessions).toBe(1);
+  });
+});
+
+const yoga = 1;
+const sauna = 2;
+const float = 3;
+
+function countsByEventTypeList(counts: Record<string, number>) {
+  return vi.fn(async (args: { where?: Record<string, { in?: number[] }> }) => {
+    const ids = args.where?.["timeslot.eventType"]?.in;
+    const key = ids ? [...ids].sort((a, b) => a - b).join(",") : "*";
+    return { totalDocs: counts[key] ?? 0, docs: [] };
+  });
+}
+
+function planWithAllowances(opts: {
+  id: number;
+  name: string;
+  sessions: number;
+  allowedEventTypes: number[];
+  overrides?: Array<{ eventType: number; sessions: number }>;
+}): Plan {
+  return {
+    id: opts.id,
+    name: opts.name,
+    status: "active",
+    allowedEventTypes: opts.allowedEventTypes,
+    sessionsInformation: {
+      sessions: opts.sessions,
+      interval: "week",
+      intervalCount: 1,
+      eventTypeOverrides: opts.overrides,
+    },
+    updatedAt: "",
+    createdAt: "",
+  };
+}
+
+describe("event type allowance buckets", () => {
+  const sharedPlusFloat = planWithAllowances({
+    id: 10,
+    name: "2 shared, 1 float",
+    sessions: 2,
+    allowedEventTypes: [yoga, sauna, float],
+    overrides: [{ eventType: float, sessions: 1 }],
+  });
+  const sub = { ...subscriptionWithPlan, plan: sharedPlusFloat } as Subscription;
+
+  it("keeps a float booking out of the shared pool", async () => {
+    const payload = createMockPayload({
+      find: countsByEventTypeList({
+        "1,2": 0,
+        "3": 1,
+      }),
+    });
+
+    const yogaRemaining = await getRemainingSessionsInPeriodForPlan(
+      sub,
+      sharedPlusFloat,
+      payload,
+      lessonDate,
+      yoga,
+    );
+    const floatRemaining = await getRemainingSessionsInPeriodForPlan(
+      sub,
+      sharedPlusFloat,
+      payload,
+      lessonDate,
+      float,
+    );
+
+    expect(yogaRemaining).toBe(2);
+    expect(floatRemaining).toBe(0);
+  });
+
+  it("lets yoga and sauna share 2 sessions a week when the plan has no overrides", async () => {
+    const shared = planWithAllowances({
+      id: 14,
+      name: "2 per week",
+      sessions: 2,
+      allowedEventTypes: [yoga, sauna],
+    });
+    const sharedSub = { ...subscriptionWithPlan, plan: shared } as Subscription;
+    const payload = createMockPayload({
+      find: countsByEventTypeList({ "1,2": 1 }),
+    });
+
+    const yogaRemaining = await getRemainingSessionsInPeriodForPlan(
+      sharedSub,
+      shared,
+      payload,
+      lessonDate,
+      yoga,
+    );
+    const saunaRemaining = await getRemainingSessionsInPeriodForPlan(
+      sharedSub,
+      shared,
+      payload,
+      lessonDate,
+      sauna,
+    );
+
+    expect(yogaRemaining).toBe(1);
+    expect(saunaRemaining).toBe(1);
+  });
+
+  it("blocks a third sauna and still allows yoga when each service has its own cap", async () => {
+    const split = planWithAllowances({
+      id: 11,
+      name: "2 sauna, 1 yoga",
+      sessions: 2,
+      allowedEventTypes: [yoga, sauna],
+      overrides: [
+        { eventType: sauna, sessions: 2 },
+        { eventType: yoga, sessions: 1 },
+      ],
+    });
+    const splitSub = { ...subscriptionWithPlan, plan: split } as Subscription;
+    const payload = createMockPayload({
+      find: countsByEventTypeList({
+        "2": 2,
+        "1": 0,
+      }),
+    });
+
+    await expect(
+      hasReachedSubscriptionLimit(splitSub, payload, lessonDate, sauna),
+    ).resolves.toBe(true);
+    await expect(
+      hasReachedSubscriptionLimit(splitSub, payload, lessonDate, yoga),
+    ).resolves.toBe(false);
+  });
+
+  it("offers an upgrade only for the event type whose remaining allowance grew", async () => {
+    const higherSharedSameFloat = planWithAllowances({
+      id: 12,
+      name: "3 shared, 1 float",
+      sessions: 3,
+      allowedEventTypes: [yoga, sauna, float],
+      overrides: [{ eventType: float, sessions: 1 }],
+    });
+    const higherFloatSameShared = planWithAllowances({
+      id: 13,
+      name: "2 shared, 2 float",
+      sessions: 2,
+      allowedEventTypes: [yoga, sauna, float],
+      overrides: [{ eventType: float, sessions: 2 }],
+    });
+    const payload = createMockPayload({
+      find: countsByEventTypeList({}),
+    });
+
+    const floatUpgrades = await getSubscriptionUpgradeOptions(
+      sub,
+      [sharedPlusFloat, higherSharedSameFloat, higherFloatSameShared],
+      payload,
+      lessonDate,
+      float,
+    );
+    const yogaUpgrades = await getSubscriptionUpgradeOptions(
+      sub,
+      [sharedPlusFloat, higherSharedSameFloat, higherFloatSameShared],
+      payload,
+      lessonDate,
+      yoga,
+    );
+
+    expect(floatUpgrades.map((option) => option.plan.id)).toEqual([13]);
+    expect(floatUpgrades[0]!.maxAdditionalSessions).toBe(1);
+    expect(yogaUpgrades.map((option) => option.plan.id)).toEqual([12]);
+    expect(yogaUpgrades[0]!.maxAdditionalSessions).toBe(1);
   });
 });

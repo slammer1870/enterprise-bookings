@@ -113,6 +113,10 @@ export interface Config {
     timeslots: {
       bookings: 'bookings';
     };
+    'event-types': {
+      'paymentMethods.includingClassPassTypes': 'class-pass-types';
+      'paymentMethods.includingPlans': 'plans';
+    };
     users: {
       emergencyContacts: 'emergency-contacts';
       account: 'accounts';
@@ -120,9 +124,6 @@ export interface Config {
       userSubscription: 'subscriptions';
     };
     'drop-ins': {
-      'event-typesPaymentMethods': 'event-types';
-    };
-    plans: {
       'event-typesPaymentMethods': 'event-types';
     };
   };
@@ -1162,6 +1163,10 @@ export interface Plan {
       }[]
     | null;
   /**
+   * Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types.
+   */
+  allowedEventTypes?: (number | EventType)[] | null;
+  /**
    * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single timeslot when allow multiple bookings per timeslot is enabled.
    */
   sessionsInformation?: {
@@ -1173,6 +1178,16 @@ export interface Plan {
      */
     maxBookingsPerTimeslot?: number | null;
     allowMultipleBookingsPerTimeslot?: boolean | null;
+    /**
+     * Optional. A row replaces the shared session allowance for that event type only. The same period applies. It does not draw from the shared pool.
+     */
+    eventTypeOverrides?:
+      | {
+          eventType: number | EventType;
+          sessions: number;
+          id?: string | null;
+        }[]
+      | null;
   };
   stripeProductId?: string | null;
   /**
@@ -1206,11 +1221,6 @@ export interface Plan {
    */
   skipSync?: boolean | null;
   deletedAt?: string | null;
-  'event-typesPaymentMethods'?: {
-    docs?: (number | EventType)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1239,17 +1249,25 @@ export interface EventType {
      */
     allowedDropIn?: (number | null) | DropIn;
     /**
-     * Select which class pass types can be used to book this class option (e.g. Fitness Only, Sauna Only).
+     * Class pass types that can pay for this event type. Edit the list on the class pass type.
      */
-    allowedClassPasses?: (number | ClassPassType)[] | null;
+    includingClassPassTypes?: {
+      docs?: (number | ClassPassType)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
     /**
      * Courses that can be offered or purchased for this event type. Existing course entitlements are determined by the course's allowed event types.
      */
     allowedCourses?: (number | Course)[] | null;
     /**
-     * Membership plans that grant access to this class option. Users with an active subscription to a selected plan can book without paying per session.
+     * Memberships that can pay for this event type. Edit the list on the membership.
      */
-    allowedPlans?: (number | Plan)[] | null;
+    includingPlans?: {
+      docs?: (number | Plan)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
   };
   /**
    * Emails sent after a booking for this event type. Leave Email To blank to send to the customer, or use placeholders such as {{booking.timeslot.staffMember.email}}. Subject and message also support {{booking…}} placeholders. Use separate rows for different messages. See “When to send” for timing rules.
@@ -1353,6 +1371,10 @@ export interface ClassPassType {
    */
   description?: string | null;
   /**
+   * Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types.
+   */
+  allowedEventTypes?: (number | EventType)[] | null;
+  /**
    * Number of passes/credits in this type (e.g. 10 for a 10-pack). Purchased passes get this many credits.
    */
   quantity: number;
@@ -1365,6 +1387,16 @@ export interface ClassPassType {
    */
   maxBookingsPerTimeslot?: number | null;
   allowMultipleBookingsPerTimeslot?: boolean | null;
+  /**
+   * Optional. A row replaces the shared allowance for that event type only. It does not draw from the shared pool.
+   */
+  eventTypeOverrides?:
+    | {
+        eventType: number | EventType;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Link to a Stripe product with a one-time default price for purchase/checkout.
    */
@@ -3956,9 +3988,19 @@ export interface ClassPass {
    */
   type: number | ClassPassType;
   /**
-   * Number of passes/credits remaining (original is on the pass type)
+   * Shared credits remaining for event types without their own row. Original allowance is on the pass type.
    */
   quantity: number;
+  /**
+   * Remaining credits for event types that have their own allowance.
+   */
+  eventTypeOverrides?:
+    | {
+        eventType: number | EventType;
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Date when passes expire
    */
@@ -4823,9 +4865,9 @@ export interface EventTypesSelect<T extends boolean = true> {
     | T
     | {
         allowedDropIn?: T;
-        allowedClassPasses?: T;
+        includingClassPassTypes?: T;
         allowedCourses?: T;
-        allowedPlans?: T;
+        includingPlans?: T;
       };
   postBookingEmails?:
     | T
@@ -5054,6 +5096,13 @@ export interface ClassPassesSelect<T extends boolean = true> {
   user?: T;
   type?: T;
   quantity?: T;
+  eventTypeOverrides?:
+    | T
+    | {
+        eventType?: T;
+        quantity?: T;
+        id?: T;
+      };
   expirationDate?: T;
   purchasedAt?: T;
   transactionId?: T;
@@ -5203,10 +5252,18 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   tenant?: T;
   name?: T;
   description?: T;
+  allowedEventTypes?: T;
   quantity?: T;
   daysUntilExpiration?: T;
   maxBookingsPerTimeslot?: T;
   allowMultipleBookingsPerTimeslot?: T;
+  eventTypeOverrides?:
+    | T
+    | {
+        eventType?: T;
+        quantity?: T;
+        id?: T;
+      };
   stripeProductId?: T;
   priceInformation?:
     | T
@@ -5273,6 +5330,7 @@ export interface PlansSelect<T extends boolean = true> {
         feature?: T;
         id?: T;
       };
+  allowedEventTypes?: T;
   sessionsInformation?:
     | T
     | {
@@ -5281,6 +5339,13 @@ export interface PlansSelect<T extends boolean = true> {
         interval?: T;
         maxBookingsPerTimeslot?: T;
         allowMultipleBookingsPerTimeslot?: T;
+        eventTypeOverrides?:
+          | T
+          | {
+              eventType?: T;
+              sessions?: T;
+              id?: T;
+            };
       };
   stripeProductId?: T;
   priceInformation?:
@@ -5295,7 +5360,6 @@ export interface PlansSelect<T extends boolean = true> {
   status?: T;
   skipSync?: T;
   deletedAt?: T;
-  'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
