@@ -354,11 +354,12 @@ export async function seedBookings({
     allEventTypes.push(opt50 as EventType, opt30 as EventType)
     const opt50Id = getId(opt50)
     const opt30Id = getId(opt30)
+    const numericId = (id: number | string): number => (typeof id === 'number' ? id : Number(id))
     for (const passId of [saunaOnlyId, allAccessId]) {
       await payload.update({
         collection: 'class-pass-types',
-        id: passId,
-        data: { allowedEventTypes: [opt50Id, opt30Id] },
+        id: numericId(passId),
+        data: { allowedEventTypes: [numericId(opt50Id), numericId(opt30Id)] },
         req,
         overrideAccess: true,
       })

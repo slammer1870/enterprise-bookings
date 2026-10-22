@@ -1423,27 +1423,26 @@ async function migrateEventTypes(
         ? getObjValue(sourcePm, 'allowedPlans')
         : null
     const mappedPlanIds = (Array.isArray(sourceAllowedPlans) ? sourceAllowedPlans : [])
-      .map((id) => maps.planIdMap.get(id as any) ?? id)
-      .filter((id): id is Id => id != null)
+      .map((id) => coerceNumberId((maps.planIdMap.get(id as Id) ?? id) as Id))
+      .filter((id): id is number => id != null)
+    const createdEventTypeId = coerceNumberId(created.id as Id)
+    if (createdEventTypeId == null) continue
     for (const planId of mappedPlanIds) {
       const plan = await payload.findByID({
         collection: 'plans',
-        id: planId as any,
+        id: planId,
         depth: 0,
         overrideAccess: true,
         req,
       })
-      const existing = (Array.isArray((plan as { allowedEventTypes?: unknown }).allowedEventTypes)
-        ? (plan as { allowedEventTypes: unknown[] }).allowedEventTypes
-        : []
-      )
-        .map((entry) => (typeof entry === 'object' && entry && 'id' in entry ? (entry as { id: Id }).id : entry))
-        .filter((id): id is Id => typeof id === 'number' || typeof id === 'string')
-      if (!existing.includes(created.id as Id)) {
+      const existing = (plan.allowedEventTypes ?? [])
+        .map((entry) => (typeof entry === 'object' ? entry.id : entry))
+        .filter((id): id is number => typeof id === 'number')
+      if (!existing.includes(createdEventTypeId)) {
         await payload.update({
           collection: 'plans',
-          id: planId as any,
-          data: { allowedEventTypes: [...existing, created.id] },
+          id: planId,
+          data: { allowedEventTypes: [...existing, createdEventTypeId] },
           req,
           overrideAccess: true,
         })
