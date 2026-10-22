@@ -11,6 +11,11 @@ import {
   getPayloadInstance,
 } from './helpers/data-helpers'
 
+function creditsLeftText(count: number, eventTypeName: string): RegExp {
+  const name = eventTypeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`${count} ${name} left`, 'i')
+}
+
 async function openBookingPage(args: {
   page: Parameters<typeof test>[0]['page']
   tenantSlug: string
@@ -520,7 +525,9 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     await expect(
       page.getByText(/use this pass|remaining|confirm with class pass/i).first()
     ).toBeVisible({ timeout: 15000 })
-    await expect(page.getByText(/5 credits? remaining/i).first()).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(creditsLeftText(5, String(co.name))).first()).toBeVisible({
+      timeout: 5000,
+    })
 
     // ── Step 5: confirm booking with the purchased pass ───────────────────────
     const usePassBtn = page
@@ -637,7 +644,9 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     await expect(page.getByText(/this will use 2 credits from your pass/i)).toBeVisible({
       timeout: 10000,
     })
-    await expect(page.getByText(/5 credits remaining/i).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(creditsLeftText(5, String(co.name))).first()).toBeVisible({
+      timeout: 10000,
+    })
 
     await page.getByRole('button', { name: /confirm with class pass/i }).click()
 
@@ -681,7 +690,9 @@ test.describe('Booking with class pass (Phase 4.6)', () => {
     await expect(page.getByText(/this will use 2 credits from your pass/i)).toBeVisible({
       timeout: 10000,
     })
-    await expect(page.getByText(/3 credits remaining/i).first()).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText(creditsLeftText(3, String(co.name))).first()).toBeVisible({
+      timeout: 10000,
+    })
 
     const confirmUpgradeRequest = page.waitForRequest(
       (request) => {
