@@ -10,8 +10,23 @@ export type RelationValue =
   | null
   | undefined;
 
-const SESSION_INTERVALS = ["day", "week", "month", "quarter", "year"] as const;
+export const SESSION_INTERVALS = ["day", "week", "month", "quarter", "year"] as const;
 export type SessionInterval = (typeof SESSION_INTERVALS)[number];
+
+const SESSION_INTERVAL_LABELS: Record<SessionInterval, string> = {
+  day: "Days",
+  week: "Weeks",
+  month: "Months",
+  quarter: "Quarters",
+  year: "Years",
+};
+
+export function sessionIntervalSelectOptions(): Array<{ label: string; value: SessionInterval }> {
+  return SESSION_INTERVALS.map((value) => ({
+    label: SESSION_INTERVAL_LABELS[value],
+    value,
+  }));
+}
 
 export type EventTypeOverrideRow = {
   id?: string | null;
@@ -33,7 +48,7 @@ export type SessionWindow = {
   intervalCount: number;
 };
 
-function isSessionInterval(value: unknown): value is SessionInterval {
+export function isSessionInterval(value: unknown): value is SessionInterval {
   return typeof value === "string" && (SESSION_INTERVALS as readonly string[]).includes(value);
 }
 
@@ -389,6 +404,40 @@ export function adjustClassPassCredits(
         : "active";
 
   return { ok: true, pass: { quantity, eventTypeOverrides: rows, status } };
+}
+
+export type AllowedEventTypesForSave = {
+  /** Effective allow-list, including stored types when the save omits the field. */
+  ids: number[];
+  /** Set when an override type was missing, so the caller writes the field. Null leaves it untouched. */
+  idsToStore: number[] | null;
+};
+
+/**
+ * An override row is an extra allowance, so its event type has to stay allowed.
+ * `ids` is the allow-list for validation and allowance rules.
+ * `idsToStore` is that list only when a type was appended.
+ * When Allowed is omitted from the save, `storedAllowedEventTypes` supplies the types already on the document.
+ */
+export function allowedEventTypeIdsIncludingOverrides(
+  allowedEventTypes: unknown,
+  rows: Array<{ eventType?: unknown } | null | undefined> | null | undefined,
+  storedAllowedEventTypes?: unknown,
+): AllowedEventTypesForSave {
+  const list = Array.isArray(rows) ? rows : [];
+  const ids =
+    allowedEventTypes === undefined
+      ? relationIds(storedAllowedEventTypes)
+      : relationIds(allowedEventTypes);
+  let added = false;
+  for (const row of list) {
+    const eventTypeId = relationId(row?.eventType);
+    if (eventTypeId != null && !ids.includes(eventTypeId)) {
+      ids.push(eventTypeId);
+      added = true;
+    }
+  }
+  return { ids, idsToStore: added ? ids : null };
 }
 
 export function validateEventTypeOverrideRows(input: {

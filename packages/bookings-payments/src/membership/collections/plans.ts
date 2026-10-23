@@ -9,7 +9,12 @@ import { checkRole } from "@repo/shared-utils";
 import type { AccessControls, HooksConfig, User } from "@repo/shared-types";
 import { beforeProductChange } from "../hooks/before-product-change";
 import type { MembershipBranchConfig } from "../types";
-import { relationId, relationIds, validateEventTypeOverrideRows } from "@repo/shared-services";
+import {
+  allowedEventTypeIdsIncludingOverrides,
+  isSessionInterval,
+  relationId,
+  validateEventTypeOverrideRows,
+} from "@repo/shared-services";
 import {
   eventTypeOverridesField,
   validateOptionalMaxBookingsPerTimeslot,
@@ -50,7 +55,7 @@ function planFields(eventTypesSlug: string): Field[] {
     hasMany: true,
     admin: {
       description:
-        "Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types.",
+        "Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types. Saving an additional allowance adds that event type here. Types with their own allowance do not draw from the shared sessions.",
     },
   },
   {
@@ -110,7 +115,7 @@ function planFields(eventTypesSlug: string): Field[] {
         countName: "sessions",
         countLabel: "Sessions",
         description:
-          "Optional. A row adds a separate session allowance for that event type, on top of Sessions. Set Per and Interval to count that event type in its own window, for example 2 sauna sessions a week beside 8 sessions a month. Leave both blank to use the plan's period. Sauna bookings leave the shared sessions unchanged. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for this event type only.",
+          "In addition to Sessions, not subtracted from them. A row gives that event type its own allowance on top of the shared sessions. For example, 8 sessions a month shared by the other allowed types, plus 2 sauna sessions a week. Sauna bookings do not reduce the 8. Saving adds the event type to Allowed event types. Leave Per and Interval blank to use the plan's period. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for this event type only.",
         capDescription:
           "Leave blank to use the plan's max bookings per timeslot. Set a number to cap this event type only.",
       }),
@@ -217,7 +222,7 @@ function planFields(eventTypesSlug: string): Field[] {
   ];
 }
 
-const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
+const beforePlanValidate: CollectionBeforeValidateHook = async ({ data, originalDoc }) => {
   if (!data || typeof data !== "object") return data;
 
   const d = data as {
@@ -253,12 +258,19 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
   const rows = Array.isArray(doc.sessionsInformation?.eventTypeOverrides)
     ? doc.sessionsInformation.eventTypeOverrides
     : [];
-  const sessionIntervals = ["day", "week", "month", "quarter", "year"];
+  const allowedEventTypesForSave = allowedEventTypeIdsIncludingOverrides(
+    doc.allowedEventTypes,
+    rows,
+    (originalDoc as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
+  );
+  if (allowedEventTypesForSave.idsToStore) {
+    doc.allowedEventTypes = allowedEventTypesForSave.idsToStore;
+  }
   for (const row of rows) {
     const interval = typeof row?.interval === "string" ? row.interval : "";
     const hasInterval = interval.length > 0;
     const hasCount = typeof row?.intervalCount === "number";
-    if (hasInterval && !sessionIntervals.includes(interval)) {
+    if (hasInterval && !isSessionInterval(interval)) {
       throw new Error("Interval must be days, weeks, months, quarters, or years.");
     }
     if (hasInterval && !hasCount) {
@@ -270,7 +282,7 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
     }
   }
   const validation = validateEventTypeOverrideRows({
-    allowedEventTypeIds: relationIds(doc.allowedEventTypes),
+    allowedEventTypeIds: allowedEventTypesForSave.ids,
     rows: rows.map((row) => ({
       eventTypeId: relationId(row?.eventType),
       count: typeof row?.sessions === "number" ? row.sessions : null,

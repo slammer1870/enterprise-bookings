@@ -10,10 +10,10 @@ import {
 import { beforeClassPassTypeChange } from "../hooks/before-class-pass-type-change";
 import type { CollectionOverrides } from "../../types";
 import {
+  allowedEventTypeIdsIncludingOverrides,
   classPassSharedPoolIsDisplayOnly,
   displayQuantityForClassPassType,
   relationId,
-  relationIds,
   validateEventTypeOverrideRows,
 } from "@repo/shared-services";
 import {
@@ -41,7 +41,8 @@ function allowedEventTypesField(eventTypesSlug: string): Field {
     relationTo: eventTypesSlug as import("payload").CollectionSlug,
     hasMany: true,
     admin: {
-      description: "Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types.",
+      description:
+        "Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types. Saving an additional allowance adds that event type here. Types with their own allowance do not draw from Quantity of passes.",
     },
   };
 }
@@ -120,7 +121,7 @@ function classPassTypeFields(eventTypesSlug: string): Field[] {
     countName: "quantity",
     countLabel: "Quantity",
     description:
-      "Optional. A row adds a separate credit balance for that event type, on top of Quantity of passes. Quantity 10 plus a Reformer row of 4 credits 14 bookings: 4 for Reformer, and 10 shared by the other allowed types. Using the Reformer credits leaves the 10 unchanged. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for this event type only.",
+      "In addition to Quantity of passes, not subtracted from it. A row gives that event type its own credits on top of the shared quantity. Quantity 10 plus a Reformer row of 4 is 14 bookings: 4 for Reformer, and 10 shared by the other allowed types. Using the Reformer credits does not reduce the 10. Saving adds the event type to Allowed event types. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for this event type only.",
     capDescription:
       "Leave blank to use the pass type's max bookings per timeslot. Set a number to cap this event type only.",
   }),
@@ -198,7 +199,7 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
     : defaultFields;
   const defaultHooks: NonNullable<CollectionConfig["hooks"]> = {
     beforeValidate: [
-      (async ({ data }) => {
+      (async ({ data, originalDoc }) => {
         if (!data || typeof data !== "object") return data
 
         const d = data as {
@@ -222,17 +223,25 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
           eventTypeOverrides?: Array<{ eventType?: unknown; quantity?: number | null }>
         }
         const rows = Array.isArray(doc.eventTypeOverrides) ? doc.eventTypeOverrides : []
-        const allowedIds = relationIds(doc.allowedEventTypes)
+        const allowedEventTypesForSave = allowedEventTypeIdsIncludingOverrides(
+          doc.allowedEventTypes,
+          rows,
+          (originalDoc as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
+        )
+        if (allowedEventTypesForSave.idsToStore) {
+          doc.allowedEventTypes = allowedEventTypesForSave.idsToStore
+        }
         const validation = validateEventTypeOverrideRows({
-          allowedEventTypeIds: allowedIds,
+          allowedEventTypeIds: allowedEventTypesForSave.ids,
           rows: rows.map((row) => ({
             eventTypeId: relationId(row?.eventType),
             count: typeof row?.quantity === "number" ? row.quantity : null,
           })),
         })
         if (validation !== true) throw new Error(validation)
-        if (classPassSharedPoolIsDisplayOnly(doc)) {
-          doc.quantity = displayQuantityForClassPassType(doc, doc.quantity ?? 1)
+        const passForQuantity = { ...doc, allowedEventTypes: allowedEventTypesForSave.ids }
+        if (classPassSharedPoolIsDisplayOnly(passForQuantity)) {
+          doc.quantity = displayQuantityForClassPassType(passForQuantity, doc.quantity ?? 1)
         }
 
         return d
