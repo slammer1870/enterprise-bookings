@@ -1436,8 +1436,12 @@ async function migrateEventTypes(
         req,
       })
       const existing = (plan.allowedEventTypes ?? [])
-        .map((entry) => (typeof entry === 'object' ? entry.id : entry))
-        .filter((id): id is number => typeof id === 'number')
+        .map((entry) =>
+          coerceNumberId(
+            (typeof entry === 'object' && entry != null ? entry.id : entry) as Id,
+          ),
+        )
+        .filter((id): id is number => id != null)
       if (!existing.includes(createdEventTypeId)) {
         await payload.update({
           collection: 'plans',
