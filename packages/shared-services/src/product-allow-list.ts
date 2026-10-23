@@ -16,18 +16,14 @@ async function findCollection(
   depth: number,
 ): Promise<unknown[]> {
   if (!payload?.collections || !(collection in payload.collections)) return [];
-  try {
-    const result = await asPayload(payload).find({
-      collection: collection as CollectionSlug,
-      where,
-      depth,
-      limit: 200,
-      overrideAccess: true,
-    });
-    return Array.isArray(result?.docs) ? result.docs : [];
-  } catch {
-    return [];
-  }
+  const result = await asPayload(payload).find({
+    collection: collection as CollectionSlug,
+    where,
+    depth,
+    limit: 200,
+    overrideAccess: true,
+  });
+  return Array.isArray(result?.docs) ? result.docs : [];
 }
 
 export async function findPlansForEventType(

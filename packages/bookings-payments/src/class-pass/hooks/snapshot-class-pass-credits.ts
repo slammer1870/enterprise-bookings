@@ -1,6 +1,7 @@
 import type { CollectionBeforeChangeHook, CollectionSlug } from "payload";
 import {
   classPassSharedPoolIsDisplayOnly,
+  relationId,
   snapshotClassPassCredits,
 } from "@repo/shared-services";
 
@@ -25,13 +26,8 @@ export const snapshotClassPassCreditsOnCreate: CollectionBeforeChangeHook = asyn
     Array.isArray(doc.eventTypeOverrides) && doc.eventTypeOverrides.length > 0;
   if (quantityProvided && overridesProvided) return data;
 
-  const typeId =
-    typeof doc.type === "number"
-      ? doc.type
-      : typeof doc.type === "object" && doc.type != null && "id" in doc.type
-        ? (doc.type as { id?: unknown }).id
-        : null;
-  if (typeof typeId !== "number") return data;
+  const typeId = relationId(doc.type);
+  if (typeId == null) return data;
 
   const passType = (await req.payload
     .findByID({

@@ -1179,12 +1179,24 @@ export interface Plan {
     maxBookingsPerTimeslot?: number | null;
     allowMultipleBookingsPerTimeslot?: boolean | null;
     /**
-     * Optional. A row replaces the shared session allowance for that event type only. The same period applies. It does not draw from the shared pool.
+     * Optional. A row adds a separate session allowance for that event type, on top of Sessions. Set Per and Interval to count that event type in its own window, for example 2 sauna sessions a week beside 8 sessions a month. Leave both blank to use the plan's period. Sauna bookings leave the shared sessions unchanged. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for this event type only.
      */
     eventTypeOverrides?:
       | {
           eventType: number | EventType;
           sessions: number;
+          /**
+           * Leave blank, with Interval, to use the plan's period.
+           */
+          intervalCount?: number | null;
+          /**
+           * Leave blank, with Per, to use the plan's period.
+           */
+          interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+          /**
+           * Leave blank to use the plan's max bookings per timeslot. Set a number to cap this event type only.
+           */
+          maxBookingsPerTimeslot?: number | null;
           id?: string | null;
         }[]
       | null;
@@ -1388,12 +1400,16 @@ export interface ClassPassType {
   maxBookingsPerTimeslot?: number | null;
   allowMultipleBookingsPerTimeslot?: boolean | null;
   /**
-   * Optional. A row replaces the shared allowance for that event type only. It does not draw from the shared pool.
+   * Optional. A row adds a separate credit balance for that event type, on top of Quantity of passes. Quantity 10 plus a Reformer row of 4 credits 14 bookings: 4 for Reformer, and 10 shared by the other allowed types. Using the Reformer credits leaves the 10 unchanged. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for this event type only.
    */
   eventTypeOverrides?:
     | {
         eventType: number | EventType;
         quantity: number;
+        /**
+         * Leave blank to use the pass type's max bookings per timeslot. Set a number to cap this event type only.
+         */
+        maxBookingsPerTimeslot?: number | null;
         id?: string | null;
       }[]
     | null;
@@ -5262,6 +5278,7 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
     | {
         eventType?: T;
         quantity?: T;
+        maxBookingsPerTimeslot?: T;
         id?: T;
       };
   stripeProductId?: T;
@@ -5344,6 +5361,9 @@ export interface PlansSelect<T extends boolean = true> {
           | {
               eventType?: T;
               sessions?: T;
+              intervalCount?: T;
+              interval?: T;
+              maxBookingsPerTimeslot?: T;
               id?: T;
             };
       };

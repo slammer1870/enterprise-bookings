@@ -55,6 +55,17 @@ export interface Plan {
           id?: string | null;
           eventType?: number | { id: number } | null;
           sessions?: number | null;
+          /**
+           * When set with `interval`, this event type is counted in its own window.
+           * Blank keeps the plan's sessions interval.
+           */
+          intervalCount?: number | null;
+          interval?: "day" | "week" | "month" | "quarter" | "year" | null;
+          /**
+           * Replaces `maxBookingsPerTimeslot` for this event type only.
+           * Blank keeps the plan cap.
+           */
+          maxBookingsPerTimeslot?: number | null;
         }[]
       | null;
   } | null;

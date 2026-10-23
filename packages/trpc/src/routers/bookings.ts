@@ -45,7 +45,10 @@ import {
   attachProductAllowLists,
   relationId,
   creditsRemainingForEventType,
+  maxBookingsPerTimeslotForEventType,
+  withMaxBookingsPerTimeslotOverride,
   filterValidEnrollmentsForTimeslot,
+  type EventTypeOverrideRow,
   courseEnrollmentBookingFields,
   type TimeslotLike,
   type ClassPassLike,
@@ -975,7 +978,10 @@ export const bookingsRouter = {
           typeof passDoc.type === "object" && passDoc.type != null
             ? (passDoc.type as { id: number }).id
             : passDoc.type;
-        let passType: { maxBookingsPerTimeslot?: number | null } | null = null;
+        let passType: {
+          maxBookingsPerTimeslot?: number | null;
+          eventTypeOverrides?: EventTypeOverrideRow[] | null;
+        } | null = null;
         if (
           passTypeId != null &&
           hasCollection(ctx.payload, ctx.bookingsSlugs.classPassTypes)
@@ -988,6 +994,7 @@ export const bookingsRouter = {
           );
           passType = typeDoc as {
             maxBookingsPerTimeslot?: number | null;
+            eventTypeOverrides?: EventTypeOverrideRow[] | null;
           } | null;
         }
 
@@ -1028,7 +1035,11 @@ export const bookingsRouter = {
         );
         const existingConfirmedCount = existingConfirmedResult.totalDocs ?? 0;
 
-        const configuredMax = passType?.maxBookingsPerTimeslot ?? null;
+        const configuredMax = maxBookingsPerTimeslotForEventType(
+          passType?.eventTypeOverrides,
+          relationId(timeslot.eventType),
+          passType?.maxBookingsPerTimeslot ?? null,
+        );
         const maxPerTimeslot =
           configuredMax == null ? Infinity : Math.max(1, Number(configuredMax));
 
@@ -1611,12 +1622,23 @@ export const bookingsRouter = {
           overrideAccess: true,
         },
       );
+      const eventTypeId = relationId(timeslot.eventType);
       return classPassesForPaymentTab(
         timeslot as unknown as TimeslotLike,
         result.docs as ClassPassLike[],
         new Date(),
         input.quantity ?? 1,
-      );
+      ).map((pass) => {
+        const type = pass.type;
+        if (type == null || typeof type !== "object") return pass;
+        const typeForTimeslot = withMaxBookingsPerTimeslotOverride(
+          type,
+          type.eventTypeOverrides,
+          eventTypeId,
+        );
+        if (typeForTimeslot === type) return pass;
+        return { ...pass, type: typeForTimeslot };
+      });
     }),
 
   getPurchasableClassPassTypesForTimeslot: protectedProcedure
@@ -1740,7 +1762,12 @@ export const bookingsRouter = {
           const typeId = typeof doc?.id === "number" ? doc.id : null;
           if (typeId == null) return null;
 
-          const fullDoc = await findByIdSafe(
+          const fullDoc = await findByIdSafe<{
+            quantity?: number | null;
+            maxBookingsPerTimeslot?: number | null;
+            allowMultipleBookingsPerTimeslot?: boolean | null;
+            eventTypeOverrides?: EventTypeOverrideRow[] | null;
+          }>(
             ctx.payload,
             ctx.bookingsSlugs.classPassTypes,
             typeId,
@@ -1752,31 +1779,28 @@ export const bookingsRouter = {
           if (!fullDoc) return null;
 
           const passQuantity =
-            typeof (fullDoc as { quantity?: unknown }).quantity === "number"
-              ? (fullDoc as { quantity: number }).quantity
-              : 0;
-          const rawMax = (fullDoc as any).maxBookingsPerTimeslot as
-            | number
-            | null
-            | undefined;
-          const legacyAllowMultiple =
-            (fullDoc as any).allowMultipleBookingsPerTimeslot === true;
+            typeof fullDoc.quantity === "number" ? fullDoc.quantity : 0;
+          const rawMax = fullDoc.maxBookingsPerTimeslot;
+          const legacyAllowMultiple = fullDoc.allowMultipleBookingsPerTimeslot === true;
 
-          const maxPerTimeslot = (() => {
-            // `null` means explicitly unlimited.
-            if (rawMax === null) return Infinity;
-
-            // `undefined` means the numeric field was never set (legacy row): fall back to the
-            // boolean field. Do NOT apply this fallback when rawMax is a real number — the
-            // numeric value is the source of truth and must not be overridden by the legacy
-            // boolean (which defaults to `false` in the DB for all rows, including new ones).
-            if (rawMax === undefined) {
-              return legacyAllowMultiple ? Infinity : 1;
-            }
-
-            // Explicit numeric cap: always use it, regardless of the legacy boolean.
-            return Math.max(1, Number(rawMax));
-          })();
+          // `null` means explicitly unlimited.
+          // `undefined` means the numeric field was never set (legacy row): fall back to the
+          // boolean field. Do NOT apply this fallback when rawMax is a real number — the
+          // numeric value is the source of truth and must not be overridden by the legacy
+          // boolean (which defaults to `false` in the DB for all rows, including new ones).
+          const productCap =
+            rawMax === null
+              ? Infinity
+              : rawMax === undefined
+                ? legacyAllowMultiple
+                  ? Infinity
+                  : 1
+                : Math.max(1, Number(rawMax));
+          const maxPerTimeslot = maxBookingsPerTimeslotForEventType(
+            fullDoc.eventTypeOverrides,
+            relationId(timeslot.eventType),
+            productCap,
+          );
 
           if (passQuantity < requiredQuantity) return null;
           if (requiredQuantity > maxPerTimeslot) return null;
@@ -3110,8 +3134,12 @@ export const bookingsRouter = {
           // null/undefined means unlimited — the user may want to book multiple spots,
           // so let them land on /bookings/[id] to pick their quantity.
           const planDoc = (usableSub as any).plan;
-          const planMaxPerTimeslot = planDoc?.sessionsInformation
-            ?.maxBookingsPerTimeslot as number | null | undefined;
+          const planSessions = planDoc?.sessionsInformation;
+          const planMaxPerTimeslot = maxBookingsPerTimeslotForEventType(
+            planSessions?.eventTypeOverrides,
+            relationId(eventType),
+            planSessions?.maxBookingsPerTimeslot,
+          );
           if (planMaxPerTimeslot !== 1) {
             return {
               shouldRedirect: false,

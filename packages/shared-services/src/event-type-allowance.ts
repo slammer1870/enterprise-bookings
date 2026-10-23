@@ -1,6 +1,6 @@
 /**
  * Per-event-type allowances for class passes and memberships.
- * A row replaces the shared pool for that event type only.
+ * A row adds a separate balance for that event type. It does not reduce the shared balance.
  */
 
 export type RelationValue =
@@ -10,12 +10,32 @@ export type RelationValue =
   | null
   | undefined;
 
+const SESSION_INTERVALS = ["day", "week", "month", "quarter", "year"] as const;
+export type SessionInterval = (typeof SESSION_INTERVALS)[number];
+
 export type EventTypeOverrideRow = {
   id?: string | null;
   eventType?: unknown;
   quantity?: number | null;
   sessions?: number | null;
+  /**
+   * When both are set, this event type is counted in this window.
+   * Blank keeps the plan's sessions interval.
+   */
+  interval?: string | null;
+  intervalCount?: number | null;
+  /** When set, replaces the product cap for this event type only. Blank inherits the product cap. */
+  maxBookingsPerTimeslot?: number | null;
 };
+
+export type SessionWindow = {
+  interval: SessionInterval;
+  intervalCount: number;
+};
+
+function isSessionInterval(value: unknown): value is SessionInterval {
+  return typeof value === "string" && (SESSION_INTERVALS as readonly string[]).includes(value);
+}
 
 export function relationId(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -51,7 +71,7 @@ function coerceCount(value: unknown): number | null {
 export function overrideCount(
   rows: EventTypeOverrideRow[] | null | undefined,
   eventTypeId: number,
-  field: "quantity" | "sessions",
+  field: "quantity" | "sessions" | "maxBookingsPerTimeslot",
 ): number | null {
   if (!Array.isArray(rows)) return null;
   for (const row of rows) {
@@ -63,10 +83,65 @@ export function overrideCount(
   return null;
 }
 
+/**
+ * Per-timeslot cap from an override row for this event type.
+ * `undefined` means no row set a number, so the product cap still applies.
+ */
+export function maxBookingsPerTimeslotOverride(
+  rows: EventTypeOverrideRow[] | null | undefined,
+  eventTypeId: number | null,
+): number | undefined {
+  if (eventTypeId == null) return undefined;
+  const max = overrideCount(rows, eventTypeId, "maxBookingsPerTimeslot");
+  if (max == null || max < 1) return undefined;
+  return Math.max(1, max);
+}
+
+/** Row cap when this event type has one; otherwise `productCap`. */
+export function maxBookingsPerTimeslotForEventType(
+  rows: EventTypeOverrideRow[] | null | undefined,
+  eventTypeId: number | null,
+  productCap: number,
+): number;
+export function maxBookingsPerTimeslotForEventType(
+  rows: EventTypeOverrideRow[] | null | undefined,
+  eventTypeId: number | null,
+  productCap: number | null | undefined,
+): number | null | undefined;
+export function maxBookingsPerTimeslotForEventType(
+  rows: EventTypeOverrideRow[] | null | undefined,
+  eventTypeId: number | null,
+  productCap: number | null | undefined,
+): number | null | undefined {
+  return maxBookingsPerTimeslotOverride(rows, eventTypeId) ?? productCap;
+}
+
+/**
+ * Keep `value` when this event type has no row cap.
+ * A row cap replaces `maxBookingsPerTimeslot` on a copy, for this event type only.
+ */
+export function withMaxBookingsPerTimeslotOverride<
+  T extends { maxBookingsPerTimeslot?: number | null },
+>(
+  value: T,
+  rows: EventTypeOverrideRow[] | null | undefined,
+  eventTypeId: number | null,
+): T {
+  const eventTypeMax = maxBookingsPerTimeslotOverride(rows, eventTypeId);
+  if (eventTypeMax == null) return value;
+  return { ...value, maxBookingsPerTimeslot: eventTypeMax };
+}
+
 export type AllowanceKind =
   | { kind: "disallowed" }
   | { kind: "unlimited" }
-  | { kind: "limited"; limit: number; eventTypeIds: number[] | null };
+  | {
+      kind: "limited";
+      limit: number;
+      eventTypeIds: number[] | null;
+      interval: SessionInterval;
+      intervalCount: number;
+    };
 
 type SessionsInfo = {
   sessions?: number | null;
@@ -75,9 +150,30 @@ type SessionsInfo = {
   eventTypeOverrides?: EventTypeOverrideRow[] | null;
 } | null | undefined;
 
-function windowReady(sessions: SessionsInfo): boolean {
-  const count = coerceCount(sessions?.intervalCount);
-  return Boolean(sessions?.interval) && count != null && count > 0;
+function sessionWindowFrom(
+  interval: unknown,
+  intervalCount: unknown,
+): SessionWindow | null {
+  const count = coerceCount(intervalCount);
+  if (!isSessionInterval(interval) || count == null || count <= 0) return null;
+  return { interval, intervalCount: count };
+}
+
+/**
+ * A row interval is that event type's window.
+ * Blank Per means 1, the same default as a plan interval with no count.
+ * No row interval keeps the plan window.
+ */
+function windowForOverrideRow(
+  row: EventTypeOverrideRow | undefined,
+  planWindow: SessionWindow | null,
+): SessionWindow | null {
+  if (!isSessionInterval(row?.interval)) return planWindow;
+  const count = coerceCount(row.intervalCount);
+  return {
+    interval: row.interval,
+    intervalCount: count != null && count > 0 ? count : 1,
+  };
 }
 
 /**
@@ -98,6 +194,7 @@ export function membershipBucketForEventType(
     : [];
   const hasAllowList = Array.isArray(plan?.allowedEventTypes);
   const allowedIds = hasAllowList ? relationIds(plan?.allowedEventTypes) : null;
+  const planWindow = sessionWindowFrom(sessions?.interval, sessions?.intervalCount);
 
   if (eventTypeId != null && hasAllowList && !allowedIds!.includes(eventTypeId)) {
     return { kind: "disallowed" };
@@ -106,19 +203,23 @@ export function membershipBucketForEventType(
   if (eventTypeId != null) {
     const override = overrideCount(rows, eventTypeId, "sessions");
     if (override != null) {
-      if (!windowReady(sessions)) return { kind: "unlimited" };
+      const row = rows.find((entry) => relationId(entry?.eventType) === eventTypeId);
+      const window = windowForOverrideRow(row, planWindow);
+      if (window == null) return { kind: "unlimited" };
       return {
         kind: "limited",
         limit: Math.max(1, override),
         eventTypeIds: [eventTypeId],
+        interval: window.interval,
+        intervalCount: window.intervalCount,
       };
     }
   }
 
   const sharedLimit = coerceCount(sessions?.sessions);
-  const sharedReady =
-    sharedLimit != null && sharedLimit > 0 && windowReady(sessions);
-  if (!sharedReady) return { kind: "unlimited" };
+  if (sharedLimit == null || sharedLimit <= 0 || planWindow == null) {
+    return { kind: "unlimited" };
+  }
 
   const sharedIds =
     allowedIds == null
@@ -131,8 +232,10 @@ export function membershipBucketForEventType(
 
   return {
     kind: "limited",
-    limit: sharedLimit!,
+    limit: sharedLimit,
     eventTypeIds: sharedIds,
+    interval: planWindow.interval,
+    intervalCount: planWindow.intervalCount,
   };
 }
 

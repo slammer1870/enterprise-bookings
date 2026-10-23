@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   adjustClassPassCredits,
   displayQuantityForClassPassType,
+  maxBookingsPerTimeslotOverride,
   snapshotClassPassCredits,
 } from "../src/event-type-allowance";
 
@@ -38,6 +39,19 @@ describe("snapshotClassPassCredits", () => {
       ],
     });
     expect(displayQuantityForClassPassType(type, 9)).toBe(5);
+  });
+});
+
+describe("maxBookingsPerTimeslotOverride", () => {
+  it("returns the row cap for that event type and leaves other types to the product cap", () => {
+    const rows = [
+      { eventType: float, quantity: 4, maxBookingsPerTimeslot: 2 },
+      { eventType: sauna, quantity: 1 },
+    ];
+
+    expect(maxBookingsPerTimeslotOverride(rows, float)).toBe(2);
+    expect(maxBookingsPerTimeslotOverride(rows, sauna)).toBeUndefined();
+    expect(maxBookingsPerTimeslotOverride(rows, 99)).toBeUndefined();
   });
 });
 

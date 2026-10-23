@@ -29,7 +29,7 @@ import {
   getActiveCheckoutHold as getActiveCheckoutHoldService,
   CHECKOUT_HOLD_COLLECTION_SLUG,
 } from "@repo/bookings-payments";
-import { allowListsByEventTypeId } from "@repo/shared-services";
+import { allowListsByEventTypeId, maxBookingsPerTimeslotForEventType } from "@repo/shared-services";
 import {
   checkRole,
   getDayRange,
@@ -610,7 +610,7 @@ export const timeslotsRouter = {
           };
         };
 
-        const sanitizePlan = (doc: any) => {
+        const sanitizePlan = (doc: any, eventTypeId: number | null) => {
           if (!doc || typeof doc !== "object") return doc;
           const si = doc.sessionsInformation && typeof doc.sessionsInformation === "object"
             ? doc.sessionsInformation
@@ -627,12 +627,15 @@ export const timeslotsRouter = {
                   intervalCount: si.intervalCount ?? null,
                   interval: si.interval ?? null,
                   // Legacy `allowMultipleBookingsPerTimeslot` is mapped to numeric semantics.
-                  maxBookingsPerTimeslot:
+                  maxBookingsPerTimeslot: maxBookingsPerTimeslotForEventType(
+                    si.eventTypeOverrides,
+                    eventTypeId,
                     si.maxBookingsPerTimeslot == null
                       ? si.allowMultipleBookingsPerTimeslot === true
                         ? null
                         : 1
                       : si.maxBookingsPerTimeslot,
+                  ),
                 }
               : undefined,
             priceInformation: pi
@@ -646,7 +649,7 @@ export const timeslotsRouter = {
           };
         };
 
-        const sanitizeClassPassType = (doc: any) => {
+        const sanitizeClassPassType = (doc: any, eventTypeId: number | null) => {
           if (!doc || typeof doc !== "object") return doc;
           const pi = doc.priceInformation && typeof doc.priceInformation === "object"
             ? doc.priceInformation
@@ -657,7 +660,9 @@ export const timeslotsRouter = {
             slug: doc.slug ?? null,
             quantity: doc.quantity ?? null,
             // Legacy `allowMultipleBookingsPerTimeslot` is mapped to numeric semantics.
-            maxBookingsPerTimeslot:
+            maxBookingsPerTimeslot: maxBookingsPerTimeslotForEventType(
+              doc.eventTypeOverrides,
+              eventTypeId,
               // Important: `null` means "no per-user limit" and must stay null.
               typeof doc.maxBookingsPerTimeslot === "number"
                 ? doc.maxBookingsPerTimeslot
@@ -666,6 +671,7 @@ export const timeslotsRouter = {
                   : doc.allowMultipleBookingsPerTimeslot === true
                     ? null
                     : 1,
+            ),
             priceInformation: pi ? { price: pi.price ?? null } : undefined,
             status: doc.status ?? null,
           };
@@ -675,6 +681,7 @@ export const timeslotsRouter = {
           if (!doc || typeof doc !== "object") return doc;
           const pm = doc.paymentMethods && typeof doc.paymentMethods === "object" ? doc.paymentMethods : null;
           const allowedDropIn = pm?.allowedDropIn;
+          const eventTypeId = relationId(doc.id);
           return {
             id: relationId(doc.id),
             name: doc.name ?? null,
@@ -691,12 +698,12 @@ export const timeslotsRouter = {
                         : null,
                   allowedClassPasses: Array.isArray(pm.allowedClassPasses)
                     ? pm.allowedClassPasses.map((cp: any) =>
-                        cp && typeof cp === "object" ? sanitizeClassPassType(cp) : relationId(cp)
+                        cp && typeof cp === "object" ? sanitizeClassPassType(cp, eventTypeId) : relationId(cp)
                       )
                     : [],
                   allowedPlans: Array.isArray(pm.allowedPlans)
                     ? pm.allowedPlans.map((p: any) =>
-                        p && typeof p === "object" ? sanitizePlan(p) : relationId(p)
+                        p && typeof p === "object" ? sanitizePlan(p, eventTypeId) : relationId(p)
                       )
                     : [],
                   allowedCourses: Array.isArray(pm.allowedCourses)

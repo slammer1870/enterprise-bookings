@@ -230,6 +230,11 @@ export interface ClassPassType {
         id?: string | null;
         eventType?: number | { id: number } | null;
         quantity?: number | null;
+        /**
+         * Replaces `maxBookingsPerTimeslot` for this event type only.
+         * Blank keeps the pass type cap.
+         */
+        maxBookingsPerTimeslot?: number | null;
       }[]
     | null;
   status?: "active" | "inactive" | null;

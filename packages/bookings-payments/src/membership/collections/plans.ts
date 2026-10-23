@@ -10,6 +10,10 @@ import type { AccessControls, HooksConfig, User } from "@repo/shared-types";
 import { beforeProductChange } from "../hooks/before-product-change";
 import type { MembershipBranchConfig } from "../types";
 import { relationId, relationIds, validateEventTypeOverrideRows } from "@repo/shared-services";
+import {
+  eventTypeOverridesField,
+  validateOptionalMaxBookingsPerTimeslot,
+} from "../../fields/event-type-overrides";
 
 const defaultLabels: Labels = {
   singular: "Membership",
@@ -86,10 +90,7 @@ function planFields(eventTypesSlug: string): Field[] {
         required: false,
         // Null => no per-user cap (still bounded by event type capacity).
         // Legacy mapping uses `allowMultipleBookingsPerTimeslot` to set this to `null`.
-        validate: (value: unknown) => {
-          if (value == null) return true;
-          return typeof value === "number" && value >= 1 ? true : "maxBookingsPerTimeslot must be >= 1 or blank";
-        },
+        validate: validateOptionalMaxBookingsPerTimeslot,
         admin: {
           description:
             "Leave blank for no per-user cap on bookings for the same timeslot (still bounded by event type capacity). When set, subscribers can book up to this many spots per timeslot for the selected plan.",
@@ -104,45 +105,15 @@ function planFields(eventTypesSlug: string): Field[] {
         required: false,
         admin: { hidden: true },
       },
-      {
-        type: "collapsible",
-        label: "Advanced",
-        admin: { initCollapsed: true },
-        fields: [
-          {
-            name: "eventTypeOverrides",
-            label: "Per event type limits",
-            type: "array",
-            admin: {
-              description:
-                "Optional. A row replaces the shared session allowance for that event type only. The same period applies. It does not draw from the shared pool.",
-            },
-            fields: [
-              {
-                name: "eventType",
-                label: "Event type",
-                type: "relationship",
-                relationTo: eventTypesSlug as import("payload").CollectionSlug,
-                required: true,
-                filterOptions: ({ data }) => {
-                  const ids = relationIds(
-                    (data as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
-                  );
-                  if (ids.length === 0) return false;
-                  return { id: { in: ids } };
-                },
-              },
-              {
-                name: "sessions",
-                label: "Sessions",
-                type: "number",
-                required: true,
-                min: 1,
-              },
-            ],
-          },
-        ],
-      },
+      eventTypeOverridesField({
+        eventTypesSlug,
+        countName: "sessions",
+        countLabel: "Sessions",
+        description:
+          "Optional. A row adds a separate session allowance for that event type, on top of Sessions. Set Per and Interval to count that event type in its own window, for example 2 sauna sessions a week beside 8 sessions a month. Leave both blank to use the plan's period. Sauna bookings leave the shared sessions unchanged. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for this event type only.",
+        capDescription:
+          "Leave blank to use the plan's max bookings per timeslot. Set a number to cap this event type only.",
+      }),
     ],
   },
   {
@@ -271,12 +242,33 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
   const doc = data as {
     allowedEventTypes?: unknown;
     sessionsInformation?: {
-      eventTypeOverrides?: Array<{ eventType?: unknown; sessions?: number | null }>;
+      eventTypeOverrides?: Array<{
+        eventType?: unknown;
+        sessions?: number | null;
+        interval?: string | null;
+        intervalCount?: number | null;
+      }>;
     };
   };
   const rows = Array.isArray(doc.sessionsInformation?.eventTypeOverrides)
     ? doc.sessionsInformation.eventTypeOverrides
     : [];
+  const sessionIntervals = ["day", "week", "month", "quarter", "year"];
+  for (const row of rows) {
+    const interval = typeof row?.interval === "string" ? row.interval : "";
+    const hasInterval = interval.length > 0;
+    const hasCount = typeof row?.intervalCount === "number";
+    if (hasInterval && !sessionIntervals.includes(interval)) {
+      throw new Error("Interval must be days, weeks, months, quarters, or years.");
+    }
+    if (hasInterval && !hasCount) {
+      row.intervalCount = 1;
+    } else if (!hasInterval && hasCount) {
+      throw new Error("Set Interval when Per is set, or leave both blank.");
+    } else if (hasCount && (row.intervalCount as number) < 1) {
+      throw new Error("Per must be at least 1.");
+    }
+  }
   const validation = validateEventTypeOverrideRows({
     allowedEventTypeIds: relationIds(doc.allowedEventTypes),
     rows: rows.map((row) => ({

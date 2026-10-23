@@ -4,7 +4,12 @@
  * Callers that have already resolved the product allow-list may still pass it on the lesson.
  */
 
-import { creditsRemainingForEventType, relationId, relationIds } from "./event-type-allowance"
+import {
+  creditsRemainingForEventType,
+  relationId,
+  relationIds,
+  type EventTypeOverrideRow,
+} from "./event-type-allowance"
 
 export type TimeslotLike = {
   tenant?: number | { id: number } | null
@@ -31,6 +36,7 @@ export type ClassPassLike = {
         allowedEventTypes?: Array<number | { id: number }> | null
         maxBookingsPerTimeslot?: number | null
         name?: string | null
+        eventTypeOverrides?: EventTypeOverrideRow[] | null
       }
     | null
   status?: string | null

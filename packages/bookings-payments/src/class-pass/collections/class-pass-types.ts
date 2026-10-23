@@ -16,6 +16,10 @@ import {
   relationIds,
   validateEventTypeOverrideRows,
 } from "@repo/shared-services";
+import {
+  eventTypeOverridesField,
+  validateOptionalMaxBookingsPerTimeslot,
+} from "../../fields/event-type-overrides";
 
 const adminOnlyFieldAccess = {
   read: ({ req: { user } }: { req: { user: unknown } }) => checkRole(["admin"], user as User | null),
@@ -39,46 +43,6 @@ function allowedEventTypesField(eventTypesSlug: string): Field {
     admin: {
       description: "Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types.",
     },
-  };
-}
-
-function eventTypeOverrideFields(eventTypesSlug: string, countName: "quantity" | "sessions", countLabel: string): Field {
-  return {
-    type: "collapsible",
-    label: "Advanced",
-    admin: { initCollapsed: true },
-    fields: [
-      {
-        name: "eventTypeOverrides",
-        label: "Per event type limits",
-        type: "array",
-        admin: {
-          description:
-            "Optional. A row replaces the shared allowance for that event type only. It does not draw from the shared pool.",
-        },
-        fields: [
-          {
-            name: "eventType",
-            label: "Event type",
-            type: "relationship",
-            relationTo: eventTypesSlug as import("payload").CollectionSlug,
-            required: true,
-            filterOptions: ({ data }) => {
-              const ids = relationIds((data as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes);
-              if (ids.length === 0) return false;
-              return { id: { in: ids } };
-            },
-          },
-          {
-            name: countName,
-            label: countLabel,
-            type: "number",
-            required: true,
-            min: 1,
-          },
-        ],
-      },
-    ],
   };
 }
 
@@ -136,10 +100,7 @@ function classPassTypeFields(eventTypesSlug: string): Field[] {
     required: false,
     // Allow `null` explicitly; server/client treat `null` as "unlimited".
     // Avoid `min: 1` because Payload can coerce/validate `null` unexpectedly.
-    validate: (value: unknown) => {
-      if (value == null) return true
-      return typeof value === "number" && value >= 1 ? true : "maxBookingsPerTimeslot must be >= 1 or blank"
-    },
+    validate: validateOptionalMaxBookingsPerTimeslot,
     admin: {
       description:
         "Leave blank for no per-user limit. When set, users can book up to this many spots per timeslot using this pass type.",
@@ -154,7 +115,15 @@ function classPassTypeFields(eventTypesSlug: string): Field[] {
     required: false,
     admin: { hidden: true },
   },
-  eventTypeOverrideFields(eventTypesSlug, "quantity", "Quantity"),
+  eventTypeOverridesField({
+    eventTypesSlug,
+    countName: "quantity",
+    countLabel: "Quantity",
+    description:
+      "Optional. A row adds a separate credit balance for that event type, on top of Quantity of passes. Quantity 10 plus a Reformer row of 4 credits 14 bookings: 4 for Reformer, and 10 shared by the other allowed types. Using the Reformer credits leaves the 10 unchanged. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for this event type only.",
+    capDescription:
+      "Leave blank to use the pass type's max bookings per timeslot. Set a number to cap this event type only.",
+  }),
   {
     name: "stripeProductId",
     type: "text",

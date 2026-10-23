@@ -20,6 +20,8 @@ import {
   getSubscriptionUpgradeOptions,
   getRemainingSessionsInPeriodForPlan,
   attachProductAllowLists,
+  maxBookingsPerTimeslotForEventType,
+  withMaxBookingsPerTimeslotOverride,
   relationId,
 } from "@repo/shared-services";
 
@@ -339,10 +341,12 @@ export const subscriptionsRouter = {
               const candidates = allowedPlanDocs.filter((p) => p.status === "active");
               const eligible: Plan[] = [];
               for (const plan of candidates) {
-                const rawMax = (plan.sessionsInformation as any)?.maxBookingsPerTimeslot as
-                  | number
-                  | null
-                  | undefined;
+                const sessions = plan.sessionsInformation;
+                const rawMax = maxBookingsPerTimeslotForEventType(
+                  sessions?.eventTypeOverrides,
+                  eventTypeId,
+                  sessions?.maxBookingsPerTimeslot,
+                );
                 // Unbounded (null/undefined) means this plan supports the requested quantity for the per-viewer cap.
                 const maxPerTimeslot =
                   rawMax == null
@@ -350,8 +354,10 @@ export const subscriptionsRouter = {
                     : Math.max(1, Number(rawMax));
 
                 // Legacy fallback for older rows during migration
-                const legacyAllowsMultiple = (plan.sessionsInformation as any)
-                  ?.allowMultipleBookingsPerTimeslot === true;
+                const legacyAllowsMultiple =
+                  (
+                    sessions as { allowMultipleBookingsPerTimeslot?: boolean } | null | undefined
+                  )?.allowMultipleBookingsPerTimeslot === true;
                 const legacyCap = legacyAllowsMultiple ? Infinity : 1;
 
                 const effectiveMax = rawMax == null ? legacyCap : maxPerTimeslot;
@@ -369,7 +375,19 @@ export const subscriptionsRouter = {
                   continue;
                 }
 
-                eligible.push(plan);
+                const sessionsForTimeslot =
+                  sessions == null
+                    ? null
+                    : withMaxBookingsPerTimeslotOverride(
+                        sessions,
+                        sessions.eventTypeOverrides,
+                        eventTypeId,
+                      );
+                eligible.push(
+                  sessionsForTimeslot == null || sessionsForTimeslot === sessions
+                    ? plan
+                    : { ...plan, sessionsInformation: sessionsForTimeslot },
+                );
               }
               return eligible;
             })()
@@ -382,7 +400,7 @@ export const subscriptionsRouter = {
         limitReached ||
         (remainingSessions != null && remainingSessions < selectedQuantity);
 
-      const upgradeOptions =
+      const upgradeOptions = (
         needsUpgradeOptions && allowedPlans.length > 0
           ? await getSubscriptionUpgradeOptions(
               subscription as Subscription,
@@ -391,10 +409,51 @@ export const subscriptionsRouter = {
               new Date(timeslot.startTime),
               eventTypeId,
             )
-          : [];
+          : []
+      ).map((option) => {
+        const sessions = option.plan.sessionsInformation;
+        if (sessions == null) return option;
+        const sessionsForTimeslot = withMaxBookingsPerTimeslotOverride(
+          sessions,
+          sessions.eventTypeOverrides,
+          eventTypeId,
+        );
+        if (sessionsForTimeslot === sessions) return option;
+        return {
+          ...option,
+          plan: { ...option.plan, sessionsInformation: sessionsForTimeslot },
+        };
+      });
+
+      const subscriptionPlan = subscription.plan;
+      const subscriptionSessions =
+        subscriptionPlan && typeof subscriptionPlan === "object"
+          ? subscriptionPlan.sessionsInformation
+          : null;
+      const sessionsForTimeslot =
+        subscriptionSessions == null
+          ? null
+          : withMaxBookingsPerTimeslotOverride(
+              subscriptionSessions,
+              subscriptionSessions.eventTypeOverrides,
+              eventTypeId,
+            );
+      const subscriptionForTimeslot =
+        sessionsForTimeslot == null ||
+        sessionsForTimeslot === subscriptionSessions ||
+        !subscriptionPlan ||
+        typeof subscriptionPlan !== "object"
+          ? subscription
+          : {
+              ...subscription,
+              plan: {
+                ...subscriptionPlan,
+                sessionsInformation: sessionsForTimeslot,
+              },
+            };
 
       return {
-        subscription,
+        subscription: subscriptionForTimeslot,
         subscriptionLimitReached: limitReached,
         remainingSessions,
         needsCustomerPortal,

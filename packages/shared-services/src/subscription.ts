@@ -4,6 +4,7 @@ import { Timeslot, Plan, Subscription, User } from "@repo/shared-types";
 import { getIntervalStartAndEndDate, getSessionLimitWindowStartAndEndDate } from "@repo/shared-utils";
 import {
   additionalSessionsForUpgrade,
+  maxBookingsPerTimeslotForEventType,
   membershipBucketForEventType,
   relationId,
   type AllowanceKind,
@@ -22,7 +23,7 @@ function getPlanCollectionSlug(payload: Payload): CollectionSlug {
  * - `null`/`undefined` => unbounded (Infinity)
  * - any number < 1 => treated as 1
  */
-function getPlanMaxBookingsPerTimeslot(plan: Plan): number {
+function getPlanMaxBookingsPerTimeslot(plan: Plan, eventTypeId: number | null = null): number {
   const si = plan?.sessionsInformation as
     | (NonNullable<Plan["sessionsInformation"]> & {
         maxBookingsPerTimeslot?: number | null;
@@ -30,7 +31,11 @@ function getPlanMaxBookingsPerTimeslot(plan: Plan): number {
     | null
     | undefined;
 
-  const max = si?.maxBookingsPerTimeslot;
+  const max = maxBookingsPerTimeslotForEventType(
+    si?.eventTypeOverrides,
+    eventTypeId,
+    si?.maxBookingsPerTimeslot,
+  );
   return max == null ? Infinity : Math.max(1, max);
 }
 
@@ -120,12 +125,11 @@ function subscriptionUserId(subscription: Subscription): number | null {
 }
 
 function sessionWindow(
-  plan: Plan,
   subscription: Subscription,
   lessonDate: Date,
+  intervalType: "day" | "week" | "month" | "quarter" | "year",
+  intervalCount: number,
 ): { startDate: Date; endDate: Date } {
-  const intervalType = plan.sessionsInformation!.interval!;
-  const intervalCount = plan.sessionsInformation!.intervalCount || 1;
   if (intervalType === "day" || intervalType === "week" || intervalType === "month") {
     return getSessionLimitWindowStartAndEndDate({
       intervalType,
@@ -183,7 +187,12 @@ async function resolvePlanAllowance(
   const bucket = membershipBucketForEventType(plan, eventTypeId);
   if (bucket.kind === "disallowed") return { bucket, remaining: 0 };
   if (bucket.kind === "unlimited") return { bucket, remaining: null };
-  const { startDate, endDate } = sessionWindow(plan, subscription, lessonDate);
+  const { startDate, endDate } = sessionWindow(
+    subscription,
+    lessonDate,
+    bucket.interval,
+    bucket.intervalCount,
+  );
   const used = await countBookingsInWindow(
     payload,
     subscription,
@@ -345,7 +354,7 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
     }
     if (!plan) return null;
 
-    const maxPerTimeslot = getPlanMaxBookingsPerTimeslot(plan);
+    const maxPerTimeslot = getPlanMaxBookingsPerTimeslot(plan, eventTypeId);
 
     const existing = await payload.find({
       collection: "bookings" as CollectionSlug,

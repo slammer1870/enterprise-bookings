@@ -96,5 +96,39 @@ describe("maxBookingsPerTimeslot beforeValidate", () => {
 
     expect((data as any).maxBookingsPerTimeslot).toBe(null);
   });
+
+  it("plans: a row with Interval and blank Per saves Per as 1", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        allowedEventTypes: [2],
+        sessionsInformation: {
+          eventTypeOverrides: [{ eventType: 2, sessions: 2, interval: "week" }],
+        },
+      },
+    } as any);
+
+    expect((data as any).sessionsInformation.eventTypeOverrides[0].intervalCount).toBe(1);
+  });
+
+  it("plans: a row with Per and blank Interval is rejected", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    await expect(
+      hook({
+        data: {
+          allowedEventTypes: [2],
+          sessionsInformation: {
+            eventTypeOverrides: [{ eventType: 2, sessions: 2, intervalCount: 2 }],
+          },
+        },
+      } as any),
+    ).rejects.toThrow("Set Interval when Per is set, or leave both blank.");
+  });
 });
 

@@ -1,5 +1,6 @@
 import { StripeWebhookHandler } from "@payloadcms/plugin-stripe/types";
 import Stripe from "stripe";
+import { relationIds } from "@repo/shared-services";
 import { findUserByCustomer } from "./find-user-by-customer";
 
 export const subscriptionCanceled: StripeWebhookHandler<{
@@ -83,18 +84,9 @@ export const subscriptionCanceled: StripeWebhookHandler<{
         limit: 1,
       });
 
-      const rawAllowedEventTypes = (
-        plan.docs[0] as { allowedEventTypes?: unknown } | undefined
-      )?.allowedEventTypes;
-      const allowedEventTypeIds = (Array.isArray(rawAllowedEventTypes) ? rawAllowedEventTypes : [])
-        .map((value) =>
-          typeof value === "number"
-            ? value
-            : typeof value === "object" && value != null && "id" in value
-              ? (value as { id?: unknown }).id
-              : null,
-        )
-        .filter((id): id is number => typeof id === "number");
+      const allowedEventTypeIds = relationIds(
+        (plan.docs[0] as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
+      );
 
       if (plan.docs[0]?.id && allowedEventTypeIds.length > 0) {
         await payload.update({

@@ -11,8 +11,9 @@ import {
   subscriptionNeedsCustomerPortal,
   canUseSubscriptionForBooking,
   getSubscriptionUpgradeOptions,
+  getMaxSubscriptionQuantityPerTimeslot,
 } from "../src/subscription";
-import type { Plan, Subscription } from "@repo/shared-types";
+import type { Plan, Subscription, Timeslot } from "@repo/shared-types";
 
 function createMockPayload(opts: {
   findByID?: (_args: unknown) => Promise<unknown>;
@@ -354,12 +355,45 @@ function countsByEventTypeList(counts: Record<string, number>) {
   });
 }
 
+function countsBookingsInAskedWindow(
+  bookings: Array<{ eventTypeId: number; startTime: Date }>,
+) {
+  return vi.fn(async (args: { where?: Record<string, unknown> }) => {
+    const where = args.where ?? {};
+    const ids = (where["timeslot.eventType"] as { in?: number[] } | undefined)?.in;
+    const range = where["timeslot.startTime"] as
+      | { greater_than_equal?: Date | string; less_than_equal?: Date | string }
+      | undefined;
+    const start = range?.greater_than_equal
+      ? new Date(range.greater_than_equal).getTime()
+      : Number.NEGATIVE_INFINITY;
+    const end = range?.less_than_equal
+      ? new Date(range.less_than_equal).getTime()
+      : Number.POSITIVE_INFINITY;
+    const totalDocs = bookings.filter((booking) => {
+      if (ids && !ids.includes(booking.eventTypeId)) return false;
+      const at = booking.startTime.getTime();
+      return at >= start && at <= end;
+    }).length;
+    return { totalDocs, docs: [] };
+  });
+}
+
 function planWithAllowances(opts: {
   id: number;
   name: string;
   sessions: number;
   allowedEventTypes: number[];
-  overrides?: Array<{ eventType: number; sessions: number }>;
+  interval?: "day" | "week" | "month" | "quarter" | "year";
+  intervalCount?: number;
+  maxBookingsPerTimeslot?: number | null;
+  overrides?: Array<{
+    eventType: number;
+    sessions: number;
+    interval?: "day" | "week" | "month" | "quarter" | "year";
+    intervalCount?: number;
+    maxBookingsPerTimeslot?: number | null;
+  }>;
 }): Plan {
   return {
     id: opts.id,
@@ -368,13 +402,30 @@ function planWithAllowances(opts: {
     allowedEventTypes: opts.allowedEventTypes,
     sessionsInformation: {
       sessions: opts.sessions,
-      interval: "week",
-      intervalCount: 1,
+      interval: opts.interval ?? "week",
+      intervalCount: opts.intervalCount ?? 1,
+      maxBookingsPerTimeslot: opts.maxBookingsPerTimeslot,
       eventTypeOverrides: opts.overrides,
     },
     updatedAt: "",
     createdAt: "",
   };
+}
+
+function timeslotFor(eventTypeId: number): Timeslot {
+  return { id: 50, eventType: { id: eventTypeId } } as unknown as Timeslot;
+}
+
+function payloadWithMemberPlan(plan: Plan, confirmedBookings: number): Payload {
+  return {
+    collections: { plans: {}, subscriptions: {}, bookings: {} },
+    logger: { info: vi.fn(), error: vi.fn() },
+    find: vi.fn(async (args: { collection?: string }) => {
+      if (args.collection === "plans") return { docs: [plan], totalDocs: 1 };
+      if (args.collection === "subscriptions") return { docs: [{ id: 1, plan }], totalDocs: 1 };
+      return { docs: [], totalDocs: confirmedBookings };
+    }),
+  } as unknown as Payload;
 }
 
 describe("event type allowance buckets", () => {
@@ -445,6 +496,60 @@ describe("event type allowance buckets", () => {
     expect(saunaRemaining).toBe(1);
   });
 
+  it("counts a sauna row of 2 per week inside that week, so a sauna booking from the previous week leaves 2", async () => {
+    const plan = planWithAllowances({
+      id: 15,
+      name: "8 per month, sauna 2 per week",
+      sessions: 8,
+      interval: "month",
+      allowedEventTypes: [yoga, sauna],
+      overrides: [{ eventType: sauna, sessions: 2, interval: "week", intervalCount: 1 }],
+    });
+    const member = { ...subscriptionWithPlan, plan } as Subscription;
+    const payload = createMockPayload({
+      find: countsBookingsInAskedWindow([
+        { eventTypeId: sauna, startTime: new Date("2025-01-06T12:00:00Z") },
+      ]),
+    });
+
+    const remaining = await getRemainingSessionsInPeriodForPlan(
+      member,
+      plan,
+      payload,
+      lessonDate,
+      sauna,
+    );
+
+    expect(remaining).toBe(2);
+  });
+
+  it("counts a sauna row of 2 per week when Per is blank, so a sauna booking from the previous week leaves 2", async () => {
+    const plan = planWithAllowances({
+      id: 16,
+      name: "8 per month, sauna 2 per week, Per blank",
+      sessions: 8,
+      interval: "month",
+      allowedEventTypes: [yoga, sauna],
+      overrides: [{ eventType: sauna, sessions: 2, interval: "week" }],
+    });
+    const member = { ...subscriptionWithPlan, plan } as Subscription;
+    const payload = createMockPayload({
+      find: countsBookingsInAskedWindow([
+        { eventTypeId: sauna, startTime: new Date("2025-01-06T12:00:00Z") },
+      ]),
+    });
+
+    const remaining = await getRemainingSessionsInPeriodForPlan(
+      member,
+      plan,
+      payload,
+      lessonDate,
+      sauna,
+    );
+
+    expect(remaining).toBe(2);
+  });
+
   it("blocks a third sauna and still allows yoga when each service has its own cap", async () => {
     const split = planWithAllowances({
       id: 11,
@@ -510,5 +615,72 @@ describe("event type allowance buckets", () => {
     expect(floatUpgrades[0]!.maxAdditionalSessions).toBe(1);
     expect(yogaUpgrades.map((option) => option.plan.id)).toEqual([12]);
     expect(yogaUpgrades[0]!.maxAdditionalSessions).toBe(1);
+  });
+});
+
+describe("getMaxSubscriptionQuantityPerTimeslot event type caps", () => {
+  const memberId = 100;
+
+  it("uses the sauna row cap of 1 and leaves yoga on the plan cap of 4", async () => {
+    const plan = planWithAllowances({
+      id: 20,
+      name: "4 per timeslot, sauna 1",
+      sessions: 8,
+      allowedEventTypes: [yoga, sauna],
+      maxBookingsPerTimeslot: 4,
+      overrides: [{ eventType: sauna, sessions: 2, maxBookingsPerTimeslot: 1 }],
+    });
+
+    const saunaSpots = await getMaxSubscriptionQuantityPerTimeslot(
+      memberId,
+      timeslotFor(sauna),
+      payloadWithMemberPlan(plan, 0),
+    );
+    const yogaSpots = await getMaxSubscriptionQuantityPerTimeslot(
+      memberId,
+      timeslotFor(yoga),
+      payloadWithMemberPlan(plan, 0),
+    );
+
+    expect(saunaSpots).toBe(1);
+    expect(yogaSpots).toBe(4);
+  });
+
+  it("keeps the plan cap when the sauna row leaves max bookings blank", async () => {
+    const plan = planWithAllowances({
+      id: 21,
+      name: "1 per timeslot, sauna sessions only",
+      sessions: 8,
+      allowedEventTypes: [yoga, sauna],
+      maxBookingsPerTimeslot: 1,
+      overrides: [{ eventType: sauna, sessions: 2 }],
+    });
+
+    const spots = await getMaxSubscriptionQuantityPerTimeslot(
+      memberId,
+      timeslotFor(sauna),
+      payloadWithMemberPlan(plan, 1),
+    );
+
+    expect(spots).toBe(0);
+  });
+
+  it("allows 3 float spots when the row cap is 3 and the plan cap is 1", async () => {
+    const plan = planWithAllowances({
+      id: 22,
+      name: "1 per timeslot, float 3",
+      sessions: 8,
+      allowedEventTypes: [yoga, float],
+      maxBookingsPerTimeslot: 1,
+      overrides: [{ eventType: float, sessions: 4, maxBookingsPerTimeslot: 3 }],
+    });
+
+    const spots = await getMaxSubscriptionQuantityPerTimeslot(
+      memberId,
+      timeslotFor(float),
+      payloadWithMemberPlan(plan, 0),
+    );
+
+    expect(spots).toBe(3);
   });
 });
