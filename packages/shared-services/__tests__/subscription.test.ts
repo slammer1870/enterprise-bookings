@@ -631,10 +631,11 @@ describe("getMaxSubscriptionQuantityPerTimeslot event type caps", () => {
       overrides: [{ eventType: sauna, sessions: 2, maxBookingsPerTimeslot: 1 }],
     });
 
+    const payload = payloadWithMemberPlan(plan, 0);
     const saunaSpots = await getMaxSubscriptionQuantityPerTimeslot(
       memberId,
       timeslotFor(sauna),
-      payloadWithMemberPlan(plan, 0),
+      payload,
     );
     const yogaSpots = await getMaxSubscriptionQuantityPerTimeslot(
       memberId,
@@ -644,6 +645,29 @@ describe("getMaxSubscriptionQuantityPerTimeslot event type caps", () => {
 
     expect(saunaSpots).toBe(1);
     expect(yogaSpots).toBe(4);
+    expect(payload.find).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: "plans", depth: 0 }),
+    );
+  });
+
+  it("throws when the membership cap lookup fails so the booking is not created", async () => {
+    const plan = planWithAllowances({
+      id: 23,
+      name: "cap lookup fails",
+      sessions: 8,
+      allowedEventTypes: [sauna],
+      maxBookingsPerTimeslot: 1,
+    });
+    const payload = payloadWithMemberPlan(plan, 0);
+    vi.mocked(payload.find).mockImplementation(async (args: { collection?: string }) => {
+      if (args.collection === "plans") return { docs: [plan], totalDocs: 1 };
+      if (args.collection === "subscriptions") return { docs: [{ id: 1, plan }], totalDocs: 1 };
+      throw new Error("bookings unavailable");
+    });
+
+    await expect(
+      getMaxSubscriptionQuantityPerTimeslot(memberId, timeslotFor(sauna), payload),
+    ).rejects.toThrow("bookings unavailable");
   });
 
   it("keeps the plan cap when the sauna row leaves max bookings blank", async () => {

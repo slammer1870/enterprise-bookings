@@ -318,7 +318,10 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
 ): Promise<number | null> => {
   const eventTypeId = relationId(timeslot.eventType);
   const tenantId = relationId(timeslot.tenant);
-  const allowedPlans = await findPlansForEventType(payload, eventTypeId, { tenantId });
+  const allowedPlans = await findPlansForEventType(payload, eventTypeId, {
+    tenantId,
+    depth: 0,
+  });
   if (allowedPlans.length === 0) return null;
 
   try {
@@ -372,7 +375,7 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
     return maxAdditional;
   } catch (error) {
     payload.logger?.error?.(`getMaxSubscriptionQuantityPerTimeslot: ${error}`);
-    return null;
+    throw error;
   }
 };
 
@@ -477,7 +480,10 @@ export const checkUserSubscription = async (
 ): Promise<boolean> => {
   const eventTypeId = relationId(timeslot.eventType);
   const tenantId = relationId((timeslot as { tenant?: unknown }).tenant);
-  const allowedPlans = await findPlansForEventType(payload, eventTypeId, { tenantId });
+  const allowedPlans = await findPlansForEventType(payload, eventTypeId, {
+    tenantId,
+    depth: 0,
+  });
 
   if (allowedPlans.length === 0) {
     return true;
