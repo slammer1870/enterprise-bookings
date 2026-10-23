@@ -283,13 +283,6 @@ test.describe('Schedule immediate booking', () => {
       context: { skipStripeSync: true },
     })) as { id: number }
 
-    await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedCourses: [course.id] } },
-      overrideAccess: true,
-    })
-
     const enrollment = (await payload.create({
       collection: 'course-enrollments',
       data: {

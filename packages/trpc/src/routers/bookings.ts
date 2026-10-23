@@ -346,7 +346,7 @@ export const bookingsRouter = {
       }
 
       // 6. Valid course enrollment for this timeslot → book immediately (no credits to decrement).
-      // The course owns entitlement; event-type allowedCourses is only offer/payment config.
+      // The course owns entitlement through its allowed event types.
       if (
         timeslotTenantId != null &&
         hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)
@@ -3219,7 +3219,7 @@ export const bookingsRouter = {
       }
 
       // Valid course enrollment → book immediately.
-      // The course owns entitlement; event-type allowedCourses is only offer/payment config.
+      // The course owns entitlement through its allowed event types.
       if (
         timeslotTenantId != null &&
         hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)

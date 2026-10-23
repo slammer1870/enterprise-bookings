@@ -115,6 +115,7 @@ export interface Config {
     };
     'event-types': {
       'paymentMethods.includingClassPassTypes': 'class-pass-types';
+      'paymentMethods.includingCourses': 'courses';
       'paymentMethods.includingPlans': 'plans';
     };
     users: {
@@ -1269,9 +1270,13 @@ export interface EventType {
       totalDocs?: number;
     };
     /**
-     * Courses that can be offered or purchased for this event type. Existing course entitlements are determined by the course's allowed event types.
+     * Courses that can pay for this event type. Edit the list on the course.
      */
-    allowedCourses?: (number | Course)[] | null;
+    includingCourses?: {
+      docs?: (number | Course)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
     /**
      * Memberships that can pay for this event type. Edit the list on the membership.
      */
@@ -4882,7 +4887,7 @@ export interface EventTypesSelect<T extends boolean = true> {
     | {
         allowedDropIn?: T;
         includingClassPassTypes?: T;
-        allowedCourses?: T;
+        includingCourses?: T;
         includingPlans?: T;
       };
   postBookingEmails?:

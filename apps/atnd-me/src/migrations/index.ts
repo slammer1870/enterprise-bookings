@@ -194,6 +194,7 @@ import * as migration_20261020_000002_branch_ledger_columns from './20261020_000
 import * as migration_20261022_000001_product_allowed_event_types from './20261022_000001_product_allowed_event_types'
 import * as migration_20261023_000001_event_type_override_max_bookings from './20261023_000001_event_type_override_max_bookings'
 import * as migration_20261023_000002_event_type_override_session_interval from './20261023_000002_event_type_override_session_interval'
+import * as migration_20261023_000003_drop_event_type_allowed_courses from './20261023_000003_drop_event_type_allowed_courses'
 
 export const migrations = [
   {
@@ -1175,5 +1176,10 @@ export const migrations = [
     up: migration_20261023_000002_event_type_override_session_interval.up,
     down: migration_20261023_000002_event_type_override_session_interval.down,
     name: '20261023_000002_event_type_override_session_interval',
+  },
+  {
+    up: migration_20261023_000003_drop_event_type_allowed_courses.up,
+    down: migration_20261023_000003_drop_event_type_allowed_courses.down,
+    name: '20261023_000003_drop_event_type_allowed_courses',
   },
 ]

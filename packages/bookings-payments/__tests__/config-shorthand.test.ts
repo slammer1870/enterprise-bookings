@@ -128,7 +128,7 @@ describe("config shorthand (true | object)", () => {
     expect(slugs).toContain("subscriptions");
   });
 
-  it("accepts courses: true and enables courses + course-enrollments with allowedCourses injection", () => {
+  it("accepts courses: true and enables courses + course-enrollments with a courses join", () => {
     const plugin = bookingsPaymentsPlugin({
       courses: true,
     });
@@ -145,6 +145,7 @@ describe("config shorthand (true | object)", () => {
     );
     const fields =
       group && "fields" in group ? (group.fields as Array<{ name?: string }>) : [];
-    expect(fields.some((f) => f.name === "allowedCourses")).toBe(true);
+    expect(fields.some((f) => f.name === "allowedCourses")).toBe(false);
+    expect(fields.some((f) => f.name === "includingCourses")).toBe(true);
   });
 });

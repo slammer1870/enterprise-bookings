@@ -3,6 +3,12 @@ import { relationId, relationIds } from "./event-type-allowance";
 
 type FindResult = { docs?: unknown[] };
 
+type ProductAllowList = {
+  plans: unknown[];
+  classPassTypes: unknown[];
+  courses: unknown[];
+};
+
 function asPayload(payload: Payload): Payload & {
   find: (_args: unknown) => Promise<FindResult>;
 } {
@@ -40,6 +46,20 @@ export async function findPlansForEventType(
   >;
 }
 
+export async function findCoursesForEventType(
+  payload: Payload,
+  eventTypeId: number | null,
+  opts?: { tenantId?: number | null; depth?: number },
+): Promise<Array<{ id: number } & Record<string, unknown>>> {
+  if (eventTypeId == null) return [];
+  const where: Where = { allowedEventTypes: { contains: eventTypeId } };
+  if (opts?.tenantId != null) where.tenant = { equals: opts.tenantId };
+  const docs = await findCollection(payload, "courses", where, opts?.depth ?? 0);
+  return docs.filter((doc) => relationId((doc as { id?: unknown }).id) != null) as Array<
+    { id: number } & Record<string, unknown>
+  >;
+}
+
 export async function findClassPassTypesForEventType(
   payload: Payload,
   eventTypeId: number | null,
@@ -67,14 +87,16 @@ export async function attachProductAllowLists(
   if (!eventType || typeof eventType !== "object") return;
   const eventTypeId = relationId(eventType.id);
   if (eventTypeId == null) return;
-  const [plans, classPassTypes] = await Promise.all([
+  const [plans, classPassTypes, courses] = await Promise.all([
     findPlansForEventType(payload, eventTypeId, opts),
     findClassPassTypesForEventType(payload, eventTypeId, opts),
+    findCoursesForEventType(payload, eventTypeId, opts),
   ]);
   const paymentMethods = {
     ...(eventType.paymentMethods ?? {}),
     allowedPlans: plans,
     allowedClassPasses: classPassTypes,
+    allowedCourses: courses,
   };
   eventType.paymentMethods = paymentMethods;
 }
@@ -86,12 +108,10 @@ export async function allowListsByEventTypeId(
   payload: Payload,
   eventTypeIds: number[],
   opts?: { tenantId?: number | null },
-): Promise<
-  Map<number, { plans: unknown[]; classPassTypes: unknown[] }>
-> {
-  const map = new Map<number, { plans: unknown[]; classPassTypes: unknown[] }>();
+): Promise<Map<number, ProductAllowList>> {
+  const map = new Map<number, ProductAllowList>();
   for (const id of eventTypeIds) {
-    map.set(id, { plans: [], classPassTypes: [] });
+    map.set(id, { plans: [], classPassTypes: [], courses: [] });
   }
   if (eventTypeIds.length === 0) return map;
 
@@ -104,12 +124,13 @@ export async function allowListsByEventTypeId(
           ],
         }
       : { allowedEventTypes: { in: eventTypeIds } };
-  const [plans, classPassTypes] = await Promise.all([
+  const [plans, classPassTypes, courses] = await Promise.all([
     findCollection(payload, "plans", where, 0),
     findCollection(payload, "class-pass-types", where, 0),
+    findCollection(payload, "courses", where, 0),
   ]);
 
-  const add = (docs: unknown[], key: "plans" | "classPassTypes") => {
+  const add = (docs: unknown[], key: "plans" | "classPassTypes" | "courses") => {
     for (const doc of docs) {
       const allowed = relationIds((doc as { allowedEventTypes?: unknown }).allowedEventTypes);
       for (const id of allowed) {
@@ -121,5 +142,6 @@ export async function allowListsByEventTypeId(
   };
   add(plans, "plans");
   add(classPassTypes, "classPassTypes");
+  add(courses, "courses");
   return map;
 }

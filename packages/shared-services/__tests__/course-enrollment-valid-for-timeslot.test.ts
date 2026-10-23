@@ -32,18 +32,6 @@ describe("filterValidEnrollmentsForTimeslot", () => {
     ).toEqual([baseEnrollment]);
   });
 
-  it("does not require the event type to list the course", () => {
-    expect(
-      filterValidEnrollmentsForTimeslot(
-        {
-          ...baseLesson,
-          eventType: { id: 10, paymentMethods: { allowedCourses: [] } },
-        },
-        [baseEnrollment],
-      ),
-    ).toEqual([baseEnrollment]);
-  });
-
   it("rejects cancelled enrollments", () => {
     expect(
       filterValidEnrollmentsForTimeslot(baseLesson, [
@@ -75,10 +63,7 @@ describe("filterValidEnrollmentsForTimeslot", () => {
       filterValidEnrollmentsForTimeslot(
         {
           ...baseLesson,
-          eventType: {
-            id: 99,
-            paymentMethods: { allowedCourses: [100] },
-          },
+          eventType: { id: 99 },
         },
         [baseEnrollment],
       ),

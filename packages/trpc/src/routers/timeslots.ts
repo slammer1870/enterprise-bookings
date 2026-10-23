@@ -775,6 +775,7 @@ export const timeslotsRouter = {
                 ...pm,
                 allowedPlans: lists.plans,
                 allowedClassPasses: lists.classPassTypes,
+                allowedCourses: lists.courses,
               };
             }
             eventTypesById.set(id, sanitizeEventType(co));
