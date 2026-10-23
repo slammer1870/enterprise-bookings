@@ -97,22 +97,17 @@ export function maxBookingsPerTimeslotOverride(
   return Math.max(1, max);
 }
 
-/** Row cap when this event type has one; otherwise `productCap`. */
-export function maxBookingsPerTimeslotForEventType(
+/**
+ * Row cap when this event type has one; otherwise `productCap`.
+ * A numeric cap stays a number. `null` or `undefined` stays unbounded.
+ */
+export function maxBookingsPerTimeslotForEventType<
+  T extends number | null | undefined,
+>(
   rows: EventTypeOverrideRow[] | null | undefined,
   eventTypeId: number | null,
-  productCap: number,
-): number;
-export function maxBookingsPerTimeslotForEventType(
-  rows: EventTypeOverrideRow[] | null | undefined,
-  eventTypeId: number | null,
-  productCap: number | null | undefined,
-): number | null | undefined;
-export function maxBookingsPerTimeslotForEventType(
-  rows: EventTypeOverrideRow[] | null | undefined,
-  eventTypeId: number | null,
-  productCap: number | null | undefined,
-): number | null | undefined {
+  productCap: T,
+): number | T {
   return maxBookingsPerTimeslotOverride(rows, eventTypeId) ?? productCap;
 }
 

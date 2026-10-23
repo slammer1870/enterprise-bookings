@@ -23,7 +23,7 @@ import {
 import { resolveGetByDateBranch } from "../utils/scheduleBranch";
 
 import { EventType, Timeslot, TimeslotScheduleState, ScheduleTimeslot } from "@repo/shared-types";
-import { hasConfirmedBookingForTenant } from "@repo/bookings-plugin";
+import { hasConfirmedBookingForTenant } from "@repo/bookings-plugin/src/utils/has-confirmed-booking-for-tenant";
 import {
   hasUsedDropInProduct,
   getActiveCheckoutHold as getActiveCheckoutHoldService,
