@@ -3,7 +3,11 @@
  * A pass type can pay for an event type when that event type is in allowedEventTypes.
  */
 import type { Payload } from "payload";
-import { creditsRemainingForEventType, relationId } from "@repo/shared-services";
+import {
+  creditsRemainingForEventType,
+  findClassPassTypesForEventType,
+  relationId,
+} from "@repo/shared-services";
 import type {
   ClassPassLike,
   EventTypeLike,
@@ -39,20 +43,12 @@ export async function checkClassPass({
     return { valid: false, error: "Missing tenant or user" };
   }
 
-  const types = await payload.find({
-    collection: "class-pass-types" as import("payload").CollectionSlug,
-    where: {
-      and: [
-        { allowedEventTypes: { contains: eventTypeId } },
-        { tenant: { equals: tenantId } },
-      ],
-    },
-    limit: 100,
+  const types = await findClassPassTypesForEventType(payload, eventTypeId, {
+    tenantId,
     depth: 0,
-    overrideAccess: true,
   });
-  const allowedTypeIds = types.docs
-    .map((doc) => relationId((doc as { id?: unknown }).id))
+  const allowedTypeIds = types
+    .map((doc) => relationId(doc.id))
     .filter((id): id is number => id != null);
   if (allowedTypeIds.length === 0) {
     return { valid: false, error: "Class passes not allowed for this event type" };
