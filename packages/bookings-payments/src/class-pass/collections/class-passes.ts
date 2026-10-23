@@ -1,4 +1,5 @@
 import type { CollectionConfig, Field } from "payload";
+import { validateClassPassCreditPoolRows } from "@repo/shared-services";
 import {
   classPassReadAccess,
   classPassCreateAccess,
@@ -136,6 +137,10 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
           if (exp <= new Date()) {
             throw new Error("Expiration date must be in the future");
           }
+        }
+        if (data && Array.isArray(data.eventTypeOverrides)) {
+          const validation = validateClassPassCreditPoolRows(data.eventTypeOverrides);
+          if (validation !== true) throw new Error(validation);
         }
         return data;
       },

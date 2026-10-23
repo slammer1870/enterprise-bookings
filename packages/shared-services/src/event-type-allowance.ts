@@ -465,6 +465,27 @@ export function allowedEventTypeIdsIncludingOverrides(
   return { ids, idsToStore: added ? ids : null };
 }
 
+/**
+ * A purchased pass stores remaining credits, which may already be 0.
+ * A row still needs a type, and a type can be on only one row.
+ */
+export function validateClassPassCreditPoolRows(
+  rows: Array<EventTypeOverrideRow | null | undefined> | null | undefined,
+): string | true {
+  const seen = new Set<number>();
+  for (const row of rows ?? []) {
+    const ids = overrideEventTypeIds(row);
+    if (ids.length === 0) return "Each override needs an event type.";
+    for (const eventTypeId of ids) {
+      if (seen.has(eventTypeId)) {
+        return "Each event type can only be overridden once.";
+      }
+      seen.add(eventTypeId);
+    }
+  }
+  return true;
+}
+
 export function validateEventTypeOverrideRows(input: {
   allowedEventTypeIds: number[];
   rows: Array<{

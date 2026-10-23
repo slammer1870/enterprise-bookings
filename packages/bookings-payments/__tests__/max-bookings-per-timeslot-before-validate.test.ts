@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 
+import { classPassesCollection } from "../src/class-pass/collections/class-passes";
 import { classPassTypesCollection } from "../src/class-pass/collections/class-pass-types";
 import { generatePlansCollection } from "../src/membership/collections/plans";
 import { dropInsCollection } from "../src/payments/collections/drop-ins";
@@ -102,6 +103,39 @@ describe("maxBookingsPerTimeslot beforeValidate", () => {
 
     expect((data as any).allowedEventTypes).toEqual([11, 12]);
     expect((data as any).quantity).toBe(2);
+  });
+
+  it("purchased class pass: a save rejects a type listed on two credit pools and keeps a spent pool", async () => {
+    const cfg = classPassesCollection({});
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    await expect(
+      hook({
+        data: {
+          eventTypeOverrides: [
+            { eventTypes: [11, 12], quantity: 0 },
+            { eventTypes: [12], quantity: 1 },
+          ],
+        },
+        operation: "update",
+      } as any),
+    ).rejects.toThrow("Each event type can only be overridden once.");
+
+    const data = await hook({
+      data: {
+        eventTypeOverrides: [
+          { eventTypes: [11, 12], quantity: 0 },
+          { eventTypes: [21], quantity: 1 },
+        ],
+      },
+      operation: "update",
+    } as any);
+
+    expect((data as any).eventTypeOverrides).toEqual([
+      { eventTypes: [11, 12], quantity: 0 },
+      { eventTypes: [21], quantity: 1 },
+    ]);
   });
 
   it("class-pass: a save rejects a type listed on two rows", async () => {

@@ -6,6 +6,7 @@ import {
   displayQuantityForClassPassType,
   maxBookingsPerTimeslotOverride,
   snapshotClassPassCredits,
+  validateClassPassCreditPoolRows,
   validateEventTypeOverrideRows,
 } from "../src/event-type-allowance";
 
@@ -223,6 +224,21 @@ describe("event type override validation", () => {
       ids: [sauna, beginners, fundamentals],
       idsToStore: [sauna, beginners, fundamentals],
     });
+  });
+
+  it("rejects a purchased pass that lists one type on two credit pools, and keeps a spent pool", () => {
+    expect(
+      validateClassPassCreditPoolRows([
+        { eventTypes: [beginners, fundamentals], quantity: 0 },
+        { eventTypes: [fundamentals], quantity: 1 },
+      ]),
+    ).toBe("Each event type can only be overridden once.");
+    expect(
+      validateClassPassCreditPoolRows([
+        { eventTypes: [beginners, fundamentals], quantity: 0 },
+        { eventTypes: [sauna], quantity: 1 },
+      ]),
+    ).toBe(true);
   });
 
   it("rejects a type listed on two rows", () => {
