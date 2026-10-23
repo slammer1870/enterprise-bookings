@@ -348,7 +348,7 @@ describe('Class pass booking UI (Phase 4.6)', () => {
           status: 'active',
           maxBookingsPerTimeslot: null,
           allowedEventTypes: [reformer.id, yoga.id],
-          eventTypeOverrides: [{ eventType: reformer.id, quantity: 4, maxBookingsPerTimeslot: 1 }],
+          eventTypeOverrides: [{ eventTypes: [reformer.id], quantity: 4, maxBookingsPerTimeslot: 1 }],
           priceInformation: { price: 10 },
         },
         overrideAccess: true,

@@ -44,6 +44,7 @@ export type ClassPassLike = {
   expirationDate?: string | null
   eventTypeOverrides?: Array<{
     eventType?: number | { id: number } | null
+    eventTypes?: Array<number | { id: number }> | null
     quantity?: number | null
   }> | null
   creditsForEventType?: number

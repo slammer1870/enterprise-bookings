@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   adjustClassPassCredits,
+  allowedEventTypeIdsIncludingOverrides,
+  creditsRemainingForEventType,
   displayQuantityForClassPassType,
   maxBookingsPerTimeslotOverride,
   snapshotClassPassCredits,
+  validateEventTypeOverrideRows,
 } from "../src/event-type-allowance";
 
 const sauna = 2;
@@ -18,7 +21,7 @@ describe("snapshotClassPassCredits", () => {
     });
 
     expect(snapshot.quantity).toBe(5);
-    expect(snapshot.eventTypeOverrides).toEqual([{ eventType: float, quantity: 1 }]);
+    expect(snapshot.eventTypeOverrides).toEqual([{ eventTypes: [float], quantity: 1 }]);
   });
 
   it("stores shared quantity 0 when every allowed event type has an override", () => {
@@ -34,11 +37,30 @@ describe("snapshotClassPassCredits", () => {
     expect(snapshotClassPassCredits(type)).toEqual({
       quantity: 0,
       eventTypeOverrides: [
-        { eventType: sauna, quantity: 2 },
-        { eventType: float, quantity: 3 },
+        { eventTypes: [sauna], quantity: 2 },
+        { eventTypes: [float], quantity: 3 },
       ],
     });
     expect(displayQuantityForClassPassType(type, 9)).toBe(5);
+  });
+
+  it("stores one quantity of 2 for yoga beginners and fundamentals and shows 2", () => {
+    const beginners = 11;
+    const fundamentals = 12;
+    const type = {
+      quantity: 9,
+      allowedEventTypes: [beginners, fundamentals],
+      eventTypeOverrides: [{ eventTypes: [beginners, fundamentals], quantity: 2 }],
+    };
+
+    const snapshot = snapshotClassPassCredits(type);
+    expect(snapshot).toEqual({
+      quantity: 0,
+      eventTypeOverrides: [{ eventTypes: [beginners, fundamentals], quantity: 2 }],
+    });
+    expect(displayQuantityForClassPassType(type, 9)).toBe(2);
+    expect(creditsRemainingForEventType(snapshot, beginners)).toBe(2);
+    expect(creditsRemainingForEventType(snapshot, fundamentals)).toBe(2);
   });
 });
 
@@ -72,8 +94,8 @@ describe("adjustClassPassCredits", () => {
 
     expect(spent.pass.quantity).toBe(2);
     expect(spent.pass.eventTypeOverrides).toEqual([
-      { eventType: sauna, quantity: 1 },
-      { eventType: float, quantity: 0 },
+      { eventTypes: [sauna], quantity: 1 },
+      { eventTypes: [float], quantity: 0 },
     ]);
     expect(spent.pass.status).toBe("active");
 
@@ -83,8 +105,8 @@ describe("adjustClassPassCredits", () => {
     const restored = adjustClassPassCredits(spent.pass, float, 1);
     expect(restored.ok).toBe(true);
     if (!restored.ok) return;
-    expect(restored.pass.eventTypeOverrides.find((row) => row.eventType === float)?.quantity).toBe(1);
-    expect(restored.pass.eventTypeOverrides.find((row) => row.eventType === sauna)?.quantity).toBe(1);
+    expect(restored.pass.eventTypeOverrides.find((row) => row.eventTypes.includes(float))?.quantity).toBe(1);
+    expect(restored.pass.eventTypeOverrides.find((row) => row.eventTypes.includes(sauna))?.quantity).toBe(1);
     expect(restored.pass.status).toBe("active");
   });
 
@@ -104,15 +126,50 @@ describe("adjustClassPassCredits", () => {
     expect(afterSauna.ok).toBe(true);
     if (!afterSauna.ok) return;
     expect(afterSauna.pass.quantity).toBe(0);
-    expect(afterSauna.pass.eventTypeOverrides.find((row) => row.eventType === float)?.quantity).toBe(1);
+    expect(afterSauna.pass.eventTypeOverrides.find((row) => row.eventTypes.includes(float))?.quantity).toBe(1);
     expect(afterSauna.pass.status).toBe("active");
 
     const afterFloat = adjustClassPassCredits(afterSauna.pass, float, -1);
     expect(afterFloat.ok).toBe(true);
     if (!afterFloat.ok) return;
     expect(afterFloat.pass.quantity).toBe(0);
-    expect(afterFloat.pass.eventTypeOverrides.find((row) => row.eventType === float)?.quantity).toBe(0);
+    expect(afterFloat.pass.eventTypeOverrides.find((row) => row.eventTypes.includes(float))?.quantity).toBe(0);
     expect(afterFloat.pass.status).toBe("used");
+  });
+
+  it("spends one shared quantity when either yoga type is booked and leaves the sauna row", () => {
+    const beginners = 11;
+    const fundamentals = 12;
+    const pass = {
+      quantity: 5,
+      status: "active" as const,
+      eventTypeOverrides: [
+        { eventTypes: [beginners, fundamentals], quantity: 2 },
+        { eventType: sauna, quantity: 1 },
+      ],
+    };
+
+    const afterBeginners = adjustClassPassCredits(pass, beginners, -1);
+    expect(afterBeginners.ok).toBe(true);
+    if (!afterBeginners.ok) return;
+    expect(afterBeginners.pass.quantity).toBe(5);
+    expect(afterBeginners.pass.eventTypeOverrides).toEqual([
+      { eventTypes: [beginners, fundamentals], quantity: 1 },
+      { eventTypes: [sauna], quantity: 1 },
+    ]);
+
+    const afterFundamentals = adjustClassPassCredits(afterBeginners.pass, fundamentals, -1);
+    expect(afterFundamentals.ok).toBe(true);
+    if (!afterFundamentals.ok) return;
+    expect(afterFundamentals.pass.eventTypeOverrides).toEqual([
+      { eventTypes: [beginners, fundamentals], quantity: 0 },
+      { eventTypes: [sauna], quantity: 1 },
+    ]);
+    expect(afterFundamentals.pass.quantity).toBe(5);
+    expect(afterFundamentals.pass.status).toBe("active");
+
+    const third = adjustClassPassCredits(afterFundamentals.pass, beginners, -1);
+    expect(third.ok).toBe(false);
   });
 
   it("refuses to spend or restore the shared pool when the event type is unknown and the pass has an override", () => {
@@ -151,5 +208,32 @@ describe("adjustClassPassCredits", () => {
     if (!cancelled.ok) return;
     expect(cancelled.pass.status).toBe("cancelled");
     expect(cancelled.pass.quantity).toBe(1);
+  });
+});
+
+describe("event type override validation", () => {
+  const beginners = 11;
+  const fundamentals = 12;
+  const sauna = 2;
+
+  it("adds every type on a row to Allowed", () => {
+    expect(
+      allowedEventTypeIdsIncludingOverrides([sauna], [{ eventTypes: [beginners, fundamentals] }]),
+    ).toEqual({
+      ids: [sauna, beginners, fundamentals],
+      idsToStore: [sauna, beginners, fundamentals],
+    });
+  });
+
+  it("rejects a type listed on two rows", () => {
+    expect(
+      validateEventTypeOverrideRows({
+        allowedEventTypeIds: [beginners, fundamentals, sauna],
+        rows: [
+          { eventTypeIds: [beginners, fundamentals], count: 2 },
+          { eventTypeIds: [fundamentals, sauna], count: 2 },
+        ],
+      }),
+    ).toBe("Each event type can only be overridden once.");
   });
 });

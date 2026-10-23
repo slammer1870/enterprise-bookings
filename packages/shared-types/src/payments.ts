@@ -53,7 +53,10 @@ export interface Plan {
     eventTypeOverrides?:
       | {
           id?: string | null;
+          /** Legacy single type. A row with `eventTypes` uses that list instead. */
           eventType?: number | { id: number } | null;
+          /** Types that share this row's sessions. */
+          eventTypes?: Array<number | { id: number }> | null;
           sessions?: number | null;
           /**
            * When set with `interval`, this event type is counted in its own window.
@@ -62,7 +65,7 @@ export interface Plan {
           intervalCount?: number | null;
           interval?: "day" | "week" | "month" | "quarter" | "year" | null;
           /**
-           * Replaces `maxBookingsPerTimeslot` for this event type only.
+           * Replaces `maxBookingsPerTimeslot` for every type on this row.
            * Blank keeps the plan cap.
            */
           maxBookingsPerTimeslot?: number | null;

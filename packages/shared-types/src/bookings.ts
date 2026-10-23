@@ -228,10 +228,13 @@ export interface ClassPassType {
   eventTypeOverrides?:
     | {
         id?: string | null;
+        /** Legacy single type. A row with `eventTypes` uses that list instead. */
         eventType?: number | { id: number } | null;
+        /** Types that share this row's credits. */
+        eventTypes?: Array<number | { id: number }> | null;
         quantity?: number | null;
         /**
-         * Replaces `maxBookingsPerTimeslot` for this event type only.
+         * Replaces `maxBookingsPerTimeslot` for every type on this row.
          * Blank keeps the pass type cap.
          */
         maxBookingsPerTimeslot?: number | null;

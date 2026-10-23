@@ -7,6 +7,7 @@ type PassDoc = {
   eventTypeOverrides?: Array<{
     id?: string | null;
     eventType?: unknown;
+    eventTypes?: unknown;
     quantity?: number | null;
   }> | null;
 };
@@ -43,7 +44,7 @@ export async function adjustClassPassForEventType(args: {
       status: adjusted.pass.status,
       eventTypeOverrides: adjusted.pass.eventTypeOverrides.map((row) => ({
         ...(row.id ? { id: row.id } : {}),
-        eventType: row.eventType,
+        eventTypes: row.eventTypes,
         quantity: row.quantity,
       })),
     } as Record<string, unknown>,

@@ -87,6 +87,42 @@ describe("maxBookingsPerTimeslot beforeValidate", () => {
     expect((data as any).quantity).toBe(4);
   });
 
+  it("class-pass: a save adds every type on a row to Allowed and stores that pool once", async () => {
+    const cfg = classPassTypesCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        quantity: 9,
+        eventTypeOverrides: [{ eventTypes: [11, 12], quantity: 2 }],
+      },
+      originalDoc: { allowedEventTypes: [], quantity: 9 },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toEqual([11, 12]);
+    expect((data as any).quantity).toBe(2);
+  });
+
+  it("class-pass: a save rejects a type listed on two rows", async () => {
+    const cfg = classPassTypesCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    await expect(
+      hook({
+        data: {
+          allowedEventTypes: [11, 12, 21],
+          quantity: 10,
+          eventTypeOverrides: [
+            { eventTypes: [11, 12], quantity: 2 },
+            { eventTypes: [12, 21], quantity: 2 },
+          ],
+        },
+      } as any),
+    ).rejects.toThrow("Each event type can only be overridden once.");
+  });
+
   it("plans: numeric max should win over legacy allowMultiple boolean", async () => {
     const cfg = generatePlansCollection({} as any);
     const hook = cfg.hooks?.beforeValidate?.[0];
@@ -254,6 +290,37 @@ describe("maxBookingsPerTimeslot beforeValidate", () => {
         },
       } as any),
     ).rejects.toThrow("Set Interval when Per is set, or leave both blank.");
+  });
+
+  it("plans: a save adds every type on a row to Allowed and rejects a type listed on two rows", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const added = await hook({
+      data: {
+        allowedEventTypes: [1],
+        sessionsInformation: {
+          sessions: 8,
+          eventTypeOverrides: [{ eventTypes: [11, 12], sessions: 2, interval: "week", intervalCount: 1 }],
+        },
+      },
+    } as any);
+    expect((added as any).allowedEventTypes).toEqual([1, 11, 12]);
+
+    await expect(
+      hook({
+        data: {
+          allowedEventTypes: [11, 12, 21],
+          sessionsInformation: {
+            eventTypeOverrides: [
+              { eventTypes: [11, 12], sessions: 2 },
+              { eventTypes: [12, 21], sessions: 2 },
+            ],
+          },
+        },
+      } as any),
+    ).rejects.toThrow("Each event type can only be overridden once.");
   });
 });
 

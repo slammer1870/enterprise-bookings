@@ -388,7 +388,8 @@ function planWithAllowances(opts: {
   intervalCount?: number;
   maxBookingsPerTimeslot?: number | null;
   overrides?: Array<{
-    eventType: number;
+    eventType?: number;
+    eventTypes?: number[];
     sessions: number;
     interval?: "day" | "week" | "month" | "quarter" | "year";
     intervalCount?: number;
@@ -405,7 +406,9 @@ function planWithAllowances(opts: {
       interval: opts.interval ?? "week",
       intervalCount: opts.intervalCount ?? 1,
       maxBookingsPerTimeslot: opts.maxBookingsPerTimeslot,
-      eventTypeOverrides: opts.overrides,
+      eventTypeOverrides: opts.overrides as NonNullable<
+        Plan["sessionsInformation"]
+      >["eventTypeOverrides"],
     },
     updatedAt: "",
     createdAt: "",
@@ -494,6 +497,53 @@ describe("event type allowance buckets", () => {
 
     expect(yogaRemaining).toBe(1);
     expect(saunaRemaining).toBe(1);
+  });
+
+  it("shares 2 sessions a week across yoga beginners and fundamentals, so a beginners booking this week leaves 1 for both and leaves the sauna pool and plan sessions unchanged", async () => {
+    const beginners = 11;
+    const fundamentals = 12;
+    const saunaPeak = 21;
+    const saunaOffPeak = 22;
+    const pilates = 31;
+    const plan = planWithAllowances({
+      id: 17,
+      name: "8 a month, yoga pool 2 a week, sauna pool 2 a week",
+      sessions: 8,
+      interval: "month",
+      allowedEventTypes: [beginners, fundamentals, saunaPeak, saunaOffPeak, pilates],
+      overrides: [
+        {
+          eventTypes: [beginners, fundamentals],
+          sessions: 2,
+          interval: "week",
+          intervalCount: 1,
+        },
+        {
+          eventTypes: [saunaPeak, saunaOffPeak],
+          sessions: 2,
+          interval: "week",
+          intervalCount: 1,
+        },
+      ],
+    });
+    const member = { ...subscriptionWithPlan, plan } as Subscription;
+    const payload = createMockPayload({
+      find: countsBookingsInAskedWindow([
+        { eventTypeId: beginners, startTime: new Date("2025-01-15T12:00:00Z") },
+        { eventTypeId: fundamentals, startTime: new Date("2025-01-06T12:00:00Z") },
+        { eventTypeId: saunaPeak, startTime: new Date("2025-01-15T12:00:00Z") },
+        { eventTypeId: pilates, startTime: new Date("2025-01-15T12:00:00Z") },
+      ]),
+    });
+
+    const remaining = async (eventTypeId: number) =>
+      getRemainingSessionsInPeriodForPlan(member, plan, payload, lessonDate, eventTypeId);
+
+    expect(await remaining(beginners)).toBe(1);
+    expect(await remaining(fundamentals)).toBe(1);
+    expect(await remaining(saunaPeak)).toBe(1);
+    expect(await remaining(saunaOffPeak)).toBe(1);
+    expect(await remaining(pilates)).toBe(7);
   });
 
   it("counts a sauna row of 2 per week inside that week, so a sauna booking from the previous week leaves 2", async () => {
@@ -687,6 +737,46 @@ describe("getMaxSubscriptionQuantityPerTimeslot event type caps", () => {
     );
 
     expect(spots).toBe(0);
+  });
+
+  it("uses one timeslot cap for every type in the yoga pool and leaves pilates on the plan cap", async () => {
+    const beginners = 11;
+    const fundamentals = 12;
+    const pilates = 31;
+    const plan = planWithAllowances({
+      id: 24,
+      name: "4 per timeslot, yoga pool 1",
+      sessions: 8,
+      allowedEventTypes: [beginners, fundamentals, pilates],
+      maxBookingsPerTimeslot: 4,
+      overrides: [
+        {
+          eventTypes: [beginners, fundamentals],
+          sessions: 2,
+          maxBookingsPerTimeslot: 1,
+        },
+      ],
+    });
+
+    const beginnersSpots = await getMaxSubscriptionQuantityPerTimeslot(
+      memberId,
+      timeslotFor(beginners),
+      payloadWithMemberPlan(plan, 0),
+    );
+    const fundamentalsSpots = await getMaxSubscriptionQuantityPerTimeslot(
+      memberId,
+      timeslotFor(fundamentals),
+      payloadWithMemberPlan(plan, 0),
+    );
+    const pilatesSpots = await getMaxSubscriptionQuantityPerTimeslot(
+      memberId,
+      timeslotFor(pilates),
+      payloadWithMemberPlan(plan, 0),
+    );
+
+    expect(beginnersSpots).toBe(1);
+    expect(fundamentalsSpots).toBe(1);
+    expect(pilatesSpots).toBe(4);
   });
 
   it("allows 3 float spots when the row cap is 3 and the plan cap is 1", async () => {

@@ -13,7 +13,7 @@ import {
   allowedEventTypeIdsIncludingOverrides,
   classPassSharedPoolIsDisplayOnly,
   displayQuantityForClassPassType,
-  relationId,
+  overrideEventTypeIds,
   validateEventTypeOverrideRows,
 } from "@repo/shared-services";
 import {
@@ -42,7 +42,7 @@ function allowedEventTypesField(eventTypesSlug: string): Field {
     hasMany: true,
     admin: {
       description:
-        "Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types. Saving an additional allowance adds that event type here. Types with their own allowance do not draw from Quantity of passes.",
+        "Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Quantity of passes.",
     },
   };
 }
@@ -121,9 +121,9 @@ function classPassTypeFields(eventTypesSlug: string): Field[] {
     countName: "quantity",
     countLabel: "Quantity",
     description:
-      "In addition to Quantity of passes, not subtracted from it. A row gives that event type its own credits on top of the shared quantity. Quantity 10 plus a Reformer row of 4 is 14 bookings: 4 for Reformer, and 10 shared by the other allowed types. Using the Reformer credits does not reduce the 10. Saving adds the event type to Allowed event types. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for this event type only.",
+      "In addition to Quantity of passes, not subtracted from it. A row is a shared credit balance for the event types on it. Quantity 10 plus a row of 4 for two class types is 14 bookings: those two types share the 4, and the other allowed types share the 10. Booking either listed type does not reduce the 10. Saving adds every type on the row to Allowed event types. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for every type on this row.",
     capDescription:
-      "Leave blank to use the pass type's max bookings per timeslot. Set a number to cap this event type only.",
+      "Leave blank to use the pass type's max bookings per timeslot. Set a number to cap every type on this row.",
   }),
   {
     name: "stripeProductId",
@@ -220,7 +220,11 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
         const doc = d as typeof d & {
           allowedEventTypes?: unknown
           quantity?: number
-          eventTypeOverrides?: Array<{ eventType?: unknown; quantity?: number | null }>
+          eventTypeOverrides?: Array<{
+            eventType?: unknown
+            eventTypes?: unknown
+            quantity?: number | null
+          }>
         }
         const rows = Array.isArray(doc.eventTypeOverrides) ? doc.eventTypeOverrides : []
         const allowedEventTypesForSave = allowedEventTypeIdsIncludingOverrides(
@@ -234,7 +238,7 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
         const validation = validateEventTypeOverrideRows({
           allowedEventTypeIds: allowedEventTypesForSave.ids,
           rows: rows.map((row) => ({
-            eventTypeId: relationId(row?.eventType),
+            eventTypeIds: overrideEventTypeIds(row),
             count: typeof row?.quantity === "number" ? row.quantity : null,
           })),
         })

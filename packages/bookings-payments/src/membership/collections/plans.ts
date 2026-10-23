@@ -12,7 +12,7 @@ import type { MembershipBranchConfig } from "../types";
 import {
   allowedEventTypeIdsIncludingOverrides,
   isSessionInterval,
-  relationId,
+  overrideEventTypeIds,
   validateEventTypeOverrideRows,
 } from "@repo/shared-services";
 import {
@@ -55,7 +55,7 @@ function planFields(eventTypesSlug: string): Field[] {
     hasMany: true,
     admin: {
       description:
-        "Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types. Saving an additional allowance adds that event type here. Types with their own allowance do not draw from the shared sessions.",
+        "Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Sessions.",
     },
   },
   {
@@ -115,9 +115,9 @@ function planFields(eventTypesSlug: string): Field[] {
         countName: "sessions",
         countLabel: "Sessions",
         description:
-          "In addition to Sessions, not subtracted from them. A row gives that event type its own allowance on top of the shared sessions. For example, 8 sessions a month shared by the other allowed types, plus 2 sauna sessions a week. Sauna bookings do not reduce the 8. Saving adds the event type to Allowed event types. Leave Per and Interval blank to use the plan's period. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for this event type only.",
+          "In addition to Sessions, not subtracted from them. A row is a shared allowance for the event types on it. For example, 8 sessions a month for the other allowed types, plus 2 a week shared by Yoga Beginners and Fundamentals. A booking of either type counts against those 2 and does not reduce the 8. Saving adds every type on the row to Allowed event types. Leave Per and Interval blank to use the plan's period. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for every type on this row.",
         capDescription:
-          "Leave blank to use the plan's max bookings per timeslot. Set a number to cap this event type only.",
+          "Leave blank to use the plan's max bookings per timeslot. Set a number to cap every type on this row.",
       }),
     ],
   },
@@ -249,6 +249,7 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data, original
     sessionsInformation?: {
       eventTypeOverrides?: Array<{
         eventType?: unknown;
+        eventTypes?: unknown;
         sessions?: number | null;
         interval?: string | null;
         intervalCount?: number | null;
@@ -284,7 +285,7 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data, original
   const validation = validateEventTypeOverrideRows({
     allowedEventTypeIds: allowedEventTypesForSave.ids,
     rows: rows.map((row) => ({
-      eventTypeId: relationId(row?.eventType),
+      eventTypeIds: overrideEventTypeIds(row),
       count: typeof row?.sessions === "number" ? row.sessions : null,
     })),
   });

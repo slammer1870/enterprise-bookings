@@ -1164,7 +1164,7 @@ export interface Plan {
       }[]
     | null;
   /**
-   * Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types.
+   * Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Sessions.
    */
   allowedEventTypes?: (number | EventType)[] | null;
   /**
@@ -1180,11 +1180,14 @@ export interface Plan {
     maxBookingsPerTimeslot?: number | null;
     allowMultipleBookingsPerTimeslot?: boolean | null;
     /**
-     * Optional. A row adds a separate session allowance for that event type, on top of Sessions. Set Per and Interval to count that event type in its own window, for example 2 sauna sessions a week beside 8 sessions a month. Leave both blank to use the plan's period. Sauna bookings leave the shared sessions unchanged. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for this event type only.
+     * In addition to Sessions, not subtracted from them. A row is a shared allowance for the event types on it. For example, 8 sessions a month for the other allowed types, plus 2 a week shared by Yoga Beginners and Fundamentals. A booking of either type counts against those 2 and does not reduce the 8. Saving adds every type on the row to Allowed event types. Leave Per and Interval blank to use the plan's period. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for every type on this row.
      */
     eventTypeOverrides?:
       | {
-          eventType: number | EventType;
+          /**
+           * These types share this row's allowance. A type can be on only one row.
+           */
+          eventTypes: (number | EventType)[];
           sessions: number;
           /**
            * Leave blank, with Interval, to use the plan's period.
@@ -1195,7 +1198,7 @@ export interface Plan {
            */
           interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
           /**
-           * Leave blank to use the plan's max bookings per timeslot. Set a number to cap this event type only.
+           * Leave blank to use the plan's max bookings per timeslot. Set a number to cap every type on this row.
            */
           maxBookingsPerTimeslot?: number | null;
           id?: string | null;
@@ -1388,7 +1391,7 @@ export interface ClassPassType {
    */
   description?: string | null;
   /**
-   * Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types.
+   * Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Quantity of passes.
    */
   allowedEventTypes?: (number | EventType)[] | null;
   /**
@@ -1405,14 +1408,17 @@ export interface ClassPassType {
   maxBookingsPerTimeslot?: number | null;
   allowMultipleBookingsPerTimeslot?: boolean | null;
   /**
-   * Optional. A row adds a separate credit balance for that event type, on top of Quantity of passes. Quantity 10 plus a Reformer row of 4 credits 14 bookings: 4 for Reformer, and 10 shared by the other allowed types. Using the Reformer credits leaves the 10 unchanged. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for this event type only.
+   * In addition to Quantity of passes, not subtracted from it. A row is a shared credit balance for the event types on it. Quantity 10 plus a row of 4 for two class types is 14 bookings: those two types share the 4, and the other allowed types share the 10. Booking either listed type does not reduce the 10. Saving adds every type on the row to Allowed event types. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for every type on this row.
    */
   eventTypeOverrides?:
     | {
-        eventType: number | EventType;
+        /**
+         * These types share this row's allowance. A type can be on only one row.
+         */
+        eventTypes: (number | EventType)[];
         quantity: number;
         /**
-         * Leave blank to use the pass type's max bookings per timeslot. Set a number to cap this event type only.
+         * Leave blank to use the pass type's max bookings per timeslot. Set a number to cap every type on this row.
          */
         maxBookingsPerTimeslot?: number | null;
         id?: string | null;
@@ -4009,15 +4015,15 @@ export interface ClassPass {
    */
   type: number | ClassPassType;
   /**
-   * Shared credits remaining for event types without their own row. Original allowance is on the pass type.
+   * Credits remaining for event types that are not on a pool row. Original allowance is on the pass type.
    */
   quantity: number;
   /**
-   * Remaining credits for event types that have their own allowance.
+   * Remaining credits for each pool. The event types on a row share that row's remaining quantity.
    */
   eventTypeOverrides?:
     | {
-        eventType: number | EventType;
+        eventTypes: (number | EventType)[];
         quantity: number;
         id?: string | null;
       }[]
@@ -5120,7 +5126,7 @@ export interface ClassPassesSelect<T extends boolean = true> {
   eventTypeOverrides?:
     | T
     | {
-        eventType?: T;
+        eventTypes?: T;
         quantity?: T;
         id?: T;
       };
@@ -5281,7 +5287,7 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   eventTypeOverrides?:
     | T
     | {
-        eventType?: T;
+        eventTypes?: T;
         quantity?: T;
         maxBookingsPerTimeslot?: T;
         id?: T;
@@ -5364,7 +5370,7 @@ export interface PlansSelect<T extends boolean = true> {
         eventTypeOverrides?:
           | T
           | {
-              eventType?: T;
+              eventTypes?: T;
               sessions?: T;
               intervalCount?: T;
               interval?: T;

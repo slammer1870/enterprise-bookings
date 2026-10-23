@@ -1,6 +1,7 @@
 /**
- * Per-event-type allowances for class passes and memberships.
- * A row adds a separate balance for that event type. It does not reduce the shared balance.
+ * Pools on event-type override rows for class passes and memberships.
+ * The types listed on a row share that row's sessions or credits.
+ * Types on no row share the plan sessions or the pass quantity.
  */
 
 export type RelationValue =
@@ -30,7 +31,10 @@ export function sessionIntervalSelectOptions(): Array<{ label: string; value: Se
 
 export type EventTypeOverrideRow = {
   id?: string | null;
+  /** Legacy single type. Used when `eventTypes` is empty. */
   eventType?: unknown;
+  /** Types that share this row's sessions or credits. */
+  eventTypes?: unknown;
   quantity?: number | null;
   sessions?: number | null;
   /**
@@ -39,7 +43,7 @@ export type EventTypeOverrideRow = {
    */
   interval?: string | null;
   intervalCount?: number | null;
-  /** When set, replaces the product cap for this event type only. Blank inherits the product cap. */
+  /** When set, replaces the product cap for every type on this row. Blank inherits the product cap. */
   maxBookingsPerTimeslot?: number | null;
 };
 
@@ -83,6 +87,16 @@ function coerceCount(value: unknown): number | null {
   return null;
 }
 
+/** Types on a pool row. A legacy row with only `eventType` is a pool of one. */
+export function overrideEventTypeIds(
+  row: EventTypeOverrideRow | null | undefined,
+): number[] {
+  const many = relationIds(row?.eventTypes);
+  if (many.length > 0) return many;
+  const single = relationId(row?.eventType);
+  return single == null ? [] : [single];
+}
+
 export function overrideCount(
   rows: EventTypeOverrideRow[] | null | undefined,
   eventTypeId: number,
@@ -90,7 +104,7 @@ export function overrideCount(
 ): number | null {
   if (!Array.isArray(rows)) return null;
   for (const row of rows) {
-    if (relationId(row?.eventType) !== eventTypeId) continue;
+    if (!overrideEventTypeIds(row).includes(eventTypeId)) continue;
     const count = coerceCount(row?.[field]);
     if (count == null) return null;
     return count;
@@ -213,13 +227,13 @@ export function membershipBucketForEventType(
   if (eventTypeId != null) {
     const override = overrideCount(rows, eventTypeId, "sessions");
     if (override != null) {
-      const row = rows.find((entry) => relationId(entry?.eventType) === eventTypeId);
+      const row = rows.find((entry) => overrideEventTypeIds(entry).includes(eventTypeId));
       const window = windowForOverrideRow(row, planWindow);
       if (window == null) return { kind: "unlimited" };
       return {
         kind: "limited",
         limit: Math.max(1, override),
-        eventTypeIds: [eventTypeId],
+        eventTypeIds: overrideEventTypeIds(row),
         interval: window.interval,
         intervalCount: window.intervalCount,
       };
@@ -268,7 +282,7 @@ export function additionalSessionsForUpgrade(
 export type ClassPassCreditSnapshot = {
   quantity: number;
   eventTypeOverrides: Array<{
-    eventType: number;
+    eventTypes: number[];
     quantity: number;
   }>;
 };
@@ -294,10 +308,10 @@ export function classPassSharedPoolIsDisplayOnly(type: PassTypeLike): boolean {
 export function snapshotClassPassCredits(type: PassTypeLike): ClassPassCreditSnapshot {
   const rows = Array.isArray(type.eventTypeOverrides) ? type.eventTypeOverrides : [];
   const eventTypeOverrides = rows.flatMap((row) => {
-    const eventType = relationId(row?.eventType);
+    const eventTypes = overrideEventTypeIds(row);
     const quantity = coerceCount(row?.quantity);
-    if (eventType == null || quantity == null) return [];
-    return [{ eventType, quantity: Math.max(0, quantity) }];
+    if (eventTypes.length === 0 || quantity == null) return [];
+    return [{ eventTypes, quantity: Math.max(0, quantity) }];
   });
   const stored = coerceCount(type.quantity) ?? 0;
   const quantity = classPassSharedPoolIsDisplayOnly(type) ? 0 : Math.max(0, stored);
@@ -311,8 +325,10 @@ export function displayQuantityForClassPassType(
 ): number {
   if (!classPassSharedPoolIsDisplayOnly(type)) return currentQuantity;
   const rows = type.eventTypeOverrides ?? [];
-  const sum = relationIds(type.allowedEventTypes).reduce((total, id) => {
-    return total + (overrideCount(rows, id, "quantity") ?? 0);
+  const sum = rows.reduce((total, row) => {
+    if (overrideEventTypeIds(row).length === 0) return total;
+    const quantity = coerceCount(row?.quantity);
+    return quantity == null ? total : total + Math.max(0, quantity);
   }, 0);
   return Math.max(1, sum);
 }
@@ -335,7 +351,7 @@ export type AdjustedClassPass = {
   quantity: number;
   eventTypeOverrides: Array<{
     id?: string | null;
-    eventType: number;
+    eventTypes: number[];
     quantity: number;
   }>;
   status: "active" | "used" | "expired" | "cancelled";
@@ -346,10 +362,10 @@ function normalizedOverrideRows(
 ): AdjustedClassPass["eventTypeOverrides"] {
   if (!Array.isArray(rows)) return [];
   return rows.flatMap((row) => {
-    const eventType = relationId(row?.eventType);
+    const eventTypes = overrideEventTypeIds(row);
     const quantity = coerceCount(row?.quantity);
-    if (eventType == null || quantity == null) return [];
-    return [{ id: row.id ?? undefined, eventType, quantity: Math.max(0, quantity) }];
+    if (eventTypes.length === 0 || quantity == null) return [];
+    return [{ id: row.id ?? undefined, eventTypes, quantity: Math.max(0, quantity) }];
   });
 }
 
@@ -384,7 +400,9 @@ export function adjustClassPassCredits(
     };
   }
   const overrideIndex =
-    eventTypeId == null ? -1 : rows.findIndex((row) => row.eventType === eventTypeId);
+    eventTypeId == null
+      ? -1
+      : rows.findIndex((row) => row.eventTypes.includes(eventTypeId));
 
   if (overrideIndex >= 0) {
     const next = rows[overrideIndex]!.quantity + delta;
@@ -427,7 +445,7 @@ export type AllowedEventTypesForSave = {
  */
 export function allowedEventTypeIdsIncludingOverrides(
   allowedEventTypes: unknown,
-  rows: Array<{ eventType?: unknown } | null | undefined> | null | undefined,
+  rows: Array<EventTypeOverrideRow | null | undefined> | null | undefined,
   storedAllowedEventTypes?: unknown,
 ): AllowedEventTypesForSave {
   const list = Array.isArray(rows) ? rows : [];
@@ -437,10 +455,11 @@ export function allowedEventTypeIdsIncludingOverrides(
       : relationIds(allowedEventTypes);
   let added = false;
   for (const row of list) {
-    const eventTypeId = relationId(row?.eventType);
-    if (eventTypeId != null && !ids.includes(eventTypeId)) {
-      ids.push(eventTypeId);
-      added = true;
+    for (const eventTypeId of overrideEventTypeIds(row)) {
+      if (!ids.includes(eventTypeId)) {
+        ids.push(eventTypeId);
+        added = true;
+      }
     }
   }
   return { ids, idsToStore: added ? ids : null };
@@ -448,18 +467,30 @@ export function allowedEventTypeIdsIncludingOverrides(
 
 export function validateEventTypeOverrideRows(input: {
   allowedEventTypeIds: number[];
-  rows: Array<{ eventTypeId: number | null; count: number | null }>;
+  rows: Array<{
+    eventTypeId?: number | null;
+    eventTypeIds?: number[] | null;
+    count: number | null;
+  }>;
 }): string | true {
   const seen = new Set<number>();
   for (const row of input.rows) {
-    if (row.eventTypeId == null) return "Each override needs an event type.";
-    if (!input.allowedEventTypeIds.includes(row.eventTypeId)) {
-      return "Override event types must be included in the allowed event types.";
+    const ids =
+      Array.isArray(row.eventTypeIds) && row.eventTypeIds.length > 0
+        ? row.eventTypeIds
+        : row.eventTypeId != null
+          ? [row.eventTypeId]
+          : [];
+    if (ids.length === 0) return "Each override needs an event type.";
+    for (const eventTypeId of ids) {
+      if (!input.allowedEventTypeIds.includes(eventTypeId)) {
+        return "Override event types must be included in the allowed event types.";
+      }
+      if (seen.has(eventTypeId)) {
+        return "Each event type can only be overridden once.";
+      }
+      seen.add(eventTypeId);
     }
-    if (seen.has(row.eventTypeId)) {
-      return "Each event type can only be overridden once.";
-    }
-    seen.add(row.eventTypeId);
     if (row.count == null || row.count < 1) {
       return "Override counts must be at least 1.";
     }

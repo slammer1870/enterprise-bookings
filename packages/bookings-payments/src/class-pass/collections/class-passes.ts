@@ -53,22 +53,28 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
       min: 0,
       admin: {
         description:
-          "Shared credits remaining for event types without their own row. Original allowance is on the pass type.",
+          "Credits remaining for event types that are not on a pool row. Original allowance is on the pass type.",
       },
     },
     {
       name: "eventTypeOverrides",
-      label: "Per event type credits",
+      label: "Credit pools",
+      labels: {
+        singular: "Credit pool",
+        plural: "Credit pools",
+      },
       type: "array",
       admin: {
-        description: "Remaining credits for event types that have their own allowance.",
+        description:
+          "Remaining credits for each pool. The event types on a row share that row's remaining quantity.",
       },
       fields: [
         {
-          name: "eventType",
-          label: "Event type",
+          name: "eventTypes",
+          label: "Event types",
           type: "relationship",
           relationTo: eventTypesSlug as import("payload").CollectionSlug,
+          hasMany: true,
           required: true,
         },
         {

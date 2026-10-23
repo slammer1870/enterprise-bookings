@@ -155,8 +155,8 @@ describe("applyCancelRefundPolicy", () => {
     expect(result).toEqual({ applied: true, kind: "class_pass" });
     expect(classPass.quantity).toBe(0);
     expect(classPass.eventTypeOverrides).toEqual([
-      { id: "float-row", eventType: float, quantity: 1 },
-      { id: "sauna-row", eventType: sauna, quantity: 1 },
+      { id: "float-row", eventTypes: [float], quantity: 1 },
+      { id: "sauna-row", eventTypes: [sauna], quantity: 1 },
     ]);
     expect(classPass.status).toBe("active");
     expect(transaction.classPassRestoredAt).toBeTruthy();

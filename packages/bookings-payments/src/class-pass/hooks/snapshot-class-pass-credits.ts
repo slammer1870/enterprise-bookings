@@ -40,7 +40,11 @@ export const snapshotClassPassCreditsOnCreate: CollectionBeforeChangeHook = asyn
     .catch(() => null)) as {
     quantity?: unknown;
     allowedEventTypes?: unknown;
-    eventTypeOverrides?: Array<{ eventType?: unknown; quantity?: number | null }> | null;
+    eventTypeOverrides?: Array<{
+      eventType?: unknown;
+      eventTypes?: unknown;
+      quantity?: number | null;
+    }> | null;
   } | null;
   if (!passType) return data;
 

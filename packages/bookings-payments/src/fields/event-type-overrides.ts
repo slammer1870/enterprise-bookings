@@ -33,16 +33,24 @@ export function eventTypeOverridesField(opts: {
     fields: [
       {
         name: "eventTypeOverrides",
-        label: "Additional allowance per event type",
+        label: "Shared allowances",
+        labels: {
+          singular: "Shared allowance",
+          plural: "Shared allowances",
+        },
         type: "array",
         admin: { description: opts.description },
         fields: [
           {
-            name: "eventType",
-            label: "Event type",
+            name: "eventTypes",
+            label: "Event types",
             type: "relationship",
             relationTo: opts.eventTypesSlug as import("payload").CollectionSlug,
+            hasMany: true,
             required: true,
+            admin: {
+              description: "These types share this row's allowance. A type can be on only one row.",
+            },
           },
           ...(opts.countName === "sessions"
             ? [

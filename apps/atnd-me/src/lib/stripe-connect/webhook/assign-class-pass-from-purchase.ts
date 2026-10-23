@@ -96,7 +96,11 @@ export async function assignClassPassFromPurchase(params: {
       quantity?: unknown
       daysUntilExpiration?: unknown
       allowedEventTypes?: unknown
-      eventTypeOverrides?: Array<{ eventType?: unknown; quantity?: number | null }> | null
+      eventTypeOverrides?: Array<{
+        eventType?: unknown
+        eventTypes?: unknown
+        quantity?: number | null
+      }> | null
     } | null
 
     const snapshot = snapshotClassPassCredits(classPassType ?? {})
