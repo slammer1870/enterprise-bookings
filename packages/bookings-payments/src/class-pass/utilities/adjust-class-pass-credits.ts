@@ -64,16 +64,12 @@ export async function eventTypeIdForTimeslot(
   }
   const timeslotId = relationId(timeslot);
   if (timeslotId == null) return null;
-  try {
-    const doc = (await payload.findByID({
-      collection: "timeslots" as CollectionSlug,
-      id: timeslotId,
-      depth: 0,
-      overrideAccess: true,
-      req,
-    })) as { eventType?: unknown } | null;
-    return relationId(doc?.eventType);
-  } catch {
-    return null;
-  }
+  const doc = (await payload.findByID({
+    collection: "timeslots" as CollectionSlug,
+    id: timeslotId,
+    depth: 0,
+    overrideAccess: true,
+    req,
+  })) as { eventType?: unknown } | null;
+  return relationId(doc?.eventType);
 }

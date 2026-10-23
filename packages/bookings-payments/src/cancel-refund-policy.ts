@@ -203,7 +203,9 @@ async function restoreClassPassCredit(
     delta: 1,
     req,
   });
-  if (!restored.ok) return;
+  if (!restored.ok) {
+    throw new Error(restored.error);
+  }
 
   await payload.update({
     collection: "transactions" as any,

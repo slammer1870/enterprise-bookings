@@ -375,10 +375,16 @@ export function adjustClassPassCredits(
 ): { ok: true; pass: AdjustedClassPass } | { ok: false; error: string } {
   const rows = normalizedOverrideRows(pass.eventTypeOverrides);
   let quantity = Math.max(0, coerceCount(pass.quantity) ?? 0);
+  // A missing event type used to land on the shared pool. That spends or refunds
+  // the wrong bucket when this pass has override rows.
+  if (eventTypeId == null && rows.length > 0) {
+    return {
+      ok: false,
+      error: "Could not resolve the event type for this class pass.",
+    };
+  }
   const overrideIndex =
-    eventTypeId == null
-      ? -1
-      : rows.findIndex((row) => row.eventType === eventTypeId);
+    eventTypeId == null ? -1 : rows.findIndex((row) => row.eventType === eventTypeId);
 
   if (overrideIndex >= 0) {
     const next = rows[overrideIndex]!.quantity + delta;

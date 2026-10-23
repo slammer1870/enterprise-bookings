@@ -115,6 +115,22 @@ describe("adjustClassPassCredits", () => {
     expect(afterFloat.pass.status).toBe("used");
   });
 
+  it("refuses to spend or restore the shared pool when the event type is unknown and the pass has an override", () => {
+    const spent = adjustClassPassCredits(pass, null, -1);
+    expect(spent.ok).toBe(false);
+
+    const restored = adjustClassPassCredits(
+      {
+        quantity: 0,
+        status: "used",
+        eventTypeOverrides: [{ eventType: float, quantity: 0 }],
+      },
+      null,
+      1,
+    );
+    expect(restored.ok).toBe(false);
+  });
+
   it("keeps an expired or cancelled pass in that status when credits remain", () => {
     const expired = adjustClassPassCredits(
       { quantity: 0, status: "expired", eventTypeOverrides: [] },

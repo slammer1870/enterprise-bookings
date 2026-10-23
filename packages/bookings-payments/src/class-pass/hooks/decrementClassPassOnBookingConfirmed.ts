@@ -54,12 +54,15 @@ export function createDecrementClassPassHook(
       (doc as { timeslot?: unknown }).timeslot,
       req,
     );
-    await adjustClassPassForEventType({
+    const adjusted = await adjustClassPassForEventType({
       payload: req.payload,
       passId,
       eventTypeId,
       delta: -1,
       req,
     });
+    if (!adjusted.ok) {
+      throw new Error(adjusted.error);
+    }
   };
 }
