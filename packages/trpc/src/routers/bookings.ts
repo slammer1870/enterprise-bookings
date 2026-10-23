@@ -41,7 +41,14 @@ import {
   getRemainingSessionsInPeriod,
   canUseSubscriptionForBooking,
   filterValidClassPassesForTimeslot,
+  classPassesForPaymentTab,
+  attachProductAllowLists,
+  relationId,
+  creditsRemainingForEventType,
+  maxBookingsPerTimeslotForEventType,
+  withMaxBookingsPerTimeslotOverride,
   filterValidEnrollmentsForTimeslot,
+  type EventTypeOverrideRow,
   courseEnrollmentBookingFields,
   type TimeslotLike,
   type ClassPassLike,
@@ -55,6 +62,7 @@ import {
   getActiveCheckoutHold as getActiveCheckoutHoldService,
   CHECKOUT_HOLD_COLLECTION_SLUG,
   previewCancelRefundForBooking,
+  adjustClassPassForEventType,
 } from "@repo/bookings-payments";
 
 export const bookingsRouter = {
@@ -134,6 +142,12 @@ export const bookingsRouter = {
                 },
               )
             : null;
+
+      if (eventType && typeof eventType === "object") {
+        await attachProductAllowLists(ctx.payload, eventType, {
+          tenantId,
+        });
+      }
 
       // Child timeslots are handled on the children booking page.
       if ((eventType as any)?.type === "child") {
@@ -248,6 +262,7 @@ export const bookingsRouter = {
             usableSub as any,
             ctx.payload,
             timeslotStart,
+            relationId(eventType),
           );
           if (limitReached) {
             // Subscription exhausted — send to booking page to pay another way.
@@ -280,11 +295,10 @@ export const bookingsRouter = {
                 { tenant: { equals: timeslotTenantId } },
                 { type: { in: allowedClassPassTypeIds } },
                 { status: { equals: "active" } },
-                { quantity: { greater_than: 0 } },
                 { expirationDate: { greater_than: now } },
               ],
             },
-            limit: 10,
+            limit: 50,
             depth: 1,
             sort: "expirationDate",
             overrideAccess: true,
@@ -308,36 +322,31 @@ export const bookingsRouter = {
             classPassIdUsed: passId,
           });
 
-          // Decrement class pass by 1 credit.
+          // Decrement the bucket for this event type.
           // Note: createDecrementClassPassHook cannot see the transaction that
           // createBookingTransactionOnCreate just created (same-request DB visibility),
           // so the decrement must happen explicitly here. The transaction itself is
           // created solely by the createBookingTransactionOnCreate afterChange hook —
           // do NOT add a manual payload.create for transactions here.
-          const currentQty =
-            typeof (usablePass as any).quantity === "number"
-              ? (usablePass as any).quantity
-              : 0;
-          const nextQty = Math.max(0, currentQty - 1);
-          const nextStatus =
-            nextQty === 0 ? "used" : ((usablePass as any).status ?? "active");
-          await ctx.payload.update({
-            collection: ctx.bookingsSlugs
-              .classPasses as import("payload").CollectionSlug,
-            id: passId,
-            data: { quantity: nextQty, status: nextStatus } as Record<
-              string,
-              unknown
-            >,
-            overrideAccess: true,
+          const adjusted = await adjustClassPassForEventType({
+            payload: ctx.payload,
+            passId,
+            eventTypeId: relationId(eventType),
+            delta: -1,
           });
+          if (!adjusted.ok) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: adjusted.error,
+            });
+          }
 
           return { redirectUrl: null };
         }
       }
 
       // 6. Valid course enrollment for this timeslot → book immediately (no credits to decrement).
-      // The course owns entitlement; event-type allowedCourses is only offer/payment config.
+      // The course owns entitlement through its allowed event types.
       if (
         timeslotTenantId != null &&
         hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)
@@ -771,6 +780,17 @@ export const bookingsRouter = {
         }
       }
 
+      if (timeslot.eventType && typeof timeslot.eventType === "object") {
+        await attachProductAllowLists(
+          ctx.payload,
+          timeslot.eventType as {
+            id?: unknown;
+            paymentMethods?: Record<string, unknown> | null;
+          },
+          { tenantId: timeslotTenantId },
+        );
+      }
+
       // Validate quantity against remaining capacity.
       // Global remaining already subtracts the viewer's checkout hold. Add that
       // hold back so the owner can book the places they are holding.
@@ -863,6 +883,7 @@ export const bookingsRouter = {
           subscription,
           ctx.payload,
           new Date(timeslot.startTime),
+          relationId(timeslot.eventType),
         );
         if (limitReached) {
           throw new TRPCError({
@@ -875,6 +896,7 @@ export const bookingsRouter = {
           subscription,
           ctx.payload,
           new Date(timeslot.startTime),
+          relationId(timeslot.eventType),
         );
         if (remaining != null && remaining < quantity) {
           throw new TRPCError({
@@ -929,9 +951,8 @@ export const bookingsRouter = {
               user: { equals: ctx.user.id },
               tenant: { equals: timeslotTenantId },
               type: { in: allowedTypeIds },
-              status: { equals: "active" },
-              quantity: { greater_than: 0 },
-              expirationDate: { greater_than: new Date().toISOString() },
+            status: { equals: "active" },
+            expirationDate: { greater_than: new Date().toISOString() },
             },
             limit: 1,
             depth: 2,
@@ -957,7 +978,10 @@ export const bookingsRouter = {
           typeof passDoc.type === "object" && passDoc.type != null
             ? (passDoc.type as { id: number }).id
             : passDoc.type;
-        let passType: { maxBookingsPerTimeslot?: number | null } | null = null;
+        let passType: {
+          maxBookingsPerTimeslot?: number | null;
+          eventTypeOverrides?: EventTypeOverrideRow[] | null;
+        } | null = null;
         if (
           passTypeId != null &&
           hasCollection(ctx.payload, ctx.bookingsSlugs.classPassTypes)
@@ -970,13 +994,18 @@ export const bookingsRouter = {
           );
           passType = typeDoc as {
             maxBookingsPerTimeslot?: number | null;
+            eventTypeOverrides?: EventTypeOverrideRow[] | null;
           } | null;
         }
 
-        if (passDoc.quantity < quantity) {
+        const creditsForEventType = creditsRemainingForEventType(
+          passDoc,
+          relationId(timeslot.eventType),
+        );
+        if (creditsForEventType < quantity) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: `Not enough credits on this pass. You have ${passDoc.quantity}; need ${quantity}.`,
+            message: `Not enough credits on this pass. You have ${creditsForEventType}; need ${quantity}.`,
           });
         }
 
@@ -1006,7 +1035,11 @@ export const bookingsRouter = {
         );
         const existingConfirmedCount = existingConfirmedResult.totalDocs ?? 0;
 
-        const configuredMax = passType?.maxBookingsPerTimeslot ?? null;
+        const configuredMax = maxBookingsPerTimeslotForEventType(
+          passType?.eventTypeOverrides,
+          relationId(timeslot.eventType),
+          passType?.maxBookingsPerTimeslot ?? null,
+        );
         const maxPerTimeslot =
           configuredMax == null ? Infinity : Math.max(1, Number(configuredMax));
 
@@ -1121,29 +1154,18 @@ export const bookingsRouter = {
 
       const decrementClassPassCredits = async (count: number) => {
         if (classPassIdUsed == null || count <= 0) return;
-        const pass = (await ctx.payload.findByID({
-          collection: ctx.bookingsSlugs
-            .classPasses as import("payload").CollectionSlug,
-          id: classPassIdUsed,
-          depth: 0,
-          // System operation: class pass decrement is enforced by earlier ownership checks,
-          // but users typically cannot update class passes directly.
-          overrideAccess: true,
-        })) as { quantity?: number; status?: string } | null;
-        if (!pass || typeof pass.quantity !== "number") return;
-
-        const nextQty = Math.max(0, pass.quantity - count);
-        const nextStatus = nextQty === 0 ? "used" : (pass.status ?? "active");
-        await ctx.payload.update({
-          collection: ctx.bookingsSlugs
-            .classPasses as import("payload").CollectionSlug,
-          id: classPassIdUsed,
-          data: { quantity: nextQty, status: nextStatus } as Record<
-            string,
-            unknown
-          >,
-          overrideAccess: true,
+        const adjusted = await adjustClassPassForEventType({
+          payload: ctx.payload,
+          passId: classPassIdUsed,
+          eventTypeId: relationId(timeslot.eventType),
+          delta: -count,
         });
+        if (!adjusted.ok) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: adjusted.error,
+          });
+        }
       };
 
       // When subscriptionId or classPassId + pendingBookingIds are provided, confirm those pending bookings instead of creating new ones
@@ -1489,8 +1511,9 @@ export const bookingsRouter = {
 
   /**
    * Returns valid class passes for the current user for the given timeslot.
-   * Only passes that belong to the timeslot's tenant and match the class option's allowed pass types,
-   * with status active, quantity > 0, and expirationDate in the future.
+   * Passes that belong to the timeslot's tenant and match the lesson's allowed pass types.
+   * Includes a pass that can cover the quantity, and a pass whose credits for this
+   * event type are already 0 so the payment tab can say those credits are used.
    */
   getValidClassPassesForTimeslot: protectedProcedure
     .input(
@@ -1590,8 +1613,7 @@ export const bookingsRouter = {
             user: { equals: ctx.user.id },
             tenant: { equals: timeslotTenantId },
             type: { in: activeAllowedTypeIds },
-            status: { equals: "active" },
-            quantity: { greater_than: 0 },
+            status: { in: ["active", "used"] },
             expirationDate: { greater_than: now },
           },
           limit: 50,
@@ -1600,12 +1622,23 @@ export const bookingsRouter = {
           overrideAccess: true,
         },
       );
-      return filterValidClassPassesForTimeslot(
+      const eventTypeId = relationId(timeslot.eventType);
+      return classPassesForPaymentTab(
         timeslot as unknown as TimeslotLike,
         result.docs as ClassPassLike[],
         new Date(),
         input.quantity ?? 1,
-      );
+      ).map((pass) => {
+        const type = pass.type;
+        if (type == null || typeof type !== "object") return pass;
+        const typeForTimeslot = withMaxBookingsPerTimeslotOverride(
+          type,
+          type.eventTypeOverrides,
+          eventTypeId,
+        );
+        if (typeForTimeslot === type) return pass;
+        return { ...pass, type: typeForTimeslot };
+      });
     }),
 
   getPurchasableClassPassTypesForTimeslot: protectedProcedure
@@ -1729,7 +1762,12 @@ export const bookingsRouter = {
           const typeId = typeof doc?.id === "number" ? doc.id : null;
           if (typeId == null) return null;
 
-          const fullDoc = await findByIdSafe(
+          const fullDoc = await findByIdSafe<{
+            quantity?: number | null;
+            maxBookingsPerTimeslot?: number | null;
+            allowMultipleBookingsPerTimeslot?: boolean | null;
+            eventTypeOverrides?: EventTypeOverrideRow[] | null;
+          }>(
             ctx.payload,
             ctx.bookingsSlugs.classPassTypes,
             typeId,
@@ -1741,31 +1779,28 @@ export const bookingsRouter = {
           if (!fullDoc) return null;
 
           const passQuantity =
-            typeof (fullDoc as { quantity?: unknown }).quantity === "number"
-              ? (fullDoc as { quantity: number }).quantity
-              : 0;
-          const rawMax = (fullDoc as any).maxBookingsPerTimeslot as
-            | number
-            | null
-            | undefined;
-          const legacyAllowMultiple =
-            (fullDoc as any).allowMultipleBookingsPerTimeslot === true;
+            typeof fullDoc.quantity === "number" ? fullDoc.quantity : 0;
+          const rawMax = fullDoc.maxBookingsPerTimeslot;
+          const legacyAllowMultiple = fullDoc.allowMultipleBookingsPerTimeslot === true;
 
-          const maxPerTimeslot = (() => {
-            // `null` means explicitly unlimited.
-            if (rawMax === null) return Infinity;
-
-            // `undefined` means the numeric field was never set (legacy row): fall back to the
-            // boolean field. Do NOT apply this fallback when rawMax is a real number — the
-            // numeric value is the source of truth and must not be overridden by the legacy
-            // boolean (which defaults to `false` in the DB for all rows, including new ones).
-            if (rawMax === undefined) {
-              return legacyAllowMultiple ? Infinity : 1;
-            }
-
-            // Explicit numeric cap: always use it, regardless of the legacy boolean.
-            return Math.max(1, Number(rawMax));
-          })();
+          // `null` means explicitly unlimited.
+          // `undefined` means the numeric field was never set (legacy row): fall back to the
+          // boolean field. Do NOT apply this fallback when rawMax is a real number — the
+          // numeric value is the source of truth and must not be overridden by the legacy
+          // boolean (which defaults to `false` in the DB for all rows, including new ones).
+          const productCap =
+            rawMax === null
+              ? Infinity
+              : rawMax === undefined
+                ? legacyAllowMultiple
+                  ? Infinity
+                  : 1
+                : Math.max(1, Number(rawMax));
+          const maxPerTimeslot = maxBookingsPerTimeslotForEventType(
+            fullDoc.eventTypeOverrides,
+            relationId(timeslot.eventType),
+            productCap,
+          );
 
           if (passQuantity < requiredQuantity) return null;
           if (requiredQuantity > maxPerTimeslot) return null;
@@ -2287,8 +2322,12 @@ export const bookingsRouter = {
         return false;
       }
 
-      const plans = eventType.paymentMethods?.allowedPlans;
       const timeslotTenantId = deriveTenantIdFromTimeslot(timeslot);
+      await attachProductAllowLists(ctx.payload, eventType, {
+        tenantId: timeslotTenantId,
+      });
+
+      const plans = eventType.paymentMethods?.allowedPlans;
 
       if (plans && plans.length > 0) {
         const subscription = await findSafe(ctx.payload, "subscriptions", {
@@ -2980,6 +3019,12 @@ export const bookingsRouter = {
           ? (timeslot.eventType as any)
           : null;
 
+      if (eventType) {
+        await attachProductAllowLists(ctx.payload, eventType, {
+          tenantId: timeslotTenantId,
+        });
+      }
+
       if (eventType?.type === "child") {
         return {
           shouldRedirect: false,
@@ -3089,8 +3134,12 @@ export const bookingsRouter = {
           // null/undefined means unlimited — the user may want to book multiple spots,
           // so let them land on /bookings/[id] to pick their quantity.
           const planDoc = (usableSub as any).plan;
-          const planMaxPerTimeslot = planDoc?.sessionsInformation
-            ?.maxBookingsPerTimeslot as number | null | undefined;
+          const planSessions = planDoc?.sessionsInformation;
+          const planMaxPerTimeslot = maxBookingsPerTimeslotForEventType(
+            planSessions?.eventTypeOverrides,
+            relationId(eventType),
+            planSessions?.maxBookingsPerTimeslot,
+          );
           if (planMaxPerTimeslot !== 1) {
             return {
               shouldRedirect: false,
@@ -3103,6 +3152,7 @@ export const bookingsRouter = {
             usableSub as any,
             ctx.payload,
             timeslotStart,
+            relationId(eventType),
           );
           if (!limitReached) {
             await bookOneSlot({
@@ -3137,11 +3187,10 @@ export const bookingsRouter = {
                 { tenant: { equals: timeslotTenantId } },
                 { type: { in: allowedClassPassTypeIds } },
                 { status: { equals: "active" } },
-                { quantity: { greater_than: 0 } },
                 { expirationDate: { greater_than: now } },
               ],
             },
-            limit: 10,
+            limit: 50,
             depth: 1,
             sort: "expirationDate",
             overrideAccess: true,
@@ -3170,7 +3219,7 @@ export const bookingsRouter = {
       }
 
       // Valid course enrollment → book immediately.
-      // The course owns entitlement; event-type allowedCourses is only offer/payment config.
+      // The course owns entitlement through its allowed event types.
       if (
         timeslotTenantId != null &&
         hasCollection(ctx.payload, ctx.bookingsSlugs.courseEnrollments)
@@ -3289,6 +3338,17 @@ export const bookingsRouter = {
             (timeslot as any).eventType = populated as any;
           }
         }
+      }
+
+      if (timeslot.eventType && typeof timeslot.eventType === "object") {
+        await attachProductAllowLists(
+          ctx.payload,
+          timeslot.eventType as {
+            id?: unknown;
+            paymentMethods?: Record<string, unknown> | null;
+          },
+          { tenantId: qtyTimeslotTenantId },
+        );
       }
 
       const currentBookings = await findSafe<Booking>(ctx.payload, "bookings", {

@@ -75,13 +75,6 @@ test.describe('Booking with course enrollment', () => {
       context: { skipStripeSync: true },
     })) as { id: number }
 
-    await payload.update({
-      collection: 'event-types',
-      id: co.id,
-      data: { paymentMethods: { allowedCourses: [course.id] } },
-      overrideAccess: true,
-    })
-
     const accessStartsAt = new Date(Date.now() - 86400000).toISOString()
     const accessEndsAt = new Date(Date.now() + 86400000 * 60).toISOString()
     await payload.create({

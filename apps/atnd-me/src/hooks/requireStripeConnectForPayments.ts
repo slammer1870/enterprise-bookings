@@ -2,22 +2,19 @@ import type { CollectionBeforeChangeHook } from 'payload'
 
 /**
  * Step 2.6.1 – Server enforcement: payment methods require Stripe Connect.
- * Rejects updates that set Stripe-backed payment methods (allowedDropIn, allowedPlans, allowedClassPasses)
- * when the class-option's tenant has stripeConnectOnboardingStatus !== 'active'.
+ * Rejects updates that set a drop-in when the event type's tenant has
+ * stripeConnectOnboardingStatus !== 'active'. Class passes and memberships are
+ * enabled on those products, not on the event type.
  */
 function hasAnyPaymentMethod(pm: Record<string, unknown> | null | undefined): boolean {
   if (!pm || typeof pm !== 'object') return false
   const allowedDropIn = pm.allowedDropIn
-  const hasDropIn =
+  return (
     allowedDropIn != null &&
     (typeof allowedDropIn === 'number' ||
       (typeof allowedDropIn === 'string' && allowedDropIn !== '') ||
       (typeof allowedDropIn === 'object' && allowedDropIn !== null))
-  const allowedPlans = pm.allowedPlans
-  const hasPlans = Array.isArray(allowedPlans) && allowedPlans.length > 0
-  const allowedClassPasses = pm.allowedClassPasses
-  const hasClassPasses = Array.isArray(allowedClassPasses) && allowedClassPasses.length > 0
-  return hasDropIn || hasPlans || hasClassPasses
+  )
 }
 
 /**

@@ -1,4 +1,8 @@
 import type { CollectionAfterChangeHook } from "payload";
+import {
+  adjustClassPassForEventType,
+  eventTypeIdForTimeslot,
+} from "../utilities/adjust-class-pass-credits";
 
 export type DecrementClassPassHookOptions = {
   /**
@@ -45,20 +49,20 @@ export function createDecrementClassPassHook(
     });
     if (passId == null) return;
 
-    const pass = (await req.payload.findByID({
-      collection: "class-passes" as import("payload").CollectionSlug,
-      id: passId,
-      depth: 0,
-    })) as { quantity?: number; status?: string } | null;
-    if (!pass || typeof pass.quantity !== "number") return;
-
-    const nextQty = Math.max(0, pass.quantity - 1);
-    const status = nextQty === 0 ? "used" : (pass.status ?? "active");
-    await req.payload.update({
-      collection: "class-passes" as import("payload").CollectionSlug,
-      id: passId,
-      data: { quantity: nextQty, status } as Record<string, unknown>,
-      overrideAccess: true,
+    const eventTypeId = await eventTypeIdForTimeslot(
+      req.payload,
+      (doc as { timeslot?: unknown }).timeslot,
+      req,
+    );
+    const adjusted = await adjustClassPassForEventType({
+      payload: req.payload,
+      passId,
+      eventTypeId,
+      delta: -1,
+      req,
     });
+    if (!adjusted.ok) {
+      throw new Error(adjusted.error);
+    }
   };
 }

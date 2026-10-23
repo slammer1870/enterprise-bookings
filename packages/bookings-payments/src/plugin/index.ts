@@ -93,7 +93,7 @@ export const bookingsPaymentsPlugin =
       applyClassPassFeature(ctx, classPass);
     }
 
-    // Courses feature: courses, course-enrollments, allowedCourses injection
+    // Courses feature: courses, course-enrollments, includingCourses join
     if (courses?.enabled) {
       applyCoursesFeature(ctx, courses);
     }

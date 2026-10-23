@@ -246,13 +246,9 @@ test.describe('App smoke', () => {
     }) as { id: number }
     const co = await createTestEventType(tenantId, 'Smoke Class Pass Only', 5, undefined, w)
     await payload.update({
-      collection: 'event-types',
-      id: co.id,
-      data: {
-        paymentMethods: {
-          allowedClassPasses: [cpType.id],
-        },
-      },
+      collection: 'class-pass-types',
+      id: cpType.id,
+      data: { allowedEventTypes: [co.id] },
       overrideAccess: true,
     })
 

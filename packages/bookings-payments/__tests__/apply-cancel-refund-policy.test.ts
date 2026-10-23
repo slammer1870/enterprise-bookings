@@ -107,6 +107,118 @@ describe("applyCancelRefundPolicy", () => {
     expect(updates.some((u) => u.collection === "transactions")).toBe(true);
   });
 
+  it("restores the event-type override row and leaves the shared pool", async () => {
+    const float = 3;
+    const sauna = 2;
+    const classPass = {
+      id: 9,
+      quantity: 0,
+      status: "used",
+      eventTypeOverrides: [
+        { id: "float-row", eventType: float, quantity: 0 },
+        { id: "sauna-row", eventType: sauna, quantity: 1 },
+      ],
+    };
+    const transaction = {
+      id: 3,
+      paymentMethod: "class_pass",
+      classPassId: 9,
+      classPassRestoredAt: null as string | null,
+    };
+    const { payload } = createPayloadMock({
+      booking: {
+        id: 1,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      timeslot: { id: 2, startTime: start, tenant: 5, eventType: float },
+      tenant: {
+        id: 5,
+        refundPolicy: { defaultWindowHours: 24 },
+      },
+      transaction,
+      classPass,
+    });
+
+    const result = await applyCancelRefundPolicy({
+      payload,
+      booking: {
+        id: 1,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      now: inside,
+    });
+
+    expect(result).toEqual({ applied: true, kind: "class_pass" });
+    expect(classPass.quantity).toBe(0);
+    expect(classPass.eventTypeOverrides).toEqual([
+      { id: "float-row", eventTypes: [float], quantity: 1 },
+      { id: "sauna-row", eventTypes: [sauna], quantity: 1 },
+    ]);
+    expect(classPass.status).toBe("active");
+    expect(transaction.classPassRestoredAt).toBeTruthy();
+  });
+
+  it("does not credit the shared pool when the timeslot event type cannot be loaded", async () => {
+    const classPass = {
+      id: 9,
+      quantity: 0,
+      status: "used",
+      eventTypeOverrides: [{ id: "float-row", eventType: 3, quantity: 0 }],
+    };
+    const transaction = {
+      id: 3,
+      paymentMethod: "class_pass",
+      classPassId: 9,
+      classPassRestoredAt: null as string | null,
+    };
+    const { payload } = createPayloadMock({
+      booking: {
+        id: 1,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      timeslot: { id: 2, startTime: start, tenant: 5 },
+      tenant: {
+        id: 5,
+        refundPolicy: { defaultWindowHours: 24 },
+      },
+      transaction,
+      classPass,
+    });
+    payload.findByID.mockImplementation(async ({ collection }: { collection: string }) => {
+      if (collection === "timeslots") throw new Error("timeslot unavailable");
+      if (collection === "tenants") {
+        return {
+          id: 5,
+          refundPolicy: { defaultWindowHours: 24 },
+        };
+      }
+      if (collection === "class-passes") return classPass;
+      return null;
+    });
+
+    await expect(
+      applyCancelRefundPolicy({
+        payload,
+        booking: {
+          id: 1,
+          status: "cancelled",
+          timeslot: { id: 2, startTime: start },
+          tenant: 5,
+        },
+        now: inside,
+      }),
+    ).rejects.toThrow("timeslot unavailable");
+    expect(classPass.quantity).toBe(0);
+    expect(classPass.eventTypeOverrides[0]?.quantity).toBe(0);
+    expect(transaction.classPassRestoredAt).toBeNull();
+  });
+
   it("does not restore class-pass credit outside window", async () => {
     const classPass = { id: 9, quantity: 0, status: "used" };
     const { payload } = createPayloadMock({

@@ -2,6 +2,14 @@ import { Payload, Where, CollectionSlug } from "payload";
 
 import { Timeslot, Plan, Subscription, User } from "@repo/shared-types";
 import { getIntervalStartAndEndDate, getSessionLimitWindowStartAndEndDate } from "@repo/shared-utils";
+import {
+  additionalSessionsForUpgrade,
+  maxBookingsPerTimeslotForEventType,
+  membershipBucketForEventType,
+  relationId,
+  type AllowanceKind,
+} from "./event-type-allowance";
+import { findPlansForEventType } from "./product-allow-list";
 
 /** Resolve plan collection slug (plans). */
 function getPlanCollectionSlug(payload: Payload): CollectionSlug {
@@ -15,7 +23,7 @@ function getPlanCollectionSlug(payload: Payload): CollectionSlug {
  * - `null`/`undefined` => unbounded (Infinity)
  * - any number < 1 => treated as 1
  */
-function getPlanMaxBookingsPerTimeslot(plan: Plan): number {
+function getPlanMaxBookingsPerTimeslot(plan: Plan, eventTypeId: number | null = null): number {
   const si = plan?.sessionsInformation as
     | (NonNullable<Plan["sessionsInformation"]> & {
         maxBookingsPerTimeslot?: number | null;
@@ -23,7 +31,11 @@ function getPlanMaxBookingsPerTimeslot(plan: Plan): number {
     | null
     | undefined;
 
-  const max = si?.maxBookingsPerTimeslot;
+  const max = maxBookingsPerTimeslotForEventType(
+    si?.eventTypeOverrides,
+    eventTypeId,
+    si?.maxBookingsPerTimeslot,
+  );
   return max == null ? Infinity : Math.max(1, max);
 }
 
@@ -106,38 +118,97 @@ export const hasActiveSubscription = async (
   }
 };
 
-const query = (
+function subscriptionUserId(subscription: Subscription): number | null {
+  const user = subscription.user;
+  if (typeof user === "object" && user !== null) return relationId(user);
+  return relationId(user);
+}
+
+function sessionWindow(
   subscription: Subscription,
-  plan: Plan,
+  lessonDate: Date,
+  intervalType: "day" | "week" | "month" | "quarter" | "year",
+  intervalCount: number,
+): { startDate: Date; endDate: Date } {
+  if (intervalType === "day" || intervalType === "week" || intervalType === "month") {
+    return getSessionLimitWindowStartAndEndDate({
+      intervalType,
+      intervalCount,
+      lessonDate,
+    });
+  }
+  return subscription.startDate
+    ? getSubscriptionPeriodStartAndEndDate({
+        subscriptionStartDate: subscription.startDate as Date | string,
+        lessonDate,
+        intervalType,
+        intervalCount,
+      })
+    : getIntervalStartAndEndDate(intervalType, intervalCount, lessonDate);
+}
+
+async function countBookingsInWindow(
+  payload: Payload,
+  subscription: Subscription,
   startDate: Date,
-  endDate: Date
-): Where => {
-  const userId =
-    typeof subscription.user === "object" && subscription.user !== null
-      ? subscription.user.id
-      : subscription.user;
-
-  const planId = plan?.id;
-
-  return {
+  endDate: Date,
+  eventTypeIds: number[] | null,
+): Promise<number> {
+  if (eventTypeIds != null && eventTypeIds.length === 0) return 0;
+  const userId = subscriptionUserId(subscription);
+  const where: Where = {
     user: { equals: userId },
-    "timeslot.eventType.paymentMethods.allowedPlans": {
-      contains: planId,
-    },
+    status: { equals: "confirmed" },
     "timeslot.startTime": {
       greater_than_equal: startDate,
       less_than_equal: endDate,
     },
-    status: { equals: "confirmed" },
   };
-};
+  if (eventTypeIds != null) {
+    where["timeslot.eventType"] = { in: eventTypeIds };
+  }
+  const bookings = await payload.find({
+    collection: "bookings" as CollectionSlug,
+    depth: 0,
+    where,
+    limit: 0,
+    overrideAccess: true,
+  });
+  return bookings.totalDocs ?? 0;
+}
+
+async function resolvePlanAllowance(
+  subscription: Subscription,
+  plan: Plan,
+  payload: Payload,
+  lessonDate: Date,
+  eventTypeId: number | null,
+): Promise<{ bucket: AllowanceKind; remaining: number | null }> {
+  const bucket = membershipBucketForEventType(plan, eventTypeId);
+  if (bucket.kind === "disallowed") return { bucket, remaining: 0 };
+  if (bucket.kind === "unlimited") return { bucket, remaining: null };
+  const { startDate, endDate } = sessionWindow(
+    subscription,
+    lessonDate,
+    bucket.interval,
+    bucket.intervalCount,
+  );
+  const used = await countBookingsInWindow(
+    payload,
+    subscription,
+    startDate,
+    endDate,
+    bucket.eventTypeIds,
+  );
+  return { bucket, remaining: Math.max(0, bucket.limit - used) };
+}
 
 export const hasReachedSubscriptionLimit = async (
   subscription: Subscription,
   payload: Payload,
-  lessonDate: Date
+  lessonDate: Date,
+  eventTypeId?: number | null,
 ): Promise<boolean> => {
-  // Ensure plan is populated - if it's just an ID, fetch it
   let plan = subscription.plan as unknown as Plan | number;
   if (typeof plan === "number") {
     try {
@@ -151,60 +222,29 @@ export const hasReachedSubscriptionLimit = async (
     }
   }
 
-  if (
-    !plan ||
-    !plan.sessionsInformation ||
-    !plan.sessionsInformation.sessions ||
-    !plan.sessionsInformation.interval ||
-    !plan.sessionsInformation.intervalCount
-  ) {
-    payload.logger.info("Plan does not have sessions information");
-    return false;
-  }
-
-  const intervalType = plan.sessionsInformation.interval;
-  const intervalCount = plan.sessionsInformation.intervalCount || 1;
-
-  const { startDate, endDate } =
-    intervalType === "day" || intervalType === "week" || intervalType === "month"
-      ? getSessionLimitWindowStartAndEndDate({
-          intervalType,
-          intervalCount,
-          lessonDate,
-        })
-      : subscription.startDate
-        ? getSubscriptionPeriodStartAndEndDate({
-            subscriptionStartDate: subscription.startDate as any,
-            lessonDate,
-            intervalType,
-            intervalCount,
-          })
-        : getIntervalStartAndEndDate(intervalType, intervalCount, lessonDate);
-
-  // TODO: add a check to see if the subscription is a drop in or free
-  // if it is, then we need to check the drop in limit
-  // if it is not, then we need to check the sessions limit
+  if (!plan) return false;
 
   try {
-    const bookings = await payload.find({
-      collection: "bookings" as CollectionSlug,
-      depth: 5,
-      where: query(subscription, plan as Plan, startDate, endDate),
-    });
-
-    payload.logger.info(
-      `Bookings found for subscription (subscriptionId: ${subscription.id}, planId: ${(plan as Plan).id}, count: ${bookings.docs.length}, limit: ${plan.sessionsInformation.sessions})`
+    const { bucket, remaining } = await resolvePlanAllowance(
+      subscription,
+      plan,
+      payload,
+      lessonDate,
+      eventTypeId ?? null,
     );
-
-    if (bookings.docs.length >= plan.sessionsInformation.sessions) {
-      return true;
+    if (bucket.kind === "disallowed") return true;
+    if (bucket.kind === "unlimited" || remaining == null) {
+      payload.logger.info("Plan does not have sessions information");
+      return false;
     }
+    payload.logger.info(
+      `Bookings found for subscription (subscriptionId: ${subscription.id}, planId: ${plan.id}, remaining: ${remaining}, limit: ${bucket.kind === "limited" ? bucket.limit : "unlimited"})`,
+    );
+    return remaining <= 0;
   } catch (error) {
     console.error("Error finding bookings:", error);
     throw error;
   }
-
-  return false;
 };
 
 /**
@@ -215,7 +255,8 @@ export const hasReachedSubscriptionLimit = async (
 export const getRemainingSessionsInPeriod = async (
   subscription: Subscription,
   payload: Payload,
-  lessonDate: Date
+  lessonDate: Date,
+  eventTypeId?: number | null,
 ): Promise<number | null> => {
   let plan = subscription.plan as unknown as Plan | number;
   if (typeof plan === "number") {
@@ -233,7 +274,8 @@ export const getRemainingSessionsInPeriod = async (
     subscription,
     plan as Plan,
     payload,
-    lessonDate
+    lessonDate,
+    eventTypeId,
   );
 };
 
@@ -245,48 +287,19 @@ export const getRemainingSessionsInPeriodForPlan = async (
   subscription: Subscription,
   plan: Plan,
   payload: Payload,
-  lessonDate: Date
+  lessonDate: Date,
+  eventTypeId?: number | null,
 ): Promise<number | null> => {
-  if (
-    !plan ||
-    !plan.sessionsInformation ||
-    plan.sessionsInformation.sessions == null ||
-    plan.sessionsInformation.sessions <= 0 ||
-    !plan.sessionsInformation.interval ||
-    plan.sessionsInformation.intervalCount == null
-  ) {
-    return null; // unlimited
-  }
-
-  const intervalType = plan.sessionsInformation.interval;
-  const intervalCount = plan.sessionsInformation.intervalCount || 1;
-
-  const { startDate, endDate } =
-    intervalType === "day" || intervalType === "week" || intervalType === "month"
-      ? getSessionLimitWindowStartAndEndDate({
-          intervalType,
-          intervalCount,
-          lessonDate,
-        })
-      : subscription.startDate
-        ? getSubscriptionPeriodStartAndEndDate({
-            subscriptionStartDate: subscription.startDate as any,
-            lessonDate,
-            intervalType,
-            intervalCount,
-          })
-        : getIntervalStartAndEndDate(intervalType, intervalCount, lessonDate);
-
+  if (!plan) return null;
   try {
-    const bookings = await payload.find({
-      collection: "bookings" as CollectionSlug,
-      depth: 0,
-      where: query(subscription, plan as Plan, startDate, endDate),
-      limit: 0,
-    });
-    const used = bookings.totalDocs ?? 0;
-    const limit = plan.sessionsInformation.sessions;
-    return Math.max(0, limit - used);
+    const { remaining } = await resolvePlanAllowance(
+      subscription,
+      plan,
+      payload,
+      lessonDate,
+      eventTypeId ?? null,
+    );
+    return remaining;
   } catch {
     return null;
   }
@@ -303,8 +316,13 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
   timeslot: Timeslot,
   payload: Payload
 ): Promise<number | null> => {
-  const allowedPlans = timeslot.eventType?.paymentMethods?.allowedPlans;
-  if (!allowedPlans || allowedPlans.length === 0) return null;
+  const eventTypeId = relationId(timeslot.eventType);
+  const tenantId = relationId(timeslot.tenant);
+  const allowedPlans = await findPlansForEventType(payload, eventTypeId, {
+    tenantId,
+    depth: 0,
+  });
+  if (allowedPlans.length === 0) return null;
 
   try {
     const subs = await payload.find({
@@ -315,7 +333,7 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
         startDate: { less_than_equal: new Date() },
         endDate: { greater_than_equal: new Date() },
         plan: {
-          in: allowedPlans.map((p: any) => (typeof p === "object" && p != null ? p.id : p)),
+          in: allowedPlans.map((plan) => plan.id),
         },
         or: [
           { cancelAt: { greater_than: new Date() } },
@@ -339,7 +357,7 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
     }
     if (!plan) return null;
 
-    const maxPerTimeslot = getPlanMaxBookingsPerTimeslot(plan);
+    const maxPerTimeslot = getPlanMaxBookingsPerTimeslot(plan, eventTypeId);
 
     const existing = await payload.find({
       collection: "bookings" as CollectionSlug,
@@ -357,7 +375,7 @@ export const getMaxSubscriptionQuantityPerTimeslot = async (
     return maxAdditional;
   } catch (error) {
     payload.logger?.error?.(`getMaxSubscriptionQuantityPerTimeslot: ${error}`);
-    return null;
+    throw error;
   }
 };
 
@@ -379,7 +397,8 @@ export function canUseSubscriptionForBooking(status: string | undefined): boolea
 
 export type SubscriptionUpgradeOption = {
   plan: Plan;
-  maxAdditionalSessions: number;
+  /** Null means the target plan does not cap this event type. */
+  maxAdditionalSessions: number | null;
 };
 
 /**
@@ -391,7 +410,8 @@ export const getSubscriptionUpgradeOptions = async (
   subscription: Subscription,
   allowedPlans: Plan[],
   payload: Payload,
-  lessonDate: Date
+  lessonDate: Date,
+  eventTypeId?: number | null,
 ): Promise<SubscriptionUpgradeOption[]> => {
   let currentPlan = subscription.plan as Plan | number;
   if (typeof currentPlan === "number") {
@@ -405,32 +425,48 @@ export const getSubscriptionUpgradeOptions = async (
       return [];
     }
   }
-  if (!currentPlan?.sessionsInformation?.sessions) return [];
+  if (!currentPlan) return [];
 
-  const remaining = await getRemainingSessionsInPeriod(
-    subscription,
-    payload,
-    lessonDate
-  );
-  const usedInPeriod =
-    remaining != null
-      ? currentPlan.sessionsInformation!.sessions! - remaining
-      : 0;
+  let currentAllowance: { bucket: AllowanceKind; remaining: number | null };
+  try {
+    currentAllowance = await resolvePlanAllowance(
+      subscription,
+      currentPlan,
+      payload,
+      lessonDate,
+      eventTypeId ?? null,
+    );
+  } catch {
+    return [];
+  }
+  if (currentAllowance.bucket.kind === "unlimited") return [];
 
-  const currentSessions = currentPlan.sessionsInformation!.sessions!;
   const options: SubscriptionUpgradeOption[] = [];
-
   for (const targetPlan of allowedPlans) {
     if (targetPlan.id === currentPlan.id) continue;
-    const si = targetPlan.sessionsInformation;
-    if (!si?.sessions || si.sessions <= currentSessions) continue;
-
-    const sessionsLeftIfUpgraded = Math.max(0, si.sessions - usedInPeriod);
-    const proRataCap = si.sessions - currentSessions;
-    const maxAdditionalSessions = Math.min(sessionsLeftIfUpgraded, proRataCap);
-    if (maxAdditionalSessions > 0) {
-      options.push({ plan: targetPlan, maxAdditionalSessions });
+    let targetAllowance: { bucket: AllowanceKind; remaining: number | null };
+    try {
+      targetAllowance = await resolvePlanAllowance(
+        subscription,
+        targetPlan,
+        payload,
+        lessonDate,
+        eventTypeId ?? null,
+      );
+    } catch {
+      continue;
     }
+    const additional = additionalSessionsForUpgrade(
+      currentAllowance.bucket,
+      currentAllowance.remaining,
+      targetAllowance.bucket,
+      targetAllowance.remaining,
+    );
+    if (additional == null) continue;
+    options.push({
+      plan: targetPlan,
+      maxAdditionalSessions: additional === "unlimited" ? null : additional,
+    });
   }
 
   return options;
@@ -442,9 +478,14 @@ export const checkUserSubscription = async (
   timeslot: Timeslot,
   payload: any
 ): Promise<boolean> => {
-  const allowedPlans = timeslot.eventType.paymentMethods?.allowedPlans;
+  const eventTypeId = relationId(timeslot.eventType);
+  const tenantId = relationId((timeslot as { tenant?: unknown }).tenant);
+  const allowedPlans = await findPlansForEventType(payload, eventTypeId, {
+    tenantId,
+    depth: 0,
+  });
 
-  if (!allowedPlans || allowedPlans.length === 0) {
+  if (allowedPlans.length === 0) {
     return true;
   }
 
@@ -457,9 +498,7 @@ export const checkUserSubscription = async (
         startDate: { less_than_equal: new Date() },
         endDate: { greater_than_equal: new Date() },
         plan: {
-          in: allowedPlans.map((plan: any) =>
-            typeof plan === "object" && plan !== null ? plan.id : plan
-          ),
+          in: allowedPlans.map((plan) => plan.id),
         },
         or: [
           { cancelAt: { greater_than: new Date() } },
@@ -494,7 +533,8 @@ export const checkUserSubscription = async (
     const reachedLimit = await hasReachedSubscriptionLimit(
       subscription,
       payload,
-      new Date(timeslot.startTime)
+      new Date(timeslot.startTime),
+      eventTypeId,
     );
     if (reachedLimit) {
       payload.logger.error(`User has reached the subscription limit (userId: ${user.id}, timeslotId: ${timeslot.id}, subscriptionId: ${subscription.id})`);
