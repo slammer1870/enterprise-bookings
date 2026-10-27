@@ -577,7 +577,11 @@ export function PaymentMethods({
   }, [tenantId, trpc.payments.getSubscriptionFeeBreakdown]);
 
   // Get subscription data for this timeslot using tRPC
-  const { data: subscriptionData } = useQuery({
+  const {
+    data: subscriptionData,
+    isLoading: isLoadingSubscription,
+    isFetching: isFetchingSubscription,
+  } = useQuery({
     ...trpc.subscriptions.getSubscriptionForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
@@ -1177,8 +1181,26 @@ export function PaymentMethods({
     }
   }, [shouldDefaultToMembershipTab, hasMembershipTab, tabManuallySelected]);
 
+  // Class passes, course enrollments, and membership eligibility arrive after the
+  // timeslot payload. Until those queries settle, an empty tab list is "still
+  // loading", not "nothing is available" — otherwise a class-pass-only booking
+  // flashes the empty state on first open.
+  const paymentOptionsStillLoading =
+    (methodEnabled("classpass") && isLoadingClassPassOptions) ||
+    (methodEnabled("course") &&
+      (isLoadingCourseEnrollments || isFetchingCourseEnrollments)) ||
+    (methodEnabled("membership") &&
+      (isLoadingSubscription || isFetchingSubscription));
+
   // Important: keep this after hooks so changing quantity doesn't break hook order.
   if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab && !hasCourseTab) {
+    if (paymentOptionsStillLoading) {
+      return (
+        <div className="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground animate-pulse">
+          <p>Loading payment methods…</p>
+        </div>
+      );
+    }
     return (
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
         <p>
