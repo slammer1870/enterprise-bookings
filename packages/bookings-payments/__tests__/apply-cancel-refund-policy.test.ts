@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   applyCancelRefundPolicy,
+  applyCustomerRefundPolicyContext,
   createApplyRefundPolicyOnCancelHook,
 } from "../src/cancel-refund-policy";
 
@@ -560,5 +561,34 @@ describe("shared PaymentIntent cancel refunds", () => {
 
     expect(refundStripePaymentIntent).not.toHaveBeenCalled();
     expect(transactions[0]?.refundedAt).toBeFalsy();
+  });
+
+  it("refunds a customer self-service cancel even when the actor callback would skip staff", async () => {
+    const transactions = twoSiblingTransactions();
+    const { payload } = createSharedPaymentIntentPayload({
+      timeslot,
+      tenant,
+      transactions,
+    });
+    const refundStripePaymentIntent = vi.fn(async () => ({ refundId: "re_customer" }));
+    const hook = createApplyRefundPolicyOnCancelHook({
+      refundStripePaymentIntent,
+      shouldApplyRefundPolicy: () => false,
+    });
+
+    await hook({
+      doc: {
+        id: 1,
+        status: "cancelled",
+        timeslot: { id: 2, startTime: start },
+        tenant: 5,
+      },
+      previousDoc: { status: "confirmed" },
+      req: { payload, user: { id: 971, role: "admin" } },
+      context: { ...applyCustomerRefundPolicyContext },
+    } as never);
+
+    expect(refundStripePaymentIntent).toHaveBeenCalledTimes(1);
+    expect(transactions[0]?.refundedAt).toBeTruthy();
   });
 });

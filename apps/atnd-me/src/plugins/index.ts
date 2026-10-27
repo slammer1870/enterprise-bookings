@@ -83,7 +83,6 @@ import { bookingReadAccess } from '../access/bookingReadAccess'
 import { privateBillingReadAccess } from '../access/privateBillingReadAccess'
 import {
   isStaffOnlyUser,
-  isTenantPortalUser,
   userTenantRead,
   userTenantUpdate,
   tenantOrgPayloadAdminAccess,
@@ -97,6 +96,7 @@ import {
   createApplyRefundPolicyOnCancelHook,
 } from '@repo/bookings-payments'
 import { refundCancelPaymentIntent } from '@/lib/stripe-connect/refundCancelPaymentIntent'
+import { shouldApplyCancelRefundForActor } from '@/lib/refund-policy/should-apply-cancel-refund'
 import { payloadAuth } from './better-auth'
 import { fixBetterAuthTimestamps } from '@repo/better-auth-config/fix-better-auth-timestamps'
 import { fixBetterAuthRoleField } from './fix-better-auth-role-field'
@@ -801,17 +801,8 @@ export const plugins: Plugin[] = [
           }),
           createApplyRefundPolicyOnCancelHook({
             refundStripePaymentIntent: refundCancelPaymentIntent,
-            shouldApplyRefundPolicy: ({ req }) => {
-              const user = req.user
-              if (!user) return false
-              return !(
-                isTenantPortalUser(user) ||
-                checkRole(
-                  ['super-admin', 'admin', 'staff', 'location-manager'],
-                  user as SharedUser,
-                )
-              )
-            },
+            shouldApplyRefundPolicy: ({ req }) =>
+              shouldApplyCancelRefundForActor(req.user),
           }),
           triggerPostBookingEmailAfterChange,
         ],

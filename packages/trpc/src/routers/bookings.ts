@@ -63,6 +63,7 @@ import {
   CHECKOUT_HOLD_COLLECTION_SLUG,
   previewCancelRefundForBooking,
   adjustClassPassForEventType,
+  applyCustomerRefundPolicyContext,
 } from "@repo/bookings-payments";
 
 export const bookingsRouter = {
@@ -2070,9 +2071,10 @@ export const bookingsRouter = {
         {
           overrideAccess: tenantId ? true : false,
           user: ctx.user,
-          context: shouldSkipSideEffects
-            ? { skipBookingSideEffects: true }
-            : undefined,
+          context: {
+            ...applyCustomerRefundPolicyContext,
+            ...(shouldSkipSideEffects ? { skipBookingSideEffects: true } : {}),
+          },
         },
       );
 
@@ -2552,6 +2554,7 @@ export const bookingsRouter = {
         {
           overrideAccess: true,
           user: child,
+          context: applyCustomerRefundPolicyContext,
         },
       );
 
@@ -2906,6 +2909,7 @@ export const bookingsRouter = {
             {
               overrideAccess: true,
               user: ctx.user,
+              context: applyCustomerRefundPolicyContext,
             },
           );
         }
@@ -3521,6 +3525,7 @@ export const bookingsRouter = {
               // skipBookingSideEffects skips waitlist/lockout work only — refund policy still
               // runs for each confirmed → cancelled booking (shared PaymentIntent siblings).
               context: {
+                ...applyCustomerRefundPolicyContext,
                 skipWaitlistEmails: i < lastCancellationIndex,
                 skipBookingSideEffects: i < lastCancellationIndex,
               },

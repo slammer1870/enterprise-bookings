@@ -22,6 +22,15 @@ type BookingLike = {
   tenant?: number | { id?: number } | null;
 };
 
+/**
+ * Spread onto a customer self-service cancel. The booking already belongs to
+ * the caller. Refund policy then runs inside the window, including when that
+ * caller is also studio staff. Admin-panel cancels do not set this.
+ */
+export const applyCustomerRefundPolicyContext = {
+  applyCustomerRefundPolicy: true,
+} as const;
+
 type TransactionLike = {
   id: number;
   paymentMethod?: CancelPaymentMethod;
@@ -352,7 +361,8 @@ export type CreateApplyRefundPolicyOnCancelHookOptions = {
   refundStripePaymentIntent?: ApplyCancelRefundPolicyOptions["refundStripePaymentIntent"];
   /**
    * Return false for cancellations that should not trigger an automatic refund,
-   * such as cancellations made by an administrator.
+   * such as a staff member cancelling a booking from the admin panel.
+   * Ignored when `applyCustomerRefundPolicyContext` is set.
    */
   shouldApplyRefundPolicy?: (_args: {
     req: PayloadRequest;
@@ -375,7 +385,10 @@ export function createApplyRefundPolicyOnCancelHook(
     // work on intermediate cancels. Refunds must still run for every sibling booking.
     if (previousDoc?.status !== "confirmed") return;
     if (doc?.status !== "cancelled") return;
+    // Customer self-service cancels opt in. The actor callback still blocks
+    // staff cancellations made from the admin panel.
     if (
+      context?.applyCustomerRefundPolicy !== true &&
       shouldApplyRefundPolicy &&
       !(await shouldApplyRefundPolicy({
         req,

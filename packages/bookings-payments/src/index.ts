@@ -84,6 +84,7 @@ export type {
 } from "./refund-policy";
 export {
   applyCancelRefundPolicy,
+  applyCustomerRefundPolicyContext,
   createApplyRefundPolicyOnCancelHook,
   previewCancelRefundForBooking,
   computePartialRefundAmountCents,
