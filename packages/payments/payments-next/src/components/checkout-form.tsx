@@ -112,18 +112,17 @@ function PaymentForm({
         abortPaymentRedirect = maybeAbort;
       }
 
-      const { error } = await stripe.confirmPayment({
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
         confirmParams: {
           return_url: fullReturnUrl,
         },
+        // Cards that do not need extra authentication resolve here instead of
+        // leaving the page. Send those customers to the same return URL.
+        redirect: "if_required",
       });
 
-      // This point will only be reached if there is an immediate error when
-      // confirming the payment. Otherwise, your customer will be redirected to
-      // your `return_url`. For some payment methods like iDEAL, your customer will
-      // be redirected to an intermediate site first to authorize the payment, then
-      // redirected to the `return_url`.
+      // Redirect-based methods (3DS, iDEAL) leave the page before we get here.
       if (error) {
         abortPaymentRedirect?.();
         abortPaymentRedirect = undefined;
@@ -132,6 +131,21 @@ function PaymentForm({
         } else {
           setMessage("An unexpected error occurred.");
         }
+        return;
+      }
+
+      if (
+        paymentIntent?.status === "succeeded" ||
+        paymentIntent?.status === "processing"
+      ) {
+        // Stripe's own redirect (3DS) appends these. The success page settles
+        // succeeded and processing returns, so an in-page card must send both.
+        const url = new URL(fullReturnUrl);
+        if (paymentIntent.id) {
+          url.searchParams.set("payment_intent", paymentIntent.id);
+        }
+        url.searchParams.set("redirect_status", paymentIntent.status);
+        window.location.assign(url.toString());
       }
     } catch {
       abortPaymentRedirect?.();
