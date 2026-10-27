@@ -108,10 +108,15 @@ test.describe('Once-per-user drop-in', () => {
       data: {
         paymentMethods: {
           allowedDropIn: dropIn.id,
-          allowedPlans: [plan.id],
         },
         tenant: tenantId,
       },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [classOption.id] },
       overrideAccess: true,
     })
 

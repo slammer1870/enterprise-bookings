@@ -191,6 +191,11 @@ import * as migration_20260928_000004_fix_kyuzo_hero_color_columns from './20260
 import * as migration_20260928_000005_kyuzo_hero_ctas_array from './20260928_000005_kyuzo_hero_ctas_array'
 import * as migration_20261020_000001_booking_transactions_branch_id from './20261020_000001_booking_transactions_branch_id'
 import * as migration_20261020_000002_branch_ledger_columns from './20261020_000002_branch_ledger_columns'
+import * as migration_20261022_000001_product_allowed_event_types from './20261022_000001_product_allowed_event_types'
+import * as migration_20261023_000001_event_type_override_max_bookings from './20261023_000001_event_type_override_max_bookings'
+import * as migration_20261023_000002_event_type_override_session_interval from './20261023_000002_event_type_override_session_interval'
+import * as migration_20261023_000003_drop_event_type_allowed_courses from './20261023_000003_drop_event_type_allowed_courses'
+import * as migration_20261023_000004_event_type_override_pools from './20261023_000004_event_type_override_pools'
 
 export const migrations = [
   {
@@ -1157,5 +1162,30 @@ export const migrations = [
     up: migration_20261020_000002_branch_ledger_columns.up,
     down: migration_20261020_000002_branch_ledger_columns.down,
     name: '20261020_000002_branch_ledger_columns',
+  },
+  {
+    up: migration_20261022_000001_product_allowed_event_types.up,
+    down: migration_20261022_000001_product_allowed_event_types.down,
+    name: '20261022_000001_product_allowed_event_types',
+  },
+  {
+    up: migration_20261023_000001_event_type_override_max_bookings.up,
+    down: migration_20261023_000001_event_type_override_max_bookings.down,
+    name: '20261023_000001_event_type_override_max_bookings',
+  },
+  {
+    up: migration_20261023_000002_event_type_override_session_interval.up,
+    down: migration_20261023_000002_event_type_override_session_interval.down,
+    name: '20261023_000002_event_type_override_session_interval',
+  },
+  {
+    up: migration_20261023_000003_drop_event_type_allowed_courses.up,
+    down: migration_20261023_000003_drop_event_type_allowed_courses.down,
+    name: '20261023_000003_drop_event_type_allowed_courses',
+  },
+  {
+    up: migration_20261023_000004_event_type_override_pools.up,
+    down: migration_20261023_000004_event_type_override_pools.down,
+    name: '20261023_000004_event_type_override_pools',
   },
 ]

@@ -3,7 +3,7 @@ import { classPassesCollection } from "../class-pass/collections/class-passes";
 import { createClassPassProductsProxy } from "../class-pass/endpoints/class-pass-products";
 import type { ClassPassConfig } from "../types";
 import type { PluginContext } from "./context";
-import { injectAllowedClassPassesIntoCollection } from "./inject-payment-methods";
+import { injectIncludingClassPassTypesJoin } from "./inject-payment-methods";
 
 /**
  * Applies the class-pass feature: class-pass-types, class-passes collections,
@@ -26,6 +26,7 @@ export function applyClassPassFeature(
 
   ctx.collections.push(
     classPassTypesCollection({
+      eventTypesSlug,
       adminGroup: classPassTypesAdminGroup,
       overrides: classPass.classPassTypesOverrides,
     })
@@ -39,6 +40,6 @@ export function applyClassPassFeature(
   );
   const target = ctx.collections.find((c) => c.slug === eventTypesSlug);
   if (target) {
-    injectAllowedClassPassesIntoCollection(target, eventTypesSlug);
+    injectIncludingClassPassTypesJoin(target);
   }
 }

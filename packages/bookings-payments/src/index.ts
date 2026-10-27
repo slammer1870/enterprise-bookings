@@ -10,6 +10,7 @@ export type {
   CollectionOverrides,
 } from "./types";
 export { checkClassPass } from "./class-pass/utilities/checkClassPass";
+export { adjustClassPassForEventType } from "./class-pass/utilities/adjust-class-pass-credits";
 export type { CheckClassPassArgs, CheckClassPassResult } from "./class-pass/utilities/checkClassPass";
 export { createDecrementClassPassHook } from "./class-pass/hooks/decrementClassPassOnBookingConfirmed";
 export type { DecrementClassPassHookOptions } from "./class-pass/hooks/decrementClassPassOnBookingConfirmed";
@@ -83,6 +84,7 @@ export type {
 } from "./refund-policy";
 export {
   applyCancelRefundPolicy,
+  applyCustomerRefundPolicyContext,
   createApplyRefundPolicyOnCancelHook,
   previewCancelRefundForBooking,
   computePartialRefundAmountCents,

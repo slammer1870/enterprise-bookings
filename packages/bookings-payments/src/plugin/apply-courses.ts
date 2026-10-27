@@ -2,11 +2,11 @@ import { coursesCollection } from "../course/collections/courses";
 import { courseEnrollmentsCollection } from "../course/collections/course-enrollments";
 import type { CoursesConfig } from "../types";
 import type { PluginContext } from "./context";
-import { injectAllowedCoursesIntoCollection } from "./inject-payment-methods";
+import { injectIncludingCoursesJoin } from "./inject-payment-methods";
 
 /**
- * Applies the courses feature: courses + course-enrollments collections
- * and allowedCourses injection into event-types.
+ * Applies the courses feature: courses + course-enrollments collections,
+ * and a read-only join of courses that include each event type.
  */
 export function applyCoursesFeature(
   ctx: PluginContext,
@@ -32,6 +32,6 @@ export function applyCoursesFeature(
 
   const target = ctx.collections.find((c) => c.slug === eventTypesSlug);
   if (target) {
-    injectAllowedCoursesIntoCollection(target, eventTypesSlug);
+    injectIncludingCoursesJoin(target);
   }
 }

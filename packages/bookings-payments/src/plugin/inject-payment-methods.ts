@@ -76,6 +76,42 @@ export function injectAllowedPlansIntoCollection(
 }
 
 /**
+ * Read-only list of class pass types whose allowedEventTypes includes this event type.
+ * Merchants edit the list on the class pass type.
+ */
+export function injectIncludingClassPassTypesJoin(collection: CollectionConfig): void {
+  injectPaymentMethodField(collection, "includingClassPassTypes", {
+    type: "join",
+    label: "Class passes that include this",
+    collection: "class-pass-types" as CollectionSlug,
+    on: "allowedEventTypes",
+    admin: {
+      readOnly: true,
+      description:
+        "Class pass types that can pay for this event type. Edit the list on the class pass type.",
+    },
+  });
+}
+
+/**
+ * Read-only list of memberships whose allowedEventTypes includes this event type.
+ * Merchants edit the list on the membership.
+ */
+export function injectIncludingPlansJoin(collection: CollectionConfig): void {
+  injectPaymentMethodField(collection, "includingPlans", {
+    type: "join",
+    label: "Memberships that include this",
+    collection: "plans" as CollectionSlug,
+    on: "allowedEventTypes",
+    admin: {
+      readOnly: true,
+      description:
+        "Memberships that can pay for this event type. Edit the list on the membership.",
+    },
+  });
+}
+
+/**
  * Injects or appends "allowedDropIn" into the paymentMethods group of the given collection.
  * Used when the drop-ins feature is enabled.
  */
@@ -96,21 +132,19 @@ export function injectAllowedDropInIntoCollection(
 }
 
 /**
- * Injects or appends "allowedCourses" into the paymentMethods group of the given collection.
- * Used when the courses feature is enabled.
+ * Read-only list of courses whose allowedEventTypes includes this event type.
+ * Merchants edit the list on the course.
  */
-export function injectAllowedCoursesIntoCollection(
-  collection: CollectionConfig,
-  _slug: string
-): void {
-  injectPaymentMethodField(collection, "allowedCourses", {
-    type: "relationship",
-    label: "Allowed Courses",
-    relationTo: "courses" as CollectionSlug,
-    hasMany: true,
+export function injectIncludingCoursesJoin(collection: CollectionConfig): void {
+  injectPaymentMethodField(collection, "includingCourses", {
+    type: "join",
+    label: "Courses that include this",
+    collection: "courses" as CollectionSlug,
+    on: "allowedEventTypes",
     admin: {
+      readOnly: true,
       description:
-        "Courses that can be offered or purchased for this event type. Existing course entitlements are determined by the course's allowed event types.",
+        "Courses that can pay for this event type. Edit the list on the course.",
     },
   });
 }

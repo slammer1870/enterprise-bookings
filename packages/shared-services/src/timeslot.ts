@@ -1,4 +1,6 @@
 import { Timeslot, User } from "@repo/shared-types";
+import { relationId } from "./event-type-allowance";
+import { attachProductAllowLists } from "./product-allow-list";
 import { checkUserSubscription } from "./subscription";
 
 // Helper function to validate timeslot status and capacity
@@ -55,6 +57,13 @@ export const validateTimeslotPaymentMethods = async (
         console.error("Error fetching eventType:", error);
         return false;
       }
+    }
+
+    if (typeof eventType === "object" && eventType !== null) {
+      const tenantId =
+        relationId((eventType as { tenant?: unknown }).tenant) ??
+        relationId((timeslot as { tenant?: unknown }).tenant);
+      await attachProductAllowLists(payload, eventType, { tenantId });
     }
 
     // Check if eventType has payment methods with allowed plans

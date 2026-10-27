@@ -121,9 +121,9 @@ describe('Class pass booking UI (Phase 4.6)', () => {
     classPassTypeId = cpt.id as number
 
     await payload.update({
-      collection: 'event-types',
-      id: classOptionId,
-      data: { paymentMethods: { allowedClassPasses: [classPassTypeId] } },
+      collection: 'class-pass-types',
+      id: classPassTypeId,
+      data: { allowedEventTypes: [classOptionId] },
       overrideAccess: true,
     })
 
@@ -311,6 +311,150 @@ describe('Class pass booking UI (Phase 4.6)', () => {
           classPassId: 999999,
         }),
       ).rejects.toThrow()
+    },
+    TEST_TIMEOUT,
+  )
+
+  it(
+    'a Reformer row cap of 1 blocks a second booking when the pass type has no per-timeslot cap',
+    async () => {
+      const reformer = await payload.create({
+        collection: 'event-types',
+        data: {
+          name: `Reformer cap ${runId}`,
+          places: 10,
+          description: 'Reformer',
+          tenant: testTenantId,
+        },
+        overrideAccess: true,
+      })
+      const yoga = await payload.create({
+        collection: 'event-types',
+        data: {
+          name: `Yoga cap ${runId}`,
+          places: 10,
+          description: 'Yoga',
+          tenant: testTenantId,
+        },
+        overrideAccess: true,
+      })
+      const passType = await payload.create({
+        collection: 'class-pass-types',
+        data: {
+          name: `10 plus reformer ${runId}`,
+          quantity: 10,
+          daysUntilExpiration: 30,
+          tenant: testTenantId,
+          status: 'active',
+          maxBookingsPerTimeslot: null,
+          allowedEventTypes: [reformer.id, yoga.id],
+          eventTypeOverrides: [{ eventTypes: [reformer.id], quantity: 4, maxBookingsPerTimeslot: 1 }],
+          priceInformation: { price: 10 },
+        },
+        overrideAccess: true,
+      })
+      const future = new Date(Date.now() + 86400000 * 30)
+      const pass = await payload.create({
+        collection: 'class-passes',
+        data: {
+          user: user.id,
+          tenant: testTenantId,
+          type: passType.id,
+          quantity: 10,
+          expirationDate: future.toISOString().slice(0, 10),
+          purchasedAt: new Date().toISOString().slice(0, 10),
+          status: 'active',
+        },
+        overrideAccess: true,
+      })
+      const start = new Date()
+      start.setDate(start.getDate() + 2)
+      start.setHours(11, 0, 0, 0)
+      const end = new Date(start)
+      end.setHours(12, 0, 0, 0)
+      const reformerSlot = await payload.create({
+        collection: 'timeslots',
+        data: {
+          tenant: testTenantId,
+          eventType: reformer.id,
+          date: start.toISOString().slice(0, 10),
+          startTime: start.toISOString(),
+          endTime: end.toISOString(),
+          location: 'Reformer room',
+          lockOutTime: 0,
+          active: true,
+        },
+        overrideAccess: true,
+      })
+      const bookingIds: number[] = []
+      try {
+        const caller = await createCaller()
+        const first = await caller.bookings.createBookings({
+          timeslotId: reformerSlot.id as number,
+          quantity: 1,
+          classPassId: pass.id as number,
+        })
+        bookingIds.push(first[0]!.id)
+        await expect(
+          caller.bookings.createBookings({
+            timeslotId: reformerSlot.id as number,
+            quantity: 1,
+            classPassId: pass.id as number,
+          }),
+        ).rejects.toThrow(/per-timeslot booking limit/i)
+
+        const passes = await caller.bookings.getValidClassPassesForTimeslot({
+          timeslotId: reformerSlot.id as number,
+          quantity: 1,
+        })
+        const found = (passes as Array<{ id?: number; type?: { maxBookingsPerTimeslot?: number | null } }>).find(
+          (entry) => entry.id === pass.id,
+        )
+        expect(found?.type && typeof found.type === 'object' ? found.type.maxBookingsPerTimeslot : null).toBe(1)
+      } finally {
+        for (const job of [
+          () =>
+            bookingIds.length > 0
+              ? payload.delete({
+                  collection: 'bookings',
+                  where: { id: { in: bookingIds } },
+                  overrideAccess: true,
+                })
+              : Promise.resolve(),
+          () =>
+            payload.delete({
+              collection: 'timeslots',
+              where: { id: { equals: reformerSlot.id } },
+              overrideAccess: true,
+            }),
+          () =>
+            payload.delete({
+              collection: 'class-passes',
+              where: { id: { equals: pass.id } },
+              overrideAccess: true,
+            }),
+          () =>
+            payload.delete({
+              collection: 'class-pass-types',
+              where: { id: { equals: passType.id } },
+              overrideAccess: true,
+            }),
+          () =>
+            payload.delete({
+              collection: 'event-types',
+              where: { id: { equals: reformer.id } },
+              overrideAccess: true,
+            }),
+          () =>
+            payload.delete({
+              collection: 'event-types',
+              where: { id: { equals: yoga.id } },
+              overrideAccess: true,
+            }),
+        ]) {
+          await job().catch(() => undefined)
+        }
+      }
     },
     TEST_TIMEOUT,
   )

@@ -9,6 +9,17 @@ import {
 } from "../access/class-pass-types";
 import { beforeClassPassTypeChange } from "../hooks/before-class-pass-type-change";
 import type { CollectionOverrides } from "../../types";
+import {
+  allowedEventTypeIdsIncludingOverrides,
+  classPassSharedPoolIsDisplayOnly,
+  displayQuantityForClassPassType,
+  overrideEventTypeIds,
+  validateEventTypeOverrideRows,
+} from "@repo/shared-services";
+import {
+  eventTypeOverridesField,
+  validateOptionalMaxBookingsPerTimeslot,
+} from "../../fields/event-type-overrides";
 
 const adminOnlyFieldAccess = {
   read: ({ req: { user } }: { req: { user: unknown } }) => checkRole(["admin"], user as User | null),
@@ -17,9 +28,24 @@ const adminOnlyFieldAccess = {
 };
 
 export type ClassPassTypesOpts = {
+  eventTypesSlug?: string;
   adminGroup?: string;
   overrides?: CollectionOverrides;
 };
+
+function allowedEventTypesField(eventTypesSlug: string): Field {
+  return {
+    name: "allowedEventTypes",
+    label: "Allowed event types",
+    type: "relationship",
+    relationTo: eventTypesSlug as import("payload").CollectionSlug,
+    hasMany: true,
+    admin: {
+      description:
+        "Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Quantity of passes.",
+    },
+  };
+}
 
 const defaultAccess: NonNullable<CollectionConfig["access"]> = {
   read: classPassTypesReadAccess,
@@ -28,7 +54,8 @@ const defaultAccess: NonNullable<CollectionConfig["access"]> = {
   delete: classPassTypesDeleteAccess,
 };
 
-const defaultFields: Field[] = [
+function classPassTypeFields(eventTypesSlug: string): Field[] {
+  return [
   {
     name: "name",
     label: "Name",
@@ -43,6 +70,7 @@ const defaultFields: Field[] = [
     required: false,
     admin: { description: "Optional description of what this pass type covers" },
   },
+  allowedEventTypesField(eventTypesSlug),
   {
     name: "quantity",
     label: "Quantity of passes",
@@ -73,10 +101,7 @@ const defaultFields: Field[] = [
     required: false,
     // Allow `null` explicitly; server/client treat `null` as "unlimited".
     // Avoid `min: 1` because Payload can coerce/validate `null` unexpectedly.
-    validate: (value: unknown) => {
-      if (value == null) return true
-      return typeof value === "number" && value >= 1 ? true : "maxBookingsPerTimeslot must be >= 1 or blank"
-    },
+    validate: validateOptionalMaxBookingsPerTimeslot,
     admin: {
       description:
         "Leave blank for no per-user limit. When set, users can book up to this many spots per timeslot using this pass type.",
@@ -91,6 +116,15 @@ const defaultFields: Field[] = [
     required: false,
     admin: { hidden: true },
   },
+  eventTypeOverridesField({
+    eventTypesSlug,
+    countName: "quantity",
+    countLabel: "Quantity",
+    description:
+      "In addition to Quantity of passes, not subtracted from it. A row is a shared credit balance for the event types on it. Quantity 10 plus a row of 4 for two class types is 14 bookings: those two types share the 4, and the other allowed types share the 10. Booking either listed type does not reduce the 10. Saving adds every type on the row to Allowed event types. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for every type on this row.",
+    capDescription:
+      "Leave blank to use the pass type's max bookings per timeslot. Set a number to cap every type on this row.",
+  }),
   {
     name: "stripeProductId",
     type: "text",
@@ -149,20 +183,23 @@ const defaultFields: Field[] = [
     admin: { description: "Skip syncing price/status from Stripe on save" },
     required: false,
   },
-];
+  ];
+}
 
 export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): CollectionConfig {
+  const eventTypesSlug = opts.eventTypesSlug ?? "event-types";
   const adminGroup = opts.adminGroup ?? "Products";
   const overrides = opts.overrides;
   const access = overrides?.access
     ? { ...defaultAccess, ...overrides.access }
     : defaultAccess;
+  const defaultFields = classPassTypeFields(eventTypesSlug);
   const fields = overrides?.fields
     ? overrides.fields({ defaultFields: [...defaultFields] })
     : defaultFields;
   const defaultHooks: NonNullable<CollectionConfig["hooks"]> = {
     beforeValidate: [
-      (async ({ data }) => {
+      (async ({ data, originalDoc }) => {
         if (!data || typeof data !== "object") return data
 
         const d = data as {
@@ -178,6 +215,37 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
           typeof d.maxBookingsPerTimeslot === "undefined"
         ) {
           d.maxBookingsPerTimeslot = d.allowMultipleBookingsPerTimeslot ? null : 1
+        }
+
+        const doc = d as typeof d & {
+          allowedEventTypes?: unknown
+          quantity?: number
+          eventTypeOverrides?: Array<{
+            eventType?: unknown
+            eventTypes?: unknown
+            quantity?: number | null
+          }>
+        }
+        const rows = Array.isArray(doc.eventTypeOverrides) ? doc.eventTypeOverrides : []
+        const allowedEventTypesForSave = allowedEventTypeIdsIncludingOverrides(
+          doc.allowedEventTypes,
+          rows,
+          (originalDoc as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
+        )
+        if (allowedEventTypesForSave.idsToStore) {
+          doc.allowedEventTypes = allowedEventTypesForSave.idsToStore
+        }
+        const validation = validateEventTypeOverrideRows({
+          allowedEventTypeIds: allowedEventTypesForSave.ids,
+          rows: rows.map((row) => ({
+            eventTypeIds: overrideEventTypeIds(row),
+            count: typeof row?.quantity === "number" ? row.quantity : null,
+          })),
+        })
+        if (validation !== true) throw new Error(validation)
+        const passForQuantity = { ...doc, allowedEventTypes: allowedEventTypesForSave.ids }
+        if (classPassSharedPoolIsDisplayOnly(passForQuantity)) {
+          doc.quantity = displayQuantityForClassPassType(passForQuantity, doc.quantity ?? 1)
         }
 
         return d

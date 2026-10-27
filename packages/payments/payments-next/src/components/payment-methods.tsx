@@ -95,6 +95,7 @@ type ValidatedDiscount = {
 type ClassPassForTimeslot = {
   id: number;
   quantity?: number;
+  creditsForEventType?: number;
   expirationDate?: string;
   type?: number | { name?: string; maxBookingsPerTimeslot?: number | null };
 };
@@ -232,6 +233,8 @@ function ClassPassTabContent({
   passes,
   purchasablePassTypes,
   quantity,
+  eventTypeName,
+  creditsUsed,
   isLoading,
   onConfirm,
   onPurchase,
@@ -240,6 +243,8 @@ function ClassPassTabContent({
   passes: ClassPassForTimeslot[];
   purchasablePassTypes: PurchasableClassPassType[];
   quantity: number;
+  eventTypeName?: string;
+  creditsUsed?: boolean;
   isLoading?: boolean;
   onConfirm: (_classPassId: number) => Promise<void>;
   onPurchase: (_passType: PurchasableClassPassType) => Promise<void>;
@@ -279,9 +284,11 @@ function ClassPassTabContent({
   if (passes.length === 0 && purchasablePassTypes.length === 0) {
     return (
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
-        <p className="font-medium">No valid class pass</p>
+        <p className="font-medium">{creditsUsed ? "Credits used" : "No valid class pass"}</p>
         <p className="mt-1">
-          You don&apos;t have a valid class pass for this timeslot. Contact the organiser to obtain one.
+          {creditsUsed
+            ? `Your ${eventTypeName ?? "class pass"} credits are used.`
+            : "You don't have a valid class pass for this timeslot. Contact the organiser to obtain one."}
         </p>
       </div>
     );
@@ -289,6 +296,11 @@ function ClassPassTabContent({
 
   return (
     <div className="space-y-4">
+      {creditsUsed && passes.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          Your {eventTypeName ?? "class pass"} credits are used.
+        </p>
+      )}
       {passes.length > 0 && (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
@@ -312,7 +324,7 @@ function ClassPassTabContent({
                   <div className="flex flex-col gap-0.5">
                     <span className="font-medium">{typeName}</span>
                     <span className="text-sm text-muted-foreground">
-                      {pass.quantity ?? 0} credit{(pass.quantity ?? 0) !== 1 ? "s" : ""} remaining
+                      {creditsForPass(pass)} {eventTypeName ?? "credit"} left
                       {exp ? ` · Expires ${exp}` : ""}
                     </span>
                   </div>
@@ -416,6 +428,25 @@ function dropInMaxBookingsPerTimeslot(dropIn: unknown): number | typeof Infinity
   }
 
   return Math.max(1, Number(raw));
+}
+
+function creditsForPass(pass: { creditsForEventType?: number; quantity?: number }): number {
+  if (typeof pass.creditsForEventType === "number") return pass.creditsForEventType;
+  return typeof pass.quantity === "number" ? pass.quantity : 0;
+}
+
+function eventTypeNameFromTimeslot(timeslot: Timeslot): string | undefined {
+  const eventType = timeslot.eventType;
+  if (
+    eventType &&
+    typeof eventType === "object" &&
+    "name" in eventType &&
+    typeof eventType.name === "string" &&
+    eventType.name.length > 0
+  ) {
+    return eventType.name;
+  }
+  return undefined;
 }
 
 function dropInAllowsQuantity(dropIn: unknown, quantity: number): boolean {
@@ -546,7 +577,11 @@ export function PaymentMethods({
   }, [tenantId, trpc.payments.getSubscriptionFeeBreakdown]);
 
   // Get subscription data for this timeslot using tRPC
-  const { data: subscriptionData } = useQuery({
+  const {
+    data: subscriptionData,
+    isLoading: isLoadingSubscription,
+    isFetching: isFetchingSubscription,
+  } = useQuery({
     ...trpc.subscriptions.getSubscriptionForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
@@ -990,16 +1025,25 @@ export function PaymentMethods({
     (remainingSessions === null || remainingSessions >= quantity) &&
     userPlanAllowsQuantity;
 
-  // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
-  const classPassesWithEnoughCredits: ClassPassForTimeslot[] = Array.isArray(validClassPasses)
+  const eventTypeName = eventTypeNameFromTimeslot(timeslot);
+  const ownedClassPasses: ClassPassForTimeslot[] = Array.isArray(validClassPasses)
     ? validClassPasses.flatMap((p) => {
         if (
           typeof p !== "object" ||
           p == null ||
-          typeof (p as { id?: unknown }).id !== "number" ||
-          typeof (p as { quantity?: unknown }).quantity !== "number" ||
-          ((p as { quantity: number }).quantity < quantity)
+          typeof (p as { id?: unknown }).id !== "number"
         ) {
+          return [];
+        }
+        return [p as ClassPassForTimeslot];
+      })
+    : [];
+  const classPassCreditsUsed =
+    ownedClassPasses.length > 0 &&
+    ownedClassPasses.every((pass) => creditsForPass(pass) === 0);
+  // Class pass tab: show when class option allows class passes and user has at least one valid pass that can cover quantity
+  const classPassesWithEnoughCredits: ClassPassForTimeslot[] = ownedClassPasses.flatMap((p) => {
+        if (creditsForPass(p) < quantity) {
           return [];
         }
 
@@ -1019,8 +1063,7 @@ export function PaymentMethods({
         if (effectiveMax !== Infinity && quantity > effectiveMax) return [];
 
         return [p as ClassPassForTimeslot];
-      })
-    : [];
+      });
   const purchasablePassesForQuantity: PurchasableClassPassType[] = Array.isArray(purchasableClassPassTypes)
     ? purchasableClassPassTypes.flatMap((passType) => {
         if (
@@ -1048,7 +1091,8 @@ export function PaymentMethods({
   const hasClassPassTab =
     methodEnabled("classpass") &&
     (classPassesWithEnoughCredits.length > 0 ||
-      purchasablePassesForQuantity.length > 0);
+      purchasablePassesForQuantity.length > 0 ||
+      classPassCreditsUsed);
 
   const allowedCourses = (
     timeslot.eventType as { paymentMethods?: { allowedCourses?: unknown[] } } | null | undefined
@@ -1137,8 +1181,26 @@ export function PaymentMethods({
     }
   }, [shouldDefaultToMembershipTab, hasMembershipTab, tabManuallySelected]);
 
+  // Class passes, course enrollments, and membership eligibility arrive after the
+  // timeslot payload. Until those queries settle, an empty tab list is "still
+  // loading", not "nothing is available" — otherwise a class-pass-only booking
+  // flashes the empty state on first open.
+  const paymentOptionsStillLoading =
+    (methodEnabled("classpass") && isLoadingClassPassOptions) ||
+    (methodEnabled("course") &&
+      (isLoadingCourseEnrollments || isFetchingCourseEnrollments)) ||
+    (methodEnabled("membership") &&
+      (isLoadingSubscription || isFetchingSubscription));
+
   // Important: keep this after hooks so changing quantity doesn't break hook order.
   if (!hasMembershipTab && !hasDropInTab && !hasClassPassTab && !hasCourseTab) {
+    if (paymentOptionsStillLoading) {
+      return (
+        <div className="rounded-md bg-muted/40 p-4 text-sm text-muted-foreground animate-pulse">
+          <p>Loading payment methods…</p>
+        </div>
+      );
+    }
     return (
       <div className="rounded-md bg-yellow-50 p-4 text-sm text-yellow-800">
         <p>
@@ -1189,6 +1251,8 @@ export function PaymentMethods({
               passes={classPassesWithEnoughCredits}
               purchasablePassTypes={purchasablePassesForQuantity}
               quantity={quantity}
+              eventTypeName={eventTypeName}
+              creditsUsed={classPassCreditsUsed}
               isLoading={isLoadingClassPassOptions}
               onConfirm={async (classPassId: number) => {
                 await createBookingsWithClassPass({
@@ -1227,6 +1291,7 @@ export function PaymentMethods({
               timeslotDate={new Date(timeslot.startTime)}
               subscriptionLimitReached={subscriptionLimitReached}
               remainingSessions={remainingSessions}
+              eventTypeName={eventTypeName}
               selectedQuantity={quantity}
               canUseSubscriptionForQuantity={Boolean(canUseSubscriptionForQuantity)}
                 subscriptionAllowsMultiplePerTimeslot={

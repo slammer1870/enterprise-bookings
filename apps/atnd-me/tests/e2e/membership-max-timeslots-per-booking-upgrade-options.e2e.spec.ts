@@ -140,20 +140,15 @@ test.describe('Single-slot membership upgrade options on manage booking', () => 
         workerIndex,
       )
 
-      // Explicitly set allowedDropIn and allowedClassPasses to null/[] so the
-      // only payment method tab shown is Membership.
-      await payload.update({
-        collection: 'event-types',
-        id: classOption.id,
-        data: {
-          paymentMethods: {
-            allowedPlans: [currentPlan.id, eligibleUpgradePlan.id, ineligibleOtherPlan.id],
-            allowedDropIn: null,
-            allowedClassPasses: [],
-          },
-        },
-        overrideAccess: true,
-      })
+      // No drop-in or class pass on this event type, so the only payment tab is Membership.
+      for (const planId of [currentPlan.id, eligibleUpgradePlan.id, ineligibleOtherPlan.id]) {
+        await payload.update({
+          collection: 'plans',
+          id: planId,
+          data: { allowedEventTypes: [classOption.id] },
+          overrideAccess: true,
+        })
+      }
 
       // ── Create timeslot ──────────────────────────────────────────────────────
 

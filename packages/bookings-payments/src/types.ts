@@ -80,6 +80,8 @@ export type GetSubscriptionBookingFeeCents = (_params: {
  */
 export type MembershipConfig = {
   enabled: boolean;
+  /** Collection slug for `allowedEventTypes`. Defaults to the first paymentMethodSlug or `event-types`. */
+  eventTypesSlug?: string;
   paymentMethodSlugs?: string[];
   /** When set, GET /stripe/plans lists products from this Connect account (tenant-aware). */
   getStripeAccountIdForRequest?: GetStripeAccountIdForRequest;
@@ -130,7 +132,7 @@ export type FeatureOption<T> = true | T;
 
 /**
  * Courses feature config. When enabled, adds courses + course-enrollments collections
- * and allowedCourses injection into event-types.
+ * and a read-only join of courses that include each event type.
  */
 export type CoursesConfig = {
   enabled: boolean;
@@ -168,10 +170,11 @@ export type ClassPassLike = {
 };
 
 export type EventTypeLike = {
+  id?: number;
   paymentMethods?: {
     /** Relationship to class-pass-types (array of IDs or objects). Which pass types are accepted. */
     allowedClassPasses?: unknown[] | null;
-    /** Relationship to courses (array of IDs or objects). */
+    /** Courses whose allowedEventTypes includes this event type. Attached at read time. */
     allowedCourses?: unknown[] | null;
     paymentsEnabled?: boolean;
   };

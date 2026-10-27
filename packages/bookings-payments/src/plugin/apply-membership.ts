@@ -10,8 +10,7 @@ import { syncStripeSubscriptionsEndpoint } from "../membership/endpoints/sync-st
 import { syncStripeSubscriptionsTask } from "../membership/tasks/sync-stripe-subscriptions";
 import type { MembershipConfig } from "../types";
 import type { PluginContext } from "./context";
-import { forEachPaymentMethodSlug } from "./forEachPaymentMethodSlug";
-import { injectAllowedPlansIntoCollection } from "./inject-payment-methods";
+import { injectIncludingPlansJoin } from "./inject-payment-methods";
 
 /**
  * Applies the membership feature: plans, subscriptions, users (stripeCustomerId + userSubscription),
@@ -91,18 +90,9 @@ export function applyMembershipFeature(
   ctx.collections.push(plansCollection);
 
   const slugs = membership.paymentMethodSlugs ?? [];
-  if (slugs.length > 0) {
-    const joinFields = forEachPaymentMethodSlug(
-      ctx,
-      slugs,
-      injectAllowedPlansIntoCollection,
-      { on: "paymentMethods.allowedPlans", hasMany: true }
-    );
-    plansCollection.fields = [
-      ...(plansCollection.fields ?? []),
-      ...joinFields,
-    ];
-    ctx.collections = ctx.collections.filter((c) => c.slug !== "plans");
-    ctx.collections.push(plansCollection);
+  for (const slug of slugs) {
+    const collection = ctx.collections.find((c) => c.slug === slug);
+    if (!collection) throw new Error(`Collection ${slug} not found`);
+    injectIncludingPlansJoin(collection);
   }
 }
