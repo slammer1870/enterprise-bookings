@@ -329,6 +329,37 @@ describe('fulfillCheckoutHold', () => {
     expect(hold.status).toBe('consumed')
   })
 
+  it('does not create a second booking when another worker already claimed the hold', async () => {
+    const payload = makePayload()
+    const existingTransactions = [{ booking: 201, stripePaymentIntentId: PI_ID }]
+    payload.find = vi.fn().mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'transactions') {
+        return Promise.resolve({ docs: existingTransactions, totalDocs: 1 })
+      }
+      if (collection === 'bookings') return Promise.resolve({ docs: [], totalDocs: 0 })
+      if (collection === 'booking-checkout-holds') return Promise.resolve({ docs: [], totalDocs: 0 })
+      return Promise.resolve({ docs: [], totalDocs: 0 })
+    })
+    ;(payload as { db: unknown }).db = {
+      drizzle: {
+        execute: vi.fn().mockResolvedValue({ rows: [] }),
+      },
+    }
+
+    const result = await fulfillCheckoutHold(payload as never, {
+      holdId: HOLD_ID,
+      userId: USER_ID,
+      paymentIntentId: PI_ID,
+      tenantId: TENANT_ID,
+      transactionsSlug: 'transactions' as never,
+    })
+
+    expect(result.confirmedBookingIds).toEqual([201])
+    expect(result.refunded).toBe(false)
+    expect(payload.create).not.toHaveBeenCalled()
+    expect(payload.update).not.toHaveBeenCalled()
+  })
+
   it('rejects when hold belongs to different user', async () => {
     const payload = makePayload()
 
