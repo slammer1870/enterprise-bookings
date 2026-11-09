@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Timeslot, Booking, DropIn, type Plan } from "@repo/shared-types";
 import { useTRPC } from "@repo/trpc/client";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Tabs,
@@ -600,13 +600,15 @@ export function PaymentMethods({
     enabled: methodEnabled("course"),
   });
 
-  // Get valid class passes for this timeslot (Phase 4.6)
+  // Quantity is part of the query key. Keep the previous result while the next
+  // quantity loads so the class pass tab does not disappear and fall back to Drop-in.
   const { data: validClassPasses = [], isLoading: isLoadingValidPasses, isFetching: isFetchingValidPasses } = useQuery({
     ...trpc.bookings.getValidClassPassesForTimeslot.queryOptions({
       timeslotId: timeslot.id,
       quantity,
     }),
     enabled: methodEnabled("classpass"),
+    placeholderData: keepPreviousData,
   });
   const { data: purchasableClassPassTypes = [], isLoading: isLoadingPurchasable, isFetching: isFetchingPurchasable } = useQuery({
     ...trpc.bookings.getPurchasableClassPassTypesForTimeslot.queryOptions({
@@ -614,8 +616,9 @@ export function PaymentMethods({
       quantity,
     }),
     enabled: methodEnabled("classpass"),
+    placeholderData: keepPreviousData,
   });
-  const isLoadingClassPassOptions =
+  const classPassQueriesSettling =
     isLoadingValidPasses || isLoadingPurchasable || isFetchingValidPasses || isFetchingPurchasable;
 
   const subscription = subscriptionData?.subscription ?? null;
@@ -1093,6 +1096,10 @@ export function PaymentMethods({
     (classPassesWithEnoughCredits.length > 0 ||
       purchasablePassesForQuantity.length > 0 ||
       classPassCreditsUsed);
+  // While a quantity refetch is in flight and the tab is still backed by the
+  // previous result, keep the pass checkout on screen. The page-level loader
+  // is only for the gap where no class pass tab can be shown yet.
+  const isLoadingClassPassOptions = classPassQueriesSettling && !hasClassPassTab;
 
   const allowedCourses = (
     timeslot.eventType as { paymentMethods?: { allowedCourses?: unknown[] } } | null | undefined
@@ -1158,13 +1165,17 @@ export function PaymentMethods({
   // Tracks whether the user has deliberately clicked a tab so we don't override their choice.
   const [tabManuallySelected, setTabManuallySelected] = useState(false);
 
-  // When active tab becomes unavailable (or invalid), switch to a valid tab.
+  // When the active tab is actually gone, switch to a valid one. A class pass
+  // quantity refetch can omit that tab for a frame before the previous result
+  // is shown; leaving it selected avoids falling back to Drop-in.
   useEffect(() => {
     if (availableTabs.length === 0) return;
-    if (!availableTabs.includes(activeTab)) {
-      setActiveTab(defaultTab);
-    }
-  }, [activeTab, availableTabs, defaultTab]);
+    if (availableTabs.includes(activeTab)) return;
+    const classPassStillLoading =
+      activeTab === "classpass" && methodEnabled("classpass") && classPassQueriesSettling;
+    if (classPassStillLoading) return;
+    setActiveTab(defaultTab);
+  }, [activeTab, availableTabs, defaultTab, methodEnabled, classPassQueriesSettling]);
 
   // When subscription data resolves and the user has a usable membership, default to
   // the Membership tab. Also default to Membership when the quota is exhausted or
