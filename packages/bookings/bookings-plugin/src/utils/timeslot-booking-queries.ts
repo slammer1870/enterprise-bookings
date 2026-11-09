@@ -30,24 +30,94 @@ export function resolveBookingsCollectionSlug(
   return DEFAULT_BOOKING_COLLECTION_SLUGS.bookings;
 }
 
+function membershipTenantId(tenant: unknown): number | null {
+  if (typeof tenant === "number" || typeof tenant === "string") {
+    return parseNumericId(tenant);
+  }
+  if (tenant && typeof tenant === "object" && "id" in tenant) {
+    return parseNumericId((tenant as { id: unknown }).id);
+  }
+  return null;
+}
+
+function membershipRoleNames(roles: unknown): string[] {
+  if (!Array.isArray(roles)) return [];
+  const names: string[] = [];
+  for (const role of roles) {
+    if (typeof role === "string" && role.length > 0) names.push(role);
+    else if (role && typeof role === "object" && "value" in role) {
+      const value = (role as { value: unknown }).value;
+      if (typeof value === "string" && value.length > 0) names.push(value);
+    }
+  }
+  return names;
+}
+
 /**
- * Staff-only users see everything except `pending` bookings.
- * Org admins + platform super-admins see all booking statuses.
+ * Tenants where this user is staff and not an org admin.
+ * Pending bookings are hidden only for these tenants. Admin on another
+ * tenant still sees pending there. Super-admins are never in this list.
  */
-export function shouldExcludePendingBookingsForUser(user: unknown): boolean {
+export function staffOnlyTenantIdsFromUser(user: unknown): number[] {
   const requester = user as SharedUser | null | undefined;
-  return (
-    requester != null &&
+  if (!requester || checkRole(["super-admin"], requester)) return [];
+  const tenants = requester.tenants;
+  if (!Array.isArray(tenants)) return [];
+
+  const ids: number[] = [];
+  for (const entry of tenants) {
+    if (!entry) continue;
+    const tenantId = membershipTenantId(entry.tenant);
+    if (tenantId == null) continue;
+    const roles = membershipRoleNames(entry.roles);
+    if (roles.includes("admin") || !roles.includes("staff")) continue;
+    ids.push(tenantId);
+  }
+  return ids;
+}
+
+/**
+ * Hide pending bookings on staff-only tenants. Bookings for every other tenant
+ * stay visible, including pending.
+ *
+ * When membership rows are missing, a denormalized staff role cannot name a
+ * tenant, so pending is hidden until the caller hydrates `tenants`.
+ */
+export function pendingBookingsExcludedWhere(user: unknown): Where | null {
+  const requester = user as SharedUser | null | undefined;
+  if (!requester || checkRole(["super-admin"], requester)) return null;
+
+  const staffOnlyTenantIds = staffOnlyTenantIdsFromUser(requester);
+  if (staffOnlyTenantIds.length > 0) {
+    return {
+      or: [
+        {
+          and: [
+            { tenant: { in: staffOnlyTenantIds } },
+            { status: { not_equals: "pending" } },
+          ],
+        },
+        { tenant: { not_in: staffOnlyTenantIds } },
+      ],
+    };
+  }
+
+  const hasMemberships =
+    Array.isArray(requester.tenants) && requester.tenants.length > 0;
+  if (
+    !hasMemberships &&
     checkRole(["staff"], requester) &&
-    !checkRole(["admin"], requester) &&
-    !checkRole(["super-admin"], requester)
-  );
+    !checkRole(["admin"], requester)
+  ) {
+    return { status: { not_equals: "pending" } };
+  }
+
+  return null;
 }
 
 export function timeslotBookingsStatusFilter(user: unknown): Where[] {
-  return shouldExcludePendingBookingsForUser(user)
-    ? [{ status: { not_equals: "pending" } }]
-    : [];
+  const where = pendingBookingsExcludedWhere(user);
+  return where ? [where] : [];
 }
 
 export function parseNumericId(value: unknown): number | null {
@@ -163,6 +233,32 @@ type FindBookingsOptions = {
   overrideAccess?: boolean;
 };
 
+/** Session users often omit `tenants`. Load memberships before deciding which tenants hide pending. */
+async function userWithTenantMemberships(
+  payload: BasePayload,
+  user: unknown,
+): Promise<unknown> {
+  if (!user || typeof user !== "object") return user;
+  const tenants = (user as SharedUser).tenants;
+  if (Array.isArray(tenants) && tenants.length > 0) return user;
+
+  const id = parseNumericId((user as { id?: unknown }).id);
+  if (id == null) return user;
+
+  try {
+    const full = await payload.findByID({
+      collection: "users",
+      id,
+      depth: 1,
+      overrideAccess: true,
+      context: { triggerAfterChange: false },
+    });
+    return full ?? user;
+  } catch {
+    return user;
+  }
+}
+
 /**
  * Shared booking query for admin timeslot views.
  *
@@ -184,7 +280,10 @@ export async function findBookingsForTimeslots(
     return { docs: [], countByTimeslot };
   }
 
-  const statusFilter = req?.user ? timeslotBookingsStatusFilter(req.user) : [];
+  const user = req?.user
+    ? await userWithTenantMemberships(payload, req.user)
+    : undefined;
+  const statusFilter = user ? timeslotBookingsStatusFilter(user) : [];
   const overrideAccess = options?.overrideAccess ?? true;
   const access = req ? { req, overrideAccess } : { overrideAccess };
 
