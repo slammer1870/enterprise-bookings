@@ -311,18 +311,24 @@ export default function CheckoutForm({
             requestMetadata = { ...requestMetadata, ...reserved };
           }
         }
+        // Cleanup aborts this effect, but must not abort the POST itself.
+        // Cancelling mid-body makes the server fail request.json() and answer
+        // 400 Invalid JSON body. Ignore the result below if we already moved on.
         const response = await fetch(url, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           credentials: "include",
-          signal: controller.signal,
           body: JSON.stringify({
             price,
             metadata: requestMetadata,
           }),
         });
+
+        if (controller.signal.aborted || paymentIntentRequestIdRef.current !== requestId) {
+          return;
+        }
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -354,7 +360,7 @@ export default function CheckoutForm({
             errorMessage = serverMessage;
           }
 
-          if (paymentIntentRequestIdRef.current === requestId) {
+          if (!controller.signal.aborted && paymentIntentRequestIdRef.current === requestId) {
             setError(errorMessage);
           }
           return;
@@ -362,7 +368,7 @@ export default function CheckoutForm({
 
         const data = (await response.json()) as PaymentIntentBootstrapResponse;
 
-        if (paymentIntentRequestIdRef.current !== requestId) {
+        if (controller.signal.aborted || paymentIntentRequestIdRef.current !== requestId) {
           return;
         }
 
