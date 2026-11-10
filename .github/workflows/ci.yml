@@ -150,13 +150,20 @@ jobs:
         run: pnpm ci:atnd-me:db
 
       - name: Verify migrated schema
-        env:
-          PGPASSWORD: brugrappling
         run: |
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.tenants')" | grep -qx tenants
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.users')" | grep -qx users
+          set -euo pipefail
+          # ubuntu-latest's psql is 18. Query with the Postgres 16 client so the
+          # check does not depend on the runner's client formatting or startup GUCs.
+          container="${{ job.services.postgres.id }}"
+          for table in tenants users; do
+            found="$(docker exec "$container" psql -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc "SELECT to_regclass('public.${table}')" | tr -d '[:space:]')"
+            echo "public.${table} -> [${found}]"
+            if [ "$found" != "$table" ] && [ "$found" != "public.${table}" ]; then
+              echo "Expected ${table} after migrate:fresh" >&2
+              docker exec "$container" psql -U postgres -d e2e_atnd_me -c '\dt'
+              exit 1
+            fi
+          done
 
       - name: Dump database for test shards
         run: |
@@ -243,13 +250,13 @@ jobs:
           docker exec "$container" pg_restore -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose /tmp/atnd-me-db.dump || {
             echo "pg_restore exited with code $?"
             echo "Checking if tables exist..."
-            psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
+            docker exec "$container" psql -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
             exit 1
           }
           echo "Database restore complete. Verifying tables..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" | head -20
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -c "SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY 2 LIMIT 20;"
           echo "Checking tenants table..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "SELECT COUNT(*) FROM tenants;" || echo "tenants table does not exist"
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM tenants;"
 
       - name: Run integration tests shard ${{ matrix.shard }}/8 (Turbo)
         run: pnpm ci:atnd-me:int
@@ -432,13 +439,13 @@ jobs:
           docker exec "$container" pg_restore -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose /tmp/atnd-me-db.dump || {
             echo "pg_restore exited with code $?"
             echo "Checking if tables exist..."
-            psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
+            docker exec "$container" psql -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
             exit 1
           }
           echo "Database restore complete. Verifying tables..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" | head -20
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -c "SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY 2 LIMIT 20;"
           echo "Checking tenants table..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "SELECT COUNT(*) FROM tenants;" || echo "tenants table does not exist"
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM tenants;"
 
       - name: Install Playwright OS dependencies
         run: pnpm exec playwright install-deps
