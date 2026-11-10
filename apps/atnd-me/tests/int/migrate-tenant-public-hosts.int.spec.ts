@@ -266,10 +266,10 @@ describe('legacy hostname list migration', () => {
     })
   }, TEST_TIMEOUT)
 
-  it('maps www with Redirect apex and a stored parent to www, then that parent, with Redirect to www', async () => {
+  it('keeps only www and Allow www and non-www when Redirect apex names the parent', async () => {
     expect(await storedRow(payload, wwwRedirect.id)).toMatchObject({
-      hostnames: [wwwHost, wwwParent, wwwBooking],
-      direction: 'redirect-to-www',
+      hostnames: [wwwHost, wwwBooking],
+      direction: 'allow-www-and-non-www',
       domain: wwwDomain,
       aliasHosts: [wwwBooking, wwwParent],
       redirectApex: true,
@@ -281,11 +281,7 @@ describe('legacy hostname list migration', () => {
       id: wwwRedirect.id,
       indexedHost: wwwHost,
     })
-    expect(await findTenantByHost(payload, wwwParent)).toMatchObject({
-      type: 'alias',
-      id: wwwRedirect.id,
-      canonicalHost: wwwHost,
-    })
+    expect(await findTenantByHost(payload, wwwParent)).toBeNull()
     expect(await findTenantByHost(payload, wwwBooking)).toMatchObject({
       type: 'domain',
       id: wwwRedirect.id,
@@ -304,47 +300,39 @@ describe('legacy hostname list migration', () => {
     })
   }, TEST_TIMEOUT)
 
-  it('maps an apex whose www is already an alias to that apex, then www, with Redirect to non-www', async () => {
+  it('keeps only www, then other aliases, when the apex custom domain already has a www alias', async () => {
     expect(await storedRow(payload, apexWww.id)).toMatchObject({
-      hostnames: [apexHost, apexWwwHost, apexNotes],
-      direction: 'redirect-to-non-www',
+      hostnames: [apexWwwHost, apexNotes],
+      direction: 'allow-www-and-non-www',
       domain: apexHost,
       redirectApex: false,
       apexDomain: null,
       aliasHosts: [apexNotes, apexWwwStored],
     })
 
-    expect(await findTenantByHost(payload, apexHost)).toMatchObject({
+    expect(await findTenantByHost(payload, apexHost)).toBeNull()
+    expect(await findTenantByHost(payload, apexWwwHost)).toMatchObject({
       type: 'domain',
       id: apexWww.id,
-      indexedHost: apexHost,
-    })
-    expect(await findTenantByHost(payload, apexWwwHost)).toMatchObject({
-      type: 'alias',
-      id: apexWww.id,
-      canonicalHost: apexHost,
+      indexedHost: apexWwwHost,
     })
   }, TEST_TIMEOUT)
 
-  it('maps Bru Grappling to the apex, then www, with Redirect to non-www while the stored custom domain is still www', async () => {
+  it('keeps only www for Bru Grappling with Allow www and non-www while the stored custom domain is www', async () => {
     expect(bru).not.toBeNull()
     expect(await storedRow(payload, bru!.id)).toMatchObject({
-      hostnames: ['brugrappling.ie', 'www.brugrappling.ie', bruAliasHost],
-      direction: 'redirect-to-non-www',
+      hostnames: ['www.brugrappling.ie', bruAliasHost],
+      direction: 'allow-www-and-non-www',
       domain: bruDomain,
       redirectApex: true,
       apexDomain: 'brugrappling.ie',
     })
 
-    expect(await findTenantByHost(payload, 'brugrappling.ie')).toMatchObject({
+    expect(await findTenantByHost(payload, 'brugrappling.ie')).toBeNull()
+    expect(await findTenantByHost(payload, 'www.brugrappling.ie')).toMatchObject({
       type: 'domain',
       id: bru!.id,
-      indexedHost: 'brugrappling.ie',
-    })
-    expect(await findTenantByHost(payload, 'www.brugrappling.ie')).toMatchObject({
-      type: 'alias',
-      id: bru!.id,
-      canonicalHost: 'brugrappling.ie',
+      indexedHost: 'www.brugrappling.ie',
     })
 
     const migrated = await storedRow(payload, bru!.id)
@@ -361,7 +349,7 @@ describe('legacy hostname list migration', () => {
         direction: migrated.direction,
         slug: 'brugrappling',
       }),
-    ).toEqual(['brugrappling.ie', bruAliasHost])
+    ).toEqual(['www.brugrappling.ie', bruAliasHost])
   }, TEST_TIMEOUT)
 
   it('stores an empty list and Allow www and non-www when there is no custom domain, and leaves alias hosts off the list', async () => {
@@ -411,8 +399,8 @@ describe('legacy hostname list migration', () => {
     if (!db) throw new Error('Postgres adapter is not ready.')
     await down({ db } as Parameters<typeof down>[0])
     expect(await storedRow(payload, wwwRedirect.id)).toMatchObject({
-      hostnames: [wwwHost, wwwParent, wwwBooking],
-      direction: 'redirect-to-www',
+      hostnames: [wwwHost, wwwBooking],
+      direction: 'allow-www-and-non-www',
       domain: wwwDomain,
       redirectApex: true,
       apexDomain: wwwParentStored,

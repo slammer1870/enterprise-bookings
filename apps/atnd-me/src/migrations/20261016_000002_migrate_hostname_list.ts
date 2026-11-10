@@ -58,8 +58,8 @@ export async function writeHostnameLists(
 }
 
 /**
- * Each stored row becomes an ordered hostname list and one Direction.
- * Bru Grappling is included. Its apex CNAME and homepage rule stay an operator checklist.
+ * Each stored row becomes an ordered hostname list and Allow www and non-www.
+ * A www/apex pair stores only the www hostname.
  */
 export async function up({ db }: MigrateUpArgs): Promise<void> {
   const rows = await readLegacyTenantPublicHostRows(db)

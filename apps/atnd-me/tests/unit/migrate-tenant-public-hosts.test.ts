@@ -23,7 +23,7 @@ describe('migrateLegacyTenantPublicHosts', () => {
     })
   })
 
-  it('maps www with Redirect apex and a stored parent to that www host, then the parent, with Redirect to www', () => {
+  it('keeps only www, and Allow www and non-www, when Redirect apex names the parent', () => {
     const migrated = migrateLegacyTenantPublicHosts({
       id: 2,
       slug: 'studio',
@@ -34,8 +34,8 @@ describe('migrateLegacyTenantPublicHosts', () => {
     })
 
     expect(migrated).toEqual({
-      hostnames: ['www.example.com', 'example.com', 'booking.example.com'],
-      direction: 'redirect-to-www',
+      hostnames: ['www.example.com', 'booking.example.com'],
+      direction: 'allow-www-and-non-www',
     })
   })
 
@@ -71,7 +71,7 @@ describe('migrateLegacyTenantPublicHosts', () => {
     })
   })
 
-  it('maps an apex whose www is already an alias to that apex, then www, with Redirect to non-www when Redirect apex is off', () => {
+  it('keeps only www, then the other aliases, when the custom domain is the apex and www is already an alias', () => {
     const migrated = migrateLegacyTenantPublicHosts({
       id: 5,
       slug: 'apex',
@@ -82,12 +82,12 @@ describe('migrateLegacyTenantPublicHosts', () => {
     })
 
     expect(migrated).toEqual({
-      hostnames: ['example.com', 'www.example.com', 'notes.example.net'],
-      direction: 'redirect-to-non-www',
+      hostnames: ['www.example.com', 'notes.example.net'],
+      direction: 'allow-www-and-non-www',
     })
   })
 
-  it('maps Bru Grappling to the apex, then www, with Redirect to non-www while the stored custom domain is still www', () => {
+  it('keeps only www for Bru Grappling, and Allow www and non-www, while the stored custom domain is still www', () => {
     const migrated = migrateLegacyTenantPublicHosts({
       id: 9,
       slug: 'Brugrappling',
@@ -98,8 +98,8 @@ describe('migrateLegacyTenantPublicHosts', () => {
     })
 
     expect(migrated).toEqual({
-      hostnames: ['brugrappling.ie', 'www.brugrappling.ie', 'keep-me.example.net'],
-      direction: 'redirect-to-non-www',
+      hostnames: ['www.brugrappling.ie', 'keep-me.example.net'],
+      direction: 'allow-www-and-non-www',
     })
   })
 
@@ -186,9 +186,13 @@ describe('migrateLegacyTenantPublicHosts', () => {
     ])
 
     expect(writes.map((row) => row.id)).toEqual([1, 9])
+    expect(writes[0]).toMatchObject({
+      hostnames: ['www.studio.example.com'],
+      direction: 'allow-www-and-non-www',
+    })
     expect(writes[1]).toMatchObject({
-      hostnames: ['brugrappling.ie', 'www.brugrappling.ie'],
-      direction: 'redirect-to-non-www',
+      hostnames: ['www.brugrappling.ie'],
+      direction: 'allow-www-and-non-www',
     })
   })
 
