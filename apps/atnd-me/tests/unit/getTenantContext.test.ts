@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { getTenantContext, getTenantSlug } from '../../src/utilities/getTenantContext'
+import { getTenantSiteURL } from '../../src/utilities/getURL'
 
 /**
  * Step 3 - getTenantContext helper
@@ -95,7 +96,8 @@ describe('getTenantSlug (slug extraction)', () => {
         id: 42,
         slug: 'acme',
         name: 'Acme Gym',
-        domain: 'www.acme.com',
+        hostnames: ['www.acme.com'],
+        direction: 'allow-www-and-non-www',
       })),
     }
 
@@ -110,7 +112,8 @@ describe('getTenantSlug (slug extraction)', () => {
       id: 42,
       slug: 'acme',
       name: 'Acme Gym',
-      domain: 'www.acme.com',
+      hostnames: ['www.acme.com'],
+      direction: 'allow-www-and-non-www',
     })
     expect(payload.findByID).toHaveBeenCalledOnce()
   })
@@ -123,7 +126,8 @@ describe('getTenantSlug (slug extraction)', () => {
         id: 42,
         slug: 'acme',
         name: 'Acme Gym',
-        domain: null,
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
       })),
     }
 
@@ -137,8 +141,32 @@ describe('getTenantSlug (slug extraction)', () => {
       id: 42,
       slug: 'acme',
       name: 'Acme Gym',
-      domain: null,
+      hostnames: [],
+      direction: 'allow-www-and-non-www',
     })
     expect(payload.findByID).toHaveBeenCalledOnce()
+  })
+
+  it('uses the canonical host for a site link when the tenant names a hostname list', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SERVER_URL', 'https://atnd.test')
+
+    const payload = {
+      findByID: vi.fn(async () => ({
+        id: 7,
+        slug: 'bru',
+        name: 'Bru',
+        hostnames: ['www.example.com', 'example.com'],
+        direction: 'redirect-to-non-www',
+      })),
+    }
+
+    const tenant = await getTenantContext(payload as never, {
+      cookies: {
+        get: (name: string) => (name === 'payload-tenant' ? { value: '7' } : undefined),
+      },
+      headers: new Headers({ host: 'atnd.test' }),
+    })
+
+    expect(getTenantSiteURL(tenant)).toBe('https://example.com')
   })
 })

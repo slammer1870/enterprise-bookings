@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { originHostnamesForTenant } from '../../src/lib/tenantDbResolve'
 import {
   getTrustedOrigins,
   getTrustedOriginsWithCustomDomains,
@@ -82,6 +83,18 @@ describe('getTrustedOriginsWithCustomDomains', () => {
     ])
     expect(origins).toContain('http://new.brugrappling.ie')
     expect(origins).toContain('https://new.brugrappling.ie')
+  })
+
+  it('trusts every hostname in a saved list and none when the list is missing or empty', () => {
+    expect(
+      originHostnamesForTenant({
+        hostnames: ['www.example.com', 'example.com'],
+      }),
+    ).toEqual(['www.example.com', 'example.com'])
+
+    expect(originHostnamesForTenant({ hostnames: null })).toEqual([])
+    expect(originHostnamesForTenant({})).toEqual([])
+    expect(originHostnamesForTenant({ hostnames: [] })).toEqual([])
   })
 
   it('returns only platform origins when customDomains is empty', () => {

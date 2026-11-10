@@ -48,7 +48,9 @@ export const beforeFormEmail: BeforeEmail = async (emails, { data, req }) => {
     const from =
       sanitizeEmailFromForTenantDomain({
         emailFrom: email.from,
-        tenantDomain: gate?.domain,
+        hostnames: gate?.hostnames,
+        direction: gate?.direction,
+        slug: gate?.slug,
         emailDomainVerified: gate?.verified,
       }) ?? ''
     const rawHtml = typeof email.html === 'string' ? email.html.trim() : ''

@@ -9,6 +9,7 @@ import {
   rememberTenantSlugResolution,
 } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
+import { findTenantByHost } from '@/lib/tenantDbResolve'
 import { mergeRequestCookies } from '@/utilities/cookiesFromHeaders'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import { getPlatformHostname } from '@/utilities/getURL'
@@ -451,19 +452,10 @@ async function lookupTenantIdByDomain(
   if (typeof cached === 'number' && Number.isFinite(cached)) {
     return cached
   }
-  const result = (await req.payload
-    .find({
-      collection: 'tenants',
-      where: { domain: { equals: normalizedDomain } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: { id: true } as any,
-    })
-    .catch(() => null)) as TenantsFindResult | null
-
-  const id = result?.docs?.[0]?.id
-  if (typeof id === 'number') {
+  const resolved = await findTenantByHost(req.payload, normalizedDomain).catch(() => null)
+  const rawId = resolved?.id
+  const id = typeof rawId === 'number' ? rawId : typeof rawId === 'string' && /^\d+$/.test(rawId) ? parseInt(rawId, 10) : null
+  if (typeof id === 'number' && Number.isFinite(id)) {
     rememberTenantDomainResolution(ctx, normalizedDomain, id)
     return id
   }

@@ -1,3 +1,6 @@
+import type { Payload } from 'payload'
+
+import { namedHostnameIsAllowed } from '@/lib/tenantDbResolve'
 import { normalizeCustomDomain } from '@/utilities/validateCustomDomain'
 import {
   getPlatformHostname,
@@ -11,6 +14,7 @@ type PayloadFind = {
   // Loose Local API shape so callers can pass `req.payload` without slug generics.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   find: (args: any) => Promise<{ docs: unknown[] }>
+  db?: unknown
 }
 
 function platformOrigin(): string {
@@ -73,15 +77,8 @@ export async function resolveTrustedPasswordResetOrigin(args: {
   if (!normalized || !args.payload) return fallback
 
   try {
-    const result = await args.payload.find({
-      collection: 'tenants',
-      where: { domain: { equals: normalized } },
-      limit: 1,
-      depth: 0,
-      overrideAccess: true,
-      select: { id: true },
-    })
-    if (result.docs[0]) return candidate.origin
+    const allowed = await namedHostnameIsAllowed(args.payload as Payload, normalized)
+    if (allowed) return candidate.origin
   } catch {
     // Fail closed to platform origin
   }

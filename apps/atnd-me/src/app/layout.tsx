@@ -7,7 +7,14 @@ import { GeistMono } from 'geist/font/mono'
 import { GeistSans } from 'geist/font/sans'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
+import { logoFileUrl, publicFaviconIcons } from '@/lib/seo/tenantFavicon'
 import { getTenantSiteURL } from '@/utilities/getURL'
+import {
+  isPlatformPublicHostname,
+  publicHostErrorMetadata,
+  readPublicHostOutcome,
+} from '@/utilities/publicHostOutcome'
+import { getRequestHostname } from '@/utilities/tenantRequest'
 
 /** Set by middleware for /admin so Payload's RootLayout is the only document (avoids nested <html>/<body>). */
 const ADMIN_HEADER = 'x-next-payload-admin'
@@ -26,23 +33,20 @@ export async function generateMetadata(): Promise<Metadata> {
   try {
     const cookieStore = await cookies()
     const headersList = await headers()
+    const hostOutcome = readPublicHostOutcome(headersList)
+    if (hostOutcome) {
+      return publicHostErrorMetadata(hostOutcome)
+    }
+
     const payload = await getPayload()
     const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
-    const logo = tenant?.logo
+    const requestHostname = getRequestHostname(headersList)
+    const usePlatformMark = Boolean(
+      requestHostname && isPlatformPublicHostname(requestHostname) && !tenant,
+    )
     const appName = tenant?.name?.trim() || tenant?.slug?.trim() || fallbackAppName
     const metadataBase = new URL(getTenantSiteURL(tenant, headersList))
-    const logoUrl =
-      logo && typeof logo === 'object' && logo !== null
-        ? (() => {
-            const squareLogoUrl =
-              logo.sizes?.square && typeof logo.sizes.square.url === 'string'
-                ? logo.sizes.square.url
-                : logo.url
-            return typeof squareLogoUrl === 'string'
-              ? new URL(squareLogoUrl, metadataBase).toString()
-              : null
-          })()
-        : null
+    const hasTenantLogo = Boolean(logoFileUrl(tenant?.logo))
 
     return {
       metadataBase,
@@ -50,31 +54,22 @@ export async function generateMetadata(): Promise<Metadata> {
         default: appName,
         template: `%s | ${appName}`,
       },
-      icons: logoUrl
-        ? {
-            icon: [{ url: logoUrl, sizes: '500x500' }],
-            shortcut: logoUrl,
-            apple: logoUrl,
-          }
-        : {
-            icon: '/favicon.svg',
-            shortcut: '/favicon.svg',
-            apple: '/favicon.svg',
-          },
+      // Same-origin /favicon.ico. The square media file is 500px and lives under
+      // /api/, so Google Search drops it and keeps the platform icon.
+      ...(hasTenantLogo
+        ? { icons: publicFaviconIcons('tenant') }
+        : usePlatformMark
+          ? { icons: publicFaviconIcons('platform') }
+          : {}),
     }
   } catch {
-    // Fall through to default favicon
+    // Do not fall back to the platform mark when tenant metadata resolution fails.
   }
   return {
     metadataBase: new URL(getTenantSiteURL()),
     title: {
       default: fallbackAppName,
       template: `%s | ${fallbackAppName}`,
-    },
-    icons: {
-      icon: '/favicon.svg',
-      shortcut: '/favicon.svg',
-      apple: '/favicon.svg',
     },
   }
 }

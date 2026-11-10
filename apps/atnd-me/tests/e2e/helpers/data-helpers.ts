@@ -106,13 +106,13 @@ async function resolveDefaultBranchIdForTenant(tenantId: number): Promise<number
  *
  * @param name - Tenant name
  * @param slug - Tenant slug (subdomain)
- * @param domain - Optional domain
+ * @param hostname - Optional public hostname stored on the hostname list
  * @param allowedBlocks - Optional block slugs to enable for this tenant (pages layout). Empty = default blocks only.
  */
 export async function createTestTenant(
   name: string,
   slug: string,
-  domain?: string,
+  hostname?: string,
   allowedBlocks?: string[]
 ): Promise<Tenant> {
   const payload = await getPayloadInstance()
@@ -148,7 +148,7 @@ export async function createTestTenant(
     data: {
       name,
       slug,
-      ...(domain && { domain }),
+      ...(hostname && { hostnames: [hostname], direction: 'allow-www-and-non-www' as const }),
       ...(allowedBlocks !== undefined && { allowedBlocks }),
     },
     overrideAccess: true,

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { findTenantBySlugNormalized } from '@/lib/tenantDbResolve'
+import { E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER } from '@/utilities/publicHostOutcome'
+import { readHostnameDeclaration } from '@/utilities/tenantPublicHostDeclaration'
 
 const INTERNAL_TENANT_RESOLVE_HEADER = 'x-internal-tenant-resolve'
 
@@ -36,6 +38,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid slug' }, { status: 400 })
   }
 
+  if (
+    process.env.PW_E2E_PROFILE &&
+    request.headers.get(E2E_FORCE_HOST_LOOKUP_FAILURE_HEADER) === '1'
+  ) {
+    throw new Error('Forced host lookup failure (e2e)')
+  }
+
   try {
     const payload = await getPayload()
     const tenant = await findTenantBySlugNormalized(payload, normalized)
@@ -43,7 +52,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null, { status: 404 })
     }
 
-    return NextResponse.json({ id: tenant.id, slug: normalized })
+    const declaration = readHostnameDeclaration(tenant)
+    // Once the list names a custom hostname, the platform subdomain redirects to the
+    // canonical host. An empty list serves on the platform subdomain.
+    const canonicalHost =
+      declaration.hostnames.length > 0 ? declaration.roles.canonicalHost : null
+    return NextResponse.json({
+      id: tenant.id,
+      slug: normalized,
+      ...(canonicalHost ? { canonicalHost } : {}),
+    })
   } catch (err) {
     console.error('[api/tenant-by-slug]', err)
     return NextResponse.json({ error: 'Failed to resolve tenant' }, { status: 500 })

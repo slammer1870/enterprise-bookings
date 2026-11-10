@@ -13,12 +13,25 @@ export async function loadTenantEmailFromGate(
       id: tenantId,
       depth: 0,
       overrideAccess: true,
-      select: { domain: true, emailDomainStatus: true } as Record<string, boolean>,
+      select: {
+        hostnames: true,
+        direction: true,
+        slug: true,
+        emailDomainStatus: true,
+      } as Record<string, boolean>,
     })
     .catch(() => null)
   if (!tenant) return null
+  const doc = tenant as {
+    hostnames?: unknown
+    direction?: unknown
+    slug?: unknown
+    emailDomainStatus?: unknown
+  }
   return {
-    domain: typeof (tenant as any).domain === 'string' ? (tenant as any).domain : null,
-    verified: isEmailDomainVerified((tenant as any).emailDomainStatus),
+    hostnames: doc.hostnames,
+    direction: doc.direction,
+    slug: typeof doc.slug === 'string' ? doc.slug : null,
+    verified: isEmailDomainVerified(doc.emailDomainStatus),
   }
 }

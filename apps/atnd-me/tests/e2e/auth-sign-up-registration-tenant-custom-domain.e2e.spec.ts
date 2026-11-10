@@ -11,6 +11,7 @@
 import { test, expect } from './helpers/fixtures'
 import { createTestTenant, getPayloadInstance } from './helpers/data-helpers'
 import { isNipIoDnsAvailable } from './helpers/dns-helpers'
+import { releaseClaimedApex } from './helpers/release-claimed-apex'
 
 import { e2eSlowTestTimeout } from './helpers/timeouts'
 
@@ -26,6 +27,7 @@ test.describe('Better Auth /auth/sign-up registrationTenant (custom domain E2E)'
     if (!nipIoAvailable) return
     const w = testData.workerIndex
     const stamp = Date.now()
+    await releaseClaimedApex('nip.io')
     const host = `e2e-bauth-${w}-${stamp}.127.0.0.1.nip.io`
     registerOrigin = `http://${host}:3000`
 

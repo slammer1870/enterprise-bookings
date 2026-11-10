@@ -1,10 +1,12 @@
 import type { Payload } from 'payload'
+import { findTenantByHost as resolveTenantHost } from '@/lib/tenantDbResolve'
 import { mergeRequestCookies } from './cookiesFromHeaders'
 import {
   collectTenantLookupHostnames,
   getPayloadTenantIdFromRequest,
   getTenantSlugFromRequest,
 } from './tenantRequest'
+import type { TenantURLSource } from './getURL'
 import { normalizeCustomDomain } from './validateCustomDomain'
 import { unstable_cache } from './next-cache'
 
@@ -56,34 +58,28 @@ async function findTenantByHost(payload: Payload, headers?: Headers | null) {
     const normalized = normalizeCustomDomain(hostname)
     if (!normalized) continue
 
-    const result = await payload.find({
+    const resolved = await resolveTenantHost(payload, normalized)
+    if (!resolved || resolved.type !== 'domain') continue
+
+    const byId = await payload.find({
       collection: 'tenants',
-      where: { domain: { equals: normalized } },
+      where: { id: { equals: resolved.id } },
       limit: 1,
       depth: 1,
       overrideAccess: true,
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        domain: true,
-        logo: true,
-        description: true,
-      } as any,
+      select: brandingSelect,
     })
-
-    const doc = result.docs[0]
-    if (doc) return doc
+    const declared = byId.docs[0] as TenantBrandingDoc | undefined
+    if (declared) return declared
   }
 
   return null
 }
 
-export type TenantContext = {
+export type TenantContext = TenantURLSource & {
   id: number
   slug: string
   name: string
-  domain?: string | null
 }
 
 export type TenantRequestSource = TenantSlugSource & {
@@ -151,23 +147,49 @@ export type TenantWithBranding = TenantContext & {
   description?: string | null
 }
 
-type TenantBrandingDoc = {
+type TenantBrandingDoc = TenantURLSource & {
   id: number
   slug: string
   name?: string
-  domain?: string | null
   logo?: TenantWithBranding['logo']
   description?: string | null
 }
+
+const brandingSelect = {
+  id: true,
+  slug: true,
+  name: true,
+  logo: true,
+  description: true,
+  hostnames: true,
+  direction: true,
+} as any
 
 function toTenantWithBranding(t: TenantBrandingDoc): TenantWithBranding {
   return {
     id: t.id,
     slug: t.slug,
     name: t.name ?? '',
-    domain: t.domain ?? null,
     logo: t.logo,
     description: t.description,
+    hostnames: t.hostnames,
+    direction: t.direction,
+  }
+}
+
+function toTenantContext(t: {
+  id: number
+  slug: string
+  name?: string
+  hostnames?: unknown
+  direction?: unknown
+}): TenantContext {
+  return {
+    id: t.id,
+    slug: t.slug,
+    name: t.name ?? '',
+    ...(t.hostnames !== undefined ? { hostnames: t.hostnames } : {}),
+    ...(t.direction !== undefined ? { direction: t.direction } : {}),
   }
 }
 
@@ -185,19 +207,15 @@ async function fetchTenantContextBySlug(
       id: true,
       slug: true,
       name: true,
-      domain: true,
+      hostnames: true,
+      direction: true,
     } as any,
   })
 
   const tenant = result.docs[0]
   if (!tenant) return null
 
-  return {
-    id: tenant.id as number,
-    slug: tenant.slug as string,
-    name: (tenant as { name?: string }).name ?? '',
-    domain: (tenant as { domain?: string | null }).domain ?? null,
-  }
+  return toTenantContext(tenant as TenantContext)
 }
 
 async function fetchTenantBrandingBySlug(
@@ -210,14 +228,7 @@ async function fetchTenantBrandingBySlug(
     limit: 1,
     depth: 1,
     overrideAccess: true,
-    select: {
-      id: true,
-      slug: true,
-      name: true,
-      domain: true,
-      logo: true,
-      description: true,
-    } as any,
+    select: brandingSelect,
   })
 
   const tenant = result.docs[0]
@@ -265,12 +276,7 @@ export async function getTenantContext(
 
   const tenantFromHost = await findTenantByHost(payload, enriched?.headers)
   if (tenantFromHost) {
-    return {
-      id: tenantFromHost.id as number,
-      slug: tenantFromHost.slug as string,
-      name: (tenantFromHost as { name?: string }).name ?? '',
-      domain: (tenantFromHost as { domain?: string | null }).domain ?? null,
-    }
+    return toTenantContext(tenantFromHost)
   }
 
   // Admin selector cookie — use even when Host is the platform apex; custom-domain admin
@@ -285,13 +291,7 @@ export async function getTenantContext(
       overrideAccess: true,
     })
     if (!tenant) return null
-    const t = tenant as { id: number; slug: string; name?: string; domain?: string | null }
-    return {
-      id: t.id,
-      slug: t.slug,
-      name: t.name ?? '',
-      domain: t.domain ?? null,
-    }
+    return toTenantContext(tenant as TenantContext)
   } catch {
     return null
   }
@@ -330,14 +330,7 @@ export async function getTenantWithBranding(
       id: tenantId,
       depth: 1,
       overrideAccess: true,
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        domain: true,
-        logo: true,
-        description: true,
-      } as any,
+      select: brandingSelect,
     })
     if (!tenant) return null
 

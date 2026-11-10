@@ -13,7 +13,15 @@ const defaultOpenGraph: Metadata['openGraph'] = {
   title: 'ATND ME',
 }
 
-export const mergeOpenGraph = (og?: Metadata['openGraph']): Metadata['openGraph'] => {
+export const mergeOpenGraph = (
+  og?: Metadata['openGraph'],
+  options?: { usePlatformDefaults?: boolean },
+): Metadata['openGraph'] => {
+  if (!options?.usePlatformDefaults) {
+    if (!og) return { type: 'website' }
+    return { type: 'website', ...og }
+  }
+
   return {
     ...defaultOpenGraph,
     ...og,

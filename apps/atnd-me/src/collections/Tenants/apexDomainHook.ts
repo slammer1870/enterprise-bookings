@@ -1,83 +1,47 @@
 /**
- * Pure logic for the Tenants afterChange apex domain hook.
- * Extracted so it can be unit-tested without Payload or the DB.
+ * Cloudflare custom hostnames to register when a tenant is saved.
+ * The first hostname is the former custom domain. Redirect to www also
+ * registers that hostname's parent, the way Redirect apex used to.
+ * An alias host is not registered. Removing a hostname does not delete it.
  */
+import { parseDirection } from '@/utilities/hostnameDirection'
+import { storedHostnameList } from '@/utilities/tenantPublicHostDeclaration'
 import { stripFirstLabel } from '@/utilities/validateCustomDomain'
 
-type ApexHookDocShape = {
-  domain?: string | null
-  redirectApex?: boolean | null
-  apexDomain?: string | null
+export type CustomHostnameRegistration = {
+  hostname: string
+  isApex: boolean
 }
 
-type ApexHookPrevShape = {
-  domain?: string | null
-  redirectApex?: boolean | null
-  apexDomain?: string | null
-}
-
-export type ApexActions = {
-  /** Apex hostname to register with Apple Pay. Null = nothing to do. */
-  registerApexApplePay: string | null
-  /** Derived apex value to write to the apexDomain column. Null = clear it. */
-  apexDomainToStore: string | null
-  /** When true, clear the apexDomain column (redirectApex was toggled off). */
-  clearApex: boolean
-  /** Main custom domain to register as a Cloudflare TLS for SaaS custom hostname. Null = no change needed. */
-  registerDomain: string | null
-}
-
-type CollectArgs = {
-  doc: ApexHookDocShape
-  previousDoc: ApexHookPrevShape
+export function customHostnamesToRegister(args: {
   operation: 'create' | 'update'
-}
+  hostnames: unknown
+  previousHostnames?: unknown
+  direction?: unknown
+  previousDirection?: unknown
+}): CustomHostnameRegistration[] {
+  const next = storedHostnameList(args.hostnames) ?? []
+  const previous =
+    args.operation === 'create' ? [] : (storedHostnameList(args.previousHostnames) ?? [])
+  const domain = next[0] ?? null
+  const previousDomain = previous[0] ?? null
+  const domainChanged = domain !== previousDomain
+  const redirectToWww = parseDirection(args.direction) === 'redirect-to-www'
+  const previousRedirectToWww =
+    args.operation !== 'create' && parseDirection(args.previousDirection) === 'redirect-to-www'
 
-/**
- * Determines what apex-related actions are required after a Tenants save.
- *
- * Returns a plain object so callers (hook + tests) can drive their own side
- * effects (Cloudflare API, Payload update, Apple Pay registration) independently.
- */
-export function collectApexActionsFromHookArgs({ doc, previousDoc, operation }: CollectArgs): ApexActions {
-  const redirectApex = Boolean(doc.redirectApex)
-  const prevRedirectApex = Boolean(previousDoc.redirectApex)
-  const domain = typeof doc.domain === 'string' && doc.domain.trim() ? doc.domain.trim() : null
-  const prevDomain = typeof previousDoc.domain === 'string' && previousDoc.domain.trim() ? previousDoc.domain.trim() : null
-
-  // Main custom domain: register with Cloudflare whenever it is new or changed
-  const domainChanged = domain !== prevDomain
-  const registerDomain = domain && (operation === 'create' || domainChanged) ? domain : null
-
-  // redirectApex toggled off — clear apex field but still handle domain registration above
-  if (!redirectApex && prevRedirectApex) {
-    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: true, registerDomain }
+  const registrations: CustomHostnameRegistration[] = []
+  if (domain && (args.operation === 'create' || domainChanged)) {
+    registrations.push({ hostname: domain, isApex: false })
   }
 
-  // redirectApex is off — no apex work needed
-  if (!redirectApex) {
-    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
-  }
+  if (!redirectToWww || !domain) return registrations
 
-  // redirectApex is on — check if anything changed that requires (re-)registration
-  const apexTurnedOn = redirectApex && !prevRedirectApex
-
-  // Also re-derive when apexDomain is missing despite redirectApex being on — covers the
-  // case where it was set via direct DB write (bypassing the hook) or a migration backfill.
-  const apexDomainMissing = !doc.apexDomain
-
-  if (!domainChanged && !apexTurnedOn && !apexDomainMissing && operation !== 'create') {
-    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
-  }
-
-  if (!domain) {
-    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
-  }
+  const apexTurnedOn = !previousRedirectToWww
+  if (args.operation !== 'create' && !domainChanged && !apexTurnedOn) return registrations
 
   const apex = stripFirstLabel(domain)
-  if (!apex) {
-    return { registerApexApplePay: null, apexDomainToStore: null, clearApex: false, registerDomain }
-  }
-
-  return { registerApexApplePay: apex, apexDomainToStore: apex, clearApex: false, registerDomain }
+  if (!apex) return registrations
+  registrations.push({ hostname: apex, isApex: true })
+  return registrations
 }
