@@ -25,5 +25,9 @@ export {
   DEFAULT_BOOKING_COLLECTION_SLUGS,
 } from "./resolve-slugs";
 export type { BookingCollectionSlugs } from "./resolve-slugs";
+export {
+  pendingBookingsExcludedWhere,
+  staffOnlyTenantIdsFromUser,
+} from "./utils/timeslot-booking-queries";
 export { hasConfirmedBookingForTenant } from "./utils/has-confirmed-booking-for-tenant";
 export type { HasConfirmedBookingForTenantArgs } from "./utils/has-confirmed-booking-for-tenant";

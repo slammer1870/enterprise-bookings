@@ -16,6 +16,7 @@ const {
   mockCalculateBookingFeeAmount,
   mockGetCurrentUser,
   mockResolveTenantForConnect,
+  mockPayload,
 } = vi.hoisted(() => ({
   mockCreateTenantCheckoutSession: vi.fn(),
   mockEnsureStripeCustomerIdForAccount: vi.fn(),
@@ -24,6 +25,10 @@ const {
   mockCalculateBookingFeeAmount: vi.fn(),
   mockGetCurrentUser: vi.fn(),
   mockResolveTenantForConnect: vi.fn(),
+  mockPayload: {
+    findByID: vi.fn().mockResolvedValue(null),
+    find: vi.fn().mockResolvedValue({ docs: [], totalDocs: 0 }),
+  },
 }))
 
 vi.mock('@/lib/stripe-connect/charges', () => ({
@@ -67,7 +72,7 @@ vi.mock('@/lib/stripe-connect/discountCodes', async (importOriginal) => {
 })
 
 vi.mock('@/lib/payload', () => ({
-  getPayload: vi.fn().mockResolvedValue({}),
+  getPayload: vi.fn().mockResolvedValue(mockPayload),
 }))
 
 import { POST } from '@/app/api/stripe/connect/create-checkout-session/route'
@@ -101,6 +106,8 @@ describe('create-checkout-session route – class pass fee regression', () => {
     mockPricesRetrieve.mockResolvedValue({ unit_amount: 3000, currency: 'eur', recurring: null })
     mockCalculateBookingFeeAmount.mockResolvedValue(90)
     mockCreateTenantCheckoutSession.mockResolvedValue({ id: 'cs_live_1', url: 'https://checkout.stripe.com/1' })
+    mockPayload.findByID.mockResolvedValue(null)
+    mockPayload.find.mockResolvedValue({ docs: [], totalDocs: 0 })
   })
 
   it('retrieves Stripe price and computes fee with productType class-pass for class_pass_purchase', async () => {
@@ -183,6 +190,87 @@ describe('create-checkout-session route – class pass fee regression', () => {
     expect(mockCalculateBookingFeeAmount).not.toHaveBeenCalled()
     expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
       expect.objectContaining({ bookingFeeAmount: undefined, productType: undefined }),
+    )
+  })
+
+  it('stamps the site-selector branch on a class pass purchase and ignores a client branch', async () => {
+    mockPayload.findByID.mockImplementation(
+      ({ collection, id }: { collection: string; id?: number }) => {
+        if (collection === 'locations' && id === 12) {
+          return Promise.resolve({
+            id: 12,
+            name: 'Rathmines',
+            slug: 'rathmines',
+            tenant: ACTIVE_TENANT.id,
+          })
+        }
+        return Promise.resolve(null)
+      },
+    )
+
+    const res = await POST(
+      request(
+        {
+          priceId: 'price_class_pass_abc',
+          quantity: 1,
+          mode: 'payment',
+          metadata: {
+            type: 'class_pass_purchase',
+            tenantId: String(ACTIVE_TENANT.id),
+            branchName: 'Client Branch',
+            branchSlug: 'client-branch',
+          },
+        },
+        { cookie: 'payload-location=12' },
+      ),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          branchName: 'Rathmines',
+          branchSlug: 'rathmines',
+        }),
+      }),
+    )
+    const metadata = mockCreateTenantCheckoutSession.mock.calls[0]?.[0]?.metadata as Record<
+      string,
+      string
+    >
+    expect(metadata.branchName).not.toBe('Client Branch')
+  })
+
+  it('stamps the member’s branch on a subscription checkout and ignores a client branch', async () => {
+    mockPayload.find.mockResolvedValue({
+      docs: [{ id: 12, name: 'Rathmines', slug: 'rathmines', tenant: ACTIVE_TENANT.id }],
+      totalDocs: 1,
+    })
+
+    const res = await POST(
+      request(
+        {
+          priceId: 'price_sub',
+          quantity: 1,
+          mode: 'subscription',
+          metadata: {
+            tenantId: String(ACTIVE_TENANT.id),
+            branchName: 'Client Branch',
+            branchSlug: 'client-branch',
+          },
+        },
+        { cookie: 'branch-slug=rathmines' },
+      ),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mockCreateTenantCheckoutSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          branchName: 'Rathmines',
+          branchSlug: 'rathmines',
+        }),
+      }),
     )
   })
 

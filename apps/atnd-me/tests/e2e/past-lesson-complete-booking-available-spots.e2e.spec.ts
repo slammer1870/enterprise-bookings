@@ -9,7 +9,7 @@
  *   link, and lands on the drop-in checkout page.
  *
  * Expected:
- *   The quantity selector reads "12 slots available" — the full event-type capacity,
+ *   The quantity selector reads "12 places remaining" — the full event-type capacity,
  *   not 0/1 from schedule "closed" UI state or an incorrect remaining-capacity calc.
  */
 import { test, expect } from './helpers/fixtures'
@@ -28,7 +28,7 @@ test.describe('Past timeslot: complete-booking link shows full capacity on check
   test.describe.configure({ timeout: e2eSlowTestTimeout() })
 
   test(
-    'magic-link login from complete-booking shows "12 slots available" on the drop-in checkout page',
+    'magic-link login from complete-booking shows "12 places remaining" on the drop-in checkout page',
     async ({ page, request, testData }) => {
       test.setTimeout(e2eSlowTestTimeout(180_000, 120_000))
 
@@ -134,7 +134,7 @@ test.describe('Past timeslot: complete-booking link shows full capacity on check
       )
 
       // Drop-in checkout (quantity selector + payment methods).
-      await expect(page.getByText(`${CAPACITY} slots available`)).toBeVisible({ timeout: 30_000 })
+      await expect(page.getByText(`${CAPACITY} places remaining`)).toBeVisible({ timeout: 30_000 })
       await expect(page.getByRole('heading', { name: /payment methods/i })).toBeVisible({
         timeout: 30_000,
       })

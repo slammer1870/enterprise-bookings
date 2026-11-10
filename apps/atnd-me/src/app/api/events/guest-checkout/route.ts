@@ -4,6 +4,8 @@ import type { NextRequest } from 'next/server'
 import { getPayload } from '@/lib/payload'
 import { ensureGuestUser } from '@/lib/booking/ensureGuestUser'
 import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
+import { branchChargeMetadata } from '@/lib/stripe-connect/branchChargeMetadata'
+import { locationForBranchId } from '@/lib/stripe-connect/locationForBranchId'
 import {
   resolveTenantSlugOrId,
   resolveTenantForConnect,
@@ -107,6 +109,7 @@ export async function POST(request: NextRequest) {
     id?: number
     active?: boolean | null
     tenant?: number | { id: number }
+    branch?: number | null
     eventType?: {
       paymentMethods?: {
         allowedDropIn?: number | { id?: number; price?: number; maxBookingsPerTimeslot?: number | null } | null
@@ -329,6 +332,8 @@ export async function POST(request: NextRequest) {
       stripeAccountId: tenant.stripeConnectAccountId,
     })
 
+    const branchLocation = await locationForBranchId(payload, timeslot.branch)
+
     const { client_secret } = await createTenantPaymentIntent({
       tenant: {
         id: tenant.id,
@@ -342,6 +347,7 @@ export async function POST(request: NextRequest) {
       customerId: stripeCustomerId,
       receiptEmail: guest.email,
       metadata: {
+        ...branchChargeMetadata([branchLocation]),
         timeslotId: String(timeslotId),
         userId: String(guest.userId),
         quantity: String(quantity),

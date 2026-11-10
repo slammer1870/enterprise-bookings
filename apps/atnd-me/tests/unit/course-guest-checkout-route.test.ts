@@ -59,14 +59,20 @@ vi.mock('@/lib/onboarding/rateLimit', () => ({
   checkRateLimit: mockCheckRateLimit,
 }))
 
+import { NextRequest } from 'next/server'
+
 import { POST } from '@/app/api/courses/guest-checkout/route'
 
-function makeRequest(body: unknown) {
-  return new Request('http://localhost/api/courses/guest-checkout', {
+function makeRequest(body: unknown, headers: Record<string, string> = {}) {
+  return new NextRequest('http://localhost/api/courses/guest-checkout', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-forwarded-for': '1.2.3.4' },
+    headers: {
+      'content-type': 'application/json',
+      'x-forwarded-for': '1.2.3.4',
+      ...headers,
+    },
     body: JSON.stringify(body),
-  }) as any
+  })
 }
 
 describe('POST /api/courses/guest-checkout', () => {
@@ -154,6 +160,46 @@ describe('POST /api/courses/guest-checkout', () => {
       makeRequest({ courseId: 4, guestName: 'Sam Guest', guestEmail: 'sam@example.com' }),
     )
     expect(res.status).toBe(429)
+  })
+
+  it('stamps the public branch cookie on the guest PaymentIntent and ignores a client branch', async () => {
+    mockIsStripeTestAccount.mockReturnValue(false)
+    mockResolveTenantForConnect.mockResolvedValue({
+      id: 1,
+      stripeConnectAccountId: 'acct_1RealConnectAccount',
+      stripeConnectOnboardingStatus: 'active',
+    })
+    mockPayload.find.mockImplementation(({ collection }: { collection: string }) => {
+      if (collection === 'locations') {
+        return Promise.resolve({
+          docs: [{ id: 12, name: 'Rathmines', slug: 'rathmines', tenant: 1 }],
+          totalDocs: 1,
+        })
+      }
+      return Promise.resolve({ docs: [], totalDocs: 0 })
+    })
+
+    const res = await POST(
+      makeRequest(
+        {
+          courseId: 4,
+          guestName: 'Sam Guest',
+          guestEmail: 'sam@example.com',
+          metadata: { branchName: 'Client Branch', branchSlug: 'client-branch' },
+        },
+        { cookie: 'branch-slug=rathmines' },
+      ),
+    )
+
+    expect(res.status).toBe(200)
+    expect(mockCreateTenantPaymentIntent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({
+          branchName: 'Rathmines',
+          branchSlug: 'rathmines',
+        }),
+      }),
+    )
   })
 
   it('creates PaymentIntent with productType course (not class-pass)', async () => {

@@ -1,6 +1,6 @@
 import React from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { act, render, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import CheckoutForm from '../../../../payments/payments-next/src/components/checkout-form'
 
 vi.mock('@repo/analytics', () => ({
@@ -13,6 +13,11 @@ vi.mock('@stripe/stripe-js', () => ({
   loadStripe: vi.fn(() => Promise.resolve({})),
 }))
 
+const { confirmPayment, elementsSubmit } = vi.hoisted(() => ({
+  confirmPayment: vi.fn().mockResolvedValue({}),
+  elementsSubmit: vi.fn().mockResolvedValue({}),
+}))
+
 vi.mock('@stripe/react-stripe-js', () => ({
   Elements: ({ children }: { children: React.ReactNode; options?: { clientSecret?: string } }) => (
     <>{children}</>
@@ -23,8 +28,8 @@ vi.mock('@stripe/react-stripe-js', () => ({
     }, [onReady])
     return <div data-testid="payment-element" />
   },
-  useStripe: () => ({ confirmPayment: vi.fn().mockResolvedValue({}) }),
-  useElements: () => ({ submit: vi.fn().mockResolvedValue({}) }),
+  useStripe: () => ({ confirmPayment }),
+  useElements: () => ({ submit: elementsSubmit }),
 }))
 
 function deferred<T>() {
@@ -207,5 +212,63 @@ describe('CheckoutForm', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends an in-page card confirmation to the success page with the payment intent', async () => {
+    confirmPayment.mockResolvedValueOnce({
+      paymentIntent: {
+        id: 'pi_dropin',
+        status: 'succeeded',
+      },
+    })
+    const assign = vi.fn()
+    const origin = window.location.origin
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { origin, assign },
+    })
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            clientSecret: 'pi_dropin_secret',
+            stripeAccountId: 'acct_live',
+          }),
+          { status: 200 },
+        ),
+      ),
+    )
+
+    render(
+      <CheckoutForm
+        price={10}
+        priceComponent={<div>Price</div>}
+        metadata={{ timeslotId: '42' }}
+        createPaymentIntentUrl="/api/stripe/connect/create-payment-intent"
+        returnUrl="/success"
+      />,
+    )
+
+    const pay = await screen.findByRole('button', { name: 'Pay now' })
+    await waitFor(() => {
+      expect(pay).toBeEnabled()
+    })
+    fireEvent.click(pay)
+
+    await waitFor(() => {
+      expect(assign).toHaveBeenCalledWith(
+        `${window.location.origin}/success?payment_intent=pi_dropin&redirect_status=succeeded`,
+      )
+    })
+    expect(confirmPayment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        redirect: 'if_required',
+        confirmParams: {
+          return_url: `${origin}/success`,
+        },
+      }),
+    )
   })
 })

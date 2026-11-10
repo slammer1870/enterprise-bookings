@@ -161,13 +161,22 @@ describe('Schedule timeslots visibility for authenticated users', () => {
         places: 10,
         description: 'Test description',
         tenant: testTenant.id,
-        paymentMethods: {
-          allowedPlans: [planId],
-          allowedClassPasses: [classPassTypeId],
-        },
       },
       overrideAccess: true,
     })) as EventType
+
+    await payload.update({
+      collection: 'plans',
+      id: planId,
+      data: { allowedEventTypes: [classOption.id] },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'class-pass-types',
+      id: classPassTypeId,
+      data: { allowedEventTypes: [classOption.id] },
+      overrideAccess: true,
+    })
 
     // Create a timeslot in the future (schedule endpoint hides ended timeslots)
     const slotFields = defaultTimeslotFields(2)

@@ -172,12 +172,16 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
         places: 10,
         description: 'E2E class option for frontend schedule visibility regression',
         tenant: tenant.id,
-        paymentMethods: {
-          allowedClassPasses: [classPassType.id],
-        },
       },
       overrideAccess: true,
     }) as { id: number }
+
+    await payload.update({
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { allowedEventTypes: [classOption.id] },
+      overrideAccess: true,
+    })
 
     const targetDate = addDays(new Date(), 5)
     targetDate.setHours(0, 0, 0, 0)
@@ -287,12 +291,16 @@ test.describe('Frontend schedule class-pass lesson visibility regression', () =>
         places: 10,
         description: 'E2E class option for public schedule -> booking class pass purchase visibility',
         tenant: tenant.id,
-        paymentMethods: {
-          allowedClassPasses: [classPassType.id],
-        },
       },
       overrideAccess: true,
     }) as { id: number }
+
+    await payload.update({
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { allowedEventTypes: [classOption.id] },
+      overrideAccess: true,
+    })
 
     const targetDate = addDays(new Date(), 6)
     targetDate.setHours(0, 0, 0, 0)

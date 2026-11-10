@@ -20,6 +20,9 @@ import {
   resolveCourseForPurchase,
   type CourseForPurchase,
 } from '@/lib/courses/resolve-course-for-purchase'
+import { branchChargeMetadata } from '@/lib/stripe-connect/branchChargeMetadata'
+import { locationForBranchSlug } from '@/lib/stripe-connect/locationForBranchId'
+import { getPublicBranchSlugFromRequest } from '@/utilities/tenantRequest'
 
 export const dynamic = 'force-dynamic'
 
@@ -176,6 +179,12 @@ export async function POST(request: NextRequest) {
       stripeAccountId: tenant.stripeConnectAccountId,
     })
 
+    const homeBranch = await locationForBranchSlug(
+      payload,
+      getPublicBranchSlugFromRequest(request),
+      tenant.id,
+    )
+
     const { client_secret } = await createTenantPaymentIntent({
       tenant: {
         id: tenant.id,
@@ -188,6 +197,7 @@ export async function POST(request: NextRequest) {
       payload,
       customerId: stripeCustomerId,
       metadata: {
+        ...branchChargeMetadata(homeBranch ? [homeBranch] : []),
         type: 'course_purchase',
         userId: String(guest.userId),
         tenantId: String(tenant.id),

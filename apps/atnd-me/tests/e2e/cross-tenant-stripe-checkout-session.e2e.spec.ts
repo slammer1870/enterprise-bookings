@@ -81,9 +81,9 @@ test.describe('Cross-tenant Stripe Checkout session (Connect)', () => {
     }) as { id: number }
 
     await payload.update({
-      collection: 'event-types',
-      id: co.id,
-      data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
+      collection: 'class-pass-types',
+      id: cpt.id,
+      data: { allowedEventTypes: [co.id] },
       overrideAccess: true,
     })
 

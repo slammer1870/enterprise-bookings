@@ -65,6 +65,7 @@ vi.mock('../../src/components/bookings/quantity-selector', () => ({
   }) => (
     <div data-testid="quantity-selector">
       <span data-testid="raw-quantity">{quantity}</span>
+      <span data-testid="max-quantity">{maxQuantity ?? ''}</span>
       <button
         aria-label="Increase quantity"
         disabled={quantity >= (maxQuantity ?? Infinity)}
@@ -257,5 +258,34 @@ describe('BookingPageClientSmart — quantity debounce (rapid-click regression)'
     expect(upsertMock).not.toHaveBeenCalledWith(expect.objectContaining({ quantity: 2 }))
     expect(upsertMock).not.toHaveBeenCalledWith(expect.objectContaining({ quantity: 3 }))
     expect(upsertMock).not.toHaveBeenCalledWith(expect.objectContaining({ quantity: 4 }))
+  })
+})
+
+describe('BookingPageClientSmart — own checkout hold after reload', () => {
+  it('lets the hold owner book both places when their hold of one already reduces remaining capacity', () => {
+    // Two places. Reloading checkout reserves one, and remainingCapacity is
+    // places minus every active hold — including this viewer's. They own that
+    // hold, so both places are still theirs to book.
+    const timeslot = createTimeslot(1)
+    const eventType = timeslot.eventType
+    if (eventType && typeof eventType === 'object') {
+      eventType.places = 2
+    }
+
+    render(
+      <BookingPageClientSmart
+        timeslot={timeslot}
+        PaymentMethodsComponent={vi.fn().mockReturnValue(<div data-testid="payment-methods" />) as never}
+        useCheckoutHolds={true}
+        initialCheckoutHold={{ id: 9, quantity: 1, expiresAt: '2099-01-01T00:00:00.000Z' }}
+      />,
+    )
+
+    expect(screen.getByTestId('max-quantity')).toHaveTextContent('2')
+    const increaseBtn = screen.getByRole('button', { name: /increase quantity/i })
+    expect(increaseBtn).toBeEnabled()
+
+    fireEvent.click(increaseBtn)
+    expect(screen.getByTestId('raw-quantity')).toHaveTextContent('2')
   })
 })

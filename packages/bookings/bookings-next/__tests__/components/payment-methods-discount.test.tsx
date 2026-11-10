@@ -59,6 +59,7 @@ vi.mock('@repo/trpc/client', () => ({
 }))
 
 vi.mock('@tanstack/react-query', () => ({
+  keepPreviousData: (previousData: unknown) => previousData,
   useQuery: useQueryMock,
   useMutation: vi.fn((options?: { onSuccess?: (_data: { url: string | null }) => void }) => {
     if (options?.onSuccess) {

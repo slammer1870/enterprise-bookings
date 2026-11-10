@@ -394,3 +394,11 @@
     color: var(--foreground) !important;
   }
 }
+
+/* Tailwind's `.table { display: table }` utility wins over Payload's table
+   wrapper (same specificity, later cascade layer). display:table computes
+   overflow to visible, so join tables spill past the document column.
+   Payload's wrapper is a div; real <table> elements are unaffected. */
+div.table {
+  display: block;
+}

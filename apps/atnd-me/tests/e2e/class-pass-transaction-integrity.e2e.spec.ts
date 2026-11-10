@@ -110,9 +110,9 @@ test.describe('Class-pass transaction integrity', () => {
       })) as { id: number }
 
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
+      collection: 'class-pass-types',
+      id: cpt.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
 
@@ -236,9 +236,9 @@ test.describe('Class-pass transaction integrity', () => {
       })) as { id: number }
 
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
+      collection: 'class-pass-types',
+      id: cpt.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
 
@@ -370,9 +370,9 @@ test.describe('Class-pass transaction integrity', () => {
       })) as { id: number }
 
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
+      collection: 'class-pass-types',
+      id: cpt.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
 

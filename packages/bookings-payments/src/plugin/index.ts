@@ -93,7 +93,7 @@ export const bookingsPaymentsPlugin =
       applyClassPassFeature(ctx, classPass);
     }
 
-    // Courses feature: courses, course-enrollments, allowedCourses injection
+    // Courses feature: courses, course-enrollments, includingCourses join
     if (courses?.enabled) {
       applyCoursesFeature(ctx, courses);
     }
@@ -110,8 +110,13 @@ export const bookingsPaymentsPlugin =
       ctx.collections.push(
         transactionsCollection(
           classPass?.bookingTransactionsOverrides ??
-            dropIns?.bookingTransactionsOverrides
-        )
+            dropIns?.bookingTransactionsOverrides,
+          {
+            includeBranch: ctx.collections.some(
+              (collection) => collection.slug === "locations",
+            ),
+          },
+        ),
       );
       const bookingsCol = ctx.collections.find((c) => c.slug === "bookings");
       if (bookingsCol) {

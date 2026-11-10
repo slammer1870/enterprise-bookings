@@ -1,6 +1,6 @@
 /**
  * Stripe Connect webhook: account.*, payment_intent.succeeded, checkout.session.completed,
- * customer.subscription.*, product.*, price.*, coupon.*, promotion_code.*.
+ * invoice.created, invoice.paid, customer.subscription.*, product.*, price.*, coupon.*, promotion_code.*.
  * Verifies signature, resolves tenant, updates bookings/subscriptions, enforces idempotency.
  * Subscription date fields use YYYY-MM-DD to match the collection's dayOnly picker.
  */
@@ -52,7 +52,10 @@ import {
   issuePurchasedGiftVoucher,
   parseGiftVoucherPurchaseMetadata,
 } from '@/lib/stripe-connect/issuePurchasedGiftVoucher'
+import { classBranchLedgerCentsForCode } from '@/lib/stripe-connect/classBranchLedgerCents'
+import { locationForBranchSlug } from '@/lib/stripe-connect/locationForBranchId'
 import { getPlatformStripe } from '@/lib/stripe/platform'
+import { copyInvoiceBranchOntoCharge, copySubscriptionBranchOntoInvoice } from '@/lib/stripe-connect/copySubscriptionBranch'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -109,6 +112,9 @@ export async function POST(request: NextRequest) {
       const parsed = parseGiftVoucherPurchaseMetadata(meta)
       if (paymentIntentId && parsed.isGiftVoucher && parsed.purchaserEmail) {
         try {
+          const saleBranch = meta.branchSlug
+            ? await locationForBranchSlug(payload, meta.branchSlug, tenant.id)
+            : null
           const result = await issuePurchasedGiftVoucher({
             payload,
             tenantId: tenant.id,
@@ -117,6 +123,7 @@ export async function POST(request: NextRequest) {
             purchaserEmail: parsed.purchaserEmail,
             purchaserName: parsed.purchaserName || null,
             userId: parsed.userId,
+            branchId: saleBranch?.id ?? null,
           })
           if (!result.issued) {
             payload.logger?.error?.(
@@ -211,12 +218,25 @@ export async function POST(request: NextRequest) {
                 ),
               )
             : undefined)
+        const classPriceBeforeDiscount = Number(meta.classPriceBeforeDiscount)
+        const ledgerCents =
+          classPriceAmountCents == null
+            ? undefined
+            : await classBranchLedgerCentsForCode({
+                payload,
+                tenantId: tenant.id,
+                discountCode: typeof meta.discountCode === 'string' ? meta.discountCode : null,
+                cashCents: classPriceAmountCents,
+                classPriceBeforeDiscountEuros: Number.isFinite(classPriceBeforeDiscount)
+                  ? classPriceBeforeDiscount
+                  : null,
+              })
         const fulfillResult = await fulfillCheckoutHold(payload, {
           holdId,
           userId,
           paymentIntentId: typeof obj?.id === 'string' ? obj.id : undefined,
           dropInId: dropInIdFromMeta,
-          classPriceAmountCents,
+          classPriceAmountCents: ledgerCents,
           tenantId: tenant.id,
           tenantContext: paymentIntentTenantContext,
           refundPaymentIntent:
@@ -236,7 +256,6 @@ export async function POST(request: NextRequest) {
 
         const discountCodeMeta =
           typeof meta.discountCode === 'string' ? meta.discountCode.trim() : ''
-        const classPriceBeforeDiscount = Number(meta.classPriceBeforeDiscount)
         if (discountCodeMeta && !fulfillResult.refunded) {
           try {
             const { consumeDiscountCodeRedemption } = await import(
@@ -416,6 +435,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    markStripeConnectEventProcessed(event.id)
+    return NextResponse.json({ received: true }, { status: 200 })
+  }
+
+  if (event.type === 'invoice.created' || event.type === 'invoice.paid') {
+    const invoice = (event.data?.object ?? {}) as Parameters<
+      typeof copySubscriptionBranchOntoInvoice
+    >[0]['invoice'] &
+      Parameters<typeof copyInvoiceBranchOntoCharge>[0]['invoice']
+    const stripe = getPlatformStripe()
+    const stripeAccount = getAccountIdFromEvent(event)
+    if (event.type === 'invoice.created') {
+      await copySubscriptionBranchOntoInvoice({ stripeAccount, stripe, invoice })
+    } else {
+      await copyInvoiceBranchOntoCharge({ stripeAccount, stripe, invoice })
+    }
     markStripeConnectEventProcessed(event.id)
     return NextResponse.json({ received: true }, { status: 200 })
   }

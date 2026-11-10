@@ -6,11 +6,13 @@ cd "$(dirname "$0")/.."
 
 # Shared CI env (matches GitHub Actions where applicable).
 export PAYLOAD_SECRET="${PAYLOAD_SECRET:-test-secret-key-for-ci-builds-only}"
-export STRIPE_SECRET_KEY="${STRIPE_SECRET_KEY:-sk_test_1234567890}"
-export NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:-pk_test_1234567890}"
-export STRIPE_WEBHOOK_SECRET="${STRIPE_WEBHOOK_SECRET:-whsec_1234567890}"
-export PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY="${PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY:-true}"
-export RESEND_API_KEY="${RESEND_API_KEY:-resend_api_key_1234567890}"
+# Always use placeholders. A developer shell often already has the live test key
+# from .env; Stripe then retries real API calls until Vitest's hookTimeout.
+export STRIPE_SECRET_KEY="sk_test_1234567890"
+export NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_1234567890"
+export STRIPE_WEBHOOK_SECRET="whsec_1234567890"
+export PAYLOAD_PUBLIC_STRIPE_IS_TEST_KEY="true"
+export RESEND_API_KEY="resend_api_key_1234567890"
 export ENABLE_TEST_MAGIC_LINKS="${ENABLE_TEST_MAGIC_LINKS:-true}"
 export NEXT_PUBLIC_SERVER_URL="${NEXT_PUBLIC_SERVER_URL:-http://localhost:3000}"
 export CI=true

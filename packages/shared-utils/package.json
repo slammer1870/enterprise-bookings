@@ -45,6 +45,10 @@
     "./password": {
       "types": "./src/password.ts",
       "default": "./src/password.ts"
+    },
+    "./booking-capacity": {
+      "types": "./src/booking-capacity.ts",
+      "default": "./src/booking-capacity.ts"
     }
   },
   "scripts": {

@@ -5,6 +5,12 @@ import { findSafe, findByIdSafe, hasCollection } from "./collections";
 import { DEFAULT_TRPC_BOOKING_COLLECTION_SLUGS } from "../bookings-slugs";
 import type { EventType, Timeslot } from "@repo/shared-types";
 import { resolveTimeZone } from "@repo/shared-utils";
+import {
+  attachProductAllowLists,
+  maxBookingsPerTimeslotForEventType,
+  relationId,
+  withMaxBookingsPerTimeslotOverride,
+} from "@repo/shared-services";
 
 export type TenantContext = {
   headers: Headers;
@@ -209,6 +215,8 @@ export async function populateTimeslotEventType(
       // Shallow-clone into plain objects to preserve explicit `null` values.
       const anyPop = populated as any;
       const plain: any = { ...anyPop };
+      const timeslotTenantId = relationId((timeslot as { tenant?: unknown }).tenant);
+      await attachProductAllowLists(payload, plain, { tenantId: timeslotTenantId });
 
       // Ensure `paymentMethods.allowedDropIn` includes `maxBookingsPerTimeslot`.
       // The manage-page quantity-cap logic uses:
@@ -269,9 +277,16 @@ export async function populateTimeslotEventType(
       if (Array.isArray(plain?.paymentMethods?.allowedPlans)) {
         plain.paymentMethods = {
           ...plain.paymentMethods,
-          allowedPlans: plain.paymentMethods.allowedPlans.map((p: any) =>
-            p?.sessionsInformation ? { ...p, sessionsInformation: { ...p.sessionsInformation } } : p
-          ),
+          allowedPlans: plain.paymentMethods.allowedPlans.map((p: any) => {
+            if (!p?.sessionsInformation) return p;
+            const sessionsForTimeslot = withMaxBookingsPerTimeslotOverride(
+              p.sessionsInformation,
+              p.sessionsInformation.eventTypeOverrides,
+              coId,
+            );
+            if (sessionsForTimeslot === p.sessionsInformation) return p;
+            return { ...p, sessionsInformation: sessionsForTimeslot };
+          }),
         };
       }
       if (Array.isArray(plain?.paymentMethods?.allowedClassPasses)) {
@@ -300,7 +315,12 @@ export async function populateTimeslotEventType(
             return {
               ...cloned,
               // Explicitly carry the DB value so the client sees null (unlimited) vs a number.
-              maxBookingsPerTimeslot: cpDoc.maxBookingsPerTimeslot ?? null,
+              // A per-event-type number replaces that cap for this timeslot's event type.
+              maxBookingsPerTimeslot: maxBookingsPerTimeslotForEventType(
+                cpDoc.eventTypeOverrides,
+                coId,
+                cpDoc.maxBookingsPerTimeslot ?? null,
+              ),
             };
           })
         );

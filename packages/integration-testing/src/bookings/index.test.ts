@@ -337,11 +337,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 4543",
           places: 1,
           description: "Test Class Option 4",
-          paymentMethods: {
-            allowedPlans: [plan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const timeslot = await createTimeslot(payload, {
         startHoursOffset: 10, // 10 AM
@@ -416,11 +420,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 3432",
           places: 1,
           description: "Test Class Option 3432",
-          paymentMethods: {
-            allowedPlans: [plan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const timeslot = await createTimeslot(payload, {
         startHoursOffset: 10, // 10 AM
@@ -505,11 +513,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 14",
           places: 1,
           description: "Test Class Option 4",
-          paymentMethods: {
-            allowedPlans: [plan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const baseDate = new Date();
       const timeslot1 = await createTimeslot(payload, {
@@ -643,11 +655,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 5",
           places: 1,
           description: "Test Class Option 5",
-          paymentMethods: {
-            allowedPlans: [plan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventTypeWithPlan.id] },
+        overrideAccess: true,
+      });
+
       const eventTypeWithoutPlan = await payload.create({
         collection: "event-types",
         data: {
@@ -749,11 +765,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 7",
           places: 1,
           description: "Test Class Option 7",
-          paymentMethods: {
-            allowedPlans: [plan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const timeslot = await createTimeslot(payload, {
         startHoursOffset: 10, // 10 AM
@@ -828,11 +848,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 8",
           places: 2,
           description: "Test Class Option 8",
-          paymentMethods: {
-            allowedPlans: [plan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       // First timeslot - current week (32 hours from now, which is tomorrow + 8 hours)
       const tomorrow = new Date();
@@ -948,11 +972,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 9",
           places: 1,
           description: "Test Class Option 9",
-          paymentMethods: {
-            allowedPlans: [allowedPlan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: allowedPlan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const timeslot = await createTimeslot(payload, {
         startHoursOffset: 10, // 10 AM
@@ -1044,11 +1072,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 32",
           places: 1,
           description: "Test Class Option 9",
-          paymentMethods: {
-            allowedPlans: [allowedPlan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: allowedPlan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const timeslot = await createTimeslot(payload, {
         startHoursOffset: 10, // 10 AM
@@ -1123,11 +1155,15 @@ describe("Booking tests", () => {
           name: "Test Class Option 10",
           places: 1,
           description: "Test Class Option 10",
-          paymentMethods: {
-            allowedPlans: [plan.id],
-          },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const timeslot = await createTimeslot(payload, {
         startHoursOffset: 10, // 10 AM
@@ -1197,9 +1233,15 @@ describe("Booking tests", () => {
           name: "Member cap event type",
           places: 2,
           description: "Member cap event type",
-          paymentMethods: { allowedPlans: [plan.id] },
         },
       });
+      await payload.update({
+        collection: "plans",
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
+        overrideAccess: true,
+      });
+
 
       const timeslot = await createTimeslot(payload, {
         startHoursOffset: 10,
@@ -1262,10 +1304,16 @@ describe("Booking tests", () => {
             name: "Class pass cap event type",
             places: 2,
             description: "Class pass cap event type",
-            paymentMethods: { allowedClassPasses: [classPassType.id] },
           },
           overrideAccess: true,
         });
+        await payload.update({
+          collection: "class-pass-types",
+          id: classPassType.id,
+          data: { allowedEventTypes: [eventType.id] },
+          overrideAccess: true,
+        });
+
 
         const timeslot = await createTimeslot(payload, {
           startHoursOffset: 10,

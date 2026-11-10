@@ -33,6 +33,10 @@ export function createTestConfig(): Config {
         fields: [{ name: "alt", type: "text", required: true }],
         upload: true,
       },
+      {
+        slug: "locations",
+        fields: [{ name: "name", type: "text", required: true }],
+      },
     ],
     editor: lexicalEditor(),
     secret: process.env.PAYLOAD_SECRET || "test-secret",

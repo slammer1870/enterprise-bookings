@@ -2,6 +2,7 @@
 
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import { parseBookingIds } from '@/lib/stripe-connect/webhook/parse-metadata'
+import { attachProductAllowLists, relationId } from '@repo/shared-services'
 import { resolveTimeZone, resolveTimeslotTimeZone } from '@repo/shared-utils/timezone'
 import type { Payload } from 'payload'
 
@@ -192,6 +193,13 @@ async function loadTimeslotReceipt(
   if (!timeslot) return null
 
   const eventType = timeslot.eventType
+  if (eventType && typeof eventType === 'object') {
+    await attachProductAllowLists(payload, eventType, {
+      tenantId:
+        relationId(timeslot.tenant) ??
+        relationId((eventType as { tenant?: unknown }).tenant),
+    })
+  }
   const timeZone = resolveTimeslotTimeZone(
     { timeZone: timeslot.timeZone, tenant: timeslot.tenant },
     platformDefaultTimeZone,

@@ -212,5 +212,39 @@ describe('PlanView upgrade flow', () => {
     expect(screen.getByText('Extra sessions')).toBeInTheDocument()
     // Price component appends the recurring interval display.
     expect(screen.getByText(/\/month/i)).toBeInTheDocument()
+    expect(screen.getByText(/upgrade to get more sessions this period/i)).toBeInTheDocument()
+    expect(screen.getByText(/4 more sessions this period/i)).toBeInTheDocument()
+  })
+
+  it('names the event type in the exhausted-quota upgrade callout', () => {
+    const currentPlan = createPlan({ id: 100, name: '2x Week' })
+    const upgradePlan = createPlan({ id: 300, name: '3x Week' })
+
+    render(
+      <PlanView
+        allowedPlans={[currentPlan, upgradePlan]}
+        subscription={createSubscription(currentPlan, { status: 'active' })}
+        timeslotDate={new Date('2026-03-21T10:00:00.000Z')}
+        subscriptionLimitReached
+        canUseSubscriptionForQuantity={false}
+        remainingSessions={0}
+        selectedQuantity={1}
+        eventTypeName="E2E 2xWeek Limit"
+        upgradeOptions={[
+          {
+            plan: upgradePlan,
+            maxAdditionalSessions: 1,
+          },
+        ]}
+        onCreateCheckoutSession={vi.fn().mockResolvedValue(undefined)}
+        onCreateCustomerPortal={vi.fn().mockResolvedValue(undefined)}
+      />
+    )
+
+    expect(
+      screen.getByText(/upgrade to get more e2e 2xweek limit this period/i),
+    ).toBeInTheDocument()
+    expect(screen.queryByText(/upgrade to get more sessions this period/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/1 more e2e 2xweek limit this period/i)).toBeInTheDocument()
   })
 })

@@ -3,6 +3,9 @@ import type { NextRequest } from 'next/server'
 
 import { getPayload } from '@/lib/payload'
 import { createTenantPaymentIntent } from '@/lib/stripe-connect/charges'
+import { branchChargeMetadata, omitClientBranchMetadata } from '@/lib/stripe-connect/branchChargeMetadata'
+import { classBranchLedgerCentsForCode } from '@/lib/stripe-connect/classBranchLedgerCents'
+import { locationForBranchId } from '@/lib/stripe-connect/locationForBranchId'
 import {
   getCurrentUser,
   resolveTenantSlugOrId,
@@ -31,6 +34,33 @@ import {
 import { issueRemainderDiscountCodeIfNeeded } from '@/lib/stripe-connect/issueRemainderDiscountCode'
 
 export const dynamic = 'force-dynamic'
+
+function requestAborted(request: NextRequest): boolean {
+  return request.signal?.aborted === true
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  if (error.name === 'AbortError' || error.name === 'ResponseAborted') return true
+  return /aborted|ECONNRESET|socket hang up|other side closed/i.test(error.message)
+}
+
+/** Client disconnect aborts the body read. That is not a malformed payload. */
+async function waitForClientDisconnect(request: NextRequest, ms: number): Promise<void> {
+  const signal = request.signal
+  if (!signal || signal.aborted) return
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      { once: true },
+    )
+  })
+}
 
 export async function POST(request: NextRequest) {
   const payload = await getPayload()
@@ -99,8 +129,25 @@ export async function POST(request: NextRequest) {
   }
   _alertUserId = user.id
 
-  const body = await request.json().catch(() => null)
-  if (!body || typeof body !== 'object') {
+  let body: { price?: unknown; confirmOnly?: unknown; metadata?: unknown }
+  try {
+    const parsed = await request.json()
+    if (requestAborted(request)) {
+      return new NextResponse(null, { status: 499 })
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return alertResponse({ error: 'Invalid JSON body' }, 400)
+    }
+    body = parsed as { price?: unknown; confirmOnly?: unknown; metadata?: unknown }
+  } catch (error) {
+    if (requestAborted(request) || isAbortLikeError(error)) {
+      return new NextResponse(null, { status: 499 })
+    }
+    // The response abort signal can land just after a truncated body read throws.
+    await waitForClientDisconnect(request, 50)
+    if (requestAborted(request)) {
+      return new NextResponse(null, { status: 499 })
+    }
     return alertResponse({ error: 'Invalid JSON body' }, 400)
   }
 
@@ -164,6 +211,7 @@ export async function POST(request: NextRequest) {
   })) as {
     tenant?: number | { id: number }
     remainingCapacity?: number
+    branch?: number | null
     eventType?: any
   } | null
 
@@ -400,12 +448,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
+    const classPriceBeforeDiscount =
+      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
+        ? Number(classPriceBeforeDiscountRaw)
+        : NaN
+    const ledgerCents = await classBranchLedgerCentsForCode({
+      payload,
+      tenantId,
+      discountCode: discountCodeMeta,
+      cashCents: classPriceAmountCents,
+      classPriceBeforeDiscountEuros: Number.isFinite(classPriceBeforeDiscount)
+        ? classPriceBeforeDiscount
+        : null,
+    })
+
     const result = await fulfillCheckoutHold(payload, {
       holdId,
       userId: user.id,
       tenantId,
       dropInId: trackableDropInId,
-      classPriceAmountCents,
+      classPriceAmountCents: ledgerCents,
       tenantContext: { tenant: tenantId },
       timeslotsSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
       eventTypesSlug: ATND_ME_BOOKINGS_COLLECTION_SLUGS.eventTypes,
@@ -417,12 +480,6 @@ export async function POST(request: NextRequest) {
         `create-payment-intent: hold ${holdId} refunded after consuming discount ${discountCodeMeta}; code remains consumed`,
       )
     }
-
-    const classPriceBeforeDiscountRaw = metadata?.classPriceBeforeDiscount
-    const classPriceBeforeDiscount =
-      classPriceBeforeDiscountRaw != null && classPriceBeforeDiscountRaw !== ''
-        ? Number(classPriceBeforeDiscountRaw)
-        : NaN
 
     let remainder:
       | {
@@ -488,6 +545,9 @@ export async function POST(request: NextRequest) {
       stripeAccountId: tenant.stripeConnectAccountId,
     })
 
+    const metadataWithoutBranch = omitClientBranchMetadata(metadata)
+    const branchLocation = await locationForBranchId(payload, timeslot.branch)
+
     const { client_secret } = await createTenantPaymentIntent({
       tenant: {
         id: tenant.id,
@@ -501,7 +561,8 @@ export async function POST(request: NextRequest) {
       customerId: stripeCustomerId,
       receiptEmail: user.email,
       metadata: {
-        ...(metadata ?? {}),
+        ...metadataWithoutBranch,
+        ...branchChargeMetadata([branchLocation]),
         timeslotId: String(timeslotId),
         userId: String(user.id),
         quantity: String(quantity),

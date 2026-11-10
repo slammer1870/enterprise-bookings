@@ -50,7 +50,29 @@ export interface Plan {
      * - `null`/`undefined` => no per-viewer limit (still bounded by event type capacity)
      */
     maxBookingsPerTimeslot?: number | null;
+    eventTypeOverrides?:
+      | {
+          id?: string | null;
+          /** Legacy single type. A row with `eventTypes` uses that list instead. */
+          eventType?: number | { id: number } | null;
+          /** Types that share this row's sessions. */
+          eventTypes?: Array<number | { id: number }> | null;
+          sessions?: number | null;
+          /**
+           * When set with `interval`, this event type is counted in its own window.
+           * Blank keeps the plan's sessions interval.
+           */
+          intervalCount?: number | null;
+          interval?: "day" | "week" | "month" | "quarter" | "year" | null;
+          /**
+           * Replaces `maxBookingsPerTimeslot` for every type on this row.
+           * Blank keeps the plan cap.
+           */
+          maxBookingsPerTimeslot?: number | null;
+        }[]
+      | null;
   } | null;
+  allowedEventTypes?: Array<number | { id: number }> | null;
   priceInformation?: {
     price: number;
     intervalCount: number;

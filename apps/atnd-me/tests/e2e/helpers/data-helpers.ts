@@ -559,17 +559,40 @@ export async function setEventTypeAllowedPlans(
   planIds: Array<string | number>
 ): Promise<EventType> {
   const payload = await getPayloadInstance()
-  const classOptionIdNumber =
+  const eventTypeId =
     typeof classOptionId === 'string' ? Number(classOptionId) : classOptionId
 
-  return (await payload.update({
+  for (const rawPlanId of planIds) {
+    const planId = typeof rawPlanId === 'string' ? Number(rawPlanId) : rawPlanId
+    const plan = await payload.findByID({
+      collection: 'plans',
+      id: planId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    const existing = Array.isArray((plan as { allowedEventTypes?: unknown }).allowedEventTypes)
+      ? ((plan as { allowedEventTypes: unknown[] }).allowedEventTypes
+          .map((value) =>
+            typeof value === 'object' && value != null && 'id' in value
+              ? Number((value as { id: number }).id)
+              : Number(value),
+          )
+          .filter((id) => Number.isFinite(id)))
+      : []
+    if (!existing.includes(eventTypeId)) {
+      await payload.update({
+        collection: 'plans',
+        id: planId,
+        data: { allowedEventTypes: [...existing, eventTypeId] },
+        overrideAccess: true,
+      })
+    }
+  }
+
+  return (await payload.findByID({
     collection: 'event-types',
-    id: classOptionIdNumber,
-    data: {
-      paymentMethods: {
-        allowedPlans: planIds.map((id) => (typeof id === 'string' ? Number(id) : id)),
-      },
-    },
+    id: eventTypeId,
+    depth: 0,
     overrideAccess: true,
   })) as EventType
 }

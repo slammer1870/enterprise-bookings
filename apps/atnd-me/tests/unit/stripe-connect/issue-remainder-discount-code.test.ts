@@ -430,4 +430,34 @@ describe('issueRemainderDiscountCodeIfNeeded', () => {
     })
     expect(payload.create).not.toHaveBeenCalled()
   })
+
+  it('copies the parent sale branch onto the remainder', async () => {
+    const payload = makePayload({
+      parent: {
+        id: 10,
+        code: 'GIFT100',
+        type: 'amount_off',
+        value: 100,
+        currency: 'eur',
+        maxRedemptions: 1,
+        rootPurchasedAt: ROOT_PURCHASED,
+        createdAt: ROOT_PURCHASED,
+        status: 'active',
+        branch: 42,
+      },
+    })
+
+    await issueRemainderDiscountCodeIfNeeded({
+      payload: payload as never,
+      tenantId: 1,
+      discountCode: 'GIFT100',
+      classPriceBeforeDiscount: 20,
+      userId: 5,
+      userEmail: 'user@example.com',
+      bookingId: 77,
+    })
+
+    const data = payload.create.mock.calls[0]?.[0]?.data
+    expect(data.branch).toBe(42)
+  })
 })

@@ -15,6 +15,38 @@ function getTenantId(doc: { tenant?: number | { id: number } } | null): number |
   return typeof t === 'object' && t !== null && 'id' in t ? t.id : (t as number)
 }
 
+function relationId(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'object' && value != null && 'id' in value) {
+    const id = (value as { id: unknown }).id
+    if (typeof id === 'number' && Number.isFinite(id)) return id
+  }
+  return undefined
+}
+
+/** Timeslot site for a booking. Missing timeslot or branch leaves the ledger field empty. */
+async function branchIdForBooking(payload: PayloadLike, bookingId: number): Promise<number | undefined> {
+  try {
+    const booking = (await payload.findByID({
+      collection: 'bookings',
+      id: bookingId,
+      depth: 0,
+      overrideAccess: true,
+    })) as { timeslot?: unknown } | null
+    const timeslotId = relationId(booking?.timeslot)
+    if (timeslotId == null) return undefined
+    const timeslot = (await payload.findByID({
+      collection: ATND_ME_BOOKINGS_COLLECTION_SLUGS.timeslots,
+      id: timeslotId,
+      depth: 0,
+      overrideAccess: true,
+    })) as { branch?: unknown } | null
+    return relationId(timeslot?.branch)
+  } catch {
+    return undefined
+  }
+}
+
 /**
  * Confirm bookings by ID and create Stripe transaction records.
  * Used for payment_intent.succeeded when metadata contains explicit bookingIds.
@@ -35,9 +67,9 @@ export async function confirmBookingsFromPaymentIntent(
       ? opts.dropInId
       : null
   const batchSize = bookingIds.length
-  for (let batchIndex = 0; batchIndex < bookingIds.length; batchIndex++) {
-    const bookingId = bookingIds[batchIndex]
+  for (const [batchIndex, bookingId] of bookingIds.entries()) {
     try {
+      const branchId = await branchIdForBooking(payload, bookingId)
       await payload.create({
         collection: 'transactions',
         data: {
@@ -45,6 +77,7 @@ export async function confirmBookingsFromPaymentIntent(
           paymentMethod: 'stripe',
           ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
           ...(dropInId != null ? { dropInId } : {}),
+          ...(branchId != null ? { branch: branchId } : {}),
           tenant: opts.tenantId,
         },
         ...(tenantContext ? { context: tenantContext } : {}),
@@ -101,7 +134,9 @@ export async function confirmBookingsFromQuantityFlow(
     id: timeslotId,
     depth: 1,
     overrideAccess: true,
-  })) as { remainingCapacity?: number } | null
+  })) as { remainingCapacity?: number; branch?: unknown } | null
+
+  const branchId = relationId(timeslot?.branch)
 
   const remainingCapacity =
     timeslot && typeof timeslot.remainingCapacity === 'number'
@@ -151,6 +186,7 @@ export async function confirmBookingsFromQuantityFlow(
         paymentMethod: 'stripe',
         ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
         ...(dropInId != null ? { dropInId } : {}),
+        ...(branchId != null ? { branch: branchId } : {}),
         tenant: tenantId,
       },
       ...(tenantContext ? { context: tenantContext } : {}),
@@ -183,6 +219,7 @@ export async function confirmBookingsFromQuantityFlow(
           paymentMethod: 'stripe',
           ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
           ...(dropInId != null ? { dropInId } : {}),
+          ...(branchId != null ? { branch: branchId } : {}),
           tenant: tenantId,
         },
         ...(tenantContext ? { context: tenantContext } : {}),
@@ -216,12 +253,14 @@ export async function confirmBookingAndCreateSubscriptionTransaction(
   })
 
   if (existing.totalDocs === 0) {
+    const branchId = await branchIdForBooking(payload, bookingId)
     await payload.create({
       collection: 'transactions',
       data: {
         booking: bookingId,
         paymentMethod: 'subscription',
         subscriptionId: opts.subscriptionId,
+        ...(branchId != null ? { branch: branchId } : {}),
         ...(opts.tenantId != null ? { tenant: opts.tenantId } : {}),
       },
       ...(tenantContext ? { context: tenantContext } : {}),

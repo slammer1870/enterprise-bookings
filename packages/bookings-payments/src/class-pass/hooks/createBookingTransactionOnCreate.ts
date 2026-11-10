@@ -7,7 +7,17 @@ type BookingDoc = {
   subscriptionIdUsed?: number;
   courseEnrollmentIdUsed?: number;
   tenant?: number | { id: number };
+  timeslot?: number | { id: number } | null;
 };
+
+function relationId(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "object" && value != null && "id" in value) {
+    const id = (value as { id: unknown }).id;
+    if (typeof id === "number" && Number.isFinite(id)) return id;
+  }
+  return undefined;
+}
 
 /**
  * Returns an afterChange hook for the bookings collection that creates a
@@ -60,6 +70,19 @@ export function createBookingTransactionOnCreate(): CollectionAfterChangeHook {
       if (r.context == null || typeof r.context !== "object") r.context = {};
       if (tenantId != null) r.context.tenant = tenantId;
       r.context.skipBookingValidationForId = bookingId;
+
+      const timeslotId = relationId(d.timeslot);
+      if (timeslotId != null) {
+        const timeslot = (await payload.findByID({
+          collection: "timeslots" as import("payload").CollectionSlug,
+          id: timeslotId,
+          depth: 0,
+          overrideAccess: true,
+          req: r as Parameters<typeof payload.findByID>[0]["req"],
+        })) as { branch?: unknown } | null;
+        const branchId = relationId(timeslot?.branch);
+        if (branchId != null) txData.branch = branchId;
+      }
 
       await payload.create({
         collection: "transactions" as import("payload").CollectionSlug,

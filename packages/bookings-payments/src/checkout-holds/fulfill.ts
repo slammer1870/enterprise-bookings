@@ -1,7 +1,9 @@
 import type { CollectionSlug } from 'payload'
+import { sql } from '@payloadcms/db-postgres'
 import {
   BOOKINGS_COLLECTION_SLUG,
   CHECKOUT_HOLD_COLLECTION_SLUG,
+  TIMESLOTS_COLLECTION_SLUG,
   TRANSACTIONS_COLLECTION_SLUG,
 } from './constants'
 import {
@@ -56,8 +58,9 @@ export async function fulfillCheckoutHold(
     /** Drop-in product id for once-per-user tracking (stripe/drop-in checkouts). */
     dropInId?: number | null
     /**
-     * Total class price charged for this hold in cents, after trial/quantity/promo
-     * discounts and excluding platform booking fee. Split across the hold quantity.
+     * Total class price for this hold in cents, excluding the platform booking fee.
+     * Gift-voucher value redeemed on the class is included. Other promo discounts are not.
+     * Split across the hold quantity.
      */
     classPriceAmountCents?: number
     tenantId: number
@@ -88,21 +91,10 @@ export async function fulfillCheckoutHold(
 
   if (hold.status === 'consumed') {
     // The hold was already fulfilled (e.g. webhook re-delivery after a partial failure).
-    // Try to find bookings already created via this payment so the caller gets the right IDs.
-    if (opts.paymentIntentId) {
-      const existingTxns = (await payload.find({
-        collection: opts.transactionsSlug ?? TRANSACTIONS_COLLECTION_SLUG,
-        where: { stripePaymentIntentId: { equals: opts.paymentIntentId } },
-        depth: 0,
-        limit: 100,
-        overrideAccess: true,
-      }).catch(() => ({ docs: [] }))) as { docs: Array<{ booking?: number | { id: number } }> }
-      const ids = existingTxns.docs
-        .map((t) => (typeof t.booking === 'object' ? t.booking?.id : t.booking))
-        .filter((id): id is number => typeof id === 'number')
-      return { confirmedBookingIds: ids, refunded: false }
+    return {
+      confirmedBookingIds: await bookingIdsForPaymentIntent(payload, opts),
+      refunded: false,
     }
-    return { confirmedBookingIds: [], refunded: false }
   }
 
   const holdUserId = relationId(hold.user)
@@ -152,18 +144,15 @@ export async function fulfillCheckoutHold(
   // Marking consumed first means the hold is removed from the "active holds" tally immediately,
   // so capacity stays stable while bookings are being written.
   //
-  // Re-delivery safety: if booking creation fails partway through, a Stripe re-delivery will
-  // find `hold.status === 'consumed'` above and look up already-created transactions to return
-  // the correct booking IDs rather than creating duplicates.
-  await payload.update({
-    collection: holdCollection,
-    id: hold.id,
-    data: {
-      status: 'consumed',
-      ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
-    },
-    overrideAccess: true,
-  })
+  // The claim is conditional (`status <> consumed`) so the success page and the webhook can
+  // both try to fulfill the same payment without creating two bookings.
+  const claimed = await claimHoldForFulfillment(payload, holdCollection, hold.id, opts.paymentIntentId)
+  if (!claimed) {
+    return {
+      confirmedBookingIds: await bookingIdsForPaymentIntent(payload, opts),
+      refunded: false,
+    }
+  }
 
   const confirmedBookingIds: number[] = []
 
@@ -176,6 +165,15 @@ export async function fulfillCheckoutHold(
     opts.classPriceAmountCents != null && Number.isFinite(opts.classPriceAmountCents)
       ? splitCents(opts.classPriceAmountCents, hold.quantity)
       : null
+
+  const timeslotsSlug = opts.timeslotsSlug ?? TIMESLOTS_COLLECTION_SLUG
+  const timeslot = (await payload.findByID({
+    collection: timeslotsSlug,
+    id: timeslotId,
+    depth: 0,
+    overrideAccess: true,
+  })) as { branch?: number | { id: number } | null } | null
+  const branchId = relationId(timeslot?.branch)
 
   for (let i = 0; i < hold.quantity; i++) {
     const created = (await payload.create({
@@ -207,6 +205,7 @@ export async function fulfillCheckoutHold(
         ...(opts.paymentIntentId ? { stripePaymentIntentId: opts.paymentIntentId } : {}),
         ...(dropInId != null ? { dropInId } : {}),
         ...(amountCentsPerBooking != null ? { amountCents: amountCentsPerBooking[i] } : {}),
+        ...(branchId != null ? { branch: branchId } : {}),
         tenant: opts.tenantId,
       },
       ...(tenantContext ? { context: tenantContext } : {}),
@@ -215,4 +214,75 @@ export async function fulfillCheckoutHold(
   }
 
   return { confirmedBookingIds, refunded: false }
+}
+
+async function bookingIdsForPaymentIntent(
+  payload: PayloadLike,
+  opts: { paymentIntentId?: string; transactionsSlug?: CollectionSlug },
+): Promise<number[]> {
+  if (!opts.paymentIntentId) return []
+  const existingTxns = (await payload
+    .find({
+      collection: opts.transactionsSlug ?? TRANSACTIONS_COLLECTION_SLUG,
+      where: { stripePaymentIntentId: { equals: opts.paymentIntentId } },
+      depth: 0,
+      limit: 100,
+      overrideAccess: true,
+    })
+    .catch(() => ({ docs: [] }))) as { docs: Array<{ booking?: number | { id: number } }> }
+  return existingTxns.docs
+    .map((t) => (typeof t.booking === 'object' ? t.booking?.id : t.booking))
+    .filter((id): id is number => typeof id === 'number')
+}
+
+type DrizzleExecute = {
+  execute: (
+    _query: unknown,
+  ) => Promise<{ rows?: Array<{ id?: number }> } | Array<{ id?: number }>>
+}
+
+function drizzleExecutor(payload: PayloadLike): DrizzleExecute | null {
+  const drizzle = payload?.db?.drizzle as DrizzleExecute | undefined
+  if (!drizzle || typeof drizzle.execute !== 'function') return null
+  return drizzle
+}
+
+/**
+ * Atomically move the hold to `consumed`. Returns false when another worker
+ * already claimed it. Falls back to a plain update when drizzle isn't available
+ * (unit tests).
+ */
+async function claimHoldForFulfillment(
+  payload: PayloadLike,
+  holdCollection: CollectionSlug,
+  holdId: number,
+  paymentIntentId?: string,
+): Promise<boolean> {
+  const drizzle = drizzleExecutor(payload)
+  if (drizzle) {
+    const paymentIntent = paymentIntentId ?? null
+    const result = await drizzle.execute(sql`
+      UPDATE "booking_checkout_holds"
+      SET
+        "status" = 'consumed',
+        "stripe_payment_intent_id" = COALESCE(${paymentIntent}, "stripe_payment_intent_id"),
+        "updated_at" = NOW()
+      WHERE "id" = ${holdId}
+        AND "status" <> 'consumed'
+      RETURNING "id"
+    `)
+    const rows = Array.isArray(result) ? result : (result.rows ?? [])
+    return rows.length > 0
+  }
+
+  await payload.update({
+    collection: holdCollection,
+    id: holdId,
+    data: {
+      status: 'consumed',
+      ...(paymentIntentId ? { stripePaymentIntentId: paymentIntentId } : {}),
+    },
+    overrideAccess: true,
+  })
+  return true
 }

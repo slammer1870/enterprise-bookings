@@ -107,6 +107,31 @@ describe('createGiftVoucherPaymentIntent', () => {
     expect(params.application_fee_amount).toBe(150)
   })
 
+  it('stamps the selling branch on the gift voucher charge', async () => {
+    const { createGiftVoucherPaymentIntent } = await import(
+      '@/lib/stripe-connect/createGiftVoucherPaymentIntent'
+    )
+
+    await createGiftVoucherPaymentIntent({
+      tenant: {
+        id: 11,
+        stripeConnectAccountId: 'acct_1RJd8wQ1eJoLeXYe',
+        stripeConnectOnboardingStatus: 'active',
+      },
+      amountEuros: 50,
+      purchaserEmail: 'guest@example.com',
+      purchaserName: 'Guest Buyer',
+      branch: { name: 'Rathmines', slug: 'rathmines' },
+      payload,
+    })
+
+    const [params] = paymentIntentsCreate.mock.calls[0]
+    expect(params.metadata).toMatchObject({
+      branchName: 'Rathmines',
+      branchSlug: 'rathmines',
+    })
+  })
+
   it('omits application_fee_amount when fee is zero', async () => {
     calculateBookingFeeAmount.mockResolvedValue(0)
     const { createGiftVoucherPaymentIntent } = await import(

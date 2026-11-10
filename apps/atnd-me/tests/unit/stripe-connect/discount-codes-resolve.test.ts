@@ -107,6 +107,34 @@ describe('resolveTenantDiscountCode (migrated skipSync codes)', () => {
     expect(await resolveTenantDiscountCode(payload as never, 7, 'ONCE01')).toBeUndefined()
   })
 
+  it('records breakage when an unused gift voucher is past redeem-by', async () => {
+    const payload = makePayload([
+      {
+        id: 8,
+        code: 'OLDGIFT',
+        type: 'amount_off',
+        value: 40,
+        status: 'active',
+        maxRedemptions: 1,
+        timesRedeemed: 0,
+        redeemBy: '2020-01-01T00:00:00.000Z',
+        sourcePaymentIntentId: 'pi_old',
+        rootPurchasedAt: '2019-01-01T00:00:00.000Z',
+      },
+    ])
+
+    const checked = await checkTenantDiscountCode(payload as never, 7, 'OLDGIFT')
+    expect(checked).toEqual({ ok: false, error: 'This discount code has expired.' })
+    expect(payload.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'discount-codes',
+        id: 8,
+        data: { breakageCents: 4000 },
+        overrideAccess: true,
+      }),
+    )
+  })
+
   it('rejects active codes whose timesRedeemed already meets maxRedemptions', async () => {
     const payload = makePayload([
       {

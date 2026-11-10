@@ -72,6 +72,40 @@ export async function findEmergencyContactForUser(
   return toEmergencyContactSummary(doc as unknown as Record<string, unknown>)
 }
 
+/** True when the account already has a saved emergency-contact record for this tenant. */
+export function hasEmergencyContactOnFile(
+  existing: EmergencyContactRecordSummary | null,
+): boolean {
+  return existing !== null
+}
+
+export async function userBelongsToTenant(
+  payload: Payload,
+  userId: number,
+  tenantId: number,
+): Promise<boolean> {
+  const found = await payload.findByID({
+    collection: 'users',
+    id: userId,
+    depth: 0,
+    overrideAccess: true,
+  })
+
+  if (!found) return false
+
+  const doc = found as unknown as Record<string, unknown>
+  const registrationTenant = relationId(doc.registrationTenant)
+  if (registrationTenant === tenantId) return true
+
+  const tenants = doc.tenants
+  if (!Array.isArray(tenants)) return false
+
+  return tenants.some((entry) => {
+    if (!entry || typeof entry !== 'object') return false
+    return relationId((entry as Record<string, unknown>).tenant) === tenantId
+  })
+}
+
 export function toEmergencyContactSummary(doc: Record<string, unknown>): EmergencyContactRecordSummary {
   const userId = relationId(doc.user) ?? 0
   const peopleRaw = Array.isArray(doc.people) ? doc.people : []

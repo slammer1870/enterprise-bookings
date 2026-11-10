@@ -1,4 +1,5 @@
 import type { CollectionConfig, Field } from "payload";
+import { validateClassPassCreditPoolRows } from "@repo/shared-services";
 import {
   classPassReadAccess,
   classPassCreateAccess,
@@ -6,6 +7,7 @@ import {
   classPassDeleteAccess,
 } from "../access/class-passes";
 import type { CollectionOverrides } from "../../types";
+import { snapshotClassPassCreditsOnCreate } from "../hooks/snapshot-class-pass-credits";
 
 const STATUS_OPTIONS = ["active", "expired", "used", "cancelled"] as const;
 
@@ -23,6 +25,7 @@ const defaultAccess: NonNullable<CollectionConfig["access"]> = {
 };
 
 export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
+  const eventTypesSlug = opts.eventTypesSlug ?? "event-types";
   const adminGroup = opts.adminGroup ?? "Billing";
   const overrides = opts.overrides;
 
@@ -49,7 +52,40 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
       type: "number",
       required: true,
       min: 0,
-      admin: { description: "Number of passes/credits remaining (original is on the pass type)" },
+      admin: {
+        description:
+          "Credits remaining for event types that are not on a pool row. Original allowance is on the pass type.",
+      },
+    },
+    {
+      name: "eventTypeOverrides",
+      label: "Credit pools",
+      labels: {
+        singular: "Credit pool",
+        plural: "Credit pools",
+      },
+      type: "array",
+      admin: {
+        description:
+          "Remaining credits for each pool. The event types on a row share that row's remaining quantity.",
+      },
+      fields: [
+        {
+          name: "eventTypes",
+          label: "Event types",
+          type: "relationship",
+          relationTo: eventTypesSlug as import("payload").CollectionSlug,
+          hasMany: true,
+          required: true,
+        },
+        {
+          name: "quantity",
+          label: "Remaining",
+          type: "number",
+          required: true,
+          min: 0,
+        },
+      ],
     },
     {
       name: "expirationDate",
@@ -93,6 +129,7 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
   ];
 
   const defaultHooks: NonNullable<CollectionConfig["hooks"]> = {
+    beforeChange: [snapshotClassPassCreditsOnCreate],
     beforeValidate: [
       async ({ data, operation }) => {
         if (operation === "create" && data?.expirationDate) {
@@ -100,6 +137,10 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
           if (exp <= new Date()) {
             throw new Error("Expiration date must be in the future");
           }
+        }
+        if (data && Array.isArray(data.eventTypeOverrides)) {
+          const validation = validateClassPassCreditPoolRows(data.eventTypeOverrides);
+          if (validation !== true) throw new Error(validation);
         }
         return data;
       },

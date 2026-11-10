@@ -52,6 +52,7 @@ type ParentDiscountDoc = {
   redeemBy?: string | null
   status?: string | null
   sourcePaymentIntentId?: string | null
+  branch?: number | { id: number } | null
 }
 
 function generateRemainderCode(parentCode: string): string {
@@ -264,6 +265,11 @@ export async function issueRemainderDiscountCodeIfNeeded(
         ...(bookingId != null ? { sourceBookingId: bookingId } : {}),
         ...(holdId != null ? { sourceHoldId: holdId } : {}),
         ...(paymentIntentIdClean ? { sourcePaymentIntentId: paymentIntentIdClean } : {}),
+        ...(typeof parent.branch === 'number' && parent.branch > 0
+          ? { branch: parent.branch }
+          : typeof parent.branch === 'object' && parent.branch != null && parent.branch.id > 0
+            ? { branch: parent.branch.id }
+            : {}),
         status: 'active',
       },
       overrideAccess: true,
