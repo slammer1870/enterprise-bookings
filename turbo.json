@@ -1,6 +1,7 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "globalEnv": ["NODE_ENV", "CI"],
+  "globalPassThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
@@ -86,6 +87,7 @@
     },
     "test:e2e:shard": {
       "dependsOn": ["^build"],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH"],
       "env": [
         "PLAYWRIGHT_SHARD",
         "DATABASE_URI",
@@ -126,6 +128,7 @@
     },
     "test:e2e": {
       "dependsOn": ["build"],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH"],
       "env": [
         "DATABASE_URI",
         "PAYLOAD_SECRET",
@@ -144,6 +147,7 @@
     },
     "test:e2e:ci": {
       "dependsOn": ["build"],
+      "passThroughEnv": ["PLAYWRIGHT_BROWSERS_PATH"],
       "env": [
         "DATABASE_URI",
         "PAYLOAD_SECRET",

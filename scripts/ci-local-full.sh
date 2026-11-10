@@ -60,8 +60,11 @@ docker info >/dev/null 2>&1 || {
   echo "Docker is not running. Package tests need TestContainers."
   exit 1
 }
-# Cursor/agent shells often set PLAYWRIGHT_BROWSERS_PATH to a sandbox cache that may
-# not contain browsers yet; install chromium there (or the default cache) before e2e.
+# Cursor/agent shells set PLAYWRIGHT_BROWSERS_PATH to a sandbox cache. Turbo's
+# strict env mode drops undeclared variables, so e2e then looks in
+# ~/Library/Caches/ms-playwright and every browser test fails to launch.
+# globalPassThroughEnv in turbo.json forwards this path into the test task.
+echo "Playwright browsers: ${PLAYWRIGHT_BROWSERS_PATH:-$HOME/Library/Caches/ms-playwright}"
 pnpm --filter atnd-me exec playwright install chromium
 
 stage "1/9  quality — lint + check-types (@repo/*)"
