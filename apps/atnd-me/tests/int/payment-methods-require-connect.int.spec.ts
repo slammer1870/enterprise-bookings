@@ -1,6 +1,7 @@
 /**
  * Step 2.6.1 – Int: Payment methods require Stripe Connect (server enforcement).
- * - Setting any payment method (allowedDropIn, allowedPlans, allowedClassPasses) while tenant not connected is rejected.
+ * - Setting a drop-in on an event type while the tenant is not connected is rejected.
+ *   Memberships and class passes are enabled on those products, not on the event type.
  * - When tenant is connected, saving with a payment method succeeds.
  */
 import { describe, it, expect, beforeAll } from 'vitest'

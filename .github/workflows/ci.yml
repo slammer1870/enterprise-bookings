@@ -150,19 +150,30 @@ jobs:
         run: pnpm ci:atnd-me:db
 
       - name: Verify migrated schema
-        env:
-          PGPASSWORD: brugrappling
         run: |
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.tenants')" | grep -qx tenants
-          psql -h localhost -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc \
-            "SELECT to_regclass('public.users')" | grep -qx users
+          set -euo pipefail
+          # ubuntu-latest's psql is 18. Query with the Postgres 16 client so the
+          # check does not depend on the runner's client formatting or startup GUCs.
+          container="${{ job.services.postgres.id }}"
+          for table in tenants users; do
+            found="$(docker exec "$container" psql -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -tAc "SELECT to_regclass('public.${table}')" | tr -d '[:space:]')"
+            echo "public.${table} -> [${found}]"
+            if [ "$found" != "$table" ] && [ "$found" != "public.${table}" ]; then
+              echo "Expected ${table} after migrate:fresh" >&2
+              docker exec "$container" psql -U postgres -d e2e_atnd_me -c '\dt'
+              exit 1
+            fi
+          done
 
       - name: Dump database for test shards
-        env:
-          PGPASSWORD: brugrappling
         run: |
-          pg_dump -h localhost -U postgres -d e2e_atnd_me -F c -f atnd-me-db.dump
+          set -euo pipefail
+          # Use the service image's client. ubuntu-latest now ships pg_dump 17+,
+          # which writes `SET transaction_timeout = 0` — a GUC Postgres 16 rejects.
+          container="${{ job.services.postgres.id }}"
+          docker exec "$container" pg_dump --version
+          docker exec "$container" pg_dump -U postgres -d e2e_atnd_me -F c -f /tmp/atnd-me-db.dump
+          docker cp "$container":/tmp/atnd-me-db.dump atnd-me-db.dump
           # Empty / near-empty dumps mean migrate:fresh did not produce a usable schema.
           test "$(stat -c%s atnd-me-db.dump)" -gt 100000
 
@@ -229,24 +240,31 @@ jobs:
         env:
           PGPASSWORD: brugrappling
         run: |
-          set -e
+          set -euo pipefail
+          # Match the dump client (the postgres:16 image). The runner's pg_restore
+          # is 17+ and replays `SET transaction_timeout = 0`, which Postgres 16 rejects.
+          container="${{ job.services.postgres.id }}"
           echo "Restoring database from dump..."
-          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose atnd-me-db.dump 2>&1 || {
+          docker cp atnd-me-db.dump "$container":/tmp/atnd-me-db.dump
+          docker exec "$container" pg_restore --version
+          docker exec "$container" pg_restore -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose /tmp/atnd-me-db.dump || {
             echo "pg_restore exited with code $?"
             echo "Checking if tables exist..."
-            psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
+            docker exec "$container" psql -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
             exit 1
           }
           echo "Database restore complete. Verifying tables..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" | head -20
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -c "SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY 2 LIMIT 20;"
           echo "Checking tenants table..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "SELECT COUNT(*) FROM tenants;" || echo "tenants table does not exist"
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM tenants;"
 
       - name: Run integration tests shard ${{ matrix.shard }}/8 (Turbo)
         run: pnpm ci:atnd-me:int
 
   e2e-build:
-    runs-on: ubuntu-latest
+    # Playwright 1.56 has no ubuntu26.04 browser builds (that starts in 1.61).
+    # Keep the Next artifact on the same image the E2E job runs it on.
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       DATABASE_URI: postgres://postgres:brugrappling@localhost:5432/e2e_atnd_me
@@ -330,7 +348,8 @@ jobs:
 
   e2e-tests:
     needs: [e2e-build, atnd-me-db]
-    runs-on: ubuntu-latest
+    # Playwright 1.56 has no ubuntu26.04 browser builds (that starts in 1.61).
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -381,9 +400,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-ubuntu2404-playwright-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-playwright-
+            ${{ runner.os }}-ubuntu2404-playwright-
 
       - name: Download Next.js build artifact
         uses: actions/download-artifact@v4
@@ -410,18 +429,23 @@ jobs:
         env:
           PGPASSWORD: brugrappling
         run: |
-          set -e
+          set -euo pipefail
+          # Match the dump client (the postgres:16 image). The runner's pg_restore
+          # is 17+ and replays `SET transaction_timeout = 0`, which Postgres 16 rejects.
+          container="${{ job.services.postgres.id }}"
           echo "Restoring database from dump..."
-          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose atnd-me-db.dump 2>&1 || {
+          docker cp atnd-me-db.dump "$container":/tmp/atnd-me-db.dump
+          docker exec "$container" pg_restore --version
+          docker exec "$container" pg_restore -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose /tmp/atnd-me-db.dump || {
             echo "pg_restore exited with code $?"
             echo "Checking if tables exist..."
-            psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
+            docker exec "$container" psql -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
             exit 1
           }
           echo "Database restore complete. Verifying tables..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" | head -20
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -c "SELECT n.nspname, c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY 2 LIMIT 20;"
           echo "Checking tenants table..."
-          psql -h localhost -U postgres -d e2e_atnd_me -c "SELECT COUNT(*) FROM tenants;" || echo "tenants table does not exist"
+          docker exec "$container" psql -U postgres -d e2e_atnd_me -v ON_ERROR_STOP=1 -c "SELECT COUNT(*) FROM tenants;"
 
       - name: Install Playwright OS dependencies
         run: pnpm exec playwright install-deps

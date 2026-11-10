@@ -95,14 +95,6 @@ test.describe('Course purchase and public schedule booking', () => {
       context: { skipStripeSync: true },
     })) as { id: number }
 
-    // This is the authorization relationship used by the public schedule.
-    await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedCourses: [course.id] } },
-      overrideAccess: true,
-    })
-
     const startTime = futureDate(6 + workerIndex, 15)
     const lesson = await createTestTimeslot(
       tenant.id,

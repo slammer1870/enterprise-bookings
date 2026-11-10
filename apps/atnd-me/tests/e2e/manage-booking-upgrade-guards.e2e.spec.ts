@@ -204,7 +204,7 @@ test.describe('Manage booking upgrade guards', () => {
             // Explicitly clear the other payment methods because Payload's update
             // can merge nested objects, and these tests assume "only this variant".
             data: {
-              paymentMethods: { allowedDropIn: dropIn.id, allowedPlans: [], allowedClassPasses: [] },
+              paymentMethods: { allowedDropIn: dropIn.id },
             },
             overrideAccess: true,
           })
@@ -222,11 +222,9 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'event-types',
-            id: classOptionId,
-            data: {
-              paymentMethods: { allowedDropIn: null, allowedPlans: [plan.id], allowedClassPasses: [] },
-            },
+            collection: 'plans',
+            id: plan.id,
+            data: { allowedEventTypes: [classOptionId] },
             overrideAccess: true,
           })
         },
@@ -252,11 +250,9 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'event-types',
-            id: classOptionId,
-            data: {
-              paymentMethods: { allowedDropIn: null, allowedPlans: [], allowedClassPasses: [classPassType.id] },
-            },
+            collection: 'class-pass-types',
+            id: classPassType.id,
+            data: { allowedEventTypes: [classOptionId] },
             overrideAccess: true,
           })
         },
@@ -306,10 +302,20 @@ test.describe('Manage booking upgrade guards', () => {
             data: {
               paymentMethods: {
                 allowedDropIn: dropIn.id,
-                allowedPlans: [plan.id],
-                allowedClassPasses: [classPassType.id],
               },
             },
+            overrideAccess: true,
+          })
+          await payload.update({
+            collection: 'plans',
+            id: plan.id,
+            data: { allowedEventTypes: [classOptionId] },
+            overrideAccess: true,
+          })
+          await payload.update({
+            collection: 'class-pass-types',
+            id: classPassType.id,
+            data: { allowedEventTypes: [classOptionId] },
             overrideAccess: true,
           })
         },
@@ -451,13 +457,9 @@ test.describe('Manage booking upgrade guards', () => {
           })
 
           await payload.update({
-            collection: 'event-types',
-            id: classOptionId,
-            data: {
-              paymentMethods: {
-                allowedPlans: [plan.id],
-              },
-            },
+            collection: 'plans',
+            id: plan.id,
+            data: { allowedEventTypes: [classOptionId] },
             overrideAccess: true,
           })
         },
@@ -492,9 +494,14 @@ test.describe('Manage booking upgrade guards', () => {
             data: {
               paymentMethods: {
                 allowedDropIn: dropIn.id,
-                allowedPlans: [plan.id],
               },
             },
+            overrideAccess: true,
+          })
+          await payload.update({
+            collection: 'plans',
+            id: plan.id,
+            data: { allowedEventTypes: [classOptionId] },
             overrideAccess: true,
           })
         },
@@ -545,10 +552,20 @@ test.describe('Manage booking upgrade guards', () => {
             data: {
               paymentMethods: {
                 allowedDropIn: dropIn.id,
-                allowedPlans: [plan.id],
-                allowedClassPasses: [classPassType.id],
               },
             },
+            overrideAccess: true,
+          })
+          await payload.update({
+            collection: 'plans',
+            id: plan.id,
+            data: { allowedEventTypes: [classOptionId] },
+            overrideAccess: true,
+          })
+          await payload.update({
+            collection: 'class-pass-types',
+            id: classPassType.id,
+            data: { allowedEventTypes: [classOptionId] },
             overrideAccess: true,
           })
         },

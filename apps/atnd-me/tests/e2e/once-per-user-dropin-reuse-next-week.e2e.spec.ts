@@ -197,8 +197,6 @@ test.describe('Once-per-user drop-in reuse next week', () => {
       data: {
         paymentMethods: {
           allowedDropIn: dropIn.id,
-          allowedPlans: [],
-          allowedClassPasses: [],
         },
         tenant: tenantId,
       },

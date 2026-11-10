@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 
+import { classPassesCollection } from "../src/class-pass/collections/class-passes";
 import { classPassTypesCollection } from "../src/class-pass/collections/class-pass-types";
 import { generatePlansCollection } from "../src/membership/collections/plans";
 import { dropInsCollection } from "../src/payments/collections/drop-ins";
@@ -32,6 +33,128 @@ describe("maxBookingsPerTimeslot beforeValidate", () => {
     } as any);
 
     expect((data as any).maxBookingsPerTimeslot).toBe(null);
+  });
+
+  it("class-pass: an override event type is added to Allowed and the row stays", async () => {
+    const cfg = classPassTypesCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        allowedEventTypes: [1],
+        quantity: 10,
+        eventTypeOverrides: [{ eventType: 2, quantity: 4 }],
+      },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toEqual([1, 2]);
+    expect((data as any).eventTypeOverrides).toEqual([{ eventType: 2, quantity: 4 }]);
+    expect((data as any).quantity).toBe(10);
+  });
+
+  it("class-pass: a save that omits Allowed keeps stored types and adds the override type", async () => {
+    const cfg = classPassTypesCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        quantity: 10,
+        eventTypeOverrides: [{ eventType: 2, quantity: 4 }],
+      },
+      originalDoc: { allowedEventTypes: [1], quantity: 10 },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toEqual([1, 2]);
+    expect((data as any).quantity).toBe(10);
+  });
+
+  it("class-pass: a save that omits Allowed still accepts an override type already stored", async () => {
+    const cfg = classPassTypesCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        quantity: 10,
+        eventTypeOverrides: [{ eventType: 1, quantity: 4 }],
+      },
+      originalDoc: { allowedEventTypes: [1], quantity: 10 },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toBeUndefined();
+    expect((data as any).eventTypeOverrides[0].eventType).toBe(1);
+    expect((data as any).quantity).toBe(4);
+  });
+
+  it("class-pass: a save adds every type on a row to Allowed and stores that pool once", async () => {
+    const cfg = classPassTypesCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        quantity: 9,
+        eventTypeOverrides: [{ eventTypes: [11, 12], quantity: 2 }],
+      },
+      originalDoc: { allowedEventTypes: [], quantity: 9 },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toEqual([11, 12]);
+    expect((data as any).quantity).toBe(2);
+  });
+
+  it("purchased class pass: a save rejects a type listed on two credit pools and keeps a spent pool", async () => {
+    const cfg = classPassesCollection({});
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    await expect(
+      hook({
+        data: {
+          eventTypeOverrides: [
+            { eventTypes: [11, 12], quantity: 0 },
+            { eventTypes: [12], quantity: 1 },
+          ],
+        },
+        operation: "update",
+      } as any),
+    ).rejects.toThrow("Each event type can only be overridden once.");
+
+    const data = await hook({
+      data: {
+        eventTypeOverrides: [
+          { eventTypes: [11, 12], quantity: 0 },
+          { eventTypes: [21], quantity: 1 },
+        ],
+      },
+      operation: "update",
+    } as any);
+
+    expect((data as any).eventTypeOverrides).toEqual([
+      { eventTypes: [11, 12], quantity: 0 },
+      { eventTypes: [21], quantity: 1 },
+    ]);
+  });
+
+  it("class-pass: a save rejects a type listed on two rows", async () => {
+    const cfg = classPassTypesCollection();
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    await expect(
+      hook({
+        data: {
+          allowedEventTypes: [11, 12, 21],
+          quantity: 10,
+          eventTypeOverrides: [
+            { eventTypes: [11, 12], quantity: 2 },
+            { eventTypes: [12, 21], quantity: 2 },
+          ],
+        },
+      } as any),
+    ).rejects.toThrow("Each event type can only be overridden once.");
   });
 
   it("plans: numeric max should win over legacy allowMultiple boolean", async () => {
@@ -95,6 +218,143 @@ describe("maxBookingsPerTimeslot beforeValidate", () => {
     } as any);
 
     expect((data as any).maxBookingsPerTimeslot).toBe(null);
+  });
+
+  it("plans: a row with Interval and blank Per saves Per as 1", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        allowedEventTypes: [2],
+        sessionsInformation: {
+          eventTypeOverrides: [{ eventType: 2, sessions: 2, interval: "week" }],
+        },
+      },
+    } as any);
+
+    expect((data as any).sessionsInformation.eventTypeOverrides[0].intervalCount).toBe(1);
+  });
+
+  it("plans: an override event type is added to Allowed and the row stays", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        allowedEventTypes: [1],
+        sessionsInformation: {
+          eventTypeOverrides: [{ eventType: 2, sessions: 2, interval: "week", intervalCount: 1 }],
+        },
+      },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toEqual([1, 2]);
+    expect((data as any).sessionsInformation.eventTypeOverrides).toEqual([
+      { eventType: 2, sessions: 2, interval: "week", intervalCount: 1 },
+    ]);
+  });
+
+  it("plans: an event type already allowed and overridden stays in Allowed once", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        allowedEventTypes: [1, 2],
+        sessionsInformation: {
+          eventTypeOverrides: [{ eventType: 2, sessions: 2, interval: "week", intervalCount: 1 }],
+        },
+      },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toEqual([1, 2]);
+  });
+
+  it("plans: a save that omits Allowed keeps stored types and adds the override type", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        sessionsInformation: {
+          eventTypeOverrides: [{ eventType: 2, sessions: 2, interval: "week", intervalCount: 1 }],
+        },
+      },
+      originalDoc: { allowedEventTypes: [1] },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toEqual([1, 2]);
+  });
+
+  it("plans: a save that omits Allowed still accepts an override type already stored", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const data = await hook({
+      data: {
+        sessionsInformation: {
+          eventTypeOverrides: [{ eventType: 1, sessions: 2, interval: "week", intervalCount: 1 }],
+        },
+      },
+      originalDoc: { allowedEventTypes: [1] },
+    } as any);
+
+    expect((data as any).allowedEventTypes).toBeUndefined();
+    expect((data as any).sessionsInformation.eventTypeOverrides[0].eventType).toBe(1);
+  });
+
+  it("plans: a row with Per and blank Interval is rejected", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    await expect(
+      hook({
+        data: {
+          allowedEventTypes: [2],
+          sessionsInformation: {
+            eventTypeOverrides: [{ eventType: 2, sessions: 2, intervalCount: 2 }],
+          },
+        },
+      } as any),
+    ).rejects.toThrow("Set Interval when Per is set, or leave both blank.");
+  });
+
+  it("plans: a save adds every type on a row to Allowed and rejects a type listed on two rows", async () => {
+    const cfg = generatePlansCollection({} as any);
+    const hook = cfg.hooks?.beforeValidate?.[0];
+    if (!hook) throw new Error("missing beforeValidate hook");
+
+    const added = await hook({
+      data: {
+        allowedEventTypes: [1],
+        sessionsInformation: {
+          sessions: 8,
+          eventTypeOverrides: [{ eventTypes: [11, 12], sessions: 2, interval: "week", intervalCount: 1 }],
+        },
+      },
+    } as any);
+    expect((added as any).allowedEventTypes).toEqual([1, 11, 12]);
+
+    await expect(
+      hook({
+        data: {
+          allowedEventTypes: [11, 12, 21],
+          sessionsInformation: {
+            eventTypeOverrides: [
+              { eventTypes: [11, 12], sessions: 2 },
+              { eventTypes: [12, 21], sessions: 2 },
+            ],
+          },
+        },
+      } as any),
+    ).rejects.toThrow("Each event type can only be overridden once.");
   });
 });
 

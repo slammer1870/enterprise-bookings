@@ -7,15 +7,9 @@ export type CourseEnrollmentTimeslotLike = {
   startTime?: string | null;
   eventType?: {
     id?: number | null;
-    paymentMethods?: {
-      allowedCourses?: Array<number | { id: number }> | null;
-    } | null;
   } | null;
   classOption?: {
     id?: number | null;
-    paymentMethods?: {
-      allowedCourses?: Array<number | { id: number }> | null;
-    } | null;
   } | null;
 };
 
@@ -59,8 +53,7 @@ function toIdArray(val: unknown): number[] {
  * same tenant, active, open course, event type ∈ course.allowedEventTypes,
  * and timeslot start within access window.
  *
- * The course owns the entitlement. The event type's allowedCourses relation is
- * an offer/payment configuration and must not revoke an existing enrollment.
+ * The course owns the entitlement through its allowed event types.
  */
 export function filterValidEnrollmentsForTimeslot(
   lesson: CourseEnrollmentTimeslotLike,

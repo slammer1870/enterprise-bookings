@@ -1998,11 +1998,9 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: {
-          paymentMethods: { allowedPlans: [plan.id] },
-        },
+        collection: 'plans',
+        id: plan.id,
+        data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
       const startDate = new Date()
@@ -2075,9 +2073,9 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedPlans: [plan.id] } },
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
       const startDate = new Date()
@@ -2170,9 +2168,9 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedPlans: [plan.id] } },
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
       const startDate = new Date()
@@ -2302,9 +2300,9 @@ describe('tRPC Bookings Integration Tests', () => {
         overrideAccess: true,
       })
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedPlans: [plan.id] } },
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
       const startDate = new Date()
@@ -2401,9 +2399,9 @@ describe('tRPC Bookings Integration Tests', () => {
       })
 
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedPlans: [plan.id] } },
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
 
@@ -2523,9 +2521,9 @@ describe('tRPC Bookings Integration Tests', () => {
       })
 
       await payload.update({
-        collection: 'event-types',
-        id: eventType.id,
-        data: { paymentMethods: { allowedPlans: [plan.id] } },
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
         overrideAccess: true,
       })
 

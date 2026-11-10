@@ -35,6 +35,33 @@ import { issueRemainderDiscountCodeIfNeeded } from '@/lib/stripe-connect/issueRe
 
 export const dynamic = 'force-dynamic'
 
+function requestAborted(request: NextRequest): boolean {
+  return request.signal?.aborted === true
+}
+
+function isAbortLikeError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  if (error.name === 'AbortError' || error.name === 'ResponseAborted') return true
+  return /aborted|ECONNRESET|socket hang up|other side closed/i.test(error.message)
+}
+
+/** Client disconnect aborts the body read. That is not a malformed payload. */
+async function waitForClientDisconnect(request: NextRequest, ms: number): Promise<void> {
+  const signal = request.signal
+  if (!signal || signal.aborted) return
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        resolve()
+      },
+      { once: true },
+    )
+  })
+}
+
 export async function POST(request: NextRequest) {
   const payload = await getPayload()
 
@@ -102,8 +129,25 @@ export async function POST(request: NextRequest) {
   }
   _alertUserId = user.id
 
-  const body = await request.json().catch(() => null)
-  if (!body || typeof body !== 'object') {
+  let body: { price?: unknown; confirmOnly?: unknown; metadata?: unknown }
+  try {
+    const parsed = await request.json()
+    if (requestAborted(request)) {
+      return new NextResponse(null, { status: 499 })
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return alertResponse({ error: 'Invalid JSON body' }, 400)
+    }
+    body = parsed as { price?: unknown; confirmOnly?: unknown; metadata?: unknown }
+  } catch (error) {
+    if (requestAborted(request) || isAbortLikeError(error)) {
+      return new NextResponse(null, { status: 499 })
+    }
+    // The response abort signal can land just after a truncated body read throws.
+    await waitForClientDisconnect(request, 50)
+    if (requestAborted(request)) {
+      return new NextResponse(null, { status: 499 })
+    }
     return alertResponse({ error: 'Invalid JSON body' }, 400)
   }
 

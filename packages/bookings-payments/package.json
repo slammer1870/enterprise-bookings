@@ -16,13 +16,13 @@
     "@repo/shared-utils": "workspace:*",
     "@repo/ui": "workspace:*",
     "lucide-react": "*",
-    "sonner": "*"
+    "sonner": "*",
+    "@payloadcms/db-postgres": "*"
   },
   "devDependencies": {
     "@repo/eslint-config": "workspace:*",
     "@types/react": "*",
     "@types/react-dom": "*",
-    "@payloadcms/db-postgres": "*",
     "@payloadcms/richtext-lexical": "3.84.1",
     "@repo/bookings-plugin": "workspace:*",
     "@repo/payload-testing": "workspace:*",

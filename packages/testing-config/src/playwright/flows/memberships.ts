@@ -155,24 +155,39 @@ export async function setEventTypeAllowedPlans(
     }
   }
 
-  const res = await request.patch(`${baseUrl}/api/event-types/${options.eventTypeId}`, {
-    headers: {
-      ...(await adminAuthHeader()),
-      Cookie: await cookieHeader(),
-      'Content-Type': 'application/json',
-    },
-    data: {
-      paymentMethods: {
-        allowedPlans: options.planIds,
+  for (const planId of options.planIds) {
+    const currentRes = await request.get(`${baseUrl}/api/plans/${planId}?depth=0`, {
+      headers: {
+        ...(await adminAuthHeader()),
+        Cookie: await cookieHeader(),
       },
-    },
-  })
-
-  if (!res.ok()) {
-    const txt = await res.text().catch(() => '')
-    throw new Error(
-      `Failed to set paymentMethods.allowedPlans on event-types/${options.eventTypeId}: ${res.status()} ${txt}`,
-    )
+    })
+    const currentJson: any = currentRes.ok() ? await currentRes.json().catch(() => null) : null
+    const current = currentJson?.doc ?? currentJson
+    const existing = Array.isArray(current?.allowedEventTypes)
+      ? current.allowedEventTypes
+          .map((value: unknown) =>
+            typeof value === 'object' && value != null && 'id' in value
+              ? Number((value as { id: number }).id)
+              : Number(value),
+          )
+          .filter((id: number) => Number.isFinite(id))
+      : []
+    const allowedEventTypes = Array.from(new Set([...existing, options.eventTypeId]))
+    const res = await request.patch(`${baseUrl}/api/plans/${planId}`, {
+      headers: {
+        ...(await adminAuthHeader()),
+        Cookie: await cookieHeader(),
+        'Content-Type': 'application/json',
+      },
+      data: { allowedEventTypes },
+    })
+    if (!res.ok()) {
+      const txt = await res.text().catch(() => '')
+      throw new Error(
+        `Failed to add event type ${options.eventTypeId} to plan ${planId} allowedEventTypes: ${res.status()} ${txt}`,
+      )
+    }
   }
 }
 

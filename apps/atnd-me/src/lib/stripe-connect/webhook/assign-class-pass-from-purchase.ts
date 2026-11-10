@@ -4,6 +4,7 @@
  */
 import type { Payload } from 'payload'
 import { resolveDaysUntilExpiration } from '@repo/bookings-payments'
+import { snapshotClassPassCredits } from '@repo/shared-services'
 import { handleClassPassGiftRemainder } from './checkout-gift-credit'
 
 export type AssignClassPassFromPurchaseResult =
@@ -91,9 +92,21 @@ export async function assignClassPassFromPurchase(params: {
         overrideAccess: true,
         ...(tenantContext ? { context: tenantContext } : {}),
       })
-      .catch(() => null)) as { quantity?: unknown; daysUntilExpiration?: unknown } | null
+      .catch(() => null)) as {
+      quantity?: unknown
+      daysUntilExpiration?: unknown
+      allowedEventTypes?: unknown
+      eventTypeOverrides?: Array<{
+        eventType?: unknown
+        eventTypes?: unknown
+        quantity?: number | null
+      }> | null
+    } | null
 
-    const passCredits = coerceCredits(classPassType?.quantity)
+    const snapshot = snapshotClassPassCredits(classPassType ?? {})
+    const passCredits =
+      snapshot.quantity +
+      snapshot.eventTypeOverrides.reduce((sum, row) => sum + row.quantity, 0)
     if (passCredits < 1) {
       payload.logger?.error?.(
         `class_pass_purchase: class-pass-type ${classPassTypeId} has invalid quantity (${String(classPassType?.quantity)}) for transaction ${transactionId}`,
@@ -113,7 +126,8 @@ export async function assignClassPassFromPurchase(params: {
         user: userId,
         tenant: tenantId,
         type: classPassTypeId,
-        quantity: passCredits,
+        quantity: snapshot.quantity,
+        eventTypeOverrides: snapshot.eventTypeOverrides,
         expirationDate: expirationDateISO,
         purchasedAt: purchasedAt.toISOString().slice(0, 10),
         status: 'active',

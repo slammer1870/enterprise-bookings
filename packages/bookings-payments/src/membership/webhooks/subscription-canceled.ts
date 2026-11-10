@@ -1,5 +1,6 @@
 import { StripeWebhookHandler } from "@payloadcms/plugin-stripe/types";
 import Stripe from "stripe";
+import { relationIds } from "@repo/shared-services";
 import { findUserByCustomer } from "./find-user-by-customer";
 
 export const subscriptionCanceled: StripeWebhookHandler<{
@@ -83,13 +84,17 @@ export const subscriptionCanceled: StripeWebhookHandler<{
         limit: 1,
       });
 
-      if (plan.docs[0]?.id) {
+      const allowedEventTypeIds = relationIds(
+        (plan.docs[0] as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
+      );
+
+      if (plan.docs[0]?.id && allowedEventTypeIds.length > 0) {
         await payload.update({
           collection: asCollection("bookings"),
           where: {
             user: { equals: subscriptionUserId },
-            "timeslot.eventType.paymentMethods.allowedPlans": {
-              contains: plan.docs[0].id,
+            "timeslot.eventType": {
+              in: allowedEventTypeIds,
             },
             "timeslot.startTime": {
               greater_than: new Date(),

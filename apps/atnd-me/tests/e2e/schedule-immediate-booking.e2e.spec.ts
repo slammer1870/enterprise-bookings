@@ -283,13 +283,6 @@ test.describe('Schedule immediate booking', () => {
       context: { skipStripeSync: true },
     })) as { id: number }
 
-    await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedCourses: [course.id] } },
-      overrideAccess: true,
-    })
-
     const enrollment = (await payload.create({
       collection: 'course-enrollments',
       data: {
@@ -434,9 +427,9 @@ test.describe('Schedule immediate booking', () => {
     })) as { id: number }
 
     await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
+      collection: 'class-pass-types',
+      id: cpt.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 
@@ -874,7 +867,7 @@ test.describe('Schedule immediate booking', () => {
   // When they navigate to a 3rd booking page in the same week:
   //   • The Membership tab is selected by default (not the Drop-in tab).
   //   • The Membership tab content shows upgrade plan cards for plans that would
-  //     give them additional sessions this period ("N more session(s) this period").
+  //     give them additional sessions this period ("N more {class name} this period").
 
   test('2x/week quota exhausted: booking page defaults to Membership tab and shows upgrade plans', async ({
     page,
@@ -982,16 +975,23 @@ test.describe('Schedule immediate booking', () => {
     await expect(membershipTab).toBeVisible({ timeout: 15000 })
     await expect(membershipTab).toHaveAttribute('aria-selected', 'true', { timeout: 10000 })
 
-    // The Membership tab content must show the upgrade plans callout
-    await expect(page.getByText(/upgrade to get more sessions this period/i).first()).toBeVisible({
+    // Upgrade copy names the class, because the allowance is for this event type.
+    const eventTypeName = String(eventType.name)
+    const eventTypeNamePattern = eventTypeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+    await expect(
+      page.getByText(new RegExp(`upgrade to get more ${eventTypeNamePattern} this period`, 'i')).first(),
+    ).toBeVisible({
       timeout: 15000,
     })
 
     // An upgrade card for the 3x/week plan should be present
     await expect(page.getByText(upgradePlan.name as string).first()).toBeVisible({ timeout: 10000 })
 
-    // The upgrade card should display "more session(s) this period"
-    await expect(page.getByText(/more session[s]? this period/i).first()).toBeVisible({
+    // The upgrade card should display how many more of this class the higher plan adds.
+    await expect(
+      page.getByText(new RegExp(`\\d+ more ${eventTypeNamePattern} this period`, 'i')).first(),
+    ).toBeVisible({
       timeout: 10000,
     })
   })
@@ -1154,9 +1154,9 @@ test.describe('Schedule immediate booking', () => {
     })) as { id: number }
 
     await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedClassPasses: [cpt.id] } },
+      collection: 'class-pass-types',
+      id: cpt.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 

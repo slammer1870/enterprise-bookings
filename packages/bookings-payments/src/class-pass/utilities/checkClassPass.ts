@@ -1,9 +1,13 @@
 /**
  * Check if the user has a valid class pass for the given tenant and event type.
- * Event types restrict which pass types (allowedClassPasses) are accepted;
- * the user must have a pass whose type is in that list.
+ * A pass type can pay for an event type when that event type is in allowedEventTypes.
  */
 import type { Payload } from "payload";
+import {
+  creditsRemainingForEventType,
+  findClassPassTypesForEventType,
+  relationId,
+} from "@repo/shared-services";
 import type {
   ClassPassLike,
   EventTypeLike,
@@ -22,57 +26,60 @@ export type CheckClassPassResult =
   | { valid: true; pass: ClassPassLike }
   | { valid: false; error: string };
 
-function toIdArray(val: unknown): number[] {
-  if (Array.isArray(val)) {
-    return val
-      .map((v) => (typeof v === "object" && v != null && "id" in v ? (v as { id: number }).id : v))
-      .filter((v): v is number => typeof v === "number");
-  }
-  return [];
-}
-
 export async function checkClassPass({
   payload,
   user,
   tenant,
   eventType,
 }: CheckClassPassArgs): Promise<CheckClassPassResult> {
-  const allowed = eventType?.paymentMethods?.allowedClassPasses;
-  const allowedTypeIds = toIdArray(allowed);
-  if (allowedTypeIds.length === 0) {
+  const eventTypeId = relationId(eventType?.id);
+  if (eventTypeId == null) {
     return { valid: false, error: "Class passes not allowed for this event type" };
   }
 
-  const tenantId =
-    typeof tenant === "object" && tenant !== null ? tenant.id : tenant;
-  const userId = typeof user === "object" && user !== null ? user.id : user;
+  const tenantId = relationId(tenant);
+  const userId = relationId(user);
   if (tenantId == null || userId == null) {
     return { valid: false, error: "Missing tenant or user" };
   }
 
+  const types = await findClassPassTypesForEventType(payload, eventTypeId, {
+    tenantId,
+    depth: 0,
+  });
+  const allowedTypeIds = types
+    .map((doc) => relationId(doc.id))
+    .filter((id): id is number => id != null);
+  if (allowedTypeIds.length === 0) {
+    return { valid: false, error: "Class passes not allowed for this event type" };
+  }
+
   const now = new Date().toISOString();
-  const tenantFilter =
-    tenantId != null
-      ? { tenant: { equals: tenantId } }
-      : ({} as Record<string, unknown>);
   const result = await payload.find({
     collection: "class-passes" as import("payload").CollectionSlug,
     where: {
       user: { equals: userId },
-      ...tenantFilter,
+      tenant: { equals: tenantId },
       status: { equals: "active" },
-      quantity: { greater_than: 0 },
       expirationDate: { greater_than: now },
       type: { in: allowedTypeIds },
     },
-    limit: 1,
+    limit: 20,
     sort: "expirationDate",
     depth: 0,
+    overrideAccess: true,
   });
 
-  if (!result.docs.length) {
+  const pass = result.docs.find(
+    (doc) =>
+      creditsRemainingForEventType(
+        doc as { quantity?: unknown; eventTypeOverrides?: never },
+        eventTypeId,
+      ) > 0,
+  );
+  if (!pass) {
     return { valid: false, error: "No valid class pass found for this event type" };
   }
 
-  return { valid: true, pass: result.docs[0] as ClassPassLike };
+  return { valid: true, pass: pass as ClassPassLike };
 }

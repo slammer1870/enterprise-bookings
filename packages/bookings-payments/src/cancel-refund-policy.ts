@@ -10,6 +10,10 @@ import {
   type CancelPaymentMethod,
   type TenantRefundPolicy,
 } from "./refund-policy";
+import {
+  adjustClassPassForEventType,
+  eventTypeIdForTimeslot,
+} from "./class-pass/utilities/adjust-class-pass-credits";
 
 type BookingLike = {
   id: number;
@@ -17,6 +21,15 @@ type BookingLike = {
   timeslot?: number | { id?: number; startTime?: string | Date } | null;
   tenant?: number | { id?: number } | null;
 };
+
+/**
+ * Spread onto a customer self-service cancel. The booking already belongs to
+ * the caller. Refund policy then runs inside the window, including when that
+ * caller is also studio staff. Admin-panel cancels do not set this.
+ */
+export const applyCustomerRefundPolicyContext = {
+  applyCustomerRefundPolicy: true,
+} as const;
 
 type TransactionLike = {
   id: number;
@@ -184,30 +197,24 @@ export function computePartialRefundAmountCents(opts: {
 async function restoreClassPassCredit(
   payload: Payload,
   tx: TransactionLike,
+  booking: BookingLike,
   req?: PayloadRequest,
 ): Promise<void> {
   if (tx.classPassRestoredAt) return;
   const passId = tx.classPassId;
   if (passId == null) return;
 
-  const pass = (await payload.findByID({
-    collection: "class-passes" as any,
-    id: passId,
-    depth: 0,
-    overrideAccess: true,
-    req,
-  })) as { quantity?: number; status?: string } | null;
-  if (!pass || typeof pass.quantity !== "number") return;
-
-  const nextQty = pass.quantity + 1;
-  const status = nextQty > 0 ? "active" : (pass.status ?? "used");
-  await payload.update({
-    collection: "class-passes" as any,
-    id: passId,
-    data: { quantity: nextQty, status } as Record<string, unknown>,
-    overrideAccess: true,
+  const eventTypeId = await eventTypeIdForTimeslot(payload, booking.timeslot, req);
+  const restored = await adjustClassPassForEventType({
+    payload,
+    passId,
+    eventTypeId,
+    delta: 1,
     req,
   });
+  if (!restored.ok) {
+    throw new Error(restored.error);
+  }
 
   await payload.update({
     collection: "transactions" as any,
@@ -325,7 +332,7 @@ export async function applyCancelRefundPolicy(
   }
 
   if (paymentMethod === "class_pass") {
-    await restoreClassPassCredit(payload, tx, opts.req);
+    await restoreClassPassCredit(payload, tx, booking, opts.req);
     return { applied: true, kind: "class_pass" };
   }
 
@@ -354,7 +361,8 @@ export type CreateApplyRefundPolicyOnCancelHookOptions = {
   refundStripePaymentIntent?: ApplyCancelRefundPolicyOptions["refundStripePaymentIntent"];
   /**
    * Return false for cancellations that should not trigger an automatic refund,
-   * such as cancellations made by an administrator.
+   * such as a staff member cancelling a booking from the admin panel.
+   * Ignored when `applyCustomerRefundPolicyContext` is set.
    */
   shouldApplyRefundPolicy?: (_args: {
     req: PayloadRequest;
@@ -377,7 +385,10 @@ export function createApplyRefundPolicyOnCancelHook(
     // work on intermediate cancels. Refunds must still run for every sibling booking.
     if (previousDoc?.status !== "confirmed") return;
     if (doc?.status !== "cancelled") return;
+    // Customer self-service cancels opt in. The actor callback still blocks
+    // staff cancellations made from the admin panel.
     if (
+      context?.applyCustomerRefundPolicy !== true &&
       shouldApplyRefundPolicy &&
       !(await shouldApplyRefundPolicy({
         req,

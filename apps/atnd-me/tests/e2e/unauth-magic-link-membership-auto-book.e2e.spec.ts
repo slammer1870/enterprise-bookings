@@ -97,9 +97,14 @@ test.describe('Unauth magic link booking with active membership', () => {
       data: {
         paymentMethods: {
           allowedDropIn: dropIn.id,
-          allowedPlans: [plan.id],
         },
       },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 
@@ -256,13 +261,6 @@ test.describe('Unauth magic link booking with active membership', () => {
       overrideAccess: true,
       context: { skipStripeSync: true },
     })) as { id: number }
-
-    await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedCourses: [course.id] } },
-      overrideAccess: true,
-    })
 
     const enrollment = (await payload.create({
       collection: 'course-enrollments',
@@ -424,9 +422,14 @@ test.describe('Unauth magic link booking with active membership', () => {
       data: {
         paymentMethods: {
           allowedDropIn: dropIn.id,
-          allowedPlans: [plan.id],
         },
       },
+      overrideAccess: true,
+    })
+    await payload.update({
+      collection: 'plans',
+      id: plan.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 

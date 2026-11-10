@@ -9,6 +9,16 @@ import { checkRole } from "@repo/shared-utils";
 import type { AccessControls, HooksConfig, User } from "@repo/shared-types";
 import { beforeProductChange } from "../hooks/before-product-change";
 import type { MembershipBranchConfig } from "../types";
+import {
+  allowedEventTypeIdsIncludingOverrides,
+  isSessionInterval,
+  overrideEventTypeIds,
+  validateEventTypeOverrideRows,
+} from "@repo/shared-services";
+import {
+  eventTypeOverridesField,
+  validateOptionalMaxBookingsPerTimeslot,
+} from "../../fields/event-type-overrides";
 
 const defaultLabels: Labels = {
   singular: "Membership",
@@ -27,7 +37,8 @@ const defaultAccess: AccessControls = {
   delete: ({ req: { user } }) => checkRole(["admin"], user as User | null),
 };
 
-const defaultFields: Field[] = [
+function planFields(eventTypesSlug: string): Field[] {
+  return [
   { name: "name", label: "Name", type: "text", required: true },
   {
     name: "features",
@@ -35,6 +46,17 @@ const defaultFields: Field[] = [
     label: "Features",
     admin: { description: "Features that are included in this plan" },
     fields: [{ name: "feature", label: "Feature", type: "text" }],
+  },
+  {
+    name: "allowedEventTypes",
+    label: "Allowed event types",
+    type: "relationship",
+    relationTo: eventTypesSlug as import("payload").CollectionSlug,
+    hasMany: true,
+    admin: {
+      description:
+        "Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Sessions.",
+    },
   },
   {
     name: "sessionsInformation",
@@ -73,10 +95,7 @@ const defaultFields: Field[] = [
         required: false,
         // Null => no per-user cap (still bounded by event type capacity).
         // Legacy mapping uses `allowMultipleBookingsPerTimeslot` to set this to `null`.
-        validate: (value: unknown) => {
-          if (value == null) return true;
-          return typeof value === "number" && value >= 1 ? true : "maxBookingsPerTimeslot must be >= 1 or blank";
-        },
+        validate: validateOptionalMaxBookingsPerTimeslot,
         admin: {
           description:
             "Leave blank for no per-user cap on bookings for the same timeslot (still bounded by event type capacity). When set, subscribers can book up to this many spots per timeslot for the selected plan.",
@@ -91,6 +110,15 @@ const defaultFields: Field[] = [
         required: false,
         admin: { hidden: true },
       },
+      eventTypeOverridesField({
+        eventTypesSlug,
+        countName: "sessions",
+        countLabel: "Sessions",
+        description:
+          "In addition to Sessions, not subtracted from them. A row is a shared allowance for the event types on it. For example, 8 sessions a month for the other allowed types, plus 2 a week shared by Yoga Beginners and Fundamentals. A booking of either type counts against those 2 and does not reduce the 8. Saving adds every type on the row to Allowed event types. Leave Per and Interval blank to use the plan's period. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for every type on this row.",
+        capDescription:
+          "Leave blank to use the plan's max bookings per timeslot. Set a number to cap every type on this row.",
+      }),
     ],
   },
   {
@@ -191,9 +219,10 @@ const defaultFields: Field[] = [
     admin: { description: "Skip syncing to Stripe" },
     required: false,
   },
-];
+  ];
+}
 
-const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
+const beforePlanValidate: CollectionBeforeValidateHook = async ({ data, originalDoc }) => {
   if (!data || typeof data !== "object") return data;
 
   const d = data as {
@@ -214,6 +243,53 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data }) => {
   ) {
     si.maxBookingsPerTimeslot = si.allowMultipleBookingsPerTimeslot ? null : 1;
   }
+
+  const doc = data as {
+    allowedEventTypes?: unknown;
+    sessionsInformation?: {
+      eventTypeOverrides?: Array<{
+        eventType?: unknown;
+        eventTypes?: unknown;
+        sessions?: number | null;
+        interval?: string | null;
+        intervalCount?: number | null;
+      }>;
+    };
+  };
+  const rows = Array.isArray(doc.sessionsInformation?.eventTypeOverrides)
+    ? doc.sessionsInformation.eventTypeOverrides
+    : [];
+  const allowedEventTypesForSave = allowedEventTypeIdsIncludingOverrides(
+    doc.allowedEventTypes,
+    rows,
+    (originalDoc as { allowedEventTypes?: unknown } | undefined)?.allowedEventTypes,
+  );
+  if (allowedEventTypesForSave.idsToStore) {
+    doc.allowedEventTypes = allowedEventTypesForSave.idsToStore;
+  }
+  for (const row of rows) {
+    const interval = typeof row?.interval === "string" ? row.interval : "";
+    const hasInterval = interval.length > 0;
+    const hasCount = typeof row?.intervalCount === "number";
+    if (hasInterval && !isSessionInterval(interval)) {
+      throw new Error("Interval must be days, weeks, months, quarters, or years.");
+    }
+    if (hasInterval && !hasCount) {
+      row.intervalCount = 1;
+    } else if (!hasInterval && hasCount) {
+      throw new Error("Set Interval when Per is set, or leave both blank.");
+    } else if (hasCount && (row.intervalCount as number) < 1) {
+      throw new Error("Per must be at least 1.");
+    }
+  }
+  const validation = validateEventTypeOverrideRows({
+    allowedEventTypeIds: allowedEventTypesForSave.ids,
+    rows: rows.map((row) => ({
+      eventTypeIds: overrideEventTypeIds(row),
+      count: typeof row?.sessions === "number" ? row.sessions : null,
+    })),
+  });
+  if (validation !== true) throw new Error(validation);
 
   return data;
 };
@@ -246,9 +322,13 @@ export function generatePlansCollection(
         ? overrides.hooks({ defaultHooks })
         : defaultHooks),
     },
-    fields:
-      overrides?.fields && typeof overrides.fields === "function"
+    fields: (() => {
+      const eventTypesSlug =
+        config.eventTypesSlug ?? config.paymentMethodSlugs?.[0] ?? "event-types";
+      const defaultFields = planFields(eventTypesSlug);
+      return overrides?.fields && typeof overrides.fields === "function"
         ? overrides.fields({ defaultFields })
-        : defaultFields,
+        : defaultFields;
+    })(),
   };
 }

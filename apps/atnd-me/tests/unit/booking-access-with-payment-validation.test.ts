@@ -193,4 +193,26 @@ describe('bookingCreateAccessWithPaymentValidation', () => {
 
     expect(result).toBe(true)
   })
+
+  it('returns false when the product allow-list query throws, so the class is not treated as free', async () => {
+    const req = makeLocalApiReq(async ({ collection }) => {
+      if (collection === 'timeslots') return makeTimeslot({ eventType: { id: 5, paymentMethods: {} } })
+      if (collection === 'tenants')
+        return makeTenant({ stripeConnectAccountId: null, stripeConnectOnboardingStatus: 'not_connected' })
+      return null
+    })
+    const payload = req.payload as {
+      collections?: Record<string, unknown>
+      find?: ReturnType<typeof vi.fn>
+    }
+    payload.collections = { plans: {}, 'class-pass-types': {} }
+    payload.find = vi.fn().mockRejectedValue(new Error('db down'))
+
+    const result = await bookingCreateAccessWithPaymentValidation({
+      req: req as never,
+      data: { timeslot: TIMESLOT_ID, user: 99, status: 'pending' },
+    } as never)
+
+    expect(result).toBe(false)
+  })
 })

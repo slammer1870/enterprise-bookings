@@ -215,9 +215,9 @@ test.describe('Booking quantity cap enforcement', () => {
     )
 
     await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 
@@ -440,9 +440,9 @@ test.describe('Booking quantity cap enforcement', () => {
     )
 
     await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 
@@ -901,9 +901,9 @@ test.describe('Booking quantity cap enforcement', () => {
     )
 
     await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 
@@ -1077,9 +1077,9 @@ test.describe('Booking quantity cap enforcement', () => {
     )
 
     await payload.update({
-      collection: 'event-types',
-      id: eventType.id,
-      data: { paymentMethods: { allowedClassPasses: [classPassType.id] } },
+      collection: 'class-pass-types',
+      id: classPassType.id,
+      data: { allowedEventTypes: [eventType.id] },
       overrideAccess: true,
     })
 

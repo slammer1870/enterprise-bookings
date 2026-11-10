@@ -113,6 +113,11 @@ export interface Config {
     timeslots: {
       bookings: 'bookings';
     };
+    'event-types': {
+      'paymentMethods.includingClassPassTypes': 'class-pass-types';
+      'paymentMethods.includingCourses': 'courses';
+      'paymentMethods.includingPlans': 'plans';
+    };
     users: {
       emergencyContacts: 'emergency-contacts';
       account: 'accounts';
@@ -120,9 +125,6 @@ export interface Config {
       userSubscription: 'subscriptions';
     };
     'drop-ins': {
-      'event-typesPaymentMethods': 'event-types';
-    };
-    plans: {
       'event-typesPaymentMethods': 'event-types';
     };
   };
@@ -1162,6 +1164,10 @@ export interface Plan {
       }[]
     | null;
   /**
+   * Event types this membership can pay for. A membership can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Sessions.
+   */
+  allowedEventTypes?: (number | EventType)[] | null;
+  /**
    * Sessions included in this plan (e.g. 10 per month). Important: If a user has e.g. 10 bookings per month, they could book all 10 slots in a single timeslot when allow multiple bookings per timeslot is enabled.
    */
   sessionsInformation?: {
@@ -1173,6 +1179,31 @@ export interface Plan {
      */
     maxBookingsPerTimeslot?: number | null;
     allowMultipleBookingsPerTimeslot?: boolean | null;
+    /**
+     * In addition to Sessions, not subtracted from them. A row is a shared allowance for the event types on it. For example, 8 sessions a month for the other allowed types, plus 2 a week shared by Yoga Beginners and Fundamentals. A booking of either type counts against those 2 and does not reduce the 8. Saving adds every type on the row to Allowed event types. Leave Per and Interval blank to use the plan's period. Leave max bookings per timeslot blank to keep the plan cap. A number replaces that cap for every type on this row.
+     */
+    eventTypeOverrides?:
+      | {
+          /**
+           * These types share this row's allowance. A type can be on only one row.
+           */
+          eventTypes: (number | EventType)[];
+          sessions: number;
+          /**
+           * Leave blank, with Interval, to use the plan's period.
+           */
+          intervalCount?: number | null;
+          /**
+           * Leave blank, with Per, to use the plan's period.
+           */
+          interval?: ('day' | 'week' | 'month' | 'quarter' | 'year') | null;
+          /**
+           * Leave blank to use the plan's max bookings per timeslot. Set a number to cap every type on this row.
+           */
+          maxBookingsPerTimeslot?: number | null;
+          id?: string | null;
+        }[]
+      | null;
   };
   stripeProductId?: string | null;
   /**
@@ -1206,11 +1237,6 @@ export interface Plan {
    */
   skipSync?: boolean | null;
   deletedAt?: string | null;
-  'event-typesPaymentMethods'?: {
-    docs?: (number | EventType)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1239,17 +1265,29 @@ export interface EventType {
      */
     allowedDropIn?: (number | null) | DropIn;
     /**
-     * Select which class pass types can be used to book this class option (e.g. Fitness Only, Sauna Only).
+     * Class pass types that can pay for this event type. Edit the list on the class pass type.
      */
-    allowedClassPasses?: (number | ClassPassType)[] | null;
+    includingClassPassTypes?: {
+      docs?: (number | ClassPassType)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
     /**
-     * Courses that can be offered or purchased for this event type. Existing course entitlements are determined by the course's allowed event types.
+     * Courses that can pay for this event type. Edit the list on the course.
      */
-    allowedCourses?: (number | Course)[] | null;
+    includingCourses?: {
+      docs?: (number | Course)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
     /**
-     * Membership plans that grant access to this class option. Users with an active subscription to a selected plan can book without paying per session.
+     * Memberships that can pay for this event type. Edit the list on the membership.
      */
-    allowedPlans?: (number | Plan)[] | null;
+    includingPlans?: {
+      docs?: (number | Plan)[];
+      hasNextPage?: boolean;
+      totalDocs?: number;
+    };
   };
   /**
    * Emails sent after a booking for this event type. Leave Email To blank to send to the customer, or use placeholders such as {{booking.timeslot.staffMember.email}}. Subject and message also support {{booking…}} placeholders. Use separate rows for different messages. See “When to send” for timing rules.
@@ -1353,6 +1391,10 @@ export interface ClassPassType {
    */
   description?: string | null;
   /**
+   * Event types this pass can pay for. A pass can be used at any site whose timeslot uses one of these event types. Saving a shared allowance adds every type on that row here. Types on a row draw from that row. Types on no row draw from Quantity of passes.
+   */
+  allowedEventTypes?: (number | EventType)[] | null;
+  /**
    * Number of passes/credits in this type (e.g. 10 for a 10-pack). Purchased passes get this many credits.
    */
   quantity: number;
@@ -1365,6 +1407,23 @@ export interface ClassPassType {
    */
   maxBookingsPerTimeslot?: number | null;
   allowMultipleBookingsPerTimeslot?: boolean | null;
+  /**
+   * In addition to Quantity of passes, not subtracted from it. A row is a shared credit balance for the event types on it. Quantity 10 plus a row of 4 for two class types is 14 bookings: those two types share the 4, and the other allowed types share the 10. Booking either listed type does not reduce the 10. Saving adds every type on the row to Allowed event types. Leave max bookings per timeslot blank to keep the pass type cap. A number replaces that cap for every type on this row.
+   */
+  eventTypeOverrides?:
+    | {
+        /**
+         * These types share this row's allowance. A type can be on only one row.
+         */
+        eventTypes: (number | EventType)[];
+        quantity: number;
+        /**
+         * Leave blank to use the pass type's max bookings per timeslot. Set a number to cap every type on this row.
+         */
+        maxBookingsPerTimeslot?: number | null;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Link to a Stripe product with a one-time default price for purchase/checkout.
    */
@@ -3956,9 +4015,19 @@ export interface ClassPass {
    */
   type: number | ClassPassType;
   /**
-   * Number of passes/credits remaining (original is on the pass type)
+   * Credits remaining for event types that are not on a pool row. Original allowance is on the pass type.
    */
   quantity: number;
+  /**
+   * Remaining credits for each pool. The event types on a row share that row's remaining quantity.
+   */
+  eventTypeOverrides?:
+    | {
+        eventTypes: (number | EventType)[];
+        quantity: number;
+        id?: string | null;
+      }[]
+    | null;
   /**
    * Date when passes expire
    */
@@ -4823,9 +4892,9 @@ export interface EventTypesSelect<T extends boolean = true> {
     | T
     | {
         allowedDropIn?: T;
-        allowedClassPasses?: T;
-        allowedCourses?: T;
-        allowedPlans?: T;
+        includingClassPassTypes?: T;
+        includingCourses?: T;
+        includingPlans?: T;
       };
   postBookingEmails?:
     | T
@@ -5054,6 +5123,13 @@ export interface ClassPassesSelect<T extends boolean = true> {
   user?: T;
   type?: T;
   quantity?: T;
+  eventTypeOverrides?:
+    | T
+    | {
+        eventTypes?: T;
+        quantity?: T;
+        id?: T;
+      };
   expirationDate?: T;
   purchasedAt?: T;
   transactionId?: T;
@@ -5203,10 +5279,19 @@ export interface ClassPassTypesSelect<T extends boolean = true> {
   tenant?: T;
   name?: T;
   description?: T;
+  allowedEventTypes?: T;
   quantity?: T;
   daysUntilExpiration?: T;
   maxBookingsPerTimeslot?: T;
   allowMultipleBookingsPerTimeslot?: T;
+  eventTypeOverrides?:
+    | T
+    | {
+        eventTypes?: T;
+        quantity?: T;
+        maxBookingsPerTimeslot?: T;
+        id?: T;
+      };
   stripeProductId?: T;
   priceInformation?:
     | T
@@ -5273,6 +5358,7 @@ export interface PlansSelect<T extends boolean = true> {
         feature?: T;
         id?: T;
       };
+  allowedEventTypes?: T;
   sessionsInformation?:
     | T
     | {
@@ -5281,6 +5367,16 @@ export interface PlansSelect<T extends boolean = true> {
         interval?: T;
         maxBookingsPerTimeslot?: T;
         allowMultipleBookingsPerTimeslot?: T;
+        eventTypeOverrides?:
+          | T
+          | {
+              eventTypes?: T;
+              sessions?: T;
+              intervalCount?: T;
+              interval?: T;
+              maxBookingsPerTimeslot?: T;
+              id?: T;
+            };
       };
   stripeProductId?: T;
   priceInformation?:
@@ -5295,7 +5391,6 @@ export interface PlansSelect<T extends boolean = true> {
   status?: T;
   skipSync?: T;
   deletedAt?: T;
-  'event-typesPaymentMethods'?: T;
   updatedAt?: T;
   createdAt?: T;
 }
