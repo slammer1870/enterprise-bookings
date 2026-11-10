@@ -22,6 +22,10 @@ import { CheckoutLegalAcceptance } from "./checkout-legal-acceptance";
 import type { CheckoutLegalConfig } from "../types/checkout-legal";
 import { toast } from "sonner";
 import { getMembershipPlansForView } from "./membership-plan-filter";
+import {
+  eventTypeIdFromTimeslot,
+  isCourseAvailableForTimeslot,
+} from "./course-available-for-timeslot";
 
 type PaymentMethodsProps = {
   timeslot: Timeslot;
@@ -1104,10 +1108,23 @@ export function PaymentMethods({
   const allowedCourses = (
     timeslot.eventType as { paymentMethods?: { allowedCourses?: unknown[] } } | null | undefined
   )?.paymentMethods?.allowedCourses;
+  // A linked course is not enough: draft, closed, archived, and courses whose
+  // window does not cover this timeslot must not open the tab. An enrollment
+  // the viewer can already use still does.
+  const courseEventTypeId = eventTypeIdFromTimeslot(timeslot.eventType);
+  const hasAvailableCourse =
+    Array.isArray(allowedCourses) &&
+    allowedCourses.some((course) =>
+      isCourseAvailableForTimeslot({
+        course,
+        timeslotStart: timeslot.startTime,
+        eventTypeId: courseEventTypeId,
+      }),
+    );
   const hasCourseTab =
     methodEnabled("course") &&
-    ((Array.isArray(allowedCourses) && allowedCourses.length > 0) ||
-      validCourseEnrollments.length > 0);
+    quantity <= 1 &&
+    (hasAvailableCourse || validCourseEnrollments.length > 0);
 
   // Membership tab: show if there are plans to subscribe/upgrade to, or user has subscription
   // (so we can show "use subscription", "N sessions left", limit reached, or past due + portal)
