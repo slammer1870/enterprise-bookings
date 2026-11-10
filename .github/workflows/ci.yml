@@ -159,10 +159,14 @@ jobs:
             "SELECT to_regclass('public.users')" | grep -qx users
 
       - name: Dump database for test shards
-        env:
-          PGPASSWORD: brugrappling
         run: |
-          pg_dump -h localhost -U postgres -d e2e_atnd_me -F c -f atnd-me-db.dump
+          set -euo pipefail
+          # Use the service image's client. ubuntu-latest now ships pg_dump 17+,
+          # which writes `SET transaction_timeout = 0` — a GUC Postgres 16 rejects.
+          container="${{ job.services.postgres.id }}"
+          docker exec "$container" pg_dump --version
+          docker exec "$container" pg_dump -U postgres -d e2e_atnd_me -F c -f /tmp/atnd-me-db.dump
+          docker cp "$container":/tmp/atnd-me-db.dump atnd-me-db.dump
           # Empty / near-empty dumps mean migrate:fresh did not produce a usable schema.
           test "$(stat -c%s atnd-me-db.dump)" -gt 100000
 
@@ -229,9 +233,14 @@ jobs:
         env:
           PGPASSWORD: brugrappling
         run: |
-          set -e
+          set -euo pipefail
+          # Match the dump client (the postgres:16 image). The runner's pg_restore
+          # is 17+ and replays `SET transaction_timeout = 0`, which Postgres 16 rejects.
+          container="${{ job.services.postgres.id }}"
           echo "Restoring database from dump..."
-          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose atnd-me-db.dump 2>&1 || {
+          docker cp atnd-me-db.dump "$container":/tmp/atnd-me-db.dump
+          docker exec "$container" pg_restore --version
+          docker exec "$container" pg_restore -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose /tmp/atnd-me-db.dump || {
             echo "pg_restore exited with code $?"
             echo "Checking if tables exist..."
             psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
@@ -410,9 +419,14 @@ jobs:
         env:
           PGPASSWORD: brugrappling
         run: |
-          set -e
+          set -euo pipefail
+          # Match the dump client (the postgres:16 image). The runner's pg_restore
+          # is 17+ and replays `SET transaction_timeout = 0`, which Postgres 16 rejects.
+          container="${{ job.services.postgres.id }}"
           echo "Restoring database from dump..."
-          pg_restore -h localhost -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose atnd-me-db.dump 2>&1 || {
+          docker cp atnd-me-db.dump "$container":/tmp/atnd-me-db.dump
+          docker exec "$container" pg_restore --version
+          docker exec "$container" pg_restore -U postgres -d e2e_atnd_me --no-owner --no-acl --verbose /tmp/atnd-me-db.dump || {
             echo "pg_restore exited with code $?"
             echo "Checking if tables exist..."
             psql -h localhost -U postgres -d e2e_atnd_me -c "\dt" || echo "Failed to list tables"
