@@ -2,6 +2,23 @@
 // This file is executed before Vitest runs any tests.
 // It is used both locally and in CI.
 
+import { beforeAll } from 'vitest'
+
+/**
+ * Payload caches the client on `global._payload`. Suites that call `payload.db.destroy()`
+ * leave that cache pointing at a closed pool. The next file in the same worker then
+ * hangs inside `getPayload` until `hookTimeout` (the shard-5 integration failure).
+ */
+function resetPayloadClientCache() {
+  const cached = (globalThis as typeof globalThis & { _payload?: { clear?: () => void } })._payload
+  cached?.clear?.()
+}
+
+resetPayloadClientCache()
+beforeAll(() => {
+  resetPayloadClientCache()
+})
+
 // Set NODE_ENV to test early to ensure push is disabled
 if (!process.env.NODE_ENV) {
   ;(process.env as any).NODE_ENV = 'test'
