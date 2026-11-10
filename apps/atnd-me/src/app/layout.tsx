@@ -7,6 +7,7 @@ import { GeistMono } from 'geist/font/mono'
 import { GeistSans } from 'geist/font/sans'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
+import { logoFileUrl, publicFaviconIcons } from '@/lib/seo/tenantFavicon'
 import { getTenantSiteURL } from '@/utilities/getURL'
 import {
   isPlatformPublicHostname,
@@ -43,21 +44,9 @@ export async function generateMetadata(): Promise<Metadata> {
     const usePlatformMark = Boolean(
       requestHostname && isPlatformPublicHostname(requestHostname) && !tenant,
     )
-    const logo = tenant?.logo
     const appName = tenant?.name?.trim() || tenant?.slug?.trim() || fallbackAppName
     const metadataBase = new URL(getTenantSiteURL(tenant, headersList))
-    const logoUrl =
-      logo && typeof logo === 'object' && logo !== null
-        ? (() => {
-            const squareLogoUrl =
-              logo.sizes?.square && typeof logo.sizes.square.url === 'string'
-                ? logo.sizes.square.url
-                : logo.url
-            return typeof squareLogoUrl === 'string'
-              ? new URL(squareLogoUrl, metadataBase).toString()
-              : null
-          })()
-        : null
+    const hasTenantLogo = Boolean(logoFileUrl(tenant?.logo))
 
     return {
       metadataBase,
@@ -65,22 +54,12 @@ export async function generateMetadata(): Promise<Metadata> {
         default: appName,
         template: `%s | ${appName}`,
       },
-      ...(logoUrl
-        ? {
-            icons: {
-              icon: [{ url: logoUrl, sizes: '500x500' }],
-              shortcut: logoUrl,
-              apple: logoUrl,
-            },
-          }
+      // Same-origin /favicon.ico. The square media file is 500px and lives under
+      // /api/, so Google Search drops it and keeps the platform icon.
+      ...(hasTenantLogo
+        ? { icons: publicFaviconIcons('tenant') }
         : usePlatformMark
-          ? {
-              icons: {
-                icon: '/favicon.svg',
-                shortcut: '/favicon.svg',
-                apple: '/favicon.svg',
-              },
-            }
+          ? { icons: publicFaviconIcons('platform') }
           : {}),
     }
   } catch {

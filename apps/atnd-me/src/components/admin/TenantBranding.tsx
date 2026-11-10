@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
 
-const DEFAULT_ATND_LOGO = '/favicon.svg'
+const DEFAULT_ATND_LOGO = '/brand/atnd-mark.svg'
 
 type TenantBrandingProps = {
   payload: { find: (opts: unknown) => Promise<{ docs: unknown[] }> }

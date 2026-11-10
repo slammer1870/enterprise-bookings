@@ -235,7 +235,10 @@ test.describe('Share image (E2E)', () => {
     expect(response?.status()).toBe(200)
     await expect(page.locator('meta[property="og:image"]')).toHaveCount(0)
     await expect(page.locator('meta[name="twitter:image"]')).toHaveCount(0)
-    await expect(page.locator('link[rel="icon"]')).toHaveCount(1)
+    const icon = page.locator('link[rel="icon"]')
+    await expect(icon).toHaveCount(1)
+    await expect(icon).toHaveAttribute('href', /\/favicon\.ico$/)
+    await expect(icon).toHaveAttribute('sizes', '192x192')
   })
 
   test('a media path uses the platform subdomain when no custom canonical host is named', async ({
