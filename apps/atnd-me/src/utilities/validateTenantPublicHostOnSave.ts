@@ -17,6 +17,9 @@ import {
 
 const OTHER_DECLARATIONS_CACHE_KEY = 'tenantPublicHostOtherDeclarations'
 
+/** A tenant can name at most this many custom hostnames. */
+export const MAX_DECLARED_HOSTNAMES = 3
+
 /** A refused declaration is a client error so the admin can read why the save did not stick. */
 function refuseDeclaration(message: string): never {
   throw new APIError(message, 400)
@@ -40,6 +43,9 @@ function validateDeclaredHostname(hostname: string): true | string {
 }
 
 export function assertHostnameList(hostnames: string[], direction: Direction): void {
+  if (hostnames.length > MAX_DECLARED_HOSTNAMES) {
+    refuseDeclaration(`A tenant can name at most ${MAX_DECLARED_HOSTNAMES} hostnames.`)
+  }
   const seen = new Set<string>()
   for (const hostname of hostnames) {
     if (seen.has(hostname)) {

@@ -24,6 +24,7 @@ vi.mock('@/lib/cloudflare/customHostnames', () => ({
     verificationTxtValue: 'txt-token-mock',
     status: 'pending',
   }),
+  deleteCustomHostname: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/stripe/platform', () => ({
@@ -464,6 +465,35 @@ describe('Tenant public host declaration', () => {
         overrideAccess: true,
       }),
     ).rejects.toThrow(/platform/i)
+  }, TEST_TIMEOUT)
+
+  it('refuses a fourth hostname and leaves the stored list', async () => {
+    await payload.update({
+      collection: 'tenants',
+      id: tenantList.id,
+      data: { hostnames: [listApex], direction: 'allow-www-and-non-www' },
+      overrideAccess: true,
+    })
+
+    await expect(
+      payload.update({
+        collection: 'tenants',
+        id: tenantList.id,
+        data: {
+          hostnames: [
+            `a-${stamp}.four-a.com`,
+            `b-${stamp}.four-b.com`,
+            `c-${stamp}.four-c.com`,
+            `d-${stamp}.four-d.com`,
+          ],
+        },
+        overrideAccess: true,
+      }),
+    ).rejects.toThrow(/at most 3/i)
+
+    const { doc } = await readStoredList()
+    expect(doc.hostnames).toEqual([listApex])
+    expect(doc.direction).toBe('allow-www-and-non-www')
   }, TEST_TIMEOUT)
 
   it('refuses a repeated hostname', async () => {

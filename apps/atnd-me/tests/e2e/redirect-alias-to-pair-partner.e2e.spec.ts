@@ -143,7 +143,6 @@ test.describe('Redirect each alias host to its pair partner (E2E)', () => {
     const w = testData.workerIndex
     const stamp = Date.now()
     const apex = `e2e-chain-${w}-${stamp}.com`
-    const www = `www.${apex}`
     const other = `e2e-chain-other-${w}-${stamp}.com`
     const otherWww = `www.${other}`
     const slug = `chain-${w}-${stamp}`
@@ -155,7 +154,7 @@ test.describe('Redirect each alias host to its pair partner (E2E)', () => {
       collection: 'tenants',
       id: tenant.id,
       data: {
-        hostnames: [www, apex, otherWww, other],
+        hostnames: [apex, otherWww, other],
         direction: 'redirect-to-non-www',
       },
       overrideAccess: true,
@@ -176,7 +175,6 @@ test.describe('Redirect each alias host to its pair partner (E2E)', () => {
     const w = testData.workerIndex
     const stamp = Date.now()
     const apex = `e2e-pages-${w}-${stamp}.com`
-    const www = `www.${apex}`
     const other = `e2e-pages-other-${w}-${stamp}.com`
     const otherWww = `www.${other}`
     const slug = `pages-${w}-${stamp}`
@@ -187,7 +185,7 @@ test.describe('Redirect each alias host to its pair partner (E2E)', () => {
       collection: 'tenants',
       id: tenant.id,
       data: {
-        hostnames: [www, apex, otherWww, other],
+        hostnames: [apex, otherWww, other],
         direction: 'redirect-to-non-www',
       },
       overrideAccess: true,
@@ -210,7 +208,6 @@ test.describe('Redirect each alias host to its pair partner (E2E)', () => {
     const apex = `e2e-other-${w}-${stamp}.com`
     const www = `www.${apex}`
     const other = `e2e-other-b-${w}-${stamp}.com`
-    const otherWww = `www.${other}`
     const slug = `other-${w}-${stamp}`
 
     const tenant = await createTestTenant(`E2E Other ${w} ${stamp}`, slug)
@@ -220,7 +217,7 @@ test.describe('Redirect each alias host to its pair partner (E2E)', () => {
       collection: 'tenants',
       id: tenant.id,
       data: {
-        hostnames: [www, apex, otherWww, other],
+        hostnames: [www, apex, other],
         direction: 'redirect-to-non-www',
       },
       overrideAccess: true,

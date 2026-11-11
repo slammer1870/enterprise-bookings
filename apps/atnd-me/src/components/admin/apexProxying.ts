@@ -35,3 +35,8 @@ export function apexProxyingRecords(): ApexProxyingRecord[] {
   }
   return records
 }
+
+/** True when leased Apex Proxying addresses are configured. */
+export function hasApexProxyingRecords(): boolean {
+  return apexProxyingRecords().length > 0
+}

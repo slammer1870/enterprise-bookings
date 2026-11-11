@@ -336,7 +336,7 @@ export interface Tenant {
       )
     | null;
   /**
-   * Comma-separated hostnames. The platform subdomain is assigned from the slug and is not typed here.
+   * Up to 3 comma-separated hostnames. The platform subdomain is assigned from the slug and is not typed here.
    */
   hostnames?:
     | {

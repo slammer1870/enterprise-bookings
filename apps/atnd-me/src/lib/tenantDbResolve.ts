@@ -1,5 +1,5 @@
 import { sql } from '@payloadcms/db-postgres'
-import type { Payload } from 'payload'
+import type { DatabaseAdapter, Payload, PayloadRequest } from 'payload'
 
 import { rowsOf } from '@/utilities/drizzleRows'
 import {
@@ -25,6 +25,25 @@ function drizzleOf(payload: Payload): DrizzleLike | null {
   return db?.drizzle ?? null
 }
 
+/**
+ * Connection for the pre-delete overlap check.
+ * `DatabaseAdapter.sessions` is the open transaction. Payload does not export `getTransaction`.
+ * A finished session falls back to the adapter connection. Null means the check cannot run.
+ */
+async function drizzleForDeleteGuard(
+  payload: Payload,
+  req?: Pick<PayloadRequest, 'transactionID'>,
+): Promise<DrizzleLike | null> {
+  const db = payload.db as (DatabaseAdapter & { drizzle?: DrizzleLike }) | undefined
+  if (!db) return null
+  const transactionID = req?.transactionID != null ? await req.transactionID : undefined
+  if (transactionID != null && transactionID !== '') {
+    const open = db.sessions?.[String(transactionID)]
+    if (open?.db) return open.db as DrizzleLike
+  }
+  return db.drizzle ?? null
+}
+
 function parsedJson(value: unknown): unknown {
   if (typeof value !== 'string') return value
   try {
@@ -34,6 +53,8 @@ function parsedJson(value: unknown): unknown {
   }
 }
 
+type SavedHostnameDeclaration = TenantPublicHostDocSlice & { id: number | string; slug: string }
+
 /**
  * A saved hostname list is the source of which host serves.
  * Null when this hostname is not in any saved list.
@@ -41,7 +62,7 @@ function parsedJson(value: unknown): unknown {
 async function findSavedHostnameDeclaration(
   payload: Payload,
   normalizedHost: string,
-): Promise<(TenantPublicHostDocSlice & { id: number | string; slug: string }) | null> {
+): Promise<SavedHostnameDeclaration | null> {
   const drizzle = drizzleOf(payload)
   if (!drizzle) return null
 
@@ -60,6 +81,34 @@ async function findSavedHostnameDeclaration(
     hostnames: parsedJson(row.hostnames),
     direction: row.direction,
   }
+}
+
+/**
+ * True when some other tenant's saved hostname list still names this host.
+ * Throws when the check cannot run. That is not "unlisted": the caller must leave the certificate.
+ * Pass the hook `req` so the read uses the same database transaction as the save.
+ */
+export async function anotherTenantDeclaresHostname(
+  payload: Payload,
+  hostname: string,
+  excludeTenantId: number | string,
+  req?: Pick<PayloadRequest, 'transactionID'>,
+): Promise<boolean> {
+  const normalized = hostname.trim().toLowerCase()
+  if (!normalized) return false
+  const drizzle = await drizzleForDeleteGuard(payload, req)
+  if (!drizzle) {
+    throw new Error(`Cannot tell whether another tenant lists "${normalized}".`)
+  }
+
+  const result = await drizzle.execute(sql`
+    SELECT "id"
+    FROM "tenants"
+    WHERE "id"::text <> ${excludeTenantId}::text
+      AND "hostnames" @> ${JSON.stringify([normalized])}::jsonb
+    LIMIT 1
+  `)
+  return rowsOf(result).some((row) => row.id != null)
 }
 
 /** Every hostname in the stored list, serving or alias. An empty list contributes none. */

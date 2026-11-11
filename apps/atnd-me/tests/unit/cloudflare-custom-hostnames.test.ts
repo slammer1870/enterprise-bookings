@@ -174,6 +174,73 @@ describe('createOrGetCustomHostname', () => {
   })
 })
 
+describe('deleteCustomHostname', () => {
+  const origEnv = process.env
+  const originalFetch = globalThis.fetch
+
+  beforeEach(() => {
+    process.env = { ...origEnv, CLOUDFLARE_API_TOKEN: API_TOKEN, CLOUDFLARE_ZONE_ID: ZONE_ID }
+  })
+
+  afterEach(() => {
+    process.env = origEnv
+    globalThis.fetch = originalFetch
+    vi.resetModules()
+  })
+
+  it('deletes the custom hostname returned by the lookup', async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeApiResponse([{ id: 'csh_existing', hostname: 'old.example.com', status: 'active' }], 200),
+      )
+      .mockResolvedValueOnce(makeApiResponse({ id: 'csh_existing' }, 200))
+
+    const { deleteCustomHostname } = await import('@/lib/cloudflare/customHostnames')
+    await deleteCustomHostname('old.example.com')
+
+    const fetchMock = vi.mocked(globalThis.fetch)
+    expect(String(fetchMock.mock.calls[0][0])).toContain(
+      `/zones/${ZONE_ID}/custom_hostnames?hostname=old.example.com`,
+    )
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      `https://api.cloudflare.com/client/v4/zones/${ZONE_ID}/custom_hostnames/csh_existing`,
+    )
+    expect(fetchMock.mock.calls[1][1]).toEqual(expect.objectContaining({ method: 'DELETE' }))
+  })
+
+  it('succeeds when the hostname is already gone', async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(makeApiResponse([], 200))
+
+    const { deleteCustomHostname } = await import('@/lib/cloudflare/customHostnames')
+    await deleteCustomHostname('gone.example.com')
+
+    expect(vi.mocked(globalThis.fetch)).toHaveBeenCalledTimes(1)
+  })
+
+  it('succeeds when Cloudflare reports the hostname is already deleted', async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeApiResponse([{ id: 'csh_existing', hostname: 'old.example.com', status: 'active' }], 200),
+      )
+      .mockResolvedValueOnce(new Response('', { status: 404 }))
+
+    const { deleteCustomHostname } = await import('@/lib/cloudflare/customHostnames')
+    await expect(deleteCustomHostname('old.example.com')).resolves.toBeUndefined()
+  })
+
+  it('skips when credentials are missing', async () => {
+    delete process.env.CLOUDFLARE_API_TOKEN
+    globalThis.fetch = vi.fn()
+
+    const { deleteCustomHostname } = await import('@/lib/cloudflare/customHostnames')
+    await deleteCustomHostname('old.example.com')
+
+    expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled()
+  })
+})
+
 describe('getCustomHostnameStatus', () => {
   const origEnv = process.env
   const originalFetch = globalThis.fetch
