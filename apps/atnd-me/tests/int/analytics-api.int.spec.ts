@@ -268,6 +268,7 @@ describe('Analytics API (Phase 4)', () => {
         const dateTo = '2026-01-10'
         const dateFrom = '2025-12-15'
         const pastYmd = '2026-01-01'
+        const olderPastYmd = '2025-12-20'
         const futureYmd = '2026-01-20'
 
         const eventType = await payload.create({
@@ -301,8 +302,10 @@ describe('Analytics API (Phase 4)', () => {
           })
         }
 
-        // Create past booking first, then future booking (so updatedAt on future is later).
+        // Creation/update order deliberately differs from class-date order. The dashboard must
+        // report the latest class date, not the most recently written booking row.
         const slotPast = await mkTimeslot(pastYmd)
+        const slotOlderPast = await mkTimeslot(olderPastYmd)
         const slotFuture = await mkTimeslot(futureYmd)
 
         const bookingPast = await payload.create({
@@ -322,6 +325,17 @@ describe('Analytics API (Phase 4)', () => {
             tenant: testTenantId,
             user: regularUser.id,
             timeslot: slotFuture.id,
+            status: 'confirmed',
+          },
+          overrideAccess: true,
+        })
+
+        const bookingOlderPast = await payload.create({
+          collection: 'bookings',
+          data: {
+            tenant: testTenantId,
+            user: regularUser.id,
+            timeslot: slotOlderPast.id,
             status: 'confirmed',
           },
           overrideAccess: true,
@@ -360,6 +374,7 @@ describe('Analytics API (Phase 4)', () => {
             onlyLikelyChurn: '1',
             limitLikelyChurnCustomers: '10',
             offsetLikelyChurnCustomers: '0',
+            retentionCohort: 'all',
           })
 
           const res = await GET(
@@ -377,18 +392,24 @@ describe('Analytics API (Phase 4)', () => {
           const row = data.likelyChurnCustomers.find((r: any) => r.userId === regularUser.id)
           expect(row).toBeTruthy()
           expect(row.lastCheckInDate).toBe(pastYmd)
+          expect(row.cohort).toBe('no_recent_class')
+          expect(row.scoreSource).toBe('model')
+          expect(row.modelVersion).toBe('retention-next-7d-online-safe-v1')
+          expect(row.bookingPropensity).toEqual(expect.any(Number))
+          expect(row.score).toBeGreaterThanOrEqual(0)
+          expect(row.score).toBeLessThanOrEqual(100)
         } finally {
           await payload
             .delete({
               collection: 'bookings',
-              where: { id: { in: [bookingPast.id, bookingFuture.id] } },
+              where: { id: { in: [bookingPast.id, bookingFuture.id, bookingOlderPast.id] } },
               overrideAccess: true,
             })
             .catch(() => {})
           await payload
             .delete({
               collection: 'timeslots',
-              where: { id: { in: [slotPast.id, slotFuture.id] } },
+              where: { id: { in: [slotPast.id, slotFuture.id, slotOlderPast.id] } },
               overrideAccess: true,
             })
             .catch(() => {})

@@ -9,6 +9,7 @@ import type {
   SummaryMetrics,
   TopCustomerRow,
   LikelyChurnCustomerRow,
+  RetentionCohort,
 } from './types'
 import {
   buildConfirmedBookingsWhereForTimeslots,
@@ -22,10 +23,19 @@ import {
 } from './analyticsBookingsWhere'
 import { densifyBookingsOverTime, toDateKey } from './bookingsOverTimeDense'
 import { subscriptionBelongsToTenantContext } from '@/blocks/DhLiveMembership/subscription-tenant-context'
+import { attributedDropInRevenueCents, type PromoDiscount } from './dropInRevenue'
 import {
-  attributedDropInRevenueCents,
-  type PromoDiscount,
-} from './dropInRevenue'
+  buildOnlineRetentionFeatures,
+  type RetentionBookingEvent,
+  type RetentionSubscriptionEvent,
+  type RetentionTransactionEvent,
+} from './retentionFeatures'
+import {
+  retentionModelMetadata,
+  scoreRetentionModel,
+  type RetentionModelScore,
+} from './retentionModel'
+import { getCachedRetentionScores } from './retentionScoreCache'
 import type { DiscountTier } from '@repo/shared-types'
 
 type TimeslotYmdIanaMode =
@@ -37,10 +47,13 @@ const DEFAULT_TOP_LIMIT = 10
 const DEFAULT_LIKELY_CHURN_LIMIT = 10
 const CHURN_INACTIVITY_DAYS = 7
 const CHURN_TREND_WINDOW_DAYS = 30
+const DEFAULT_RETENTION_COHORT: RetentionCohort = 'no_recent_class'
 const UNLIMITED_MEMBERSHIP_MIN_SESSIONS = 8
 const YMD_ONLY_FOR_REVENUE = /^\d{4}-\d{2}-\d{2}$/
 const ANALYTICS_CACHE_TTL_MS = 60_000
 const ANALYTICS_CACHE_MAX_ENTRIES = 100
+const RETENTION_MODEL_QUERY_PAGE_SIZE = 1000
+const RETENTION_MODEL_SLOW_LOAD_MS = 500
 
 type AnalyticsDashboardBundleResult = {
   summary: SummaryMetrics
@@ -187,6 +200,210 @@ function relationId(value: unknown): number | null {
     return typeof id === 'number' && Number.isFinite(id) ? id : null
   }
   return null
+}
+
+const retentionModelDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: retentionModelMetadata.trainingTimeZone,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+function timestampToRetentionModelYmd(value: unknown): string | null {
+  if (typeof value !== 'string' && !(value instanceof Date)) return null
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const parts = retentionModelDateFormatter.formatToParts(date)
+  const year = parts.find((part) => part.type === 'year')?.value
+  const month = parts.find((part) => part.type === 'month')?.value
+  const day = parts.find((part) => part.type === 'day')?.value
+  return year && month && day ? `${year}-${month}-${day}` : null
+}
+
+type RetentionModelInputMaps = {
+  bookingsByUser: Map<number, RetentionBookingEvent[]>
+  transactionsByUser: Map<number, RetentionTransactionEvent[]>
+  subscriptionsByUser: Map<number, RetentionSubscriptionEvent[]>
+  signupYmdByUser: Map<number, string | null>
+}
+
+type LoadRetentionModelScoresOptions = {
+  userIds: number[]
+  predictionYmd: string
+  tenantId?: number | null
+  branchId?: number | null
+  subscriptionsByUser: Map<number, RetentionSubscriptionEvent[]>
+}
+
+async function loadRetentionModelScoresUncached(
+  payload: Payload,
+  opts: LoadRetentionModelScoresOptions,
+): Promise<Map<number, RetentionModelScore>> {
+  const scores = new Map<number, RetentionModelScore>()
+  if (opts.userIds.length === 0) return scores
+  const startedAtMs = Date.now()
+  let bookingRowsFetched = 0
+  let transactionRowsFetched = 0
+
+  const inputs: RetentionModelInputMaps = {
+    bookingsByUser: new Map(),
+    transactionsByUser: new Map(),
+    subscriptionsByUser: opts.subscriptionsByUser,
+    signupYmdByUser: new Map(),
+  }
+
+  for (const userIdChunk of chunkIds(opts.userIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+    const users = await payload.find({
+      collection: 'users',
+      where: { id: { in: userIdChunk } },
+      limit: userIdChunk.length,
+      depth: 0,
+      select: { id: true, createdAt: true },
+      overrideAccess: true,
+    })
+    for (const row of users.docs) {
+      const doc = row as { id?: number; createdAt?: unknown }
+      if (typeof doc.id !== 'number') continue
+      inputs.signupYmdByUser.set(doc.id, timestampToRetentionModelYmd(doc.createdAt))
+    }
+  }
+
+  const bookingOwnerById = new Map<number, number>()
+  for (const userIdChunk of chunkIds(opts.userIds, TIMESLOT_ID_IN_CHUNK_SIZE)) {
+    let page = 1
+    for (;;) {
+      const result = await payload.find({
+        collection: 'bookings',
+        where: {
+          and: [
+            { user: { in: userIdChunk } },
+            ...(opts.tenantId != null ? [{ tenant: { equals: opts.tenantId } }] : []),
+          ],
+        },
+        sort: 'createdAt',
+        limit: RETENTION_MODEL_QUERY_PAGE_SIZE,
+        page,
+        depth: 1,
+        select: {
+          id: true,
+          user: true,
+          timeslot: true,
+          status: true,
+          createdAt: true,
+        },
+        overrideAccess: true,
+      })
+      bookingRowsFetched += result.docs.length
+
+      for (const row of result.docs) {
+        const doc = row as {
+          id?: number
+          user?: unknown
+          timeslot?: unknown
+          status?: unknown
+          createdAt?: unknown
+        }
+        const userId = relationId(doc.user)
+        if (userId == null || typeof doc.id !== 'number') continue
+        const timeslot =
+          typeof doc.timeslot === 'object' && doc.timeslot !== null
+            ? (doc.timeslot as { date?: unknown; branch?: unknown })
+            : null
+        if (opts.branchId != null && relationId(timeslot?.branch) !== opts.branchId) continue
+
+        bookingOwnerById.set(doc.id, userId)
+        const events = inputs.bookingsByUser.get(userId) ?? []
+        events.push({
+          createdYmd: timestampToRetentionModelYmd(doc.createdAt),
+          classYmd: timestampToRetentionModelYmd(timeslot?.date),
+          status: typeof doc.status === 'string' ? doc.status.trim().toLowerCase() : null,
+        })
+        inputs.bookingsByUser.set(userId, events)
+      }
+
+      if (page >= (result.totalPages ?? 1)) break
+      page += 1
+    }
+  }
+
+  for (const bookingIdChunk of chunkIds([...bookingOwnerById.keys()], TIMESLOT_ID_IN_CHUNK_SIZE)) {
+    let page = 1
+    for (;;) {
+      const transactions = await payload.find({
+        collection: 'transactions',
+        where: { booking: { in: bookingIdChunk } },
+        limit: RETENTION_MODEL_QUERY_PAGE_SIZE,
+        page,
+        depth: 0,
+        select: { booking: true, paymentMethod: true, createdAt: true },
+        overrideAccess: true,
+      })
+      transactionRowsFetched += transactions.docs.length
+      for (const row of transactions.docs) {
+        const doc = row as { booking?: unknown; paymentMethod?: unknown; createdAt?: unknown }
+        const bookingId = relationId(doc.booking)
+        const userId = bookingId == null ? null : bookingOwnerById.get(bookingId)
+        if (userId == null) continue
+        const events = inputs.transactionsByUser.get(userId) ?? []
+        events.push({
+          createdYmd: timestampToRetentionModelYmd(doc.createdAt),
+          paymentMethod:
+            typeof doc.paymentMethod === 'string' ? doc.paymentMethod.trim().toLowerCase() : null,
+        })
+        inputs.transactionsByUser.set(userId, events)
+      }
+
+      if (page >= (transactions.totalPages ?? 1)) break
+      page += 1
+    }
+  }
+
+  for (const userId of opts.userIds) {
+    const features = buildOnlineRetentionFeatures({
+      predictionYmd: opts.predictionYmd,
+      signupYmd: inputs.signupYmdByUser.get(userId) ?? null,
+      bookings: inputs.bookingsByUser.get(userId) ?? [],
+      transactions: inputs.transactionsByUser.get(userId) ?? [],
+      subscriptions: inputs.subscriptionsByUser.get(userId) ?? [],
+    })
+    scores.set(userId, scoreRetentionModel(features))
+  }
+
+  const durationMs = Date.now() - startedAtMs
+  if (durationMs >= RETENTION_MODEL_SLOW_LOAD_MS) {
+    payload.logger.warn({
+      message: 'Slow retention model feature load',
+      durationMs,
+      eligibleUsers: opts.userIds.length,
+      bookingRowsFetched,
+      transactionRowsFetched,
+      tenantId: opts.tenantId ?? null,
+      branchId: opts.branchId ?? null,
+      predictionYmd: opts.predictionYmd,
+      modelVersion: retentionModelMetadata.modelVersion,
+    })
+  }
+
+  return scores
+}
+
+function loadRetentionModelScores(
+  payload: Payload,
+  opts: LoadRetentionModelScoresOptions,
+): Promise<Map<number, RetentionModelScore>> {
+  const cacheEnabled =
+    process.env.NODE_ENV === 'production' && process.env.PW_E2E_PROFILE !== 'true'
+
+  return getCachedRetentionScores({
+    enabled: cacheEnabled,
+    scope: {
+      tenantId: opts.tenantId,
+      branchId: opts.branchId,
+      predictionYmd: opts.predictionYmd,
+      modelVersion: retentionModelMetadata.modelVersion,
+    },
+    load: () => loadRetentionModelScoresUncached(payload, opts),
+  })
 }
 
 function priceToCents(value: unknown): number {
@@ -430,10 +647,7 @@ async function calculateRevenueEstimate(
       : Promise.resolve({ docs: [] as unknown[] }),
   ])
 
-  const dropInById = new Map<
-    number,
-    { priceEuros: number; discountTiers: DiscountTier[] }
-  >()
+  const dropInById = new Map<number, { priceEuros: number; discountTiers: DiscountTier[] }>()
   for (const row of dropIns.docs) {
     const doc = row as { id?: number; price?: unknown; discountTiers?: DiscountTier[] | null }
     if (typeof doc.id === 'number') {
@@ -645,7 +859,8 @@ async function calculateRevenueEstimate(
       const dropInId = relationId(tx.dropInId)
       const dropIn = dropInId != null ? dropInById.get(dropInId) : undefined
       const trialable =
-        candidate.userId != null && firstConfirmedByUser.get(candidate.userId) === candidate.bookingId
+        candidate.userId != null &&
+        firstConfirmedByUser.get(candidate.userId) === candidate.bookingId
       const promoKey =
         candidate.userId != null && candidate.timeslotId != null
           ? `${candidate.userId}:${candidate.timeslotId}`
@@ -698,6 +913,7 @@ export async function getAnalyticsDashboardBundle(
   const topLimit = params.limitTopCustomers ?? DEFAULT_TOP_LIMIT
   const likelyLimit = params.limitLikelyChurnCustomers ?? DEFAULT_LIKELY_CHURN_LIMIT
   const likelyOffset = params.offsetLikelyChurnCustomers ?? 0
+  const retentionCohort = params.retentionCohort ?? DEFAULT_RETENTION_COHORT
 
   const cacheEnabled =
     process.env.NODE_ENV === 'production' && process.env.PW_E2E_PROFILE !== 'true'
@@ -711,6 +927,7 @@ export async function getAnalyticsDashboardBundle(
         topLimit,
         likelyLimit,
         likelyOffset,
+        retentionCohort,
         includeSummary,
         includeBookingsOverTime,
         includeTopCustomers,
@@ -810,15 +1027,6 @@ export async function getAnalyticsDashboardBundle(
   const inactivityFromYmd7 = shiftYmdUtc(params.dateTo, -(CHURN_INACTIVITY_DAYS - 1))
   const pastWednesday = dayOfWeek > 3 // Thu+
   const cutoffWednesdayYmd = pastWednesday ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3)) : null
-  // For "Last check-in date", when today is Wednesday or later, ensure the earliest cutoff
-  // is the date 4 days before the current week's Wednesday.
-  // (e.g. Fri May 15 => current week Wed May 13 => cutoff May 9)
-  const todayIsWedOrLater = dayOfWeek >= 3 // Wed=3
-  const thisWeekWednesdayYmd = todayIsWedOrLater
-    ? shiftYmdUtc(params.dateTo, -(dayOfWeek - 3))
-    : null
-  const lastCheckInCutoffYmd =
-    thisWeekWednesdayYmd != null ? shiftYmdUtc(thisWeekWednesdayYmd, -4) : inactivityFromYmd7
   const churnFromYmd = shiftYmdUtc(params.dateTo, -(CHURN_TREND_WINDOW_DAYS - 1))
 
   const needTimeslotYmd = includeBookingsOverTime || includeLikelyChurnCustomers
@@ -1128,8 +1336,12 @@ export async function getAnalyticsDashboardBundle(
   let scoredRowsWithUserNames: Array<{
     userId: number
     score: number
+    scoreSource: 'model' | 'heuristic'
+    bookingPropensity: number | null
+    modelVersion: string | null
     recentBookings: number
     priorBookings: number
+    cohort: Exclude<RetentionCohort, 'all'>
     rawScore: number
     recentRolling: number
     avgEarlyRolling: number
@@ -1140,20 +1352,20 @@ export async function getAnalyticsDashboardBundle(
   if (includeLikelyChurnCustomers) {
     const churnUserIds = Array.from(churnAggByUser.keys())
     if (churnUserIds.length > 0) {
-      const statuses = ['active', 'past_due'] as const
       const pageSize = 500
       let page = 1
       const subscribedUserIds = new Set<number>()
+      const subscriptionEventsByUser = new Map<number, RetentionSubscriptionEvent[]>()
 
       // Paginate subscriptions to keep payload queries bounded.
       for (;;) {
         const res = await payload.find({
           collection: 'subscriptions',
-          where: { and: [{ user: { in: churnUserIds } }, { status: { in: statuses } }] },
+          where: { user: { in: churnUserIds } },
           limit: pageSize,
           page,
           depth: 2,
-          select: { user: true, plan: true, status: true },
+          select: { user: true, plan: true, status: true, createdAt: true },
           overrideAccess: true,
         })
 
@@ -1162,6 +1374,7 @@ export async function getAnalyticsDashboardBundle(
             user?: number | { id: number }
             plan?: unknown
             status?: string
+            createdAt?: unknown
           }
           const u = d.user
           const uid =
@@ -1183,28 +1396,51 @@ export async function getAnalyticsDashboardBundle(
                   }
                   return false
                 })()
-          if (belongs) subscribedUserIds.add(uid)
+          if (!belongs) continue
+
+          const normalizedStatus = typeof d.status === 'string' ? d.status.trim().toLowerCase() : ''
+          if (normalizedStatus === 'active' || normalizedStatus === 'past_due') {
+            subscribedUserIds.add(uid)
+          }
+          const subscriptionEvents = subscriptionEventsByUser.get(uid) ?? []
+          subscriptionEvents.push({
+            createdYmd: timestampToRetentionModelYmd(d.createdAt),
+          })
+          subscriptionEventsByUser.set(uid, subscriptionEvents)
         }
 
-        if (subscribedUserIds.size >= churnUserIds.length) break
         if (page >= (res.totalPages ?? 1)) break
         page += 1
+      }
+
+      let retentionModelScores = new Map<number, RetentionModelScore>()
+      try {
+        retentionModelScores = await loadRetentionModelScores(payload, {
+          userIds: [...subscribedUserIds],
+          predictionYmd: params.dateTo,
+          tenantId: params.tenantId,
+          branchId: params.branchId,
+          subscriptionsByUser: subscriptionEventsByUser,
+        })
+      } catch (error) {
+        payload.logger.warn(
+          `Retention model feature loading failed; using booking-trend fallback: ${error instanceof Error ? error.message : String(error)}`,
+        )
       }
 
       scoredRowsWithUserNames = Array.from(churnAggByUser.entries())
         .filter(([userId, agg]) => {
           if (!subscribedUserIds.has(userId)) return false
-          // Only include users with no confirmed bookings in the previous 7 days.
-          // This prevents users who booked recently (e.g. Mon/Tue before this week's Wednesday)
-          // from appearing just because they fall outside the Wednesday-based "this week" window.
-          return agg.recentBookings === 0
+          const cohort = agg.recentBookings > 0 ? 'recent_class' : 'no_recent_class'
+          return retentionCohort === 'all' || retentionCohort === cohort
         })
         .map(([userId, agg]) => {
-          // Rolling 7-day frequency trend:
-          // - recentRolling = bookings in the last 7 days
-          // - avgEarlyRolling = average bookings in rolling 7-day windows ending before that
+          const cohort: Exclude<RetentionCohort, 'all'> =
+            agg.recentBookings > 0 ? 'recent_class' : 'no_recent_class'
+
+          // Compare the fixed trailing-7-day operating window with earlier 7-day windows.
           const recentEndIndex = CHURN_TREND_WINDOW_DAYS - 1
-          const recentStartIndex = Math.max(0, recentEndIndex - 6)
+          const recentStartIndex = Math.max(0, recentEndIndex - (CHURN_INACTIVITY_DAYS - 1))
           const recentRolling = agg.dayCounts
             .slice(recentStartIndex, recentEndIndex + 1)
             .reduce((a, b) => a + b, 0)
@@ -1212,14 +1448,14 @@ export async function getAnalyticsDashboardBundle(
           const prefix: number[] = [0]
           for (const c of agg.dayCounts) prefix.push(prefix[prefix.length - 1]! + c)
           const rollingSumForEnd = (endIndex: number): number =>
-            prefix[endIndex + 1]! - prefix[endIndex + 1 - 7]!
+            prefix[endIndex + 1]! - prefix[endIndex + 1 - CHURN_INACTIVITY_DAYS]!
 
-          const earlyEndMin = 6
-          const earlyEndMax = recentEndIndex - 7 // inclusive
+          const earlyEndMin = CHURN_INACTIVITY_DAYS - 1
+          const earlyEndMax = recentEndIndex - CHURN_INACTIVITY_DAYS // inclusive
           let earlyRollingTotal = 0
           let earlyRollingCount = 0
           for (let end = earlyEndMin; end <= earlyEndMax; end += 1) {
-            if (end + 1 - 7 < 0) continue
+            if (end + 1 - CHURN_INACTIVITY_DAYS < 0) continue
             earlyRollingTotal += rollingSumForEnd(end)
             earlyRollingCount += 1
           }
@@ -1234,12 +1470,18 @@ export async function getAnalyticsDashboardBundle(
           })()
 
           if (avgEarlyRolling <= 0) {
+            const modelScore =
+              cohort === 'no_recent_class' ? (retentionModelScores.get(userId) ?? null) : null
             return {
               userId,
-              score: 0,
+              score: modelScore?.outreachPriority ?? 0,
+              scoreSource: modelScore ? ('model' as const) : ('heuristic' as const),
+              bookingPropensity: modelScore?.bookingPropensity ?? null,
+              modelVersion: modelScore?.modelVersion ?? null,
               recentBookings: agg.recentBookings,
               priorBookings: agg.priorBookings,
-              rawScore: 0,
+              cohort,
+              rawScore: modelScore ? 1 - modelScore.bookingPropensity : 0,
               recentRolling,
               avgEarlyRolling,
               declineRatioClamped: 0,
@@ -1250,14 +1492,21 @@ export async function getAnalyticsDashboardBundle(
           const declineRatio = (avgEarlyRolling - recentRolling) / (avgEarlyRolling + 1)
           const declineRatioClamped = clamp(declineRatio, 0, 1)
           const inactivityBoost = recentRolling === 0 ? 1 : 0.5
-          const rawScore = declineRatioClamped * inactivityBoost
-          const score = Math.round(rawScore * 100)
+          const heuristicRawScore = declineRatioClamped * inactivityBoost
+          const modelScore =
+            cohort === 'no_recent_class' ? (retentionModelScores.get(userId) ?? null) : null
+          const rawScore = modelScore ? 1 - modelScore.bookingPropensity : heuristicRawScore
+          const score = modelScore?.outreachPriority ?? Math.round(heuristicRawScore * 100)
 
           return {
             userId,
             score,
+            scoreSource: modelScore ? ('model' as const) : ('heuristic' as const),
+            bookingPropensity: modelScore?.bookingPropensity ?? null,
+            modelVersion: modelScore?.modelVersion ?? null,
             recentBookings: agg.recentBookings,
             priorBookings: agg.priorBookings,
+            cohort,
             rawScore,
             recentRolling,
             avgEarlyRolling,
@@ -1267,15 +1516,15 @@ export async function getAnalyticsDashboardBundle(
         })
 
       scoredRowsWithUserNames.sort((a, b) => {
-        // Primary: show more recent timeslot activity higher.
+        // Model scores and heuristic scores are both expressed as 0..1 outreach priority.
+        if (b.rawScore !== a.rawScore) return b.rawScore - a.rawScore
+        // Prefer more recent customers when scores tie.
         if (b.lastActivityDayOffset !== a.lastActivityDayOffset)
           return b.lastActivityDayOffset - a.lastActivityDayOffset
-        // Tie-break: more likely churn first.
-        if (b.rawScore !== a.rawScore) return b.rawScore - a.rawScore
         // Secondary tie-break: stronger decline signal.
         if (b.declineRatioClamped !== a.declineRatioClamped)
           return b.declineRatioClamped - a.declineRatioClamped
-        // Then: less recent activity within the last 7 days (lower recentRolling implies more churn).
+        // Then: less activity in the selected recent window implies greater outreach priority.
         if (a.recentRolling !== b.recentRolling) return a.recentRolling - b.recentRolling
         // Then: more history (prior bookings) to break remaining ties deterministically.
         if (b.priorBookings !== a.priorBookings) return b.priorBookings - a.priorBookings
@@ -1293,47 +1542,16 @@ export async function getAnalyticsDashboardBundle(
   if (includeLikelyChurnCustomers && likelyChurnSlice.length > 0) {
     const userIds = likelyChurnSlice.map((r) => r.userId)
 
-    // "Last check-in date" = most recent confirmed booking timeslot date that is
-    // <= the eligibility cutoff (to avoid returning future lessons and to ensure
-    // the check-in is consistent with the "no booking this week/last 7 days" rule).
-    const lastCheckInDateByUserId = new Map<number, string | null>()
-
-    const maxAttempts = 10
-    for (const userId of userIds) {
-      let found: string | null = null
-
-      for (let page = 1; page <= maxAttempts; page += 1) {
-        const res = await payload.find({
-          collection: 'bookings',
-          where: { and: [{ user: { equals: userId } }, { status: { equals: 'confirmed' } }] },
-          depth: 0,
-          limit: 1,
-          page,
-          sort: '-updatedAt',
-          select: { timeslot: true },
-          overrideAccess: true,
-        })
-
-        const doc = res.docs[0] as unknown as { timeslot?: number | { id: number } } | undefined
-        const ts = doc?.timeslot
-        const tsId =
-          typeof ts === 'object' && ts !== null && 'id' in ts
-            ? (ts as { id: number }).id
-            : (ts as number | undefined)
-        if (typeof tsId !== 'number' || !Number.isFinite(tsId)) continue
-
-        const info = await loadTimeslotCalendarInfoById(payload, [tsId], ymdIanaMode)
-        const ymd = info.ymdById.get(tsId) ?? null
-        // Ensure the check-in date shown on the churn table falls within the intended
-        // cutoff logic (timeslot date only).
-        if (ymd != null && ymd <= lastCheckInCutoffYmd) {
-          found = ymd
-          break
-        }
-      }
-
-      lastCheckInDateByUserId.set(userId, found)
-    }
+    // The aggregation is already keyed by class calendar date. Deriving the latest date from
+    // its day offset is both exact and avoids accidentally ordering classes by booking updatedAt.
+    const lastCheckInDateByUserId = new Map(
+      likelyChurnSlice.map((row) => [
+        row.userId,
+        row.lastActivityDayOffset >= 0
+          ? shiftYmdUtc(churnFromYmd, row.lastActivityDayOffset)
+          : null,
+      ]),
+    )
 
     const users = await payload.find({
       collection: 'users',
@@ -1354,8 +1572,12 @@ export async function getAnalyticsDashboardBundle(
     likelyChurnCustomers = likelyChurnSlice.map((r) => ({
       userId: r.userId,
       score: r.score,
+      scoreSource: r.scoreSource,
+      bookingPropensity: r.bookingPropensity,
+      modelVersion: r.modelVersion,
       recentBookings: r.recentBookings,
       priorBookings: r.priorBookings,
+      cohort: r.cohort,
       userName: userMap.get(r.userId),
       lastCheckInDate: lastCheckInDateByUserId.get(r.userId) ?? null,
     }))
