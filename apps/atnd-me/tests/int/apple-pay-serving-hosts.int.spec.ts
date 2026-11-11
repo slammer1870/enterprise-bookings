@@ -23,6 +23,7 @@ vi.mock('@/lib/cloudflare/customHostnames', () => ({
     verificationTxtValue: 'txt-token-mock',
     status: 'pending',
   }),
+  deleteCustomHostname: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/stripe/platform', () => ({
@@ -165,28 +166,26 @@ describe('Apple Pay domains on declaration save', () => {
     const www = `www.out-${stamp}.com`
     const apex = `out-${stamp}.com`
     const shop = `shop.out-${stamp}.com`
-    const other = `other-${stamp}.com`
 
     await createTenant({
       slug: `apple-out-${stamp}`,
       name: `Apple Pay outside ${stamp}`,
-      hostnames: [www, apex, shop, other],
+      hostnames: [www, apex, shop],
       direction: 'redirect-to-www',
     })
 
-    expectRegistered([www, shop, other])
+    expectRegistered([www, shop])
   }, TEST_TIMEOUT)
 
   it('registers the pair partner of an outside host when that partner also serves', async () => {
     const www = `www.side-${stamp}.com`
-    const apex = `side-${stamp}.com`
     const otherWww = `www.otherb-${stamp}.com`
     const otherApex = `otherb-${stamp}.com`
 
     await createTenant({
       slug: `apple-side-${stamp}`,
       name: `Apple Pay partner ${stamp}`,
-      hostnames: [www, apex, otherWww, otherApex],
+      hostnames: [www, otherWww, otherApex],
       direction: 'redirect-to-www',
     })
 

@@ -16,12 +16,14 @@ import {
   normalizeHostnameList,
 } from '@/utilities/tenantPublicHostDeclaration'
 import {
+  MAX_DECLARED_HOSTNAMES,
   validateRawPublicHostInputs,
   validateTenantPublicHostDeclarationOnSave,
 } from '@/utilities/validateTenantPublicHostOnSave'
 import { applePayDomainsForDeclaration, registerApplePayDomain } from './registerApplePayDomain'
-import { customHostnamesToRegister } from './apexDomainHook'
-import { createOrGetCustomHostname } from '@/lib/cloudflare/customHostnames'
+import { customHostnameSync } from './customHostnameSync'
+import { anotherTenantDeclaresHostname } from '@/lib/tenantDbResolve'
+import { createOrGetCustomHostname, deleteCustomHostname } from '@/lib/cloudflare/customHostnames'
 import { isPlatformEmailApex, resolveEmailSendingDomain } from '@/lib/resend/emailSendingDomain'
 import { provisionTenantEmailDomain } from '@/lib/resend/provisionTenantEmailDomain'
 
@@ -220,8 +222,7 @@ export const Tenants: CollectionConfig = {
       label: 'Hostnames',
       required: false,
       admin: {
-        description:
-          'Comma-separated hostnames. The platform subdomain is assigned from the slug and is not typed here.',
+        description: `Up to ${MAX_DECLARED_HOSTNAMES} comma-separated hostnames. The platform subdomain is assigned from the slug and is not typed here.`,
         components: { Field: '@/components/admin/HostnameListField#HostnameListField' },
       },
     },
@@ -545,15 +546,15 @@ export const Tenants: CollectionConfig = {
           }
         }
 
-        // The first hostname is registered with Cloudflare. Redirect to www also registers
-        // its parent. A hostname that leaves the list is not deleted here.
-        for (const registration of customHostnamesToRegister({
+        // Every saved hostname is registered. A hostname that left the list is deleted
+        // after the replacements exist. A pending certificate does not block the save.
+        const hostnameSync = customHostnameSync({
           operation,
           hostnames: doc?.hostnames,
           previousHostnames: previousDoc?.hostnames,
-          direction: doc?.direction,
           previousDirection: previousDoc?.direction,
-        })) {
+        })
+        for (const registration of hostnameSync.ensure) {
           await createOrGetCustomHostname(registration.hostname, registration.isApex).catch(
             (err: unknown) => {
               console.error(
@@ -562,6 +563,28 @@ export const Tenants: CollectionConfig = {
               )
             },
           )
+        }
+        for (const hostname of hostnameSync.remove) {
+          try {
+            if (await anotherTenantDeclaresHostname(req.payload, hostname, doc.id, req)) {
+              console.warn(
+                `[Tenants afterChange] Left Cloudflare custom hostname "${hostname}" in place because another tenant still lists it.`,
+              )
+              continue
+            }
+          } catch (err: unknown) {
+            console.error(
+              `[Tenants afterChange] Could not check whether "${hostname}" is still listed. Leaving its Cloudflare custom hostname in place:`,
+              err,
+            )
+            continue
+          }
+          await deleteCustomHostname(hostname).catch((err: unknown) => {
+            console.error(
+              `[Tenants afterChange] Failed to delete Cloudflare custom hostname "${hostname}":`,
+              err,
+            )
+          })
         }
 
         // Resend email sending domain follows the apex of the canonical host.

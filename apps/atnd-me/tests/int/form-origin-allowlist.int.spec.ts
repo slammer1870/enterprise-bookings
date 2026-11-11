@@ -18,6 +18,7 @@ vi.mock('@/lib/cloudflare/customHostnames', () => ({
     verificationTxtValue: 'txt-token-mock',
     status: 'pending',
   }),
+  deleteCustomHostname: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('@/lib/stripe/platform', () => ({

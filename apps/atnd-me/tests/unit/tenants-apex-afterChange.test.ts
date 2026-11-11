@@ -1,90 +1,156 @@
 /**
- * Cloudflare registration follows the old custom-domain hook.
- * The first hostname is registered. Redirect to www also registers its parent.
- * A later hostname, including an alias, is not registered.
+ * Cloudflare registration follows the saved hostname list.
+ * Every hostname is ensured. A hostname that leaves the list is removed.
+ * An apex uses TXT only when leased Apex Proxying addresses are configured.
  */
-import { describe, it, expect } from 'vitest'
-import { customHostnamesToRegister } from '@/collections/Tenants/apexDomainHook'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { customHostnameSync } from '@/collections/Tenants/customHostnameSync'
 
-describe('customHostnamesToRegister', () => {
-  it('registers the first hostname on create, and not a later hostname', () => {
+const originalA = process.env.CLOUDFLARE_APEX_PROXYING_A
+const originalAAAA = process.env.CLOUDFLARE_APEX_PROXYING_AAAA
+
+beforeEach(() => {
+  delete process.env.CLOUDFLARE_APEX_PROXYING_A
+  delete process.env.CLOUDFLARE_APEX_PROXYING_AAAA
+})
+
+afterEach(() => {
+  if (originalA === undefined) delete process.env.CLOUDFLARE_APEX_PROXYING_A
+  else process.env.CLOUDFLARE_APEX_PROXYING_A = originalA
+  if (originalAAAA === undefined) delete process.env.CLOUDFLARE_APEX_PROXYING_AAAA
+  else process.env.CLOUDFLARE_APEX_PROXYING_AAAA = originalAAAA
+})
+
+describe('customHostnameSync', () => {
+  it('ensures every hostname on create and removes nothing', () => {
     expect(
-      customHostnamesToRegister({
+      customHostnameSync({
         operation: 'create',
         hostnames: ['www.example.com', 'example.com', 'notes.example.net'],
-        direction: 'allow-www-and-non-www',
       }),
-    ).toEqual([{ hostname: 'www.example.com', isApex: false }])
+    ).toEqual({
+      ensure: [
+        { hostname: 'www.example.com', isApex: false },
+        { hostname: 'example.com', isApex: false },
+        { hostname: 'notes.example.net', isApex: false },
+      ],
+      remove: [],
+    })
   })
 
-  it('registers the first hostname and its parent when Direction is Redirect to www', () => {
+  it('keeps an apex on HTTP when no leased addresses are configured', () => {
+    delete process.env.CLOUDFLARE_APEX_PROXYING_A
+    delete process.env.CLOUDFLARE_APEX_PROXYING_AAAA
     expect(
-      customHostnamesToRegister({
+      customHostnameSync({
         operation: 'create',
-        hostnames: ['www.example.com', 'example.com'],
-        direction: 'redirect-to-www',
-      }),
+        hostnames: ['example.com', 'www.example.com'],
+      }).ensure,
     ).toEqual([
+      { hostname: 'example.com', isApex: false },
       { hostname: 'www.example.com', isApex: false },
-      { hostname: 'example.com', isApex: true },
     ])
   })
 
-  it('does not register the www partner when Direction is Redirect to non-www', () => {
+  it('marks an apex for TXT when leased proxying addresses are configured', () => {
+    process.env.CLOUDFLARE_APEX_PROXYING_A = '192.0.2.10'
     expect(
-      customHostnamesToRegister({
+      customHostnameSync({
         operation: 'create',
         hostnames: ['example.com', 'www.example.com'],
-        direction: 'redirect-to-non-www',
-      }),
-    ).toEqual([{ hostname: 'example.com', isApex: false }])
+      }).ensure,
+    ).toEqual([
+      { hostname: 'example.com', isApex: true },
+      { hostname: 'www.example.com', isApex: false },
+    ])
   })
 
-  it('registers only a changed first hostname', () => {
+  it('removes a hostname that left the list and ensures the replacement', () => {
     expect(
-      customHostnamesToRegister({
+      customHostnameSync({
         operation: 'update',
         hostnames: ['mysite.example.com', 'example.com'],
         previousHostnames: ['www.example.com', 'example.com'],
-        direction: 'allow-www-and-non-www',
         previousDirection: 'allow-www-and-non-www',
       }),
-    ).toEqual([{ hostname: 'mysite.example.com', isApex: false }])
+    ).toEqual({
+      ensure: [
+        { hostname: 'mysite.example.com', isApex: false },
+        { hostname: 'example.com', isApex: false },
+      ],
+      remove: ['www.example.com'],
+    })
   })
 
-  it('registers the parent when Direction turns to Redirect to www', () => {
+  it('removes nothing when the list is unchanged', () => {
     expect(
-      customHostnamesToRegister({
-        operation: 'update',
-        hostnames: ['www.example.com', 'example.com'],
-        previousHostnames: ['www.example.com', 'example.com'],
-        direction: 'redirect-to-www',
-        previousDirection: 'allow-www-and-non-www',
-      }),
-    ).toEqual([{ hostname: 'example.com', isApex: true }])
-  })
-
-  it('registers nothing when the first hostname and Direction are unchanged', () => {
-    expect(
-      customHostnamesToRegister({
+      customHostnameSync({
         operation: 'update',
         hostnames: ['www.example.com', 'example.com', 'notes.example.net'],
-        previousHostnames: ['www.example.com', 'example.com'],
-        direction: 'redirect-to-www',
+        previousHostnames: ['www.example.com', 'example.com', 'notes.example.net'],
         previousDirection: 'redirect-to-www',
-      }),
+      }).remove,
     ).toEqual([])
   })
 
-  it('does not register a later hostname that left the list', () => {
+  it('removes every previous hostname when the list is cleared', () => {
     expect(
-      customHostnamesToRegister({
+      customHostnameSync({
         operation: 'update',
-        hostnames: ['www.example.com'],
-        previousHostnames: ['www.example.com', 'example.com'],
-        direction: 'allow-www-and-non-www',
+        hostnames: [],
+        previousHostnames: ['www.example.com', 'notes.example.net'],
         previousDirection: 'allow-www-and-non-www',
       }),
+    ).toEqual({
+      ensure: [],
+      remove: ['www.example.com', 'notes.example.net'],
+    })
+  })
+
+  it('removes a legacy unlisted parent from Redirect to www', () => {
+    expect(
+      customHostnameSync({
+        operation: 'update',
+        hostnames: ['www.example.com'],
+        previousHostnames: ['www.example.com'],
+        previousDirection: 'redirect-to-www',
+      }),
+    ).toEqual({
+      ensure: [{ hostname: 'www.example.com', isApex: false }],
+      remove: ['example.com'],
+    })
+  })
+
+  it('does not remove the legacy parent when it is still in the list', () => {
+    expect(
+      customHostnameSync({
+        operation: 'update',
+        hostnames: ['www.example.com', 'example.com'],
+        previousHostnames: ['www.example.com'],
+        previousDirection: 'redirect-to-www',
+      }).remove,
+    ).toEqual([])
+  })
+
+  it('does not remove a public suffix when the previous first hostname was already an apex', () => {
+    expect(
+      customHostnameSync({
+        operation: 'update',
+        hostnames: ['example.co.uk', 'www.example.co.uk'],
+        previousHostnames: ['example.co.uk'],
+        previousDirection: 'redirect-to-www',
+      }).remove,
+    ).toEqual([])
+  })
+
+  it('does not remove a legacy parent on create', () => {
+    expect(
+      customHostnameSync({
+        operation: 'create',
+        hostnames: ['shop.example.com'],
+        previousHostnames: ['www.example.com'],
+        previousDirection: 'redirect-to-www',
+      }).remove,
     ).toEqual([])
   })
 })

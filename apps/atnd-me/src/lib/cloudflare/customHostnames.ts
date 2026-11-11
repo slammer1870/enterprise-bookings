@@ -144,6 +144,41 @@ function extractSslValidationRecords(record: CfCustomHostname): SslValidationRec
   return rows
 }
 
+async function cfErrorMessage(res: Response): Promise<string> {
+  const errorBody = (await res.json().catch(() => null)) as CfApiResponse<unknown> | null
+  return errorBody?.errors?.[0]?.message ?? res.statusText
+}
+
+/** The listed record, or null when Cloudflare has none. A failed list throws. */
+async function requireListedCustomHostname(
+  zoneId: string,
+  token: string,
+  hostname: string,
+): Promise<CfCustomHostname | null> {
+  const listed = await listCustomHostname(zoneId, token, hostname)
+  if (!listed.res.ok) {
+    const msg = await cfErrorMessage(listed.res)
+    throw new Error(`Cloudflare custom hostname lookup failed (${listed.res.status}): ${msg}`)
+  }
+  return listed.record
+}
+
+/** The first custom hostname Cloudflare lists for this name. The body stays unread when the list fails. */
+async function listCustomHostname(
+  zoneId: string,
+  token: string,
+  hostname: string,
+  init?: { cache?: RequestCache },
+): Promise<{ res: Response; record: CfCustomHostname | null }> {
+  const res = await fetch(
+    `${CF_API}/zones/${zoneId}/custom_hostnames?hostname=${encodeURIComponent(hostname)}&limit=1`,
+    { headers: authHeaders(token), ...init },
+  )
+  if (!res.ok) return { res, record: null }
+  const body = (await res.json()) as CfApiResponse<CfCustomHostname[]>
+  return { res, record: body.result?.[0] ?? null }
+}
+
 async function fetchCustomHostnameById(
   zoneId: string,
   token: string,
@@ -203,12 +238,7 @@ export async function createOrGetCustomHostname(
 
   if (createRes.status === 409) {
     // Hostname already exists — fetch and return the existing record
-    const listRes = await fetch(
-      `${CF_API}/zones/${zoneId}/custom_hostnames?hostname=${encodeURIComponent(hostname)}&limit=1`,
-      { headers: authHeaders(token) },
-    )
-    const listBody = (await listRes.json()) as CfApiResponse<CfCustomHostname[]>
-    const existing = listBody.result?.[0]
+    const existing = await requireListedCustomHostname(zoneId, token, hostname)
     if (!existing) {
       throw new Error(`Cloudflare: hostname ${hostname} reported as existing but not found in list`)
     }
@@ -231,9 +261,35 @@ export async function createOrGetCustomHostname(
     return extractResult(existing)
   }
 
-  const errorBody = await createRes.json().catch(() => null) as CfApiResponse<unknown> | null
-  const msg = errorBody?.errors?.[0]?.message ?? createRes.statusText
+  const msg = await cfErrorMessage(createRes)
   throw new Error(`Cloudflare custom hostname creation failed (${createRes.status}): ${msg}`)
+}
+
+/**
+ * Deletes a Cloudflare custom hostname. A hostname that is already gone is success.
+ * Missing credentials skip the call, the same way creation does.
+ */
+export async function deleteCustomHostname(hostname: string): Promise<void> {
+  const config = getConfig()
+  if (!config) {
+    console.warn(
+      `[cloudflare] Missing CLOUDFLARE_API_TOKEN/CLOUDFLARE_ZONE_ID — skipping custom hostname deletion for "${hostname}"`,
+    )
+    return
+  }
+
+  const { token, zoneId } = config
+  const existing = await requireListedCustomHostname(zoneId, token, hostname)
+  if (!existing?.id) return
+
+  const deleteRes = await fetch(`${CF_API}/zones/${zoneId}/custom_hostnames/${existing.id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+  if (deleteRes.ok || deleteRes.status === 404) return
+
+  const msg = await cfErrorMessage(deleteRes)
+  throw new Error(`Cloudflare custom hostname deletion failed (${deleteRes.status}): ${msg}`)
 }
 
 /**
@@ -247,21 +303,14 @@ export async function getCustomHostnameStatus(hostname: string): Promise<CustomH
   const { token, zoneId } = config
 
   try {
-    const res = await fetch(
-      `${CF_API}/zones/${zoneId}/custom_hostnames?hostname=${encodeURIComponent(hostname)}&limit=1`,
-      { headers: authHeaders(token), cache: 'no-store' },
-    )
-    if (!res.ok) return null
-
-    const body = (await res.json()) as CfApiResponse<CfCustomHostname[]>
-    const listed = body.result?.[0]
-    if (!listed) return null
+    const listed = await listCustomHostname(zoneId, token, hostname, { cache: 'no-store' })
+    if (!listed.res.ok || !listed.record) return null
 
     // Detail endpoint includes validation_records that the list endpoint may omit.
     const record =
-      listed.id != null
-        ? (await fetchCustomHostnameById(zoneId, token, listed.id)) ?? listed
-        : listed
+      listed.record.id != null
+        ? (await fetchCustomHostnameById(zoneId, token, listed.record.id)) ?? listed.record
+        : listed.record
 
     const sslValidationRecords = extractSslValidationRecords(record)
 
