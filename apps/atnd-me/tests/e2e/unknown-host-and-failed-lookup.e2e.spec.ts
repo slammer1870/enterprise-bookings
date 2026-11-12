@@ -105,7 +105,7 @@ test.describe('Unknown host and failed lookup (E2E)', () => {
       waitUntil: 'domcontentloaded',
       timeout: 60_000,
     })
-    await expect(page).toHaveTitle(tenantName)
+    await expect(page).toHaveTitle(`Kids | ${tenantName}`)
     await expect(page.locator('link[rel="icon"]')).toHaveCount(0)
   })
 

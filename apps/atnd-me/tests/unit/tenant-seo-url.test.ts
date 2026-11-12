@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { getTenantContext, getTenantWithBranding } from '../../src/utilities/getTenantContext'
-import { getTenantSiteURL } from '../../src/utilities/getURL'
+import { getAbsoluteMediaURL, getTenantSiteURL } from '../../src/utilities/getURL'
 import { indexedSitemapURL, publicMetadataURL } from '../../src/utilities/resolvePublicTenant'
 
 describe('tenant SEO URL resolution', () => {
@@ -22,6 +22,18 @@ describe('tenant SEO URL resolution', () => {
         siteUrl: 'http://bru.ie:3000',
       }),
     ).toBe('https://bru.ie/kids')
+  })
+
+  it('leaves a media URL that already names its host unchanged', () => {
+    expect(
+      getAbsoluteMediaURL('https://atnd.test/api/media/file/logo.png', 'https://www.bru.ie'),
+    ).toBe('https://atnd.test/api/media/file/logo.png')
+  })
+
+  it('puts a media path on the site', () => {
+    expect(getAbsoluteMediaURL('/api/media/file/logo.png', 'https://www.bru.ie')).toBe(
+      'https://www.bru.ie/api/media/file/logo.png',
+    )
   })
 
   it('prefers a tenant custom domain over the platform subdomain', () => {

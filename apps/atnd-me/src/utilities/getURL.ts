@@ -159,6 +159,15 @@ export const getAbsoluteURL = (pathname: string, baseURL: string) => {
   return new URL(normalizedPath, baseURL).toString()
 }
 
+/**
+ * A stored media URL either names its host already or is a path on the site.
+ * `getAbsoluteURL` treats its argument as a path, so it cannot take the first kind.
+ */
+export const getAbsoluteMediaURL = (mediaUrl: string, baseURL: string) => {
+  const trimmed = mediaUrl.trim()
+  return /^https?:\/\//i.test(trimmed) ? trimmed : getAbsoluteURL(trimmed, baseURL)
+}
+
 export const getClientSideURL = () => {
   if (canUseDOM) {
     const protocol = window.location.protocol

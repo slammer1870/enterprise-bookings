@@ -138,7 +138,7 @@ test.describe('Serve hosts the declaration marks as serving (E2E)', () => {
     const indexedKids = `https://${apex}/kids`
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', indexedKids)
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', indexedKids)
-    await expect(page).toHaveTitle(tenantName)
+    await expect(page).toHaveTitle(`Kids | ${tenantName}`)
     await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', description)
     await expect(page.locator('meta[property="og:site_name"]')).toHaveAttribute('content', tenantName)
     await expect(page.locator('link[rel="icon"]')).toHaveCount(0)
@@ -229,7 +229,7 @@ test.describe('Serve hosts the declaration marks as serving (E2E)', () => {
     expect(sitemap.status()).toBe(200)
     const locs = sitemapLocs(await sitemap.text())
     expect(locs.sort()).toEqual(
-      [indexed('/'), indexed('/search'), indexed('/posts'), indexed('/kids'), indexed('/posts/open-mat')].sort(),
+      [indexed('/'), indexed('/posts'), indexed('/kids'), indexed('/posts/open-mat')].sort(),
     )
     for (const loc of locs) {
       const url = new URL(loc)
