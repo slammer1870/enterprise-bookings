@@ -1,4 +1,4 @@
-import type { CollectionConfig, Field, Payload } from 'payload'
+import { APIError, type CollectionConfig, type Field, type Payload } from 'payload'
 import { extractUtcWallClock } from '@repo/shared-utils'
 import {
     schedulerAdminAccess,
@@ -238,8 +238,9 @@ export const Scheduler: CollectionConfig = {
                                 overrideAccess: true,
                             })
                             if (locs.totalDocs > 1) {
-                                throw new Error(
+                                throw new APIError(
                                     'A branch must be selected when the tenant has more than one active site.',
+                                    400,
                                 )
                             }
                         }

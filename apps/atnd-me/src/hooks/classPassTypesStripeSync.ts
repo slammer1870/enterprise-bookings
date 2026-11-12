@@ -1,7 +1,7 @@
 /**
  * Phase 4.5 – Sync class-pass-types to tenant Stripe Connect: create product on create, archive on delete.
  */
-import type { CollectionAfterChangeHook, CollectionBeforeDeleteHook } from 'payload'
+import { APIError, type CollectionAfterChangeHook, type CollectionBeforeDeleteHook } from 'payload'
 import {
   createTenantProduct,
   updateTenantProduct,
@@ -145,5 +145,5 @@ export const classPassTypeBeforeDeleteArchive: CollectionBeforeDeleteHook = asyn
     req,
   })
   await archiveTenantProduct(tenant as TenantStripeLike & { id?: number }, stripeProductId)
-  throw new Error('Class pass type was archived instead of deleted. Refresh the list.')
+  throw new APIError('Class pass type was archived instead of deleted. Refresh the list.', 400)
 }

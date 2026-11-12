@@ -1,9 +1,10 @@
-import type {
-  CollectionAdminOptions,
-  CollectionBeforeValidateHook,
-  CollectionConfig,
-  Field,
-  Labels,
+import {
+  APIError,
+  type CollectionAdminOptions,
+  type CollectionBeforeValidateHook,
+  type CollectionConfig,
+  type Field,
+  type Labels,
 } from "payload";
 import { checkRole } from "@repo/shared-utils";
 import type { AccessControls, HooksConfig, User } from "@repo/shared-types";
@@ -272,14 +273,14 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data, original
     const hasInterval = interval.length > 0;
     const hasCount = typeof row?.intervalCount === "number";
     if (hasInterval && !isSessionInterval(interval)) {
-      throw new Error("Interval must be days, weeks, months, quarters, or years.");
+      throw new APIError("Interval must be days, weeks, months, quarters, or years.", 400);
     }
     if (hasInterval && !hasCount) {
       row.intervalCount = 1;
     } else if (!hasInterval && hasCount) {
-      throw new Error("Set Interval when Per is set, or leave both blank.");
+      throw new APIError("Set Interval when Per is set, or leave both blank.", 400);
     } else if (hasCount && (row.intervalCount as number) < 1) {
-      throw new Error("Per must be at least 1.");
+      throw new APIError("Per must be at least 1.", 400);
     }
   }
   const validation = validateEventTypeOverrideRows({
@@ -289,7 +290,7 @@ const beforePlanValidate: CollectionBeforeValidateHook = async ({ data, original
       count: typeof row?.sessions === "number" ? row.sessions : null,
     })),
   });
-  if (validation !== true) throw new Error(validation);
+  if (validation !== true) throw new APIError(validation, 400);
 
   return data;
 };

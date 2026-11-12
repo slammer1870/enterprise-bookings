@@ -1,4 +1,4 @@
-import type { CollectionAfterChangeHook } from "payload";
+import { APIError, type CollectionAfterChangeHook } from "payload";
 import {
   adjustClassPassForEventType,
   eventTypeIdForTimeslot,
@@ -62,7 +62,7 @@ export function createDecrementClassPassHook(
       req,
     });
     if (!adjusted.ok) {
-      throw new Error(adjusted.error);
+      throw new APIError(adjusted.error, 400);
     }
   };
 }

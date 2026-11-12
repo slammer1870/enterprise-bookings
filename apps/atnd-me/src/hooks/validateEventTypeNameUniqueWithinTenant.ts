@@ -1,8 +1,11 @@
-import type { CollectionBeforeValidateHook } from 'payload'
+import { APIError, type CollectionBeforeValidateHook } from 'payload'
 
 /**
- * Validates that the class option name is unique within the tenant (not globally).
- * Used with tenant-scoped class options; allows the same name across different tenants.
+ * Validates that the event type name is unique within the tenant (not globally).
+ * Used with tenant-scoped event types; allows the same name across different tenants.
+ *
+ * A duplicate is refused as a client error: Payload replaces the message of any other error
+ * with "Something went wrong.", which leaves the admin toast unable to say why the save failed.
  */
 export const validateEventTypeNameUniqueWithinTenant: CollectionBeforeValidateHook = async ({
   data,
@@ -57,8 +60,9 @@ export const validateEventTypeNameUniqueWithinTenant: CollectionBeforeValidateHo
   })
 
   if (existing.docs.length > 0) {
-    throw new Error(
-      `A class option named "${name}" already exists for this tenant. Names must be unique within each location.`,
+    throw new APIError(
+      `An event type named "${name.trim()}" already exists for this tenant. Choose a different name.`,
+      400,
     )
   }
 
