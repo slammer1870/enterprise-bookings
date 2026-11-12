@@ -25,6 +25,7 @@ import { requireStripeConnectForPayments } from '@/hooks/requireStripeConnectFor
 import { validateEventTypeNameUniqueWithinTenant } from '@/hooks/validateEventTypeNameUniqueWithinTenant'
 import { validateTimeslotBranchMatchesTenant } from '@/hooks/validateTimeslotBranchMatchesTenant'
 import { withTimeslotBranchFields } from '@/fields/timeslotBranchFields'
+import { withTimeslotTenantTimeFields } from '@/fields/timeslotTenantTimeFields'
 import { formatTimeslotAdminTitle } from '@/utilities/formatTimeslotAdminTitle'
 import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
 import { bookingsPlugin } from '@repo/bookings-plugin'
@@ -476,7 +477,7 @@ export const plugins: Plugin[] = [
       indexes: [{ fields: ['startTime', 'tenant'] }, { fields: ['tenant', 'branch', 'startTime'] }],
       fields: ({ defaultFields }) => [
         ...withTimeslotBranchFields(
-          withExplicitTenantSyncFields(defaultFields).map((f): Field => {
+          withTimeslotTenantTimeFields(withExplicitTenantSyncFields(defaultFields)).map((f): Field => {
             if ('name' in f && f.name === 'eventType') return { ...f, label: 'Event Type' } as Field
             if ('name' in f && f.name === 'staffMember') {
               return {

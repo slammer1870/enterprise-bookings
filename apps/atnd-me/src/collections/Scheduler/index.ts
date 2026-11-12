@@ -98,6 +98,9 @@ const days: Field = {
                         date: {
                             pickerAppearance: 'timeOnly',
                         },
+                        components: {
+                            Field: '@/components/admin/TenantTimeField#TenantTimeField',
+                        },
                     },
                 },
                 {
@@ -107,6 +110,9 @@ const days: Field = {
                     admin: {
                         date: {
                             pickerAppearance: 'timeOnly',
+                        },
+                        components: {
+                            Field: '@/components/admin/TenantTimeField#TenantTimeField',
                         },
                     },
                 },

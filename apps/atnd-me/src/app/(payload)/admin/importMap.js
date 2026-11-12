@@ -1,3 +1,5 @@
+import { TenantDateField as TenantDateField_fe3cb116f74ef00cd97a52d38de6f837 } from '@/components/admin/TenantDateField'
+import { TenantTimeField as TenantTimeField_3640125ccf06676fc4a21649288a789e } from '@/components/admin/TenantTimeField'
 import { default as default_c460fff066f5db6b45826c32f5c7748e } from '@/components/admin/SyncPayloadLocationCookieToBranchField'
 import { default as default_2a89e3b2de91cb0ec6b364df0983fbdc } from '@/components/admin/SyncBranchFieldToPayloadLocationCookie'
 import { SyncTenantSelectorToFormField as SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611 } from '@repo/plugin-clearable-tenant/client'
@@ -99,6 +101,8 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 
 /** @type import('payload').ImportMap */
 export const importMap = {
+  "@/components/admin/TenantDateField#TenantDateField": TenantDateField_fe3cb116f74ef00cd97a52d38de6f837,
+  "@/components/admin/TenantTimeField#TenantTimeField": TenantTimeField_3640125ccf06676fc4a21649288a789e,
   "@/components/admin/SyncPayloadLocationCookieToBranchField#default": default_c460fff066f5db6b45826c32f5c7748e,
   "@/components/admin/SyncBranchFieldToPayloadLocationCookie#default": default_2a89e3b2de91cb0ec6b364df0983fbdc,
   "@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField": SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611,
