@@ -1,4 +1,4 @@
-import type { CollectionBeforeChangeHook } from 'payload'
+import { APIError, type CollectionBeforeChangeHook } from 'payload'
 
 /**
  * Step 2.6.1 – Server enforcement: payment methods require Stripe Connect.
@@ -52,7 +52,7 @@ export const requireStripeConnectForPayments: CollectionBeforeChangeHook = async
     (operation === 'update' && originalDoc ? extractTenantId(originalDoc.tenant) : null)
 
   if (tenantId == null) {
-    throw new Error('Tenant context required to enable payments')
+    throw new APIError('Tenant context required to enable payments', 400)
   }
 
   const tenant = await req.payload.findByID({
@@ -68,7 +68,7 @@ export const requireStripeConnectForPayments: CollectionBeforeChangeHook = async
 
   const status = tenant?.stripeConnectOnboardingStatus as string | undefined
   if (status !== 'active') {
-    throw new Error('Connect Stripe to enable payments for this tenant')
+    throw new APIError('Connect Stripe to enable payments for this tenant', 400)
   }
 
   return data

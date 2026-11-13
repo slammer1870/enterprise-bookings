@@ -86,6 +86,17 @@ test.describe('Publish sitemap and robots on the canonical host (E2E)', () => {
       draft: true,
       overrideAccess: true,
     })
+
+    const indexed = (path: string) => `https://${canonicalHost}${path}`
+    const sitemapUrl = `http://${canonicalHost}:${port}/sitemap.xml?ref=1`
+
+    // With no published post, the posts index is not listed. Search is never listed.
+    const withoutPosts = await page.request.get(sitemapUrl, { maxRedirects: 0, timeout: 60_000 })
+    expect(withoutPosts.status()).toBe(200)
+    expect(sitemapLocs(await withoutPosts.text()).sort()).toEqual(
+      [indexed('/'), indexed('/kids')].sort(),
+    )
+
     await payload.create({
       collection: 'posts',
       data: {
@@ -111,18 +122,12 @@ test.describe('Publish sitemap and robots on the canonical host (E2E)', () => {
       overrideAccess: true,
     })
 
-    const indexed = (path: string) => `https://${canonicalHost}${path}`
-
-    const sitemap = await page.request.get(
-      `http://${canonicalHost}:${port}/sitemap.xml?ref=1`,
-      { maxRedirects: 0, timeout: 60_000 },
-    )
+    const sitemap = await page.request.get(sitemapUrl, { maxRedirects: 0, timeout: 60_000 })
     expect(sitemap.status()).toBe(200)
     const locs = sitemapLocs(await sitemap.text())
     expect(locs.sort()).toEqual(
       [
         indexed('/'),
-        indexed('/search'),
         indexed('/posts'),
         indexed('/kids'),
         indexed('/posts/open-mat'),

@@ -1,4 +1,4 @@
-import type { CollectionConfig, Field } from "payload";
+import { APIError, type CollectionConfig, type Field } from "payload";
 import { validateClassPassCreditPoolRows } from "@repo/shared-services";
 import {
   classPassReadAccess,
@@ -135,12 +135,12 @@ export function classPassesCollection(opts: ClassPassOpts): CollectionConfig {
         if (operation === "create" && data?.expirationDate) {
           const exp = new Date(data.expirationDate as string);
           if (exp <= new Date()) {
-            throw new Error("Expiration date must be in the future");
+            throw new APIError("Expiration date must be in the future", 400);
           }
         }
         if (data && Array.isArray(data.eventTypeOverrides)) {
           const validation = validateClassPassCreditPoolRows(data.eventTypeOverrides);
-          if (validation !== true) throw new Error(validation);
+          if (validation !== true) throw new APIError(validation, 400);
         }
         return data;
       },

@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import { APIError, type CollectionConfig } from 'payload'
 import { defaultTimezones } from 'payload/shared'
 import { checkRole } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
@@ -627,7 +627,7 @@ export const Tenants: CollectionConfig = {
           if (data.hostnames == null) {
             data.hostnames = null
           } else if (!Array.isArray(data.hostnames)) {
-            throw new Error('Hostname list must be a list of hostnames.')
+            throw new APIError('Hostname list must be a list of hostnames.', 400)
           } else {
             data.hostnames = normalizeHostnameList(data.hostnames)
           }

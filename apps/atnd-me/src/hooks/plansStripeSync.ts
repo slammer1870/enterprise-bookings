@@ -1,7 +1,7 @@
 /**
  * Phase 4.5 – Sync plans to tenant Stripe Connect: create product on create, update/archive on update/delete.
  */
-import type { CollectionAfterChangeHook, CollectionBeforeDeleteHook } from 'payload'
+import { APIError, type CollectionAfterChangeHook, type CollectionBeforeDeleteHook } from 'payload'
 import { createTenantProduct, updateTenantProduct, archiveTenantProduct, createTenantPrice } from '@/lib/stripe-connect/products'
 import type { TenantStripeLike } from '@/lib/stripe-connect/tenantStripe'
 import { getTenantStripeContext } from '@/lib/stripe-connect/tenantStripe'
@@ -157,5 +157,5 @@ export const planBeforeDeleteArchive: CollectionBeforeDeleteHook = async ({ id, 
     req,
   })
   await archiveTenantProduct(tenantLike, stripeProductId)
-  throw new Error('Plan was archived instead of deleted. Refresh the list.')
+  throw new APIError('Plan was archived instead of deleted. Refresh the list.', 400)
 }

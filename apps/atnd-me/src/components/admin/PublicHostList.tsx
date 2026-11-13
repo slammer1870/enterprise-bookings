@@ -14,12 +14,13 @@ import { apexProxyingRecords } from './apexProxying'
 import { acmeTxtsToShow, ownershipTxtToShow } from './publicHostTxt'
 import { certificateStatusLabel, dnsStatusLabel, type StatusLabel } from './publicHostStatus'
 
-const cellStyle = { padding: '4px 8px', fontFamily: 'monospace' } as const
-const textCellStyle = { ...cellStyle, fontFamily: 'inherit' } as const
+const cellStyle = { padding: '4px 8px', verticalAlign: 'top' } as const
 const headerStyle = {
   textAlign: 'left' as const,
   padding: '4px 8px',
   borderBottom: '1px solid var(--theme-elevation-150)',
+  whiteSpace: 'nowrap' as const,
+  verticalAlign: 'bottom' as const,
 }
 
 function saasTarget(): string | null {
@@ -163,16 +164,27 @@ async function publicHostRows(data: unknown): Promise<PublicHostRow[]> {
 }
 
 const COLUMNS = [
-  { key: 'host', heading: 'Public host', monospace: true },
-  { key: 'role', heading: 'Role', monospace: false },
-  { key: 'type', heading: 'Type', monospace: false },
-  { key: 'dnsHost', heading: 'DNS host', monospace: true },
-  { key: 'value', heading: 'Value', monospace: true },
-  { key: 'dnsStatus', heading: 'DNS status', monospace: false },
-  { key: 'certificateStatus', heading: 'Certificate status', monospace: false },
+  { key: 'host', heading: 'Public host' },
+  { key: 'role', heading: 'Role' },
+  { key: 'type', heading: 'Type' },
+  { key: 'dnsHost', heading: 'DNS host' },
+  { key: 'value', heading: 'Value' },
+  { key: 'dnsStatus', heading: 'DNS status' },
+  { key: 'certificateStatus', heading: 'Certificate status' },
 ] as const
 
 type ColumnKey = (typeof COLUMNS)[number]['key']
+
+/** DNS status stays wide enough to read. A block error in the cell would otherwise collapse the column to one word. */
+const COLUMN_CELL_STYLE: Record<ColumnKey, React.CSSProperties> = {
+  host: { ...cellStyle, fontFamily: 'monospace' },
+  role: cellStyle,
+  type: { ...cellStyle, whiteSpace: 'nowrap' },
+  dnsHost: { ...cellStyle, fontFamily: 'monospace', overflowWrap: 'anywhere' },
+  value: { ...cellStyle, fontFamily: 'monospace', overflowWrap: 'anywhere' },
+  dnsStatus: { ...cellStyle, minWidth: '22rem' },
+  certificateStatus: { ...cellStyle, whiteSpace: 'nowrap' },
+}
 
 const EMPTY_CELLS: Record<ColumnKey, React.ReactNode> = {
   host: '',
@@ -215,8 +227,12 @@ function HostRow({ row }: { row: PublicHostRow }) {
   return (
     <tr>
       {COLUMNS.map((column) => (
-        <td key={column.key} style={column.monospace ? cellStyle : textCellStyle}>
-          {cells[column.key]}
+        <td key={column.key} style={COLUMN_CELL_STYLE[column.key]}>
+          {column.key === 'dnsStatus' ? (
+            <div style={{ width: '22rem' }}>{cells[column.key]}</div>
+          ) : (
+            cells[column.key]
+          )}
         </td>
       ))}
     </tr>
@@ -236,7 +252,7 @@ export const PublicHostList: UIFieldServerComponent = async ({ data }) => {
   if (rows.length === 0) return null
 
   return (
-    <div style={{ padding: '12px 0' }}>
+    <div style={{ padding: '12px 0', maxWidth: '100%', minWidth: 0, overflowX: 'auto' }}>
       <table aria-label="Public hosts" style={{ borderCollapse: 'collapse', width: '100%', fontSize: 13 }}>
         <thead>
           <tr>

@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import { APIError, type CollectionConfig } from 'payload'
 
 import type { User as SharedUser } from '@repo/shared-types'
 import {
@@ -517,8 +517,9 @@ export const Pages: CollectionConfig<'pages'> = {
         const usedBlockTypes = collectBlockTypes(data.layout)
         const disallowed = usedBlockTypes.filter((slug) => slug && !allowed.includes(slug))
         if (disallowed.length > 0) {
-          throw new Error(
-            `The following blocks are not enabled for this tenant: ${disallowed.join(', ')}. Contact your administrator to enable them.`
+          throw new APIError(
+            `The following blocks are not enabled for this tenant: ${disallowed.join(', ')}. Contact your administrator to enable them.`,
+            400,
           )
         }
         return data

@@ -1,4 +1,4 @@
-import type { CollectionBeforeValidateHook } from 'payload'
+import { APIError, type CollectionBeforeValidateHook } from 'payload'
 import { getPayloadLocationIdFromRequest } from '@/utilities/tenantRequest'
 
 function relationId(value: unknown): number | null {
@@ -36,7 +36,7 @@ export const validateTimeslotBranchMatchesTenant: CollectionBeforeValidateHook =
   // When a branch IS provided: validate it belongs to the same tenant.
   if (branchId != null) {
     if (tenantId == null) {
-      throw new Error('A timeslot must have a tenant when a branch is selected.')
+      throw new APIError('A timeslot must have a tenant when a branch is selected.', 400)
     }
 
     const loc = await req.payload.findByID({
@@ -46,12 +46,12 @@ export const validateTimeslotBranchMatchesTenant: CollectionBeforeValidateHook =
       overrideAccess: true,
     })
     if (!loc) {
-      throw new Error('Selected branch was not found.')
+      throw new APIError('Selected branch was not found.', 400)
     }
 
     const locTenantId = relationId(loc.tenant)
     if (locTenantId !== tenantId) {
-      throw new Error('Branch must belong to the same tenant as this timeslot.')
+      throw new APIError('Branch must belong to the same tenant as this timeslot.', 400)
     }
   }
 
@@ -82,8 +82,9 @@ export const validateTimeslotBranchMatchesTenant: CollectionBeforeValidateHook =
         overrideAccess: true,
       })
       if (locs.totalDocs > 1) {
-        throw new Error(
+        throw new APIError(
           'A branch must be selected when the tenant has more than one active site.',
+          400,
         )
       }
     }
