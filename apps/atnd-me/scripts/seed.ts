@@ -63,9 +63,10 @@ async function main() {
     let adminUser = await payload.find({
       collection: 'users',
       where: {
-        role: {
-          contains: 'admin',
-        },
+        or: [
+          { role: { contains: 'super-admin' } },
+          { role: { contains: 'admin' } },
+        ],
       },
       limit: 1,
       overrideAccess: true, // Need to bypass access to find admin user
@@ -90,7 +91,7 @@ async function main() {
       console.log(`✓ Created admin user: ${user.email}`)
     } else {
       // Verify user is actually an admin
-      if (!checkRole(['admin'], user as User)) {
+      if (!checkRole(['super-admin', 'admin'], user as User)) {
         console.error('❌ User found but does not have admin role.')
         process.exit(1)
       }
