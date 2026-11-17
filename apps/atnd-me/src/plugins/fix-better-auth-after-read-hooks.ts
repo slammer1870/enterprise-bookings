@@ -8,6 +8,7 @@ import type {
 import { isAdmin } from '@/access/userTenantAccess'
 import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
+import { attachExistingUserOnAdminCreate } from '@/collections/Users/attachExistingUserOnAdminCreate'
 import { assertAnonymousUserCreateRateLimit } from '@/collections/Users/sanitizeUserWrite'
 import { stripForeignTenantsBeforeValidate } from '@/collections/Users/stripForeignTenantsBeforeValidate'
 import {
@@ -77,9 +78,15 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
         ...usersCollection.hooks,
         beforeOperation: [
           ...(usersCollection.hooks?.beforeOperation ?? []),
+          // payload-auth replaces Users.hooks and drops beforeOperation, so this
+          // is the copy that actually runs. Re-attach attach-existing here too.
           async ({ args, operation, req }) => {
             if (operation === 'create') {
               assertAnonymousUserCreateRateLimit(req)
+              await attachExistingUserOnAdminCreate({
+                data: (args as { data?: Record<string, unknown> }).data,
+                req,
+              })
             }
             return args
           },

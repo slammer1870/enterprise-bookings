@@ -41,6 +41,7 @@ import { stripForeignTenantsBeforeValidate } from './stripForeignTenantsBeforeVa
 import { usersTenantsTenantFilterOptions } from './tenantsTenantFilterOptions'
 import { validateTenantsMembershipArray } from './validateTenantsMembershipArray'
 import { ensureCreateTenantScope } from './ensureCreateTenantScope'
+import { attachExistingUserOnAdminCreate } from './attachExistingUserOnAdminCreate'
 import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
@@ -231,6 +232,12 @@ export const Users: CollectionConfig = {
       async ({ args, operation, req }) => {
         if (operation === 'create') {
           assertAnonymousUserCreateRateLimit(req)
+          // Cross-tenant email collision: existing user is invisible under userTenantRead,
+          // so attach them to this tenant instead of failing on the global unique email index.
+          await attachExistingUserOnAdminCreate({
+            data: (args as { data?: Record<string, unknown> }).data,
+            req,
+          })
         }
         return args
       },
