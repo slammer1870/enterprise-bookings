@@ -112,20 +112,19 @@ export async function GET(request: NextRequest) {
     })
     console.info('[Stripe Connect] connected', { tenantId, userId: stateUserId })
 
-    // Register all platform domains on the newly connected account so Apple Pay
-    // works immediately — Elements is initialised with { stripeAccount } so Stripe
-    // checks the connected account's domain list, not the platform's.
-    registerAllDomainsForConnectedAccount(
-      payload,
-      accountId,
-      tenantId,
-    ).catch((err) => {
+    // Register serving hosts plus the platform subdomain on the newly connected
+    // account so Apple Pay works immediately. Elements is initialised with
+    // { stripeAccount }, so Stripe checks this account's domain list, not the
+    // platform's. Await so a short-lived process cannot drop the work.
+    try {
+      await registerAllDomainsForConnectedAccount(payload, accountId, tenantId)
+    } catch (err) {
       console.error('[Stripe Connect] Apple Pay domain registration failed for connected account', {
         tenantId,
         accountId,
         err,
       })
-    })
+    }
 
     return NextResponse.redirect(appendConnectStatus(returnTo, 'success'), 302)
   } catch (e) {

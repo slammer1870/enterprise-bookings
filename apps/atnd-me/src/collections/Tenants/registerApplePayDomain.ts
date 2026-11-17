@@ -4,12 +4,17 @@ import type { Payload } from 'payload'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import type Stripe from 'stripe'
 import {
+  getTenantPlatformSubdomain,
   readHostnameDeclaration,
   type TenantPublicHostDocSlice,
 } from '@/utilities/tenantPublicHostDeclaration'
 
+export type ApplePayTenantDocSlice = TenantPublicHostDocSlice & {
+  stripeConnectAccountId?: unknown
+}
+
 /**
- * Serving hosts to register. An alias host is absent. A missing pair partner is not invented.
+ * Serving hosts to register on the platform account. An alias host is absent.
  * With no custom hostname, the platform subdomain is the only Apple Pay domain.
  */
 export function applePayDomainsForDeclaration(
@@ -17,6 +22,114 @@ export function applePayDomainsForDeclaration(
 ): string[] {
   if (!doc) return []
   return readHostnameDeclaration(doc).roles.servingHosts
+}
+
+/**
+ * Domains that must exist on the connected account.
+ *
+ * Checkout initialises Elements with `loadStripe(key, { stripeAccount })` and creates
+ * direct charges, so Apple Pay is validated against this account — not the platform.
+ * The platform subdomain is always included: it is the only serving host when no custom
+ * hostname is named, and admin (and any leftover public traffic) still uses it after a
+ * custom hostname is named.
+ */
+export function applePayDomainsForConnectedAccount(
+  doc: TenantPublicHostDocSlice | null | undefined,
+): string[] {
+  const serving = applePayDomainsForDeclaration(doc)
+  const slug = typeof doc?.slug === 'string' ? doc.slug : ''
+  const platformHost = getTenantPlatformSubdomain(slug)
+  if (!platformHost || serving.includes(platformHost)) return serving
+  return [...serving, platformHost]
+}
+
+function uniqueHosts(hosts: string[]): string[] {
+  return [...new Set(hosts.filter((host) => host.trim().length > 0))]
+}
+
+function connectedAccountIdOf(doc: ApplePayTenantDocSlice | null | undefined): string | null {
+  if (typeof doc?.stripeConnectAccountId !== 'string') return null
+  const id = doc.stripeConnectAccountId.trim()
+  return id || null
+}
+
+export type ApplePayRegistrationPlan = {
+  platform: string[]
+  connected: string[]
+}
+
+/**
+ * Which payment-method domains to create/enable after a tenant save.
+ * Platform account follows serving hosts. Connected account always also gets the
+ * platform subdomain, and is synced when Stripe Connect is first attached.
+ */
+export function applePayRegistrationPlan(args: {
+  doc: ApplePayTenantDocSlice
+  previousDoc?: ApplePayTenantDocSlice | null
+  operation: 'create' | 'update'
+}): ApplePayRegistrationPlan {
+  const { doc, previousDoc, operation } = args
+  const serving = uniqueHosts(applePayDomainsForDeclaration(doc))
+  const previousServing =
+    operation === 'create' || !previousDoc
+      ? []
+      : uniqueHosts(applePayDomainsForDeclaration(previousDoc))
+  const previousServingSet = new Set(previousServing)
+  const servingChanged =
+    operation === 'create' ||
+    serving.length !== previousServingSet.size ||
+    serving.some((host) => !previousServingSet.has(host))
+
+  const connectedAccountId = connectedAccountIdOf(doc)
+  const previousConnectedAccountId = connectedAccountIdOf(previousDoc ?? null)
+  const connectedAccountChanged =
+    Boolean(connectedAccountId) &&
+    (operation === 'create' || previousConnectedAccountId !== connectedAccountId)
+
+  const platform: string[] = []
+  if (servingChanged) {
+    for (const host of serving) {
+      if (operation === 'create' || !previousServingSet.has(host)) {
+        platform.push(host)
+      }
+    }
+  }
+
+  const connected: string[] = []
+  if (connectedAccountId && (servingChanged || connectedAccountChanged)) {
+    connected.push(...uniqueHosts(applePayDomainsForConnectedAccount(doc)))
+  }
+
+  return { platform, connected }
+}
+
+type PaymentMethodDomainsApi = {
+  list?: (...args: any[]) => Promise<any>
+  create?: (...args: any[]) => Promise<any>
+  update?: (...args: any[]) => Promise<any>
+  validate?: (...args: any[]) => Promise<any>
+}
+
+function applePayIsActive(record: { apple_pay?: { status?: string } | null } | null | undefined): boolean {
+  return record?.apple_pay?.status === 'active'
+}
+
+async function ensureApplePayActive(
+  paymentMethodDomains: PaymentMethodDomainsApi,
+  record: { id?: string; apple_pay?: { status?: string } | null },
+  domain: string,
+  accountLabel: string,
+  requestOptions: Stripe.RequestOptions | undefined,
+): Promise<void> {
+  if (applePayIsActive(record) || !record?.id) return
+  if (!paymentMethodDomains.validate) {
+    console.warn(
+      `[registerApplePayDomain] Stripe paymentMethodDomains.validate is not available — Apple Pay may stay inactive on "${domain}"${accountLabel}`,
+    )
+    return
+  }
+  await paymentMethodDomains.validate(record.id, requestOptions)
+  console.log(`[registerApplePayDomain] Validated "${domain}"${accountLabel} for Apple Pay`)
 }
 
 /**
@@ -32,9 +145,9 @@ export function applePayDomainsForDeclaration(
  *
  * Strategy:
  *  1. List existing registrations filtered to this domain_name.
- *  2. Found + enabled  → no-op.
- *  3. Found + disabled → re-enable.
- *  4. Not found        → create.
+ *  2. Found + enabled  → re-validate Apple Pay if it is still inactive; otherwise no-op.
+ *  3. Found + disabled → re-enable, then validate if needed.
+ *  4. Not found        → create, then validate if Apple Pay is inactive.
  */
 export async function registerApplePayDomain(
   domain: string,
@@ -65,13 +178,7 @@ export async function registerApplePayDomain(
   }
   // Stripe's API surface can vary by API version / account type; in some E2E/test
   // environments the SDK might not expose paymentMethodDomains at all.
-  const paymentMethodDomains = (stripe as any).paymentMethodDomains as
-    | {
-        list?: (...args: any[]) => Promise<any>
-        create?: (...args: any[]) => Promise<any>
-        update?: (...args: any[]) => Promise<any>
-      }
-    | undefined
+  const paymentMethodDomains = (stripe as any).paymentMethodDomains as PaymentMethodDomainsApi | undefined
   const requestOptions: Stripe.RequestOptions | undefined = stripeAccountId
     ? { stripeAccount: stripeAccountId }
     : undefined
@@ -89,7 +196,11 @@ export async function registerApplePayDomain(
 
   if (record) {
     if (record.enabled) {
-      console.log(`[registerApplePayDomain] "${domain}"${accountLabel} already registered and enabled — skipping`)
+      if (applePayIsActive(record)) {
+        console.log(`[registerApplePayDomain] "${domain}"${accountLabel} already registered and enabled — skipping`)
+        return
+      }
+      await ensureApplePayActive(paymentMethodDomains, record, domain, accountLabel, requestOptions)
       return
     }
     if (!paymentMethodDomains.update) {
@@ -98,8 +209,15 @@ export async function registerApplePayDomain(
       )
       return
     }
-    await paymentMethodDomains.update(record.id, { enabled: true }, requestOptions)
+    const updated = await paymentMethodDomains.update(record.id, { enabled: true }, requestOptions)
     console.log(`[registerApplePayDomain] Re-enabled "${domain}"${accountLabel}`)
+    await ensureApplePayActive(
+      paymentMethodDomains,
+      updated ?? record,
+      domain,
+      accountLabel,
+      requestOptions,
+    )
     return
   }
 
@@ -109,12 +227,13 @@ export async function registerApplePayDomain(
     )
     return
   }
-  await paymentMethodDomains.create({ domain_name: domain }, requestOptions)
+  const created = await paymentMethodDomains.create({ domain_name: domain }, requestOptions)
   console.log(`[registerApplePayDomain] Registered "${domain}"${accountLabel}`)
+  await ensureApplePayActive(paymentMethodDomains, created ?? {}, domain, accountLabel, requestOptions)
 }
 
 /**
- * Registers this tenant's serving hosts on a connected Stripe account.
+ * Registers this tenant's serving hosts plus the platform subdomain on a connected Stripe account.
  * Call this after OAuth onboarding so Apple Pay is available without waiting for the next save.
  */
 export async function registerAllDomainsForConnectedAccount(
@@ -131,7 +250,7 @@ export async function registerAllDomainsForConnectedAccount(
   })
 
   const tenantDoc = tenant as TenantPublicHostDocSlice
-  const domains = applePayDomainsForDeclaration(tenantDoc)
+  const domains = uniqueHosts(applePayDomainsForConnectedAccount(tenantDoc))
 
   for (const domain of domains) {
     await registerApplePayDomain(domain, connectedAccountId).catch((err: unknown) => {
