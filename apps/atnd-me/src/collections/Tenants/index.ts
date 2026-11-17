@@ -20,7 +20,7 @@ import {
   validateRawPublicHostInputs,
   validateTenantPublicHostDeclarationOnSave,
 } from '@/utilities/validateTenantPublicHostOnSave'
-import { applePayDomainsForDeclaration, registerApplePayDomain } from './registerApplePayDomain'
+import { applePayRegistrationPlan, registerApplePayDomain } from './registerApplePayDomain'
 import { customHostnameSync } from './customHostnameSync'
 import { anotherTenantDeclaresHostname } from '@/lib/tenantDbResolve'
 import { createOrGetCustomHostname, deleteCustomHostname } from '@/lib/cloudflare/customHostnames'
@@ -526,24 +526,14 @@ export const Tenants: CollectionConfig = {
           })
         }
 
-        const declaredDomains = applePayDomainsForDeclaration(doc)
-        const previousDeclared =
-          operation === 'create' || !previousDoc ? [] : applePayDomainsForDeclaration(previousDoc)
-        const previousServing = new Set(previousDeclared)
-        const servingChanged =
-          operation === 'create' ||
-          declaredDomains.length !== previousServing.size ||
-          declaredDomains.some((host) => !previousServing.has(host))
-
-        if (servingChanged) {
-          for (const host of declaredDomains) {
-            if (operation === 'create' || !previousServing.has(host)) {
-              await register(host)
-            }
-          }
-          if (connectedAccountId) {
-            for (const host of declaredDomains) await register(host, connectedAccountId)
-          }
+        const plan = applePayRegistrationPlan({
+          doc,
+          previousDoc,
+          operation: operation === 'create' ? 'create' : 'update',
+        })
+        for (const host of plan.platform) await register(host)
+        if (connectedAccountId) {
+          for (const host of plan.connected) await register(host, connectedAccountId)
         }
 
         // Every saved hostname is registered. A hostname that left the list is deleted

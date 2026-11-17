@@ -11,10 +11,11 @@ import config from '@/payload.config'
 const HOOK_TIMEOUT = 300_000
 const TEST_TIMEOUT = 60_000
 
-const { mockList, mockCreate, mockUpdate } = vi.hoisted(() => ({
+const { mockList, mockCreate, mockUpdate, mockValidate } = vi.hoisted(() => ({
   mockList: vi.fn(),
   mockCreate: vi.fn(),
   mockUpdate: vi.fn(),
+  mockValidate: vi.fn(),
 }))
 
 vi.mock('@/lib/cloudflare/customHostnames', () => ({
@@ -32,6 +33,7 @@ vi.mock('@/lib/stripe/platform', () => ({
       list: mockList,
       create: mockCreate,
       update: mockUpdate,
+      validate: mockValidate,
     },
   }),
 }))
@@ -47,6 +49,18 @@ function sentDomainNames(): string[] {
   const names = [
     ...mockList.mock.calls.map((call) => call[0]?.domain_name),
     ...mockCreate.mock.calls.map((call) => call[0]?.domain_name),
+  ].filter((name): name is string => typeof name === 'string')
+  return [...new Set(names)].sort()
+}
+
+function sentConnectedDomainNames(): string[] {
+  const names = [
+    ...mockList.mock.calls
+      .filter((call) => Boolean(call[1]?.stripeAccount))
+      .map((call) => call[0]?.domain_name),
+    ...mockCreate.mock.calls
+      .filter((call) => Boolean(call[1]?.stripeAccount))
+      .map((call) => call[0]?.domain_name),
   ].filter((name): name is string => typeof name === 'string')
   return [...new Set(names)].sort()
 }
@@ -78,9 +92,11 @@ describe('Apple Pay domains on declaration save', () => {
     mockList.mockReset()
     mockCreate.mockReset()
     mockUpdate.mockReset()
+    mockValidate.mockReset()
     mockList.mockResolvedValue({ data: [] })
-    mockCreate.mockResolvedValue({ id: 'pmd_mock', enabled: true })
-    mockUpdate.mockResolvedValue({ id: 'pmd_mock', enabled: true })
+    mockCreate.mockResolvedValue({ id: 'pmd_mock', enabled: true, apple_pay: { status: 'active' } })
+    mockUpdate.mockResolvedValue({ id: 'pmd_mock', enabled: true, apple_pay: { status: 'active' } })
+    mockValidate.mockResolvedValue({ id: 'pmd_mock', enabled: true, apple_pay: { status: 'active' } })
   })
 
   afterAll(async () => {
@@ -203,6 +219,68 @@ describe('Apple Pay domains on declaration save', () => {
     })
 
     expectRegistered([`${slug}.atnd.me`])
+  }, TEST_TIMEOUT)
+
+  it('registers the platform subdomain on the connected account when Stripe Connect is attached later', async () => {
+    const slug = `apple-connect-${stamp}`
+    const tenant = await createTenant({
+      slug,
+      name: `Apple Pay connect ${stamp}`,
+      hostnames: [],
+      direction: 'allow-www-and-non-www',
+    })
+    expectRegistered([`${slug}.atnd.me`])
+
+    mockList.mockClear()
+    mockCreate.mockClear()
+    mockUpdate.mockClear()
+    mockValidate.mockClear()
+
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: {
+        stripeConnectAccountId: `acct_apple_connect_${stamp}`,
+        stripeConnectOnboardingStatus: 'active',
+      },
+      overrideAccess: true,
+    })
+
+    expect(sentConnectedDomainNames()).toEqual([`${slug}.atnd.me`].sort())
+    expect(mockCreate).toHaveBeenCalledWith(
+      { domain_name: `${slug}.atnd.me` },
+      { stripeAccount: `acct_apple_connect_${stamp}` },
+    )
+  }, TEST_TIMEOUT)
+
+  it('registers custom serving hosts on the platform and also the platform subdomain on the connected account', async () => {
+    const www = `www.connectcustom-${stamp}.com`
+    const apex = `connectcustom-${stamp}.com`
+    const slug = `apple-ccustom-${stamp}`
+
+    const tenant = await payload.create({
+      collection: 'tenants',
+      data: {
+        name: `Apple Pay connect custom ${stamp}`,
+        slug,
+        hostnames: [www, apex],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: `acct_apple_ccustom_${stamp}`,
+        stripeConnectOnboardingStatus: 'active',
+      },
+      overrideAccess: true,
+    })
+    tenantIds.push(tenant.id as number)
+
+    expect(sentDomainNames()).toEqual([www, apex, `${slug}.atnd.me`].sort())
+    expect(sentConnectedDomainNames()).toEqual([www, apex, `${slug}.atnd.me`].sort())
+    expect(mockCreate.mock.calls.map((call) => call[0])).toEqual(
+      expect.arrayContaining([
+        { domain_name: www },
+        { domain_name: apex },
+        { domain_name: `${slug}.atnd.me` },
+      ]),
+    )
   }, TEST_TIMEOUT)
 
   it('does not register a missing www or apex', async () => {
