@@ -9,6 +9,7 @@ import { isAdmin } from '@/access/userTenantAccess'
 import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
 import { attachExistingUserOnAdminCreate } from '@/collections/Users/attachExistingUserOnAdminCreate'
+import { restrictTenantPasswordWrite } from '@/collections/Users/restrictTenantPasswordWrite'
 import { assertAnonymousUserCreateRateLimit } from '@/collections/Users/sanitizeUserWrite'
 import { stripForeignTenantsBeforeValidate } from '@/collections/Users/stripForeignTenantsBeforeValidate'
 import {
@@ -88,7 +89,7 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
                 req,
               })
             }
-            return args
+            return restrictTenantPasswordWrite({ args, operation, req })
           },
           // Flag resetPassword so beforeValidate can strip array fields safely.
           markPasswordResetOperation,

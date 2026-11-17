@@ -42,6 +42,12 @@ import { usersTenantsTenantFilterOptions } from './tenantsTenantFilterOptions'
 import { validateTenantsMembershipArray } from './validateTenantsMembershipArray'
 import { ensureCreateTenantScope } from './ensureCreateTenantScope'
 import { attachExistingUserOnAdminCreate } from './attachExistingUserOnAdminCreate'
+import {
+  canSetUserPassword,
+  restoreForcedPasswordOnCreate,
+  restrictTenantPasswordWrite,
+} from './restrictTenantPasswordWrite'
+import { sendSetPasswordEmailEndpoint } from './sendSetPasswordEmailEndpoint'
 import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
@@ -239,7 +245,10 @@ export const Users: CollectionConfig = {
             req,
           })
         }
-        return args
+        // payload-auth drops beforeOperation. The live copy is re-registered in
+        // fixBetterAuthAfterReadHooks. Strip here too so a future merge that
+        // keeps this hook cannot write a tenant-admin password.
+        return restrictTenantPasswordWrite({ args, operation, req })
       },
     ],
     beforeValidate: [
@@ -280,6 +289,15 @@ export const Users: CollectionConfig = {
       },
     ],
     beforeChange: [
+      // Field access on the virtual `password` field deletes data.password in
+      // beforeValidate when the actor cannot set it. Put the random stand-in
+      // back so auth create still hashes a credential.
+      async ({ data, operation, req }) =>
+        restoreForcedPasswordOnCreate({
+          data: data as Record<string, unknown> | null | undefined,
+          operation,
+          req,
+        }),
       // Harden anonymous + system user writes (tenants / roles).
       // System flows set ATND_SYSTEM_USER_WRITE_CTX + allowedRoles allow-list.
       async ({ data, req, operation, originalDoc }) => {
@@ -589,12 +607,46 @@ export const Users: CollectionConfig = {
     defaultColumns: ['name', 'email', 'createdAt'],
     useAsTitle: 'name',
   },
+  endpoints: [sendSetPasswordEmailEndpoint],
   // Auth fields (email/name/etc) are provided by the Better Auth plugin in this repo.
   // Keep this collection lean to avoid duplicate field-name collisions.
   // Multi-tenant fields:
   // - registrationTenant (singular, custom): where user originally registered
   // - tenants (plural, plugin-managed): tenants user has access to (added automatically by multi-tenant plugin)
   fields: [
+    // Auth view hides its password inputs only when `"password"` is in
+    // docPermissions.fields and create/update is denied. This field is virtual
+    // so it is not a column. beforeOperation still strips the value: field
+    // access runs too late to stop updateDocument from hashing it.
+    {
+      name: 'password',
+      type: 'text',
+      virtual: true,
+      admin: {
+        hidden: true,
+        disableListColumn: true,
+      },
+      access: {
+        create: ({ req }) => canSetUserPassword(req),
+        read: () => false,
+        update: ({ req }) => canSetUserPassword(req),
+      },
+    },
+    // Sits under the auth email row, in the slot the password inputs use.
+    // Shown once the user exists, and only for people who cannot type a password.
+    {
+      name: 'sendSetPasswordEmail',
+      type: 'ui',
+      admin: {
+        condition: (_data, _siblingData, { operation, user }) => {
+          if (operation !== 'update' || !user) return false
+          return !getEffectiveUserRoles(user as SharedUser).includes('super-admin')
+        },
+        components: {
+          Field: '@/components/admin/users/SendSetPasswordEmailButton#SendSetPasswordEmailButton',
+        },
+      },
+    },
     // `image` (upload → media) is provided by Better Auth and converted to a real
     // upload field in `fixBetterAuthImageField` (staff photos migrate onto it).
     {
