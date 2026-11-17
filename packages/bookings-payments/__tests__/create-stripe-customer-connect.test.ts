@@ -63,6 +63,9 @@ describe("createStripeCustomer hook (tenant connect scoping)", () => {
     expect(stripeCustomersCreateCalls.length).toBe(1);
     const [_createParams, createOpts] = stripeCustomersCreateCalls[0]!.args;
     expect(createOpts).toEqual({ stripeAccount: "acct_connected_123" });
+    expect(req.payload.findByID).toHaveBeenCalledWith(
+      expect.objectContaining({ collection: "tenants", id: 123, req }),
+    );
 
     expect(res.stripeCustomerId).toBe("");
     expect(res.stripeCustomers).toEqual([
@@ -121,6 +124,47 @@ describe("createStripeCustomer hook (tenant connect scoping)", () => {
     const [_createParams, createOpts] = stripeCustomersCreateCalls[0]!.args;
     expect(createOpts).toBeUndefined();
     expect(res.stripeCustomerId).toBe("cus_platform_1");
+  });
+
+  it("uses context.tenant when a tenants[] row names a different tenant", async () => {
+    const { createStripeCustomer } = await import(
+      "../src/payments/hooks/create-stripe-customer"
+    );
+
+    const req = {
+      context: { tenant: 123 },
+      payload: {
+        logger: { error: vi.fn() },
+        findByID: vi.fn(async ({ collection, id }: any) => {
+          if (collection !== "tenants") return null;
+          if (id !== 123) return null;
+          return {
+            id: 123,
+            stripeConnectAccountId: "acct_connected_123",
+            stripeConnectOnboardingStatus: "active",
+          };
+        }),
+      },
+    };
+
+    const res = await createStripeCustomer({
+      operation: "create",
+      req: req as any,
+      data: {
+        email: "member@example.com",
+        name: "Member",
+        stripeCustomerId: "",
+        tenants: [{ tenant: 55, roles: ["user"] }],
+      } as any,
+    } as any);
+
+    expect(req.payload.findByID).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 123, req }),
+    );
+    expect(stripeCustomersCreateCalls.length).toBe(1);
+    const [_createParams, createOpts] = stripeCustomersCreateCalls[0]!.args;
+    expect(createOpts).toEqual({ stripeAccount: "acct_connected_123" });
+    expect(res.stripeCustomerId).toBe("");
   });
 });
 
