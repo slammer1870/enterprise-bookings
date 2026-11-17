@@ -9,6 +9,7 @@ import { isAdmin } from '@/access/userTenantAccess'
 import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
 import { attachExistingUserOnAdminCreate } from '@/collections/Users/attachExistingUserOnAdminCreate'
+import { ATND_READ_ALL_MEMBERSHIPS } from '@/lib/users/attachUserToTenant'
 import { restrictTenantPasswordWrite } from '@/collections/Users/restrictTenantPasswordWrite'
 import { assertAnonymousUserCreateRateLimit } from '@/collections/Users/sanitizeUserWrite'
 import { stripForeignTenantsBeforeValidate } from '@/collections/Users/stripForeignTenantsBeforeValidate'
@@ -48,6 +49,7 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
         context?: Record<string, unknown> | undefined
       }
     }): Promise<Record<string, unknown>> => {
+      if (req.context?.[ATND_READ_ALL_MEMBERSHIPS] === true) return doc
       if (!req.user) return doc
       if (isAdmin(req.user)) return doc // super-admin: see everything
 

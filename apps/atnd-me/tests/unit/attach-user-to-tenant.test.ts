@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  ATND_READ_ALL_MEMBERSHIPS,
   attachUserToTenant,
   rolesForTenantFromCreateData,
 } from '../../src/lib/users/attachUserToTenant'
@@ -106,6 +107,51 @@ describe('attachUserToTenant', () => {
         },
       }),
     )
+    expect(update.mock.calls[0]![0].req).toBeUndefined()
+  })
+
+  it('reads stored memberships on the request and writes the attach on its own transaction', async () => {
+    const context: Record<string, unknown> = { tenant: 7 }
+    const req = { context, user: { id: 2 }, transactionID: 'create-tx' }
+    const findByID = vi.fn(
+      async (args: {
+        req: { context: Record<string, unknown> }
+        context?: Record<string, unknown>
+      }) => {
+        args.req.context = { ...args.req.context, ...args.context }
+        return {
+          id: 9,
+          tenants: [{ id: 'row-1', tenant: 6, roles: ['user'] }],
+        }
+      },
+    )
+
+    await attachUserToTenant({
+      payload: { update, findByID } as never,
+      doc: { id: 9, tenants: [] },
+      tenantId: 7,
+      req: req as never,
+    })
+
+    expect(findByID).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'users',
+        id: 9,
+        overrideAccess: true,
+        req,
+        context: { [ATND_READ_ALL_MEMBERSHIPS]: true },
+      }),
+    )
+    expect(req.context[ATND_READ_ALL_MEMBERSHIPS]).toBeUndefined()
+    expect(req.context.tenant).toBe(7)
+    expect(req.transactionID).toBe('create-tx')
+    const writeReq = update.mock.calls[0]![0].req as {
+      transactionID?: string
+      user?: { id: number }
+    }
+    expect(writeReq).not.toBe(req)
+    expect(writeReq.transactionID).toBeUndefined()
+    expect(writeReq.user).toEqual({ id: 2 })
   })
 })
 

@@ -70,14 +70,16 @@ describe('attachExistingUserOnAdminCreate', () => {
       ],
     })
 
+    const caller = { id: 1, tenants: [{ tenant: 7, roles: ['admin'] }] }
+    const createReq = { ...req(caller), transactionID: 'create-tx' }
     await expect(
       attachExistingUserOnAdminCreate({
         data: { email: 'existing@example.com', name: 'Existing' },
-        req: req({ id: 1, tenants: [{ tenant: 7, roles: ['admin'] }] }),
+        req: createReq,
       }),
     ).rejects.toBeInstanceOf(ValidationError)
 
-    expect(find).toHaveBeenCalledWith(expect.objectContaining({ req: expect.anything(), overrideAccess: true }))
+    expect(find).toHaveBeenCalledWith(expect.objectContaining({ req: createReq, overrideAccess: true }))
     expect(update).toHaveBeenCalledWith(
       expect.objectContaining({
         collection: 'users',
@@ -91,8 +93,11 @@ describe('attachExistingUserOnAdminCreate', () => {
         }),
       }),
     )
-    // Must not join the create transaction. The ValidationError would roll the membership back.
-    expect(update.mock.calls[0]![0].req).toBeUndefined()
+    expect(createReq.transactionID).toBe('create-tx')
+    const writeReq = update.mock.calls[0]![0].req as { transactionID?: string }
+    expect(writeReq).toBeDefined()
+    expect(writeReq).not.toBe(createReq)
+    expect(writeReq.transactionID).toBeUndefined()
     // Must not overwrite original registration tenant
     const data = update.mock.calls[0]![0].data as Record<string, unknown>
     expect(data.registrationTenant).toBeUndefined()

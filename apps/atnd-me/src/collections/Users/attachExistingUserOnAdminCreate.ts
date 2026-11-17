@@ -84,13 +84,14 @@ export async function attachExistingUserOnAdminCreate(args: {
       ? rolesForTenantFromCreateData(data, tenantId)
       : ['user']
 
-  // Do not pass `req`. The ValidationError below aborts the create, and a shared
-  // transaction would roll the new membership back with it.
+  // The read stays on this request. The membership update commits separately:
+  // the ValidationError below aborts the create and would roll the membership back.
   const result = await attachUserToTenant({
     payload: req.payload,
     doc,
     tenantId,
     roles,
+    req,
   })
 
   if (result.alreadyMember) {

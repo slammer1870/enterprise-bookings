@@ -1,4 +1,4 @@
-import type { Payload } from 'payload'
+import type { Payload, PayloadRequest } from 'payload'
 
 import { systemUserWriteContext } from '@/lib/auth/systemUserWriteContext'
 import { normalizeTenantRoles } from '@/collections/Users/sanitizeUserWrite'
@@ -10,6 +10,12 @@ export type TenantMembership = {
   roles?: unknown
   locations?: unknown
 }
+
+/**
+ * Users afterRead drops memberships the caller does not administer.
+ * Set on the stored-membership read so that filter returns the full list.
+ */
+export const ATND_READ_ALL_MEMBERSHIPS = 'atndReadAllMemberships'
 
 export function normalizeEmail(email: string): string {
   return email.trim().toLowerCase()
@@ -61,36 +67,54 @@ export type AttachUserToTenantResult = {
 async function loadStoredMemberships(
   payload: Payload,
   userId: number | string,
+  req?: PayloadRequest,
 ): Promise<TenantMembership[]> {
-  const full = (await payload.findByID({
-    collection: 'users',
-    id: userId,
-    depth: 0,
-    overrideAccess: true,
-  })) as { tenants?: TenantMembership[] | null }
-  return Array.isArray(full?.tenants) ? [...full.tenants] : []
+  try {
+    const full = (await payload.findByID({
+      collection: 'users',
+      id: userId,
+      depth: 0,
+      overrideAccess: true,
+      ...(req
+        ? { req, context: { [ATND_READ_ALL_MEMBERSHIPS]: true } }
+        : {}),
+    })) as { tenants?: TenantMembership[] | null }
+    return Array.isArray(full?.tenants) ? [...full.tenants] : []
+  } finally {
+    const context = req?.context as Record<string, unknown> | undefined
+    if (context) delete context[ATND_READ_ALL_MEMBERSHIPS]
+  }
+}
+
+/**
+ * The create request's transaction is about to abort. Give the membership update
+ * the same user and payload, but not that transaction id, so the update commits
+ * on its own before the ValidationError rolls the create back.
+ */
+function requestOutsideCallerTransaction(req: PayloadRequest): PayloadRequest {
+  return { ...req, transactionID: undefined }
 }
 
 /**
  * Add a tenants[] membership for `tenantId`. Leaves name, registrationTenant,
  * and every other membership's roles as they are.
  * Uses system write context so location-managers / field access cannot block the attach.
- * Do not pass `req`. The caller throws ValidationError after a successful attach,
- * and that error rolls back every write that joined the create transaction.
+ * Pass `req` into the membership read so it stays on the create request.
  */
 export async function attachUserToTenant(opts: {
   payload: Payload
   doc: ExistingUserForAttach
   tenantId: number
   roles?: string[]
+  req?: PayloadRequest
 }): Promise<AttachUserToTenantResult> {
-  const { payload, doc, tenantId } = opts
+  const { payload, doc, tenantId, req } = opts
   const rolesForNew = normalizeTenantRoles(opts.roles ?? ['user'])
   const writeContext = systemUserWriteContext({
     allowedRoles: ['user', 'admin', 'staff', 'location-manager'],
   })
 
-  const memberships = await loadStoredMemberships(payload, doc.id)
+  const memberships = await loadStoredMemberships(payload, doc.id, req)
   const hasTenant = memberships.some((m) => extractTenantId(m.tenant) === tenantId)
 
   const data: Record<string, unknown> = {}
@@ -107,6 +131,7 @@ export async function attachUserToTenant(opts: {
       overrideAccess: true,
       depth: 0,
       context: writeContext,
+      ...(req ? { req: requestOutsideCallerTransaction(req) } : {}),
     })
   }
 
