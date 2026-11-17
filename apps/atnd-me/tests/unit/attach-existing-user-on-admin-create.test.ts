@@ -22,10 +22,16 @@ import { resolveOrgAdminTenantIds } from '../../src/access/tenant-scoped'
 describe('attachExistingUserOnAdminCreate', () => {
   const update = vi.fn(async () => ({ id: 9 }))
   const find = vi.fn()
+  const findByID = vi.fn(async () => {
+    const settled = find.mock.results.at(-1)
+    const value = settled ? await settled.value : null
+    return value?.docs?.[0] ?? null
+  })
 
   beforeEach(() => {
     update.mockClear()
     find.mockReset()
+    findByID.mockClear()
     vi.mocked(resolveTenantIdForUserCreate).mockReset()
     vi.mocked(resolveOrgAdminTenantIds).mockReset()
     vi.mocked(resolveOrgAdminTenantIds).mockResolvedValue([7])
@@ -35,7 +41,7 @@ describe('attachExistingUserOnAdminCreate', () => {
   function req(user: unknown) {
     return {
       user,
-      payload: { find, update },
+      payload: { find, findByID, update },
       context: {},
     } as never
   }

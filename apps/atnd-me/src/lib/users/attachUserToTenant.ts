@@ -54,6 +54,24 @@ export type AttachUserToTenantResult = {
 }
 
 /**
+ * Memberships from a caller-supplied doc may have been through Users afterRead.
+ * A tenant admin's read drops every organization they do not administer, and
+ * writing that list back removes those memberships.
+ */
+async function loadStoredMemberships(
+  payload: Payload,
+  userId: number | string,
+): Promise<TenantMembership[]> {
+  const full = (await payload.findByID({
+    collection: 'users',
+    id: userId,
+    depth: 0,
+    overrideAccess: true,
+  })) as { tenants?: TenantMembership[] | null }
+  return Array.isArray(full?.tenants) ? [...full.tenants] : []
+}
+
+/**
  * Add a tenants[] membership for `tenantId`. Leaves name, registrationTenant,
  * and every other membership's roles as they are.
  * Uses system write context so location-managers / field access cannot block the attach.
@@ -72,7 +90,7 @@ export async function attachUserToTenant(opts: {
     allowedRoles: ['user', 'admin', 'staff', 'location-manager'],
   })
 
-  const memberships = Array.isArray(doc.tenants) ? [...doc.tenants] : []
+  const memberships = await loadStoredMemberships(payload, doc.id)
   const hasTenant = memberships.some((m) => extractTenantId(m.tenant) === tenantId)
 
   const data: Record<string, unknown> = {}
