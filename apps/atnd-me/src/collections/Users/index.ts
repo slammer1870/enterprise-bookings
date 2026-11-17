@@ -48,6 +48,7 @@ import {
   restrictTenantPasswordWrite,
 } from './restrictTenantPasswordWrite'
 import { sendSetPasswordEmailEndpoint } from './sendSetPasswordEmailEndpoint'
+import { viewerChoosesUserPassword } from '@/components/admin/users/viewerChoosesUserPassword'
 import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
@@ -614,10 +615,13 @@ export const Users: CollectionConfig = {
   // - registrationTenant (singular, custom): where user originally registered
   // - tenants (plural, plugin-managed): tenants user has access to (added automatically by multi-tenant plugin)
   fields: [
-    // Auth view hides its password inputs only when `"password"` is in
-    // docPermissions.fields and create/update is denied. This field is virtual
-    // so it is not a column. beforeOperation still strips the value: field
-    // access runs too late to stop updateDocument from hashing it.
+    // Virtual so it is not a column. beforeOperation still strips the value:
+    // field access runs too late to stop updateDocument from hashing it.
+    // Payload's create view still mounts required password inputs
+    // (`requirePassword: !id`) for every auth collection. OmitChosenPassword
+    // removes that requirement for tenant roles (`tenants[].roles`).
+    // Always mounted: the component reads the logged-in admin, because a
+    // create form has no document user yet.
     {
       name: 'password',
       type: 'text',
@@ -632,6 +636,15 @@ export const Users: CollectionConfig = {
         update: ({ req }) => canSetUserPassword(req),
       },
     },
+    {
+      name: 'omitChosenPassword',
+      type: 'ui',
+      admin: {
+        components: {
+          Field: '@/components/admin/users/OmitChosenPassword#OmitChosenPassword',
+        },
+      },
+    },
     // Sits under the auth email row, in the slot the password inputs use.
     // Shown once the user exists, and only for people who cannot type a password.
     {
@@ -640,7 +653,8 @@ export const Users: CollectionConfig = {
       admin: {
         condition: (_data, _siblingData, { operation, user }) => {
           if (operation !== 'update' || !user) return false
-          return !getEffectiveUserRoles(user as SharedUser).includes('super-admin')
+          // `user` here is the logged-in admin. Org roles are tenants[].roles.
+          return !viewerChoosesUserPassword(user)
         },
         components: {
           Field: '@/components/admin/users/SendSetPasswordEmailButton#SendSetPasswordEmailButton',

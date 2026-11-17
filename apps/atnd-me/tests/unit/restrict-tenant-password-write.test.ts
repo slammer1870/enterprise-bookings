@@ -154,6 +154,15 @@ describe('canSetUserPassword', () => {
     expect(canSetUserPassword({ user: staff })).toBe(false)
     expect(canSetUserPassword({ user: locationManager })).toBe(false)
     expect(canSetUserPassword({ user: superAdmin })).toBe(true)
+    expect(
+      canSetUserPassword({
+        user: { id: 1, role: ['super-admin'], tenants: [{ tenant: 7, roles: ['admin'] }] },
+        payloadAPI: 'REST',
+      }),
+    ).toBe(true)
+    expect(
+      canSetUserPassword({ user: { id: 5, role: ['admin'] }, payloadAPI: 'REST' }),
+    ).toBe(false)
     expect(canSetUserPassword({ user: null })).toBe(true)
     expect(canSetUserPassword(undefined)).toBe(true)
   })

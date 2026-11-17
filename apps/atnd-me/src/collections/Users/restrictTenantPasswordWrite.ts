@@ -55,9 +55,11 @@ export function shouldRestrictPasswordWrite(req: PayloadRequest): boolean {
 }
 
 /**
- * Field access for the virtual `password` field that hides the Auth UI inputs.
- * REST and GraphQL (and a missing payloadAPI, which is how the admin permission
- * check is evaluated in tests) deny tenant roles. Local API keeps the client password.
+ * Field access for the virtual `password` field.
+ * Platform super-admin is global `role` only. Every other signed-in caller
+ * on REST, GraphQL, or a missing payloadAPI (the admin permission check)
+ * is denied, including a derived global `admin`. Local API keeps the client
+ * password for seeds and the claim flow.
  */
 export function canSetUserPassword(
   req: { user?: unknown; payloadAPI?: string } | null | undefined,

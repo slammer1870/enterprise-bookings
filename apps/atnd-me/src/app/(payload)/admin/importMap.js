@@ -39,7 +39,8 @@ import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0
 import { EventTypeForTimeslotFilterField as EventTypeForTimeslotFilterField_10c71e90c03730207bbccc04ef112f49 } from '@/components/admin/EventTypeForTimeslotFilterField'
 import { TimeslotDateFilterField as TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0 } from '@/components/admin/TimeslotDateFilterField'
 import { TimeslotForEventPickerField as TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7 } from '@/components/admin/TimeslotForEventPickerField'
-import { SendSetPasswordEmailButton as SendSetPasswordEmailButton_a1c4e8b07d2f4c6e9b0a3d5f7e1c8a24 } from '@/components/admin/users/SendSetPasswordEmailButton'
+import { OmitChosenPassword as OmitChosenPassword_f2993d693f32f4df01ad8a59af6b87fc } from '@/components/admin/users/OmitChosenPassword'
+import { SendSetPasswordEmailButton as SendSetPasswordEmailButton_47bbb60192faf3ec82f96315c6478ce1 } from '@/components/admin/users/SendSetPasswordEmailButton'
 import { TenantsMembershipArrayField as TenantsMembershipArrayField_eff008626c1ab53a2ba3f6ef0c8d20b8 } from '@/components/admin/users/TenantsMembershipArrayField'
 import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
 import { StripeDashboardLinkField as StripeDashboardLinkField_3f461e6c95821294340135c2293fe078 } from '@/components/admin/StripeDashboardLinkField'
@@ -143,7 +144,8 @@ export const importMap = {
   "@/components/admin/EventTypeForTimeslotFilterField#EventTypeForTimeslotFilterField": EventTypeForTimeslotFilterField_10c71e90c03730207bbccc04ef112f49,
   "@/components/admin/TimeslotDateFilterField#TimeslotDateFilterField": TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0,
   "@/components/admin/TimeslotForEventPickerField#TimeslotForEventPickerField": TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7,
-  "@/components/admin/users/SendSetPasswordEmailButton#SendSetPasswordEmailButton": SendSetPasswordEmailButton_a1c4e8b07d2f4c6e9b0a3d5f7e1c8a24,
+  "@/components/admin/users/OmitChosenPassword#OmitChosenPassword": OmitChosenPassword_f2993d693f32f4df01ad8a59af6b87fc,
+  "@/components/admin/users/SendSetPasswordEmailButton#SendSetPasswordEmailButton": SendSetPasswordEmailButton_47bbb60192faf3ec82f96315c6478ce1,
   "@/components/admin/users/TenantsMembershipArrayField#TenantsMembershipArrayField": TenantsMembershipArrayField_eff008626c1ab53a2ba3f6ef0c8d20b8,
   "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
   "@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField": StripeDashboardLinkField_3f461e6c95821294340135c2293fe078,
