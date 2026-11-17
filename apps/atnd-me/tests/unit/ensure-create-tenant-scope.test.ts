@@ -101,6 +101,23 @@ describe('ensureCreateTenantScope (admin user create)', () => {
     expect(data.tenants).toBeUndefined()
   })
 
+  it('staff: stamps registrationTenant from their only membership', async () => {
+    const data = await ensureCreateTenantScope({
+      data: { email: 'new@example.com' },
+      req: {
+        user: {
+          id: 4,
+          tenants: [{ tenant: 42, roles: ['staff'] }],
+        },
+        context: {},
+        payload: { findByID: vi.fn() },
+      },
+    })
+
+    expect(data.registrationTenant).toBe(42)
+    expect(data.tenants).toBeUndefined()
+  })
+
   it('uses the TenantSelector cookie instead of the first membership', async () => {
     vi.mocked(resolveTenantIdForDocumentWrite).mockResolvedValue(77)
 

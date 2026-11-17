@@ -84,7 +84,7 @@ async function tenantIdFromSelector(
  * Resolve the tenant an admin (or public host) create should stamp onto a new user.
  *
  * Super-admins and anonymous signups may use an explicit registrationTenant.
- * Org admins and location-managers may not: the selected tenant (context, then
+ * Org admins, location-managers, and staff may not: the selected tenant (context, then
  * the TenantSelector cookie) wins, and a client id is used only when it is one
  * of their memberships. A single membership is the fallback. Several memberships
  * and no selection do not guess the first row.
