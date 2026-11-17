@@ -1,12 +1,11 @@
 import type { CollectionConfig } from 'payload'
-import { checkRole, getEffectiveUserRoles } from '@repo/shared-utils'
+import { getEffectiveUserRoles } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { tenantsArrayField } from '@payloadcms/plugin-multi-tenant/fields'
 
 import { authenticated } from '../../access/authenticated'
 import {
   getTenantMembershipIdsFromUserDoc,
-  getUserTenantIds,
   loadUserDocForTenantMembership,
   resolveOrgAdminTenantIds,
 } from '../../access/tenant-scoped'
@@ -17,22 +16,17 @@ import {
   isAdmin,
   isTenantAdmin,
   isStaff,
-  isLocationManager,
   usersPayloadAdminAccess,
 } from '../../access/userTenantAccess'
 
 import { afterLoginRedirect } from './hooks/afterLoginRedirect'
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
 import {
-  extractTenantId,
   filterTenantsForTenantAdmin,
   mergeTenantEntriesForAdmin,
   deriveRoleFromTenants,
   type TenantEntry,
 } from './tenantHookHelpers'
-import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
-import { cookiesFromHeaders } from '@/utilities/cookiesFromHeaders'
-import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForDocumentWrite'
 import { isSystemUserWrite } from '@/lib/auth/systemUserWriteContext'
 import { getAbsoluteURL } from '@/utilities/getURL'
 import { resolveTrustedPasswordResetOrigin } from '@/utilities/resolveTrustedPasswordResetOrigin'
@@ -46,6 +40,7 @@ import {
 import { stripForeignTenantsBeforeValidate } from './stripForeignTenantsBeforeValidate'
 import { usersTenantsTenantFilterOptions } from './tenantsTenantFilterOptions'
 import { validateTenantsMembershipArray } from './validateTenantsMembershipArray'
+import { ensureCreateTenantScope } from './ensureCreateTenantScope'
 import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
@@ -292,66 +287,14 @@ export const Users: CollectionConfig = {
       // Must run in beforeChange (not beforeValidate): payload-auth's Better Auth merge replaces
       // `hooks` and drops `beforeValidate`. Better Auth user creates also omit `req` on `payload.create`
       // — those flows set `registrationTenant` via Better Auth `databaseHooks` (see atnd-me auth options).
+      // Stamps registrationTenant so Connect customers and roster visibility do not
+      // depend on the admin typing that relationship. Does not invent a tenants[] row.
       async ({ data, operation, req }) => {
-        if (operation === 'create' && data && !data.registrationTenant) {
-          const user = req.user
-          // Tenant portal creators (org admin / location-manager) and platform super-admins.
-          // Location-managers need registrationTenant so the new member stays in their roster scope.
-          const canAssignRegistrationTenant =
-            Boolean(user) &&
-            (isAdmin(user) ||
-              isTenantAdmin(user) ||
-              isLocationManager(user) ||
-              checkRole(['admin', 'super-admin', 'location-manager'], user as unknown as SharedUser))
-          if (canAssignRegistrationTenant) {
-            const rawTenant = req.context?.tenant as unknown
-            if (rawTenant) {
-              ;(data as { registrationTenant?: string | number }).registrationTenant =
-                typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
-                  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (rawTenant as any).id
-                  : (rawTenant as string | number)
-            } else {
-              const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-              if (tenantIds && tenantIds.length > 0) {
-                ;(data as { registrationTenant?: string | number }).registrationTenant = tenantIds[0]
-              } else {
-                // super-admin (getUserTenantIds returns null) or admin with no loaded tenants:
-                // fall back to the TenantSelector cookie (payload-tenant) set in the admin UI.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const fromSelector = await resolveTenantIdForDocumentWrite(req as any)
-                if (fromSelector != null && fromSelector !== '') {
-                  ;(data as { registrationTenant?: string | number }).registrationTenant = fromSelector
-                }
-              }
-            }
-          } else if (!user && req.headers && typeof (req.headers as Headers).get === 'function') {
-            const headers = req.headers as Headers
-            const fromRequest = await getTenantIdForCreateRequest(req.payload, {
-              headers,
-              cookies: cookiesFromHeaders(headers),
-              context: req.context as { tenant?: unknown } | undefined,
-            })
-            if (fromRequest != null && fromRequest !== '') {
-              // Guard against stale tenant cookies/cache after DB reset (FK on registrationTenant).
-              try {
-                const tenant = await req.payload.findByID({
-                  collection: 'tenants',
-                  id: fromRequest,
-                  depth: 0,
-                  overrideAccess: true,
-                })
-                if (tenant) {
-                  ;(data as { registrationTenant?: string | number }).registrationTenant =
-                    fromRequest
-                }
-              } catch {
-                // omit registrationTenant
-              }
-            }
-          }
-        }
-        return data
+        if (operation !== 'create' || !data) return data
+        return ensureCreateTenantScope({
+          data: data as Record<string, unknown>,
+          req,
+        })
       },
       async ({ data, operation, req }) => {
         if (!data || operation !== 'create') return data
