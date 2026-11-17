@@ -7,11 +7,12 @@ vi.mock('@/access/userTenantAccess', async () => {
   )
   return {
     ...actual,
+    userTenantRead: vi.fn(),
     userTenantUpdate: vi.fn(),
   }
 })
 
-import { userTenantUpdate } from '@/access/userTenantAccess'
+import { userTenantRead, userTenantUpdate } from '@/access/userTenantAccess'
 import { sendSetPasswordEmailForUser } from '../../src/collections/Users/sendSetPasswordEmail'
 import { shouldShowSetPasswordEmailButton } from '../../src/components/admin/users/shouldShowSetPasswordEmailButton'
 
@@ -49,6 +50,7 @@ function reqFor(): PayloadRequest & {
 
 describe('sendSetPasswordEmailForUser', () => {
   beforeEach(() => {
+    userTenantRead.mockReset()
     userTenantUpdate.mockReset()
   })
 
@@ -77,9 +79,8 @@ describe('sendSetPasswordEmailForUser', () => {
       expect.objectContaining({
         collection: 'users',
         overrideAccess: false,
-        where: {
-          and: [{ id: { equals: 9 } }, { 'tenants.tenant': { in: [7] } }],
-        },
+        req,
+        where: { id: { equals: 9 } },
       }),
     )
     expect(req.payload.betterAuth.api.requestPasswordReset).not.toHaveBeenCalled()
@@ -102,10 +103,33 @@ describe('sendSetPasswordEmailForUser', () => {
     expect(req.payload.betterAuth.api.requestPasswordReset).toHaveBeenCalledWith({
       body: {
         email: 'member@example.com',
-        redirectTo: 'https://acme.atnd-me.com',
+        redirectTo: 'https://acme.atnd-me.com/auth/reset-password',
       },
       headers: req.headers,
     })
+  })
+
+  it('emails inside a staff member tenant and refuses a user outside it', async () => {
+    const staff = { id: 3, tenants: [{ tenant: 7, roles: ['staff'] }] }
+    userTenantRead.mockResolvedValue({ 'tenants.tenant': { in: [7] } })
+    const req = reqFor()
+    req.user = staff
+    req.payload.find.mockResolvedValue({ docs: [{ id: 9, email: 'member@example.com' }] })
+
+    await sendSetPasswordEmailForUser(req, 9)
+
+    expect(userTenantUpdate).not.toHaveBeenCalled()
+    expect(req.payload.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        overrideAccess: false,
+        req,
+        where: { id: { equals: 9 } },
+      }),
+    )
+
+    req.payload.find.mockResolvedValue({ docs: [] })
+    await expect(sendSetPasswordEmailForUser(req, 9)).rejects.toMatchObject({ status: 403 })
+    expect(req.payload.betterAuth.api.requestPasswordReset).toHaveBeenCalledTimes(1)
   })
 
   it('does not email when the account has no address', async () => {
@@ -121,22 +145,29 @@ describe('sendSetPasswordEmailForUser', () => {
 describe('shouldShowSetPasswordEmailButton', () => {
   const viewer = { id: 3, tenants: [{ tenant: 7, roles: ['staff'] }] }
 
-  it('hides the button when update access is omitted', () => {
+  it('shows the button for staff when update access is omitted', () => {
     expect(
       shouldShowSetPasswordEmailButton({
         user: viewer,
         docId: '9',
         updatePermission: undefined,
       }),
-    ).toBe(false)
-  })
-
-  it('hides the button when update access is false', () => {
+    ).toBe(true)
     expect(
       shouldShowSetPasswordEmailButton({
-        user: viewer,
+        user: { id: 6, role: ['staff'] },
         docId: '9',
         updatePermission: false,
+      }),
+    ).toBe(true)
+  })
+
+  it('hides the button for a member when update access is omitted', () => {
+    expect(
+      shouldShowSetPasswordEmailButton({
+        user: { id: 8, tenants: [{ tenant: 7, roles: ['user'] }] },
+        docId: '9',
+        updatePermission: undefined,
       }),
     ).toBe(false)
   })
@@ -161,7 +192,7 @@ describe('shouldShowSetPasswordEmailButton', () => {
   it('hides the button for a super-admin and when the document has no id', () => {
     expect(
       shouldShowSetPasswordEmailButton({
-        user: { id: 1, role: ['super-admin'] },
+        user: { id: 1, role: ['super-admin'], tenants: [{ tenant: 7, roles: ['admin'] }] },
         docId: '9',
         updatePermission: true,
       }),

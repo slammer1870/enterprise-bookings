@@ -187,10 +187,33 @@ describe('sendSetPasswordResetEmail', () => {
     expect(requestPasswordReset.mock.calls[0]?.[0]).toEqual({
       body: {
         email: 'new@example.com',
-        redirectTo: 'https://acme.atnd-me.com',
+        redirectTo: 'https://acme.atnd-me.com/auth/reset-password',
       },
       headers: req.headers,
     })
+  })
+
+  it('throws when Better Auth reports that it did not email the account', async () => {
+    const req = reqFor(tenantAdmin, 'REST')
+    req.payload = {
+      logger: { error: vi.fn() },
+      betterAuth: {
+        api: {
+          requestPasswordReset: vi.fn(async () => ({
+            status: true,
+            message: 'If this email exists in our system, check your email for the reset link',
+          })),
+        },
+      },
+    } as unknown as PayloadRequest['payload']
+
+    await expect(
+      sendSetPasswordResetEmail({
+        email: 'missing@example.com',
+        req,
+        userId: '4',
+      }),
+    ).rejects.toBeInstanceOf(APIError)
   })
 
   it('throws when the reset email throws, without logging the address', async () => {

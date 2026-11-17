@@ -1,9 +1,13 @@
-import { getEffectiveUserRoles } from '@repo/shared-utils'
-import type { User } from '@repo/shared-types'
+import { isStaffOnlyUser } from '@/utilities/check-admin-role'
+
+import { viewerChoosesUserPassword } from './viewerChoosesUserPassword'
 
 /**
- * The edit view shows this button only when the viewer may update the open user.
- * Payload's document-access response omits a denied operation. It does not send `update: false`.
+ * Tenant admins and location-managers see this when they may update the open
+ * user. Staff may not update the roster, but they can email a set-password
+ * link for accounts in their tenant — the endpoint enforces that scope.
+ * Payload omits a denied update instead of sending `update: false`.
+ * Super-admins type the password themselves.
  */
 export function shouldShowSetPasswordEmailButton(args: {
   user: unknown
@@ -11,12 +15,7 @@ export function shouldShowSetPasswordEmailButton(args: {
   updatePermission: unknown
 }): boolean {
   if (!args.docId) return false
-  if (
-    args.user &&
-    typeof args.user === 'object' &&
-    getEffectiveUserRoles(args.user as User).includes('super-admin')
-  ) {
-    return false
-  }
-  return Boolean(args.updatePermission)
+  if (viewerChoosesUserPassword(args.user)) return false
+  if (args.updatePermission) return true
+  return isStaffOnlyUser(args.user)
 }
