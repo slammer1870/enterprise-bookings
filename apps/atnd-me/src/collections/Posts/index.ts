@@ -1,4 +1,4 @@
-import type { CollectionConfig, Where } from 'payload'
+import { APIError, type CollectionConfig, type Where } from 'payload'
 
 import type { User as SharedUser } from '@repo/shared-types'
 import { checkRole } from '@repo/shared-utils'
@@ -298,8 +298,9 @@ export const Posts: CollectionConfig<'posts'> = {
         }
 
         if (operation === 'create' && tenantIdFromValue(data.tenant) == null) {
-          throw new Error(
+          throw new APIError(
             'Assign a tenant to create a post. Platform-wide posts require a super-admin account.',
+            400,
           )
         }
 

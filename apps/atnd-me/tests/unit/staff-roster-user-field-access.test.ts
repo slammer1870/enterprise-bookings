@@ -54,6 +54,26 @@ describe('staffRosterUserFieldAccess', () => {
     expect(userEmailFieldWriteForLocationManager(args(lm, { id: 2 }))).toBe(true)
   })
 
+  it('staff can read email for other users but cannot change it', () => {
+    const staff = { id: 1, tenants: [{ tenant: 7, roles: ['staff'] }] }
+    expect(userEmailFieldReadForLocationManager(args(staff, { id: 2 }))).toBe(true)
+    expect(userEmailFieldReadForLocationManager(args(staff, null))).toBe(true)
+    expect(userEmailFieldWriteForLocationManager(args(staff, { id: 2 }))).toBe(false)
+    expect(userEmailFieldWriteForLocationManager(args(staff, null))).toBe(true)
+    expect(userEmailFieldWriteForLocationManager(args(staff, { id: 1 }))).toBe(true)
+  })
+
+  it('derived global staff role can read another user email', () => {
+    const staff = { id: 1, role: ['staff'] }
+    expect(userEmailFieldReadForLocationManager(args(staff, { id: 2 }))).toBe(true)
+  })
+
+  it('a member can read only their own email', () => {
+    const member = { id: 1, tenants: [{ tenant: 7, roles: ['user'] }] }
+    expect(userEmailFieldReadForLocationManager(args(member, { id: 2 }))).toBe(false)
+    expect(userEmailFieldReadForLocationManager(args(member, { id: 1 }))).toBe(true)
+  })
+
   it('location-manager cannot read other sensitive fields for other users', () => {
     const lm = { id: 1, tenants: [{ tenant: 7, roles: ['location-manager'] }] }
     expect(userSensitiveFieldReadForStaffRoster(args(lm, { id: 2 }))).toBe(false)

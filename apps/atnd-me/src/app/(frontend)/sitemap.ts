@@ -91,15 +91,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: urlFor('/'),
       lastModified: dateFallback,
     },
-    {
-      url: urlFor('/search'),
-      lastModified: dateFallback,
-    },
-    {
+  ]
+
+  // A tenant's posts index is listed once it has a published post to show.
+  // The platform site lists no posts here, so its index is always listed.
+  if (!isTenantSite || postDocs.length > 0) {
+    routes.push({
       url: urlFor('/posts'),
       lastModified: dateFallback,
-    },
-  ]
+    })
+  }
 
   for (const pageDoc of pageDocs) {
     if (!pageDoc?.slug) continue

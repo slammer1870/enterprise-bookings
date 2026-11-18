@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import { APIError, type CollectionConfig } from 'payload'
 import { isValidTimeZone } from '@repo/shared-utils'
 import {
   tenantScopedCreate,
@@ -122,7 +122,7 @@ export const Locations: CollectionConfig = {
         const rawSlug = data.slug ?? (operation === 'update' ? originalDoc?.slug : undefined)
         const normalized = normalizeLocationSlug(rawSlug)
         if (!normalized) {
-          throw new Error('Location slug is required')
+          throw new APIError('Location slug is required', 400)
         }
         data.slug = normalized
 
@@ -141,7 +141,7 @@ export const Locations: CollectionConfig = {
         }
 
         if (tenantId == null) {
-          throw new Error('Each location must belong to a tenant')
+          throw new APIError('Each location must belong to a tenant', 400)
         }
 
         const currentId = operation === 'update' && originalDoc?.id ? originalDoc.id : null
@@ -161,8 +161,9 @@ export const Locations: CollectionConfig = {
         })
 
         if (existing.docs.length > 0) {
-          throw new Error(
+          throw new APIError(
             `A location with the slug "${normalized}" already exists for this tenant. Choose a different slug.`,
+            400,
           )
         }
 

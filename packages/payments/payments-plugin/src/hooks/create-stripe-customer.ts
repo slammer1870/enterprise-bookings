@@ -2,26 +2,21 @@ import type { CollectionBeforeChangeHook } from "payload";
 
 import { stripe } from "@repo/shared-utils";
 
-function getTenantIdFromDataOrReq(data: any, req: any): number | null {
-  const reg = data?.registrationTenant;
-  if (typeof reg === "number" && Number.isFinite(reg)) return reg;
-  if (typeof reg === "string" && /^\d+$/.test(reg)) return parseInt(reg, 10);
-  if (reg && typeof reg === "object" && "id" in reg) {
-    const id = (reg as any).id;
-    if (typeof id === "number" && Number.isFinite(id)) return id;
-    if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
-  }
-
-  const raw = req?.context?.tenant;
+function coerceTenantId(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw === "string" && /^\d+$/.test(raw)) return parseInt(raw, 10);
   if (raw && typeof raw === "object" && "id" in raw) {
-    const id = (raw as any).id;
+    const id = (raw as { id: unknown }).id;
     if (typeof id === "number" && Number.isFinite(id)) return id;
     if (typeof id === "string" && /^\d+$/.test(id)) return parseInt(id, 10);
   }
-
   return null;
+}
+
+function getTenantIdFromDataOrReq(data: any, req: any): number | null {
+  const fromReg = coerceTenantId(data?.registrationTenant);
+  if (fromReg != null) return fromReg;
+  return coerceTenantId(req?.context?.tenant);
 }
 
 async function resolveStripeAccountIdForTenant(req: any, tenantId: number): Promise<string | null> {
@@ -31,6 +26,7 @@ async function resolveStripeAccountIdForTenant(req: any, tenantId: number): Prom
       id: tenantId,
       depth: 0,
       overrideAccess: true,
+      req,
     })
     .catch(() => null);
 

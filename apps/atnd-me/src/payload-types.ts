@@ -870,6 +870,7 @@ export interface Category {
  */
 export interface User {
   id: number;
+  password?: string | null;
   /**
    * Family emergency contact records for this account holder (one per tenant when completed).
    */
@@ -970,7 +971,6 @@ export interface User {
         expiresAt: string;
       }[]
     | null;
-  password?: string | null;
   collection: 'users';
 }
 /**
@@ -4924,6 +4924,7 @@ export interface EventTypesSelect<T extends boolean = true> {
  * via the `definition` "users_select".
  */
 export interface UsersSelect<T extends boolean = true> {
+  password?: T;
   emergencyContacts?: T;
   registrationTenant?: T;
   onboardingPasswordSetAt?: T;

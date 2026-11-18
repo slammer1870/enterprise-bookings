@@ -84,16 +84,20 @@ export const generateMeta = async (args: {
   })
 
   const siteName = tenantBranding?.name || DEFAULT_SITE_NAME
-  const docTitle = typeof doc?.meta?.title === 'string' ? doc.meta.title.trim() : ''
-  // A string title is run through the root layout template (`%s | ${appName}`).
-  // With no separate page meta title, the document title is the tenant name itself.
-  const title = docTitle ? docTitle : { absolute: siteName }
-
-  const description = doc?.meta?.description || tenantBranding?.description || undefined
   const resolvedPath =
     pathname ||
     currentPath ||
     (typeof doc?.slug === 'string' && doc.slug ? `/${doc.slug}` : '/')
+  const metaTitle = typeof doc?.meta?.title === 'string' ? doc.meta.title.trim() : ''
+  // With no meta title, a page is named by its own title. The home page is the
+  // exception: its own title is usually "Home", so it is named by the tenant alone.
+  const ownTitle =
+    resolvedPath !== '/' && typeof doc?.title === 'string' ? doc.title.trim() : ''
+  const docTitle = metaTitle || ownTitle
+  // A string title is run through the root layout template (`%s | ${appName}`).
+  const title = docTitle ? docTitle : { absolute: siteName }
+
+  const description = doc?.meta?.description || tenantBranding?.description || undefined
   const canonicalUrl = canonicalHostname
     ? getIndexedURL(canonicalHostname, resolvedPath)
     : getAbsoluteURL(resolvedPath, siteUrl)

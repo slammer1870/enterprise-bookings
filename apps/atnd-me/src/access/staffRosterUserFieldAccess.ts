@@ -63,8 +63,10 @@ function resolveTargetId(args: FieldAccessArgs): number | null {
 }
 
 /**
- * Names, emails, roles, auth secrets, billing, and tenant membership — hidden from staff
- * when viewing someone other than themselves (minimal roster).
+ * Roles, auth secrets, billing, and tenant membership — hidden from staff
+ * when viewing someone other than themselves. `email` is listed here but the
+ * users plugin applies `userEmailFieldReadForLocationManager` first, so staff
+ * and location-managers can read it.
  */
 export const STAFF_ROSTER_SENSITIVE_FIELD_NAMES = new Set([
   'email',
@@ -121,8 +123,8 @@ export const userNameFieldWriteForStaffRoster: FieldAccess = (args) => {
 }
 
 /**
- * Sensitive fields: org admins + super-admin see all; staff only on own row.
- * Location-managers may read/write `email` (member management); other sensitive fields stay locked.
+ * Sensitive fields: org admins + super-admin see all; staff and location-managers
+ * only on their own row. Email is the exception (`userEmailFieldReadForLocationManager`).
  */
 export const userSensitiveFieldReadForStaffRoster: FieldAccess = (args) => {
   const a = args as FieldAccessArgs
@@ -136,16 +138,19 @@ export const userSensitiveFieldReadForStaffRoster: FieldAccess = (args) => {
   return uid != null && did != null && uid === did
 }
 
-/** Email read for location-managers managing members (other sensitive fields use the stricter reader). */
+/**
+ * Email read for staff and location-managers on users collection read already allows.
+ * Other people see only their own address. Write stays on `userEmailFieldWriteForLocationManager`.
+ */
 export const userEmailFieldReadForLocationManager: FieldAccess = (args) => {
   const a = args as FieldAccessArgs
   const u = a.req.user
   if (!u) return false
-  if (isAdmin(u) || isTenantAdmin(u) || isLocationManagerManager(u)) return true
+  if (isAdmin(u) || isTenantAdmin(u) || isLocationManagerManager(u) || isStaffOnlyUser(u)) {
+    return true
+  }
   const uid = sessionUserId(u)
   const did = resolveTargetId(a)
-  if (uid != null && did != null && uid === did) return true
-  if (isStaffOnlyUser(u)) return false
   return uid != null && did != null && uid === did
 }
 

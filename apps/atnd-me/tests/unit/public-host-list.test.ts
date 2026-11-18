@@ -459,6 +459,18 @@ describe('public host list', () => {
     ])
   })
 
+  it('keeps DNS status wide enough to read a Cloudflare error', async () => {
+    const html = await renderedHtml({
+      slug: 'studio',
+      hostnames: ['www.example.com'],
+      direction: 'allow-www-and-non-www',
+    })
+
+    expect(html).toContain('min-width:22rem')
+    expect(html).toContain('width:22rem')
+    expect(html).toContain('overflow-x:auto')
+  })
+
   it('shows Unknown, and still shows the routing record, when the custom hostname is missing or the status is unmapped', async () => {
     installCloudflare({
       'unmapped.example.com': { id: 'csh-unmapped', status: 'pending_blocked', ssl: { status: 'expired' } },

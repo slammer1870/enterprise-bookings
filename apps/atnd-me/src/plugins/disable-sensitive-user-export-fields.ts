@@ -1,6 +1,7 @@
 import type { CollectionConfig, Config, Field, Plugin } from 'payload'
 
 const USERS_SENSITIVE_EXPORT_FIELDS = new Set([
+  'password',
   'hash',
   'salt',
   'resetPasswordToken',

@@ -62,13 +62,15 @@ test.describe('Serve the named canonical host (E2E)', () => {
       timeout: 60_000,
     })
     await expectServedIndexedUrl(page, response, canonicalHost, '/kids')
-    await expect(page).toHaveTitle(tenantName)
+    await expect(page).toHaveTitle(`Kids | ${tenantName}`)
 
     const search = await page.goto(`http://${canonicalHost}:${port}/search?ref=1`, {
       waitUntil: 'domcontentloaded',
       timeout: 60_000,
     })
     await expectServedIndexedUrl(page, search, canonicalHost, '/search')
+    // Search is served, and kept out of the index.
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, follow')
   })
 
   test('with no canonical host named, the platform subdomain serves and publishes its indexed URL', async ({

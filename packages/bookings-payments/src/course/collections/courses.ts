@@ -1,4 +1,9 @@
-import type { CollectionBeforeValidateHook, CollectionConfig, Field } from "payload";
+import {
+  APIError,
+  type CollectionBeforeValidateHook,
+  type CollectionConfig,
+  type Field,
+} from "payload";
 import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types";
 import {
@@ -289,7 +294,7 @@ export function coursesCollection(opts: CoursesOpts = {}): CollectionConfig {
 
         const result = validateCourseDurationMode(merged);
         if (result !== true) {
-          throw new Error(result);
+          throw new APIError(result, 400);
         }
         return data;
       }) satisfies CollectionBeforeValidateHook,
