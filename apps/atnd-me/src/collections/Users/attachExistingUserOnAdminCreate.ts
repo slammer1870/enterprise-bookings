@@ -15,15 +15,18 @@ import {
   rolesForTenantFromCreateData,
   type ExistingUserForAttach,
 } from '@/lib/users/attachUserToTenant'
+import { UserAttachedToOrganizationError } from './userAttachedToOrganization'
 
 /**
  * When a tenant/portal admin creates a user whose email already exists on another
  * tenant, attach that user to the creator's tenant instead of failing on the
  * global unique email index (the existing user is invisible under userTenantRead).
  *
- * Payload cannot convert create → update mid-flight, so after a successful attach
- * we throw a ValidationError that explains the user was added and can be found
- * in the list. Already-a-member is a plain validation error (no side effect).
+ * Payload cannot convert create → update mid-flight. After a successful attach
+ * we throw `UserAttachedToOrganizationError` so the insert aborts. The users
+ * `afterError` hook rewrites that into a successful create response, and the
+ * admin edit view redirects to the existing user's page. Already-a-member is a
+ * plain validation error (no side effect, no redirect).
  */
 export async function attachExistingUserOnAdminCreate(args: {
   data: Record<string, unknown> | null | undefined
@@ -106,13 +109,5 @@ export async function attachExistingUserOnAdminCreate(args: {
     })
   }
 
-  throw new ValidationError({
-    errors: [
-      {
-        path: 'email',
-        message:
-          'This person already has an account and has been added to your organization. Return to the users list to find them.',
-      },
-    ],
-  })
+  throw new UserAttachedToOrganizationError(result.userId)
 }

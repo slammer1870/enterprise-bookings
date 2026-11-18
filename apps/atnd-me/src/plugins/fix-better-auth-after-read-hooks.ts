@@ -9,6 +9,7 @@ import { isAdmin } from '@/access/userTenantAccess'
 import { resolveOrgAdminTenantIds } from '@/access/tenant-scoped'
 import { filterTenantsForTenantAdmin } from '@/collections/Users/tenantHookHelpers'
 import { attachExistingUserOnAdminCreate } from '@/collections/Users/attachExistingUserOnAdminCreate'
+import { attachedUserCreateResponse } from '@/collections/Users/userAttachedToOrganization'
 import { ATND_READ_ALL_MEMBERSHIPS } from '@/lib/users/attachUserToTenant'
 import { restrictTenantPasswordWrite } from '@/collections/Users/restrictTenantPasswordWrite'
 import { assertAnonymousUserCreateRateLimit } from '@/collections/Users/sanitizeUserWrite'
@@ -23,8 +24,8 @@ import {
  *
  * Why: Better Auth rebuilds the Users collection hooks object and only re-merges
  * `beforeChange`, `afterChange`, `beforeLogin`, `afterLogin`, `afterLogout`, and
- * `beforeDelete`. Hooks such as `afterRead`, `beforeValidate`, and `beforeOperation`
- * defined on the Users collection are lost.
+ * `beforeDelete`. Hooks such as `afterRead`, `beforeValidate`, `beforeOperation`,
+ * and `afterError` defined on the Users collection are lost.
  *
  * This plugin runs after Better Auth and re-attaches the missing hooks.
  */
@@ -79,6 +80,15 @@ export const fixBetterAuthAfterReadHooks = (): Plugin =>
       ...usersCollection,
       hooks: {
         ...usersCollection.hooks,
+        afterError: [
+          ...(usersCollection.hooks?.afterError ?? []).filter(
+            (hook) => hook !== attachedUserCreateResponse,
+          ),
+          // payload-auth replaces Users.hooks and drops afterError. This rewrite
+          // turns a cross-tenant attach into a successful create so the admin
+          // form redirects to the existing user's edit page.
+          attachedUserCreateResponse,
+        ],
         beforeOperation: [
           ...(usersCollection.hooks?.beforeOperation ?? []),
           // payload-auth replaces Users.hooks and drops beforeOperation, so this

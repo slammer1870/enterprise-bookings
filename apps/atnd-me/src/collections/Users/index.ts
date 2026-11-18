@@ -42,6 +42,7 @@ import { usersTenantsTenantFilterOptions } from './tenantsTenantFilterOptions'
 import { validateTenantsMembershipArray } from './validateTenantsMembershipArray'
 import { ensureCreateTenantScope } from './ensureCreateTenantScope'
 import { attachExistingUserOnAdminCreate } from './attachExistingUserOnAdminCreate'
+import { attachedUserCreateResponse } from './userAttachedToOrganization'
 import {
   canSetUserPassword,
   restoreForcedPasswordOnCreate,
@@ -252,6 +253,9 @@ export const Users: CollectionConfig = {
         return restrictTenantPasswordWrite({ args, operation, req })
       },
     ],
+    // payload-auth drops afterError. The live copy is re-registered in
+    // fixBetterAuthAfterReadHooks.
+    afterError: [attachedUserCreateResponse],
     beforeValidate: [
       // Strip foreign tenant entries before relationship validation.
       // NOTE: payload-auth drops `beforeValidate` — also re-attached in

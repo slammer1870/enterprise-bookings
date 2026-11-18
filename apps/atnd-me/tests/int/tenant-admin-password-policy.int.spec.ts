@@ -8,6 +8,7 @@
 import crypto from 'crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { getPayload, type Payload } from 'payload'
+import { UserAttachedToOrganizationError } from '@/collections/Users/userAttachedToOrganization'
 import config from '@/payload.config'
 import type { Tenant, User } from '@repo/shared-types'
 
@@ -391,9 +392,8 @@ describe('tenant admin password policy', () => {
         caught = err
       }
 
-      expect(validationMessages(caught)).toContain(
-        'This person already has an account and has been added to your organization. Return to the users list to find them.',
-      )
+      expect(caught).toBeInstanceOf(UserAttachedToOrganizationError)
+      expect((caught as UserAttachedToOrganizationError).data.userId).toBe(member.id)
 
       const matches = await payload.find({
         collection: 'users',

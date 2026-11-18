@@ -16,6 +16,7 @@ vi.mock('../../src/access/tenant-scoped', async () => {
 })
 
 import { attachExistingUserOnAdminCreate } from '../../src/collections/Users/attachExistingUserOnAdminCreate'
+import { UserAttachedToOrganizationError } from '../../src/collections/Users/userAttachedToOrganization'
 import { resolveTenantIdForUserCreate } from '@/collections/Users/ensureCreateTenantScope'
 import { resolveOrgAdminTenantIds } from '../../src/access/tenant-scoped'
 
@@ -72,12 +73,14 @@ describe('attachExistingUserOnAdminCreate', () => {
 
     const caller = { id: 1, tenants: [{ tenant: 7, roles: ['admin'] }] }
     const createReq = { ...req(caller), transactionID: 'create-tx' }
-    await expect(
-      attachExistingUserOnAdminCreate({
-        data: { email: 'existing@example.com', name: 'Existing' },
-        req: createReq,
-      }),
-    ).rejects.toBeInstanceOf(ValidationError)
+    const attached = attachExistingUserOnAdminCreate({
+      data: { email: 'existing@example.com', name: 'Existing' },
+      req: createReq,
+    })
+    await expect(attached).rejects.toBeInstanceOf(UserAttachedToOrganizationError)
+    await expect(attached).rejects.toMatchObject({
+      data: { code: 'userAttachedToOrganization', userId: 9 },
+    })
 
     expect(find).toHaveBeenCalledWith(expect.objectContaining({ req: createReq, overrideAccess: true }))
     expect(update).toHaveBeenCalledWith(
@@ -171,7 +174,7 @@ describe('attachExistingUserOnAdminCreate', () => {
         },
         req: req({ id: 4, tenants: [{ tenant: 7, roles: ['location-manager'] }] }),
       }),
-    ).rejects.toBeInstanceOf(ValidationError)
+    ).rejects.toBeInstanceOf(UserAttachedToOrganizationError)
 
     const data = update.mock.calls[0]![0].data as { tenants: Array<{ tenant: number; roles: string[] }> }
     expect(data.tenants).toEqual([
