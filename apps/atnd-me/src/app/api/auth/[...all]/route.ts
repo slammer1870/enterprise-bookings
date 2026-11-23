@@ -1,11 +1,13 @@
 import { toNextJsHandler } from 'better-auth/next-js'
 import type { NextRequest } from 'next/server'
+import { cache } from 'react'
 import { getPayload } from '@/lib/payload'
 import { POST_LOGIN_REDIRECT_COOKIE } from '@/collections/Users/hooks/constants'
 import { getUserTenantIDs, loadUserDocForTenantMembership } from '@/access/tenant-scoped'
 
-const payload = await getPayload()
-const betterAuthHandler = toNextJsHandler(payload.betterAuth)
+const getPayloadInstance = cache(async () => {
+  return await getPayload()
+})
 
 function extractSubdomain(host: string): string | null {
   const hostname = (host.split(':')[0] ?? '').toLowerCase()
@@ -41,6 +43,9 @@ function isSuperAdminUser(user: { role?: unknown }): boolean {
  * subsequent /admin navigation.
  */
 export async function POST(req: NextRequest) {
+  const payload = await getPayloadInstance()
+  const betterAuthHandler = toNextJsHandler(payload.betterAuth)
+
   const url = new URL(req.url)
   const isSignIn =
     url.pathname.endsWith('/sign-in/email') || url.pathname.endsWith('/sign-in/username')
@@ -128,4 +133,8 @@ export async function POST(req: NextRequest) {
   return res
 }
 
-export const GET = betterAuthHandler.GET
+export async function GET(request: Request) {
+  const payload = await getPayloadInstance()
+  const handler = toNextJsHandler(payload.betterAuth)
+  return handler.GET(request)
+}

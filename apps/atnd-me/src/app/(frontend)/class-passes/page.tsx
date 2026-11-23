@@ -7,7 +7,7 @@ import { MyClassPassesList } from './MyClassPassesList.client'
 export const dynamic = 'force-dynamic'
 
 type PageProps = {
-  searchParams?: Promise<{ purchased?: string | string[] }> | { purchased?: string | string[] }
+  searchParams?: Promise<{ purchased?: string | string[] }>
 }
 
 export default async function MyClassPassesPage({ searchParams }: PageProps) {
@@ -16,10 +16,7 @@ export default async function MyClassPassesPage({ searchParams }: PageProps) {
     redirect(`/auth/sign-in?redirectTo=${encodeURIComponent('/class-passes')}`)
   }
 
-  const resolved =
-    searchParams && typeof (searchParams as Promise<unknown>).then === 'function'
-      ? await (searchParams as Promise<{ purchased?: string | string[] }>)
-      : ((searchParams as { purchased?: string | string[] } | undefined) ?? {})
+  const resolved = (await searchParams) ?? {}
   const purchasedRaw = resolved.purchased
   const purchased =
     purchasedRaw === '1' ||
