@@ -54,6 +54,7 @@ import {
 import { DhLiveSchedule } from './DhLiveSchedule/config'
 import { DhLiveMembership } from './DhLiveMembership/config'
 import { GiftVoucherCheckout } from './GiftVoucherCheckout/config'
+import { ClassPassCheckout } from './ClassPassCheckout/config'
 import { EmergencyContactForm } from './EmergencyContactForm/config'
 import { Event } from './Event/config'
 
@@ -99,6 +100,7 @@ const allBlocks: Block[] = [
   DhLiveSchedule,
   DhLiveMembership,
   GiftVoucherCheckout,
+  ClassPassCheckout,
   EmergencyContactForm,
   Event,
   // Croí Lán Sauna (tenant-scoped extras; croilan.com)
@@ -127,6 +129,7 @@ export const defaultBlockSlugs: string[] = [
   'cta',
   'formBlock',
   'giftVoucherCheckout',
+  'classPassCheckout',
   'emergencyContactForm',
   'event',
 ]

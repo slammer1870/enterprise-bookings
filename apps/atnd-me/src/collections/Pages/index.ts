@@ -62,6 +62,7 @@ import { SimpleAbout } from '@/blocks/SimpleAbout/config'
 import { DhLiveSchedule } from '@/blocks/DhLiveSchedule/config'
 import { DhLiveMembership } from '@/blocks/DhLiveMembership/config'
 import { GiftVoucherCheckout } from '@/blocks/GiftVoucherCheckout/config'
+import { ClassPassCheckout } from '@/blocks/ClassPassCheckout/config'
 import { EmergencyContactForm } from '@/blocks/EmergencyContactForm/config'
 import { Event } from '@/blocks/Event/config'
 import { SectionTagline } from '@/blocks/SectionTagline/config'
@@ -122,6 +123,7 @@ const availableBlocks = [
   DhLiveSchedule,
   DhLiveMembership,
   GiftVoucherCheckout,
+  ClassPassCheckout,
   EmergencyContactForm,
   // Croí Lán Sauna (tenant-scoped extras)
   ClHeroScheduleSanctuary,

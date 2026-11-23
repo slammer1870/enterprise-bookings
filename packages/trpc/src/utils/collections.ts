@@ -130,6 +130,7 @@ export async function findSafe<T = JsonObject & TypeWithID>(
   options: {
     where?: any;
     limit?: number;
+    page?: number;
     depth?: number;
     overrideAccess?: boolean;
     user?: any;
@@ -149,6 +150,9 @@ export async function findSafe<T = JsonObject & TypeWithID>(
     collection: collectionSlug as CollectionSlug,
     where: options.where,
     limit: options.limit ?? 0,
+    ...(typeof options.page === "number" && options.page > 0
+      ? { page: options.page }
+      : {}),
     depth: options.depth ?? 0,
     overrideAccess: options.overrideAccess ?? false,
     user: options.user,
