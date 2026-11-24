@@ -68,7 +68,7 @@ export function ClassPassCheckoutCards({
             classPassTypeId: String(card.classPassTypeId),
             tenantId: String(tenantId),
           },
-          successUrl: `${origin}/class-passes?purchased=1`,
+          successUrl: `${origin}/my-class-passes?purchased=1`,
           cancelUrl: `${origin}${currentPath}`,
         }),
       })
