@@ -40,6 +40,22 @@ test.describe('Navbar auth state', () => {
       timeout: 20_000,
     })
     await expect(header.getByRole('link', { name: 'Sign in' })).toHaveCount(0)
+
+    await header.getByLabel('Open account menu').click()
+    const menu = header.locator('details')
+    const myPasses = menu.getByRole('link', { name: 'My Class Passes' })
+    const billing = menu.getByRole('button', { name: /billing portal/i })
+    await expect(myPasses).toBeVisible({ timeout: 10_000 })
+    await expect(billing).toBeVisible({ timeout: 10_000 })
+    // My Class Passes must appear above Billing portal.
+    await expect
+      .poll(async () => {
+        const passesBox = await myPasses.boundingBox()
+        const billingBox = await billing.boundingBox()
+        if (!passesBox || !billingBox) return null
+        return passesBox.y < billingBox.y
+      })
+      .toBe(true)
   })
 
   test('navbar shows Sign in after user logs out from account menu', async ({ page, testData }) => {

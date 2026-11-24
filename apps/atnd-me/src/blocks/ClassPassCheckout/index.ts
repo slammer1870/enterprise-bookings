@@ -1,0 +1,1 @@
+export { ClassPassCheckoutBlock } from './Component'

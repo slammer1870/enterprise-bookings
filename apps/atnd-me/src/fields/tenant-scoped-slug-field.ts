@@ -1,4 +1,4 @@
-import type { Field } from 'payload'
+import { APIError, type Field } from 'payload'
 
 type TenantScopedCollection = 'pages' | 'posts'
 
@@ -101,8 +101,9 @@ export function tenantScopedSlugField({
           })
 
           if (existing.docs.length > 0) {
-            throw new Error(
+            throw new APIError(
               `A ${label} with the slug "${value}" already exists for this site. Please choose a different slug.`,
+              400,
             )
           }
 

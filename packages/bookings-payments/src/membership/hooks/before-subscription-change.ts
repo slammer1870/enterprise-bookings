@@ -1,4 +1,4 @@
-import type { CollectionBeforeChangeHook, Payload } from "payload";
+import { APIError, type CollectionBeforeChangeHook, type Payload } from "payload";
 import { stripe } from "@repo/shared-utils";
 import type Stripe from "stripe";
 import type { MembershipConfig } from "../../types";
@@ -102,13 +102,13 @@ export function createBeforeSubscriptionChange(config: Pick<MembershipConfig, "g
         : normalizeAccountId(await Promise.resolve(config.getStripeAccountIdForRequest?.(req) ?? null));
 
     if (scope === "connect" && !resolvedAccountId) {
-      throw new Error("No connected Stripe account resolved for this tenant");
+      throw new APIError("No connected Stripe account resolved for this tenant", 400);
     }
 
     // If record already has stripeAccountId, require it to match the resolved tenant account.
     const existingStripeAccountId = normalizeAccountId((data as any)?.stripeAccountId);
     if (existingStripeAccountId && resolvedAccountId && existingStripeAccountId !== resolvedAccountId) {
-      throw new Error("Stripe account mismatch for this subscription (tenant context changed)");
+      throw new APIError("Stripe account mismatch for this subscription (tenant context changed)", 400);
     }
 
     const stripeAccountIdToUse =
@@ -135,11 +135,11 @@ export function createBeforeSubscriptionChange(config: Pick<MembershipConfig, "g
 
     if (stripeAccountIdToUse) {
       if (!subscriptionCustomerId) {
-        throw new Error("Stripe subscription has no customer");
+        throw new APIError("Stripe subscription has no customer", 400);
       }
 
       const userId = getUserIdFromData((data as any)?.user);
-      if (!userId) throw new Error("Subscription user is required");
+      if (!userId) throw new APIError("Subscription user is required", 400);
 
       const user = (await payload.findByID({
         collection: "users" as any,
@@ -147,11 +147,14 @@ export function createBeforeSubscriptionChange(config: Pick<MembershipConfig, "g
         depth: 0,
         overrideAccess: true,
       })) as any;
-      if (!user) throw new Error("User not found");
+      if (!user) throw new APIError("User not found", 400);
 
       const mappedCustomerId = getConnectStripeCustomerId(user, stripeAccountIdToUse);
       if (mappedCustomerId && mappedCustomerId !== subscriptionCustomerId) {
-        throw new Error("Stripe subscription customer does not match this user's stored customer mapping for the tenant");
+        throw new APIError(
+          "Stripe subscription customer does not match this user's stored customer mapping for the tenant",
+          400,
+        );
       }
 
       // If mapping is missing, store it based on the chosen subscription.

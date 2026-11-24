@@ -21,6 +21,8 @@ function describeUserLabel(user: Pick<User, 'name' | 'email'>): string {
   return (typeof user.name === 'string' && user.name.trim()) || (typeof user.email === 'string' && user.email.trim()) || 'Account'
 }
 
+const MY_CLASS_PASSES_HREF = '/class-passes'
+
 async function openBillingPortal(): Promise<void> {
   const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })
   if (!res.ok) {
@@ -99,7 +101,16 @@ export function HeaderAuthMenu({
           </div>
         </div>
 
-        <div className="border-t border-border pt-3">
+        <div className="flex flex-col gap-3 border-t border-border pt-3">
+          <Link
+            href={MY_CLASS_PASSES_HREF}
+            className={cn(
+              'w-full text-left text-sm text-primary underline-offset-4 hover:underline',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm',
+            )}
+          >
+            My Class Passes
+          </Link>
           <button
             type="button"
             disabled={billingLoading}
@@ -173,6 +184,16 @@ export function HeaderAuthMenu({
             <div className="text-xs text-muted-foreground truncate">{String(user.email)}</div>
           ) : null}
         </div>
+
+        <Link
+          href={MY_CLASS_PASSES_HREF}
+          className={cn(
+            'block w-full text-left px-3 py-2 text-sm hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+          )}
+          onClick={() => detailsRef.current?.removeAttribute('open')}
+        >
+          My Class Passes
+        </Link>
 
         <button
           type="button"

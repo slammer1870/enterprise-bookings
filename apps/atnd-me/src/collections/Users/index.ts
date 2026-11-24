@@ -1,12 +1,11 @@
 import type { CollectionConfig } from 'payload'
-import { checkRole, getEffectiveUserRoles } from '@repo/shared-utils'
+import { getEffectiveUserRoles } from '@repo/shared-utils'
 import type { User as SharedUser } from '@repo/shared-types'
 import { tenantsArrayField } from '@payloadcms/plugin-multi-tenant/fields'
 
 import { authenticated } from '../../access/authenticated'
 import {
   getTenantMembershipIdsFromUserDoc,
-  getUserTenantIds,
   loadUserDocForTenantMembership,
   resolveOrgAdminTenantIds,
 } from '../../access/tenant-scoped'
@@ -17,22 +16,17 @@ import {
   isAdmin,
   isTenantAdmin,
   isStaff,
-  isLocationManager,
   usersPayloadAdminAccess,
 } from '../../access/userTenantAccess'
 
 import { afterLoginRedirect } from './hooks/afterLoginRedirect'
 import { applyFirstUserSuperAdminRole } from './firstUserSuperAdmin'
 import {
-  extractTenantId,
   filterTenantsForTenantAdmin,
   mergeTenantEntriesForAdmin,
   deriveRoleFromTenants,
   type TenantEntry,
 } from './tenantHookHelpers'
-import { getTenantIdForCreateRequest } from '@/utilities/getTenantContext'
-import { cookiesFromHeaders } from '@/utilities/cookiesFromHeaders'
-import { resolveTenantIdForDocumentWrite } from '@/utilities/resolveTenantIdForDocumentWrite'
 import { isSystemUserWrite } from '@/lib/auth/systemUserWriteContext'
 import { getAbsoluteURL } from '@/utilities/getURL'
 import { resolveTrustedPasswordResetOrigin } from '@/utilities/resolveTrustedPasswordResetOrigin'
@@ -46,6 +40,16 @@ import {
 import { stripForeignTenantsBeforeValidate } from './stripForeignTenantsBeforeValidate'
 import { usersTenantsTenantFilterOptions } from './tenantsTenantFilterOptions'
 import { validateTenantsMembershipArray } from './validateTenantsMembershipArray'
+import { ensureCreateTenantScope } from './ensureCreateTenantScope'
+import { attachExistingUserOnAdminCreate } from './attachExistingUserOnAdminCreate'
+import { attachedUserCreateResponse } from './userAttachedToOrganization'
+import {
+  canSetUserPassword,
+  restoreForcedPasswordOnCreate,
+  restrictTenantPasswordWrite,
+} from './restrictTenantPasswordWrite'
+import { sendSetPasswordEmailEndpoint } from './sendSetPasswordEmailEndpoint'
+import { viewerChoosesUserPassword } from '@/components/admin/users/viewerChoosesUserPassword'
 import { EMERGENCY_CONTACTS_SLUG } from '@/collections/EmergencyContacts'
 
 /**
@@ -236,10 +240,22 @@ export const Users: CollectionConfig = {
       async ({ args, operation, req }) => {
         if (operation === 'create') {
           assertAnonymousUserCreateRateLimit(req)
+          // Cross-tenant email collision: existing user is invisible under userTenantRead,
+          // so attach them to this tenant instead of failing on the global unique email index.
+          await attachExistingUserOnAdminCreate({
+            data: (args as { data?: Record<string, unknown> }).data,
+            req,
+          })
         }
-        return args
+        // payload-auth drops beforeOperation. The live copy is re-registered in
+        // fixBetterAuthAfterReadHooks. Strip here too so a future merge that
+        // keeps this hook cannot write a tenant-admin password.
+        return restrictTenantPasswordWrite({ args, operation, req })
       },
     ],
+    // payload-auth drops afterError. The live copy is re-registered in
+    // fixBetterAuthAfterReadHooks.
+    afterError: [attachedUserCreateResponse],
     beforeValidate: [
       // Strip foreign tenant entries before relationship validation.
       // NOTE: payload-auth drops `beforeValidate` — also re-attached in
@@ -278,6 +294,15 @@ export const Users: CollectionConfig = {
       },
     ],
     beforeChange: [
+      // Field access on the virtual `password` field deletes data.password in
+      // beforeValidate when the actor cannot set it. Put the random stand-in
+      // back so auth create still hashes a credential.
+      async ({ data, operation, req }) =>
+        restoreForcedPasswordOnCreate({
+          data: data as Record<string, unknown> | null | undefined,
+          operation,
+          req,
+        }),
       // Harden anonymous + system user writes (tenants / roles).
       // System flows set ATND_SYSTEM_USER_WRITE_CTX + allowedRoles allow-list.
       async ({ data, req, operation, originalDoc }) => {
@@ -292,66 +317,14 @@ export const Users: CollectionConfig = {
       // Must run in beforeChange (not beforeValidate): payload-auth's Better Auth merge replaces
       // `hooks` and drops `beforeValidate`. Better Auth user creates also omit `req` on `payload.create`
       // — those flows set `registrationTenant` via Better Auth `databaseHooks` (see atnd-me auth options).
+      // Stamps registrationTenant so Connect customers and roster visibility do not
+      // depend on the admin typing that relationship. Does not invent a tenants[] row.
       async ({ data, operation, req }) => {
-        if (operation === 'create' && data && !data.registrationTenant) {
-          const user = req.user
-          // Tenant portal creators (org admin / location-manager) and platform super-admins.
-          // Location-managers need registrationTenant so the new member stays in their roster scope.
-          const canAssignRegistrationTenant =
-            Boolean(user) &&
-            (isAdmin(user) ||
-              isTenantAdmin(user) ||
-              isLocationManager(user) ||
-              checkRole(['admin', 'super-admin', 'location-manager'], user as unknown as SharedUser))
-          if (canAssignRegistrationTenant) {
-            const rawTenant = req.context?.tenant as unknown
-            if (rawTenant) {
-              ;(data as { registrationTenant?: string | number }).registrationTenant =
-                typeof rawTenant === 'object' && rawTenant !== null && 'id' in rawTenant
-                  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                    (rawTenant as any).id
-                  : (rawTenant as string | number)
-            } else {
-              const tenantIds = getUserTenantIds(user as unknown as SharedUser)
-              if (tenantIds && tenantIds.length > 0) {
-                ;(data as { registrationTenant?: string | number }).registrationTenant = tenantIds[0]
-              } else {
-                // super-admin (getUserTenantIds returns null) or admin with no loaded tenants:
-                // fall back to the TenantSelector cookie (payload-tenant) set in the admin UI.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const fromSelector = await resolveTenantIdForDocumentWrite(req as any)
-                if (fromSelector != null && fromSelector !== '') {
-                  ;(data as { registrationTenant?: string | number }).registrationTenant = fromSelector
-                }
-              }
-            }
-          } else if (!user && req.headers && typeof (req.headers as Headers).get === 'function') {
-            const headers = req.headers as Headers
-            const fromRequest = await getTenantIdForCreateRequest(req.payload, {
-              headers,
-              cookies: cookiesFromHeaders(headers),
-              context: req.context as { tenant?: unknown } | undefined,
-            })
-            if (fromRequest != null && fromRequest !== '') {
-              // Guard against stale tenant cookies/cache after DB reset (FK on registrationTenant).
-              try {
-                const tenant = await req.payload.findByID({
-                  collection: 'tenants',
-                  id: fromRequest,
-                  depth: 0,
-                  overrideAccess: true,
-                })
-                if (tenant) {
-                  ;(data as { registrationTenant?: string | number }).registrationTenant =
-                    fromRequest
-                }
-              } catch {
-                // omit registrationTenant
-              }
-            }
-          }
-        }
-        return data
+        if (operation !== 'create' || !data) return data
+        return ensureCreateTenantScope({
+          data: data as Record<string, unknown>,
+          req,
+        })
       },
       async ({ data, operation, req }) => {
         if (!data || operation !== 'create') return data
@@ -639,12 +612,60 @@ export const Users: CollectionConfig = {
     defaultColumns: ['name', 'email', 'createdAt'],
     useAsTitle: 'name',
   },
+  endpoints: [sendSetPasswordEmailEndpoint],
   // Auth fields (email/name/etc) are provided by the Better Auth plugin in this repo.
   // Keep this collection lean to avoid duplicate field-name collisions.
   // Multi-tenant fields:
   // - registrationTenant (singular, custom): where user originally registered
   // - tenants (plural, plugin-managed): tenants user has access to (added automatically by multi-tenant plugin)
   fields: [
+    // Virtual so it is not a column. beforeOperation still strips the value:
+    // field access runs too late to stop updateDocument from hashing it.
+    // `canSetUserPassword` must stay false for tenant roles on Local API too —
+    // admin field permissions use createLocalReq. Payload's create view still
+    // mounts required password inputs (`requirePassword: !id`); OmitChosenPassword
+    // removes that requirement for tenant roles (`tenants[].roles`).
+    // Always mounted: the component reads the logged-in admin, because a
+    // create form has no document user yet.
+    {
+      name: 'password',
+      type: 'text',
+      virtual: true,
+      admin: {
+        hidden: true,
+        disableListColumn: true,
+      },
+      access: {
+        create: ({ req }) => canSetUserPassword(req),
+        read: () => false,
+        update: ({ req }) => canSetUserPassword(req),
+      },
+    },
+    {
+      name: 'omitChosenPassword',
+      type: 'ui',
+      admin: {
+        components: {
+          Field: '@/components/admin/users/OmitChosenPassword#OmitChosenPassword',
+        },
+      },
+    },
+    // Sits under the auth email row, in the slot the password inputs use.
+    // Shown once the user exists, and only for people who cannot type a password.
+    {
+      name: 'sendSetPasswordEmail',
+      type: 'ui',
+      admin: {
+        condition: (_data, _siblingData, { operation, user }) => {
+          if (operation !== 'update' || !user) return false
+          // `user` here is the logged-in admin. Org roles are tenants[].roles.
+          return !viewerChoosesUserPassword(user)
+        },
+        components: {
+          Field: '@/components/admin/users/SendSetPasswordEmailButton#SendSetPasswordEmailButton',
+        },
+      },
+    },
     // `image` (upload → media) is provided by Better Auth and converted to a real
     // upload field in `fixBetterAuthImageField` (staff photos migrate onto it).
     {

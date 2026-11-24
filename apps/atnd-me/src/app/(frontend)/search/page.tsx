@@ -83,5 +83,7 @@ export default async function Page({ searchParams: searchParamsPromise }: Args) 
 export function generateMetadata(): Metadata {
   return {
     title: 'Search',
+    // Search results are not a page to rank. Links on it are still followed.
+    robots: { index: false, follow: true },
   }
 }

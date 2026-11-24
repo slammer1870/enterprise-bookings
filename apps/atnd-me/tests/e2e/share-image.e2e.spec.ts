@@ -448,6 +448,31 @@ test.describe('Share image (E2E)', () => {
     await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', shareImage)
   })
 
+  test('the posts index shares the tenant logo at its stored URL', async ({ page, testData }) => {
+    test.setTimeout(90_000)
+    const w = testData.workerIndex
+    const stamp = Date.now()
+    const slug = `sharepostslogo-${w}-${stamp}`
+    const host = `${slug}.localhost`
+    const logoUrl = 'https://files.example.com/brand/logo.png'
+
+    const tenant = await createTestTenant(`E2E Share Posts Logo ${w} ${stamp}`, slug)
+    const logoId = await createPathImage(tenant.id, `logo-${stamp}.png`)
+    await storeMediaFileUrl(logoId, logoUrl)
+    const payload = await getPayloadInstance()
+    await payload.update({
+      collection: 'tenants',
+      id: tenant.id,
+      data: { logo: logoId },
+      overrideAccess: true,
+    })
+
+    const response = await openServedPage(page, host, '/posts')
+    expect(response?.status()).toBe(200)
+    await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', logoUrl)
+    await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', logoUrl)
+  })
+
   test('a file URL is the share image when no share-sized URL exists', async ({ page, testData }) => {
     test.setTimeout(90_000)
     const w = testData.workerIndex

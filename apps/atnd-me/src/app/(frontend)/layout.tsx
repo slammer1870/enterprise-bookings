@@ -24,8 +24,18 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { getPayload } from '@/lib/payload'
 import { getTenantWithBranding } from '@/utilities/getTenantContext'
-import { getAbsoluteURL, getIndexedURL, getTenantSiteURL } from '@/utilities/getURL'
+import { getAbsoluteMediaURL, getIndexedURL, getTenantSiteURL } from '@/utilities/getURL'
 import { indexedHostnameForTenant } from '@/utilities/resolvePublicTenant'
+
+/** One logo URL for structured data and share images. */
+function tenantLogoUrl(
+  tenant: Awaited<ReturnType<typeof getTenantWithBranding>>,
+  siteUrl: string,
+): string | undefined {
+  const logo = tenant?.logo
+  if (!logo || typeof logo !== 'object' || typeof logo.url !== 'string') return undefined
+  return getAbsoluteMediaURL(logo.url, siteUrl)
+}
 
 export default async function RootLayout({
   children,
@@ -40,12 +50,7 @@ export default async function RootLayout({
   const payload = await getPayload()
   const tenant = await getTenantWithBranding(payload, { cookies: cookieStore, headers: headersList })
   const siteUrl = getTenantSiteURL(tenant, headersList)
-  const logoUrl =
-    tenant?.logo && typeof tenant.logo === 'object' && typeof tenant.logo.url === 'string'
-      ? /^https?:\/\//i.test(tenant.logo.url)
-        ? tenant.logo.url
-        : getAbsoluteURL(tenant.logo.url, siteUrl)
-      : undefined
+  const logoUrl = tenantLogoUrl(tenant, siteUrl)
   const structuredData = tenant
     ? {
         '@context': 'https://schema.org',
@@ -101,10 +106,7 @@ export async function generateMetadata(): Promise<Metadata> {
     canonicalHostname && requestPath
       ? getIndexedURL(canonicalHostname, requestPath)
       : siteUrl
-  const logoUrl =
-    tenant?.logo && typeof tenant.logo === 'object' && typeof tenant.logo.url === 'string'
-      ? getAbsoluteURL(tenant.logo.url, siteUrl)
-      : undefined
+  const logoUrl = tenantLogoUrl(tenant, siteUrl)
 
   return {
     ...(canonicalHostname && requestPath

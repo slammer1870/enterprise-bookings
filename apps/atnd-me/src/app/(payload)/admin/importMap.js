@@ -1,3 +1,5 @@
+import { TenantDateField as TenantDateField_fe3cb116f74ef00cd97a52d38de6f837 } from '@/components/admin/TenantDateField'
+import { TenantTimeField as TenantTimeField_3640125ccf06676fc4a21649288a789e } from '@/components/admin/TenantTimeField'
 import { default as default_c460fff066f5db6b45826c32f5c7748e } from '@/components/admin/SyncPayloadLocationCookieToBranchField'
 import { default as default_2a89e3b2de91cb0ec6b364df0983fbdc } from '@/components/admin/SyncBranchFieldToPayloadLocationCookie'
 import { SyncTenantSelectorToFormField as SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611 } from '@repo/plugin-clearable-tenant/client'
@@ -37,6 +39,8 @@ import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0
 import { EventTypeForTimeslotFilterField as EventTypeForTimeslotFilterField_10c71e90c03730207bbccc04ef112f49 } from '@/components/admin/EventTypeForTimeslotFilterField'
 import { TimeslotDateFilterField as TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0 } from '@/components/admin/TimeslotDateFilterField'
 import { TimeslotForEventPickerField as TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7 } from '@/components/admin/TimeslotForEventPickerField'
+import { OmitChosenPassword as OmitChosenPassword_f2993d693f32f4df01ad8a59af6b87fc } from '@/components/admin/users/OmitChosenPassword'
+import { SendSetPasswordEmailButton as SendSetPasswordEmailButton_47bbb60192faf3ec82f96315c6478ce1 } from '@/components/admin/users/SendSetPasswordEmailButton'
 import { TenantsMembershipArrayField as TenantsMembershipArrayField_eff008626c1ab53a2ba3f6ef0c8d20b8 } from '@/components/admin/users/TenantsMembershipArrayField'
 import { TenantStripeCustomerMappingField as TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9 } from '@/components/admin/users/TenantStripeCustomerMappingField'
 import { StripeDashboardLinkField as StripeDashboardLinkField_3f461e6c95821294340135c2293fe078 } from '@/components/admin/StripeDashboardLinkField'
@@ -99,6 +103,8 @@ import { CollectionCards as CollectionCards_f9c02e79a4aed9a3924487c0cd4cafb1 } f
 
 /** @type import('payload').ImportMap */
 export const importMap = {
+  "@/components/admin/TenantDateField#TenantDateField": TenantDateField_fe3cb116f74ef00cd97a52d38de6f837,
+  "@/components/admin/TenantTimeField#TenantTimeField": TenantTimeField_3640125ccf06676fc4a21649288a789e,
   "@/components/admin/SyncPayloadLocationCookieToBranchField#default": default_c460fff066f5db6b45826c32f5c7748e,
   "@/components/admin/SyncBranchFieldToPayloadLocationCookie#default": default_2a89e3b2de91cb0ec6b364df0983fbdc,
   "@repo/plugin-clearable-tenant/client#SyncTenantSelectorToFormField": SyncTenantSelectorToFormField_f280e8fd8ae93a5815010b985eeca611,
@@ -138,6 +144,8 @@ export const importMap = {
   "@/components/admin/EventTypeForTimeslotFilterField#EventTypeForTimeslotFilterField": EventTypeForTimeslotFilterField_10c71e90c03730207bbccc04ef112f49,
   "@/components/admin/TimeslotDateFilterField#TimeslotDateFilterField": TimeslotDateFilterField_02ebab356a1783b4fbef5c0ad75bbbb0,
   "@/components/admin/TimeslotForEventPickerField#TimeslotForEventPickerField": TimeslotForEventPickerField_30010d743d69d391c01c7a27c3b2dbf7,
+  "@/components/admin/users/OmitChosenPassword#OmitChosenPassword": OmitChosenPassword_f2993d693f32f4df01ad8a59af6b87fc,
+  "@/components/admin/users/SendSetPasswordEmailButton#SendSetPasswordEmailButton": SendSetPasswordEmailButton_47bbb60192faf3ec82f96315c6478ce1,
   "@/components/admin/users/TenantsMembershipArrayField#TenantsMembershipArrayField": TenantsMembershipArrayField_eff008626c1ab53a2ba3f6ef0c8d20b8,
   "@/components/admin/users/TenantStripeCustomerMappingField#TenantStripeCustomerMappingField": TenantStripeCustomerMappingField_1a70046023fc9396da51c18e8b3ed7b9,
   "@/components/admin/StripeDashboardLinkField#StripeDashboardLinkField": StripeDashboardLinkField_3f461e6c95821294340135c2293fe078,

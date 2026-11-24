@@ -201,6 +201,7 @@ import * as migration_20261023_000001_event_type_override_max_bookings from './2
 import * as migration_20261023_000002_event_type_override_session_interval from './20261023_000002_event_type_override_session_interval'
 import * as migration_20261023_000003_drop_event_type_allowed_courses from './20261023_000003_drop_event_type_allowed_courses'
 import * as migration_20261023_000004_event_type_override_pools from './20261023_000004_event_type_override_pools'
+import * as migration_20261124_000001_class_pass_checkout_block from './20261124_000001_class_pass_checkout_block'
 
 export const migrations = [
   {
@@ -1217,5 +1218,10 @@ export const migrations = [
     up: migration_20261023_000004_event_type_override_pools.up,
     down: migration_20261023_000004_event_type_override_pools.down,
     name: '20261023_000004_event_type_override_pools',
+  },
+  {
+    up: migration_20261124_000001_class_pass_checkout_block.up,
+    down: migration_20261124_000001_class_pass_checkout_block.down,
+    name: '20261124_000001_class_pass_checkout_block',
   },
 ]

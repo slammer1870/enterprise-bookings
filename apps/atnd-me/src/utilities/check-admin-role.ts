@@ -75,6 +75,21 @@ export function isStaff(user: unknown): boolean {
   return extractTenantMembershipRoles(user).includes('staff')
 }
 
+/** Branch/site manager — from `tenants[n].roles` only. */
+export function isLocationManager(user: unknown): boolean {
+  return extractTenantMembershipRoles(user).includes('location-manager')
+}
+
+/**
+ * Derived global `role` when the admin session omitted `tenants[]`.
+ * Not authoritative — only a signal that this person is a tenant portal user.
+ */
+export function hasDerivedPortalRole(user: unknown): boolean {
+  return extractRoles(user).some(
+    (role) => role === 'admin' || role === 'staff' || role === 'location-manager',
+  )
+}
+
 /**
  * Staff without org admin — operational admin UI only.
  * Prefers `tenants[].roles`; falls back to derived global `role` when the client

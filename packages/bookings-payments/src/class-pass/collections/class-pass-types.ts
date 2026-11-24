@@ -1,4 +1,9 @@
-import type { CollectionBeforeValidateHook, CollectionConfig, Field } from "payload";
+import {
+  APIError,
+  type CollectionBeforeValidateHook,
+  type CollectionConfig,
+  type Field,
+} from "payload";
 import { checkRole } from "@repo/shared-utils";
 import type { User } from "@repo/shared-types";
 import {
@@ -242,7 +247,7 @@ export function classPassTypesCollection(opts: ClassPassTypesOpts = {}): Collect
             count: typeof row?.quantity === "number" ? row.quantity : null,
           })),
         })
-        if (validation !== true) throw new Error(validation)
+        if (validation !== true) throw new APIError(validation, 400)
         const passForQuantity = { ...doc, allowedEventTypes: allowedEventTypesForSave.ids }
         if (classPassSharedPoolIsDisplayOnly(passForQuantity)) {
           doc.quantity = displayQuantityForClassPassType(passForQuantity, doc.quantity ?? 1)

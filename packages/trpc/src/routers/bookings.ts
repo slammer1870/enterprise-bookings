@@ -1921,6 +1921,136 @@ export const bookingsRouter = {
       );
     }),
 
+  /**
+   * List the current user's class passes for the active tenant (paginated).
+   * Uses overrideAccess because atnd-me staff-scopes class-passes read access.
+   * `cursor` is a 0-based offset for infinite/load-more queries.
+   */
+  listMyClassPasses: protectedProcedure
+    .use(requireBookingCollections("classPasses", "classPassTypes"))
+    .input(
+      z.object({
+        cursor: z.number().int().min(0).nullish(),
+        limit: z.number().int().min(1).max(50).default(10),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const limit = input.limit ?? 10;
+      const offset = input.cursor ?? 0;
+
+      const empty = {
+        items: [] as Array<{
+          id: number;
+          status: string | null;
+          quantity: number;
+          expirationDate: string | null;
+          purchasedAt: string | null;
+          typeId: number | null;
+          typeName: string;
+          eventTypeOverrides: Array<{
+            quantity: number | null;
+            eventTypeCount: number;
+          }>;
+        }>,
+        nextCursor: undefined as number | undefined,
+      };
+
+      const tenantId = await resolveTenantId(ctx.payload, getTenantSlug(ctx));
+      if (tenantId == null) {
+        return empty;
+      }
+
+      const userId =
+        typeof ctx.user?.id === "number"
+          ? ctx.user.id
+          : typeof ctx.user?.id === "string" && /^\d+$/.test(ctx.user.id)
+            ? parseInt(ctx.user.id, 10)
+            : null;
+      if (userId == null) {
+        return empty;
+      }
+
+      const page = Math.floor(offset / limit) + 1;
+      const result = await findSafe(ctx.payload, ctx.bookingsSlugs.classPasses, {
+        where: {
+          and: [
+            { user: { equals: userId } },
+            { tenant: { equals: tenantId } },
+            { status: { in: ["active", "used", "expired"] } },
+          ],
+        },
+        limit,
+        page,
+        depth: 1,
+        sort: "-purchasedAt",
+        overrideAccess: true,
+      });
+
+      const items = result.docs
+        .map((raw) => {
+          const doc = raw as unknown as {
+            id?: unknown;
+            status?: unknown;
+            quantity?: unknown;
+            expirationDate?: unknown;
+            purchasedAt?: unknown;
+            type?: unknown;
+            eventTypeOverrides?: Array<{
+              quantity?: number | null;
+              eventTypes?: unknown;
+            }> | null;
+          };
+
+          const type =
+            doc.type != null && typeof doc.type === "object"
+              ? (doc.type as { id?: number; name?: string | null })
+              : null;
+          const typeId =
+            type != null && typeof type.id === "number"
+              ? type.id
+              : typeof doc.type === "number"
+                ? doc.type
+                : null;
+
+          const eventTypeOverrides = Array.isArray(doc.eventTypeOverrides)
+            ? doc.eventTypeOverrides.map((row) => ({
+                quantity:
+                  typeof row?.quantity === "number" ? row.quantity : null,
+                eventTypeCount: Array.isArray(row?.eventTypes)
+                  ? row.eventTypes.length
+                  : 0,
+              }))
+            : [];
+
+          const id = typeof doc.id === "number" ? doc.id : null;
+          if (id == null) return null;
+
+          return {
+            id,
+            status: typeof doc.status === "string" ? doc.status : null,
+            quantity: typeof doc.quantity === "number" ? doc.quantity : 0,
+            expirationDate:
+              typeof doc.expirationDate === "string"
+                ? doc.expirationDate
+                : null,
+            purchasedAt:
+              typeof doc.purchasedAt === "string" ? doc.purchasedAt : null,
+            typeId,
+            typeName:
+              type != null && typeof type.name === "string"
+                ? type.name
+                : "Class pass",
+            eventTypeOverrides,
+          };
+        })
+        .filter((pass): pass is NonNullable<typeof pass> => pass != null);
+
+      return {
+        items,
+        nextCursor: result.hasNextPage ? offset + limit : undefined,
+      };
+    }),
+
   createOrUpdateBooking: protectedProcedure
     .use(requireBookingCollections("timeslots", "bookings"))
     .input(
