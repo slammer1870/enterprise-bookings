@@ -83,20 +83,34 @@ describe('restrictTenantPasswordWrite', () => {
     expect(args.data?.password).toBe('PlatformOps1')
   })
 
-  it('keeps an anonymous signup password and a Local API password', () => {
+  it('keeps an anonymous signup password', () => {
     const anonymous = restrictTenantPasswordWrite({
       args: { data: { password: 'SignupSecret1' } },
       operation: 'create',
       req: reqFor(null, 'REST'),
     })
     expect(anonymous.data?.password).toBe('SignupSecret1')
+  })
 
-    const local = restrictTenantPasswordWrite({
+  it('replaces a Local API create password for tenant roles so field access strip still leaves a stand-in', () => {
+    const req = reqFor(tenantAdmin, 'local')
+    const args = restrictTenantPasswordWrite({
       args: { data: { password: 'SeedSecret1' } },
       operation: 'create',
-      req: reqFor(tenantAdmin, 'local'),
+      req,
     })
-    expect(local.data?.password).toBe('SeedSecret1')
+    expect(args.data?.password).not.toBe('SeedSecret1')
+    expect(String(args.data?.password).length).toBeGreaterThanOrEqual(32)
+    expect((req.context as Record<string, unknown>)[ATND_FORCE_SET_OWN_PASSWORD]).toBe(true)
+
+    const forced = args.data?.password
+    delete args.data?.password
+    const restored = restoreForcedPasswordOnCreate({
+      data: args.data,
+      operation: 'create',
+      req,
+    })
+    expect(restored?.password).toBe(forced)
   })
 
   it('replaces a tenant-admin create password and restores it after field access strips it', () => {

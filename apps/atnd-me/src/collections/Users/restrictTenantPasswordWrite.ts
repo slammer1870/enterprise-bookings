@@ -18,10 +18,6 @@ function writableData(args: unknown): Record<string, unknown> | null {
   return data as Record<string, unknown>
 }
 
-function isPublicHttpApi(req: PayloadRequest): boolean {
-  return req.payloadAPI === 'REST' || req.payloadAPI === 'GraphQL'
-}
-
 function contextOf(req: PayloadRequest): Record<string, unknown> {
   if (!req.context || typeof req.context !== 'object') {
     const created: Record<string, unknown> = {}
@@ -38,9 +34,11 @@ function stripConfirmPassword(data: Record<string, unknown>): void {
 }
 
 /**
- * Authenticated non-super-admins on the public HTTP API must not choose a
- * password. Local API (seeds, tests, claim flow) and anonymous signup keep
- * the client-supplied password. Super-admins may still set one.
+ * Authenticated non-super-admins must not choose a password. Matches
+ * `canSetUserPassword`: field access strips `data.password` on Local API too
+ * (admin permission checks use `createLocalReq`), so create must still inject
+ * a stand-in. Seeds / claim / anonymous signup pass no user and keep theirs.
+ * Super-admins may still set one.
  *
  * Must run in beforeOperation. `updateDocument` copies `data.password` before
  * collection beforeChange, and payload-auth's sync-account then copies
@@ -48,7 +46,6 @@ function stripConfirmPassword(data: Record<string, unknown>): void {
  * in with).
  */
 export function shouldRestrictPasswordWrite(req: PayloadRequest): boolean {
-  if (!isPublicHttpApi(req)) return false
   if (!req.user) return false
   if (isAdmin(req.user)) return false
   return true
@@ -116,8 +113,14 @@ export function restoreForcedPasswordOnCreate(args: {
   if (operation !== 'create' || !data) return data
   const ctx = req.context as Record<string, unknown> | undefined
   const forced = ctx?.[ATND_FORCED_PASSWORD]
-  if (!ctx || typeof forced !== 'string' || forced.length === 0) return data
-  data.password = forced
-  delete ctx[ATND_FORCED_PASSWORD]
+  if (typeof forced === 'string' && forced.length > 0) {
+    data.password = forced
+    if (ctx) delete ctx[ATND_FORCED_PASSWORD]
+    return data
+  }
+  // Field access stripped the password but nothing was stashed (defensive).
+  if (typeof data.password !== 'string' && req.user && !canSetUserPassword(req)) {
+    data.password = crypto.randomBytes(32).toString('hex')
+  }
   return data
 }
