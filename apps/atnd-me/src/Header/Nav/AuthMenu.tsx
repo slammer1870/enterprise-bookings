@@ -21,7 +21,7 @@ function describeUserLabel(user: Pick<User, 'name' | 'email'>): string {
   return (typeof user.name === 'string' && user.name.trim()) || (typeof user.email === 'string' && user.email.trim()) || 'Account'
 }
 
-const MY_CLASS_PASSES_HREF = '/class-passes'
+const MY_CLASS_PASSES_HREF = '/my-class-passes'
 
 async function openBillingPortal(): Promise<void> {
   const res = await fetch('/api/stripe/billing-portal', { method: 'POST' })

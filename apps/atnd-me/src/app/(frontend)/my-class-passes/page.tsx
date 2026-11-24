@@ -13,7 +13,7 @@ type PageProps = {
 export default async function MyClassPassesPage({ searchParams }: PageProps) {
   const session = await getSession()
   if (!session?.user) {
-    redirect(`/auth/sign-in?redirectTo=${encodeURIComponent('/class-passes')}`)
+    redirect(`/auth/sign-in?redirectTo=${encodeURIComponent('/my-class-passes')}`)
   }
 
   const resolved = (await searchParams) ?? {}
