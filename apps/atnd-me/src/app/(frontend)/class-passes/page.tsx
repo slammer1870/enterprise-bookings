@@ -24,7 +24,7 @@ export default async function MyClassPassesPage({ searchParams }: PageProps) {
     (Array.isArray(purchasedRaw) && purchasedRaw.includes('1'))
 
   return (
-    <div className="container mx-auto pt-24 pb-16">
+    <div className="container mx-auto min-h-screen pt-24 pb-16">
       <div className="w-full">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">My Class Passes</h1>
         <p className="mt-2 text-muted-foreground">
