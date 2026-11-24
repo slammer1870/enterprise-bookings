@@ -8,11 +8,26 @@ import { viewerChoosesUserPassword } from './viewerChoosesUserPassword'
 
 /**
  * Payload 3.84 always mounts required password inputs on user create
- * (`requirePassword: !id`). Field access only hides the "Change password"
- * button. This drops the required check and hides the inputs for tenant
- * roles. The logged-in admin (`useAuth`) decides — not the user document,
- * which is empty on create.
+ * (`requirePassword: !id`). Field create permission only gates the "Change
+ * password" button — create still renders the inputs. This drops the required
+ * check, hides the inputs, clears any value (password managers / force-fill),
+ * and strips `name` so a chosen password cannot ride in the create POST.
+ * The logged-in admin (`useAuth`) decides — not the user document, which is
+ * empty on create.
  */
+function neutralizeAuthPasswordInputs(root: ParentNode): void {
+  const box = root.querySelector('.auth-fields__changing-password')
+  if (!box) return
+  box.querySelectorAll('input').forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) return
+    if (input.value) input.value = ''
+    input.disabled = true
+    input.required = false
+    input.removeAttribute('name')
+    input.setAttribute('autocomplete', 'off')
+  })
+}
+
 export const OmitChosenPassword: React.FC = () => {
   const { user } = useAuth()
   const choosesPassword = viewerChoosesUserPassword(user)
@@ -29,7 +44,27 @@ export const OmitChosenPassword: React.FC = () => {
       'confirm-password',
       confirmPassword as PasswordFieldState | undefined,
     )
+    // Drop any value password managers or scripts put into form state.
+    if (password && typeof password === 'object' && 'value' in password && password.value) {
+      dispatchFields({ type: 'UPDATE', path: 'password', value: '' } as never)
+    }
+    if (
+      confirmPassword &&
+      typeof confirmPassword === 'object' &&
+      'value' in confirmPassword &&
+      confirmPassword.value
+    ) {
+      dispatchFields({ type: 'UPDATE', path: 'confirm-password', value: '' } as never)
+    }
   }, [choosesPassword, confirmPassword, dispatchFields, password])
+
+  React.useEffect(() => {
+    if (choosesPassword) return
+    neutralizeAuthPasswordInputs(document)
+    const observer = new MutationObserver(() => neutralizeAuthPasswordInputs(document))
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [choosesPassword])
 
   if (choosesPassword) return null
 

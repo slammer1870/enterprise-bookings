@@ -621,8 +621,9 @@ export const Users: CollectionConfig = {
   fields: [
     // Virtual so it is not a column. beforeOperation still strips the value:
     // field access runs too late to stop updateDocument from hashing it.
-    // Payload's create view still mounts required password inputs
-    // (`requirePassword: !id`) for every auth collection. OmitChosenPassword
+    // `canSetUserPassword` must stay false for tenant roles on Local API too —
+    // admin field permissions use createLocalReq. Payload's create view still
+    // mounts required password inputs (`requirePassword: !id`); OmitChosenPassword
     // removes that requirement for tenant roles (`tenants[].roles`).
     // Always mounted: the component reads the logged-in admin, because a
     // create form has no document user yet.

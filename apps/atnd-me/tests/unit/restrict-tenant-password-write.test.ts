@@ -147,13 +147,18 @@ describe('restrictTenantPasswordWrite', () => {
 })
 
 describe('canSetUserPassword', () => {
-  it('hides password inputs for tenant roles and keeps them for super-admins, anonymous signup, and Local API', () => {
+  it('denies tenant roles on every API, including Local (admin permission checks use Local)', () => {
     expect(canSetUserPassword({ user: tenantAdmin })).toBe(false)
     expect(canSetUserPassword({ user: tenantAdmin, payloadAPI: 'REST' })).toBe(false)
-    expect(canSetUserPassword({ user: tenantAdmin, payloadAPI: 'local' })).toBe(true)
+    // Payload createLocalReq sets payloadAPI to `local` for admin field permissions.
+    // Allowing Local here made password.create true for tenant admins on the create form.
+    expect(canSetUserPassword({ user: tenantAdmin, payloadAPI: 'local' })).toBe(false)
+    expect(canSetUserPassword({ user: staff, payloadAPI: 'local' })).toBe(false)
+    expect(canSetUserPassword({ user: locationManager, payloadAPI: 'local' })).toBe(false)
     expect(canSetUserPassword({ user: staff })).toBe(false)
     expect(canSetUserPassword({ user: locationManager })).toBe(false)
     expect(canSetUserPassword({ user: superAdmin })).toBe(true)
+    expect(canSetUserPassword({ user: superAdmin, payloadAPI: 'local' })).toBe(true)
     expect(
       canSetUserPassword({
         user: { id: 1, role: ['super-admin'], tenants: [{ tenant: 7, roles: ['admin'] }] },
@@ -163,7 +168,9 @@ describe('canSetUserPassword', () => {
     expect(
       canSetUserPassword({ user: { id: 5, role: ['admin'] }, payloadAPI: 'REST' }),
     ).toBe(false)
+    // Seeds / claim / anonymous signup: no signed-in actor → password allowed.
     expect(canSetUserPassword({ user: null })).toBe(true)
+    expect(canSetUserPassword({ user: null, payloadAPI: 'local' })).toBe(true)
     expect(canSetUserPassword(undefined)).toBe(true)
   })
 })
@@ -274,6 +281,9 @@ describe('Users password policy wiring', () => {
       true,
     )
     expect(field && 'access' in field && field.access?.create?.({ req: reqFor(tenantAdmin, 'local') })).toBe(
+      false,
+    )
+    expect(field && 'access' in field && field.access?.create?.({ req: reqFor(superAdmin, 'local') })).toBe(
       true,
     )
   })

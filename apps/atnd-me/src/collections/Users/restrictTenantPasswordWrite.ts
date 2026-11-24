@@ -56,17 +56,18 @@ export function shouldRestrictPasswordWrite(req: PayloadRequest): boolean {
 
 /**
  * Field access for the virtual `password` field.
- * Platform super-admin is global `role` only. Every other signed-in caller
- * on REST, GraphQL, or a missing payloadAPI (the admin permission check)
- * is denied, including a derived global `admin`. Local API keeps the client
- * password for seeds and the claim flow.
+ * Platform super-admin is global `role` only. Every other signed-in caller is
+ * denied — including Local API. Admin field permissions run through
+ * `createLocalReq` (`payloadAPI: 'local'`); allowing Local here made
+ * `password.create` true for tenant admins and left create-form password
+ * inputs enabled. Seeds / claim / anonymous signup pass no user (or use
+ * `overrideAccess: true`), so they still set a password.
  */
 export function canSetUserPassword(
   req: { user?: unknown; payloadAPI?: string } | null | undefined,
 ): boolean {
   if (!req?.user) return true
   if (isAdmin(req.user)) return true
-  if (req.payloadAPI === 'local') return true
   return false
 }
 
