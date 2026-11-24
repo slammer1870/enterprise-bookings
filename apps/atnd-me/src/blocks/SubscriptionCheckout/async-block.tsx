@@ -1,4 +1,8 @@
 import type { CollectionSlug } from 'payload'
+import {
+  allowedEventTypeIdsIncludingOverrides,
+  type EventTypeOverrideRow,
+} from '@repo/shared-services'
 
 import { resolveTenantIdFromServerContext } from '@/access/tenant-scoped'
 import { findActiveMembershipSubscriptionForTenant } from '@/blocks/DhLiveMembership/subscription-tenant-context'
@@ -146,6 +150,45 @@ export async function SubscriptionCheckoutAsync(props: SubscriptionCheckoutBlock
     if (typeof doc?.id === 'number') planById.set(doc.id, doc)
   }
 
+  const eligibleIdsByPlanId = new Map<number, number[]>()
+  const allEligibleEventTypeIds = new Set<number>()
+  for (const [planId, doc] of planById) {
+    const { ids } = allowedEventTypeIdsIncludingOverrides(
+      (doc as { allowedEventTypes?: unknown }).allowedEventTypes,
+      (
+        doc as {
+          sessionsInformation?: {
+            eventTypeOverrides?: Array<EventTypeOverrideRow | null | undefined> | null
+          } | null
+        }
+      ).sessionsInformation?.eventTypeOverrides,
+    )
+    eligibleIdsByPlanId.set(planId, ids)
+    for (const id of ids) allEligibleEventTypeIds.add(id)
+  }
+
+  const eventTypeNameById = new Map<number, string>()
+  if (allEligibleEventTypeIds.size > 0) {
+    const eventTypesResult = await payload.find({
+      collection: 'event-types' as CollectionSlug,
+      where: {
+        and: [
+          { id: { in: Array.from(allEligibleEventTypeIds) } },
+          { tenant: { equals: tenantId } },
+        ],
+      },
+      limit: allEligibleEventTypeIds.size,
+      depth: 0,
+      overrideAccess: true,
+      select: { name: true },
+    })
+    for (const et of eventTypesResult.docs) {
+      if (typeof et?.id === 'number' && typeof (et as { name?: unknown }).name === 'string') {
+        eventTypeNameById.set(et.id, String((et as { name: string }).name))
+      }
+    }
+  }
+
   let activePlanId: number | null = null
   const userId = membershipUserId(user)
   if (userId != null) {
@@ -195,6 +238,10 @@ export async function SubscriptionCheckoutAsync(props: SubscriptionCheckoutBlock
           .filter((f) => f.length > 0)
       : []
 
+    const eligibleEventTypes = (eligibleIdsByPlanId.get(planId) ?? [])
+      .map((id) => eventTypeNameById.get(id))
+      .filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
+
     const price =
       typeof (doc as { priceInformation?: { price?: unknown } }).priceInformation?.price ===
       'number'
@@ -209,6 +256,7 @@ export async function SubscriptionCheckoutAsync(props: SubscriptionCheckoutBlock
           : 'Membership',
       description: overrideDescription,
       features,
+      eligibleEventTypes,
       priceLabel: formatPriceLabel(
         doc as {
           priceInformation?: {

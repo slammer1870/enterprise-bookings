@@ -17,6 +17,8 @@ export type SubscriptionCheckoutCard = {
   name: string
   description: string | null
   features: string[]
+  /** Display names of event types this membership can be used for. */
+  eligibleEventTypes: string[]
   priceLabel: string | null
   price: number | null
   priceId: string
@@ -284,6 +286,19 @@ export function SubscriptionCheckoutCards({
                       <li key={feature}>{feature}</li>
                     ))}
                   </ul>
+                ) : null}
+
+                {card.eligibleEventTypes.length > 0 ? (
+                  <div data-testid="subscription-eligible-event-types">
+                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Eligible for
+                    </p>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-4 text-sm text-muted-foreground">
+                      {card.eligibleEventTypes.map((eventTypeName) => (
+                        <li key={eventTypeName}>{eventTypeName}</li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
 
                 {showFee ? (
