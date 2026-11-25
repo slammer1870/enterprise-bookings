@@ -10,7 +10,8 @@ function docLabel(collection: TenantScopedCollection): string {
 
 /**
  * Slug unique per tenant (or globally when tenant is null for platform/root content).
- * Always formats to a URL-safe path segment before uniqueness checks.
+ * Formats to a URL-safe path segment when a value (or create-time title) is present.
+ * Empty values are left alone so create/draft form hydration is not blocked.
  */
 export function tenantScopedSlugField({
   fieldToUse = 'title',
@@ -32,37 +33,40 @@ export function tenantScopedSlugField({
         'URL path for this page. Saved as lowercase letters, numbers, and hyphens only.',
     },
     validate: (value: unknown) => {
-      if (value == null || value === '') return `${label[0]!.toUpperCase()}${label.slice(1)} slug is required`
+      // Allow empty here — `required` + beforeValidate cover real saves; drafts/create
+      // hydration often hit validate with an empty slug before the editor fills it in.
+      if (value == null || (typeof value === 'string' && !value.trim())) return true
       const result = normalizeAndValidateDocumentSlug(value)
       return result.ok ? true : result.error
     },
     hooks: {
       beforeValidate: [
         async ({ data, operation, value }) => {
-          const raw =
-            typeof value === 'string' && value.trim()
-              ? value
-              : operation === 'create' && data?.[fieldToUse]
-                ? String(data[fieldToUse])
-                : value
+          const hasValue = typeof value === 'string' && value.trim().length > 0
 
-          const result = normalizeAndValidateDocumentSlug(raw)
+          if (!hasValue) {
+            if (operation === 'create' && data?.[fieldToUse]) {
+              const fromTitle = formatDocumentSlug(String(data[fieldToUse]))
+              // Title may still be empty/unusable during form hydration — don't throw.
+              return fromTitle || value
+            }
+            return value
+          }
+
+          const result = normalizeAndValidateDocumentSlug(value)
           if (!result.ok) {
             throw new APIError(result.error, 400)
           }
           return result.slug
         },
         async ({ data, operation, req, value, originalDoc }) => {
-          if (!value) return value
+          if (!value || (typeof value === 'string' && !value.trim())) return value
 
-          const formatted =
-            typeof value === 'string' ? formatDocumentSlug(value) : formatDocumentSlug(String(value))
-          if (!formatted) {
-            throw new APIError(
-              'Slug must be a valid URL path: use lowercase letters, numbers, and hyphens (e.g. "about-us").',
-              400,
-            )
+          const result = normalizeAndValidateDocumentSlug(value)
+          if (!result.ok) {
+            throw new APIError(result.error, 400)
           }
+          const formatted = result.slug
 
           let tenantId: string | number | null = null
 
