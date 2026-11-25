@@ -1,5 +1,5 @@
 import type { Plan, Subscription } from '@repo/shared-types'
-import type { Payload } from 'payload'
+import type { Payload, Where } from 'payload'
 
 function resolveRelationshipId(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
@@ -24,29 +24,57 @@ export function subscriptionBelongsToTenantContext(sub: Subscription, tenantId: 
   return planTenantId === tenantId
 }
 
-const ACTIVE_SUBSCRIPTION_STATUSES_EXCLUDED = [
-  'canceled',
-  'unpaid',
-  'incomplete_expired',
-  'incomplete',
-] as const
+/**
+ * Same window booking uses in `checkUserSubscription` / `getMaxSubscriptionQuantityPerTimeslot`:
+ * status active, startDate ≤ now ≤ endDate, and cancelAt not already passed.
+ */
+export function isMembershipSubscriptionCurrentlyActive(
+  sub: Pick<Subscription, 'status' | 'startDate' | 'endDate' | 'cancelAt'>,
+  now: Date = new Date(),
+): boolean {
+  if (sub.status !== 'active') return false
+
+  if (sub.startDate == null || sub.startDate === '') return false
+  if (new Date(sub.startDate).getTime() > now.getTime()) return false
+
+  if (sub.endDate == null || sub.endDate === '') return false
+  if (new Date(sub.endDate).getTime() < now.getTime()) return false
+
+  if (sub.cancelAt != null && sub.cancelAt !== '') {
+    if (new Date(sub.cancelAt).getTime() <= now.getTime()) return false
+  }
+
+  return true
+}
+
+/** Payload where clause matching {@link isMembershipSubscriptionCurrentlyActive}. */
+export function activeMembershipSubscriptionWhere(userId: number, now: Date = new Date()): Where {
+  return {
+    and: [
+      { user: { equals: userId } },
+      { status: { equals: 'active' } },
+      { startDate: { less_than_equal: now } },
+      { endDate: { greater_than_equal: now } },
+      {
+        or: [
+          { cancelAt: { greater_than: now } },
+          { cancelAt: { exists: false } },
+          { cancelAt: { equals: null } },
+        ],
+      },
+    ],
+  }
+}
 
 export async function findActiveMembershipSubscriptionForTenant(
   payload: Payload,
   userId: number,
   tenantId: number,
 ): Promise<Subscription | null> {
+  const now = new Date()
   const result = await payload.find({
     collection: 'subscriptions',
-    where: {
-      and: [
-        { user: { equals: userId } },
-        { status: { not_in: [...ACTIVE_SUBSCRIPTION_STATUSES_EXCLUDED] } },
-        {
-          or: [{ endDate: { greater_than: new Date() } }, { endDate: { equals: null } }],
-        },
-      ],
-    },
+    where: activeMembershipSubscriptionWhere(userId, now),
     sort: '-updatedAt',
     limit: 40,
     depth: 3,
@@ -54,5 +82,11 @@ export async function findActiveMembershipSubscriptionForTenant(
   })
 
   const docs = result.docs as Subscription[]
-  return docs.find((doc) => subscriptionBelongsToTenantContext(doc, tenantId)) ?? null
+  return (
+    docs.find(
+      (doc) =>
+        isMembershipSubscriptionCurrentlyActive(doc, now) &&
+        subscriptionBelongsToTenantContext(doc, tenantId),
+    ) ?? null
+  )
 }
