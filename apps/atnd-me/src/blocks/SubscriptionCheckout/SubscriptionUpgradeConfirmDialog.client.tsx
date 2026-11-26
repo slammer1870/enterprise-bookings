@@ -40,19 +40,18 @@ function UpgradeConfirmBody({
   const trpc = useTRPC()
   const procedure = trpc.payments.getSubscriptionFeeBreakdown
   const priceId = newPlan.priceId ?? ''
-  const canQuery = Boolean(procedure?.queryOptions && priceId)
-  const feeQueryOptions = canQuery
-    ? procedure!.queryOptions({
-        priceId,
-        quantity: 1,
-        metadata: { tenantId: String(tenantId) },
-      })
-    : {
-        queryKey: ['subscription-upgrade-confirm-fee-disabled'] as const,
-        queryFn: async () => null,
-      }
+  const canQuery = Boolean(procedure && priceId)
   const { data, isLoading } = useQuery({
-    ...feeQueryOptions,
+    ...(canQuery
+      ? procedure!.queryOptions({
+          priceId,
+          quantity: 1,
+          metadata: { tenantId: String(tenantId) },
+        })
+      : {
+          queryKey: ['subscription-upgrade-confirm-fee-disabled'] as const,
+          queryFn: async () => null,
+        }),
     enabled: canQuery,
   })
 
