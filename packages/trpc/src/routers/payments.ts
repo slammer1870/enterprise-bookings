@@ -1196,6 +1196,29 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
               ? Math.round((bookingFeeCents / totalCents) * 10000) / 100
               : undefined;
 
+        const upgradeMetadata = {
+          ...(liveSubscription.metadata ?? {}),
+          tenantId:
+            planTenantId != null
+              ? String(planTenantId)
+              : (liveSubscription.metadata?.tenantId ?? ""),
+          planPriceAmount: String(unitAmount),
+          bookingFeeAmount: String(bookingFeeCents),
+        };
+
+        // pending_if_incomplete does not allow application_fee_percent — set the fee
+        // first so the upgrade invoice uses the correct Connect take.
+        if (typeof applicationFeePercent === "number" && applicationFeePercent > 0) {
+          await ctx.stripe.subscriptions.update(
+            stripeSubscriptionId,
+            {
+              application_fee_percent: applicationFeePercent,
+              metadata: upgradeMetadata,
+            },
+            stripeOpts,
+          );
+        }
+
         const updated = await ctx.stripe.subscriptions.update(
           stripeSubscriptionId,
           {
@@ -1203,18 +1226,7 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
             proration_behavior: "always_invoice",
             payment_behavior: "pending_if_incomplete",
             expand: ["latest_invoice"],
-            ...(typeof applicationFeePercent === "number" && applicationFeePercent > 0
-              ? { application_fee_percent: applicationFeePercent }
-              : {}),
-            metadata: {
-              ...(liveSubscription.metadata ?? {}),
-              tenantId:
-                planTenantId != null
-                  ? String(planTenantId)
-                  : (liveSubscription.metadata?.tenantId ?? ""),
-              planPriceAmount: String(unitAmount),
-              bookingFeeAmount: String(bookingFeeCents),
-            },
+            metadata: upgradeMetadata,
           },
           stripeOpts,
         );
