@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 
 import {
   buildUpgradeConfirmCopy,
+  type UpgradeConfirmFeeSnapshot,
   type UpgradeConfirmPlanSnapshot,
 } from './subscriptionUpgradeConfirmSummary'
 
@@ -28,47 +29,16 @@ type Props = {
   onConfirm: () => void
 }
 
-function UpgradeConfirmBody({
+function UpgradeConfirmDetails({
   currentPlan,
   newPlan,
-  tenantId,
+  fee,
 }: {
   currentPlan: UpgradeConfirmPlanSnapshot | null
   newPlan: UpgradeConfirmPlanSnapshot
-  tenantId: number
+  fee: UpgradeConfirmFeeSnapshot
 }) {
-  const trpc = useTRPC()
-  const procedure = trpc.payments.getSubscriptionFeeBreakdown
-  const priceId = newPlan.priceId ?? ''
-  const canQuery = Boolean(procedure && priceId)
-  const { data, isLoading } = useQuery({
-    ...(canQuery
-      ? procedure!.queryOptions({
-          priceId,
-          quantity: 1,
-          metadata: { tenantId: String(tenantId) },
-        })
-      : {
-          queryKey: ['subscription-upgrade-confirm-fee-disabled'] as const,
-          queryFn: async () => null,
-        }),
-    enabled: canQuery,
-  })
-
-  const fee =
-    data && data.bookingFeeCents > 0
-      ? {
-          bookingFeeCents: data.bookingFeeCents,
-          totalCents: data.totalCents,
-          currency: data.currency,
-        }
-      : null
-
-  const copy = buildUpgradeConfirmCopy({
-    currentPlan,
-    newPlan,
-    fee: isLoading ? null : fee,
-  })
+  const copy = buildUpgradeConfirmCopy({ currentPlan, newPlan, fee })
 
   return (
     <>
@@ -101,6 +71,68 @@ function UpgradeConfirmBody({
       <DialogDescription className="pt-1 text-left">{copy.notice}</DialogDescription>
     </>
   )
+}
+
+function UpgradeConfirmBodyWithFee({
+  currentPlan,
+  newPlan,
+  tenantId,
+  priceId,
+}: {
+  currentPlan: UpgradeConfirmPlanSnapshot | null
+  newPlan: UpgradeConfirmPlanSnapshot
+  tenantId: number
+  priceId: string
+}) {
+  const trpc = useTRPC()
+  const procedure = trpc.payments.getSubscriptionFeeBreakdown!
+  const { data, isLoading } = useQuery(
+    procedure.queryOptions({
+      priceId,
+      quantity: 1,
+      metadata: { tenantId: String(tenantId) },
+    }),
+  )
+
+  const fee: UpgradeConfirmFeeSnapshot =
+    !isLoading && data && data.bookingFeeCents > 0
+      ? {
+          bookingFeeCents: data.bookingFeeCents,
+          totalCents: data.totalCents,
+          currency: data.currency,
+        }
+      : null
+
+  return (
+    <UpgradeConfirmDetails currentPlan={currentPlan} newPlan={newPlan} fee={fee} />
+  )
+}
+
+function UpgradeConfirmBody({
+  currentPlan,
+  newPlan,
+  tenantId,
+}: {
+  currentPlan: UpgradeConfirmPlanSnapshot | null
+  newPlan: UpgradeConfirmPlanSnapshot
+  tenantId: number
+}) {
+  const trpc = useTRPC()
+  const procedure = trpc.payments.getSubscriptionFeeBreakdown
+  const priceId = newPlan.priceId
+
+  if (procedure && priceId) {
+    return (
+      <UpgradeConfirmBodyWithFee
+        currentPlan={currentPlan}
+        newPlan={newPlan}
+        tenantId={tenantId}
+        priceId={priceId}
+      />
+    )
+  }
+
+  return <UpgradeConfirmDetails currentPlan={currentPlan} newPlan={newPlan} fee={null} />
 }
 
 export function SubscriptionUpgradeConfirmDialog({
