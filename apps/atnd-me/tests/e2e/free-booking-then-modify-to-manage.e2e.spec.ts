@@ -50,14 +50,20 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
       )
 
       // Timeslot for TODAY so it appears in the schedule's default (today) view.
-      // Place it ≥1 h from now so bookingStatus is 'open' (not 'closed').
+      // Prefer ≥2 h ahead so default lock-out still leaves booking open; late evening
+      // falls back to a soon slot with lockOutTime 0 (default 60m would close a 23:00 class).
       const now = new Date()
       const start = new Date(now)
+      let lockOutTimeMinutes = 60
       start.setHours(now.getHours() + 2, 0, 0, 0)
-      // Edge case: crossing midnight → cap to 23:00 today so the date stays today.
-      if (start.getDate() !== now.getDate()) {
-        start.setDate(now.getDate())
-        start.setHours(23, 0, 0, 0)
+      if (start.getDate() !== now.getDate() || now.getHours() >= 22) {
+        start.setTime(now.getTime())
+        start.setMinutes(now.getMinutes() + 15, 0, 0)
+        if (start.getDate() !== now.getDate()) {
+          start.setDate(now.getDate())
+          start.setHours(23, 0, 0, 0)
+        }
+        lockOutTimeMinutes = 0
       }
       const end = new Date(start)
       // Keep end on the same calendar day as start (23:00 + 1h would fail timeslot End Time validation).
@@ -65,6 +71,9 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
         end.setHours(23, 30, 0, 0)
       } else {
         end.setHours(start.getHours() + 1)
+        if (end.getDate() !== start.getDate()) {
+          end.setTime(start.getTime() + 30 * 60 * 1000)
+        }
       }
 
       const timeslot = await createTestTimeslot(
@@ -75,6 +84,7 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
         undefined, // no instructor
         true,      // active
         tenant1DefaultBranchId(testData),
+        lockOutTimeMinutes,
       )
 
       // The scoped name that createTestEventType produces (mirrors its naming logic).
