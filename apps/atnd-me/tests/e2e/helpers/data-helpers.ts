@@ -377,6 +377,14 @@ export async function createTestTimeslot(
   const timeZone = resolveTimeZone(tenantDoc?.timeZone)
   // Timeslot validation combines sibling `date` with wall-clock times in tenant TZ; UTC YYYY-MM-DD can disagree.
   const date = formatInTimeZone(startTime, 'yyyy-MM-dd', timeZone)
+  // Keep end on the same local calendar day as start (e.g. 23:00 + 1h must not roll to tomorrow).
+  let resolvedEndTime = endTime
+  if (formatInTimeZone(endTime, 'yyyy-MM-dd', timeZone) !== date) {
+    resolvedEndTime = new Date(startTime.getTime() + 30 * 60 * 1000)
+    if (formatInTimeZone(resolvedEndTime, 'yyyy-MM-dd', timeZone) !== date) {
+      resolvedEndTime = new Date(startTime.getTime() + 60 * 1000)
+    }
+  }
   const resolvedBranchId =
     branchId === undefined
       ? await resolveDefaultBranchIdForTenant(tenantIdNumber)
@@ -391,7 +399,7 @@ export async function createTestTimeslot(
       eventType: classOptionIdNumber,
       date,
       startTime: startTime.toISOString(),
-      endTime: endTime.toISOString(),
+      endTime: resolvedEndTime.toISOString(),
       lockOutTime: 60, // Default: 60 minutes before lesson
       active,
       ...(resolvedBranchId != null ? { branch: resolvedBranchId } : {}),
