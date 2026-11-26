@@ -229,8 +229,7 @@ export function SubscriptionCheckoutCards({
         {cards.map((card) => {
           const isActive = hasActiveSubscription && card.planId === activePlanId
           const isBusy = busyPlanId === card.planId
-          const showFee =
-            !hasActiveSubscription && typeof card.price === 'number' && card.price > 0
+          const showFee = typeof card.price === 'number' && card.price > 0
 
           return (
             <li
