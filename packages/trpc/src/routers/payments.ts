@@ -8,6 +8,10 @@ import {
   type GetSubscriptionBookingFeeCents,
 } from "../trpc";
 import { findSafe } from "../utils/collections";
+import {
+  buildMultiItemSubscriptionUpgradeItems,
+  findExactApplicationFeePercent,
+} from "../utils/subscription-upgrade-items";
 import { TRPCError } from "@trpc/server";
 import Stripe from "stripe";
 
@@ -189,44 +193,6 @@ async function resolvePayloadUser(params: {
 function normalizeStripeAccountId(accountId: string | null | undefined): string | null {
   const a = typeof accountId === "string" ? accountId.trim() : "";
   return a ? a : null;
-}
-
-/**
- * Stripe Checkout for subscriptions only accepts application_fee_percent (2 decimal places).
- * We can still get *exact cents* by picking basis points that round to the desired amount for a known total.
- *
- * Returns percent with 2dp (e.g. 1.25) or null if no exact value exists.
- */
-function findExactApplicationFeePercent(params: {
-  feeCents: number;
-  totalCents: number;
-}): number | null {
-  const { feeCents, totalCents } = params;
-  if (!Number.isFinite(feeCents) || !Number.isFinite(totalCents)) return null;
-  if (feeCents <= 0 || totalCents <= 0) return null;
-
-  // basis points (2dp): 1bp = 0.01%
-  // Want: round(totalCents * bp / 10000) == feeCents
-  // Use integer math with strict upper bound to avoid float issues:
-  // (2*feeCents - 1)*10000 <= 2*totalCents*bp < (2*feeCents + 1)*10000
-  const twoT = 2 * totalCents;
-  const lower = (2 * feeCents - 1) * 10000;
-  const upperExclusive = (2 * feeCents + 1) * 10000;
-
-  const bpMin = Math.ceil(lower / twoT);
-  const bpMax = Math.floor((upperExclusive - 1) / twoT);
-
-  const min = Math.max(0, bpMin);
-  const max = Math.min(10000, bpMax);
-  if (min > max) return null;
-
-  const target = Math.round((feeCents / totalCents) * 10000);
-  const bp = Math.min(max, Math.max(min, target));
-
-  // Final sanity check (match Math.round used by Stripe for currency rounding).
-  const computed = Math.round((totalCents * bp) / 10000);
-  if (computed !== feeCents) return null;
-  return bp / 100;
 }
 
 function getPlatformStripeCustomerId(userDoc: any): string | null {
@@ -1117,12 +1083,30 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         });
       }
 
+      const returnUrl =
+        input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
+
+      const withUpgradeQuery = (raw: string, mode: "portal" | "invoice" | "direct") => {
+        try {
+          const url = new URL(
+            raw.startsWith("http") ? raw : `http://localhost:3000${raw.startsWith("/") ? raw : `/${raw}`}`,
+          );
+          url.searchParams.set("subscription_upgraded", "1");
+          url.searchParams.set("upgrade_via", mode);
+          return raw.startsWith("http") ? url.toString() : `${url.pathname}${url.search}`;
+        } catch {
+          return raw;
+        }
+      };
+
       if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
         const redirectUrl = (() => {
-          const raw =
-            input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
           try {
-            const url = new URL(raw.startsWith("http") ? raw : `http://localhost:3000${raw.startsWith("/") ? raw : `/${raw}`}`);
+            const url = new URL(
+              returnUrl.startsWith("http")
+                ? returnUrl
+                : `http://localhost:3000${returnUrl.startsWith("/") ? returnUrl : `/${returnUrl}`}`,
+            );
             url.searchParams.set("test_stripe_portal", "upgrade");
             url.searchParams.set("subscription", stripeSubscriptionId);
             return `${url.pathname}${url.search}`;
@@ -1139,9 +1123,125 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         } as unknown) as Stripe.Response<Stripe.BillingPortal.Session>;
       }
 
-      let configId: string | undefined;
+      // Connect checkout adds a recurring "Platform fee" line item. Stripe Billing Portal
+      // cannot run subscription_update on multi-item subscriptions — upgrade via API instead
+      // and send the customer to the hosted invoice when payment is due.
+      const liveSubscription = await ctx.stripe.subscriptions.retrieve(
+        stripeSubscriptionId,
+        { expand: ["items.data.price.product"] },
+        stripeOpts,
+      );
+      const subscriptionItems = liveSubscription.items?.data ?? [];
 
-      // Create a new configuration if none exist
+      if (subscriptionItems.length > 1) {
+        const newPlanPrice = await ctx.stripe.prices.retrieve(priceId, {}, stripeOpts);
+        const unitAmount =
+          typeof newPlanPrice.unit_amount === "number" ? newPlanPrice.unit_amount : 0;
+        const recurring = newPlanPrice.recurring;
+
+        let bookingFeeCents = 0;
+        if (getFee && ctx.payload && planTenantId != null && unitAmount > 0) {
+          try {
+            const feeCents = await getFee({
+              payload: ctx.payload,
+              tenantId: planTenantId,
+              classPriceAmountCents: unitAmount,
+              metadata: { tenantId: String(planTenantId) },
+            });
+            if (typeof feeCents === "number" && feeCents > 0) {
+              bookingFeeCents = feeCents;
+            }
+          } catch (e) {
+            console.warn("Subscription upgrade booking fee lookup failed", e);
+          }
+        }
+
+        let newFeePriceId: string | null = null;
+        if (bookingFeeCents > 0 && recurring) {
+          const feePrice = await ctx.stripe.prices.create(
+            {
+              currency: (newPlanPrice.currency || "eur").toLowerCase(),
+              unit_amount: bookingFeeCents,
+              recurring: {
+                interval: recurring.interval,
+                interval_count: recurring.interval_count ?? 1,
+              },
+              product_data: {
+                name: "Platform fee",
+              },
+            },
+            stripeOpts,
+          );
+          newFeePriceId = feePrice.id;
+        }
+
+        const itemUpdates = buildMultiItemSubscriptionUpgradeItems({
+          items: subscriptionItems,
+          newPlanPriceId: priceId,
+          newFeePriceId,
+        });
+
+        const totalCents = unitAmount + bookingFeeCents;
+        const exactPct =
+          bookingFeeCents > 0
+            ? findExactApplicationFeePercent({
+                feeCents: bookingFeeCents,
+                totalCents,
+              })
+            : null;
+        const applicationFeePercent =
+          exactPct != null && exactPct > 0
+            ? exactPct
+            : bookingFeeCents > 0 && totalCents > 0
+              ? Math.round((bookingFeeCents / totalCents) * 10000) / 100
+              : undefined;
+
+        const updated = await ctx.stripe.subscriptions.update(
+          stripeSubscriptionId,
+          {
+            items: itemUpdates,
+            proration_behavior: "always_invoice",
+            payment_behavior: "pending_if_incomplete",
+            expand: ["latest_invoice"],
+            ...(typeof applicationFeePercent === "number" && applicationFeePercent > 0
+              ? { application_fee_percent: applicationFeePercent }
+              : {}),
+            metadata: {
+              ...(liveSubscription.metadata ?? {}),
+              tenantId:
+                planTenantId != null
+                  ? String(planTenantId)
+                  : (liveSubscription.metadata?.tenantId ?? ""),
+              planPriceAmount: String(unitAmount),
+              bookingFeeAmount: String(bookingFeeCents),
+            },
+          },
+          stripeOpts,
+        );
+
+        const latestInvoice = updated.latest_invoice;
+        const invoiceObj =
+          latestInvoice && typeof latestInvoice === "object"
+            ? (latestInvoice as Stripe.Invoice)
+            : null;
+        const hostedInvoiceUrl =
+          invoiceObj &&
+          typeof invoiceObj.hosted_invoice_url === "string" &&
+          invoiceObj.hosted_invoice_url.trim() &&
+          (invoiceObj.status === "open" || invoiceObj.status === "draft")
+            ? invoiceObj.hosted_invoice_url.trim()
+            : null;
+
+        const redirectUrl = hostedInvoiceUrl ?? withUpgradeQuery(returnUrl, "direct");
+
+        return ({
+          object: "billing_portal.session",
+          id: `bps_multi_item_upgrade_${Date.now()}`,
+          url: redirectUrl,
+          lastResponse: {} as Stripe.Response<Stripe.BillingPortal.Session>["lastResponse"],
+        } as unknown) as Stripe.Response<Stripe.BillingPortal.Session>;
+      }
+
       const newConfig = await ctx.stripe.billingPortal.configurations.create(
         {
           business_profile: {
@@ -1172,15 +1272,10 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         stripeOpts
       );
 
-      configId = newConfig.id;
-      console.log(`Created new configuration: ${configId}`);
-
-      const returnUrl =
-        input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
       const session = await ctx.stripe.billingPortal.sessions.create(
         {
           customer: customerId,
-          configuration: configId,
+          configuration: newConfig.id,
           return_url: returnUrl,
           flow_data: {
             type: "subscription_update",
