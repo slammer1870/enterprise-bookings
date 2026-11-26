@@ -363,6 +363,8 @@ export async function createTestTimeslot(
   instructorId?: string | number,
   active: boolean = true,
   branchId?: number | null,
+  /** Minutes before start when booking closes. Default 60; use 0 for late-evening e2e slots. */
+  lockOutTimeMinutes: number = 60,
 ): Promise<Timeslot> {
   const payload = await getPayloadInstance()
   const tenantIdNumber = typeof tenantId === 'string' ? Number(tenantId) : tenantId
@@ -400,7 +402,7 @@ export async function createTestTimeslot(
       date,
       startTime: startTime.toISOString(),
       endTime: resolvedEndTime.toISOString(),
-      lockOutTime: 60, // Default: 60 minutes before lesson
+      lockOutTime: lockOutTimeMinutes,
       active,
       ...(resolvedBranchId != null ? { branch: resolvedBranchId } : {}),
       ...(instructorId && {
