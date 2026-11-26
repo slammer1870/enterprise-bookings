@@ -12,7 +12,10 @@ import { Button } from '@/components/ui/button'
 import { subscriptionCheckoutButtonLabel } from './subscriptionCheckoutButtonLabel'
 import { SubscriptionFeeBreakdown } from './SubscriptionFeeBreakdown.client'
 import { SubscriptionUpgradeConfirmDialog } from './SubscriptionUpgradeConfirmDialog.client'
-import type { UpgradeConfirmPlanSnapshot } from './subscriptionUpgradeConfirmSummary'
+import type {
+  UpgradeConfirmPlanSnapshot,
+  UpgradeConfirmPreviewSnapshot,
+} from './subscriptionUpgradeConfirmSummary'
 
 export type SubscriptionCheckoutCard = {
   planId: number
@@ -187,7 +190,10 @@ export function SubscriptionCheckoutCards({
     }
   }
 
-  const startUpgrade = async (card: SubscriptionCheckoutCard) => {
+  const startUpgrade = async (
+    card: SubscriptionCheckoutCard,
+    preview: UpgradeConfirmPreviewSnapshot,
+  ) => {
     setBusyPlanId(card.planId)
     try {
       const returnUrl =
@@ -197,6 +203,9 @@ export function SubscriptionCheckoutCards({
       await upgradePortal.mutateAsync({
         planId: card.planId,
         returnUrl,
+        ...(preview && typeof preview.prorationDate === 'number'
+          ? { prorationDate: preview.prorationDate }
+          : {}),
       })
     } catch {
       // toast handled in mutation onError
@@ -249,9 +258,9 @@ export function SubscriptionCheckoutCards({
           if (busyPlanId != null) return
           setPendingUpgradePlanId(null)
         }}
-        onConfirm={() => {
+        onConfirm={(preview) => {
           if (!pendingUpgradeCard) return
-          void startUpgrade(pendingUpgradeCard)
+          void startUpgrade(pendingUpgradeCard, preview)
         }}
       />
 
