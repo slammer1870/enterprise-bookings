@@ -99,6 +99,45 @@ describe('Connect invoice branch webhook', () => {
     )
   })
 
+  it('sets application_fee_amount from subscription bookingFeeAmount on invoice.created', async () => {
+    const event = {
+      id: 'evt_invoice_created_fee',
+      type: 'invoice.created',
+      account: 'acct_1',
+      data: {
+        object: {
+          id: 'in_fee',
+          status: 'draft',
+          amount_due: 2600,
+          application_fee_amount: null,
+          metadata: {},
+          parent: {
+            subscription_details: {
+              metadata: {
+                bookingFeeAmount: '100',
+                classPriceAmount: '2500',
+                tenantId: '3',
+              },
+            },
+          },
+        },
+      },
+    }
+    vi.mocked(webhookVerify.verifyStripeConnectWebhook).mockReturnValue(event as never)
+
+    const res = await POST(request(JSON.stringify(event)))
+
+    expect(res.status).toBe(200)
+    expect(mockUpdateInvoice).toHaveBeenCalledWith(
+      'in_fee',
+      { application_fee_amount: 100 },
+      { stripeAccount: 'acct_1' },
+    )
+    expect(webhookProcessed.markStripeConnectEventProcessed).toHaveBeenCalledWith(
+      'evt_invoice_created_fee',
+    )
+  })
+
   it('returns 200 without updating the invoice when a branch key is missing', async () => {
     const event = {
       id: 'evt_invoice_created_missing',

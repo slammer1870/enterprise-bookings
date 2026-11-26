@@ -56,6 +56,10 @@ import { classBranchLedgerCentsForCode } from '@/lib/stripe-connect/classBranchL
 import { locationForBranchSlug } from '@/lib/stripe-connect/locationForBranchId'
 import { getPlatformStripe } from '@/lib/stripe/platform'
 import { copyInvoiceBranchOntoCharge, copySubscriptionBranchOntoInvoice } from '@/lib/stripe-connect/copySubscriptionBranch'
+import {
+  enforceApplicationFeeAmountOnInvoice,
+  healSubscriptionPlatformFee,
+} from '@/lib/stripe-connect/subscriptionPlatformFee'
 
 export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature')
@@ -448,6 +452,9 @@ export async function POST(request: NextRequest) {
     const stripeAccount = getAccountIdFromEvent(event)
     if (event.type === 'invoice.created') {
       await copySubscriptionBranchOntoInvoice({ stripeAccount, stripe, invoice })
+      // Re-assert platform take on draft invoices so tenants cannot clear application fees
+      // after removing or editing the recurring Platform fee subscription item.
+      await enforceApplicationFeeAmountOnInvoice({ stripeAccount, stripe, invoice })
     } else {
       await copyInvoiceBranchOntoCharge({ stripeAccount, stripe, invoice })
     }
@@ -725,6 +732,30 @@ export async function POST(request: NextRequest) {
       event.type === 'customer.subscription.paused' ||
       event.type === 'customer.subscription.resumed'
     ) {
+      // Connect Standard accounts can remove the Platform fee item in Dashboard.
+      // Re-add the fee item + application_fee_percent when metadata still expects a fee.
+      if (event.type === 'customer.subscription.updated' && accountId && obj.id) {
+        try {
+          const stripe = getPlatformStripe()
+          const liveSub = await stripe.subscriptions.retrieve(
+            obj.id,
+            { expand: ['items.data.price.product'] },
+            { stripeAccount: accountId },
+          )
+          await healSubscriptionPlatformFee({
+            stripeAccount: accountId,
+            stripe,
+            subscription: liveSub,
+          })
+        } catch (healErr) {
+          payload.logger?.error?.(
+            `subscription.updated: failed to heal platform fee for sub=${obj.id}: ${
+              healErr instanceof Error ? healErr.message : String(healErr)
+            }`,
+          )
+        }
+      }
+
       const subResult = await payload.find({
         collection: 'subscriptions' as import('payload').CollectionSlug,
         where: { stripeSubscriptionId: { equals: obj.id } },
