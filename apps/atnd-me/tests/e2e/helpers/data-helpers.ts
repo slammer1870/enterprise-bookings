@@ -379,12 +379,24 @@ export async function createTestTimeslot(
   const timeZone = resolveTimeZone(tenantDoc?.timeZone)
   // Timeslot validation combines sibling `date` with wall-clock times in tenant TZ; UTC YYYY-MM-DD can disagree.
   const date = formatInTimeZone(startTime, 'yyyy-MM-dd', timeZone)
+  // Prefer HH:mm wall clocks so Payload does not re-parse ISO timestamps across midnight.
+  let startClock = formatInTimeZone(startTime, 'HH:mm', timeZone)
+  let endClock = formatInTimeZone(endTime, 'HH:mm', timeZone)
+  const toMins = (clock: string) => {
+    const [h, m] = clock.split(':').map((n) => Number(n))
+    return (h || 0) * 60 + (m || 0)
+  }
   // Keep end on the same local calendar day as start (e.g. 23:00 + 1h must not roll to tomorrow).
-  let resolvedEndTime = endTime
-  if (formatInTimeZone(endTime, 'yyyy-MM-dd', timeZone) !== date) {
-    resolvedEndTime = new Date(startTime.getTime() + 30 * 60 * 1000)
-    if (formatInTimeZone(resolvedEndTime, 'yyyy-MM-dd', timeZone) !== date) {
-      resolvedEndTime = new Date(startTime.getTime() + 60 * 1000)
+  if (
+    formatInTimeZone(endTime, 'yyyy-MM-dd', timeZone) !== date ||
+    toMins(endClock) <= toMins(startClock)
+  ) {
+    const startMins = toMins(startClock)
+    if (startMins >= 23 * 60 + 58) {
+      startClock = '23:00'
+      endClock = '23:59'
+    } else {
+      endClock = '23:59'
     }
   }
   const resolvedBranchId =
@@ -400,8 +412,8 @@ export async function createTestTimeslot(
       tenant: tenantIdNumber,
       eventType: classOptionIdNumber,
       date,
-      startTime: startTime.toISOString(),
-      endTime: resolvedEndTime.toISOString(),
+      startTime: startClock,
+      endTime: endClock,
       lockOutTime: lockOutTimeMinutes,
       active,
       ...(resolvedBranchId != null ? { branch: resolvedBranchId } : {}),
