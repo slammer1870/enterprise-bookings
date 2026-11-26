@@ -46,4 +46,15 @@ describe('subscriptionCheckoutButtonLabel', () => {
       }),
     ).toBe('Select this subscription')
   })
+
+  it('shows Updating subscription while an upgrade is in progress', () => {
+    expect(
+      subscriptionCheckoutButtonLabel({
+        isLoggedIn: true,
+        hasActiveSubscription: true,
+        isActivePlan: false,
+        isBusy: true,
+      }),
+    ).toBe('Updating subscription…')
+  })
 })

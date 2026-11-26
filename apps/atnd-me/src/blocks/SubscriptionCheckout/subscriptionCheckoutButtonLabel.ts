@@ -11,7 +11,7 @@ export function subscriptionCheckoutButtonLabel(
 ): string {
   if (params.isBusy) {
     if (params.hasActiveSubscription && params.isActivePlan) return 'Opening portal…'
-    if (params.hasActiveSubscription) return 'Opening Stripe…'
+    if (params.hasActiveSubscription) return 'Updating subscription…'
     return 'Starting checkout…'
   }
   if (!params.isLoggedIn) return 'Sign in to subscribe'
