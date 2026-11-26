@@ -10,6 +10,11 @@ export function defaultTimeslotFields(offsetDays = 2) {
   }
 }
 
+/**
+ * Timeslot hooks combine `date` with wall-clock `startTime`/`endTime` in the tenant TZ.
+ * Full ISO datetimes are unsafe near midnight: `now` + 1h can land on the next calendar day,
+ * so end wall-clock is earlier than start on the same `date` → "End time must be greater than start time".
+ */
 export function normalizeTimeslotTestData<T extends Record<string, unknown>>(data: T): T {
   let normalized = { ...data }
 
@@ -19,22 +24,25 @@ export function normalizeTimeslotTestData<T extends Record<string, unknown>>(dat
 
   const startRaw = normalized.startTime
   const endRaw = normalized.endTime
-  if (typeof startRaw === 'string' && typeof endRaw === 'string' && startRaw.includes('T')) {
-    const start = new Date(startRaw)
-    const end = new Date(endRaw)
-    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end <= start) {
-      const defaults = defaultTimeslotFields()
-      normalized = {
-        ...defaults,
-        ...normalized,
-        date:
-          typeof normalized.date === 'string' && normalized.date.length === 10
-            ? normalized.date
-            : defaults.date,
-        startTime: defaults.startTime,
-        endTime: defaults.endTime,
-      }
-    }
+  if (typeof startRaw !== 'string' || typeof endRaw !== 'string') {
+    return normalized as T
+  }
+
+  const startIsIso = startRaw.includes('T')
+  const endIsIso = endRaw.includes('T')
+  if (!startIsIso && !endIsIso) {
+    return normalized as T
+  }
+
+  const defaults = defaultTimeslotFields(2)
+
+  // Always coerce ISO timestamps to same-day wall clocks on a stable future date.
+  // Keeping a caller `date` of "today" with ISO times is what flakes near UTC midnight.
+  normalized = {
+    ...normalized,
+    date: defaults.date,
+    startTime: defaults.startTime,
+    endTime: defaults.endTime,
   }
 
   return normalized as T
