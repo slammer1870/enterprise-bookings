@@ -60,7 +60,12 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
         start.setHours(23, 0, 0, 0)
       }
       const end = new Date(start)
-      end.setHours(start.getHours() + 1)
+      // Keep end on the same calendar day as start (23:00 + 1h would fail timeslot End Time validation).
+      if (start.getHours() >= 23) {
+        end.setHours(23, 30, 0, 0)
+      } else {
+        end.setHours(start.getHours() + 1)
+      }
 
       const timeslot = await createTestTimeslot(
         tenant.id,
