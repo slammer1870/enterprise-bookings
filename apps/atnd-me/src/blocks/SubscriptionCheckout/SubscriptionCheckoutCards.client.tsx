@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button'
 
 import { subscriptionCheckoutButtonLabel } from './subscriptionCheckoutButtonLabel'
 import { SubscriptionFeeBreakdown } from './SubscriptionFeeBreakdown.client'
+import { SubscriptionUpgradeConfirmDialog } from './SubscriptionUpgradeConfirmDialog.client'
+import type { UpgradeConfirmPlanSnapshot } from './subscriptionUpgradeConfirmSummary'
 
 export type SubscriptionCheckoutCard = {
   planId: number
@@ -49,7 +51,23 @@ export function SubscriptionCheckoutCards({
   const pathname = usePathname()
   const trpc = useTRPC()
   const [busyPlanId, setBusyPlanId] = useState<number | null>(null)
+  const [pendingUpgradePlanId, setPendingUpgradePlanId] = useState<number | null>(null)
   const hasActiveSubscription = activePlanId != null
+
+  const toPlanSnapshot = (card: SubscriptionCheckoutCard): UpgradeConfirmPlanSnapshot => ({
+    planId: card.planId,
+    name: card.name,
+    priceLabel: card.priceLabel,
+    priceCents: typeof card.price === 'number' ? Math.round(card.price * 100) : null,
+    priceId: card.priceId,
+  })
+
+  const currentPlanCard =
+    activePlanId != null ? (cards.find((c) => c.planId === activePlanId) ?? null) : null
+  const pendingUpgradeCard =
+    pendingUpgradePlanId != null
+      ? (cards.find((c) => c.planId === pendingUpgradePlanId) ?? null)
+      : null
 
   const redirectToPortalUrl = (
     session: { url?: string | null },
@@ -169,12 +187,7 @@ export function SubscriptionCheckoutCards({
     }
   }
 
-  const handleSelectUpgrade = async (card: SubscriptionCheckoutCard) => {
-    if (!isLoggedIn) {
-      requireLogin()
-      return
-    }
-
+  const startUpgrade = async (card: SubscriptionCheckoutCard) => {
     setBusyPlanId(card.planId)
     try {
       const returnUrl =
@@ -188,6 +201,7 @@ export function SubscriptionCheckoutCards({
     } catch {
       // toast handled in mutation onError
       setBusyPlanId(null)
+      setPendingUpgradePlanId(null)
     }
   }
 
@@ -202,7 +216,7 @@ export function SubscriptionCheckoutCards({
         await handleManage()
         return
       }
-      await handleSelectUpgrade(card)
+      setPendingUpgradePlanId(card.planId)
       return
     }
 
@@ -224,6 +238,22 @@ export function SubscriptionCheckoutCards({
           {heading}
         </h2>
       ) : null}
+
+      <SubscriptionUpgradeConfirmDialog
+        open={pendingUpgradeCard != null}
+        currentPlan={currentPlanCard ? toPlanSnapshot(currentPlanCard) : null}
+        newPlan={pendingUpgradeCard ? toPlanSnapshot(pendingUpgradeCard) : null}
+        tenantId={tenantId}
+        isConfirming={busyPlanId != null && busyPlanId === pendingUpgradePlanId}
+        onCancel={() => {
+          if (busyPlanId != null) return
+          setPendingUpgradePlanId(null)
+        }}
+        onConfirm={() => {
+          if (!pendingUpgradeCard) return
+          void startUpgrade(pendingUpgradeCard)
+        }}
+      />
 
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => {
