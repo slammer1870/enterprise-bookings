@@ -41,8 +41,10 @@ function parseTimeParts(raw: string): { minutes: number; dayKey: string | null }
  * Full ISO datetimes are unsafe near midnight: `now` + 30m can land on the next calendar day,
  * so end wall-clock is earlier than start on the same `date` → "End time must be greater than start time".
  *
- * Convert ISO values to HH:mm while preserving relative timing. Only clamp when the window
- * would otherwise invert on a single calendar day (do not rewrite every slot to 10:00–11:00).
+ * Convert ISO values to HH:mm while preserving relative timing. When the window crosses a day:
+ * - if end is still in the future, anchor to the end day (00:00 → end wall-clock) so in-progress
+ *   booking tests stay open after UTC midnight
+ * - otherwise clamp on the start day with end 23:59
  */
 export function normalizeTimeslotTestData<T extends Record<string, unknown>>(data: T): T {
   let normalized = { ...data }
@@ -75,20 +77,30 @@ export function normalizeTimeslotTestData<T extends Record<string, unknown>>(dat
     Boolean(startParts.dayKey && endParts.dayKey && startParts.dayKey !== endParts.dayKey) ||
     endMins <= startMins
 
-  if (crossedDay) {
-    // Keep start; extend end to end-of-day so in-progress fixtures stay open when possible.
-    if (startMins >= 23 * 60 + 58) {
-      startMins = 23 * 60
-      endMins = 23 * 60 + 59
-    } else {
-      endMins = 23 * 60 + 59
-    }
-  }
-
-  const date =
+  let date =
     typeof normalized.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(normalized.date)
       ? normalized.date
       : startParts.dayKey || defaultTimeslotFields(2).date
+
+  if (crossedDay) {
+    const endAbs = endIsIso ? new Date(endRaw) : null
+    const stillOpen =
+      endAbs != null && !Number.isNaN(endAbs.getTime()) && endAbs.getTime() > Date.now()
+
+    if (stillOpen && endParts.dayKey) {
+      // In-progress across midnight: keep booking open until the real end wall-clock today.
+      date = endParts.dayKey
+      startMins = 0
+      endMins = Math.max(endParts.minutes, 1)
+    } else if (startMins >= 23 * 60 + 58) {
+      startMins = 23 * 60
+      endMins = 23 * 60 + 59
+      if (startParts.dayKey) date = startParts.dayKey
+    } else {
+      endMins = 23 * 60 + 59
+      if (startParts.dayKey) date = startParts.dayKey
+    }
+  }
 
   return {
     ...normalized,
