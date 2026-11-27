@@ -1,5 +1,7 @@
 import { APIError, type Field } from 'payload'
 
+import { formatDocumentSlug, normalizeAndValidateDocumentSlug } from '@/utilities/documentSlug'
+
 type TenantScopedCollection = 'pages' | 'posts'
 
 function docLabel(collection: TenantScopedCollection): string {
@@ -8,6 +10,8 @@ function docLabel(collection: TenantScopedCollection): string {
 
 /**
  * Slug unique per tenant (or globally when tenant is null for platform/root content).
+ * Formats to a URL-safe path segment when a value (or create-time title) is present.
+ * Empty values are left alone so create/draft form hydration is not blocked.
  */
 export function tenantScopedSlugField({
   fieldToUse = 'title',
@@ -25,25 +29,44 @@ export function tenantScopedSlugField({
     index: true,
     admin: {
       position: 'sidebar',
+      description:
+        'URL path for this page. Saved as lowercase letters, numbers, and hyphens only.',
+    },
+    validate: (value: unknown) => {
+      // Allow empty here — `required` + beforeValidate cover real saves; drafts/create
+      // hydration often hit validate with an empty slug before the editor fills it in.
+      if (value == null || (typeof value === 'string' && !value.trim())) return true
+      const result = normalizeAndValidateDocumentSlug(value)
+      return result.ok ? true : result.error
     },
     hooks: {
       beforeValidate: [
-        async ({ data, operation, req: _req, value }) => {
-          if (operation === 'create' && !value && data?.[fieldToUse]) {
-            const title = data[fieldToUse] as string
-            if (title) {
-              return title
-                .toLowerCase()
-                .trim()
-                .replace(/[^\w\s-]/g, '')
-                .replace(/[\s_-]+/g, '-')
-                .replace(/^-+|-+$/g, '')
+        async ({ data, operation, value }) => {
+          const hasValue = typeof value === 'string' && value.trim().length > 0
+
+          if (!hasValue) {
+            if (operation === 'create' && data?.[fieldToUse]) {
+              const fromTitle = formatDocumentSlug(String(data[fieldToUse]))
+              // Title may still be empty/unusable during form hydration — don't throw.
+              return fromTitle || value
             }
+            return value
           }
-          return value
+
+          const result = normalizeAndValidateDocumentSlug(value)
+          if (!result.ok) {
+            throw new APIError(result.error, 400)
+          }
+          return result.slug
         },
         async ({ data, operation, req, value, originalDoc }) => {
-          if (!value) return value
+          if (!value || (typeof value === 'string' && !value.trim())) return value
+
+          const result = normalizeAndValidateDocumentSlug(value)
+          if (!result.ok) {
+            throw new APIError(result.error, 400)
+          }
+          const formatted = result.slug
 
           let tenantId: string | number | null = null
 
@@ -82,7 +105,7 @@ export function tenantScopedSlugField({
             collection,
             where: {
               and: [
-                { slug: { equals: value } },
+                { slug: { equals: formatted } },
                 tenantClause,
                 ...(currentDocId
                   ? [
@@ -102,12 +125,12 @@ export function tenantScopedSlugField({
 
           if (existing.docs.length > 0) {
             throw new APIError(
-              `A ${label} with the slug "${value}" already exists for this site. Please choose a different slug.`,
+              `A ${label} with the slug "${formatted}" already exists for this site. Please choose a different slug.`,
               400,
             )
           }
 
-          return value
+          return formatted
         },
       ],
     },

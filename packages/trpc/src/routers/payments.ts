@@ -8,6 +8,17 @@ import {
   type GetSubscriptionBookingFeeCents,
 } from "../trpc";
 import { findSafe } from "../utils/collections";
+import {
+  buildMultiItemSubscriptionUpgradeItems,
+  findExactApplicationFeePercent,
+  selectPlanSubscriptionItem,
+} from "../utils/subscription-upgrade-items";
+import {
+  resolveUpgradeChargeAmountCents,
+  resolveUpgradeChargeTiming,
+  sumProrationLineCents,
+  type UpgradeProrationBehavior,
+} from "../utils/subscription-upgrade-preview";
 import { TRPCError } from "@trpc/server";
 import Stripe from "stripe";
 
@@ -191,44 +202,6 @@ function normalizeStripeAccountId(accountId: string | null | undefined): string 
   return a ? a : null;
 }
 
-/**
- * Stripe Checkout for subscriptions only accepts application_fee_percent (2 decimal places).
- * We can still get *exact cents* by picking basis points that round to the desired amount for a known total.
- *
- * Returns percent with 2dp (e.g. 1.25) or null if no exact value exists.
- */
-function findExactApplicationFeePercent(params: {
-  feeCents: number;
-  totalCents: number;
-}): number | null {
-  const { feeCents, totalCents } = params;
-  if (!Number.isFinite(feeCents) || !Number.isFinite(totalCents)) return null;
-  if (feeCents <= 0 || totalCents <= 0) return null;
-
-  // basis points (2dp): 1bp = 0.01%
-  // Want: round(totalCents * bp / 10000) == feeCents
-  // Use integer math with strict upper bound to avoid float issues:
-  // (2*feeCents - 1)*10000 <= 2*totalCents*bp < (2*feeCents + 1)*10000
-  const twoT = 2 * totalCents;
-  const lower = (2 * feeCents - 1) * 10000;
-  const upperExclusive = (2 * feeCents + 1) * 10000;
-
-  const bpMin = Math.ceil(lower / twoT);
-  const bpMax = Math.floor((upperExclusive - 1) / twoT);
-
-  const min = Math.max(0, bpMin);
-  const max = Math.min(10000, bpMax);
-  if (min > max) return null;
-
-  const target = Math.round((feeCents / totalCents) * 10000);
-  const bp = Math.min(max, Math.max(min, target));
-
-  // Final sanity check (match Math.round used by Stripe for currency rounding).
-  const computed = Math.round((totalCents * bp) / 10000);
-  if (computed !== feeCents) return null;
-  return bp / 100;
-}
-
 function getPlatformStripeCustomerId(userDoc: any): string | null {
   const id =
     typeof userDoc?.stripeCustomerId === "string"
@@ -367,6 +340,363 @@ function isStripeMissingConnectCustomerError(e: unknown): boolean {
     return true;
   }
   return err.type === "StripeInvalidRequestError";
+}
+
+function parsePlanStripePriceId(plan: any): string {
+  const raw = plan?.priceJSON;
+  const parsed =
+    typeof raw === "string"
+      ? JSON.parse(raw || "{}")
+      : raw && typeof raw === "object"
+        ? raw
+        : {};
+  const id = (parsed as any)?.id;
+  if (typeof id !== "string" || !id.trim()) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Plan is missing Stripe price configuration",
+    });
+  }
+  return id;
+}
+
+function resolvePlanIdInput(raw: unknown): number | string | null {
+  const n = coerceNumericId(raw);
+  if (n != null) return n;
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return null;
+}
+
+type CustomerSubscriptionUpgradeContext = {
+  plan: any;
+  planTenantId: number | null;
+  priceId: string;
+  stripeProductId: string;
+  customerId: string;
+  stripeSubscriptionId: string;
+  stripeOpts: Stripe.RequestOptions | undefined;
+};
+
+/**
+ * Shared plan + subscription resolution for upgrade preview and confirm.
+ */
+async function resolveCustomerSubscriptionUpgradeContext(params: {
+  payload: any;
+  stripe: Stripe;
+  sessionUser: any;
+  productId?: string;
+  planId?: number | string;
+}): Promise<CustomerSubscriptionUpgradeContext> {
+  const { payload, stripe, sessionUser } = params;
+
+  let plan: any | null = null;
+
+  if (params.planId != null) {
+    const id = resolvePlanIdInput(params.planId);
+    if (id == null) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid planId" });
+    }
+    plan = await payload
+      .findByID({
+        collection: "plans" as any,
+        id,
+        depth: 0,
+        overrideAccess: true,
+      })
+      .catch(() => null);
+  } else if (params.productId) {
+    const found = await findSafe(payload, "plans", {
+      where: { stripeProductId: { equals: params.productId } },
+      depth: 0,
+      limit: 1,
+      overrideAccess: true,
+    });
+    plan = found?.docs?.[0] ?? null;
+  }
+
+  if (!plan) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
+  }
+
+  const stripeProductId =
+    typeof plan?.stripeProductId === "string" && plan.stripeProductId.trim()
+      ? plan.stripeProductId.trim()
+      : null;
+
+  if (!stripeProductId) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Plan is missing Stripe product configuration",
+    });
+  }
+
+  const priceId = parsePlanStripePriceId(plan);
+
+  const payloadUser = await resolvePayloadUser({
+    payload,
+    sessionUser,
+  });
+  const planTenantId =
+    typeof plan?.tenant === "object" && plan.tenant != null && "id" in plan.tenant
+      ? coerceNumericId((plan.tenant as any).id)
+      : coerceNumericId(plan?.tenant);
+
+  const activeOrTrialing = await findSafe<any>(payload, "subscriptions", {
+    where: {
+      user: { equals: payloadUser.id },
+      status: { in: ["active", "trialing"] },
+      ...(planTenantId != null ? { tenant: { equals: planTenantId } } : {}),
+    },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+    sort: "-createdAt",
+  });
+
+  const fallbackPastDue = async () => {
+    const past = await findSafe<any>(payload, "subscriptions", {
+      where: {
+        user: { equals: payloadUser.id },
+        status: { in: ["past_due", "unpaid"] },
+        ...(planTenantId != null ? { tenant: { equals: planTenantId } } : {}),
+      },
+      limit: 1,
+      depth: 0,
+      overrideAccess: true,
+      sort: "-createdAt",
+    });
+    return past?.docs?.[0] ?? null;
+  };
+
+  const subscriptionId =
+    activeOrTrialing?.docs?.[0]?.id ?? (await fallbackPastDue())?.id ?? null;
+
+  if (subscriptionId == null) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "No subscription found",
+    });
+  }
+
+  const subscriptionDoc = await payload
+    .findByID({
+      collection: "subscriptions" as any,
+      id: subscriptionId,
+      depth: 0,
+      overrideAccess: true,
+    })
+    .catch(() => null);
+
+  if (!subscriptionDoc) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "No subscription found",
+    });
+  }
+
+  const stripeAccountId =
+    typeof (subscriptionDoc as any)?.stripeAccountId === "string" &&
+    (subscriptionDoc as any).stripeAccountId.trim()
+      ? (subscriptionDoc as any).stripeAccountId.trim()
+      : null;
+
+  const tenantDoc =
+    planTenantId != null
+      ? await payload
+          .findByID({
+            collection: "tenants" as any,
+            id: planTenantId,
+            depth: 0,
+            overrideAccess: true,
+          })
+          .catch(() => null)
+      : null;
+  const tenantStripeAccountId =
+    tenantDoc &&
+    typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
+    (tenantDoc as any).stripeConnectAccountId.trim() &&
+    (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
+      ? String((tenantDoc as any).stripeConnectAccountId).trim()
+      : null;
+
+  const stripeAccountIdForPortal = stripeAccountId ?? tenantStripeAccountId;
+
+  const stripeOpts = stripeAccountIdForPortal
+    ? ({ stripeAccount: stripeAccountIdForPortal } satisfies Stripe.RequestOptions)
+    : undefined;
+
+  const directCustomerId =
+    stripeAccountIdForPortal &&
+    typeof (subscriptionDoc as any)?.stripeCustomerId === "string" &&
+    (subscriptionDoc as any).stripeCustomerId.trim()
+      ? (subscriptionDoc as any).stripeCustomerId.trim()
+      : null;
+
+  const customerId =
+    directCustomerId ??
+    (
+      await ensureStripeCustomerIdForAccount({
+        payload,
+        stripe,
+        userId: payloadUser.id,
+        email: payloadUser.email ?? null,
+        name: payloadUser.name ?? null,
+        stripeAccountId: stripeAccountIdForPortal,
+      })
+    ).stripeCustomerId;
+
+  let stripeSubscriptionId =
+    typeof (subscriptionDoc as any)?.stripeSubscriptionId === "string" &&
+    (subscriptionDoc as any).stripeSubscriptionId.trim()
+      ? (subscriptionDoc as any).stripeSubscriptionId.trim()
+      : null;
+
+  if (!stripeSubscriptionId) {
+    if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+      stripeSubscriptionId = `sub_test_upgrade_${subscriptionId}`;
+    } else {
+      const list = await stripe.subscriptions.list(
+        {
+          customer: customerId,
+          limit: 5,
+          status: "all",
+        },
+        stripeOpts,
+      );
+      const candidate =
+        list.data.find(
+          (s) =>
+            s.status === "active" ||
+            s.status === "trialing" ||
+            s.status === "past_due" ||
+            s.status === "unpaid",
+        ) ??
+        list.data[0] ??
+        null;
+      stripeSubscriptionId = candidate?.id ?? null;
+    }
+  }
+
+  if (!stripeSubscriptionId) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "No subscription found",
+    });
+  }
+
+  return {
+    plan,
+    planTenantId,
+    priceId,
+    stripeProductId,
+    customerId,
+    stripeSubscriptionId,
+    stripeOpts,
+  };
+}
+
+async function buildUpgradeSubscriptionItemUpdates(params: {
+  stripe: Stripe;
+  stripeOpts: Stripe.RequestOptions | undefined;
+  subscriptionItems: Stripe.SubscriptionItem[];
+  priceId: string;
+  planTenantId: number | null;
+  payload: any;
+  getFee?: GetSubscriptionBookingFeeCents;
+}): Promise<{
+  itemUpdates: Stripe.SubscriptionUpdateParams.Item[];
+  unitAmount: number;
+  bookingFeeCents: number;
+  currency: string;
+  prorationBehavior: UpgradeProrationBehavior;
+}> {
+  const {
+    stripe,
+    stripeOpts,
+    subscriptionItems,
+    priceId,
+    planTenantId,
+    payload,
+    getFee,
+  } = params;
+
+  const newPlanPrice = await stripe.prices.retrieve(priceId, {}, stripeOpts);
+  const unitAmount =
+    typeof newPlanPrice.unit_amount === "number" ? newPlanPrice.unit_amount : 0;
+  const currency = (newPlanPrice.currency || "eur").toLowerCase();
+  const recurring = newPlanPrice.recurring;
+
+  const multiItem = subscriptionItems.length > 1;
+  const prorationBehavior: UpgradeProrationBehavior = multiItem
+    ? "always_invoice"
+    : "create_prorations";
+
+  if (!multiItem) {
+    const planItem = selectPlanSubscriptionItem(subscriptionItems);
+    if (!planItem) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Subscription has no items to upgrade",
+      });
+    }
+    return {
+      itemUpdates: [{ id: planItem.id, price: priceId }],
+      unitAmount,
+      bookingFeeCents: 0,
+      currency,
+      prorationBehavior,
+    };
+  }
+
+  let bookingFeeCents = 0;
+  if (getFee && payload && planTenantId != null && unitAmount > 0) {
+    try {
+      const feeCents = await getFee({
+        payload,
+        tenantId: planTenantId,
+        classPriceAmountCents: unitAmount,
+        metadata: { tenantId: String(planTenantId) },
+      });
+      if (typeof feeCents === "number" && feeCents > 0) {
+        bookingFeeCents = feeCents;
+      }
+    } catch (e) {
+      console.warn("Subscription upgrade booking fee lookup failed", e);
+    }
+  }
+
+  let newFeePriceId: string | null = null;
+  if (bookingFeeCents > 0 && recurring) {
+    const feePrice = await stripe.prices.create(
+      {
+        currency,
+        unit_amount: bookingFeeCents,
+        recurring: {
+          interval: recurring.interval,
+          interval_count: recurring.interval_count ?? 1,
+        },
+        product_data: {
+          name: "Platform fee",
+        },
+      },
+      stripeOpts,
+    );
+    newFeePriceId = feePrice.id;
+  }
+
+  const itemUpdates = buildMultiItemSubscriptionUpgradeItems({
+    items: subscriptionItems,
+    newPlanPriceId: priceId,
+    newFeePriceId,
+  });
+
+  return {
+    itemUpdates,
+    unitAmount,
+    bookingFeeCents,
+    currency,
+    prorationBehavior,
+  };
 }
 
 export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
@@ -866,6 +1196,122 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
 
       return session;
     }),
+  /**
+   * Preview the prorated charge for upgrading to a plan (Stripe invoice.createPreview).
+   * Returns amount + timing so the confirm modal can show exactly what will be charged and when.
+   */
+  previewSubscriptionUpgrade: stripeProtectedProcedure
+    .use(requireCollections("plans", "subscriptions"))
+    .input(
+      z
+        .object({
+          productId: z.string().optional(),
+          planId: z.union([z.number(), z.string()]).optional(),
+        })
+        .refine((v) => Boolean(v.productId || v.planId), {
+          message: "Either productId or planId is required",
+        }),
+    )
+    .query(async ({ ctx, input }) => {
+      if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
+        const prorationDate = Math.floor(Date.now() / 1000);
+        return {
+          amountDueCents: 1500,
+          prorationCents: 1500,
+          chargeAmountCents: 1500,
+          chargeTiming: "immediate" as const,
+          currency: "eur",
+          prorationDate,
+          nextPeriodEndUnix: prorationDate + 30 * 24 * 60 * 60,
+          recurringTotalCents: 5200,
+          prorationBehavior: "always_invoice" as const,
+        };
+      }
+
+      const upgradeCtx = await resolveCustomerSubscriptionUpgradeContext({
+        payload: ctx.payload,
+        stripe: ctx.stripe,
+        sessionUser: ctx.user,
+        productId: input.productId,
+        planId: input.planId,
+      });
+
+      const liveSubscription = await ctx.stripe.subscriptions.retrieve(
+        upgradeCtx.stripeSubscriptionId,
+        { expand: ["items.data.price.product"] },
+        upgradeCtx.stripeOpts,
+      );
+      const subscriptionItems = liveSubscription.items?.data ?? [];
+
+      const built = await buildUpgradeSubscriptionItemUpdates({
+        stripe: ctx.stripe,
+        stripeOpts: upgradeCtx.stripeOpts,
+        subscriptionItems,
+        priceId: upgradeCtx.priceId,
+        planTenantId: upgradeCtx.planTenantId,
+        payload: ctx.payload,
+        getFee,
+      });
+
+      const prorationDate = Math.floor(Date.now() / 1000);
+
+      const preview = await ctx.stripe.invoices.createPreview(
+        {
+          customer: upgradeCtx.customerId,
+          subscription: upgradeCtx.stripeSubscriptionId,
+          subscription_details: {
+            items: built.itemUpdates,
+            proration_behavior: built.prorationBehavior,
+            proration_date: prorationDate,
+          },
+        },
+        upgradeCtx.stripeOpts,
+      );
+
+      const lines = (preview.lines?.data ?? []).map((line) => ({
+        amount: typeof line.amount === "number" ? line.amount : 0,
+        proration: Boolean((line as { proration?: boolean }).proration),
+        periodStart:
+          typeof line.period?.start === "number" ? line.period.start : null,
+      }));
+
+      const amountDueCents =
+        typeof preview.amount_due === "number" ? preview.amount_due : 0;
+      const prorationCents = sumProrationLineCents({
+        lines,
+        prorationDate,
+      });
+      const chargeAmountCents = resolveUpgradeChargeAmountCents({
+        prorationBehavior: built.prorationBehavior,
+        amountDueCents,
+        prorationCents,
+      });
+      const chargeTiming = resolveUpgradeChargeTiming({
+        prorationBehavior: built.prorationBehavior,
+        chargeAmountCents,
+      });
+
+      const nextPeriodEndUnix =
+        typeof liveSubscription.current_period_end === "number"
+          ? liveSubscription.current_period_end
+          : typeof preview.period_end === "number"
+            ? preview.period_end
+            : null;
+
+      const recurringTotalCents = built.unitAmount + built.bookingFeeCents;
+
+      return {
+        amountDueCents,
+        prorationCents,
+        chargeAmountCents,
+        chargeTiming,
+        currency: (preview.currency || built.currency || "eur").toLowerCase(),
+        prorationDate,
+        nextPeriodEndUnix,
+        recurringTotalCents,
+        prorationBehavior: built.prorationBehavior,
+      };
+    }),
   createCustomerUpgradePortal: stripeProtectedProcedure
     .use(requireCollections("plans", "subscriptions"))
     .input(
@@ -878,251 +1324,56 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         productId: z.string().optional(),
         planId: z.union([z.number(), z.string()]).optional(),
         returnUrl: z.string().optional(),
+        /**
+         * Unix timestamp from previewSubscriptionUpgrade so Stripe calculates
+         * the same prorations as the confirm modal showed.
+         */
+        prorationDate: z.number().int().positive().optional(),
       })
       .refine((v) => Boolean(v.productId || v.planId), {
         message: "Either productId or planId is required",
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const parsePriceId = (plan: any): string => {
-        const raw = plan?.priceJSON;
-        const parsed =
-          typeof raw === "string"
-            ? JSON.parse(raw || "{}")
-            : raw && typeof raw === "object"
-              ? raw
-              : {};
-        const id = (parsed as any)?.id;
-        if (typeof id !== "string" || !id.trim()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "Plan is missing Stripe price configuration",
-          });
-        }
-        return id;
-      };
-
-      const resolvePlanId = (raw: unknown): number | string | null => {
-        const n = coerceNumericId(raw);
-        if (n != null) return n;
-        if (typeof raw === "string" && raw.trim()) return raw.trim();
-        return null;
-      };
-
-      let plan: any | null = null;
-
-      // Preferred: resolve by Payload plan id (avoids querying protected fields).
-      if (input.planId != null) {
-        const id = resolvePlanId(input.planId);
-        if (id == null) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid planId" });
-        }
-
-        plan = await ctx.payload
-          .findByID({
-            collection: "plans" as any,
-            id,
-            depth: 0,
-            overrideAccess: true,
-          })
-          .catch(() => null);
-      } else if (input.productId) {
-        // Back-compat: resolve plan by Stripe product id using privileged query, then verify doc-level access.
-        const productId = input.productId;
-        const found = await findSafe(ctx.payload, "plans", {
-          where: { stripeProductId: { equals: productId } },
-          depth: 0,
-          limit: 1,
-          overrideAccess: true,
-        });
-
-        plan = found?.docs?.[0] ?? null;
-      }
-
-      if (!plan) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Plan not found" });
-      }
-
-      const stripeProductId =
-        typeof plan?.stripeProductId === "string" && plan.stripeProductId.trim()
-          ? plan.stripeProductId.trim()
-          : null;
-
-      if (!stripeProductId) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Plan is missing Stripe product configuration",
-        });
-      }
-
-      const priceId = parsePriceId(plan);
-
-      const payloadUser = await resolvePayloadUser({
+      const {
+        priceId,
+        stripeProductId,
+        customerId,
+        stripeSubscriptionId,
+        stripeOpts,
+        planTenantId,
+      } = await resolveCustomerSubscriptionUpgradeContext({
         payload: ctx.payload,
+        stripe: ctx.stripe,
         sessionUser: ctx.user,
-      });
-      const planTenantId =
-        typeof plan?.tenant === "object" && plan.tenant != null && "id" in plan.tenant
-          ? coerceNumericId((plan.tenant as any).id)
-          : coerceNumericId(plan?.tenant);
-
-      // Resolve the user's current subscription via Payload (Connect-aware),
-      // then use Stripe only to open the billing portal session.
-      const activeOrTrialing = await findSafe<any>(ctx.payload, "subscriptions", {
-        where: {
-          user: { equals: payloadUser.id },
-          status: { in: ["active", "trialing"] },
-          ...(planTenantId != null ? { tenant: { equals: planTenantId } } : {}),
-        },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true,
-        sort: "-createdAt",
+        productId: input.productId,
+        planId: input.planId,
       });
 
-      const fallbackPastDue = async () => {
-        const past = await findSafe<any>(ctx.payload, "subscriptions", {
-          where: {
-            user: { equals: payloadUser.id },
-            status: { in: ["past_due", "unpaid"] },
-            ...(planTenantId != null ? { tenant: { equals: planTenantId } } : {}),
-          },
-          limit: 1,
-          depth: 0,
-          overrideAccess: true,
-          sort: "-createdAt",
-        });
-        return past?.docs?.[0] ?? null;
-      };
+      const returnUrl =
+        input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
 
-      const subscriptionId =
-        activeOrTrialing?.docs?.[0]?.id ?? (await fallbackPastDue())?.id ?? null;
-
-      if (subscriptionId == null) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "No subscription found",
-        });
-      }
-
-      // Privileged read to access Stripe IDs (field-level access is admin-only).
-      const subscriptionDoc = await ctx.payload
-        .findByID({
-          collection: "subscriptions" as any,
-          id: subscriptionId,
-          depth: 0,
-          overrideAccess: true,
-        })
-        .catch(() => null);
-
-      if (!subscriptionDoc) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "No subscription found",
-        });
-      }
-
-      const stripeAccountId =
-        typeof (subscriptionDoc as any)?.stripeAccountId === "string" &&
-        (subscriptionDoc as any).stripeAccountId.trim()
-          ? (subscriptionDoc as any).stripeAccountId.trim()
-          : null;
-
-      // If the subscription doc doesn't have Connect scoping info (older data),
-      // fall back to the plan's tenant Connect account so we open the portal in the right scope
-      // for Connect-scoped products/prices.
-      const tenantDoc =
-        planTenantId != null
-          ? await ctx.payload
-              .findByID({
-                collection: "tenants" as any,
-                id: planTenantId,
-                depth: 0,
-                overrideAccess: true,
-              })
-              .catch(() => null)
-          : null;
-      const tenantStripeAccountId =
-        tenantDoc &&
-        typeof (tenantDoc as any)?.stripeConnectAccountId === "string" &&
-        (tenantDoc as any).stripeConnectAccountId.trim() &&
-        (tenantDoc as any)?.stripeConnectOnboardingStatus === "active"
-          ? String((tenantDoc as any).stripeConnectAccountId).trim()
-          : null;
-
-      const stripeAccountIdForPortal = stripeAccountId ?? tenantStripeAccountId;
-
-      const stripeOpts = stripeAccountIdForPortal
-        ? ({ stripeAccount: stripeAccountIdForPortal } satisfies Stripe.RequestOptions)
-        : undefined;
-
-      // Prefer customer id captured on Connect subscription docs; otherwise resolve/create on the right scope.
-      const directCustomerId =
-        stripeAccountIdForPortal &&
-        typeof (subscriptionDoc as any)?.stripeCustomerId === "string" &&
-        (subscriptionDoc as any).stripeCustomerId.trim()
-          ? (subscriptionDoc as any).stripeCustomerId.trim()
-          : null;
-
-      const customerId =
-        directCustomerId ??
-        (
-          await ensureStripeCustomerIdForAccount({
-            payload: ctx.payload,
-            stripe: ctx.stripe,
-            userId: payloadUser.id,
-            email: payloadUser.email ?? null,
-            name: payloadUser.name ?? null,
-            stripeAccountId: stripeAccountIdForPortal,
-          })
-        ).stripeCustomerId;
-
-      // Prefer Stripe subscription id captured in Payload; fall back to Stripe list.
-      let stripeSubscriptionId =
-        typeof (subscriptionDoc as any)?.stripeSubscriptionId === "string" &&
-        (subscriptionDoc as any).stripeSubscriptionId.trim()
-          ? (subscriptionDoc as any).stripeSubscriptionId.trim()
-          : null;
-
-      if (!stripeSubscriptionId) {
-        if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
-          stripeSubscriptionId = `sub_test_upgrade_${subscriptionId}`;
-        } else {
-        const list = await ctx.stripe.subscriptions.list(
-          {
-            customer: customerId,
-            limit: 5,
-            status: "all",
-          },
-          stripeOpts
-        );
-        const candidate =
-          list.data.find(
-            (s) =>
-              s.status === "active" ||
-              s.status === "trialing" ||
-              s.status === "past_due" ||
-              s.status === "unpaid"
-          ) ??
-          list.data[0] ??
-          null;
-        stripeSubscriptionId = candidate?.id ?? null;
+      const withUpgradeQuery = (raw: string, mode: "portal" | "invoice" | "direct") => {
+        try {
+          const url = new URL(
+            raw.startsWith("http") ? raw : `http://localhost:3000${raw.startsWith("/") ? raw : `/${raw}`}`,
+          );
+          url.searchParams.set("subscription_upgraded", "1");
+          url.searchParams.set("upgrade_via", mode);
+          return raw.startsWith("http") ? url.toString() : `${url.pathname}${url.search}`;
+        } catch {
+          return raw;
         }
-      }
-
-      if (!stripeSubscriptionId) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "No subscription found",
-        });
-      }
+      };
 
       if (process.env.NODE_ENV === "test" || process.env.ENABLE_TEST_WEBHOOKS === "true") {
         const redirectUrl = (() => {
-          const raw =
-            input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
           try {
-            const url = new URL(raw.startsWith("http") ? raw : `http://localhost:3000${raw.startsWith("/") ? raw : `/${raw}`}`);
+            const url = new URL(
+              returnUrl.startsWith("http")
+                ? returnUrl
+                : `http://localhost:3000${returnUrl.startsWith("/") ? returnUrl : `/${returnUrl}`}`,
+            );
             url.searchParams.set("test_stripe_portal", "upgrade");
             url.searchParams.set("subscription", stripeSubscriptionId);
             return `${url.pathname}${url.search}`;
@@ -1139,9 +1390,103 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         } as unknown) as Stripe.Response<Stripe.BillingPortal.Session>;
       }
 
-      let configId: string | undefined;
+      // Connect checkout adds a recurring "Platform fee" line item. Stripe Billing Portal
+      // cannot run subscription_update on multi-item subscriptions — upgrade via API instead
+      // and send the customer to the hosted invoice when payment is due.
+      const liveSubscription = await ctx.stripe.subscriptions.retrieve(
+        stripeSubscriptionId,
+        { expand: ["items.data.price.product"] },
+        stripeOpts,
+      );
+      const subscriptionItems = liveSubscription.items?.data ?? [];
 
-      // Create a new configuration if none exist
+      if (subscriptionItems.length > 1) {
+        const built = await buildUpgradeSubscriptionItemUpdates({
+          stripe: ctx.stripe,
+          stripeOpts,
+          subscriptionItems,
+          priceId,
+          planTenantId,
+          payload: ctx.payload,
+          getFee,
+        });
+
+        const totalCents = built.unitAmount + built.bookingFeeCents;
+        const exactPct =
+          built.bookingFeeCents > 0
+            ? findExactApplicationFeePercent({
+                feeCents: built.bookingFeeCents,
+                totalCents,
+              })
+            : null;
+        const applicationFeePercent =
+          exactPct != null && exactPct > 0
+            ? exactPct
+            : built.bookingFeeCents > 0 && totalCents > 0
+              ? Math.round((built.bookingFeeCents / totalCents) * 10000) / 100
+              : undefined;
+
+        const upgradeMetadata = {
+          ...(liveSubscription.metadata ?? {}),
+          tenantId:
+            planTenantId != null
+              ? String(planTenantId)
+              : (liveSubscription.metadata?.tenantId ?? ""),
+          planPriceAmount: String(built.unitAmount),
+          bookingFeeAmount: String(built.bookingFeeCents),
+        };
+
+        // pending_if_incomplete does not allow application_fee_percent — set the fee
+        // first so the upgrade invoice uses the correct Connect take.
+        if (typeof applicationFeePercent === "number" && applicationFeePercent > 0) {
+          await ctx.stripe.subscriptions.update(
+            stripeSubscriptionId,
+            {
+              application_fee_percent: applicationFeePercent,
+              metadata: upgradeMetadata,
+            },
+            stripeOpts,
+          );
+        }
+
+        const updated = await ctx.stripe.subscriptions.update(
+          stripeSubscriptionId,
+          {
+            items: built.itemUpdates,
+            proration_behavior: "always_invoice",
+            ...(typeof input.prorationDate === "number"
+              ? { proration_date: input.prorationDate }
+              : {}),
+            payment_behavior: "pending_if_incomplete",
+            expand: ["latest_invoice"],
+            metadata: upgradeMetadata,
+          },
+          stripeOpts,
+        );
+
+        const latestInvoice = updated.latest_invoice;
+        const invoiceObj =
+          latestInvoice && typeof latestInvoice === "object"
+            ? (latestInvoice as Stripe.Invoice)
+            : null;
+        const hostedInvoiceUrl =
+          invoiceObj &&
+          typeof invoiceObj.hosted_invoice_url === "string" &&
+          invoiceObj.hosted_invoice_url.trim() &&
+          (invoiceObj.status === "open" || invoiceObj.status === "draft")
+            ? invoiceObj.hosted_invoice_url.trim()
+            : null;
+
+        const redirectUrl = hostedInvoiceUrl ?? withUpgradeQuery(returnUrl, "direct");
+
+        return ({
+          object: "billing_portal.session",
+          id: `bps_multi_item_upgrade_${Date.now()}`,
+          url: redirectUrl,
+          lastResponse: {} as Stripe.Response<Stripe.BillingPortal.Session>["lastResponse"],
+        } as unknown) as Stripe.Response<Stripe.BillingPortal.Session>;
+      }
+
       const newConfig = await ctx.stripe.billingPortal.configurations.create(
         {
           business_profile: {
@@ -1172,15 +1517,10 @@ export function createPaymentsRouter(deps?: CreatePaymentsRouterDeps) {
         stripeOpts
       );
 
-      configId = newConfig.id;
-      console.log(`Created new configuration: ${configId}`);
-
-      const returnUrl =
-        input.returnUrl || `${publicOriginFromTrpcContext(ctx)}/`;
       const session = await ctx.stripe.billingPortal.sessions.create(
         {
           customer: customerId,
-          configuration: configId,
+          configuration: newConfig.id,
           return_url: returnUrl,
           flow_data: {
             type: "subscription_update",

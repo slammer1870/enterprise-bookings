@@ -20,7 +20,44 @@ import { loginAsRegularUserViaApi } from './helpers/auth-helpers'
 import { navigateToTenant } from './helpers/subdomain-helpers'
 import { createTestEventType, createTestTimeslot } from './helpers/data-helpers'
 import { e2eSlowTestTimeout } from './helpers/timeouts'
-import { ensureTenant1ActiveBranchesOnly, tenant1DefaultBranchId } from './helpers/schedule-helpers'
+import {
+  advanceScheduleToDate,
+  ensureTenant1ActiveBranchesOnly,
+  tenant1DefaultBranchId,
+} from './helpers/schedule-helpers'
+
+/** Same-day bookable window, or tomorrow morning when today has no future room left. */
+function buildFreeScheduleBookableWindow(now = new Date()): {
+  start: Date
+  end: Date
+  lockOutTimeMinutes: number
+} {
+  const preferred = new Date(now)
+  preferred.setHours(now.getHours() + 2, 0, 0, 0)
+  if (preferred.getDate() === now.getDate() && now.getHours() < 21) {
+    const end = new Date(preferred)
+    end.setHours(preferred.getHours() + 1, 0, 0, 0)
+    if (end.getDate() === preferred.getDate()) {
+      return { start: preferred, end, lockOutTimeMinutes: 60 }
+    }
+  }
+
+  // Late evening: keep a still-future same-day slot ending 23:59 (lock-out 0).
+  const soon = new Date(now.getTime() + 2 * 60 * 1000)
+  const endOfDay = new Date(now)
+  endOfDay.setHours(23, 59, 0, 0)
+  if (soon.getDate() === now.getDate() && endOfDay.getTime() > soon.getTime()) {
+    return { start: soon, end: endOfDay, lockOutTimeMinutes: 0 }
+  }
+
+  // Past ~23:57 — seed tomorrow morning and advance the schedule picker.
+  const tomorrowStart = new Date(now)
+  tomorrowStart.setDate(now.getDate() + 1)
+  tomorrowStart.setHours(10, 0, 0, 0)
+  const tomorrowEnd = new Date(tomorrowStart)
+  tomorrowEnd.setHours(11, 0, 0, 0)
+  return { start: tomorrowStart, end: tomorrowEnd, lockOutTimeMinutes: 60 }
+}
 
 test.describe('Free booking: schedule Book → Modify Booking → manage page details', () => {
   test.setTimeout(e2eSlowTestTimeout())
@@ -49,18 +86,9 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
         workerIndex,
       )
 
-      // Timeslot for TODAY so it appears in the schedule's default (today) view.
-      // Place it ≥1 h from now so bookingStatus is 'open' (not 'closed').
-      const now = new Date()
-      const start = new Date(now)
-      start.setHours(now.getHours() + 2, 0, 0, 0)
-      // Edge case: crossing midnight → cap to 23:00 today so the date stays today.
-      if (start.getDate() !== now.getDate()) {
-        start.setDate(now.getDate())
-        start.setHours(23, 0, 0, 0)
-      }
-      const end = new Date(start)
-      end.setHours(start.getHours() + 1)
+      // Prefer a future slot on today; if none remains (near midnight), use tomorrow morning
+      // and advance the public schedule date picker to that day.
+      const { start, end, lockOutTimeMinutes } = buildFreeScheduleBookableWindow()
 
       const timeslot = await createTestTimeslot(
         tenant.id,
@@ -70,6 +98,7 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
         undefined, // no instructor
         true,      // active
         tenant1DefaultBranchId(testData),
+        lockOutTimeMinutes,
       )
 
       // The scoped name that createTestEventType produces (mirrors its naming logic).
@@ -84,6 +113,15 @@ test.describe('Free booking: schedule Book → Modify Booking → manage page de
 
       await navigateToTenant(page, tenant.slug, '/home')
       await page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => null)
+
+      const today = new Date()
+      if (
+        start.getFullYear() !== today.getFullYear() ||
+        start.getMonth() !== today.getMonth() ||
+        start.getDate() !== today.getDate()
+      ) {
+        await advanceScheduleToDate(page, start)
+      }
 
       // ── Step 2: wait for the schedule to render our timeslot ─────────────────
 

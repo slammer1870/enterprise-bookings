@@ -679,6 +679,7 @@ export interface Page {
       }
     | GiftVoucherCheckoutBlock
     | ClassPassCheckoutBlock
+    | SubscriptionCheckoutBlock
     | EmergencyContactFormBlock
     | CroiLanHeroWithLocationBlock
     | ClFindSanctuaryBlock
@@ -1937,6 +1938,7 @@ export interface ThreeColumnLayoutBlock {
           }
         | GiftVoucherCheckoutBlock
         | ClassPassCheckoutBlock
+        | SubscriptionCheckoutBlock
         | EmergencyContactFormBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
@@ -3190,6 +3192,37 @@ export interface ClassPassCheckoutBlock {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SubscriptionCheckoutBlock".
+ */
+export interface SubscriptionCheckoutBlock {
+  /**
+   * Optional title shown above the subscription cards.
+   */
+  heading?: string | null;
+  /**
+   * Select membership plans to offer. Each row becomes a subscription card.
+   */
+  plans: {
+    /**
+     * Active membership plan to offer for subscribe / upgrade.
+     */
+    plan: number | Plan;
+    /**
+     * Optional image shown on this subscription card.
+     */
+    image?: (number | null) | Media;
+    /**
+     * Optional. Overrides the plan footer / description text on the card.
+     */
+    description?: string | null;
+    id?: string | null;
+  }[];
+  id?: string | null;
+  blockName?: string | null;
+  blockType: 'subscriptionCheckout';
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "EmergencyContactFormBlock".
  */
 export interface EmergencyContactFormBlock {
@@ -3565,6 +3598,7 @@ export interface TwoColumnLayoutBlock {
           }
         | GiftVoucherCheckoutBlock
         | ClassPassCheckoutBlock
+        | SubscriptionCheckoutBlock
         | EmergencyContactFormBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
@@ -3672,6 +3706,7 @@ export interface TwoColumnLayoutBlock {
           }
         | GiftVoucherCheckoutBlock
         | ClassPassCheckoutBlock
+        | SubscriptionCheckoutBlock
         | EmergencyContactFormBlock
         | HeroScheduleSanctuaryBlock
         | CroiLanHeroWithLocationBlock
@@ -5558,6 +5593,7 @@ export interface PagesSelect<T extends boolean = true> {
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         classPassCheckout?: T | ClassPassCheckoutBlockSelect<T>;
+        subscriptionCheckout?: T | SubscriptionCheckoutBlockSelect<T>;
         emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
         clFindSanctuary?: T | ClFindSanctuaryBlockSelect<T>;
@@ -5914,6 +5950,7 @@ export interface ThreeColumnLayoutBlockSelect<T extends boolean = true> {
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         classPassCheckout?: T | ClassPassCheckoutBlockSelect<T>;
+        subscriptionCheckout?: T | SubscriptionCheckoutBlockSelect<T>;
         emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
@@ -6607,6 +6644,23 @@ export interface ClassPassCheckoutBlockSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "SubscriptionCheckoutBlock_select".
+ */
+export interface SubscriptionCheckoutBlockSelect<T extends boolean = true> {
+  heading?: T;
+  plans?:
+    | T
+    | {
+        plan?: T;
+        image?: T;
+        description?: T;
+        id?: T;
+      };
+  id?: T;
+  blockName?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "EmergencyContactFormBlock_select".
  */
 export interface EmergencyContactFormBlockSelect<T extends boolean = true> {
@@ -6896,6 +6950,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         classPassCheckout?: T | ClassPassCheckoutBlockSelect<T>;
+        subscriptionCheckout?: T | SubscriptionCheckoutBlockSelect<T>;
         emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
@@ -7016,6 +7071,7 @@ export interface TwoColumnLayoutBlockSelect<T extends boolean = true> {
             };
         giftVoucherCheckout?: T | GiftVoucherCheckoutBlockSelect<T>;
         classPassCheckout?: T | ClassPassCheckoutBlockSelect<T>;
+        subscriptionCheckout?: T | SubscriptionCheckoutBlockSelect<T>;
         emergencyContactForm?: T | EmergencyContactFormBlockSelect<T>;
         heroScheduleSanctuary?: T | HeroScheduleSanctuaryBlockSelect<T>;
         clHeroLoc?: T | CroiLanHeroWithLocationBlockSelect<T>;
