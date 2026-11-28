@@ -1,13 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks — must be declared before any imports that reference them
 // ---------------------------------------------------------------------------
 
-const { mockList, mockCreate, mockUpdate } = vi.hoisted(() => ({
+const { mockList, mockCreate, mockUpdate, mockValidate } = vi.hoisted(() => ({
   mockList: vi.fn(),
   mockCreate: vi.fn(),
   mockUpdate: vi.fn(),
+  mockValidate: vi.fn(),
 }))
 
 vi.mock('@/lib/stripe/platform', () => ({
@@ -16,6 +17,7 @@ vi.mock('@/lib/stripe/platform', () => ({
       list: mockList,
       create: mockCreate,
       update: mockUpdate,
+      validate: mockValidate,
     },
   }),
 }))
@@ -24,13 +26,26 @@ vi.mock('@/lib/stripe/platform', () => ({
 // Subject under test
 // ---------------------------------------------------------------------------
 
-import { registerApplePayDomain } from '@/collections/Tenants/registerApplePayDomain'
+import {
+  applePayDomainsForConnectedAccount,
+  applePayDomainsForDeclaration,
+  applePayRegistrationPlan,
+  registerAllDomainsForConnectedAccount,
+  registerApplePayDomain,
+} from '@/collections/Tenants/registerApplePayDomain'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeDomain(overrides: { id?: string; domain_name?: string; enabled?: boolean } = {}) {
+function makeDomain(
+  overrides: {
+    id?: string
+    domain_name?: string
+    enabled?: boolean
+    apple_pay?: { status: 'active' | 'inactive' }
+  } = {},
+) {
   return {
     id: 'pmd_test123',
     object: 'payment_method_domain' as const,
@@ -45,6 +60,9 @@ function makeDomain(overrides: { id?: string; domain_name?: string; enabled?: bo
   }
 }
 
+const ACCOUNT = 'acct_connected123'
+const origEnv = process.env
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -58,12 +76,26 @@ describe('registerApplePayDomain', () => {
     delete process.env.PW_E2E_PROFILE
   })
 
-  it('does nothing when domain is already registered and enabled', async () => {
+  it('does nothing when domain is already registered, enabled, and Apple Pay is active', async () => {
     mockList.mockResolvedValue({ data: [makeDomain()] })
 
     await registerApplePayDomain('acme.example.com')
 
     expect(mockList).toHaveBeenCalledWith({ domain_name: 'acme.example.com', limit: 1 }, undefined)
+    expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockValidate).not.toHaveBeenCalled()
+  })
+
+  it('re-validates an enabled domain when Apple Pay is still inactive', async () => {
+    mockList.mockResolvedValue({
+      data: [makeDomain({ apple_pay: { status: 'inactive' } })],
+    })
+    mockValidate.mockResolvedValue(makeDomain())
+
+    await registerApplePayDomain('acme.example.com')
+
+    expect(mockValidate).toHaveBeenCalledWith('pmd_test123', undefined)
     expect(mockCreate).not.toHaveBeenCalled()
     expect(mockUpdate).not.toHaveBeenCalled()
   })
@@ -76,6 +108,7 @@ describe('registerApplePayDomain', () => {
 
     expect(mockUpdate).toHaveBeenCalledWith('pmd_disabled', { enabled: true }, undefined)
     expect(mockCreate).not.toHaveBeenCalled()
+    expect(mockValidate).not.toHaveBeenCalled()
   })
 
   it('creates a new registration when the domain is not yet registered', async () => {
@@ -86,6 +119,19 @@ describe('registerApplePayDomain', () => {
 
     expect(mockCreate).toHaveBeenCalledWith({ domain_name: 'acme.example.com' }, undefined)
     expect(mockUpdate).not.toHaveBeenCalled()
+    expect(mockValidate).not.toHaveBeenCalled()
+  })
+
+  it('validates a newly created domain when Apple Pay is inactive', async () => {
+    mockList.mockResolvedValue({ data: [] })
+    mockCreate.mockResolvedValue(
+      makeDomain({ id: 'pmd_new', apple_pay: { status: 'inactive' } }),
+    )
+    mockValidate.mockResolvedValue(makeDomain({ id: 'pmd_new' }))
+
+    await registerApplePayDomain('acme.example.com')
+
+    expect(mockValidate).toHaveBeenCalledWith('pmd_new', undefined)
   })
 
   it('skips silently when STRIPE_SECRET_KEY is not set', async () => {
@@ -107,15 +153,15 @@ describe('registerApplePayDomain', () => {
     mockList.mockResolvedValue({ data: [] })
     mockCreate.mockResolvedValue(makeDomain())
 
-    await registerApplePayDomain('acme.example.com', 'acct_connected123')
+    await registerApplePayDomain('acme.example.com', ACCOUNT)
 
     expect(mockList).toHaveBeenCalledWith(
       { domain_name: 'acme.example.com', limit: 1 },
-      { stripeAccount: 'acct_connected123' },
+      { stripeAccount: ACCOUNT },
     )
     expect(mockCreate).toHaveBeenCalledWith(
       { domain_name: 'acme.example.com' },
-      { stripeAccount: 'acct_connected123' },
+      { stripeAccount: ACCOUNT },
     )
   })
 
@@ -123,13 +169,164 @@ describe('registerApplePayDomain', () => {
     mockList.mockResolvedValue({ data: [makeDomain({ id: 'pmd_con', enabled: false })] })
     mockUpdate.mockResolvedValue(makeDomain({ id: 'pmd_con', enabled: true }))
 
-    await registerApplePayDomain('acme.example.com', 'acct_connected123')
+    await registerApplePayDomain('acme.example.com', ACCOUNT)
 
     expect(mockUpdate).toHaveBeenCalledWith(
       'pmd_con',
       { enabled: true },
-      { stripeAccount: 'acct_connected123' },
+      { stripeAccount: ACCOUNT },
     )
     expect(mockCreate).not.toHaveBeenCalled()
+  })
+})
+
+describe('applePay domain lists and registration plan', () => {
+  beforeEach(() => {
+    process.env = { ...origEnv, NEXT_PUBLIC_SERVER_URL: 'https://atnd.me/' }
+  })
+
+  afterEach(() => {
+    process.env = origEnv
+  })
+
+  it('uses the platform subdomain as the only serving host when the hostname list is empty', () => {
+    expect(
+      applePayDomainsForDeclaration({ slug: 'acme', hostnames: [], direction: 'allow-www-and-non-www' }),
+    ).toEqual(['acme.atnd.me'])
+    expect(
+      applePayDomainsForConnectedAccount({
+        slug: 'acme',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+      }),
+    ).toEqual(['acme.atnd.me'])
+  })
+
+  it('keeps custom serving hosts on the platform and still adds the platform subdomain on the connected account', () => {
+    const doc = {
+      slug: 'acme',
+      hostnames: ['www.acme.com', 'acme.com'],
+      direction: 'allow-www-and-non-www' as const,
+    }
+    expect(applePayDomainsForDeclaration(doc)).toEqual(['www.acme.com', 'acme.com'])
+    expect(applePayDomainsForConnectedAccount(doc)).toEqual([
+      'www.acme.com',
+      'acme.com',
+      'acme.atnd.me',
+    ])
+  })
+
+  it('registers the platform subdomain on create when there is no connected account', () => {
+    const { platform, connected } = applePayRegistrationPlan({
+      doc: { slug: 'acme', hostnames: [], direction: 'allow-www-and-non-www' },
+      previousDoc: null,
+      operation: 'create',
+    })
+    expect(platform).toEqual(['acme.atnd.me'])
+    expect(connected).toEqual([])
+  })
+
+  it('registers the platform subdomain on both accounts when Connect is already attached at create', () => {
+    const { platform, connected } = applePayRegistrationPlan({
+      doc: {
+        slug: 'acme',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: ACCOUNT,
+      },
+      previousDoc: null,
+      operation: 'create',
+    })
+    expect(platform).toEqual(['acme.atnd.me'])
+    expect(connected).toEqual(['acme.atnd.me'])
+  })
+
+  it('registers the platform subdomain on the connected account when Stripe Connect is attached later', () => {
+    const { platform, connected } = applePayRegistrationPlan({
+      doc: {
+        slug: 'acme',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: ACCOUNT,
+      },
+      previousDoc: {
+        slug: 'acme',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: null,
+      },
+      operation: 'update',
+    })
+    expect(platform).toEqual([])
+    expect(connected).toEqual(['acme.atnd.me'])
+  })
+
+  it('adds the platform subdomain to the connected account when a custom hostname is saved', () => {
+    const { platform, connected } = applePayRegistrationPlan({
+      doc: {
+        slug: 'acme',
+        hostnames: ['www.acme.com', 'acme.com'],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: ACCOUNT,
+      },
+      previousDoc: {
+        slug: 'acme',
+        hostnames: [],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: ACCOUNT,
+      },
+      operation: 'update',
+    })
+    expect(platform).toEqual(['www.acme.com', 'acme.com'])
+    expect(connected).toEqual(['www.acme.com', 'acme.com', 'acme.atnd.me'])
+  })
+
+  it('does not re-register when the serving set and connected account are unchanged', () => {
+    const { platform, connected } = applePayRegistrationPlan({
+      doc: {
+        slug: 'acme',
+        hostnames: ['www.acme.com'],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: ACCOUNT,
+      },
+      previousDoc: {
+        slug: 'acme',
+        hostnames: ['www.acme.com'],
+        direction: 'allow-www-and-non-www',
+        stripeConnectAccountId: ACCOUNT,
+      },
+      operation: 'update',
+    })
+    expect(platform).toEqual([])
+    expect(connected).toEqual([])
+  })
+
+  it('registerAllDomainsForConnectedAccount registers serving hosts plus the platform subdomain', async () => {
+    vi.resetAllMocks()
+    process.env.STRIPE_SECRET_KEY = 'sk_test_dummy'
+    delete process.env.SKIP_APPLE_PAY_DOMAIN_REGISTRATION
+    delete process.env.ENABLE_TEST_WEBHOOKS
+    delete process.env.PW_E2E_PROFILE
+    mockList.mockResolvedValue({ data: [] })
+    mockCreate.mockResolvedValue(makeDomain())
+
+    const payload = {
+      findByID: vi.fn().mockResolvedValue({
+        slug: 'acme',
+        hostnames: ['www.acme.com'],
+        direction: 'allow-www-and-non-www',
+      }),
+    }
+
+    await registerAllDomainsForConnectedAccount(payload as never, ACCOUNT, 1)
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      { domain_name: 'www.acme.com' },
+      { stripeAccount: ACCOUNT },
+    )
+    expect(mockCreate).toHaveBeenCalledWith(
+      { domain_name: 'acme.atnd.me' },
+      { stripeAccount: ACCOUNT },
+    )
   })
 })
