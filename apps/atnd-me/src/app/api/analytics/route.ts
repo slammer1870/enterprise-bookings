@@ -14,6 +14,7 @@ import { getCurrentUser } from '@/lib/stripe-connect/api-helpers'
 import { resolveTenantAdminTenantIds } from '@/access/tenant-scoped'
 import { isAdmin, isStaff, isTenantAdmin } from '@/access/userTenantAccess'
 import { getAnalyticsDashboardBundle } from '@/lib/analytics'
+import type { RetentionCohort } from '@/lib/analytics/types'
 import { resolveTimeslotIdsForAnalytics } from '@/lib/analytics/analyticsBookingsWhere'
 
 function jsonStringifySafe(data: unknown): string {
@@ -94,6 +95,16 @@ export async function GET(request: NextRequest) {
     const offsetLikelyChurnCustomers = searchParams.get('offsetLikelyChurnCustomers')
       ? parseInt(searchParams.get('offsetLikelyChurnCustomers')!, 10)
       : undefined
+    const retentionCohortParam = searchParams.get('retentionCohort')
+    const retentionCohort: RetentionCohort =
+      retentionCohortParam === 'recent_class' ||
+      retentionCohortParam === 'no_recent_class' ||
+      retentionCohortParam === 'all'
+        ? retentionCohortParam
+        : 'no_recent_class'
+    if (retentionCohortParam && retentionCohortParam !== retentionCohort) {
+      return NextResponse.json({ error: 'Invalid retentionCohort' }, { status: 400 })
+    }
 
     if (!dateFrom || !dateTo) {
       return NextResponse.json(
@@ -338,6 +349,7 @@ export async function GET(request: NextRequest) {
         limitTopCustomers: undefined,
         limitLikelyChurnCustomers,
         offsetLikelyChurnCustomers,
+        retentionCohort,
       }
 
       const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)
@@ -376,6 +388,7 @@ export async function GET(request: NextRequest) {
       limitTopCustomers,
       limitLikelyChurnCustomers,
       offsetLikelyChurnCustomers,
+      retentionCohort,
     }
 
     const preResolvedTimeslotIds = await resolveTimeslotIdsForAnalytics(payload, params)

@@ -36,13 +36,18 @@ type Summary = {
 
 type BookingsOverTimeRow = { date: string; count: number }
 type TopCustomerRow = { userId: number; count: number; userName?: string }
+type RetentionCohort = 'recent_class' | 'no_recent_class' | 'all'
 type LikelyChurnCustomerRow = {
   userId: number
   score: number
+  scoreSource: 'model' | 'heuristic'
+  bookingPropensity?: number | null
+  modelVersion?: string | null
   lastCheckInDate?: string | null
   userName?: string
   recentBookings: number
   priorBookings: number
+  cohort: Exclude<RetentionCohort, 'all'>
 }
 
 type AnalyticsData = {
@@ -61,9 +66,14 @@ const PRESETS = [
   { label: 'Last 91 days', days: 91 },
 ] as const
 
-// Keep the "Likely to churn" ranking stable across the dashboard preset tabs.
-// The backend churn scoring needs at least the last ~30 days to compute the trend decline.
+// Keep the retention ranking stable across dashboard preset tabs. Model scoring and its
+// recent-class fallback both use a fixed reference date independent of the visible chart range.
 const LIKELY_CHURN_TREND_DAYS = 30
+const RETENTION_COHORTS: Array<{ value: RetentionCohort; label: string }> = [
+  { value: 'no_recent_class', label: 'Needs reactivation' },
+  { value: 'recent_class', label: 'Recently active' },
+  { value: 'all', label: 'All' },
+]
 const ANALYTICS_DATE_RANGE_STORAGE_KEY = 'atnd-me:analytics-date-range'
 
 /** Local calendar YYYY-MM-DD (not UTC) so “today” and “last N days” match the admin’s timezone. */
@@ -234,6 +244,7 @@ export const AnalyticsDashboardClient: React.FC<{
   const [loadingRevenue, setLoadingRevenue] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loadingMoreChurn, setLoadingMoreChurn] = useState(false)
+  const [retentionCohort, setRetentionCohort] = useState<RetentionCohort>('no_recent_class')
   const [activeCustomerId, setActiveCustomerId] = useState<number | null>(null)
   const [iframeLoaded, setIframeLoaded] = useState(false)
   /** Default:7 days — lighter first load than 30/91 day windows. */
@@ -268,8 +279,7 @@ export const AnalyticsDashboardClient: React.FC<{
   }, [router])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !dateRange.from || !dateRange.to)
-      return
+    if (typeof window === 'undefined' || !dateRange.from || !dateRange.to) return
 
     window.sessionStorage.setItem(
       ANALYTICS_DATE_RANGE_STORAGE_KEY,
@@ -298,7 +308,6 @@ export const AnalyticsDashboardClient: React.FC<{
     let cancelled = false
     setLoading(true)
     setLoadingTopCustomers(true)
-    setLoadingLikelyChurn(true)
     setLoadingRevenue(true)
     setError(null)
 
@@ -352,7 +361,11 @@ export const AnalyticsDashboardClient: React.FC<{
           summaryPrevious: undefined,
           bookingsOverTimePrevious: undefined,
         }
-        setData(empty)
+        setData((prev) => ({
+          ...empty,
+          likelyChurnCustomers: prev?.likelyChurnCustomers ?? [],
+          likelyChurnCustomersTotal: prev?.likelyChurnCustomersTotal ?? 0,
+        }))
 
         // Load the current period first so the dashboard can render without waiting
         // for the optional comparison period.
@@ -368,8 +381,6 @@ export const AnalyticsDashboardClient: React.FC<{
             summary: mainBody.summary,
             bookingsOverTime: mainBody.bookingsOverTime,
             topCustomers: [],
-            likelyChurnCustomers: mainBody.likelyChurnCustomers ?? [],
-            likelyChurnCustomersTotal: mainBody.likelyChurnCustomersTotal ?? 0,
             summaryPrevious: undefined,
             bookingsOverTimePrevious: undefined,
           }
@@ -377,7 +388,6 @@ export const AnalyticsDashboardClient: React.FC<{
 
         setLoading(false)
         setLoadingTopCustomers(true)
-        setLoadingLikelyChurn(true)
 
         // Below-the-fold metrics load after the main dashboard is interactive.
         const topCustomersParams = new URLSearchParams(common)
@@ -422,35 +432,6 @@ export const AnalyticsDashboardClient: React.FC<{
             if (!cancelled) setLoadingRevenue(false)
           })
 
-        // Churn is below the initial viewport and substantially more expensive than
-        // the summary/chart queries. Load it after the main dashboard is interactive.
-        const churnParams = new URLSearchParams(common)
-        churnParams.set('onlyLikelyChurn', '1')
-        const churnUrl = `${origin}/api/analytics?${churnParams}`
-        void loadJson(churnUrl)
-          .then((churnRaw) => {
-            if (cancelled) return
-            const churnBody = churnRaw as Pick<
-              AnalyticsData,
-              'likelyChurnCustomers' | 'likelyChurnCustomersTotal'
-            >
-            setData((prev) => {
-              if (!prev) return prev
-              return {
-                ...prev,
-                likelyChurnCustomers: churnBody.likelyChurnCustomers ?? [],
-                likelyChurnCustomersTotal: churnBody.likelyChurnCustomersTotal ?? 0,
-              }
-            })
-          })
-          .catch((e: unknown) => {
-            if (!cancelled)
-              setError(e instanceof Error ? e.message : 'Failed to load churn results')
-          })
-          .finally(() => {
-            if (!cancelled) setLoadingLikelyChurn(false)
-          })
-
         if (comparePrevious) {
           const prevParams = new URLSearchParams(common)
           prevParams.set('previousPeriodOnly', 'true')
@@ -474,7 +455,6 @@ export const AnalyticsDashboardClient: React.FC<{
       } catch (e: unknown) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Failed to load analytics')
-          setLoadingLikelyChurn(false)
           setLoadingTopCustomers(false)
           setLoadingRevenue(false)
         }
@@ -489,6 +469,73 @@ export const AnalyticsDashboardClient: React.FC<{
       cancelled = true
     }
   }, [dateFromStr, dateToStr, comparePrevious, selectedTenantId, selectedBranchId])
+
+  useEffect(() => {
+    let cancelled = false
+    setLoadingLikelyChurn(true)
+    setLoadingMoreChurn(false)
+    setError(null)
+    setData((prev) =>
+      prev ? { ...prev, likelyChurnCustomers: [], likelyChurnCustomersTotal: 0 } : prev,
+    )
+
+    const dateTo = new Date()
+    const dateFrom = new Date(dateTo)
+    dateFrom.setDate(dateFrom.getDate() - LIKELY_CHURN_TREND_DAYS)
+
+    const params = new URLSearchParams({
+      dateFrom: formatLocalYmd(dateFrom),
+      dateTo: formatLocalYmd(dateTo),
+      onlyLikelyChurn: '1',
+      limitLikelyChurnCustomers: '10',
+      offsetLikelyChurnCustomers: '0',
+      retentionCohort,
+    })
+    if (selectedTenantId != null) params.set('tenantId', String(selectedTenantId))
+    if (selectedTenantId != null && selectedBranchId != null)
+      params.set('branchId', String(selectedBranchId))
+
+    const origin = typeof window !== 'undefined' ? window.location.origin : ''
+
+    void fetch(`${origin}/api/analytics?${params}`, { credentials: 'include' })
+      .then(async (res) => {
+        if (!res.ok) {
+          let message = 'Failed to load retention outlook'
+          try {
+            const body = (await res.json()) as { error?: string }
+            if (body.error) message = body.error
+          } catch {
+            /* non-JSON error response */
+          }
+          throw new Error(message)
+        }
+        return res.json() as Promise<
+          Pick<AnalyticsData, 'likelyChurnCustomers' | 'likelyChurnCustomersTotal'>
+        >
+      })
+      .then((body) => {
+        if (cancelled) return
+        setData((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            likelyChurnCustomers: body.likelyChurnCustomers ?? [],
+            likelyChurnCustomersTotal: body.likelyChurnCustomersTotal ?? 0,
+          }
+        })
+      })
+      .catch((e: unknown) => {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : 'Failed to load retention outlook')
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLikelyChurn(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [retentionCohort, selectedBranchId, selectedTenantId])
 
   useEffect(() => {
     const element = chartSectionRef.current
@@ -550,6 +597,7 @@ export const AnalyticsDashboardClient: React.FC<{
         onlyLikelyChurn: '1',
         limitLikelyChurnCustomers: '10',
         offsetLikelyChurnCustomers: String(alreadyLoaded),
+        retentionCohort,
       })
 
       if (selectedTenantId != null) common.set('tenantId', String(selectedTenantId))
@@ -592,7 +640,7 @@ export const AnalyticsDashboardClient: React.FC<{
         }
       })
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load churn results')
+      setError(e instanceof Error ? e.message : 'Failed to load retention outlook')
     } finally {
       setLoadingMoreChurn(false)
     }
@@ -812,9 +860,7 @@ export const AnalyticsDashboardClient: React.FC<{
                     }}
                   />
                 ) : (
-                  <>
-                    €{(data.summary.revenueEstimateCents / 100).toFixed(2)}
-                  </>
+                  <>€{(data.summary.revenueEstimateCents / 100).toFixed(2)}</>
                 )}
                 {!loadingRevenue && data.summaryPrevious != null && (
                   <span
@@ -867,10 +913,7 @@ export const AnalyticsDashboardClient: React.FC<{
             </div>
           </section>
 
-          {(loadingTopCustomers ||
-            loadingLikelyChurn ||
-            data.topCustomers.length > 0 ||
-            (data.likelyChurnCustomers?.length ?? 0) > 0) && (
+          {data && (
             <div
               style={{
                 display: 'grid',
@@ -986,150 +1029,203 @@ export const AnalyticsDashboardClient: React.FC<{
               </section>
 
               <section>
-                {(loadingLikelyChurn || (data.likelyChurnCustomers?.length ?? 0) > 0) && (
-                  <div
+                <div
+                  style={{
+                    border: '1px solid var(--theme-elevation-200, #eee)',
+                    borderRadius: '6px',
+                    overflow: 'hidden',
+                    backgroundColor: 'var(--theme-elevation-0)',
+                    padding: '1rem',
+                  }}
+                >
+                  <h2 style={{ fontSize: '1.125rem', marginBottom: '0.25rem', marginTop: 0 }}>
+                    Retention outreach
+                  </h2>
+                  <p
                     style={{
-                      border: '1px solid var(--theme-elevation-200, #eee)',
-                      borderRadius: '6px',
-                      overflow: 'hidden',
-                      backgroundColor: 'var(--theme-elevation-0)',
-                      padding: '1rem',
+                      margin: '0 0 0.75rem',
+                      color: 'var(--theme-elevation-600, #666)',
+                      fontSize: '0.8rem',
+                      lineHeight: 1.4,
                     }}
                   >
-                    <h2 style={{ fontSize: '1.125rem', marginBottom: '0.75rem', marginTop: 0 }}>
-                      Likely to churn
-                    </h2>
-                    {loadingLikelyChurn ? (
-                      <div aria-busy="true" aria-label="Loading likely to churn customers">
-                        <div
-                          style={{
-                            height: 12,
-                            background: 'var(--theme-elevation-100, #f5f5f5)',
-                            borderRadius: 4,
-                            marginBottom: 10,
-                          }}
-                        />
-                        {Array.from({ length: 4 }).map((_, i) => (
-                          <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
-                            <div
-                              style={{
-                                width: '60%',
-                                height: 12,
-                                background: 'var(--theme-elevation-100, #f5f5f5)',
-                                borderRadius: 4,
-                              }}
-                            />
-                            <div
-                              style={{
-                                width: '25%',
-                                height: 12,
-                                marginLeft: 'auto',
-                                background: 'var(--theme-elevation-100, #f5f5f5)',
-                                borderRadius: 4,
-                              }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    ) : data.likelyChurnCustomers?.length ? (
-                      <table
-                        style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}
-                      >
-                        <thead>
-                          <tr
+                    {retentionCohort === 'no_recent_class'
+                      ? 'Active subscribers with no confirmed class booking in the last 7 days.'
+                      : retentionCohort === 'recent_class'
+                        ? 'Active subscribers with a confirmed class booking in the last 7 days, monitored for a drop in weekly activity.'
+                        : 'All active subscribers, ordered by the strongest available retention signal.'}{' '}
+                    Customers most in need of outreach appear first.
+                  </p>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem 0.75rem',
+                      alignItems: 'center',
+                      marginBottom: '0.75rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+                      {RETENTION_COHORTS.map((option) => {
+                        const active = retentionCohort === option.value
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            aria-pressed={active}
+                            onClick={() => setRetentionCohort(option.value)}
                             style={{
-                              borderBottom: '1px solid var(--theme-elevation-200, #eee)',
-                              backgroundColor: 'var(--theme-elevation-100, #f5f5f5)',
+                              padding: '0.35rem 0.55rem',
+                              borderRadius: 999,
+                              border: `1px solid var(--theme-elevation-${active ? '500' : '300'}, #ccc)`,
+                              background: active
+                                ? 'var(--theme-elevation-150, #eee)'
+                                : 'transparent',
+                              color: 'var(--theme-text, #111)',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              fontWeight: active ? 600 : 400,
                             }}
                           >
-                            <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>
-                              Customer
-                            </th>
-                            <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>
-                              Last check-in
-                            </th>
+                            {option.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {loadingLikelyChurn ? (
+                    <div aria-busy="true" aria-label="Loading retention outreach customers">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 10 }}>
+                          <div
+                            style={{
+                              width: '60%',
+                              height: 12,
+                              background: 'var(--theme-elevation-100, #f5f5f5)',
+                              borderRadius: 4,
+                            }}
+                          />
+                          <div
+                            style={{
+                              width: '25%',
+                              height: 12,
+                              marginLeft: 'auto',
+                              background: 'var(--theme-elevation-100, #f5f5f5)',
+                              borderRadius: 4,
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  ) : data.likelyChurnCustomers?.length ? (
+                    <table
+                      style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}
+                    >
+                      <thead>
+                        <tr
+                          style={{
+                            borderBottom: '1px solid var(--theme-elevation-200, #eee)',
+                            backgroundColor: 'var(--theme-elevation-100, #f5f5f5)',
+                          }}
+                        >
+                          <th style={{ textAlign: 'left', padding: '0.5rem 0.75rem' }}>Customer</th>
+                          <th style={{ textAlign: 'right', padding: '0.5rem 0.75rem' }}>
+                            Last booked class
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(data.likelyChurnCustomers ?? []).map((row) => (
+                          <tr
+                            key={row.userId}
+                            style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
+                          >
+                            <td style={{ padding: '0.5rem 0.75rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setIframeLoaded(false)
+                                  setActiveCustomerId(row.userId)
+                                }}
+                                style={{
+                                  padding: 0,
+                                  border: 'none',
+                                  background: 'transparent',
+                                  textAlign: 'left',
+                                  cursor: 'pointer',
+                                  color: 'var(--theme-text, #111)',
+                                  textDecoration: 'underline',
+                                }}
+                              >
+                                {row.userName ?? `User #${row.userId}`}
+                              </button>
+                              <div
+                                style={{
+                                  marginTop: 2,
+                                  color: 'var(--theme-elevation-500, #888)',
+                                  fontSize: '0.7rem',
+                                }}
+                              >
+                                {row.cohort === 'recent_class'
+                                  ? 'Class booking in last 7d'
+                                  : 'No class booking in last 7d'}
+                              </div>
+                            </td>
+                            <td
+                              style={{
+                                padding: '0.5rem 0.75rem',
+                                textAlign: 'right',
+                                color: 'var(--theme-elevation-600, #666)',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {formatDdMmYyyy(row.lastCheckInDate)}
+                            </td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {(data.likelyChurnCustomers ?? []).map((row) => (
+                        ))}
+
+                        {(() => {
+                          const total = data.likelyChurnCustomersTotal ?? 0
+                          const loaded = data.likelyChurnCustomers?.length ?? 0
+                          if (loaded >= total) return null
+
+                          return (
                             <tr
-                              key={row.userId}
                               style={{ borderBottom: '1px solid var(--theme-elevation-150, #eee)' }}
                             >
-                              <td style={{ padding: '0.5rem 0.75rem' }}>
+                              <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
                                 <button
                                   type="button"
-                                  onClick={() => {
-                                    setIframeLoaded(false)
-                                    setActiveCustomerId(row.userId)
-                                  }}
+                                  onClick={() => void loadMoreLikelyChurn()}
+                                  disabled={loadingMoreChurn}
                                   style={{
-                                    padding: 0,
-                                    border: 'none',
+                                    width: '100%',
+                                    padding: '0.4rem 0.75rem',
+                                    borderRadius: 6,
+                                    border: '1px solid var(--theme-elevation-300, #ddd)',
                                     background: 'transparent',
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                    color: 'var(--theme-text, #111)',
-                                    textDecoration: 'underline',
+                                    cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
+                                    opacity: loadingMoreChurn ? 0.6 : 1,
                                   }}
                                 >
-                                  {row.userName ?? `User #${row.userId}`}
+                                  {loadingMoreChurn
+                                    ? 'Loading…'
+                                    : `Load more (${loaded} of ${total})`}
                                 </button>
                               </td>
-                              <td
-                                style={{
-                                  padding: '0.5rem 0.75rem',
-                                  textAlign: 'right',
-                                  color: 'var(--theme-elevation-600, #666)',
-                                }}
-                              >
-                                {formatDdMmYyyy(row.lastCheckInDate)}
-                              </td>
                             </tr>
-                          ))}
-
-                          {(() => {
-                            const total = data.likelyChurnCustomersTotal ?? 0
-                            const loaded = data.likelyChurnCustomers?.length ?? 0
-                            const hasMore = loaded < total
-                            if (!hasMore) return null
-
-                            return (
-                              <tr
-                                style={{
-                                  borderBottom: '1px solid var(--theme-elevation-150, #eee)',
-                                }}
-                              >
-                                <td colSpan={2} style={{ padding: '0.5rem 0.75rem' }}>
-                                  <button
-                                    type="button"
-                                    onClick={() => void loadMoreLikelyChurn()}
-                                    disabled={loadingMoreChurn}
-                                    style={{
-                                      width: '100%',
-                                      padding: '0.4rem 0.75rem',
-                                      borderRadius: 6,
-                                      border: '1px solid var(--theme-elevation-300, #ddd)',
-                                      background: 'transparent',
-                                      cursor: loadingMoreChurn ? 'not-allowed' : 'pointer',
-                                      opacity: loadingMoreChurn ? 0.6 : 1,
-                                    }}
-                                  >
-                                    {loadingMoreChurn ? 'Loading…' : 'Load more'}
-                                  </button>
-                                </td>
-                              </tr>
-                            )
-                          })()}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>
-                        No data in this range.
-                      </p>
-                    )}
-                  </div>
-                )}
+                          )
+                        })()}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p style={{ margin: 0, color: 'var(--theme-elevation-600, #666)' }}>
+                      No active subscribers in this cohort.
+                    </p>
+                  )}
+                </div>
               </section>
             </div>
           )}

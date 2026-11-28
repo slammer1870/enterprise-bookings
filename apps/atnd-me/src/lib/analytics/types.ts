@@ -6,6 +6,8 @@ export type AnalyticsDateRange = {
   dateTo: string
 }
 
+export type RetentionCohort = 'recent_class' | 'no_recent_class' | 'all'
+
 export type AnalyticsQueryParams = AnalyticsDateRange & {
   tenantId?: number | null
   /** Optional location/branch id to filter timeslots + bookings. */
@@ -16,6 +18,8 @@ export type AnalyticsQueryParams = AnalyticsDateRange & {
   limitLikelyChurnCustomers?: number
   /** Likely-to-churn results offset for pagination. */
   offsetLikelyChurnCustomers?: number
+  /** Segment the retention ranking by class activity in the trailing 7 days. */
+  retentionCohort?: RetentionCohort
   /**
    * When set (e.g. by the analytics API route), skips re-querying timeslots so summary,
    * trend, and top-customers share one ID list.
@@ -56,12 +60,20 @@ export type TopCustomerRow = {
 
 export type LikelyChurnCustomerRow = {
   userId: number
-  /** 0-100 heuristic score (higher = more likely). */
+  /** 0-100 outreach priority signal; higher means lower modeled booking propensity. */
   score: number
+  /** The no-recent-class cohort uses the offline-trained model; other cohorts retain the trend fallback. */
+  scoreSource: 'model' | 'heuristic'
+  /** Relative next-7-day booking propensity. Class weighting means this is not calibrated probability. */
+  bookingPropensity?: number | null
+  /** Versioned model artifact used for this row, or null for the heuristic fallback. */
+  modelVersion?: string | null
   /** Confirmed bookings from the inactivity cutoff window (last 7 days by default). */
   recentBookings: number
   /** Confirmed bookings earlier in the churn trend window. */
   priorBookings: number
+  /** Whether the customer had a confirmed class in the trailing 7 days. */
+  cohort: Exclude<RetentionCohort, 'all'>
   /** Most recent confirmed booking timeslot calendar date overall (YYYY-MM-DD). */
   lastCheckInDate?: string | null
   /** User name (or email fallback) when available */
