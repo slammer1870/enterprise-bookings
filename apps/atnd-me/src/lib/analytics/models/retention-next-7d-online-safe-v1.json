@@ -1,0 +1,162 @@
+{
+  "schemaVersion": 1,
+  "modelVersion": "retention-next-7d-online-safe-v1",
+  "target": "confirmed booking created in the next 7 days",
+  "cohort": "post-booking users with no completed class in the trailing 7 days",
+  "trainingDataThrough": "2026-10-10",
+  "trainingTimeZone": "Europe/Dublin",
+  "decisionThreshold": 0.6859263715922427,
+  "numericFeatures": [
+    "bookings_3d",
+    "bookings_14d",
+    "bookings_28d",
+    "bookings_lifetime",
+    "active_booking_days_3d",
+    "booking_rate_lifetime",
+    "booking_velocity_14d_vs_lifetime",
+    "days_since_last_booking",
+    "upcoming_classes_7d",
+    "transactions_3d",
+    "transactions_7d",
+    "payment_methods_28d",
+    "subscriptions_created_14d",
+    "subscriptions_created_28d",
+    "days_since_signup"
+  ],
+  "categoricalFeatures": [
+    "latest_payment_method"
+  ],
+  "numericImputerMedians": {
+    "bookings_3d": 0.0,
+    "bookings_14d": 0.0,
+    "bookings_28d": 0.0,
+    "bookings_lifetime": 1.0,
+    "active_booking_days_3d": 0.0,
+    "booking_rate_lifetime": 0.045454545454545456,
+    "booking_velocity_14d_vs_lifetime": -0.038461538461538464,
+    "days_since_last_booking": 34.0,
+    "upcoming_classes_7d": 0.0,
+    "transactions_3d": 0.0,
+    "transactions_7d": 0.0,
+    "payment_methods_28d": 0.0,
+    "subscriptions_created_14d": 0.0,
+    "subscriptions_created_28d": 0.0,
+    "days_since_signup": 44.0
+  },
+  "numericDataMin": {
+    "bookings_3d": 0.0,
+    "bookings_14d": 0.0,
+    "bookings_28d": 0.0,
+    "bookings_lifetime": 1.0,
+    "active_booking_days_3d": 0.0,
+    "booking_rate_lifetime": 0.008333333333333333,
+    "booking_velocity_14d_vs_lifetime": -4.642857142857143,
+    "days_since_last_booking": 0.0,
+    "upcoming_classes_7d": 0.0,
+    "transactions_3d": 0.0,
+    "transactions_7d": 0.0,
+    "payment_methods_28d": 0.0,
+    "subscriptions_created_14d": 0.0,
+    "subscriptions_created_28d": 0.0,
+    "days_since_signup": 0.0
+  },
+  "numericDataMax": {
+    "bookings_3d": 5.0,
+    "bookings_14d": 5.0,
+    "bookings_28d": 7.0,
+    "bookings_lifetime": 16.0,
+    "active_booking_days_3d": 3.0,
+    "booking_rate_lifetime": 5.0,
+    "booking_velocity_14d_vs_lifetime": 0.10119047619047619,
+    "days_since_last_booking": 119.0,
+    "upcoming_classes_7d": 3.0,
+    "transactions_3d": 2.0,
+    "transactions_7d": 2.0,
+    "payment_methods_28d": 2.0,
+    "subscriptions_created_14d": 1.0,
+    "subscriptions_created_28d": 1.0,
+    "days_since_signup": 119.0
+  },
+  "categoricalImputerValues": {
+    "latest_payment_method": "stripe"
+  },
+  "categoricalValues": {
+    "latest_payment_method": [
+      "class_pass",
+      "stripe",
+      "subscription"
+    ]
+  },
+  "transformedFeatures": [
+    "numeric__bookings_3d",
+    "numeric__bookings_14d",
+    "numeric__bookings_28d",
+    "numeric__bookings_lifetime",
+    "numeric__active_booking_days_3d",
+    "numeric__booking_rate_lifetime",
+    "numeric__booking_velocity_14d_vs_lifetime",
+    "numeric__days_since_last_booking",
+    "numeric__upcoming_classes_7d",
+    "numeric__transactions_3d",
+    "numeric__transactions_7d",
+    "numeric__payment_methods_28d",
+    "numeric__subscriptions_created_14d",
+    "numeric__subscriptions_created_28d",
+    "numeric__days_since_signup",
+    "categorical__latest_payment_method_class_pass",
+    "categorical__latest_payment_method_stripe",
+    "categorical__latest_payment_method_subscription"
+  ],
+  "coefficients": [
+    0.09065411823042349,
+    0.18092652811724647,
+    0.4637962342000071,
+    0.6455270615030423,
+    0.17846584472507934,
+    0.09972626985770246,
+    -0.09143223336112324,
+    -0.554947230000766,
+    0.2691213002788854,
+    0.2535122564889013,
+    0.2521226551381521,
+    0.15286922607942588,
+    -0.011415916806162633,
+    0.2613828329636115,
+    -0.3312765092296059,
+    0.3986994390498916,
+    -0.4397484214056971,
+    0.040924872706202875
+  ],
+  "intercept": 0.3589229169692897,
+  "validationMetrics": {
+    "thresholdSelection": "maximum F1 on temporal validation period"
+  },
+  "testMetrics": {
+    "precision": 0.2647058823529412,
+    "recall": 0.3711340206185567,
+    "f1": 0.3090128755364807,
+    "rocAuc": 0.8998973391230967,
+    "averagePrecision": 0.31375530869274404
+  },
+  "parityExample": {
+    "input": {
+      "bookings_3d": 0,
+      "bookings_14d": 0,
+      "bookings_28d": 0,
+      "bookings_lifetime": 3,
+      "active_booking_days_3d": 0,
+      "booking_rate_lifetime": 0.018404907975460124,
+      "booking_velocity_14d_vs_lifetime": -0.018404907975460124,
+      "days_since_last_booking": 155,
+      "upcoming_classes_7d": 0,
+      "transactions_3d": 0,
+      "transactions_7d": 0,
+      "payment_methods_28d": 0,
+      "subscriptions_created_14d": 0,
+      "subscriptions_created_28d": 0,
+      "days_since_signup": 167,
+      "latest_payment_method": "subscription"
+    },
+    "expectedBookingPropensity": 0.3120100010636299
+  }
+}
